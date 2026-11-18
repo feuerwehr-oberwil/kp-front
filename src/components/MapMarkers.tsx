@@ -125,8 +125,9 @@ export interface MapMarkersProps {
   /** «Neuer Trupp» on that same menu: open the Anmeldung for a Trupp that adopts this marker on
    *  save (IncidentWorkspace · newTruppFromMarker). Absent ⇒ no row. */
   onTeamNewTrupp?: (entityId: string) => void
-  /** stamp the marker's current spot + time into its trail (the ONLY way positions are recorded) */
-  onTeamMark?: (id: string) => void
+  /** stamp the marker's current spot + time into its trail (the ONLY way positions are recorded).
+   *  `at` = where a DOCKED marker is drawn (EntityMarker · dockShownAt); absent = its own point. */
+  onTeamMark?: (id: string, at?: LngLat) => void
   /** rename an untracked team marker — the map twin of the plan chip's rename pen */
   onTeamRename?: (id: string, name: string) => void
   /** recolour a team marker (null = back to automatic). Takes the ENTITY, because the two cases

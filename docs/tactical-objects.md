@@ -62,7 +62,11 @@ One object, two surfaces: how a tactical object is stored, anchored, projected a
   `lib/mapView · TEAM_PLATE_TUCK`) – and the dot stands on the Trupp's coordinate, on the Karte,
   the Plan and the Gebäude strip alike. A Trupp docked onto a symbol (Karte only, `lib/docking`)
   is drawn beside the tile, to its right, on a tether from a ring round the tile in the Trupp's
-  colour (`dockSlotOffset`, `EntityMarker · DockTether`); several stack downwards; no 🔗 chip. Below
+  colour (`dockSlotOffset`, `EntityMarker · DockTether`); several stack downwards; no 🔗 chip.
+  ⚠️ What starts from «where the Trupp is» starts from that slot, not the stored drop point (up to
+  one dock radius off): the drag and «Position markieren»'s stamp (`EntityMarker · dockShownAt`,
+  round 18.11.2026 evening – the time chip used to land far from the Trupp). While docked, the
+  selected Trupp's bar carries «Lösen» as a tile of its own (`TwinTeamPill · undock`). Below
   `TEAM_NAME_MIN_ZOOM` (17 – the names pile from ~16.7 around a Zimmerbrand; the Einsatz opens at 17.6) the Karte's resting Trupps are dots only
   and the trail times go with their names (`useLabelPass`); the selected Trupp and one in alarm
   (`truppMarkerTone` `crit`) keep the name. The Plan has no such threshold: its zoom is a drawing's

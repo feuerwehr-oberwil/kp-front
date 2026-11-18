@@ -5,7 +5,7 @@
  * Whiteboard / MapMarkers tests.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { appConfig } from '../config/appConfig'
 import { loadPrefs, savePrefs } from '../lib/prefs'
 import type { Trupp } from '../types'
@@ -262,6 +262,25 @@ describe('the card and the bar dock at the foot of the surface', () => {
     expect(marker.querySelector('.wb-pill-acts')).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: appConfig.copy.closeDialog }))
     expect(close).toHaveBeenCalledTimes(1)
+  })
+
+  // round 18.11.2026 evening, owner: «when joined, also always show the unjoin button»
+  it('stands «Lösen» on the bar while the marker is docked to a symbol – never in «Mehr»', () => {
+    const undock = vi.fn()
+    const lösen = appConfig.copy.contextPanel.dockedRelease
+    const { map } = onKarte({ acts: { showTrupp: () => {}, mark: () => {}, remove: () => {}, undock } })
+    const bar = within(map.querySelector<HTMLElement>('.wb-pill-acts.docked')!)
+    expect(bar.getAllByRole('button').map((b) => b.getAttribute('aria-label')))
+      .toEqual([W.showTrupp, W.markPosition, lösen, W.barMore])
+    fireEvent.click(bar.getByRole('button', { name: lösen }))
+    expect(undock).toHaveBeenCalledTimes(1)
+    fireEvent.click(screen.getByRole('button', { name: W.barMore }))
+    expect(screen.queryByRole('menuitem', { name: lösen })).toBeNull()
+  })
+
+  it('…and no «Lösen» at all on a marker that is docked to nothing', () => {
+    onKarte({ acts: { showTrupp: () => {}, mark: () => {}, remove: () => {} } })
+    expect(screen.queryByRole('button', { name: appConfig.copy.contextPanel.dockedRelease })).toBeNull()
   })
 
   it('keeps a press on the card from reaching the marker under it (React bubbles a portal)', () => {

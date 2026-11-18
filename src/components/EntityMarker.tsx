@@ -188,10 +188,12 @@ export function EntityMarker({
   // gesture that undocks it would draw nothing at all until the drop.
   const dockAnchor = draggingId === e.id ? null : teamDockAnchor(e, entities, dockedSlots, zoom, symMul)
   const at = dockAnchor?.host.coord ?? e.coord
-  /** …and the drag therefore STARTS from the slot, not from the stored point under it: the
-   *  two are up to one dock radius apart, and grabbing a docked marker used to teleport it
-   *  there before it moved a pixel. Seeded as the drag's first «where it is now». */
-  const dockDragStart = (): LngLat | null => {
+  /** Where a docked marker is drawn, as a coordinate (null = not docked: it stands on its own).
+   *  Two acts start from it instead of the stored point under it – the two are up to one dock
+   *  radius apart: the DRAG (grabbing a docked marker used to teleport it there before it moved a
+   *  pixel), and the flag (round 18.11.2026 evening: «Position markieren» stamped the stored point,
+   *  and the time chip landed far from the Trupp). */
+  const dockShownAt = (): LngLat | null => {
     if (!dockAnchor) return null
     const h = project(dockAnchor.host.coord)
     return (h ? unproject({ x: h.x + dockAnchor.dx, y: h.y + dockAnchor.dy }) : null) ?? null
@@ -221,7 +223,7 @@ export function EntityMarker({
       // a map pan/zoom. Not while editing a note's text (the input owns the pointer).
       // canDrag gates the MOVE only — tap-to-select still works in every tool. See useHoldToDrag.
       onPointerDown={!(e.kind === 'note' && editNoteId === e.id) && !lockedShape
-        ? (ev) => onPress(ev, e, dockDragStart)
+        ? (ev) => onPress(ev, e, dockShownAt)
         : undefined}
     >
       {/* the hairline home. Drawn INSIDE the (already offset) marker, so it runs from the
@@ -303,7 +305,7 @@ export function EntityMarker({
               rename: onTeamRename && ((name) => onTeamRename(e.id, name)),
               pick: onTeamTrupp && ((truppId) => onTeamTrupp(e.id, truppId)),
               newTrupp: onTeamNewTrupp && (() => onTeamNewTrupp(e.id)),
-              mark: onTeamMark && (() => onTeamMark(e.id)),
+              mark: onTeamMark && (() => onTeamMark(e.id, dockShownAt() ?? undefined)),
               clearTrail: () => onTeamClearTrail?.(e.id),
               remove: () => onDelete(e.id),
               removeWithTrail: onTeamRemoveWithTrail && (() => onTeamRemoveWithTrail(e.id)),
