@@ -11,7 +11,7 @@
     "description": "Condotta d’intervento digitale e carta della situazione per i pompieri – con carte swisstopo, segni tattici secondo le convenzioni CSP, sorveglianza della protezione respiratoria e diario d’intervento continuo.",
     "featureList": [
       "Carta della situazione su carte swisstopo con segni tattici secondo le convenzioni CSP",
-      "Sorveglianza della protezione respiratoria con pressione, tempo di rientro, orologio di contatto e allarmi",
+      "Sorveglianza della protezione respiratoria con pressione, tempo di rientro, tempo dall’ultimo contatto e allarmi",
       "Piani d’oggetto e degli edifici come lavagna per disegnare e misurare",
       "Trasporto d’acqua: pressione lungo la condotta con posizionamento automatico delle pompe",
       "Diario d’intervento che viene solo integrato e mai riscritto",
@@ -91,7 +91,7 @@
   "incident": {
     "eyebrow": "Dall’allarme al rapporto",
     "h2": "Un intervento, un’app.",
-    "lede": "Ecco com’è una notte con KP Front – mappa, squadre e documentazione\n        restano coerenti e ricostruibili per tutti quelli che ci sono.",
+    "lede": "Ecco com’è una notte con KP Front – mappa, squadre e documentazione\n        restano coerenti e comprensibili per tutte le persone coinvolte.",
     "entries": [
       {
         "time": "03:01",
@@ -109,7 +109,7 @@
         "time": "03:12",
         "tag": "Squadre",
         "h3": "La squadra 1 entra.",
-        "p": "Pressione, tempo di rientro e orologio di contatto scorrono per ogni squadra. L’app\n            avvisa prima che il margine diventi critico – anche quando nessuno sta guardando l’ora.\n            KP Front emette gli avvisi rilevanti direttamente nell’applicazione, in modo visivo e acustico. Se si\n            usano più dispositivi sincronizzati, gli stati di allarme vengono allineati tramite la connessione di rete\n            esistente. Gli avvisi acustici possono essere disattivati all’occorrenza."
+        "p": "Pressione, tempo di rientro e tempo dall’ultimo contatto vengono rilevati per ogni squadra. L’app\n            avvisa prima che il margine diventi critico – anche quando nessuno sta guardando l’ora.\n            KP Front emette gli avvisi rilevanti direttamente nell’applicazione, in modo visivo e acustico. Se si\n            usano più dispositivi sincronizzati, gli stati di allarme vengono allineati tramite la connessione di rete\n            esistente. Gli avvisi acustici possono essere disattivati all’occorrenza."
       },
       {
         "time": "03:18",
@@ -155,7 +155,7 @@
         "sub": "Piani d’oggetto e d’intervento con segni tattici, marcature e misurazione in scala"
       },
       {
-        "alt": "Vista Squadre: squadre sotto ARA con pressione e orologio di contatto in corso",
+        "alt": "Vista Squadre: squadre sotto ARA con pressione e tempo dall’ultimo contatto in corso",
         "title": "Squadre",
         "sub": "Sorveglianza delle squadre impiegate – tempi, pressioni e riscontri, con o senza protezione respiratoria"
       },
@@ -182,7 +182,7 @@
       {
         "alt": "Lista di controllo: compiti del supporto alla condotta con l’avanzamento",
         "title": "Liste di controllo",
-        "sub": "Le liste di controllo della condotta dei vostri pompieri, con accesso diretto a piano, cronologia e strumenti"
+        "sub": "Le liste di controllo per la condotta d’intervento del vostro corpo pompieri, con accesso diretto a piano, diario e strumenti"
       },
       {
         "alt": "Vista Materiale: ciò che è stato impiegato, per provenienza",
@@ -257,7 +257,7 @@
       {
         "h3": "Uomini &amp; mezzi",
         "items": [
-          "<strong>Sorveglianza della protezione respiratoria</strong>: pressione, tempo di rientro, orologio di contatto, allarmi",
+          "<strong>Sorveglianza della protezione respiratoria</strong>: pressione, tempo di rientro, tempo dall’ultimo contatto, allarmi",
           "<strong>Emergenza protezione respiratoria</strong>: una squadra in difficoltà appare subito in rosso, in cima, su tutti i dispositivi – con cronometro d’emergenza e squadra di sicurezza",
           "<strong>Squadre con o senza protezione respiratoria</strong>: personale, incarico e caposquadra – sulla carta, sul piano e nei piani sovrapposti, con il proprio colore di squadra, lo stesso ovunque",
           "Presenze con orari di arrivo e gradi",
@@ -293,7 +293,7 @@
           "<strong>Funziona offline</strong> come app installabile – la verifica di prontezza indica prima dell’intervento se i dati necessari sono sul dispositivo",
           "Più dispositivi collegati lavorano sullo stesso stato – dopo un’interruzione della connessione, le modifiche vengono nuovamente sincronizzate",
           "Tre ruoli: l’aiuto alla condotta modifica tutto, il capo intervento tiene la documentazione e segue la situazione, gli osservatori leggono soltanto",
-          "Modo giorno/notte, dimensione dei simboli, superfici di comando grandi per il tablet",
+          "Modalità giorno/notte, dimensione dei simboli e grandi superfici di comando per il tablet",
           "Può riprendere allarmi da Divera o FireHub; altri sistemi di allertamento possono essere collegati tramite l’interfaccia aperta <span class=\"opt\">opzionale</span>",
           "Posizioni dei veicoli via GPS <span class=\"opt\">opzionale</span>",
           "Accesso con Microsoft all’account esistente, in aggiunta al PIN <span class=\"opt\">opzionale</span>",
