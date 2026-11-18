@@ -860,6 +860,8 @@ export function AnwesenheitView({
         <SearchField
           ref={searchRef} className={c.search} value={q} onChange={(v) => setQ(stripUnprintable(v))} placeholder={A.searchPlaceholder}
           aria-label={A.searchPlaceholder} inputMode="search" maxLength={80}
+          // a typed name nothing matches becomes the Gast (Enter adds it): capitalised as a name
+          autoCapitalize={onAddGuest ? 'words' : 'none'}
           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (!rows.length) addGuest() } }}
         />
         {/* THE QUICK FILTER — «Nur Anwesende», one tap, on all three tabs (see the note at

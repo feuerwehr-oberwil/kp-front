@@ -115,3 +115,22 @@
    None of them is clearly better than the size that is there, which is judged big enough in the
    hand. ⚠️ So: not a gap. Do not re-open it from a measurement alone — it takes a report of an
    actual mis-tap in the field, and then the answer is probably the wider dock, not the pad. */
+
+/* ---- No field under 16px on touch (design pass E1, 18.11.2026) -------------------------------
+   iOS zooms the page into a focused field whose text is under 16px and does not zoom back out.
+   `maximum-scale=1` (index.html) stops that, but a fix should not lean on the zoom lock – the
+   owner kept the lock and asked for the fields. So every text field set below 16px is 16px
+   (`--fs-3`) under a finger; a mouse keeps the denser size. The element rule is the floor for a
+   field no class sizes (the UA's 13.33px). A layer that MIRRORS a field's text (the composer's
+   and the Audio sheet's name marks) grows with it, or the marks slide off their words.
+   CSS-module fields carry the same rule in their own file (WheelPicker · daySel, MapViewsMenu ·
+   input, TafelFormPage · cell), the admin's in admin.css, and the map note's textarea takes
+   `max(16px, …)` of its own size (08-toasts · .note-pill-input). The Plan's text box does not:
+   its size is the plan's (it zooms and prints 1:1). Find a new one:
+   `font-size` under 16px on an input, textarea or select. */
+@media (pointer: coarse) {
+  input, textarea, select { font-size: var(--fs-3); }
+  .ctx-note-input, .ctx-notes-input, .draw-editor .de-input, .wb-resource-input,
+  .ip-addlayer-row select, .jc-text, .jc-text-marks,
+  .ap-add-row input, .ap-add-marks, .ap-draft-tx, .ap-row-input, .jr-transcript textarea { font-size: var(--fs-3); }
+}

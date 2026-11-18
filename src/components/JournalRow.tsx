@@ -227,7 +227,7 @@ export function JournalRow({
           the play circle. The «wieder in» pills joined them. The trail keeps the row's own
           controls (play, jump, thumbnails, files); the sentence gets the width. */}
       <span className="jr-main">
-        <span className={`jr-text ${remDone ? 'jr-rem-struck' : ''}`}>{marked(rowText(e), e.subjectId)}</span>
+        <span className={`jr-text ui-selectable ${remDone ? 'jr-rem-struck' : ''}`}>{marked(rowText(e), e.subjectId)}</span>
         {hasMeta && (
           <span className="jr-meta">
             {/* Footnotes ABOUT the row — «Nachtrag», «Korrigiert HH:MM», «Insgesamt 6×». They say

@@ -308,6 +308,8 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
   transition: border-color .14s var(--ease), background .14s var(--ease);
 }
 .adm-input:focus { border-color: var(--blue); background: var(--surface); }
+/* no field under 16px on touch – iOS zooms into it (20-touch-floors · E1) */
+@media (pointer: coarse) { .adm-input, .adm-slist-add { font-size: var(--fs-3); } }
 .adm-input::placeholder { color: var(--ink-faint); font-weight: var(--fw-medium); }
 .adm-input-mono { font-family: var(--mono); font-weight: var(--fw-medium); }
 .adm-textarea { min-height: 0; resize: vertical; line-height: 1.5; padding-top: 10px;

@@ -331,6 +331,8 @@ export function ComboMenu<V>({ state, menuRef, classes, copy, entries, groups, s
         <li className={c.searchRow}>
           <SearchField
             className={c.search} value={state.search} inputMode="search"
+            // Gast mode: what is typed can BE the name – capitalised, and Enter commits it
+            {...(custom && { enterKeyHint: 'done', autoCapitalize: 'words' })}
             placeholder={copy.search} aria-label={copy.search}
             onChange={state.setSearch}
             // a stray Enter in a picker must not submit the form the picker sits in — but in

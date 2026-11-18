@@ -2,6 +2,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 import { appConfig } from '../../config/appConfig'
+import { defuseAutofill } from '../../lib/typingField'
 import { clearAllDrafts } from '../../lib/draftKeep'
 import type { IncidentMeta } from '../../lib/incidents'
 
@@ -28,7 +29,7 @@ afterEach(() => { cleanup(); clearAllDrafts() })
 
 const open = (edit?: IncidentMeta) => render(<EinsatzWizard edit={edit} onClose={() => {}} onCreated={() => {}} />)
 const stichwort = () => screen.getByPlaceholderText(ix.titlePlaceholder) as HTMLInputElement
-const adresse = () => screen.getByPlaceholderText(ix.addressPlaceholder) as HTMLInputElement
+const adresse = () => screen.getByPlaceholderText(defuseAutofill(ix.addressPlaceholder)) as HTMLInputElement
 
 describe('«Einsatz eröffnen» closed by an outside tap', () => {
   it('hands the typed Stichwort and Adresse back on the next open', () => {

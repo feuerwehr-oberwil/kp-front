@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type PointerEvent } from 'react'
 import Map, { Marker, type MapRef } from 'react-map-gl/maplibre'
 import { QuietAttributionControl } from './MapAttribution'
 import 'maplibre-gl/dist/maplibre-gl.css'
@@ -11,6 +11,7 @@ import { SearchField } from './SearchField'
 import { LoadingStatus } from './ShellLoader'
 import { ListCard, ListRow } from './ListRow'
 import { cx } from '../lib/cx'
+import { defuseAutofill, typingFieldProps } from '../lib/typingField'
 import { objectPicklistSub, sortObjects } from '../lib/karte/places'
 import { matchesAnyQuery, searchQuery } from '../lib/search'
 import { appConfig } from '../config/appConfig'
@@ -63,6 +64,12 @@ export function PlanPicker({ center, activeObjectId, onSelect, onReset, onClose 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
   const [hoverId, setHoverId] = useState<string | null>(null)
+  // the row ↔ pin link is the MOUSE's (design pass A5, as KartePanel's Nearby): a finger's
+  // pointerenter would leave the row and its pin lit after the tap, until the next tap elsewhere
+  const hoverProps = (id: string) => ({
+    onPointerEnter: (e: PointerEvent) => { if (e.pointerType === 'mouse') setHoverId(id) },
+    onPointerLeave: (e: PointerEvent) => { if (e.pointerType === 'mouse') setHoverId((h) => (h === id ? null : h)) },
+  })
   // the mini-map is shown by default (helps disambiguate objects by location); it can be
   // collapsed via the toggle below to give the list the full width on a narrow screen.
   const [mapOpen, setMapOpen] = useState(true)
@@ -137,8 +144,10 @@ export function PlanPicker({ center, activeObjectId, onSelect, onReset, onClose 
           <button className="ip-x" onClick={onClose} aria-label={appConfig.copy.closeDialog}><Icon id="close" /></button>
         </div>
 
-        <SearchField ref={searchRef} className="pp-search" value={q} onChange={(v) => { setQ(v); if (v) setListFirst(true) }}
-          placeholder={pp.searchPlaceholder} aria-label={pp.searchPlaceholder} />
+        {/* «Adresse» in the placeholder made Safari offer contact AutoFill (lib/typingField) */}
+        <SearchField {...typingFieldProps('search', 'planpicker')}
+          ref={searchRef} className="pp-search" value={q} onChange={(v) => { setQ(v); if (v) setListFirst(true) }}
+          placeholder={defuseAutofill(pp.searchPlaceholder)} aria-label={defuseAutofill(pp.searchPlaceholder)} />
 
         <div className="pp-body">
           {/* primary, reliable path: the searchable list */}
@@ -173,8 +182,7 @@ export function PlanPicker({ center, activeObjectId, onSelect, onReset, onClose 
                     ? <>{o.distance_m != null && fmtDistance(o.distance_m)}{current && <Icon id="check" className="pp-row-tick" />}</>
                     : undefined}
                   onClick={() => void choose(o)}
-                  onMouseEnter={() => setHoverId(o.id)}
-                  onMouseLeave={() => setHoverId((h) => (h === o.id ? null : h))}
+                  {...hoverProps(o.id)}
                 />
               )
             })}</ListCard>}
@@ -217,8 +225,7 @@ export function PlanPicker({ center, activeObjectId, onSelect, onReset, onClose 
                       className={`pp-pin ${o.id === activeObjectId ? 'on' : ''} ${o.id === hoverId ? 'hover' : ''}`}
                       title={o.name}
                       onClick={() => void choose(o)}
-                      onMouseEnter={() => setHoverId(o.id)}
-                      onMouseLeave={() => setHoverId((h) => (h === o.id ? null : h))}
+                      {...hoverProps(o.id)}
                     >
                       <Icon id="flag" />
                     </button>
