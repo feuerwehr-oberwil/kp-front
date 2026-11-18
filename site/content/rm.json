@@ -75,7 +75,7 @@
     "note": "Sviluppà or dal manaschi real d’acziun dals\n        <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">pumpiers d’Oberwil BL</a>\n        – là testà e sviluppà vinavant cuntinuadamain.",
     "own": {
       "h2": "Vossas datas restan tar vus.",
-      "p": "KP Front è open source e funcziuna en voss magazin u en vossa atgna cloud. Datas d’acziun, plans, gruppas e rapports restan sut vossa controlla.",
+      "p": "KP Front è open source e funcziuna en voss magazin u en vossa atgna cloud. Datas d’acziun, plans, persunal e rapports restan sut vossa controlla.",
       "items": [
         "Nagins custs da licenza",
         "Nagina dependenza d’in producider",
@@ -172,12 +172,12 @@
       {
         "alt": "Preschientscha: glista dal persunal cun las uras d’arriv",
         "title": "Preschientscha",
-        "sub": "Tgi è arrivà, dapi cura e cun tge grad"
+        "sub": "Tgi è arrivà, dapi cura e cun tge grad – la basa per la glista dal persunal ed il rapport"
       },
       {
         "alt": "Plan da temp: ina lingia per persuna cun ils servetschs planisads ed effectivs e la lingia da cuvrida",
         "title": "Plan da temp",
-        "sub": "Disponibilitads e servetschs per acziuns lungas – vesair la cuvrida, planisar la remplazzada ed edir il formular da direcziun"
+        "sub": "Planisar ils servetschs per acziuns lungas: vesair per mintga persuna cura ch’ella è disponibla, attribuida ed effectivamain preschenta e nua che la cuvrida daventa insuffizienta"
       },
       {
         "alt": "Glista da controlla: incumbensas dal sustegn da direcziun cun il progress",
@@ -241,7 +241,7 @@
           "Secturs, zonas serradas, surfatschas e dissegn liber",
           "Lingias da stizzar cun annotaziuns FKS, mintga lingia è attribuida ad ina gruppa",
           "Mesirar distanzas e surfatschas, era sin plans tenor scala",
-          "<strong>Transport d’aua</strong>: squitsch lung ina conducziun da stgalims tenor il profil d’autezza, il diameter dal stgalim e la quantitad d’aua – il quint plazza sez las pumpas e po las metter directamain sin la charta",
+          "<strong>Transport d’aua</strong>: squitsch lung ina lingia da stizzar tenor il profil d’autezza, il diameter da la lingia e la quantitad d’aua – il quint plazza sez las pumpas e po las metter directamain sin la charta",
           "Nivels: idrants, cataster da conducts, servetschs chantunals da chartas",
           "<strong>Register da materias privlusas</strong>: nums ONU, infurmaziuns davart substanzas e recumandaziuns per distanzas da bloccada e da protecziun, disponibel directamain durant l’acziun",
           "Infurmaziuns meteorologicas e da vent per sustegnair la valitaziun da la situaziun, ed il radar da precipitaziuns da MeteoSvizra sco nivel",
