@@ -260,7 +260,9 @@ export function HistoryPanel({ onClose, onOpen, onArchive, windowDays }: {
               {onArchive && (
                 <div className="ip-hist-acts">
                   {i.is_archived
-                    ? <Button onClick={() => void reactivate(i)}>{h.reactivate}</Button>
+                    /* ↶ beside the word, the glyph the Verlauf gives «Einsatz wiedereröffnet» – as
+                       «Löschen» beside it carries its bin (round 18.11.2026 #2, owner pick) */
+                    ? <Button icon={<Icon id="undo" />} onClick={() => void reactivate(i)}>{h.reactivate}</Button>
                     : <Button onClick={() => void archive(i)}>{h.archiveConfirmBtn}</Button>}
                   {/* delete only for ARCHIVED exercises (editor-gated via onArchive) — an open
                       Übung is first abgeschlossen like any incident, then deletable. Only one
