@@ -491,7 +491,7 @@ function IncidentApp() {
       },
     })
     return () => setTutorialHost(null)
-  }, [openIncident, refreshList, uncoverEinsatz])
+  }, [openIncident, refreshList, uncoverEinsatz, syncRef])
 
   // boot: list → migrate legacy localStorage if empty → open remembered/first incident.
   // Offline (network error), fall back to the cached list so the last incident reopens
