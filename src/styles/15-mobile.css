@@ -820,7 +820,7 @@
      comment used to describe is gone with it.) */
   .jr-pinned { max-height: 40dvh; }
   /* ⚠️ THE PHONE'S TEXT AXIS, 96px in from the sheet's edge (it wore a 1px border until r35), not 110 (hill
-     climb r14, 05.11.2026: names with roles ran to three lines). The strip, the Pendenzen box and
+     climb r14, 05.11.2026: names with roles ran to three lines). The Pendenzen box and
      the log stand 8px in (the drawer's 12 less 4), the clock 16 (+ the row's 8) — on the title's
      x — and the two columns in front
      of the sentence shrink to what they hold: 40 for «19:05» (37.5px at 12.5 mono), the 24px disc
@@ -829,7 +829,9 @@
      ⚠️ 96 is the floor the Pendenzen tick sets, not a taste: its 44px button (TickRow) stands
      10px out either side of the 24px slot, and may not reach over the clock's digits (they end
      at 53.5) – 54…98, 2px into the text, which is the row's own target anyway (06 · .jr-pinned-text). */
-  .journal-drawer > :is(.jr-strip, .jr-pinned, .history-list) { margin-inline: calc(-1 * var(--sp-1)); }
+  /* (the time strip is not in this list since 18.11.2026: it keeps the search row's edges, 16px in,
+     with or without ▶ before it – 10-journal · `.jr-strip-row`) */
+  .journal-drawer > :is(.jr-pinned, .history-list) { margin-inline: calc(-1 * var(--sp-1)); }
   .journal-drawer > .history-list { padding-inline: 0; }
   .hist-ev { grid-template-columns: 40px var(--jr-disc) minmax(0, 1fr) fit-content(50%); }
   .hist-ev .t { width: 40px; }
@@ -1282,10 +1284,11 @@
   .fab-entry:not(.rec) .i { width: 22px; height: 22px; }
   .fab-entry:not(.rec) .tb-act-label { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     font-size: var(--fs-micro); line-height: 1.3; }
-  /* while the chooser is up the glyph is its ✕ (10-journal · .cancelling), which drops the word —
-     here the word only goes INVISIBLE, so the ✕ stays in the glyph's band and nothing moves under
-     the finger mid-gesture */
-  .fab-entry.cancelling:not(.rec) .tb-act-label { display: block; visibility: hidden; }
+  /* while the chooser is up the glyph is its ✕ (10-journal · .cancelling), which drops the word –
+     and the ✕ stands in the MIDDLE of its square (round 18.11.2026 #4, owner: «X not centered»):
+     with the word gone the grid centres the glyph band alone. The word went only invisible until
+     then, which kept the ✕ in the glyph's band, 7px over the middle. The square keeps its size, so
+     the target under the held finger does not move – only the glyph inside it. */
   .fab-entry.rec { min-height: var(--float-h); padding-top: 0; padding-bottom: 0; }
   /* .cl-main FAB clearance migrated → Checklists.module.css */
 
