@@ -282,6 +282,47 @@ describe('letting go', () => {
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 
+  it('a sheet closed by someone else during the slide gets no second, late close', () => {
+    const onClose = vi.fn()
+    const { rerender } = render(<Sheet open onClose={onClose} title="Material erfassen"><p>Inhalt</p></Sheet>)
+    const popup = screen.getByRole('dialog')
+    asBottomSheet(popup)
+    swipe(popup, popup.querySelector('.ip-head') as HTMLElement, 140)
+    rerender(<></>)
+    slidOut()
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
+  it('the Escape that ends the slide closes once and goes no further – not even to a later capture handler', () => {
+    const { head, onClose } = open()
+    const bubble = vi.fn()
+    const capture = vi.fn()
+    window.addEventListener('keydown', bubble)
+    swipe(head, head, 140)
+    window.addEventListener('keydown', capture, true)
+    act(() => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) })
+    window.removeEventListener('keydown', bubble)
+    window.removeEventListener('keydown', capture, true)
+    expect(onClose).toHaveBeenCalledTimes(1)
+    expect(bubble).not.toHaveBeenCalled()
+    expect(capture).not.toHaveBeenCalled()
+  })
+
+  it('…but once someone else closed the sheet, an Escape passes to whatever shows now', () => {
+    const onClose = vi.fn()
+    const { rerender } = render(<Sheet open onClose={onClose} title="Material erfassen"><p>Inhalt</p></Sheet>)
+    const popup = screen.getByRole('dialog')
+    asBottomSheet(popup)
+    swipe(popup, popup.querySelector('.ip-head') as HTMLElement, 140)
+    rerender(<></>)
+    const next = vi.fn()
+    window.addEventListener('keydown', next)
+    act(() => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) })
+    window.removeEventListener('keydown', next)
+    expect(next).toHaveBeenCalledTimes(1)
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
   it('the ✕ of a phone bottom sheet slides it down too', () => {
     const { popup, onClose } = open()
     fireEvent.click(screen.getByRole('button', { name: /schliessen/i }))
