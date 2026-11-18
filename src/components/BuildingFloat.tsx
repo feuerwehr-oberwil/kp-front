@@ -34,7 +34,8 @@ import s from './BuildingFloat.module.css'
  * word is «Info» – the building tile beside it already says «Gebäude» or the street – or, with a
  * hazard, the hazard words in the hazard tone under the ⚠ («⚠ Heizöl»). The SHAPE never flips with
  * the content any more (12A / 16.11. switched chip ↔ tile on a hazard); a long hazard list
- * ellipsises inside the capped tile, and `aria-label` / `title` keep the full sentence.
+ * ellipsises inside the capped tile, and `aria-label` / `title` keep the full sentence. Beside the
+ * street it is the tile that gives way first (round 18.11.2026 #2 – the street is spelt out).
  *
  * ⚠️ ONE action, so one glyph and one label (owner, 09.11.2026 – mock nov09-gebaeude-sofort, «do not
  * split»): the Objekt's Sofortmassnahmen are a count badge on the chip («Gebäude-Info ②»), the way

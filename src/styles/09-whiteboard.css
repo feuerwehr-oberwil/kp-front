@@ -204,7 +204,8 @@
   /* ⚠️ ONE line, always (owner, 18.09.2026): a wrapped row put a whole extra band of chrome across
      the sheet. Since sweep 28.10.2026 (#8) the row holds only the Objekt chip (street and number,
      one lamp – the sheet behind it says the rest), the Messungen chip and the FAB, so the name
-     has the room; it is still the piece that truncates when the row runs out. */
+     has the room; it is the LAST piece that truncates when the row runs out (the Gebäude-Info
+     beside it yields first, round 18.11.2026 #2 – `.wb-tile:is(.wb-object, .wb-building)` below). */
   .wb-botleft { flex-wrap: nowrap; }
 }
 
@@ -1244,7 +1245,12 @@ span.wb-ghost-label { cursor: default; }
    word, never past `--float-tile-max`: a long street ellipsises INSIDE its tile («A label never
    leaves its button»), the whole name stays the button's `aria-label` / `title`. The trailing cue
    (the lamp, the ›) stands at the tile's top-right corner. The tablet keeps its chips (word beside).
-   Opt-in by class: the calibration instrument (a sentence) stays a chip. */
+   Opt-in by class: the calibration instrument (a sentence) stays a chip.
+   ⚠️ …except the NAME tile – the Objekt's / building's street and number – which has no cap (round
+   18.11.2026 #2, owner: «The street and number should be spelt out almost always»; at 136px
+   «Allschwilerstrasse 100a» read «Allschwilerstrasse …» with 90px of the row still free). It takes
+   what the row has; the Gebäude-Info sharing its glass gives way first (BuildingFloat.module ·
+   .anchor) and the name ellipsises only when that one is down to its glyph. */
 @media (--phone) {
   .wb-scale-chip.wb-tile { --float-tile-max: 136px; position: relative; display: inline-grid; grid-template-rows: 22px auto;
     grid-template-columns: minmax(0, 1fr); align-content: center; justify-items: center; gap: 0;
@@ -1252,6 +1258,7 @@ span.wb-ghost-label { cursor: default; }
   .wb-scale-chip.wb-tile > svg:first-child { width: 22px; height: 22px; }
   .wb-scale-chip.wb-tile > span { max-width: 100%; font-size: var(--fs-micro); line-height: 1.3; }
   .wb-tile > :is(.wb-lamp, .wb-chip-chev) { position: absolute; top: 7px; right: 7px; margin: 0; translate: none; }
+  .wb-scale-chip.wb-tile:is(.wb-object, .wb-building) { --float-tile-max: none; }
 }
 /* ⚠️ NO state ring (26.09.2026, owner: the calibrated Massstab wore a blue outline beside a green
    dot, and read as «selected»). A state is the chip's LAMP — the one glyph that carries a state

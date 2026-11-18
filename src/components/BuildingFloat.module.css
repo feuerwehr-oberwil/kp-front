@@ -1,9 +1,15 @@
 /* The Gebäude chip + its card (BuildingFloat, KP Front F5). The chip is the floating family's
    (09-whiteboard · .wb-scale-chip, a tile on a phone · .wb-tile); this file only adds the hazard
    tone, the count badge and the docked card. */
-/* never the one that gives way: a hazard is glyph + WORD, so on a phone's one-line plan row the
+/* never the one that gives way on a tablet: a hazard is glyph + WORD, so on the plan's row the
    Objekt chip beside it truncates its name instead (09-whiteboard · .wb-botleft) */
 .anchor { position: relative; display: inline-flex; flex: none; max-width: 100%; }
+/* ⚠️ …but on a PHONE, beside the name it shares a glass with, it is the FIRST to give way (round
+   18.11.2026 #2, owner: «The street and number should be spelt out almost always»): its hazard
+   words ellipsise down to the ⚠ tile before the street loses a letter (09-whiteboard ·
+   `.wb-tile:is(.wb-object, .wb-building)`). The ⚠ and the hazard tone stay; the whole list is the
+   tile's name and the card's first line. */
+@media (--phone) { :global(.wb-join) > .anchor { flex: 0 1000 auto; } }
 /* a hazard: the 16px warn glyph AND the words after the dot in --amber-strong, the words at 800 –
    the tone is never the only carrier, and the plate and its edge stay the family's neutral glass
    (no fill: a known hazard is a fact, not an alarm). */
