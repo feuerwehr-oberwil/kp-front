@@ -535,7 +535,9 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     corner `--r-bar` on a piece, the one corner on a message; 14px before the glyph; 16px glyphs. A
     STATE is a glyph colour inside it — the chip's lamp, a toast's leading icon, the object chip's
     amber ⚠ — never an outline (the Massstab chip wore a blue ring beside its green lamp); «open /
-    armed» is a blue wash mixed into the glass. «Not yet» is GREY (29.09.2026): a plan with no
+    armed» is LIT – the `--here-fill` plate in `--on-here` ink (`.wb-scale-chip.arm`, owner pick M4 B,
+    18.11.2026: the blue wash it wore until then read as «still standing there» on the iPhone), and a
+    chip that toggles a card above it (Gebäude-Info, Messungen) adds ⌄ in its corner. «Not yet» is GREY (29.09.2026): a plan with no
     scale and no link shows a grey lamp, never red (red = danger, act now; an unlinked plan read
     as a picture is not an emergency). **A chip's trailing cue says its job** (duck sweep ELEM.3,
     17.11.2026): a lamp = opens the Plan sheet, a › = goes somewhere (the object picker, a
@@ -591,8 +593,9 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     the Atemschutz head detail and the Meteo details (30.09.2026:
     `.tb-weather-pop` wore `--surface`, a lighter slate than the bar at night).
     **Dark in both themes (`--ink-fill` + `--on-accent-ink`) is the Trupp marker's action bar
-    alone** (`.wb-pill-acts` — this marker is in hand); a new surface that is dark by day is a
-    bug. **Tool docks wear the floating material too** (`.wb-dock`, 20.10.2026, owner: «why do we
+    alone** (`.wb-pill-acts` — this marker is in hand) – beside the marker, on a tablet; on a phone
+    it docks in the tool bar's slot and wears the docks' material (phone-layout.md); a new surface
+    that is dark by day is a bug. **Tool docks wear the floating material too** (`.wb-dock`, 20.10.2026, owner: «why do we
     have a dark sidebar in lightmode?» — the phone's bar since 01.10., every dock since): Messen
     and every tool-option dock on the Karte, the Einsatz map and the Plan/Skizze, phone and tablet,
     wear `--float-bg` / `--float-blur` / `--float-edge` and theme ink, including their controls.
@@ -633,7 +636,7 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     | Look | Token | Means | Examples |
     | --- | --- | --- | --- |
     | bare | none – the bar's glass shows | a tile at rest | a rail tool, Ebenen, ✥ ⟳, a dock toggle that is off, the dock's ⓘ |
-    | ink fill | `--here-fill` / `--on-here` | where you are · what is armed | the nav item of the page, the armed tool, an armed ✥ / ⟳, a Trupp tab |
+    | ink fill | `--here-fill` / `--on-here` | where you are · what is armed · a floating chip's card is open | the nav item of the page, the armed tool, an armed ✥ / ⟳, a Trupp tab, the open Gebäude-Info (M4 B, 18.11.2026) |
     | blue fill | `--sel` / `--on-sel` | an option that is ON | «Mehrere», a filter that narrows, a segment, a choice chip |
     | blue wash | `--sel-wash` + `--blue-strong` | its menu / panel is open | open Ebenen, the Ansichten compass, a Menu trigger while up, the ⓘ open |
     | grey plate | `--dock-control-bg` | the way out – only | the dock's ✕ «Abbrechen», the ✥ ⟳ bar's ✕ «Schliessen» |

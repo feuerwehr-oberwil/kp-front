@@ -53,6 +53,23 @@ describe('BuildingFloat', () => {
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 
+  // owner pick M4 B (18.11.2026): open reads as a pressed tile – lit, with ⌄ in the count's corner
+  it('open: the chip is lit and wears ⌄ where the Sofortmassnahmen count stood', () => {
+    asPhone()
+    render(<BuildingFloat info={base} />)
+    const chip = screen.getByRole('button', { name: /Steckbrief öffnen/ })
+    const glyphs = () => [...chip.querySelectorAll('use')].map((u) => u.getAttribute('href'))
+    expect(glyphs()).toEqual(['#warn'])
+    expect(chip.textContent).toContain('1')
+    fireEvent.click(chip)
+    expect(chip.classList.contains('arm')).toBe(true)
+    expect(glyphs()).toEqual(['#warn', '#chevron-down'])
+    expect(chip.textContent).toBe('Gas · PV')
+    fireEvent.click(chip)
+    expect(chip.classList.contains('arm')).toBe(false)
+    expect(glyphs()).toEqual(['#warn'])
+  })
+
   // owner pick C8 (05.11.2026): «Gebäude-Info» on every surface
   it('no hazard: «Gebäude-Info» with the info glyph (never the rail tile\'s word + storey glyph)', () => {
     const calm = { ...base, gwr: { ...base.gwr!, heating: ['district'], hot_water: [] }, plants: [], object: null }
