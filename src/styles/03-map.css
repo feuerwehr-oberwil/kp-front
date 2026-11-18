@@ -414,9 +414,10 @@
 
 /* context entrance motion — subtle & quick */
 @keyframes ctxIn { from { opacity: 0; transform: translateX(14px); } }
-/* bottom sheets rise from below — phone .ctx, journal composer, and every ip-sheet that is
-   bottom-anchored on phones (a sideways or half-screen slide there "appears strangely", field
-   feedback 2026-07-09) */
+/* the full-screen map picker rises from below (14-intake · .mp-sheet). ⚠️ Not a phone bottom
+   sheet's entrance any more: those can be pulled, and a keyframe cannot be caught mid-flight —
+   they rise by a transition from `[data-starting-style]` / `@starting-style` (15-mobile.css,
+   design pass 18.11.2026 B5) */
 @keyframes sheetUp { from { opacity: 0; transform: translateY(26px); } }
 @keyframes popIn { from { opacity: 0; transform: translateY(6px) scale(.97); } }
 .layers-card { animation: popIn .15s var(--ease); }  /* dock chrome → dock entrance */

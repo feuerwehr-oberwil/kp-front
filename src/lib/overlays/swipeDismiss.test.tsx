@@ -1,10 +1,15 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, screen, cleanup, fireEvent } from '@testing-library/react'
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
+import { render, screen, cleanup, fireEvent, act } from '@testing-library/react'
 import { Sheet } from './Sheet'
-import { useSwipeDismiss } from './swipeDismiss'
+import { isDismissPull, releaseVelocity, rubberBand, useSwipeDismiss } from './swipeDismiss'
 
-afterEach(cleanup)
+// the exit slides out before `onClose` (swipeDismiss · slideOut): the clock is ours to run
+beforeEach(() => { vi.useFakeTimers() })
+afterEach(() => { cleanup(); vi.useRealTimers() })
+
+/** Let the exit slide run out — `onClose` comes at its end. */
+const slidOut = () => act(() => { vi.advanceTimersByTime(400) })
 
 // the sheet is measured against the REAL viewport the gesture will be judged against
 const VH = window.visualViewport?.height ?? window.innerHeight
@@ -28,6 +33,8 @@ function open(onClose = vi.fn()) {
  *  init — and this gesture is touch-only by design. Build the event by hand instead. */
 function touch(el: Element, type: string, clientY: number, clientX = 100) {
   const ev = new MouseEvent(type, { bubbles: true, cancelable: true, clientX, clientY })
+  // the release speed is read off the moves' time stamps: the fake clock, so a test says how fast
+  Object.defineProperty(ev, 'timeStamp', { value: Date.now() })
   Object.defineProperty(ev, 'pointerType', { value: 'touch' })
   Object.defineProperty(ev, 'pointerId', { value: 1 })
   fireEvent(el, ev)
@@ -50,6 +57,7 @@ describe('a phone bottom sheet closes by being pushed down', () => {
   it('closes on a pull from the header', () => {
     const { popup, head, onClose } = open()
     swipe(popup, head, 140)
+    slidOut()
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 
@@ -99,6 +107,7 @@ describe('a phone bottom sheet closes by being pushed down', () => {
     const row = screen.getByRole('button', { name: 'Hydranten' })
     swipe(popup, row, 140)
     fireEvent.click(row) // the click the press ends in
+    slidOut()
     expect(onClose).toHaveBeenCalledTimes(1)
     expect(onRow).not.toHaveBeenCalled()
   })
@@ -217,6 +226,7 @@ describe('every scroller between the finger and the popup must be at its top', (
     scroller(popup.querySelector('.ip-body') as HTMLElement, 0)
     scroller(screen.getByTestId('list'), 0)
     swipe(popup, screen.getByText('Objekt'), 160)
+    slidOut()
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 })
@@ -243,6 +253,168 @@ describe('headOnly: only the head drags the sheet', () => {
     expect(onClose).not.toHaveBeenCalled()
     expect(sheet.style.transform).toBe('')
     swipe(sheet, screen.getByText('Feld'), 140)
+    slidOut()
     expect(onClose).toHaveBeenCalledTimes(1)
+  })
+})
+
+// design pass 18.11.2026 (B1–B4): the pull lets go the way a phone sheet does
+describe('letting go', () => {
+  it('leaves DOWNWARDS from where the finger let go, and closes at the end of the slide', () => {
+    const { popup, head, onClose } = open()
+    touch(head, 'pointerdown', 400)
+    touch(head, 'pointermove', 540)
+    expect(popup.style.transform).toBe('translateY(130px)')
+    touch(head, 'pointerup', 540)
+    // from the finger's 130px on down — not back up to 0 first
+    expect(popup.style.transform).toBe('translateY(100%)')
+    expect(onClose).not.toHaveBeenCalled()
+    slidOut()
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('…and the next press during the slide closes at once: that tap lands on a closed screen', () => {
+    const { head, onClose } = open()
+    swipe(head, head, 140)
+    act(() => { window.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true })) })
+    expect(onClose).toHaveBeenCalledTimes(1)
+    slidOut()
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('a sheet closed by someone else during the slide gets no second, late close', () => {
+    const onClose = vi.fn()
+    const { rerender } = render(<Sheet open onClose={onClose} title="Material erfassen"><p>Inhalt</p></Sheet>)
+    const popup = screen.getByRole('dialog')
+    asBottomSheet(popup)
+    swipe(popup, popup.querySelector('.ip-head') as HTMLElement, 140)
+    rerender(<></>)
+    slidOut()
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
+  it('the Escape that ends the slide closes once and goes no further – not even to a later capture handler', () => {
+    const { head, onClose } = open()
+    const bubble = vi.fn()
+    const capture = vi.fn()
+    window.addEventListener('keydown', bubble)
+    swipe(head, head, 140)
+    window.addEventListener('keydown', capture, true)
+    act(() => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) })
+    window.removeEventListener('keydown', bubble)
+    window.removeEventListener('keydown', capture, true)
+    expect(onClose).toHaveBeenCalledTimes(1)
+    expect(bubble).not.toHaveBeenCalled()
+    expect(capture).not.toHaveBeenCalled()
+  })
+
+  it('…but once someone else closed the sheet, an Escape passes to whatever shows now', () => {
+    const onClose = vi.fn()
+    const { rerender } = render(<Sheet open onClose={onClose} title="Material erfassen"><p>Inhalt</p></Sheet>)
+    const popup = screen.getByRole('dialog')
+    asBottomSheet(popup)
+    swipe(popup, popup.querySelector('.ip-head') as HTMLElement, 140)
+    rerender(<></>)
+    const next = vi.fn()
+    window.addEventListener('keydown', next)
+    act(() => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) })
+    window.removeEventListener('keydown', next)
+    expect(next).toHaveBeenCalledTimes(1)
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
+  it('the ✕ of a phone bottom sheet slides it down too', () => {
+    const { popup, onClose } = open()
+    fireEvent.click(screen.getByRole('button', { name: /schliessen/i }))
+    expect(popup.style.transform).toBe('translateY(100%)')
+    slidOut()
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('a parent that does not close (it asks first) gets its sheet back', () => {
+    const { popup, head } = open() // onClose is a spy: the sheet stays mounted
+    swipe(head, head, 140)
+    slidOut()
+    expect(popup.style.transform).toBe('')
+    expect(popup.style.pointerEvents).toBe('')
+  })
+
+  it('the scrim follows the pull and comes back with the snap', () => {
+    const { popup, head } = open()
+    Object.defineProperty(popup, 'offsetHeight', { value: 400 })
+    const scrim = document.querySelector('.ui-backdrop') as HTMLElement
+    touch(head, 'pointerdown', 400)
+    touch(head, 'pointermove', 510) // 100px of pull on a 400px sheet
+    expect(scrim.style.opacity).toBe('0.75')
+    touch(head, 'pointermove', 450) // 40px, and let go slowly
+    act(() => { vi.advanceTimersByTime(200) })
+    touch(head, 'pointerup', 450)
+    expect(scrim.style.opacity).toBe('')
+    expect(popup.style.transform).toBe('')
+  })
+
+  it('a slow pull that ends in a flick closes — the speed is the release\'s, not the average', () => {
+    const { head, onClose } = open()
+    // a move every 16ms: 40px at a crawl (0.06px/ms), then 60px at 0.6px/ms — 90px of pull, under
+    // the 96 that closes by distance, and 0.14px/ms averaged from the press
+    let y = 400
+    touch(head, 'pointerdown', y)
+    const step = (px: number) => { act(() => { vi.advanceTimersByTime(16) }); y += px; touch(head, 'pointermove', y) }
+    for (let i = 0; i < 40; i++) step(1)
+    for (let i = 0; i < 6; i++) step(10)
+    touch(head, 'pointerup', y)
+    slidOut()
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('pulled up past where it stands, the sheet follows less than the finger', () => {
+    const { popup, head } = open()
+    Object.defineProperty(popup, 'offsetHeight', { value: 400 })
+    touch(head, 'pointerdown', 400)
+    touch(head, 'pointermove', 420) // engaged, 10px down
+    touch(head, 'pointermove', 310) // 100px above the start
+    const y = Number(/translateY\((-?[\d.]+)px\)/.exec(popup.style.transform)?.[1])
+    expect(y).toBeLessThan(0)
+    expect(y).toBeGreaterThan(-100)
+    touch(head, 'pointerup', 310)
+  })
+
+  it('a press during the snap back takes the sheet where it stands', () => {
+    const { popup, head } = open()
+    // 30px down mid-flight: its rect is 30px lower than the bottom sheet it is landing as
+    popup.style.transform = 'matrix(1, 0, 0, 1, 0, 30)'
+    popup.getBoundingClientRect = () => ({
+      top: 330, bottom: VH + 30, left: 0, right: 390, width: 390, height: VH - 300, x: 0, y: 330,
+      toJSON: () => ({}),
+    }) as DOMRect
+    touch(head, 'pointerdown', 400)
+    touch(head, 'pointermove', 410)
+    expect(popup.style.transform).toBe('translateY(30px)')
+    expect(popup.style.transition).toBe('none')
+    touch(head, 'pointerup', 410)
+  })
+})
+
+describe('the release rules', () => {
+  it('far enough, or a flick after a shorter pull — never while pushing it back up', () => {
+    expect(isDismissPull(120, 0)).toBe(true)
+    expect(isDismissPull(60, 0.8)).toBe(true)
+    expect(isDismissPull(60, 0.2)).toBe(false)
+    expect(isDismissPull(20, 2)).toBe(false)
+    expect(isDismissPull(150, -0.8)).toBe(false)
+  })
+
+  it('the speed is the last ~80ms, measured back to the window\'s edge', () => {
+    const slowThenFast = [{ t: 0, y: 0 }, { t: 500, y: 40 }, { t: 900, y: 50 }, { t: 960, y: 98 }, { t: 980, y: 114 }]
+    expect(releaseVelocity(slowThenFast)).toBeCloseTo(64 / 80)
+    const fastThenStill = [{ t: 0, y: 0 }, { t: 40, y: 80 }, { t: 400, y: 82 }]
+    expect(releaseVelocity(fastThenStill)).toBeCloseTo(2 / 360)
+    expect(releaseVelocity([{ t: 5, y: 9 }])).toBe(0)
+  })
+
+  it('the rubber band gives less the further it is pulled', () => {
+    expect(rubberBand(0, 400)).toBe(0)
+    expect(rubberBand(100, 400)).toBeLessThan(100)
+    expect(rubberBand(200, 400) - rubberBand(100, 400)).toBeLessThan(rubberBand(100, 400))
   })
 })

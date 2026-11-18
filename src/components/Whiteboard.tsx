@@ -1377,7 +1377,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   }
   const { chipDrag, chipDown, chipMove, chipUp, fan } = useWbChipDrag({
     tool, readOnly, annos, selId, editId, setSelId, setSelIds, setNotePanelId, toNorm, stack, floorAt, localY, mapY, sW, sH, tileAR,
-    attachmentLines, pushPast, set, patch, emit, activeId, onLinkLineTrupp,
+    attachmentLines, pushPast, set, emit, activeId, onLinkLineTrupp,
     panFrom: (e) => panFrom(e), stopPan: () => stopPan(), scale, pileUnder,
   })
 

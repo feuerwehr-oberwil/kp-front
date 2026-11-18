@@ -2108,6 +2108,29 @@ describe('gesture contracts of the plan surface', () => {
       expect(moves(emit)).toHaveLength(1)
     })
 
+    // design pass 18.11.2026 B7: the chip's own node follows the finger; the board (and with it the
+    // whole surface and the workspace) is written once, on release – one undo step, time included
+    it('moves the chip\'s node while it drags and writes the board once, on release', () => {
+      vi.useFakeTimers()
+      const { container, onChange, onCheckpoint } = mount([chip])
+      const node = container.querySelector('[data-chip-id="c1"]') as HTMLElement
+      const board = document.querySelector('.wb-canvas')!
+      fireEvent.pointerDown(screen.getByText('Trupp 1'), { ...touch, clientX: 200, clientY: 200 })
+      act(() => { vi.advanceTimersByTime(HOLD_DRAG_MS + 20) })
+      fireEvent.pointerMove(board, { ...touch, clientX: 240, clientY: 230 })
+      fireEvent.pointerMove(board, { ...touch, clientX: 300, clientY: 280 })
+      expect(onChange).not.toHaveBeenCalled()
+      expect(node.style.translate).toMatch(/^[\d.]+px [\d.]+px$/) // (the mocked rect is not the sheet's size)
+      fireEvent.pointerUp(board, { ...touch, clientX: 300, clientY: 280 })
+      expect(onChange).toHaveBeenCalledTimes(1)
+      expect(onCheckpoint).toHaveBeenCalledTimes(1)
+      expect(find('c1')).toMatchObject({ x: 0.75, y: 0.7 })
+      expect(find('c1').t).not.toBe('03:12')
+      expect(node.style.translate).toBe('')
+      act(() => history.current!.undo())
+      expect(find('c1')).toMatchObject({ x: 0.5, y: 0.5, t: '03:12' })
+    })
+
     // GESTURES.13: a right press on an object is never a left one – no select, no drag
     it('ignores a right press on a chip', () => {
       const { container, emit } = mount([chip])
