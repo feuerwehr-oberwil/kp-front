@@ -165,6 +165,34 @@ describe('token contrast (WCAG AA)', () => {
         expect(low).toEqual([])
       })
 
+      // the rails' shortcut letter (04b-rail · .rail-key) in the tile's corner, on every state of
+      // the tile under it: white on the view bar's light-blue «Ebenen» wash was unreadable (owner
+      // shot 18.11.2026, «B»). --press and --sel-wash are color-mix() tokens, laid on by hand.
+      // A DISABLED tile is not held here: its letter wears the glyph's --ink and the button's
+      // --disabled opacity dims both alike (2.75:1 by day, like the glyph – WCAG 1.4.11 exempts an
+      // inactive control).
+      it('the rail\'s corner letter reads on every tile state', () => {
+        const glass = grounds(theme).glass
+        const ink = colour(theme, '--ink')
+        const faint = colour(theme, '--ink-faint')
+        const hover = over(colour(theme, '--hover'), glass)
+        const press = (bg: Rgba) => over(ink, bg, 0.09)
+        const wash = over(colour(theme, '--blue'), glass, 0.14)
+        const onHere = (fill: Rgba) => over(colour(theme, '--on-here'), fill, 0.7)
+        const states: [state: string, letter: Rgba, tile: Rgba][] = [
+          ['resting', faint, glass],
+          ['hovered', faint, hover],
+          ['pressed', faint, press(hover)],
+          ['ink tile', onHere(colour(theme, '--here-fill')), colour(theme, '--here-fill')],
+          ['ink tile hovered', onHere(colour(theme, '--here-fill-hover')), colour(theme, '--here-fill-hover')],
+          ['wash tile', colour(theme, '--blue-strong'), wash],
+          ['wash tile pressed', colour(theme, '--blue-strong'), press(wash)],
+        ]
+        const low = states.map(([state, fg, bg]) => [state, contrast(fg, bg)] as const)
+          .filter(([, c]) => c < 3).map(([state, c]) => `${state}: ${round(c)}`)
+        expect(low).toEqual([])
+      })
+
       // «Gespeichert» on the Einsatz card (13-incident · .ip-card-pill.ip-status-synced). The card's
       // tile is `color-mix(--ink 4 %, --fill-soft)` over the menu's --surface; laid on in turn it
       // lands within a level of the measured pixel (#ebeaec by day).
