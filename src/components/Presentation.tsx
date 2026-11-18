@@ -14,10 +14,9 @@
 //     this screen shows (owner pick 06.11.2026: «Fit + edge arrows»). Every mark carries
 //     `data-present-mark`; its surface `data-present-host` – the arrows measure one against the
 //     other, the same way on all three surfaces.
-//   · PresentCard – «Präsentieren · Starten» in the «Einsatz teilen» sheet, under the read link
 // State and transport: workspace/usePresentation. Every word: appConfig.copy.presentation.
 
-import { useContext, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import type { MapRef } from 'react-map-gl/maplibre'
 import { appConfig } from '../config/appConfig'
@@ -28,7 +27,7 @@ import { anchorAt, anchorPoint } from '../lib/presentAnchor'
 import { edgeArrow, personTone, placeTags, type Rect, type Ring, type Stroke, type TagPlace } from '../lib/presentation'
 import { useIsPhone } from '../lib/useIsPhone'
 import { useZeigen } from '../lib/useZeigen'
-import { PresentationContext, storedPresentName, type BoardPresentation, type Presentation } from '../workspace/usePresentation'
+import { storedPresentName, type BoardPresentation, type Presentation } from '../workspace/usePresentation'
 import { Chip } from './Chip'
 
 const ringLabel = (r: { name: string; link: boolean }) => (r.link ? `${r.name} · ${appConfig.copy.presentation.link}` : r.name)
@@ -441,36 +440,6 @@ export function PageMarks({ p, top }: { p: BoardPresentation; top: number }) {
         const pt = drawn.at[r.key]
         return pt ? <RingMark key={r.key} r={r} presenter={p.presenter} tag={tags[r.key]} style={{ left: pt.x, top: pt.y }} onUnmark={p.onUnmark} /> : null
       })}
-    </div>
-  )
-}
-
-/** «Präsentieren» under the read link in «Einsatz teilen» (the Einsatz menu's own «Präsentieren»
- *  runs this card's start directly, owner pick 29, 17.11.2026). Absent outside an Einsatz (the
- *  Rapport's inline «Weitergeben») and for a session that may not present. */
-export function PresentCard() {
-  const p = useContext(PresentationContext)
-  const C = appConfig.copy.presentation
-  if (!p) return null
-  const s = p.state
-  const mine = p.follow.kind === 'presenting'
-  const line = mine ? C.runningMine : s ? C.runningOther.replace('{name}', s.presenter?.name ?? '') : C.lede
-  // one title row – glyph · «Präsentieren» · the button – and the text under it across the whole
-  // card (owner pick 6B, 14.11.2026: beside the button it was a 7-line column on a phone)
-  return (
-    <div className="present-card">
-      <div className="present-card-head">
-        <span className="present-card-glyph" aria-hidden><Icon id="present" /></span>
-        <b className="present-card-title">{C.title}</b>
-        {mine
-          ? <button type="button" className="ip-btn" onClick={() => void p.end()}><Icon id="stop" />{C.end}</button>
-          : p.canStart && (
-            <button type="button" className="ip-btn primary" onClick={() => void p.start()}>
-              <Icon id="present" />{s ? C.takeOver : C.start}
-            </button>
-          )}
-      </div>
-      <p className="present-card-text">{p.canStart ? line : C.needsServer}</p>
     </div>
   )
 }

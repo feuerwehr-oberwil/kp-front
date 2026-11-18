@@ -1,8 +1,8 @@
 // The workspace's TopBar: Einsatz title and mode chip, sync/clock state, ↶ ↷, the Einsatz-Menü
 // and the per-surface actions. Split out of IncidentWorkspace (E1, 09.10.2026) verbatim; the
 // menu's doors (switch, archive, share, settings, …) stay the workspace's and come in as props.
-// The one sheet it owns itself is the menu's «Präsentieren» (F15, 17.11.2026): the share sheet's
-// «Präsentieren» card alone, so the menu suspends under it like under any sheet it opened.
+// The menu's «Präsentieren» (F15, 17.11.2026) starts the Präsentationsmodus itself – the one
+// door to it since «Einsatz teilen» lost its card (owner, 18.11.2026).
 
 import type { Dispatch, SetStateAction, MouseEvent as ReactMouseEvent, RefObject } from 'react'
 import { IncidentSwitcher, type AppMenuAlarms, type FoldedMenuRow } from '../components/panels'
@@ -264,10 +264,9 @@ export function WorkspaceTopBar({
             // handed to somebody. Same gate as every minting door (`canShareLink`): editors,
             // never a viewer, a read-only surface or a link session.
             onShare={canShareLink ? () => setShareLink('view') : undefined}
-            // «Präsentieren» (F15) STARTS the presentation at once (owner pick 29, 17.11.2026) – the
-            // same call as the share sheet card's start button; the presentation's own stop is the
-            // way out. The card's gate (`canShareLink`), and only while this device can start one
-            // and is not already presenting.
+            // «Präsentieren» (F15) STARTS the presentation at once (owner pick 29, 17.11.2026); the
+            // presentation's own stop is the way out. Editors only (`canShareLink`), and only while
+            // this device can start one and is not already presenting.
             onPresent={canShareLink && presentation.canStart && presentation.follow.kind !== 'presenting' ? () => void presentation.start() : undefined}
             onHelp={() => setHelpOpen(true)}
             onInstall={isStandalone() || !installOffered(getInstallPlatform()) ? undefined : () => setInstallGuideOpen(true)}

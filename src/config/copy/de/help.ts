@@ -480,7 +480,7 @@ export const helpCopy = {
           ] },
           { kind: 'sub', text: 'Präsentieren' },
           { kind: 'list', items: [
-            '**Präsentieren** – im Menü auf der Karte des offenen Einsatzes, neben **Teilen**, oder in **Einsatz teilen** – › **Starten**: wer den Einsatz oder den Lese-Link offen hat, kann **Folgen** – sein Bildschirm zeigt, was deiner zeigt, auf jeder Fläche.',
+            '**Präsentieren** – im Menü auf der Karte des offenen Einsatzes, neben **Teilen** – startet sofort: wer den Einsatz oder den Lese-Link offen hat, kann **Folgen** – sein Bildschirm zeigt, was deiner zeigt, auf jeder Fläche.',
             '**Zeigen** macht aus einem Tipp einen Punkt und aus einem Strich eine Linie, die wieder verblassen – für alle sichtbar, nichts wird gespeichert.',
             '**Beenden** hört auf; **Nicht mehr folgen** gibt den eigenen Bildschirm wieder frei. Läuft schon eine Präsentation, lässt sie sich **übernehmen**. Präsentieren braucht Netz.',
           ] },
