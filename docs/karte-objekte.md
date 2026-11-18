@@ -475,7 +475,7 @@ The rules that are easy to break:
   neatly in focus like it should be»). A tap selects in place (the map only moves when the place
   is under the panel), so the object stood wherever it was tapped — at the bottom right, say —
   and stayed there after a plan. Leaving a plan or the Gebäude for the map now eases the selected
-  object's point into the middle of the free map (500 ms, the zoom kept); ✕ still gives back the
+  object's point into the middle of the free map (`useKarteCamera · CAMERA_MS`, 400 ms like every Karte camera move, the zoom kept); ✕ still gives back the
   camera from before the selection. On the tablet the free map is right of the panel and left of
   the tool rail, under the bar, from the rails' published widths (`--rail-w`, `--vrail-w`), so the
   expanded rail (round 5's chevron) moves it too — the fixed 440 px it replaced put a searched

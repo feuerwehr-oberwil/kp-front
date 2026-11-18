@@ -31,6 +31,11 @@ const railPx = (name: string) => parseFloat(getComputedStyle(document.documentEl
 export const panelPad = (phone: boolean): Padding => (phone
   ? { top: 80, bottom: window.innerHeight * SHEET_SHARE, left: 0, right: 0 }
   : besidePanel(railPx('--rail-w'), railPx('--vrail-w')))
+/** THE length of a Karte camera move the app makes (a search pick, a tap's reveal, Gesamtansicht,
+ *  the way back from a plan, the Plan-Overlay and Hydrant framing). 400 ms: long enough to show
+ *  where the map went, short enough not to hold up the next tap (design pass C8, 18.11.2026 – they
+ *  ran 500–700 ms). The camera given back on close stays a touch quicker (350 ms). */
+export const CAMERA_MS = 400
 
 /** Selecting and closing, for the surface's select/deselect actions. Closing gives the camera back
  *  (owner, review round 4 — lib/karte/camera): the camera before the selection is kept here, the
@@ -65,14 +70,14 @@ export function useKarteCamera(mapRef: RefObject<MapRef | null>, phone: boolean,
     watchingMoves.current = true
     map.on('movestart', (e) => { if ((e as { originalEvent?: unknown }).originalEvent) camBack.current = null })
   }, [mapRef])
-  const flyTo = (at: LngLat, z = 17.6) => mapRef.current?.easeTo({ center: at, zoom: Math.max(zoom, z), padding: panelPad(phone), duration: 700 })
+  const flyTo = (at: LngLat, z = 17.6) => mapRef.current?.easeTo({ center: at, zoom: Math.max(zoom, z), padding: panelPad(phone), duration: CAMERA_MS })
   /** keep the tapped place visible beside / above the panel, without changing the zoom */
   const reveal = (at: LngLat) => {
     const map = mapRef.current
     if (!map) return
     const p = map.project(at)
     const hidden = phone ? p.y > window.innerHeight * (1 - SHEET_SHARE) - 16 || p.y < 90 : p.x < panelPad(false).left
-    if (hidden) map.easeTo({ center: at, padding: panelPad(phone), duration: 500 })
+    if (hidden) map.easeTo({ center: at, padding: panelPad(phone), duration: CAMERA_MS })
   }
   return { noteSelect, giveCameraBack, watchUserMoves, flyTo, reveal }
 }
@@ -89,7 +94,7 @@ export function useFrameOnReturn(mapRef: RefObject<MapRef | null>, p: { openDoc:
     const was = docWas.current
     docWas.current = openDoc ? { doc: openDoc.doc.id, sel } : null
     if (!was || openDoc || !panelShown || was.sel !== sel) return
-    if (at) mapRef.current?.easeTo({ center: at, padding: panelPad(phone), duration: 500 })
+    if (at) mapRef.current?.easeTo({ center: at, padding: panelPad(phone), duration: CAMERA_MS })
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once per way back from a document
   }, [openDoc])
 }
@@ -98,9 +103,9 @@ export function useFrameOnReturn(mapRef: RefObject<MapRef | null>, p: { openDoc:
 export function useCompassViews(mapRef: RefObject<MapRef | null>, objects: readonly StationObject[], view: { center: LngLat; zoom: number; bearing: number }, holdHint: string): ViewsApi {
   const fitAll = () => {
     const pts = objects.map(coordOf).filter((c): c is LngLat => !!c)
-    if (pts.length < 2) { mapRef.current?.easeTo({ center: deploymentDefaultCenter() ?? view.center, zoom: 15 }); return }
+    if (pts.length < 2) { mapRef.current?.easeTo({ center: deploymentDefaultCenter() ?? view.center, zoom: 15, duration: CAMERA_MS }); return }
     const lngs = pts.map((p) => p[0]), lats = pts.map((p) => p[1])
-    mapRef.current?.fitBounds([[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]], { padding: 64, duration: 600 })
+    mapRef.current?.fitBounds([[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]], { padding: 64, duration: CAMERA_MS })
   }
   /** one GPS fix, then zoom (≥ 17) onto it; `orElse` when there is no position (null: no GPS at all) */
   const locate = (orElse: (err: GeolocationPositionError | null) => void) => {
