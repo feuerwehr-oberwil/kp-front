@@ -36,7 +36,6 @@ interface Args {
   /** the board document's funnel (useBoardDoc): checkpoint, silent writes */
   pushPast: () => void
   set: (next: BoardAnno[]) => void
-  patch: (id: string, p: Partial<BoardAnno>) => void
   emit: (op: string, payload?: Record<string, unknown>) => void
   activeId: string
   onLinkLineTrupp?: (lineId: string, truppId: string) => void
@@ -64,6 +63,14 @@ interface Args {
  * press, drags at once. Before, every press dragged: panning a Gebäude plan with the finger on a
  * Trupp moved the Trupp and stamped it a new time.
  *
+ * ⚠️ The drag moves the chip's own NODE (design pass 18.11.2026 B7): a `translate` written on the
+ * pressed `.wb-anno` per move, and ONE write of the board on release (checkpoint + positions + a
+ * Trupp's time + a hose join, one undo step). A `set()` per move re-rendered the whole board and
+ * wrote the workspace each time. Where the picture around the chip must follow it live, the drag
+ * stays a write per move (`live`): a chip a Leitung is attached to (its end is drawn from the
+ * chip's stored position) and every chip on a floor stack (a storey change re-localises it, a
+ * Durchgang seats on a Wand, a symbol over several storeys is drawn once per storey).
+ *
  * …and a tap on a PILE is resolved the Lage's way (GESTURES.9, MapMarkers · the pile): several
  * compact chips (symbols, Trupps) under the finger's pad fan out on short spokes, the next tap on
  * one of them is the answer, and a single one is the nearest centre – never whichever DOM node
@@ -71,9 +78,17 @@ interface Args {
  */
 export function useWbChipDrag({
   tool, readOnly, annos, selId, editId, setSelId, setSelIds, setNotePanelId, toNorm, stack, floorAt, localY, mapY, sW, sH, tileAR,
-  attachmentLines, pushPast, set, patch, emit, activeId, onLinkLineTrupp, panFrom, stopPan, scale, pileUnder,
+  attachmentLines, pushPast, set, emit, activeId, onLinkLineTrupp, panFrom, stopPan, scale, pileUnder,
 }: Args) {
-  const chipDrag = useRef<{ id: string; moved: boolean; sx: number; sy: number; floorOffset: number } | null>(null)
+  const chipDrag = useRef<{
+    id: string; moved: boolean; sx: number; sy: number; floorOffset: number
+    /** the pressed chip, moved by `translate` while the drag is not `live` */
+    node: HTMLElement | null
+    /** the board is written on every move (see the header) — else once, on release */
+    live: boolean
+    /** where the finger has put it so far */
+    last: BoardPoint | null
+  } | null>(null)
   const hold = useHoldToDrag()
 
   // ── the fanned pile: screen-px offsets per instance key (`id:floor`), computed ONCE at the tap.
@@ -125,8 +140,10 @@ export function useWbChipDrag({
       if (pile.length > 1) { setFan({ key: fanKey(fanOffsets(pile)), offsets: fanOffsets(pile) }); return }
       selectId(pile[0] ? pile[0].id.slice(0, pile[0].id.lastIndexOf(':')) : id)
     }
+    const node = e.currentTarget instanceof HTMLElement ? e.currentTarget : null
+    const live = stack || annos.some((line) => [line.startAttachment, line.endAttachment].some((rel) => rel?.target.kind === 'object' && rel.target.id === id))
     const grab = (sx: number, sy: number) => {
-      chipDrag.current = { id, moved: false, sx, sy, floorOffset: (shownFloor ?? 0) - (annos.find((a) => a.id === id)?.floor ?? 0) }
+      chipDrag.current = { id, moved: false, sx, sy, floorOffset: (shownFloor ?? 0) - (annos.find((a) => a.id === id)?.floor ?? 0), node, live, last: null }
     }
     // view-only (viewer / replay / EL view): a tap still SELECTS — so the read-only detail panel
     // can open, parity with the Lage map — but nothing ever drags.
@@ -150,72 +167,95 @@ export function useWbChipDrag({
       onHoldStart: () => { stopPan(); grab(sx, sy); select() },
     }, { mode: e.pointerType === 'mouse' ? 'mouse' : 'touch', canDrag })
   }
+  /** The board with the dragged chip at `point` — and every trace-routed Leitung end along. */
+  const movedTo = (d: NonNullable<typeof chipDrag.current>, point: BoardPoint): BoardAnno[] => annos.map((anno) => {
+    if (anno.id === d.id) {
+      const f = point[2] ?? 0
+      let moved: BoardAnno = { ...anno, x: point[0], y: point[1], ...(stack ? { floor: f - d.floorOffset } : {}) }
+      // a Durchgang dropped near a Wand sits on it again, turned along it; elsewhere it stands free
+      if (stack && isDoor(anno) && sW) moved = seatDoor(moved, nearestWall(annos, moved.floor ?? 0, point[0], point[1], tileAR, DOOR_SNAP_PX / sW))
+      return stack ? normalizeStackEdit(anno, moved) : moved
+    }
+    if (anno.kind !== 'draw' || !anno.pts?.length) return anno
+    let next = anno
+    for (const endpoint of ['start', 'end'] as const) {
+      const rel = endpoint === 'start' ? next.startAttachment : next.endAttachment
+      if (rel?.target.kind === 'object' && rel.target.id === d.id && rel.routing === 'trace') next = { ...next, pts: applyRouting(next.pts!, endpoint, point, 'trace', 0.002) }
+    }
+    return next
+  })
   const chipMove = (e: React.PointerEvent) => {
-    if (!chipDrag.current) return
-    const a = annos.find((x) => x.id === chipDrag.current!.id); if (!a) return
+    const d = chipDrag.current
+    if (!d) return
+    const a = annos.find((x) => x.id === d.id); if (!a) return
     const n = toNorm(e.clientX, e.clientY); if (!n) return
     // deadzone (shared with the Lage map's hold-to-drag): don't move until the pointer travels
     // past DRAG_DEADZONE_PX, so a tap-to-select can't nudge a placed chip a pixel.
-    if (!chipDrag.current.moved && Math.hypot(e.clientX - chipDrag.current.sx, e.clientY - chipDrag.current.sy) < DRAG_DEADZONE_PX) return
-    if (!chipDrag.current.moved) pushPast() // one checkpoint per drag, before the first move
-    chipDrag.current.moved = true
+    if (!d.moved && Math.hypot(e.clientX - d.sx, e.clientY - d.sy) < DRAG_DEADZONE_PX) return
+    if (!d.moved && d.live) pushPast() // one checkpoint per drag, before the first move
+    d.moved = true
     // on the floor-stack the chip drags FREELY across storeys: the floor follows the cursor,
     // y is re-localised into whichever storey the pointer is over. Single-sheet docs unchanged.
-    const f = stack ? floorAt(n[1]) : a.floor
-    const point: BoardPoint = [n[0], localY(n[1], f ?? 0), f ?? 0]
-    set(annos.map((anno) => {
-      if (anno.id === chipDrag.current!.id) {
-        let moved: BoardAnno = { ...anno, x: point[0], y: point[1], ...(stack ? { floor: (f ?? 0) - chipDrag.current!.floorOffset } : {}) }
-        // a Durchgang dropped near a Wand sits on it again, turned along it; elsewhere it stands free
-        if (stack && isDoor(anno) && sW) moved = seatDoor(moved, nearestWall(annos, moved.floor ?? 0, point[0], point[1], tileAR, DOOR_SNAP_PX / sW))
-        return stack ? normalizeStackEdit(anno, moved) : moved
-      }
-      if (anno.kind !== 'draw' || !anno.pts?.length) return anno
-      let next = anno
-      for (const endpoint of ['start', 'end'] as const) {
-        const rel = endpoint === 'start' ? next.startAttachment : next.endAttachment
-        if (rel?.target.kind === 'object' && rel.target.id === a.id && rel.routing === 'trace') next = { ...next, pts: applyRouting(next.pts!, endpoint, point, 'trace', 0.002) }
-      }
-      return next
-    }))
+    const f = (stack ? floorAt(n[1]) : a.floor) ?? 0
+    const point: BoardPoint = [n[0], localY(n[1], f), f]
+    d.last = point
+    if (d.live) { set(movedTo(d, point)); return }
+    // the chip's anchor goes where the finger is (the same jump-to-the-finger the board write makes)
+    if (d.node) d.node.style.translate = `${(n[0] - (a.x ?? 0)) * sW}px ${(n[1] - mapY(a.floor, a.y ?? 0)) * sH}px`
   }
   const chipUp = () => {
     const d = chipDrag.current; chipDrag.current = null
     if (!d || !d.moved) return
+    // ONE write for the whole release: the positions (unless they streamed), the time, the join —
+    // each a patch of this render's `annos` would overwrite the one before it
+    let next = annos
+    if (!d.live && d.last) {
+      // the board takes the chip over from the node in the same frame (React re-renders the
+      // transform before the next paint)
+      if (d.node) d.node.style.translate = ''
+      pushPast() // the drag's one step
+      next = movedTo(d, d.last)
+    }
     // moving just relocates the team's live position — it does NOT record a
     // breadcrumb. Positions are logged only via markPosition (explicit), so the
     // rule is unambiguous: a dot exists exactly where you chose to log one.
-    const a = annos.find((x) => x.id === d.id)
-    if (a?.kind === 'resource') patch(d.id, { t: formatTime(new Date(serverNow())) })
+    const stamp = (x: BoardAnno) => (x.id === d.id && x.kind === 'resource' ? { ...x, t: formatTime(new Date(serverNow())) } : x)
+    next = next.map(stamp)
+    const a = next.find((x) => x.id === d.id)
+    const join = joinFor(a)
+    if (join) next = next.map((x) => (x.id === join.lineId ? { ...x, ...join.out } : x))
+    set(next)
     // record the relocation in the audit trail (the drag itself was silent patches)
     if (a) emit('board.move', { id: d.id, x: a.x, y: a.y, floor: a.floor, ...(stack && a.kind === 'symbol' ? { floorFrom: a.floorFrom, floorTo: a.floorTo } : {}), planId: activeId })
     // …and a Durchgang's seat, which a position does not carry (its turn, the Wand it sits on)
     if (a && stack && isDoor(a)) emit('board.edit', { id: d.id, patch: { rotation: a.rotation, onWall: a.onWall ?? null }, planId: activeId })
-    annos.filter((line) => [line.startAttachment, line.endAttachment].some((rel) => rel?.target.kind === 'object' && rel.target.id === d.id && rel.routing === 'trace'))
+    next.filter((line) => [line.startAttachment, line.endAttachment].some((rel) => rel?.target.kind === 'object' && rel.target.id === d.id && rel.routing === 'trace'))
       .forEach((line) => emit('board.edit', { id: line.id, patch: { pts: line.pts }, planId: activeId }))
-    // Ein Trupp auf dem Leitungsende (15.09.): a Trupp's chip dropped on the FREE end of a hose
-    // joins the two, the same link snapping the hose onto the chip makes — the picture is the
-    // pick, from whichever side the operator works. The Karte does exactly this on its own marker
-    // release (IncidentWorkspace · finishEntityMove). The chip's own DOT is what is measured (its
-    // body hangs to the right of it — see attachBox), only ends that hang free count, and the
-    // middle of a hose says nothing about who works it.
-    if (a?.kind !== 'resource' || !a.truppId || a.x == null || a.y == null || !sW || !sH) return
+    if (!a || !join) return
+    emit('board.edit', { id: join.lineId, patch: join.out, planId: activeId })
+    // …and the link itself, unless this hose is already anchored to this very Trupp — nudging the
+    // chip beside its own Leitung is not a new fact, and every link writes a Verlauf row
+    if (a.truppId && annos.find((x) => x.id === join.lineId)?.truppId !== a.truppId) onLinkLineTrupp?.(join.lineId, a.truppId)
+  }
+  /**
+   * Ein Trupp auf dem Leitungsende (15.09.): a Trupp's chip dropped on the FREE end of a hose
+   * joins the two, the same link snapping the hose onto the chip makes — the picture is the
+   * pick, from whichever side the operator works. The Karte does exactly this on its own marker
+   * release (IncidentWorkspace · finishEntityMove). The chip's own DOT is what is measured (its
+   * body hangs to the right of it — see attachBox), only ends that hang free count, and the
+   * middle of a hose says nothing about who works it. The coupling is written exactly as the
+   * endpoint magnet writes one (routed «Direkt» by default — lib/lineAttachments ·
+   * DEFAULT_OBJECT_ROUTING), inside the drag's own step — one gesture, one step.
+   */
+  const joinFor = (a: BoardAnno | undefined): { lineId: string; out: Partial<BoardAnno> } | null => {
+    if (a?.kind !== 'resource' || !a.truppId || a.x == null || a.y == null || !sW || !sH) return null
     const join = nearestFreeEndpoint<BoardPoint>(
       [a.x * sW, mapY(a.floor, a.y) * sH],
       attachmentLines,
       (p) => [p[0] * sW, mapY(p[2] ?? 0, p[1]) * sH],
     )
-    if (!join) return
-    // the chip's own coupling, written exactly as the endpoint magnet writes one (routed «Direkt»
-    // by default — lib/lineAttachments · DEFAULT_OBJECT_ROUTING)
-    const out: Partial<BoardAnno> = join.endpoint === 'start'
-      ? { startAttachment: objectAttachment(d.id) }
-      : { endAttachment: objectAttachment(d.id) }
-    patch(join.lineId, out) // the drag's own checkpoint already stands — one gesture, one step
-    emit('board.edit', { id: join.lineId, patch: out, planId: activeId })
-    // …and the link itself, unless this hose is already anchored to this very Trupp — nudging the
-    // chip beside its own Leitung is not a new fact, and every link writes a Verlauf row
-    if (annos.find((x) => x.id === join.lineId)?.truppId !== a.truppId) onLinkLineTrupp?.(join.lineId, a.truppId)
+    if (!join) return null
+    return { lineId: join.lineId, out: join.endpoint === 'start' ? { startAttachment: objectAttachment(a.id) } : { endAttachment: objectAttachment(a.id) } }
   }
 
   return { chipDrag, chipDown, chipMove, chipUp, fan }
