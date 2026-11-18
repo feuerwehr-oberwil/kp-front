@@ -102,6 +102,38 @@ describe('holdTooltip', () => {
     expect(bubble()).toBeNull()
   })
 
+  // design pass C10: a chip group is read by sweeping along it – the 220 ms dwell once, not per chip
+  it('after a hover bubble, the next coded chip answers at once; ~300 ms with none open, the wait is back', () => {
+    const chip = (label: string, code: string) => {
+      const c = document.createElement('button')
+      c.setAttribute('aria-label', label)
+      c.setAttribute('data-holdexplain', '')
+      c.textContent = code
+      document.body.appendChild(c)
+      return c
+    }
+    const s = chip('Sicherung', 'S'), n = chip('Nasse Haltelinie', 'N'), g = chip('Gegenfeuer', 'G')
+    // a dwell that never showed its bubble does not warm the group
+    ptr('pointerover', s, { pointerType: 'mouse' })
+    vi.advanceTimersByTime(100)
+    ptr('pointerout', s, { pointerType: 'mouse' })
+    ptr('pointerover', n, { pointerType: 'mouse' })
+    expect(bubble()).toBeNull()
+    vi.advanceTimersByTime(220)
+    expect(bubble()?.textContent).toBe('Nasse Haltelinie')
+    // …one that did: the neighbour answers on arrival
+    ptr('pointerout', n, { pointerType: 'mouse' })
+    ptr('pointerover', g, { pointerType: 'mouse' })
+    expect(bubble()?.textContent).toBe('Gegenfeuer')
+    // none open for longer than the warm window: cold again
+    ptr('pointerout', g, { pointerType: 'mouse' })
+    vi.advanceTimersByTime(301)
+    ptr('pointerover', s, { pointerType: 'mouse' })
+    expect(bubble()).toBeNull()
+    vi.advanceTimersByTime(220)
+    expect(bubble()?.textContent).toBe('Sicherung')
+  })
+
   it('an ordinary icon-only button keeps its native tooltip on a mouse', () => {
     ptr('pointerover', btn, { pointerType: 'mouse' })
     vi.advanceTimersByTime(400)
