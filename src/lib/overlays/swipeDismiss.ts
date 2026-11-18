@@ -223,6 +223,8 @@ function slideOut(el: HTMLElement, backdrop: HTMLElement | null, onGone: () => v
   if (!ms) { onGone(); return }
   if (leaving.has(el)) return
   leaving.add(el)
+  // a snap back still running must not clear this exit's transitions half-way
+  window.clearTimeout(settling.get(el))
   el.style.transition = `transform ${ms}ms ${LEAVE_EASE}`
   el.style.transform = 'translateY(100%)'
   el.style.pointerEvents = 'none'
@@ -231,11 +233,18 @@ function slideOut(el: HTMLElement, backdrop: HTMLElement | null, onGone: () => v
     backdrop.style.opacity = '0'
     backdrop.style.pointerEvents = 'none'
   }
+  // the Escape that ends the slide IS this close: nobody else may close again on the same key
+  const onKey = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation() }
+    gone()
+  }
   const gone = () => {
     window.clearTimeout(timer)
     window.removeEventListener('pointerdown', gone, true)
-    window.removeEventListener('keydown', gone, true)
-    onGone()
+    window.removeEventListener('keydown', onKey, true)
+    // closed by someone else during the slide (unmounted, or Base UI already ending it): that close
+    // has run, and a late one here would hit whatever the parent shows by now
+    if (el.isConnected && !el.hasAttribute('data-ending-style')) onGone()
     // a parent that did not close (it asks first) gets its sheet back where it was
     window.setTimeout(() => {
       leaving.delete(el)
@@ -246,7 +255,7 @@ function slideOut(el: HTMLElement, backdrop: HTMLElement | null, onGone: () => v
   }
   const timer = window.setTimeout(gone, ms)
   window.addEventListener('pointerdown', gone, true)
-  window.addEventListener('keydown', gone, true)
+  window.addEventListener('keydown', onKey, true)
 }
 
 /** The running snap back's clean-up, per sheet — a new snap or a new pull replaces it. */

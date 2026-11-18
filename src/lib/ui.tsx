@@ -384,6 +384,8 @@ function useToastFlick<T extends HTMLElement>(onFlick: (dir: -1 | 1, node: T | n
       if (d?.id !== e.pointerId) return
       drag.current = null
       const dx = e.clientX - d.x0
+      // the release point counts as travel too: a last move may not have been delivered
+      travelled.current = Math.max(travelled.current, Math.abs(dx))
       if (Math.abs(dx) >= FLICK) onFlick(dx < 0 ? -1 : 1, el.current)
       else back()
     },
@@ -422,11 +424,12 @@ function ToastAction({ toast: t }: { toast: Toast }) {
         // smallest, quietest button of all the message surfaces (button sweep SHEETS.5, 17.11.2026)
         className="ip-btn toast-action"
         {...handlers}
-        onClick={() => {
+        onClick={(e) => {
           // a drag ends on the same element as a tap, so the click that follows it must not also
           // fire the action — a flick (the toast is already gone) AND an aborted one that sprang
-          // back: the finger was on its way somewhere, undoing was not what was asked for
-          if (travelled.current > TAP_SLOP) return
+          // back: the finger was on its way somewhere, undoing was not what was asked for. Only a
+          // POINTER click (detail ≥ 1) can be that drag's; Enter/Space (detail 0) always undoes.
+          if (e.detail !== 0 && travelled.current > TAP_SLOP) return
           dismissToast(t.id)
           t.action!.onClick()
         }}

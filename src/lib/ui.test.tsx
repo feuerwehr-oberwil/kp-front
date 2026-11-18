@@ -287,7 +287,8 @@ describe('getting a confirm-with-undo toast out of the way', () => {
     fireEvent.pointerDown(el, { pointerId: 1, clientX: 0 })
     fireEvent.pointerMove(el, { pointerId: 1, clientX: dx })
     fireEvent.pointerUp(el, { pointerId: 1, clientX: dx })
-    fireEvent.click(el)
+    // a pointer click: detail 1 (a keyboard activation is detail 0)
+    fireEvent.click(el, { detail: 1 })
   }
 
   it('closes on the ✕ without undoing anything', async () => {
@@ -316,6 +317,28 @@ describe('getting a confirm-with-undo toast out of the way', () => {
     drag(inPill('fast weggewischt', '.toast-action'), 30)
     expect(onClick).not.toHaveBeenCalled()
     expect(screen.getByText('fast weggewischt')).toBeTruthy()
+  })
+
+  it('the release point counts: a last move near the start, a release far away is still a drag', () => {
+    render(<Overlays />)
+    const onClick = vi.fn()
+    act(() => { toast('weit losgelassen', { action: { label: 'Rückgängig', onClick } }) })
+    const el = inPill('weit losgelassen', '.toast-action')
+    fireEvent.pointerDown(el, { pointerId: 1, clientX: 0 })
+    fireEvent.pointerMove(el, { pointerId: 1, clientX: 5 })
+    fireEvent.pointerUp(el, { pointerId: 1, clientX: 30 })
+    fireEvent.click(el, { detail: 1 })
+    expect(onClick).not.toHaveBeenCalled()
+  })
+
+  it('Enter on «Rückgängig» undoes, even right after an aborted drag', () => {
+    render(<Overlays />)
+    const onClick = vi.fn()
+    act(() => { toast('per Taste', { action: { label: 'Rückgängig', onClick } }) })
+    const el = inPill('per Taste', '.toast-action')
+    drag(el, 30)
+    fireEvent.click(el, { detail: 0 })
+    expect(onClick).toHaveBeenCalledTimes(1)
   })
 
   // …and a shaky press is still a press: the button is a target first and a slider second
