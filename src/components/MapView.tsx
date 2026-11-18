@@ -865,7 +865,7 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
     useTruppMarkerAim({ mapInst, entities, openHoseLines, nativeDrawingChrome, onMarkerMove, onMarkerDragEnd })
   // ── ONE label pass for the whole map (components/useLabelPass) ──
   const { suppressedLabels, bumpLabelFrame } = useLabelPass(mapInst, {
-    initialCenter, entities, isVisible, zoom, symMul, captionMode, selectedId, selectedEntityIds, teamLines,
+    initialCenter, entities, isVisible, zoom, symMul, captionMode, selectedId, selectedEntityIds, teamLines, trupps, truppSeverities,
     drawingsVisible, lineDecor, drawLabels, circleLabels, selectedDrawingId, storedDrawings, hiddenTrails,
   }, onCaptionSuppressionChange)
 

@@ -5,7 +5,7 @@ import type { Entity, LayerId, LngLat } from '../types'
 import { appConfig } from '../config/appConfig'
 import { VEHICLE_SYMBOLS } from '../lib/symbols'
 import { lookbackPoint } from './lineStyle'
-import { dockSlotOffset } from './docking'
+import { dockSlotOffset, teamDockHost } from './docking'
 import { cachedLabelSize } from './labelPass'
 import type { LineTone } from './truppLines'
 
@@ -45,24 +45,37 @@ export const lineLabelAction = (truppId: string | undefined, tone: LineTone | un
     : { kind: 'drawing' as const }
 
 // ── Trupp marker geometry (mirrors `.team-dot` / `.wb-resource-pill`, 09-whiteboard.css) ────
-// A Trupp marker is a STRIP — [dot][gap][name] — so where the strip is anchored decides what the
-// coordinate MEANS. Both halves of the map have to agree on it: MapMarkers anchors the marker,
-// MapView's label pass measures the same boxes without a DOM.
+// A Trupp marker is ONE piece – the dot is the head of its name plate (M2 C, owner pick
+// 18.11.2026: an 8px gap between them read as two things) – so where the piece is anchored decides
+// what the coordinate MEANS. Both halves of the map have to agree on it: MapMarkers anchors the
+// marker, MapView's label pass measures the same boxes without a DOM.
 /** `.team-dot i` — the dot IS the position, so it is what sits on the coordinate. 16px: an inside
  *  Trupp's dot fills it, an out Trupp's 13px dot sits centred in the same box (09-whiteboard ·
  *  .team-dot.raus i), so coming out moves neither the point nor the name. */
 export const TEAM_DOT_PX = 16
-/** `.team-dot` gap — the distance the name hangs off the dot. */
-export const TEAM_DOT_GAP = 8
+/** `.team-dot b { margin-left }` — how far the name plate tucks under the dot: its left edge is
+ *  the dot's centre, so dot and plate touch at every size and the plate starts ON the point. */
+export const TEAM_PLATE_TUCK = 8
 /** The selected pill's accent cap, centre-to-left-edge: 1px border + 8px padding + half of the
  *  4px cap — so selecting a Trupp swaps the chrome without moving the point it states. */
 export const TEAM_PILL_CAP_PX = 11
-/** `.team-link` + its gap — the «angedockt» glyph at the right end of the same strip. */
-/** the resting strip's name chip, as the label pass measures it (`.team-dot b` – 700 12.5px
- *  Sora, 2px/8px padding – the measure label's, every one-line plate's since hill climb r6 –,
- *  line-height 1.25). ONE definition: MapView books the box with it and
- *  MapMarkers centres a docked strip with it, so the two can never disagree. */
-export const TEAM_LABEL_STYLE = { font: '700 12.5px Sora, system-ui, sans-serif', maxTextW: Infinity, chromeW: 16, chromeH: 4, lineH: 15.625 }
+/** the resting marker's name plate, as the label pass measures it (`.team-dot b` – 700 12.5px
+ *  Sora, 2px top/bottom, 12px left – the tuck under the dot plus 4px of air – and 8px right,
+ *  line-height 1.25). ONE definition: MapView books the box with it, and it is held to the CSS by
+ *  mapView.labelCss.test.ts. */
+export const TEAM_LABEL_STYLE = { font: '700 12.5px Sora, system-ui, sans-serif', maxTextW: Infinity, chromeW: 20, chromeH: 4, lineH: 15.625 }
+/** M3 A (owner pick 18.11.2026): below this zoom a resting Trupp marker is its dot alone – the
+ *  names (and the trail times) piled up over each other around the Einsatzort. Measured on the
+ *  mock's Zimmerbrand (seven Trupps within ~35 m): at 17.3 two plates touch, at 16.7 they are one
+ *  pile, and the owner's «zoomed out» frame was 16.2. One step above the Karte's station objects
+ *  (lib/karte/labels · LABEL_MIN_ZOOM 16), because Trupps stand far tighter than buildings; the
+ *  Einsatz opens at 17.6, with names. The selection is exempt, and so is a Trupp in alarm
+ *  (`teamNameAtZoom`). */
+export const TEAM_NAME_MIN_ZOOM = 17
+/** Does a resting Trupp marker carry its name at this zoom? A Trupp in alarm (Notfall,
+ *  überfällig – lib/truppLines · truppMarkerTone `crit`) always does: that is the one name the
+ *  operator must not have to tap for. */
+export const teamNameAtZoom = (zoom: number, tone: LineTone): boolean => zoom >= TEAM_NAME_MIN_ZOOM || tone === 'crit'
 /** The label-pass boxes of the other on-map labels, as their CSS draws them. ONE place, held to the
  *  CSS by mapView.labelCss.test.ts: a type step there (stage 2 took them 11.5 → 11px, the 4px grid;
  *  the hill climb took the names, captions, readouts and trail times up to --fs-1 12.5px, 04.11.2026,
@@ -89,11 +102,12 @@ export const CRUMB_LABEL_DX = 12 - 9 / 2
 /** `.line-end-tag` (09-whiteboard.css) — the plates' 700 --fs-1/1, 2px/4px padding plus a 1.5px border
  *  (a ~20px plate since hill climb r17); `inline-grid` stacks the Trupp row */
 export const END_TAG_LABEL_STYLE = { font: '700 12.5px Sora, system-ui, sans-serif', maxTextW: Infinity, chromeW: 11, chromeH: 7, lineH: 12.5 }
-/** the whole resting strip's width: [dot][gap][name]. ⚠️ No Leitung field any more (11.10.2026,
- *  owner: «on the map the trupps are numbered – which we don't need»): the Karte's marker is the
- *  Gebäude chip's — name only — and the Leitung's number stays on the hose's own end tag. */
+/** the whole resting marker's width: the dot, then the plate from the dot's centre on. ⚠️ No
+ *  Leitung field any more (11.10.2026, owner: «on the map the trupps are numbered – which we don't
+ *  need»): the Karte's marker is the Gebäude chip's — name only — and the Leitung's number stays
+ *  on the hose's own end tag. */
 export const teamStripPx = (label: string): number =>
-  TEAM_DOT_PX + TEAM_DOT_GAP + cachedLabelSize(label, TEAM_LABEL_STYLE).w
+  TEAM_DOT_PX - TEAM_PLATE_TUCK + cachedLabelSize(label, TEAM_LABEL_STYLE).w
 
 // Symbol size tied to the real world (m), scaling with zoom — but clamped into a
 // NARROW band: at normal Einsatz zooms a symbol looks almost constant (like a map
@@ -119,22 +133,22 @@ export const symPx = (kind: string, lat: number, z: number, mul = 1) =>
 
 /**
  * Where a DOCKED Trupp marker is actually drawn: its host, and the screen-px offset from that
- * host's glyph centre to the marker's dot (lib/docking · dockSlotOffset — the tile's bottom-left
- * corner, stacking downwards). Null for everything that is not a docked Trupp marker, and for a
- * bond whose host is gone or has no coordinate — those simply keep standing on their own point.
+ * host's glyph centre to the marker's dot (lib/docking · dockSlotOffset — right of the tile, on a
+ * tether). Null for everything that is not a docked Trupp marker, and for a bond whose host is
+ * gone or has no coordinate — those simply keep standing on their own point.
  *
  * ⚠️ Both halves of the map read THIS, or they disagree about where the marker is: MapMarkers
  * anchors the `<Marker>` on the host and offsets it, MapView's label pass books the same box
- * without a DOM. A pass that arbitrated the marker's stored coordinate while the eye saw it on
- * the corner would clear labels for ground nothing is drawn on.
+ * without a DOM. A pass that arbitrated the marker's stored coordinate while the eye saw it beside
+ * the tile would clear labels for ground nothing is drawn on.
  */
 export function teamDockAnchor(
-  e: Entity, entities: readonly Entity[], slots: ReadonlyMap<string, number>, zoom: number, symMul = 1, stripPx?: number,
-): { host: Entity; dx: number; dy: number } | null {
-  if (e.kind !== 'team' || !e.dockedTo) return null
-  const host = entities.find((h) => h.id === e.dockedTo)
-  if (!host || !Array.isArray(host.coord)) return null
-  return { host, ...dockSlotOffset(symPx(host.kind, host.coord[1], zoom, symMul), slots.get(e.id) ?? 0, stripPx) }
+  e: Entity, entities: readonly Entity[], slots: ReadonlyMap<string, number>, zoom: number, symMul = 1,
+): { host: Entity; hostPx: number; dx: number; dy: number } | null {
+  const host = teamDockHost(e, entities)
+  if (!host) return null
+  const hostPx = symPx(host.kind, host.coord[1], zoom, symMul)
+  return { host, hostPx, ...dockSlotOffset(hostPx, slots.get(e.id) ?? 0) }
 }
 // shapes are sized in real-world metres so they grow/shrink with zoom like a
 // ground footprint (a smoke cloud covering an area, an arrow spanning a street)

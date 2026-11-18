@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { CRUMB_LABEL_STYLE, END_TAG_LABEL_STYLE, READOUT_LABEL_STYLE, READOUT_WORDS_STYLE, SYM_CAPTION_GAP, SYM_CAPTION_STYLE, SYM_PILL_STYLE, TEAM_LABEL_STYLE } from './mapView'
+import { CRUMB_LABEL_STYLE, END_TAG_LABEL_STYLE, READOUT_LABEL_STYLE, READOUT_WORDS_STYLE, SYM_CAPTION_GAP, SYM_CAPTION_STYLE, SYM_PILL_STYLE, TEAM_DOT_PX, TEAM_LABEL_STYLE, TEAM_PLATE_TUCK } from './mapView'
 
 // The label pass books every on-map label's box from these numbers, never from the DOM. They have to
 // follow the CSS they stand for: when a type step moved the CSS (stage 2: 11.5 → 11px, 6 → 4px
@@ -87,11 +87,16 @@ describe('on-map label metrics follow their CSS', () => {
     expect(CRUMB_LABEL_STYLE.chromeH).toBe(2 * v)
     expect(CRUMB_LABEL_STYLE.lineH).toBeCloseTo(size * Number(decl(b, 'line-height')), 2)
   })
+  // one piece (M2 C, 18.11.2026): the plate tucks under the dot from its centre on, and its left
+  // padding carries that tuck – `padding: V R V L`
   it('.team-dot b', () => {
     const b = rule('09-whiteboard.css', '.team-dot b')
-    const [v, h] = padding(b)
+    const [v, r, , l] = decl(b, 'padding').split(/\s+/).map(px)
     expect(fontPx(TEAM_LABEL_STYLE.font)).toBe(px(decl(b, 'font-size')))
-    expect(TEAM_LABEL_STYLE.chromeW).toBe(2 * h)
+    expect(TEAM_LABEL_STYLE.chromeW).toBe(l + r)
     expect(TEAM_LABEL_STYLE.chromeH).toBe(2 * v)
+    expect(px(decl(b, 'margin-left'))).toBe(-TEAM_PLATE_TUCK)
+    expect(px(decl(rule('09-whiteboard.css', '.team-dot i'), 'width'))).toBe(TEAM_DOT_PX)
+    expect(l).toBeGreaterThan(TEAM_PLATE_TUCK)
   })
 })

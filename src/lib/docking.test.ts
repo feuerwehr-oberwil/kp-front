@@ -5,7 +5,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Entity, LngLat } from '../types'
 import { appConfig } from '../config/appConfig'
-import { DOCK_RADIUS_PX, DOCK_SLOT_STEP_PX, TEAM_DOCK_RADIUS_PX, carryDocked, dockRadiusFor, dockSlotOffset, dockSlots, isDockHost, isDockable, nearestDockHost } from './docking'
+import { DOCK_RADIUS_PX, DOCK_SLOT_STEP_PX, DOCK_TETHER_PX, TEAM_DOCK_RADIUS_PX, carryDocked, dockRadiusFor, dockRingPx, dockSlotOffset, dockSlots, isDockHost, isDockable, nearestDockHost, teamDockHost } from './docking'
 
 // a fake projection: 1° = 1000 px, so pixel thresholds are easy to stage
 const project = (c: LngLat) => ({ x: c[0] * 1000, y: c[1] * 1000 })
@@ -71,29 +71,27 @@ describe('carryDocked', () => {
   })
 })
 
-// ── Der feste Andock-Platz (Bastian, 15.09.2026) ────────────────────────────────────────────
-// «always show the trupp at the same clean place». A docked Trupp marker is DRAWN on its host
-// tile's bottom-left corner — mirroring the storey badge on the top-right — and several of them
-// stack DOWNWARDS, so each strip [dot][gap][name] gets its own horizontal band. Both halves of
-// the map read these numbers: MapMarkers offsets the marker, MapView's label pass books the box.
-describe('dockSlotOffset (where a docked Trupp marker is drawn)', () => {
-  it('puts the first one just under the tile, its dot flush with the tile\'s left edge', () => {
-    expect(dockSlotOffset(40, 0)).toEqual({ dx: -20 + 8, dy: 20 + 5 + 8 })
+// ── Der Platz neben dem Symbol (M2 C, owner pick 18.11.2026) ──────────────────────────────
+// A docked Trupp marker is drawn at ONE place: right of its host tile, one tether beyond the ring
+// round it, and several stack DOWNWARDS from the tile's middle. Both halves of the map read these
+// numbers: MapMarkers offsets the marker (and its tether), MapView's label pass books the box.
+describe('dockSlotOffset (where a docked Trupp marker\'s dot is drawn)', () => {
+  it('puts the first one beside the tile, on its middle row, a tether beyond the ring', () => {
+    expect(dockSlotOffset(40, 0)).toEqual({ dx: dockRingPx(40) + DOCK_TETHER_PX + 8, dy: 0 })
   })
 
-  it('stacks the next ones DOWNWARDS, one pitch apart, on the same left edge', () => {
+  it('the ring clears the corners of a square tile (half its diagonal, less a rounded corner)', () => {
+    for (const px of [28, 40, 48]) expect(dockRingPx(px)).toBeGreaterThan(Math.SQRT2 * (px / 2 - 6) + 6)
+  })
+
+  it('stacks the next ones DOWNWARDS, one plate apart, on the same column', () => {
     const three = [0, 1, 2].map((i) => dockSlotOffset(40, i))
-    expect(three.map((s) => s.dx)).toEqual([-12, -12, -12])
-    expect(three.map((s) => s.dy)).toEqual([33, 33 + DOCK_SLOT_STEP_PX, 33 + 2 * DOCK_SLOT_STEP_PX])
+    expect(new Set(three.map((s) => s.dx)).size).toBe(1)
+    expect(three.map((s) => s.dy)).toEqual([0, DOCK_SLOT_STEP_PX, 2 * DOCK_SLOT_STEP_PX])
   })
 
-  it('centres the strip under the tile once its width is known', () => {
-    // a 60 px strip under a 40 px tile: the dot half a strip left of centre, same row
-    expect(dockSlotOffset(40, 0, 60)).toEqual({ dx: -30 + 8, dy: 20 + 5 + 8 })
-  })
-
-  it('tracks the glyph: a bigger tile pushes the corner out with it', () => {
-    expect(dockSlotOffset(48, 0)).toEqual({ dx: -24 + 8, dy: 24 + 5 + 8 })
+  it('tracks the glyph: a bigger tile pushes the slot out with it', () => {
+    expect(dockSlotOffset(48, 0).dx).toBeGreaterThan(dockSlotOffset(40, 0).dx)
   })
 })
 
@@ -101,7 +99,7 @@ describe('dockSlots (which Trupp marker sits in which slot)', () => {
   const team = (id: string, dockedTo?: string): Entity =>
     ({ id, kind: 'team', layer: 'taktisch', coord: [0, 0], label: id, dockedTo }) as Entity
 
-  it('numbers each host\'s stack from the corner, by id — never by array order', () => {
+  it('numbers each host\'s stack from the top, by id — never by array order', () => {
     // a sync that re-orders the array must not re-shuffle the stack: a marker that swapped
     // slots between two frames would read as the crew moving
     const slots = dockSlots([team('b', 'tank'), team('a', 'tank'), team('c', 'other')])
@@ -111,7 +109,21 @@ describe('dockSlots (which Trupp marker sits in which slot)', () => {
   })
 
   it('ignores a loose marker and a docked PLACARD — only Trupp markers take a slot', () => {
-    const slots = dockSlots([team('loose'), placard, tank])
-    expect(slots.size).toBe(0)
+    expect(dockSlots([team('loose'), placard, tank]).size).toBe(0)
+  })
+})
+
+describe('teamDockHost (what a docked Trupp marker hangs on)', () => {
+  const team = (dockedTo?: string): Entity =>
+    ({ id: 't', kind: 'team', layer: 'taktisch', coord: [0.001, 0], label: 'Frei Nina', dockedTo }) as Entity
+
+  it('is the host for a docked Trupp, and nothing for a loose one or a docked placard', () => {
+    expect(teamDockHost(team('tank'), [tank])?.id).toBe('tank')
+    expect(teamDockHost(team(), [tank])).toBeNull()
+    expect(teamDockHost(placard, [tank])).toBeNull()
+  })
+
+  it('is nothing when the host is gone – the marker just stands on its point, untethered', () => {
+    expect(teamDockHost(team('tank'), [])).toBeNull()
   })
 })

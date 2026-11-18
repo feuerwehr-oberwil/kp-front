@@ -833,16 +833,23 @@ span.wb-ghost-label { cursor: default; }
   white-space: nowrap; }
 /* a selected team marker on the map rings its pill like the plan board's selection */
 .marker.sel .wb-resource-pill { box-shadow: 0 0 0 2px var(--team), var(--e2); }
-/* resting team marker — compact team-coloured dot + name; the full pill only on selection */
-.team-dot { display: inline-flex; align-items: center; gap: var(--sp-2); }
+/* resting team marker — compact team-coloured dot + name; the full pill only on selection.
+   ONE piece (M2 C, owner pick 18.11.2026): the dot is the plate's head – the plate tucks under it
+   from the dot's centre on (lib/mapView · TEAM_PLATE_TUCK), the dot drawn above it. With 8px of air
+   between them the two read as two marks, and the dot looked like it belonged to something else. */
+.team-dot { display: inline-flex; align-items: center; }
 /* ⚠️ held to lib/mapView · TEAM_DOT_PX (16): the dot's BOX is what sits on the coordinate and what
    the label pass books. An INSIDE Trupp's dot fills it – 16px with a 2px halo (white by day, the
    surface tone at night) and the plates' contact step (--e0, hill climb r13 Sol 2: with e1 a cluster
    ran into one dark fringe). At 13px it was the smallest object on the map (hill climb r15, Opus 4). */
 .team-dot i { width: 16px; height: 16px; border-radius: 50%; background: var(--team);
-  border: 2px solid var(--surface); box-shadow: var(--e0); flex: none; }
+  border: 2px solid var(--surface); box-shadow: var(--e0); flex: none; position: relative; z-index: 1; }
+/* held to lib/mapView · TEAM_LABEL_STYLE / TEAM_PLATE_TUCK: −8px = half the dot, 12px left = that
+   tuck plus 4px of air before the name */
 .team-dot b { font-size: var(--fs-1); font-weight: var(--fw-bold); line-height: 1.25; color: var(--ink); background: var(--label-bg);
-  border-radius: var(--r-xs); padding: 2px var(--sp-2); white-space: nowrap; box-shadow: var(--label-plate); }
+  border-radius: var(--r-xs); margin-left: -8px; padding: 2px var(--sp-2) 2px var(--sp-3); white-space: nowrap; box-shadow: var(--label-plate); }
+/* the storey chip keeps the air the strip's gap used to give it */
+.team-dot > .team-floor { margin-left: var(--sp-1); }
 /* out: THE done dim, and the map's grayscale (01-tokens · --done-filter, as a done symbol's
    `.ts-done`) on the dot – the colour carrier. Not on the name: the night filter's brightness
    lifts the dark plate and the name read LESS gone. No strike-through — see .wb-resource-pill.raus.
