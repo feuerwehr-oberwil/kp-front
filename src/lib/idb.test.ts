@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto'
 import { IDBFactory } from 'fake-indexeddb'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { idbGet, idbRead, idbSet, idbDel, idbUpdate, readThrough, __resetIdbForTests } from './idb'
+import { idbGet, idbRead, idbKeys, idbSet, idbDel, idbUpdate, readThrough, __resetIdbForTests } from './idb'
 import { ApiError } from './api'
 
 beforeEach(() => {
@@ -205,14 +205,35 @@ describe('idb localStorage fallback when IndexedDB is unavailable', () => {
     expect(await idbGet('k')).toEqual({ x: 1 })
   })
 
+  it('hides an acknowledged fallback deletion even while its old native key still exists', async () => {
+    globalThis.indexedDB = new IDBFactory()
+    __resetIdbForTests()
+    await idbSet('recovery', ['old draft'])
+    const blocked = vi.spyOn(IDBObjectStore.prototype, 'delete').mockImplementationOnce(() => {
+      throw new DOMException('native delete unavailable', 'AbortError')
+    })
+    try {
+      expect(await idbUpdate<string[]>('recovery', () => null)).toBe(true)
+    } finally { blocked.mockRestore() }
+    expect(await idbGet('recovery')).toBeNull()
+    expect(await idbKeys('recovery')).toEqual({ ok: true, value: [] })
+    await idbSet('recovery', ['new draft'])
+    expect(await idbKeys('recovery')).toEqual({ ok: true, value: ['recovery'] })
+  })
+
   it('updates the canonical JSON fallback and keeps its deletion on a later native open', async () => {
     await idbSet('recovery', ['one'])
     expect(await idbUpdate<string[]>('recovery', (rows) => [...(rows ?? []), 'two'])).toBe(true)
     expect(await idbGet('recovery')).toEqual(['one', 'two'])
     expect(await idbUpdate<string[]>('recovery', () => null)).toBe(true)
+    // The foreign-work banner only enumerates keys. A fallback deletion must disappear there too.
+    expect(await idbKeys('recovery')).toEqual({ ok: true, value: [] })
     globalThis.indexedDB = new IDBFactory()
     __resetIdbForTests()
     expect(await idbGet('recovery')).toBeNull()
+    expect(await idbKeys('recovery')).toEqual({ ok: true, value: [] })
+    await idbSet('recovery', ['new edit'])
+    expect(await idbKeys('recovery')).toEqual({ ok: true, value: ['recovery'] })
   })
 
   it('round-trips delete via the fallback', async () => {
