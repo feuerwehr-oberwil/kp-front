@@ -217,10 +217,26 @@ good but we don't need the triangle thing. red and notfall is already enough»):
 ## The Trupp form and its questions
 
 - *A door answers the same question the same way* (29.09.2026): the Trupp form and the Auftrag
-  sheet share their Ziel and Leitung controls — a plain `ClearableInput` for the Ziel, and
+  sheet share their Ziel and Leitung controls — `TruppSheets · ZielField` for the Ziel, and
   `TruppSheets · LeitungField` («keine · Ltg n · Nr. …») for the Leitung. «Nr. …» turns into
   the stepper in its own place in the chip row, and a typed number lives there only, never as a
-  chip as well (28.10.2026, owner).
+  chip as well (28.10.2026, owner). At rest «Nr. …» is an OUTLINED chip (`Chip outlined`); tapped,
+  the chip itself is the one lit answer holding «− Ltg n +», opened on the lowest number nobody has
+  drawn, so «keine» goes dark in the same tap (owner pick M5b 1, 18.11.2026 – «keine» stayed lit
+  beside an empty stepper).
+- *The Ziel can be picked on the Karte* (owner pick M5a A, 18.11.2026, `lib/zielPick`): «Karte»
+  beside the form's Ziel steps the form away to the surface the operator last stood on – the
+  Karte, or the Plan they came from (the button then says «Plan») – with every bar hidden and one
+  foot bar «Ziel für den Trupp · Symbol antippen · Abbrechen» (`ZielPickBar`). A tap on a tactical
+  symbol brings the form back with the symbol's name in the Ziel; any other marker is no pick, and
+  nothing on the surface moves meanwhile. ⚠️ TEXT ONLY (M5c): the Trupp is not docked or placed –
+  that stays ⋯ › Platzieren. Every other field survives the trip through draftKeep; the store parks
+  the form itself. Leaving for another surface mid-pick drops the pick (fields kept, as on any
+  switch). The card's Auftrag sheet has the same «Karte», the same pick (owner, 18.11.2026: both
+  doors handle the Ziel the same way): ONE field, `TruppSheets · ZielField`, in both places. The
+  sheet keeps no drafts, so the store parks its three fields as typed and the board opens the sheet
+  again on them, the name in the Ziel; ✕ then saves them like any typed change, «Abbrechen» drops
+  them. Leaving for another surface mid-pick drops the sheet's fields too.
 - *The phone form opens with the Art* (owner 16.11.2026: «i almost forgot to add people because it
   looked like things were highlighted already»): on the PHONE «Unter / Ohne Atemschutz» is the
   column's first row, and the Mannschaft («Trupp», «Person suchen») comes after it. Under the
@@ -284,6 +300,13 @@ good but we don't need the triangle thing. red and notfall is already enough»):
   Objekte» since 16.10.2026), never opens another: the closed Einsatz is forgotten on the device
   and `prefs.landedAt` keeps a cold start at home too, until one is opened by hand or a NEWER alarm arrives (pickBootIncident).
   A Sicherungstrupp wears «SiTr» on its row and card at every width, sent in or not.
+- Closing a different Einsatz from «Alle Einsätze» reads its crew roster first. If it cannot
+  be read, the dialog says «Truppstatus unbekannt» and focuses «Truppstatus erneut prüfen».
+  The operator can cancel or explicitly close despite the unknown status. The dialog identifies
+  the selected incident by its title and alarm time, including an incident another device just opened.
+
+  ![The «Truppstatus unbekannt» dialog with the retry action focused](screenshots/crew-status-unknown.png)
+
 - *The record is kept whole* (staging walk-through r2, 25.09.2026): the Gäste the form files at
   its save are filed QUIETLY and named once in the crew's «Unter AS: …» row — the crew filing
   knows them (`IncidentWorkspace · fileTruppGuest`) instead of reading a render-old Anwesenheit

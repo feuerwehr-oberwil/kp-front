@@ -29,7 +29,8 @@ AGENTS.md on 2026-10-08 (the wording) and 2026-10-18 (the mechanics), wording un
   at import – read inside the component/function instead; (2) a few copy values are structural
   DATA keys, not labels (`contextPanel.unField`/`stoffField` match the non-localized preset
   fields, intake `kategorien` mirrors the backend) – leave these untranslated
-  (German fallback).
+  (German fallback). The document language follows the displayed catalogue, including a fallback
+  to German when a requested overlay cannot load.
 - Help text is per device (`lib/helpDevice`).
 
 ## Removing is «Entfernen», «gelöscht» is a Feuer

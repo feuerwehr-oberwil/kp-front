@@ -497,7 +497,11 @@
    ruler's left end (Journal.tsx · `.jr-strip-row`), and the strip keeps the rest of the row. Its
    name stays «Wiedergabe starten». Bare like every tile at rest (colour grammar, pick 22): no
    frame, no fill, the press tint. The tablet's row has the room for its word – «▶ Wiedergabe» in
-   the worded tile's ink and type (SurfaceControls · `.word`); the phone keeps the bare 44px glyph. */
+   the worded tile's ink and type (SurfaceControls · `.word`); the phone keeps the bare 44px glyph.
+   ⚠️ The row is the search row's MIRROR, on every device (round 18.11.2026 #1, owner: ▶ stood
+   outside the search's left edge and the strip ran past «Art» on the right): the same 4px inset
+   and 8px gap as `.journal-search-row`, so ▶ starts where the field does and the strip ends where
+   «Art» does – [field · Art] over [▶ · strip]. */
 .jr-strip-row { display: flex; align-items: center; gap: var(--sp-2); flex: none; margin: 0 var(--sp-1) var(--sp-2); }
 .jr-strip-row > .jr-strip { flex: 1; min-width: 0; margin: 0; }
 .jr-strip-replay { flex: none; display: inline-flex; align-items: center; gap: var(--sp-2); height: var(--tap); padding: 0 var(--sp-3);
@@ -507,9 +511,8 @@
 .jr-strip-replay:focus-visible { background: var(--ink-8); }
 .jr-strip-replay .i { width: 18px; height: 18px; flex: none; }
 @media (--phone) {
-  /* the phone: the bare glyph, the ✕'s ink, and the row reaches the drawer's edge like the strip
-     did (15-mobile · `.journal-drawer > .jr-strip`) */
-  .jr-strip-row { gap: var(--sp-1); margin: 0 calc(-1 * var(--sp-1)) var(--sp-2); }
+  /* the phone: the bare glyph in the ✕'s ink. The row keeps the search row's edges (above) – it
+     reached 4px past them on each side until 18.11.2026, with the log */
   .jr-strip-replay { width: var(--tap); padding: 0; justify-content: center; color: var(--ink-dim); }
   /* …and the trailing group closes up, so the sentence keeps its share on the rows that carry
      more than one control (a photo row's thumbnails, an audio row's jump and play). */

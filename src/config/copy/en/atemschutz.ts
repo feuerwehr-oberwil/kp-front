@@ -443,6 +443,12 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     logClockRestart: 'Team {name}: contact clock restarted – incident reopened',
     cardMenuWord: 'More',
     lineOnPlan: 'Plan',
+    zielPickMap: 'Map',
+    zielPickPlan: 'Plan',
+    zielPickMapTitle: 'Pick the target on the map',
+    zielPickPlanTitle: 'Pick the target on the plan',
+    zielPickBarTitle: 'Target for the team',
+    zielPickBarHint: 'Tap a symbol',
   },
   lineDecor: {
     W: 'Water',

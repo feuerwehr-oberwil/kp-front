@@ -1,8 +1,8 @@
-import { useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
 import { appConfig } from '../config/appConfig'
 import { useChartReadout } from '../lib/chartCursor'
 import { cx } from '../lib/cx'
-import { fillTemplate } from '../lib/format'
+import { fillTemplate, fmtWhen } from '../lib/format'
 import { fmtDistance } from '../lib/geo'
 import { HOSES, RELAY, RELAY_HOSE_SIZES, type RelayPlan } from '../lib/hydraulics'
 import { pumpWarnings } from '../lib/linePumps'
@@ -82,6 +82,9 @@ export function WaterRelay({ ctrl, showHose = false, wide = false, onClose, onAd
           <Popover side="bottom" align="end" zIndex={60} popupClassName={s.sourcesPop} ariaLabel={R.sourcesLabel}
             trigger={<IconButton label={R.sourcesLabel}><Icon id="info" /></IconButton>}>
             <p className={s.sources}>{fillTemplate(R.sourcesNote, { bar: RELAY.minInletBar })}</p>
+            {ctrl.calculatedAt != null && <p className={s.sources}>
+              {fillTemplate(R.calculatedAt, { time: fmtWhen(new Date(ctrl.calculatedAt).toISOString()) })}
+            </p>}
           </Popover>
           {onClose && <IconButton label={appConfig.copy.closeDialog} onClick={onClose}><Icon id="close" /></IconButton>}
         </div>
@@ -357,9 +360,10 @@ export function RelayChart({ ctrl, plan }: { ctrl: RelayController; plan: RelayP
             )
           })}
         </svg>
-        {/* the read-out, over the top of the plot at the spot, kept inside the chart's edges */}
+        {/* the read-out, over the top of the plot at the spot, slid inside the chart's edges by its
+            own width (MeasurePanel.module · .mp-readout) */}
         {cur != null && (
-          <div className={m['mp-readout']} style={{ left: `${Math.min(80, Math.max(20, (X(cur) / W) * 100))}%` }} role="status">
+          <div className={m['mp-readout']} style={{ '--at': X(cur) / W } as CSSProperties} role="status">
             <b>{fmtDistance(cur)}</b>
             {plan.terrain && <span>{fillTemplate(appConfig.copy.measure.altitude, { m: Math.round(altAt(plan, cur)) })}</span>}
             <span>{fmtBar(barAt(plan, cur))}</span>

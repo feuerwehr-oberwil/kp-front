@@ -11,9 +11,9 @@
  * tiles fold TOGETHER, ONE rank for the row: each tile's word moves UNDER its glyph at 11/700 (its
  * short word where it has one), a count stays beside its glyph («⚠ 4») – a folded tile is never a
  * bare glyph, on any device (owner picks HEADS.9 and 24a, button sweep 17.11.2026; 13-incident ·
- * «fold»; it was one tile at a time, to a bare glyph on a tablet), (3) the one primary tile
- * shortens («+ Trupp anmelden» → «+ Trupp»; it keeps its word and its fill), then a head's own
- * last words (the quiet «✓ Gespeichert» keeps its ✓ — a LOUD sync state never folds; the
+ * «fold»; it was one tile at a time, to a bare glyph on a tablet) – the primary too, to its glyph
+ * over its short word («+» over «Trupp»), told apart by its fill alone (round 18.11.2026 #5), (3) a
+ * head's own last words (the quiet «✓ Gespeichert» keeps its ✓ — a LOUD sync state never folds; the
  * Rapport's title says the nav's «Rapport»), and only as the LAST resort (≤ 359px, a locale that
  * cannot fit) the tiles take a second row (`data-fit-wrap`). Each head states its ladder where
  * its tiles are drawn — `data-fold="<rank>"` on the part, `.fold-long` / `.fold-short` inside
@@ -42,22 +42,23 @@ import { climbLadder, useHeadFit } from './useHeadFit'
  *   1. the quiet line drops its time («Gespeichert um 23:21» → «Gespeichert»),
  *   2. the tiles fold TOGETHER — one rank for the whole row, never one tile at a time (owner pick
  *      24a, 17.11.2026): each word stands under its glyph (its short word where it has one), a
- *      count stays beside its icon («⚠ 4»). The ladder measures those narrower tiles like any
- *      other fold,
- *   3. the one primary tile shortens («+ Trupp anmelden» → «+ Trupp»; it keeps its word and fill),
- *   4. the quiet line keeps its MARK («✓» — the sentence stays its `title`, and a LOUD state never
+ *      count stays beside its icon («⚠ 4»). The primary folds with them («+» over «Trupp», its
+ *      fill the only difference – round 18.11.2026 #5, owner: «Stack too. Primary difference
+ *      should be color.»; it shortened a rank later, beside its own glyph). The ladder measures
+ *      those narrower tiles like any other fold,
+ *   3. the quiet line keeps its MARK («✓» — the sentence stays its `title`, and a LOUD state never
  *      folds: it is not a quiet line). That is the handed-over phone board's quiet state since
  *      09.09., and what buys the 390px Trupps head its one row while an alarm tile stands,
- *   5. the tiles close up: 6px apart and 8px inside a worded tile (`data-fit-tight` — the top bar's
+ *   4. the tiles close up: 6px apart and 8px inside a worded tile (`data-fit-tight` — the top bar's
  *      «gaps» rung; every tile stays a tap wide), which is what fits a 360px phone,
- *   6. only then — ≤ 359px, or a locale that cannot fit — the tiles take a second row (and open up
+ *   5. only then — ≤ 359px, or a locale that cannot fit — the tiles take a second row (and open up
  *      again: that row has the room).
  *
  * The contract is markup, so every head states its own ladder where its tiles are drawn:
  *   - `data-fold="<rank>"` on each part that can give (the quiet line, a tile). Lower ranks give
- *     first; parts sharing a rank give together — every secondary tile of a head shares ONE rank.
+ *     first; parts sharing a rank give together — every tile of a head shares ONE rank, the primary too.
  *     The ranks PRESENT are the steps — a tile that is not rendered (no alarm, nothing deleted)
- *     costs no step. The quiet line gives twice and lists two ranks (`data-fold="1 4"`: the time
+ *     costs no step. The quiet line gives twice and lists two ranks (`data-fold="1 3"`: the time
  *     first, the word much later); a tile never does.
  *   - inside it, `.fold-long` is what shows until the part is folded and `.fold-short` what shows
  *     after; a folded tile shows its word (the short one, else the long one) UNDER its glyph

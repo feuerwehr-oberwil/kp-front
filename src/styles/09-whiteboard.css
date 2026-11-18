@@ -204,7 +204,8 @@
   /* ⚠️ ONE line, always (owner, 18.09.2026): a wrapped row put a whole extra band of chrome across
      the sheet. Since sweep 28.10.2026 (#8) the row holds only the Objekt chip (street and number,
      one lamp – the sheet behind it says the rest), the Messungen chip and the FAB, so the name
-     has the room; it is still the piece that truncates when the row runs out. */
+     has the room; it is the LAST piece that truncates when the row runs out (the Gebäude-Info
+     beside it yields first, round 18.11.2026 #2 – `.wb-tile:is(.wb-object, .wb-building)` below). */
   .wb-botleft { flex-wrap: nowrap; }
 }
 
@@ -698,17 +699,14 @@ span.wb-ghost-label { cursor: default; }
   button.wb-ghost-label::before { content: ''; position: absolute; inset: -10px -2px; }
 }
 
-/* selected-team action bar — one compact toolbar under the pill, replacing the two
-   corner orbs (mark top-left + delete top-right) that used to crowd the pill.
-   ⚠️ DARK in both themes on purpose (29.09.2026, owner K8): with the tool docks it is the ARMED
+/* selected-team action bar — one compact toolbar, replacing the two corner orbs (mark top-left +
+   delete top-right) that used to crowd the pill. In the app it is DOCKED at the foot (below); it
+   hangs under the pill only where a pill is drawn outside a surface (a unit test's bare marker).
+   Undocked it is DARK in both themes (29.09.2026, owner K8): with the tool docks it is the ARMED
    material — «this marker is in hand» — which the light floating family (Ebenen, Ansichten, the
    Suche card) must never be mistaken for. Its inks are the on-ink tokens, never frozen white. */
 .wb-pill-acts { position: absolute; top: calc(100% + 9px); left: 50%; transform: translateX(-50%); z-index: 6;
   display: flex; gap: var(--sp-2); background: var(--ink-fill); border-radius: calc(var(--r-sm) + var(--bar-pad)); padding: var(--bar-pad); box-shadow: var(--e4); }
-/* …flipped ABOVE the marker when it would otherwise land under the phone's fixed bottom lanes or
-   past the canvas edge. The decision is measured in components/TwinTeamPill (`data-flip`), which
-   also writes the horizontal nudge as an inline transform — here we only restate the anchor. */
-.wb-pill-acts[data-flip="up"] { top: auto; bottom: calc(100% + 9px); }
 /* --tap square, the gloved floor (style sweep T4, 15.11.2026 – it was 40px) */
 .wb-pa { width: var(--tap); height: var(--tap); border-radius: var(--r-sm); border: none; padding: 0; color: var(--on-accent-ink);
   background: color-mix(in srgb, var(--on-accent-ink) 14%, transparent); display: grid; place-items: center; cursor: pointer; }
@@ -725,17 +723,73 @@ span.wb-ghost-label { cursor: default; }
 .wb-pill-acts.worded .wb-pa { width: auto; min-width: 56px; height: 52px; padding: 0 var(--sp-2);
   grid-template-rows: 18px auto; align-content: center; gap: 2px; }
 .wb-pa-word { font-size: var(--fs-micro); font-weight: var(--fw-bold); line-height: 1.1; white-space: nowrap; }
+/* ── docked at the foot (round 18.11.2026; components/TwinTeamPill · `docked`) ── beside the marker
+   the card and the bar ran off the screen and covered the Lage. On every screen the BAR wears the
+   ✥ ⟳ bar's anatomy (11-measure · .sel-bar): floating glass, 46px tiles resting bare in ink, glyph
+   22 (over its word with «Beschriftung»). The CARD – name, state, storey, time, ✕ – is the
+   floating row's material. Where they stand differs by size, below. */
+.wb-pill-card { box-sizing: border-box; height: var(--line-h);
+  display: flex; align-items: center; gap: var(--sp-1); padding: 0 var(--sp-2) 0 var(--sp-1);
+  border-radius: var(--r-bar); background: var(--float-bg); backdrop-filter: var(--float-blur); box-shadow: var(--float-edge);
+  color: var(--ink); }
+/* the card is the material: the pill inside gives up its plate, edge and shadow, and its name
+   ellipsises before the ✕. An alarm tier tints the CARD (the pill's tint and edge, .tone-*), so
+   no box stands inside the box. */
+.wb-pill-card .wb-resource-pill { flex: 1 1 auto; min-width: 0; border: none; box-shadow: none; background: transparent; }
+.wb-pill-card:has(> .tone-warn) { background: color-mix(in srgb, var(--amber) 14%, var(--surface)); box-shadow: inset 0 0 0 1.5px var(--amber), var(--shadow); }
+.wb-pill-card:has(> .tone-crit) { background: color-mix(in srgb, var(--red) 16%, var(--surface)); box-shadow: inset 0 0 0 1.5px var(--red), var(--shadow); }
+.wb-pill-card :is(.wb-resource-body, .wb-resource-name) { min-width: 0; max-width: 100%; }
+.wb-pill-card .wb-resource-name b { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.wb-pill-card .wb-resource-name > :not(b) { flex: none; }
+/* its ✕ wears THE way out's plate (the colour table, as the dock's and the ✥ ⟳ bar's) */
+.wb-pill-card-x { flex: none; display: grid; place-items: center; width: var(--tap); height: var(--tap); padding: 0;
+  border: none; border-radius: var(--r-sm); background: var(--dock-control-bg); color: var(--ink-dim); cursor: pointer; }
+.wb-pill-card-x .i { width: 22px; height: 22px; }
+.wb-pill-card-x:active { background-image: linear-gradient(var(--press), var(--press)); }
+.wb-pill-acts.docked { position: static; top: auto; transform: none; box-sizing: border-box;
+  width: auto; max-width: none; padding: var(--bar-pad); gap: 4px; flex-wrap: nowrap; align-items: center; justify-content: center;
+  border-radius: var(--r-bar); background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
+  border: 1px solid var(--glass-line); box-shadow: var(--e4); color: var(--ink); }
+.wb-pill-acts.docked .wb-pa { width: 46px; height: 46px; padding: 0; color: var(--ink); background: transparent; }
+.wb-pill-acts.docked .wb-pa .i { width: 22px; height: 22px; }
+.wb-pill-acts.docked.worded .wb-pa { width: auto; min-width: 76px; height: var(--vrail-tile); padding: 0 8px;
+  grid-template-rows: 24px auto; gap: 2px; }
+.wb-pill-acts.docked .wb-pa:active { background-image: linear-gradient(var(--press), var(--press)); }
+@media (hover: hover) {
+  .wb-pill-card-x:hover { background: var(--dock-control-hover); color: var(--ink); }
+  .wb-pill-acts.docked .wb-pa:hover:not(:disabled) { background: var(--hover); }
+}
+/* TABLET + DESKTOP (owner pick A «✥ ⟳ twin», 18.11.2026): the bar stands exactly where the ✥ ⟳ bar
+   of every other selection does – bottom-centre on the view bar's baseline (11-measure · .sel-bar)
+   – and the card on top of it, as wide as the bar (or the bar as wide as a long name). Nothing
+   steps aside: the wide layouts keep their bottom-centre free. FIXED for the reason the ✥ ⟳ bar
+   is: «the same spot» means the same spot on the SCREEN, on the Karte and the Plan alike. */
+.wb-pill-dock { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: var(--z-chrome);
+  display: flex; flex-direction: column; align-items: stretch; gap: 8px; min-width: 280px; max-width: calc(100vw - 32px);
+  animation: pop .16s var(--ease); }
+/* PHONE (owner pick M1 A): the two stand in their own slots – the card in the floating row's left
+   of the Eintrag FAB (pick M1b: the FAB keeps its corner), the bar in the tool bar's, full width at
+   `--rail-h` like the ✥ ⟳ bar there (15-mobile). `--dock-bottom` is one bar over `--tools-bottom`
+   with or without a tool bar under it, so the two never meet. Both bars and the chip row step
+   aside while it shows (15-mobile · the ✥ ⟳ rule). */
+@media (--phone) {
+  .wb-pill-dock { display: contents; }
+  .wb-pill-card { position: fixed; z-index: var(--z-chrome); left: max(8px, env(safe-area-inset-left)); bottom: var(--dock-bottom);
+    right: calc(max(8px, env(safe-area-inset-right)) + var(--line-h) + var(--float-gap)); animation: pop .16s var(--ease); }
+  .wb-pill-acts.docked { position: fixed; z-index: var(--z-chrome);
+    left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right)); bottom: var(--tools-bottom);
+    height: var(--rail-h); padding: 4px 8px; animation: pop .16s var(--ease); }
+  .wb-pill-acts.docked .wb-pa { flex: 1 1 0; width: auto; min-width: 44px; padding: 0 var(--sp-2); }
+  .wb-pill-acts.docked.worded .wb-pa { min-width: 44px; height: 46px; padding: 0 var(--sp-2); grid-template-rows: 22px auto; gap: 0; }
+  .wb-pill-acts.docked .wb-pa-word { line-height: 1.3; }
+}
 /* ⚠️ Every action on this bar wears the bar's ONE neutral wash (29.09.2026, sweep K3). «Position
    markieren» was a --blue fill and «Bei den Trupps zeigen» a --green one: blue means «chosen»
    (--sel) and green the Eintritt tone, so colours on the bar said nothing about which to press.
    The delete and the rename live in «Mehr» since rare-user round 2 (M12), so no button here wears
    the delete outline or a pressed fill. */
-/* the panel hangs under the bar, so it flips with it — one measurement, carried by the sibling;
-   `--acts-h` is the bar's measured height (TwinTeamPill · useBarPlacement), taller once worded */
-.wb-pill-acts[data-flip="up"] ~ .wb-resource-connections { top: auto; bottom: calc(100% + 6px + var(--acts-h, 56px)); }
-.wb-resource-connections { position: absolute; top: calc(100% + 6px + var(--acts-h, 56px)); left: 50%; z-index: 7;
-  /* the bar's sideways nudge, written by components/TwinTeamPill · useBarPlacement */
-  transform: translateX(calc(-50% + var(--acts-dx, 0px)));
+/* the Plan's «Verbundene Linien» card hangs under the PILL: the bar is docked at the foot */
+.wb-resource-connections { position: absolute; top: calc(100% + 6px); left: 50%; z-index: 7; transform: translateX(-50%);
   width: min(290px, 70vw); padding: var(--sp-2); border: 1px solid var(--border); border-radius: var(--r-ctl);
   background: var(--surface); box-shadow: var(--e3); color: var(--ink); }
 /* (its head is the panel's own `.ctx-section-label`, unchanged – it was an 11px/800 cut of its own) */
@@ -833,16 +887,23 @@ span.wb-ghost-label { cursor: default; }
   white-space: nowrap; }
 /* a selected team marker on the map rings its pill like the plan board's selection */
 .marker.sel .wb-resource-pill { box-shadow: 0 0 0 2px var(--team), var(--e2); }
-/* resting team marker — compact team-coloured dot + name; the full pill only on selection */
-.team-dot { display: inline-flex; align-items: center; gap: var(--sp-2); }
+/* resting team marker — compact team-coloured dot + name; the full pill only on selection.
+   ONE piece (M2 C, owner pick 18.11.2026): the dot is the plate's head – the plate tucks under it
+   from the dot's centre on (lib/mapView · TEAM_PLATE_TUCK), the dot drawn above it. With 8px of air
+   between them the two read as two marks, and the dot looked like it belonged to something else. */
+.team-dot { display: inline-flex; align-items: center; }
 /* ⚠️ held to lib/mapView · TEAM_DOT_PX (16): the dot's BOX is what sits on the coordinate and what
    the label pass books. An INSIDE Trupp's dot fills it – 16px with a 2px halo (white by day, the
    surface tone at night) and the plates' contact step (--e0, hill climb r13 Sol 2: with e1 a cluster
    ran into one dark fringe). At 13px it was the smallest object on the map (hill climb r15, Opus 4). */
 .team-dot i { width: 16px; height: 16px; border-radius: 50%; background: var(--team);
-  border: 2px solid var(--surface); box-shadow: var(--e0); flex: none; }
+  border: 2px solid var(--surface); box-shadow: var(--e0); flex: none; position: relative; z-index: 1; }
+/* held to lib/mapView · TEAM_LABEL_STYLE / TEAM_PLATE_TUCK: −8px = half the dot, 12px left = that
+   tuck plus 4px of air before the name */
 .team-dot b { font-size: var(--fs-1); font-weight: var(--fw-bold); line-height: 1.25; color: var(--ink); background: var(--label-bg);
-  border-radius: var(--r-xs); padding: 2px var(--sp-2); white-space: nowrap; box-shadow: var(--label-plate); }
+  border-radius: var(--r-xs); margin-left: -8px; padding: 2px var(--sp-2) 2px var(--sp-3); white-space: nowrap; box-shadow: var(--label-plate); }
+/* the storey chip keeps the air the strip's gap used to give it */
+.team-dot > .team-floor { margin-left: var(--sp-1); }
 /* out: THE done dim, and the map's grayscale (01-tokens · --done-filter, as a done symbol's
    `.ts-done`) on the dot – the colour carrier. Not on the name: the night filter's brightness
    lifts the dark plate and the name read LESS gone. No strike-through — see .wb-resource-pill.raus.
@@ -936,7 +997,7 @@ span.wb-ghost-label { cursor: default; }
    nothing else in a bar or a dock (owner pick 22, 17.11.2026, docs/ui-conventions.md · «The colour
    table»): every other tile rests bare. Declared on both bars because `.sel-bar` (11-measure) is a
    sibling of the dock, not inside it (button sweep CHROME.5). */
-.wb-dock, .sel-bar {
+.wb-dock, .sel-bar, .wb-pill-card {
   --dock-control-bg: color-mix(in srgb, var(--ink) 7%, var(--surface));
   --dock-control-hover: color-mix(in srgb, var(--ink) 13%, var(--surface)); }
 .wb-dock::-webkit-scrollbar { width: 6px; }
@@ -1233,6 +1294,11 @@ span.wb-ghost-label { cursor: default; }
 .wb-join { display: inline-flex; align-items: stretch; flex: 0 1 auto; min-width: 0; max-width: 100%; border-radius: var(--r-bar);
   background: var(--float-bg); backdrop-filter: var(--float-blur); box-shadow: var(--float-edge); }
 .wb-join:empty { display: none; }
+/* ⚠️ …but a card opened from a joined chip lets go of the blur while it stands (round 18.11.2026):
+   a `backdrop-filter` makes the group the containing block of its `fixed` descendants, so on a
+   phone the Plan's Gebäude card (BuildingFloat · .pop, fixed to the bars' width) was laid out in the
+   join's own 230px and ran up under the top bar. The plate keeps its --float-bg tone. */
+@media (--phone) { .wb-join:has([role="dialog"]) { backdrop-filter: none; } }
 .wb-join .wb-scale-chip { background-color: transparent; backdrop-filter: none; box-shadow: none; border-radius: 0; }
 .wb-join > * + * { border-left: 1px solid var(--border); }
 .wb-join > :first-child, .wb-join > :first-child > .wb-scale-chip { border-top-left-radius: var(--r-bar); border-bottom-left-radius: var(--r-bar); }
@@ -1244,7 +1310,12 @@ span.wb-ghost-label { cursor: default; }
    word, never past `--float-tile-max`: a long street ellipsises INSIDE its tile («A label never
    leaves its button»), the whole name stays the button's `aria-label` / `title`. The trailing cue
    (the lamp, the ›) stands at the tile's top-right corner. The tablet keeps its chips (word beside).
-   Opt-in by class: the calibration instrument (a sentence) stays a chip. */
+   Opt-in by class: the calibration instrument (a sentence) stays a chip.
+   ⚠️ …except the NAME tile – the Objekt's / building's street and number – which has no cap (round
+   18.11.2026 #2, owner: «The street and number should be spelt out almost always»; at 136px
+   «Allschwilerstrasse 100a» read «Allschwilerstrasse …» with 90px of the row still free). It takes
+   what the row has; the Gebäude-Info sharing its glass gives way first (BuildingFloat.module ·
+   .anchor) and the name ellipsises only when that one is down to its glyph. */
 @media (--phone) {
   .wb-scale-chip.wb-tile { --float-tile-max: 136px; position: relative; display: inline-grid; grid-template-rows: 22px auto;
     grid-template-columns: minmax(0, 1fr); align-content: center; justify-items: center; gap: 0;
@@ -1252,6 +1323,7 @@ span.wb-ghost-label { cursor: default; }
   .wb-scale-chip.wb-tile > svg:first-child { width: 22px; height: 22px; }
   .wb-scale-chip.wb-tile > span { max-width: 100%; font-size: var(--fs-micro); line-height: 1.3; }
   .wb-tile > :is(.wb-lamp, .wb-chip-chev) { position: absolute; top: 7px; right: 7px; margin: 0; translate: none; }
+  .wb-scale-chip.wb-tile:is(.wb-object, .wb-building) { --float-tile-max: none; }
 }
 /* ⚠️ NO state ring (26.09.2026, owner: the calibrated Massstab wore a blue outline beside a green
    dot, and read as «selected»). A state is the chip's LAMP — the one glyph that carries a state
@@ -1272,11 +1344,14 @@ span.wb-ghost-label { cursor: default; }
   .wb-scale-persist { left: 10px; right: 10px; bottom: calc(var(--float-bottom) + var(--line-h) + var(--float-gap));
     max-width: none; flex-wrap: wrap; }
 }
-/* armed (its Plan sheet or card open) = the chip is LIT, the way an armed tile of the tool
-   bar is: a quiet blue wash mixed INTO the glass (never a see-through tint — see below) and a
-   blue glyph. Not a ring (26.09.2026). */
-.wb-scale-chip.arm { background: color-mix(in srgb, var(--blue) 14%, var(--float-bg)); }
-.wb-scale-chip.arm svg:not(.wb-chip-chev) { color: var(--blue); }
+/* armed (its Plan sheet or card open) = the chip is LIT, the way a «here» tile of the bars is
+   (Auswahl, Karte): the `--here-fill` plate, its ink and glyphs in `--on-here` – what is lit is
+   open (round 18.11.2026, owner pick M4 B; the Gebäude and Messungen chips add ⌄, «tap again
+   folds it»). It was a 14 % blue wash over the glass, which on the iPhone nobody read as «open».
+   Opaque, so nothing shows through; not a ring (26.09.2026). */
+.wb-scale-chip.arm { background: var(--here-fill); color: var(--on-here); }
+.wb-scale-chip.arm svg:not(.wb-chip-chev), .wb-scale-chip.arm .wb-chip-chev { color: var(--on-here); }
+@media (hover: hover) { .wb-scale-chip.arm:hover { background-color: var(--here-fill-hover); } }
 /* …except the Messgerät inside a reading pill (ReadingsChip): it is the pill's ink, on amber/red
    in any state of the chip – the chip's dim/hover/armed glyph colours made it navy on red */
 .wb-scale-chip .sym-pill svg:not(.wb-chip-chev) { color: inherit; }

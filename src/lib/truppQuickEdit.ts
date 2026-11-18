@@ -64,6 +64,16 @@ export function leitungChoices(own: number | null | undefined, options: readonly
   return out.sort((a, b) => a.no - b.no)
 }
 
+/** The number «Nr. …» opens on: the lowest Leitung nobody has drawn (owner pick M5b 1, 18.11.2026 –
+ *  the opened chip is the one lit answer, so it holds a number from the first frame, never «–»
+ *  beside a «keine» that still looked chosen). 1–99, the stepper's range. */
+export function nextFreeLeitung(options: readonly LeitungOption[]): number {
+  const drawn = new Set(options.map((o) => o.no))
+  let n = 1
+  while (drawn.has(n) && n < 99) n++
+  return n
+}
+
 /** What the Auftrag sheet's Speichern hands `editTrupp`: the Trupp as it stands, with ITS three
  *  fields replaced — an empty Ziel and «keine» Leitung clear theirs (absent, never ''), as the
  *  form's save does. */

@@ -201,7 +201,7 @@ while the head's subtitle says when («Schadenlage · erledigt 10:57»).
   (default) | quiet | danger | go` (go = the green primary whose move keeps things as they are, the
   Meldeleiste's «Am Einsatzort lassen»), size `md` (44) `| lg` (52, the one big action of a screen),
   `block`, `icon`; `IconButton` requires `label` (aria-label + title, which the hold-tooltip
-  reads), variant `quiet | secondary`; `Chip` is a choice (`selected` → `--sel` + aria-pressed).
+  reads), variant `quiet | secondary`; `Chip` is a choice (`selected` → `--sel` + aria-pressed); `outlined` is the one action chip among answers – framed, no wash, «tapping opens something» (the Leitung's «Nr. …», owner pick M5b 1, 18.11.2026).
   All default to `type="button"`. A surface's `className` on them is for placement only; a new
   look is a new variant there, not a local override. Do not write a new `.foo-btn` rule.
   `<Button>` and `.ip-btn` are ONE definition (08.10.2026): the component renders the global
@@ -217,7 +217,8 @@ while the head's subtitle says when («Schadenlage · erledigt 10:57»).
   glyph at 11/700 at the same step (the page heads: one `data-fold` rank for the tiles,
   `lib/pageHeadFit`; the top bar: `'action-words'`, `lib/useHeadFit`) – never one button at a
   time, and a folded tile is never a bare glyph, on any device (13-incident · «fold», 10-journal ·
-  «the fold»). The primary may shorten its word a step later («+ Trupp»); where even the folded
+  «the fold»). The primary folds with them, «+» over «Trupp», the same tile told apart only by its fill
+  (round 18.11.2026 #5, owner: «Stack too. Primary difference should be color.»); where even the folded
   row cannot fit, a tile takes a short word (a `…Short` key), then the head's second row. A phone
   wears the folded tiles where its CSS says so (the top bar's `data-tiles`). Exempt: the sheet ✕,
   a field's clear, a list row's chevron and a quiet row-end bin (below).
@@ -370,10 +371,21 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
   `enterKeyHint="done"` – and acts; a field whose Return sends or searches names that instead);
   **Esc keeps what was typed and leaves the field**, one-liner and textarea alike – like tapping
   away, nothing reverts (a typo is fixed with ↶). In a textarea Return stays a new line.
-- **A finger slides through a menu** (sweep 30.10.2026): on touch, a `Menu` highlights the row
-  under a SLIDING finger and lifting on a row presses it (a checkbox row toggles, the menu stays
-  open); lifting elsewhere does nothing, a plain tap is the browser's. A menu whose content scrolls
-  keeps its native scroll, and `ComboMenu` lists are not menus (`lib/overlays/menuSlide`).
+- **A finger slides through a menu** (sweep 30.10.2026; everywhere since round 18.11.2026): on
+  touch, a menu-like list highlights the row under a SLIDING finger (`data-slide-on`, the menu
+  row's `--blue-8` wash) and lifting on a row presses it (a checkbox row toggles, the menu stays
+  open; a destructive row's confirm still runs); lifting elsewhere does nothing, a plain tap is the
+  browser's. Worn by every `Menu`, the app menu (the Einsatz menu and home's «Einsätze ▾»,
+  `menuSlide · appMenuSlide`), Ansichten and `ComboMenu`. A list whose content scrolls keeps
+  its native scroll, a drag from a text field stays the field's (`lib/overlays/menuSlide`). A new
+  hand-rolled menu wears it too (`attachMenuSlide(frame, rows)`). Left out on purpose: `ListRow`
+  lists, Ebenen and the sheets – they scroll or switch, they are not pick-one menus.
+- **A press look never stays where the finger has left** (round 18.11.2026): iOS keeps `:active`
+  on the control a touch began on wherever the finger slides. `lib/pressRelease` (installed once in
+  `main.tsx`) sets `<html data-press-left>` the moment the finger leaves that control's box or
+  anything scrolls, and 02-base.css turns `--press` transparent until it lifts. So **every press
+  wash is drawn from `--press`** – a press look of another colour would stick again. Every
+  `:hover` stays gated on `(hover: hover)` (a phone has a sticky hover otherwise).
 - **A scroll body is `overscroll-behavior: contain`** (scroll sweep 15.11.2026): the body of a
   sheet or page (`.ip-sheet > .ip-body`, `.lc-body`, `.ctx-body`, the Verlauf, the Atemschutz
   `.body` / `.modalBody` / `.miniBody`, the Mittel, Anwesenheit and Checkliste lists) and every list
@@ -393,7 +405,7 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
   form's own rule lost to a later one and put its buttons into an iPhone's corners).
 - **One menu row, one wash.** Every row `Menu`/`ContextMenu` renders wears `ui-menu-item`
   (+ `ui-menu-danger`), which carries the hover (`--blue` at 8 %, gated on `hover: hover`), the
-  keyboard `[data-highlighted]`, the `--press` wash and the `--r-ctl` row radius
+  keyboard `[data-highlighted]` (a sliding finger's `[data-slide-on]` is the same wash), the `--press` wash and the `--r-ctl` row radius
   (13-incident.css · «ONE menu row»). A caller's `itemClassName` skin owns padding, type and
   icons — never what a press looks like. Hand-rolled option lists (`.combo-opt`, `.pickOpt`,
   `.pp-row`, `.ip-ac-row`, `.lrow`) match those values.
@@ -541,7 +553,9 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     corner `--r-bar` on a piece, the one corner on a message; 14px before the glyph; 16px glyphs. A
     STATE is a glyph colour inside it — the chip's lamp, a toast's leading icon, the object chip's
     amber ⚠ — never an outline (the Massstab chip wore a blue ring beside its green lamp); «open /
-    armed» is a blue wash mixed into the glass. «Not yet» is GREY (29.09.2026): a plan with no
+    armed» is LIT – the `--here-fill` plate in `--on-here` ink (`.wb-scale-chip.arm`, owner pick M4 B,
+    18.11.2026: the blue wash it wore until then read as «still standing there» on the iPhone), and a
+    chip that toggles a card above it (Gebäude-Info, Messungen) adds ⌄ in its corner. «Not yet» is GREY (29.09.2026): a plan with no
     scale and no link shows a grey lamp, never red (red = danger, act now; an unlinked plan read
     as a picture is not an emergency). **A chip's trailing cue says its job** (duck sweep ELEM.3,
     17.11.2026): a lamp = opens the Plan sheet, a › = goes somewhere (the object picker, a
@@ -575,8 +589,8 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     setting, not the floating row's – on that baseline; `--fab-safe` is its width + the gap. On a
     phone EVERY piece of that row is such a tile (button round 17.11.2026, owner pick 12C): the
     chips (`.wb-tile`) and the Karte's squares too, the lamp or › at the tile's corner, a long word
-    cut inside a tile capped at 136px ([`phone-layout.md`](phone-layout.md) › «The phone's floating
-    row is TILES»); the tablet keeps them chips. A new piece in that zone joins the family and
+    cut inside a tile capped at 136px – the street on the Objekt tile is spelt out, uncapped
+    ([`phone-layout.md`](phone-layout.md) › «The phone's floating row is TILES»); the tablet keeps them chips. A new piece in that zone joins the family and
     the row (and the `--float-row` `:has` list) — never a height, material or offset of its own.
     The map's attribution ⓘ wears the family's MATERIAL only (03-map, 04.11.2026): a round 24px
     plate at the 16px inset (32px until 05.11.2026, owner: «small and quiet»), its outline glyph in
@@ -596,9 +610,9 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     OUT OF THE TOP BAR wears the bar's own glass (`--glass` + blur + `--glass-line` + `--shadow`):
     the Atemschutz head detail and the Meteo details (30.09.2026:
     `.tb-weather-pop` wore `--surface`, a lighter slate than the bar at night).
-    **Dark in both themes (`--ink-fill` + `--on-accent-ink`) is the Trupp marker's action bar
-    alone** (`.wb-pill-acts` — this marker is in hand); a new surface that is dark by day is a
-    bug. **Tool docks wear the floating material too** (`.wb-dock`, 20.10.2026, owner: «why do we
+    **Nothing is dark by day**: the last exception, the Trupp marker's action bar (`.wb-pill-acts`,
+    `--ink-fill`), docks at the foot in the ✥ ⟳ bar's glass on every screen since 18.11.2026
+    (phone-layout.md); a new surface that is dark by day is a bug. **Tool docks wear the floating material too** (`.wb-dock`, 20.10.2026, owner: «why do we
     have a dark sidebar in lightmode?» — the phone's bar since 01.10., every dock since): Messen
     and every tool-option dock on the Karte, the Einsatz map and the Plan/Skizze, phone and tablet,
     wear `--float-bg` / `--float-blur` / `--float-edge` and theme ink, including their controls.
@@ -639,7 +653,7 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     | Look | Token | Means | Examples |
     | --- | --- | --- | --- |
     | bare | none – the bar's glass shows | a tile at rest | a rail tool, Ebenen, ✥ ⟳, a dock toggle that is off, the dock's ⓘ |
-    | ink fill | `--here-fill` / `--on-here` | where you are · what is armed | the nav item of the page, the armed tool, an armed ✥ / ⟳, a Trupp tab |
+    | ink fill | `--here-fill` / `--on-here` | where you are · what is armed · a floating chip's card is open | the nav item of the page, the armed tool, an armed ✥ / ⟳, a Trupp tab, the open Gebäude-Info (M4 B, 18.11.2026) |
     | blue fill | `--sel` / `--on-sel` | an option that is ON | «Mehrere», a filter that narrows, a segment, a choice chip |
     | blue wash | `--sel-wash` + `--blue-strong` | its menu / panel is open | open Ebenen, the Ansichten compass, a Menu trigger while up, the ⓘ open |
     | grey plate | `--dock-control-bg` | the way out – only | the dock's ✕ «Abbrechen», the ✥ ⟳ bar's ✕ «Schliessen» |

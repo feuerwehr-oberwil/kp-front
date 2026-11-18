@@ -127,6 +127,11 @@ the tile cannot probe which Einsätze there were. One check for every route:
 readable. `editor`, `el`, the deployment admin and link sessions are untouched. «Karte &
 Objekte» is station data, not an Einsatz, and stays fully readable.
 
+The service worker asks the server for every viewer incident attachment, including thumbnails.
+A closure or a shorter history window takes effect on the next request. Opening these files as
+a viewer requires connectivity. Editor and EL devices retain private offline copies of media;
+station reference caches remain available offline for all three account roles.
+
 ## Station reference reads
 
 «Karte & Objekte» (`/api/reference/objects`, `/api/reference/building`, since 2026-10-16) is for

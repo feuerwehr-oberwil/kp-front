@@ -108,22 +108,23 @@ let active: Copy = de
  *  the precache didn't cover), the app silently stays German — a complete catalogue in the
  *  wrong language, never a half-rendered one or a blocked boot. */
 export async function applyLocale(deploymentLocale?: string | null): Promise<void> {
-  activeId = resolveLocaleId(deploymentLocale)
-  const key = normalizeKey(activeId)
+  const requested = resolveLocaleId(deploymentLocale)
+  activeId = requested
+  const key = normalizeKey(requested)
   const load = LOCALE_LOADERS[key]
-  if (!load) { active = de; return } // German or unknown tag — the base, zero cost
-  let overlay = loadedOverlays[key]
-  if (!overlay) {
+  let catalogue = de
+  let language = key === 'de' ? requested : DEFAULT_LOCALE
+  if (load) {
     try {
-      overlay = loadedOverlays[key] = await load()
-    } catch {
-      active = de
-      return
-    }
-    // a slower load must not clobber a locale applied while it was in flight
-    if (normalizeKey(activeId) !== key) return
+      const overlay = loadedOverlays[key] ?? (loadedOverlays[key] = await load())
+      catalogue = deepMerge(de, overlay)
+      language = requested
+    } catch { /* the German base remains available offline */ }
   }
-  active = deepMerge(de, overlay)
+  // The document language follows the catalogue actually displayed, including the fallback.
+  if (activeId !== requested) return
+  active = catalogue
+  if (typeof document !== 'undefined') document.documentElement.lang = language
 }
 
 /** The active locale's full string catalogue. `appConfig.copy` delegates here, so every

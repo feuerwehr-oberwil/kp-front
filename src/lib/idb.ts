@@ -233,6 +233,8 @@ function tx<T>(mode: IDBTransactionMode, run: (store: IDBObjectStore) => IDBRequ
 // that path only as a legacy last resort. Keeping new writes in one namespace avoids a first-call
 // race and makes the source of truth deterministic across reloads and changing browser modes.
 const FB_PREFIX = 'kp-idb-fb:'
+// Key-only listings must hide a fallback deletion without opening another operator's draft.
+const FB_DELETED = 'kp-idb-deleted:'
 
 type LocalValue<T> = { found: true; value: T } | { found: false }
 
@@ -273,6 +275,15 @@ const lsDel = (key: string): boolean => {
     // If localStorage is unavailable, it cannot outrank the committed IDB value on reads either.
     return true
   }
+}
+
+function clearFallback(key: string): boolean {
+  return lsDel(FB_PREFIX + key) && lsDel(FB_DELETED + key)
+}
+
+function writeFallback(key: string, value: unknown, deleted = false): boolean {
+  if (deleted) return lsSet(FB_PREFIX + key, null) && lsSet(FB_DELETED + key, true)
+  return lsDel(FB_DELETED + key) && lsSet(FB_PREFIX + key, value)
 }
 
 // --- Public API: async, structured-clone values, transparent fallback ----------------
@@ -321,18 +332,21 @@ export async function idbRead<T>(key: string): Promise<IdbRead<T>> {
  *  the refused slots), so a later read finds every one of them. */
 export async function idbKeys(prefix: string): Promise<IdbRead<string[]>> {
   const found = new Set<string>()
+  const deleted = new Set<string>()
   try {
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i)
       if (k?.startsWith(FB_PREFIX + prefix)) found.add(k.slice(FB_PREFIX.length))
+      else if (k?.startsWith(FB_DELETED + prefix)) deleted.add(k.slice(FB_DELETED.length))
       else if (idbUnavailable && k?.startsWith(prefix)) found.add(k)
     }
   } catch { /* no localStorage — nothing can be in its namespace either */ }
-  if (idbUnavailable) return { ok: true, value: [...found] }
+  const visible = () => [...found].filter((key) => !deleted.has(key))
+  if (idbUnavailable) return { ok: true, value: visible() }
   try {
     const keys = await tx<IDBValidKey[]>('readonly', (s) => s.getAllKeys(IDBKeyRange.bound(prefix, `${prefix}\uffff`)))
     for (const k of keys) found.add(String(k))
-    return { ok: true, value: [...found] }
+    return { ok: true, value: visible() }
   } catch (error) {
     return { ok: false, error }
   }
@@ -359,7 +373,7 @@ export async function idbSet(key: string, value: unknown): Promise<boolean> {
       await tx('readwrite', (s) => s.put(value, key))
       // The commit is now the source of truth. Stale fallback data must not survive to outrank it
       // on this or a later page load. The plain key is an old failed-open fallback namespace.
-      const clearedFallback = lsDel(FB_PREFIX + key)
+      const clearedFallback = clearFallback(key)
       const clearedLegacy = lsDel(key)
       if (!clearedFallback || !clearedLegacy) {
         setDegraded(true)
@@ -373,12 +387,52 @@ export async function idbSet(key: string, value: unknown): Promise<boolean> {
     }
   }
 
-  if (!lsSet(FB_PREFIX + key, value)) {
+  if (!writeFallback(key, value)) {
     setDegraded(true)
     return false
   }
   setDegraded(false)
   return true
+}
+
+/** Change a single key against the value actually in storage. The read and mutation share
+ *  one native readwrite transaction, including across tabs. Return undefined to keep the
+ *  current value or null to delete it. A failed read is never treated as an empty record.
+ *  As with idbSet, a failed commit can fall back to JSON; a fallback deletion leaves a null
+ *  tombstone so a surviving older IndexedDB value cannot reappear on the next read. */
+export async function idbUpdate<T>(key: string, update: (current: T | null) => T | null | undefined): Promise<boolean> {
+  let readSucceeded = false
+  let next: T | null | undefined
+  if (!idbUnavailable) {
+    try {
+      await tx('readwrite', (store) => {
+        const read = store.get(key)
+        read.addEventListener('success', () => {
+          try {
+            const fallback = lsRead<T | null>(FB_PREFIX + key)
+            next = update(fallback.found ? fallback.value : (read.result ?? null))
+            readSucceeded = true
+            if (next === null) store.delete(key)
+            else if (next !== undefined) store.put(next, key)
+          } catch {
+            store.transaction.abort()
+          }
+        })
+        return read
+      })
+      if (next === undefined) return true
+      const cleared = clearFallback(key) && lsDel(key)
+      setDegraded(!cleared)
+      return cleared
+    } catch { /* an answered read still permits the same JSON fallback as idbSet */ }
+  }
+  const fallback = lsRead<T | null>(FB_PREFIX + key)
+  if (fallback.found || idbUnavailable) next = update(fallback.found ? fallback.value : lsGet<T>(key))
+  else if (!readSucceeded) { setDegraded(true); return false }
+  if (next === undefined) return true
+  const stored = writeFallback(key, next, next === null)
+  setDegraded(!stored)
+  return stored
 }
 
 /**
@@ -402,7 +456,7 @@ export async function idbSetStrict(key: string, value: unknown): Promise<boolean
 /** Delete a key from every store it could be in. Clearing only IndexedDB would leave a quota
  *  fallback copy that `idbGet`'s empty-read path would then resurrect as if it were current. */
 export async function idbDel(key: string): Promise<void> {
-  lsDel(FB_PREFIX + key) // quota fallback
+  clearFallback(key)     // quota fallback
   lsDel(key)             // IDB-unavailable store
   if (idbUnavailable) return
   try {

@@ -27,7 +27,8 @@ given). An empty **Einsatzende is pre-filled with «jetzt»** on the deployment 
 close writes it before the handover, so «Einsatzende» (the step `zeiten`) is only open on a sheet
 that may not write the Rapport. The success toast says «Einsatz abgeschlossen» and carries «Wieder
 öffnen» for 10 s (docs/undo.md). Close and reopen stamps come off `lib/serverClock`, like the
-Rapport's own «Jetzt» buttons.
+Rapport's own «Jetzt» buttons. A single lifecycle PATCH commits `report_done_at` and
+`is_archived`. Retrying a close preserves its stamp and writes each journal entry once.
 
 **The crews question comes first, once** (`useAbschluss`): a Notfall, then Trupps still inside,
 then Trupps still angemeldet. «Zur Tafel» is the focused answer only for a closer who can write the

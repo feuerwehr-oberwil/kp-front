@@ -109,7 +109,7 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     assignedConflict: '{name} è già in un’altra squadra.',
     // l’unica mossa che scioglie il nodo — toglierla dall’altra squadra e proseguire qui
     assignedTransfer: 'Sposta in questa squadra',
-    // …e quando non viene offerta: l’altra squadra è in intervento, il suo orologio di contatto corre
+    // …e quando non viene offerta: l’altra squadra è in intervento, il suo tempo dall’ultimo contatto corre
     assignedConflictDeployed: '{name} è in una squadra che è in intervento.',
     saveBlockedTeam: 'Indicare prima un caposquadra.',
     auftragMissingHint: 'Manca il compito – la squadra viene registrata con «Incarico aperto».',
@@ -223,7 +223,7 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     logContact: 'Squadra {name}: contatto confermato',
     logPressure: 'Squadra {name}: pressione {bar} bar',
     // ⚠️ dice che cosa SUCCEDE invece di affermare un contatto che nessuno ha confermato
-    logRueckzug: 'Squadra {name} annuncia il ripiegamento – orologio di contatto azzerato',
+    logRueckzug: 'Squadra {name} annuncia il ripiegamento – tempo dall’ultimo contatto azzerato',
     // ⚠️ UNA riga che annulla il ripiegamento e dice che cosa vale invece — vedi la base tedesca
     logContinue: 'Squadra {name}: ripiegamento annullato – intervento ripreso',
     logExit: 'Squadra {name}: uscita',
@@ -347,7 +347,7 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
       resume: 'impiego ripreso',
     } as Record<string, string>,
     alarmClearedOther: 'contatto ristabilito',
-    alarmClearedByReopen: 'orologio di contatto riavviato (riaperto)',
+    alarmClearedByReopen: 'tempo dall’ultimo contatto riavviato (riaperto)',
 
     orderLabel: 'Ordine',
     orderUrgency: 'Urgenza',
@@ -427,7 +427,7 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     changeKindPa: 'ora sotto ARA',
     changeKindPlain: 'non più sotto ARA',
     kindOffTitle: '{name}: terminare la sorveglianza ARA?',
-    kindOffMsg: 'La squadra è in servizio. Senza ARA l’orologio di contatto e la pressione non '
+    kindOffMsg: 'La squadra è in servizio. Senza ARA il tempo dall’ultimo contatto e la pressione non '
       + 'proseguono e non c’è più alcun allarme per lei. Tutto quanto registrato finora resta '
       + 'nel registro e nel rapporto.',
     kindOffConfirm: 'Terminare la sorveglianza',
@@ -436,9 +436,15 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     logRestored: 'Squadra {name} ripristinata',
     logInsideAtClose: 'Squadra {name} ancora dentro alla chiusura',
     cycleEndAtClose: '{t} (ancora dentro alla chiusura)',
-    logClockRestart: 'Squadra {name}: orologio di contatto riavviato – intervento riaperto',
+    logClockRestart: 'Squadra {name}: tempo dall’ultimo contatto riavviato – intervento riaperto',
     cardMenuWord: 'Altro',
     lineOnPlan: 'Piano',
+    zielPickMap: 'Carta',
+    zielPickPlan: 'Piano',
+    zielPickMapTitle: 'Scegliere l’obiettivo sulla carta',
+    zielPickPlanTitle: 'Scegliere l’obiettivo sul piano',
+    zielPickBarTitle: 'Obiettivo della squadra',
+    zielPickBarHint: 'Toccare un simbolo',
   },
   lineDecor: {
     W: 'Acqua',

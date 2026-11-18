@@ -351,6 +351,7 @@ export function PlanAnno({ a, selected, grouped, networked, editing, trailShown,
             // rename by DOUBLE-CLICK on the anno wrapper (the desktop path), which the
             // pill knows nothing about — so `editId` remains the one source of truth.
             renaming={editing} onRenaming={(on) => setEditId(on ? a.id : null)}
+            onClose={() => setSelId(null)}
             acts={tool === 'pan' && !readOnly ? {
               // an empty name keeps the old one — a blank chip is nobody
               rename: (name) => {

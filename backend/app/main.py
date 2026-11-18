@@ -6,8 +6,9 @@ same origin — so cookies are SameSite=Lax and there is no CORS.
 
 import ipaddress
 import logging
-import re
 from contextlib import asynccontextmanager, suppress
+
+from .diagnostic_urls import redact_url_credentials
 
 logging.basicConfig(level=logging.INFO)
 # httpx logs every request at INFO with the FULL URL incl. query string — that leaks the
@@ -16,21 +17,8 @@ logging.basicConfig(level=logging.INFO)
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
 
-#: Query parameters whose VALUE is a credential, as they appear in a URL anywhere in a log
-#: line. `accesskey` is Divera's own spelling; `secret` is how both webhook intakes and the
-#: capture/stats links accept theirs (`?secret=…`), which uvicorn's access log writes out in
-#: full on every legitimate call.
-_SECRET_QUERY_PARAM = re.compile(
-    r"(?i)([?&](?:accesskey|access_key|api_key|apikey|key|secret|token|t|password|passwd|pwd))=[^&\s'\"]*"
-)
-_SECRET_LINK_PATH = re.compile(r"(/(?:e|l)/)[^/?#\s'\"]+")
-
-
 def _redact(value: object) -> object:
-    """Mask query credentials and QR bootstrap paths, including initial SPA access logs."""
-    if not isinstance(value, str):
-        return value
-    return _SECRET_LINK_PATH.sub(r"\1<redacted>", _SECRET_QUERY_PARAM.sub(r"\1=<redacted>", value))
+    return redact_url_credentials(value) if isinstance(value, str) else value
 
 
 class RedactSecretsInUrls(logging.Filter):

@@ -1,8 +1,8 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { applyLocale } from '../config/copy'
-import { compareText, fieldWhen, formatLocale, localeDate, localeDateTime, dueClock, fillTemplate, fmtDuration, fmtFileSize, fmtMMSS, fmtWhen, hhmm, formatSymbolName, formatTime, initials, isNextDay, restoreUmlauts, roleLabel, stripUnprintable, telHref, unitLabel, streetPart, einsatzPillName } from './format'
+import { compareText, fieldWhen, formatLocale, localeDate, localeDateTime, dueClock, fillTemplate, fmtDuration, fmtFileSize, fmtMMSS, fmtWhen, hhmm, formatSymbolName, formatTime, initials, isNextDay, restoreUmlauts, roleLabel, stripUnprintable, telHref, unitLabel, streetPart, einsatzHeadName } from './format'
 
 describe('restoreUmlauts', () => {
   it('restores transliterated umlauts (lower + upper variants)', () => {
@@ -269,6 +269,8 @@ describe('fillTemplate', () => {
 })
 
 describe('dueClock (a Wiedervorlage that fell to tomorrow)', () => {
+  beforeEach(() => { vi.useFakeTimers({ now: new Date('2026-11-17T23:45:00') }) })
+  afterEach(() => { vi.useRealTimers() })
   it('prints the bare clock for a due time today', () => {
     const today = new Date()
     today.setHours(23, 30, 0, 0)
@@ -276,7 +278,7 @@ describe('dueClock (a Wiedervorlage that fell to tomorrow)', () => {
   })
 
   it('says «morgen» once the due time is not today — the banner used to hide that', () => {
-    const tomorrow = new Date(Date.now() + 26 * 3_600_000)
+    const tomorrow = new Date('2026-11-18T06:30:00')
     expect(dueClock(tomorrow.toISOString())).toContain('morgen')
     expect(isNextDay(tomorrow.toISOString())).toBe(true)
   })
@@ -385,22 +387,15 @@ describe('streetPart — street + house number of every address shape', () => {
   })
 })
 
-describe('einsatzPillName — Stichwort · street, the street said once', () => {
-  it('pairs the title with the short street', () => {
-    expect(einsatzPillName('Wasser', 'Sägestrasse 2 4104 Oberwil BL')).toEqual({ stichwort: 'Wasser', street: 'Sägestrasse 2' })
+// round 18.11.2026 #7 (owner): the top bar's title is the address alone
+describe('einsatzHeadName — the street, else the title', () => {
+  it('is the street + house number, whatever the title says', () => {
+    expect(einsatzHeadName('Gymnasium', 'Allschwilerstrasse 100, 4104 Oberwil')).toBe('Allschwilerstrasse 100')
+    expect(einsatzHeadName('Brand Wohnhaus, Sägestrasse 2', 'Oberwil (BL), Sägestrasse 2')).toBe('Sägestrasse 2')
   })
-  it('cuts the address out of a title that carries it', () => {
-    expect(einsatzPillName('Brand Wohnhaus, Sägestrasse 2', 'Oberwil (BL), Sägestrasse 2').stichwort).toBe('Brand Wohnhaus')
-    expect(einsatzPillName('BMA Sägestrasse – Ausgelöst', 'Sägestrasse 2, 4104 Oberwil').stichwort).toBe('BMA – Ausgelöst')
-    // whole words only
-    expect(einsatzPillName('Hauptstrassenkreuzung', 'Hauptstrasse 1, 4104 Oberwil').stichwort).toBe('Hauptstrassenkreuzung')
-  })
-  it('leaves no Stichwort when the title was the address (the wizard fallback)', () => {
-    expect(einsatzPillName('Sägestrasse 2', 'Sägestrasse 2 4104 Oberwil BL').stichwort).toBe('')
-    expect(einsatzPillName('Erlenstrasse 60 4106 Therwil', 'Erlenstrasse 60 4106 Therwil').stichwort).toBe('')
-  })
-  it('is the title alone without an address', () => {
-    expect(einsatzPillName('Wasser', null)).toEqual({ stichwort: 'Wasser', street: '' })
+  it('falls back to the title without an address', () => {
+    expect(einsatzHeadName(' Wasser ', null)).toBe('Wasser')
+    expect(einsatzHeadName('Wasser', '')).toBe('Wasser')
   })
 })
 

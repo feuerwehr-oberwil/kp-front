@@ -32,6 +32,9 @@ parses these lines back per device, the morning after every Einsatz (read-only;
 [`backend/README.md`](../backend/README.md)). If you change the line's shape, update
 `parse_crash_message` and its test.
 
+Crash reports redact credentials in QR paths (`/l/` and `/e/`) on the device. The server repeats
+the redaction before writing the log or buffering a report for the diagnostics export.
+
 ## Symbolicate
 
 `scripts/symbolicate.mjs` (no dependencies) reads the stack, and understands the « ⏎ » the

@@ -46,7 +46,7 @@ import { PresentCard } from '../Presentation'
 // «Tablet hinhalten», not «Adresse kopieren» — and the code is drawn from the address as soon
 // as there is one. Lazily: `qrcode` otherwise ships only in the admin chunk, and there is no
 // reason for every field device to carry it. Its absence is never fatal — no QR still leaves
-// the address, which is the part that always works.
+// the address. Clipboard denial reveals the full URL selected for manual copy.
 
 /** ONE address, presented the one way this app presents an address to hand over: the QR that
  *  makes «Tablet hinhalten» work, the whole URL as the copy target, and the device's own Teilen
@@ -58,50 +58,74 @@ import { PresentCard } from '../Presentation'
  *  address, which is the part that always works. */
 function ShareLinkCode({ url, children }: { url: string; children?: React.ReactNode }) {
   const C = appConfig.copy.preflight
-  // keyed by the address it encodes, so a revoked-then-reminted link can never flash the old
-  // code — and so nothing has to be reset when the address goes away
-  const [qr, setQr] = useState<{ url: string; src: string } | null>(null)
-  const [copied, setCopied] = useState(false)
+  // The caller keys this component by URL. A new tab or token gets fresh QR and copy feedback.
+  const [qr, setQr] = useState<string | null>(null)
+  const [feedback, setFeedback] = useState<'copied' | 'manual' | null>(null)
+  const manualInput = useRef<HTMLInputElement>(null)
+  const latestCopy = useRef(0)
+  const resetTimer = useRef<number | undefined>(undefined)
+  useEffect(() => () => {
+    latestCopy.current++
+    window.clearTimeout(resetTimer.current)
+  }, [])
+  useEffect(() => {
+    if (feedback === 'manual') {
+      manualInput.current?.focus()
+      manualInput.current?.select()
+    }
+  }, [feedback])
 
   useEffect(() => {
     if (!url) return
     let alive = true
     void import('qrcode')
       .then(({ toDataURL }) => toDataURL(url, { width: 512, margin: 1 }))
-      .then((src) => { if (alive) setQr({ url, src }) })
+      .then((src) => { if (alive) setQr(src) })
       .catch(() => { /* no QR is not no link — the address below it still works */ })
     return () => { alive = false }
   }, [url])
 
   const copy = async () => {
+    const request = ++latestCopy.current
+    window.clearTimeout(resetTimer.current)
+    setFeedback(null)
     try {
       await navigator.clipboard.writeText(url)
-      setCopied(true)
-      window.setTimeout(() => setCopied(false), 2000)
-    } catch { /* clipboard blocked (http / permissions) — the address stays selectable */ }
+    } catch {
+      if (request === latestCopy.current) setFeedback('manual')
+      return
+    }
+    if (request !== latestCopy.current) return
+    setFeedback('copied')
+    resetTimer.current = window.setTimeout(() => setFeedback(null), 2000)
   }
 
+  const copied = feedback === 'copied'
   // The phone's own «Teilen» sheet, where the Threema/WhatsApp group actually is. Absent on
   // desktop browsers that have no share target, rather than offered and then doing nothing.
   const canSend = typeof navigator.share === 'function'
 
   return (
     <>
-      {qr?.url === url && (
+      {qr && (
         <div className="esh-qr">
           {/* decorative: the address right below it is the accessible copy of the same thing */}
-          <img src={qr.src} alt="" />
+          <img src={qr} alt="" />
           <span className="esh-qr-cap">{C.shareScan}</span>
         </div>
       )}
       <div className="esh-row">
         {/* the whole address is the copy target — a 12px «Kopieren» beside a URL is a miss
             waiting to happen with a glove on (same call as the Formular rows) */}
-        <button type="button" className={cx('esh-url', copied && 'copied')} onClick={() => void copy()}
+        {feedback === 'manual' ? (
+          <label className="ip-field esh-manual-url"><span>{C.shareManualCopy}</span>
+            <input className="ip-input" ref={manualInput} readOnly value={url} onFocus={(e) => e.currentTarget.select()} />
+          </label>
+        ) : <button type="button" className={cx('esh-url', copied && 'copied')} onClick={() => void copy()}
           title={copied ? C.shareCopied : C.shareCopy} aria-label={C.shareCopy}>
           <code>{url}</code>
           <span className="esh-copy" aria-hidden><Icon id={copied ? 'check' : 'copy'} /></span>
-        </button>
+        </button>}
         {canSend && (
           <button type="button" className="ip-btn esh-send" onClick={() => { void navigator.share?.({ url }).catch(() => {}) }}>
             <Icon id="share-ios" />{C.shareSend}
@@ -327,7 +351,7 @@ export function ShareIncident({ incidentId, initialKind = 'view', archived, auto
     <>
       {picker}
       <p className="esh-lede">{kc.liveLede}</p>
-      <ShareLinkCode url={url}>
+      <ShareLinkCode key={url} url={url}>
         <button type="button" className="ip-btn esh-revoke" disabled={busy}
           onClick={() => void confirmDialog({
             title: kc.revokeTitle,

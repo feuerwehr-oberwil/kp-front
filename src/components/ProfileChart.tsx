@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, type CSSProperties } from 'react'
 import { altitudeAt, labelledNodes, profileNodes, type ProfileResult } from '../lib/profile'
 import { fmtDistance, pathLengthM } from '../lib/geo'
 import type { LngLat } from '../types'
@@ -73,8 +73,9 @@ export function ProfileChart({ p, path }: {
         {cur != null && curFrac != null && (
           <>
             <span className={s['mp-chart-dot']} style={{ left: left(curFrac), top: top(curAlt) }} aria-hidden />
-            {/* kept inside the chart's edges, as the Wassertransport's tag is */}
-            <div className={s['mp-readout']} style={{ left: `${Math.min(80, Math.max(20, pct(curFrac)))}%` }} role="status">
+            {/* centred on the spot, slid inside the chart's edges by its own width (MeasurePanel.module ·
+                .mp-readout), as the Wassertransport's tag is */}
+            <div className={s['mp-readout']} style={{ '--at': pct(curFrac) / 100 } as CSSProperties} role="status">
               <b>{fmtDistance(cur)}</b>
               <span>{fillTemplate(appConfig.copy.measure.altitude, { m: Math.round(curAlt) })}</span>
             </div>

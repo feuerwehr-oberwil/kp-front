@@ -2,12 +2,12 @@
 /**
  * The tapped Trupp's pill under a store that keeps updating (Übung 23.09.2026, post-mortem A1).
  *
- * The pill measures where its action bar landed after every render. It used to hand React a
- * state update on every one of those passes — a no-op updater, but one React still had to
- * schedule and render — and inside the live-GPS render storm that was the update which tipped
- * React's nested-update counter: #185 was thrown in the pill and the Karte went down under the
- * operator's finger. What is pinned: a re-render of the pill's host costs the pill ONE render,
- * never two, and a store churning under an open pill neither throws nor multiplies renders.
+ * The pill used to measure where its action bar landed after every render and hand React a
+ * state update on each pass — a no-op updater, but one React still had to schedule and render —
+ * and inside the live-GPS render storm that was the update which tipped React's nested-update
+ * counter: #185 was thrown in the pill and the Karte went down under the operator's finger. (The
+ * bar docks at the foot since 18.11.2026 and measures nothing; the pin stays.) What is pinned: a
+ * re-render of the pill's host costs the pill ONE render, never two, and a store churning under an open pill neither throws nor multiplies renders.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, render } from '@testing-library/react'
@@ -37,14 +37,17 @@ function Pill() {
   )
 }
 
-describe('TwinTeamPill · its bar placement is not an update of its own', () => {
+describe('TwinTeamPill · a render is not an update of its own', () => {
   it('a host re-render costs the pill exactly one render', () => {
     let pillRenders = 0
     function Host({ n }: { n: number }) {
       return <Profiler id="pill" onRender={() => { pillRenders++ }}><span data-n={n} /><Pill /></Profiler>
     }
     const r = render(<Host n={0} />)
-    const settled = pillRenders // mount + the one pass that learns the first real placement
+    // settled after the FIRST re-render: Base UI's «Mehr» Menu makes one update of its own there,
+    // once (it used to land in the mount's placement pass, gone since the bar docks)
+    act(() => r.rerender(<Host n={0} />))
+    const settled = pillRenders
     for (let i = 1; i <= 100; i++) act(() => r.rerender(<Host n={i} />))
     expect(pillRenders - settled).toBe(100)
   })

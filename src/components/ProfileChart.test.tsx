@@ -36,6 +36,19 @@ describe('ProfileChart · read-out', () => {
     expect(screen.queryByRole('status')).toBeNull()
     expect(screen.getByTestId('spot').textContent).toBe('')
   })
+
+  // round 18.11.2026 #3: the tag is anchored at the REAL spot and the stylesheet slides it inside
+  // the plot by its own width (MeasurePanel.module · .mp-readout). A 20–80 % clamp here let a wide
+  // tag run past a phone's chart, and the panel scrolled sideways.
+  it('the tag is anchored at the spot itself, even at the chart\'s right end', () => {
+    const { container } = render(<ProfileChart p={profile} path={path} />)
+    const plot = container.querySelector('svg')!.parentElement!
+    plot.getBoundingClientRect = () => ({ left: 0, top: 0, width: 300, height: 84, right: 300, bottom: 84, x: 0, y: 0, toJSON: () => ({}) })
+    fireEvent.pointerMove(plot, { pointerType: 'mouse', clientX: 296 })
+    const at = Number(screen.getByRole('status').style.getPropertyValue('--at'))
+    expect(at).toBeGreaterThan(0.95)
+    expect(screen.getByRole('status').style.left).toBe('')
+  })
 })
 
 describe('ProfileStats', () => {

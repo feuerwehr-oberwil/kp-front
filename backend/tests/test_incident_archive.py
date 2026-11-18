@@ -25,7 +25,7 @@ from app import credentials as creds
 from app import incident_archive as archive
 from app import storage as storage_mod
 from app.models import DeploymentConfig, Incident, IncidentArchiveDelivery, IncidentArchiveReport
-from app.schemas import IncidentArchiveConfig
+from app.schemas import AlarmIn, IncidentArchiveConfig, IncidentArchiveDestination, IncidentCreate, IncidentPatch
 from tests.ov_support import jpeg, login
 from tests.sharepoint_write_fake import CLIENT_ID, CLIENT_SECRET, SITE_URL, TENANT_ID, FakeDrive
 
@@ -308,6 +308,233 @@ async def test_two_einsaetze_never_share_a_folder(client, editor, drive, session
         assert await archive.run_once(session_factory, transport=drive.transport) == "delivered"
     assert f"{PHOTOS}/2026.07.15 Ölspur" in drive.folders()
     assert f"{PHOTOS}/2026.07.15 Ölspur (2)" in drive.folders()
+
+
+async def test_a_pending_close_waits_for_the_reopened_incident_to_close_again(client, editor, drive, session_factory):
+    inc = await _incident(client, editor)
+    await _close(client, inc)
+    assert (await client.patch(f"/api/incidents/{inc}", json={"is_archived": False})).status_code == 200
+    await _upload(client, inc)
+    await _report(client, inc)
+    await archive.run_once(session_factory, transport=drive.transport)
+    assert drive.files() == {}
+    await _close(client, inc)
+    assert await archive.run_once(session_factory, transport=drive.transport) == "delivered"
+    assert len(drive.files()) == 2
+
+
+@pytest.mark.parametrize("legacy", [False, True])
+async def test_a_corrected_title_keeps_the_original_archive_folders(
+    client, editor, drive, session_factory, db_session, legacy
+):
+    inc = await _incident(client, editor)
+    await _upload(client, inc)
+    await _report(client, inc)
+    await _close(client, inc)
+    await archive.run_once(session_factory, transport=drive.transport)
+    if legacy:
+        row = await _row(db_session, inc)
+        # Before the template was kept, the key was the expanded path.
+        row.remote_items = {
+            **row.remote_items,
+            "folders": {
+                entry["path"]: {"id": entry["id"], "path": entry["path"]}
+                for entry in row.remote_items["folders"].values()
+            },
+        }
+        row.remote_items.pop("folderPatterns", None)
+        await db_session.commit()
+    assert (await client.patch(f"/api/incidents/{inc}", json={"title": "Kellerbrand"})).status_code == 200
+    await _upload(client, inc)
+    await _report(client, inc, summary="Nachtrag")
+    assert await archive.run_once(session_factory, transport=drive.transport) == "delivered"
+    assert len(drive.files(f"{PHOTOS}/2026.07.15 Ölspur")) == 2
+    assert len(drive.files(f"{REPORTS}/2026/2026.07.15 Ölspur")) == 2
+
+
+@pytest.mark.parametrize("current_title", ["A", "B", "C"])
+def test_an_ambiguous_legacy_archive_preserves_both_folders(current_title):
+    dest = IncidentArchiveDestination.model_validate(DEST)
+    first, second = f"{PHOTOS}/2026.07.15 A", f"{PHOTOS}/2026.07.15 B"
+    report = f"{REPORTS}/2026/2026.07.15 {current_title}"
+    folders = {
+        first: {"path": first, "id": "first"},
+        second: {"path": second, "id": "second"},
+        report: {"id": "report"},
+    }
+    items = {"folders": folders.copy()}
+    with pytest.raises(archive.AmbiguousArchiveFolderError) as error:
+        archive.bind_folder_patterns(items, dest, {"year": "2026", "date": "2026.07.15", "stichwort": current_title})
+    assert archive.is_actionable(error.value)
+    assert items["folders"] == folders
+    assert items["folderPatterns"] == {}
+
+
+def test_long_template_keeps_a_short_legacy_rendering_after_a_rename():
+    pattern = f"{PHOTOS}/{'x' * 110}{{stichwort}}"
+    dest = IncidentArchiveDestination.model_validate({**DEST, "photoFolder": pattern})
+    original = "/".join(archive.expand(pattern, {"stichwort": "A"}))
+    items = {"folders": {original: {"id": "original"}}}
+    archive.bind_folder_patterns(items, dest, {"stichwort": "B"})
+    assert items["folderPatterns"] == {pattern: original}
+
+
+@pytest.mark.parametrize("old_title", ["A" * 60, "A" * 50 + "." * 9 + "A"])
+def test_clipped_legacy_name_requires_reconciliation_before_creating_a_folder(old_title):
+    pattern = f"{PHOTOS}/{'x' * 65}{{stichwort}}-photos"
+    dest = IncidentArchiveDestination.model_validate({**DEST, "photoFolder": pattern})
+    original = "/".join(archive.expand(pattern, {"stichwort": old_title}))
+    items = {"folders": {original: {"id": "original"}}}
+    with pytest.raises(archive.AmbiguousArchiveFolderError):
+        archive.bind_folder_patterns(items, dest, {"stichwort": "B"})
+    assert items["folderPatterns"] == {}
+
+
+def test_short_date_template_does_not_claim_an_unrelated_legacy_key_in_the_same_tree():
+    pattern = f"{PHOTOS}/{{year}}-new"
+    dest = IncidentArchiveDestination.model_validate({**DEST, "photoFolder": pattern})
+    items = {"folders": {f"{PHOTOS}/2025-old": {"id": "old"}}}
+    archive.bind_folder_patterns(items, dest, {"year": "2026"})
+    assert items["folderPatterns"] == {}
+
+
+@pytest.mark.parametrize(
+    ("photo_level", "report_level", "values"),
+    [
+        ("{year}" + "x" * 117, "{date}", {"year": "2026", "date": "2026.07.15"}),
+        ("{date}" + "x" * 111, "{stichwort}", {"date": "2026.07.15", "stichwort": "2026xx0715"}),
+        ("{short}" + "x" * 117, "{stichwort}", {"short": "12ab", "stichwort": "zzzz"}),
+        (
+            "{year}-{stichwort}-photos-" + "x" * 115,
+            "R" * 110 + "{short}",
+            {"year": "2026", "short": "abcd", "stichwort": "Brand"},
+        ),
+    ],
+    ids=["year-then-literal", "date-separators", "hex-suffix", "fixed-prefix-before-title"],
+)
+def test_a_clipped_pattern_cannot_block_an_identifiable_report_folder(photo_level, report_level, values):
+    photo, report = f"{PHOTOS}/{photo_level}", f"{PHOTOS}/{report_level}"
+    dest = IncidentArchiveDestination.model_validate({**DEST, "photoFolder": photo, "reportFolder": report})
+    key = "/".join(archive.expand(report, values))
+    items = {"folders": {key: {"id": "existing-report"}}}
+    archive.bind_folder_patterns(items, dest, values)
+    assert items["folderPatterns"] == {report: key}
+
+
+def test_a_fixed_format_key_that_really_was_clipped_still_requires_reconciliation():
+    photo = f"{PHOTOS}/{{year}}{'x' * 117}"
+    dest = IncidentArchiveDestination.model_validate({**DEST, "photoFolder": photo})
+    original = "/".join(archive.expand(photo, {"year": "2025"}))
+    items = {"folders": {original: {"id": "original"}}}
+    with pytest.raises(archive.AmbiguousArchiveFolderError):
+        archive.bind_folder_patterns(items, dest, {"year": "2026"})
+    assert items["folderPatterns"] == {}
+
+
+@pytest.mark.parametrize(
+    "level", ["{date} {stichwort}", "{stichwort} . {year}", "{year} {kategorie} {short}", "{stichwort}"]
+)
+def test_renaming_a_placeholder_that_sanitized_away_keeps_the_original_folder(level):
+    photo = f"{PHOTOS}/{level}"
+    dest = IncidentArchiveDestination.model_validate({**DEST, "photoFolder": photo})
+    values = {"date": "2026.07.15", "year": "2026", "stichwort": "???", "kategorie": "???", "short": "0e5f"}
+    key = "/".join(archive.expand(photo, values))
+    items = {"folders": {key: {"id": "old-photo"}}}
+    archive.bind_folder_patterns(items, dest, {**values, "stichwort": "Ölspur", "kategorie": "Einsatz"})
+    assert items["folderPatterns"] == {photo: key}
+
+
+async def test_the_worker_stops_before_sharepoint_when_a_legacy_photo_folder_could_receive_the_rapport(
+    client, editor, drive, session_factory, db_session
+):
+    dest = {**DEST, "reportFolder": f"{PHOTOS}/{{date}}"}
+    await _config(db_session, {"enabled": True, "destinations": [dest]})
+    inc = await _incident(client, editor, title="???")
+    await _upload(client, inc)
+    await _close(client, inc)
+    assert await archive.run_once(session_factory, transport=drive.transport) == "delivered"
+    row = await _row(db_session, inc)
+    row.remote_items = {k: v for k, v in row.remote_items.items() if k != "folderPatterns"}
+    await db_session.commit()
+    files = drive.files()
+    assert len(files) == 1 and next(iter(files)).startswith(f"{PHOTOS}/2026.07.15/")
+
+    assert (await client.patch(f"/api/incidents/{inc}", json={"title": "Ölspur"})).status_code == 200
+    await _report(client, inc)
+    drive.seen.clear()
+    assert await archive.run_once(session_factory, transport=drive.transport) == "failed"
+    assert "Zuordnungen" in (await _row(db_session, inc)).last_error
+    assert drive.seen == [] and drive.files() == files
+
+
+def test_a_truncated_key_cannot_be_bound_to_another_folder_pattern_that_matches_its_visible_text():
+    photo = f"{PHOTOS}/{'x' * 65}{{stichwort}}-photos"
+    report = f"{PHOTOS}/{{kategorie}}"
+    dest = IncidentArchiveDestination.model_validate({**DEST, "photoFolder": photo, "reportFolder": report})
+    original = "/".join(archive.expand(photo, {"stichwort": "A" * 60}))
+    items = {"folders": {original: {"id": "photo"}}}
+    with pytest.raises(archive.AmbiguousArchiveFolderError):
+        archive.bind_folder_patterns(items, dest, {"stichwort": "B", "kategorie": "Brand"})
+    assert items["folderPatterns"] == {}
+
+
+@pytest.mark.parametrize("source", ["dispatch-category", "expanded-title", "clipped-category"])
+def test_a_real_historical_photo_folder_cannot_receive_the_rapport_after_a_correction(source):
+    if source == "dispatch-category":
+        kind = "Verkehrsunfall mit eingeklemmten Personen und auslaufendem Treibstoff, Einsatz mit Rettungsdienst"
+        original = AlarmIn(title="Verkehrsunfall", type="2026 " + kind)
+        correction = IncidentPatch(title="Verkehrsunfall", type=kind)
+        photo, report = "{kategorie}", "{year} {kategorie}"
+    elif source == "expanded-title":
+        original = IncidentCreate(title="{kategorie}{kategorie}abcd", type="X" * 55)
+        correction = IncidentPatch(title="Brand", type="Brand")
+        photo, report = "{stichwort}", "X" * 110 + "{short}"
+    else:
+        # The length cap falls inside the dots. SharePoint only sees «B-reports».
+        original = AlarmIn(title="-", type="B-reports" + "." * 120 + "Z")
+        correction = IncidentPatch(title="B", type="Brand")
+        photo, report = "{stichwort}-photos", "{stichwort}-reports"
+    inc = Incident(
+        id=uuid.UUID(int=0xABCD), started_at=datetime.fromisoformat(ALARM), title=original.title, type=original.type
+    )
+    dest = IncidentArchiveDestination.model_validate(
+        {**DEST, "photoFolder": f"{PHOTOS}/{photo}", "reportFolder": f"{PHOTOS}/{report}"}
+    )
+    key = "/".join(archive.expand(dest.photoFolder, archive.placeholders(inc)))
+    inc.title, inc.type = correction.title, correction.type
+    corrected = archive.placeholders(inc)
+    assert key == "/".join(archive.expand(dest.reportFolder, corrected))
+    folders = {key: {"id": "original-photo", "path": key}}
+    items = {"folders": folders.copy()}
+    with pytest.raises(archive.AmbiguousArchiveFolderError):
+        archive.bind_folder_patterns(items, dest, corrected)
+    assert items == {"folders": folders, "folderPatterns": {}}
+
+
+def test_sibling_patterns_with_a_fixed_width_prefix_and_distinct_suffixes_keep_their_bindings():
+    photo, report = f"{PHOTOS}/{{short}}-photos", f"{PHOTOS}/{{short}}-reports"
+    dest = IncidentArchiveDestination.model_validate({**DEST, "photoFolder": photo, "reportFolder": report})
+    a, b = f"{PHOTOS}/abcd-photos", f"{PHOTOS}/abcd-reports"
+    items = {"folders": {a: {"id": "photo"}, b: {"id": "report"}}}
+    archive.bind_folder_patterns(items, dest, {"short": "abcd"})
+    assert items["folderPatterns"] == {photo: a, report: b}
+
+
+@pytest.mark.parametrize(
+    ("level", "kind"),
+    [
+        ("{kategorie} . {year} {kategorie}.{short}", "..."),
+        ("?Jahr? - {short}-{kategorie}", "ABC"),
+        ("P-{kategorie}", "A" * 110),
+    ],
+)
+def test_a_uniquely_identifiable_dispatch_folder_keeps_its_id_after_a_correction(level, kind):
+    dest = IncidentArchiveDestination.model_validate({**DEST, "photoFolder": f"{PHOTOS}/{level}"})
+    original = {"kategorie": kind, "short": "abcd", "year": "2026"}
+    key = "/".join(archive.expand(dest.photoFolder, original))
+    items = {"folders": {key: {"id": "original-photo"}}}
+    archive.bind_folder_patterns(items, dest, {**original, "kategorie": "Brand"})
+    assert items["folderPatterns"] == {dest.photoFolder: key}
 
 
 async def test_a_moved_folder_still_receives(client, editor, drive, session_factory, db_session):

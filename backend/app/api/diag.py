@@ -37,12 +37,13 @@ import logging
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, HTTPException, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from ..auth.capture_limiter import CaptureLimiter
 from ..auth.client_ip import client_ip
 from ..auth.dependencies import CurrentUser
 from ..config import settings
+from ..diagnostic_urls import redact_url_credentials
 from ..telemetry import recent, scrub
 
 logger = logging.getLogger("kpfront.clienterror")
@@ -105,6 +106,12 @@ class ClientError(BaseModel):
     repeat: int | None = Field(default=None, ge=1, le=10_000_000)
     since: str | None = Field(default=None, max_length=40)
     last: str | None = Field(default=None, max_length=40)
+
+    @field_validator("*", mode="after")
+    @classmethod
+    def redact_credentials(cls, value: str | int | None) -> str | int | None:
+        # Older clients send QR paths verbatim. Both the log and the local export need safe fields.
+        return redact_url_credentials(value) if isinstance(value, str) else value
 
 
 class BootTiming(BaseModel):

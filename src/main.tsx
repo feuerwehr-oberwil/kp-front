@@ -17,6 +17,7 @@ import { LoginScreen } from './components/LoginScreen'
 import { DemoRibbon } from './components/DemoRibbon'
 import { Splash } from './components/Splash'
 import { lockChromeZoom } from './lib/lockZoom'
+import { installPressRelease } from './lib/pressRelease'
 import { loadPrefs, applyTheme, resolveTheme } from './lib/prefs'
 import { bootDeploymentConfig, applyDeploymentBranding, deploymentName } from './lib/deploymentConfig'
 import { loadStationPlanScales, refreshStationPlanScales } from './lib/stationPlanScale'
@@ -33,6 +34,8 @@ import { GIT_SHA } from './lib/buildInfo'
 
 // zoom applies only to the map/plan, not the UI chrome (app feel, not a web page)
 lockChromeZoom()
+// a press wash never stays on a control the finger has left (iOS keeps :active – lib/pressRelease)
+installPressRelease()
 
 // Report uncaught errors (outside the render tree) to the server log so a field crash on a
 // solo operator's tablet isn't invisible. The ErrorBoundary reports render throws separately.

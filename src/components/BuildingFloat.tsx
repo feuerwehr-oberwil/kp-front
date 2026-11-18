@@ -25,7 +25,8 @@ import s from './BuildingFloat.module.css'
  *
  * Closed, the chip says what it is and what a crew must not miss: «Gebäude-Info», then the hazards
  * as glyph + WORD («⚠ Gebäude-Info · Gas · PV») on a tablet (owner pick C8, 05.11.2026: «always
- * Gebäude-Info when it's about the info»). Not «Gebäude» + the storey glyph: that is the rail's
+ * Gebäude-Info when it's about the info»). OPEN, it is lit like a pressed tile, with ⌄ (owner pick M4 B,
+ * 18.11.2026) – the chip toggles the card, and now looks it. Not «Gebäude» + the storey glyph: that is the rail's
  * Gebäude tile, a surface of its own. Nothing to say → no chip (lib/buildingCard · hasBuildingContent).
  *
  * ⚠️ On a PHONE it is a TILE, always (button round 17.11.2026, owner pick 12C + follow-up «the whole
@@ -34,7 +35,8 @@ import s from './BuildingFloat.module.css'
  * word is «Info» – the building tile beside it already says «Gebäude» or the street – or, with a
  * hazard, the hazard words in the hazard tone under the ⚠ («⚠ Heizöl»). The SHAPE never flips with
  * the content any more (12A / 16.11. switched chip ↔ tile on a hazard); a long hazard list
- * ellipsises inside the capped tile, and `aria-label` / `title` keep the full sentence.
+ * ellipsises inside the capped tile, and `aria-label` / `title` keep the full sentence. Beside the
+ * street it is the tile that gives way first (round 18.11.2026 #2 – the street is spelt out).
  *
  * ⚠️ ONE action, so one glyph and one label (owner, 09.11.2026 – mock nov09-gebaeude-sofort, «do not
  * split»): the Objekt's Sofortmassnahmen are a count badge on the chip («Gebäude-Info ②»), the way
@@ -93,8 +95,12 @@ export function BuildingFloat({ info, autoOpen = false, onRead }: {
         <span>{phone
           ? summary.hazard ? <b className={s.words}>{summary.words.join(' · ')}</b> : C.chipTitleShort
           : <>{C.chipTitle}{summary.hazard && <> · <b className={s.words}>{summary.words.join(' · ')}</b></>}</>}</span>
-        {/* the Objekt's Sofortmassnahmen are inside: their count, in the one count-badge idiom */}
-        {summary.measures > 0 && <span className={s.count} aria-hidden>{summary.measures}</span>}
+        {/* the Objekt's Sofortmassnahmen are inside: their count, in the one count-badge idiom –
+            while the card is open it shows them, and the corner is the ⌄'s */}
+        {summary.measures > 0 && !open && <span className={s.count} aria-hidden>{summary.measures}</span>}
+        {/* open = LIT (09-whiteboard · .wb-scale-chip.arm) with ⌄ «tap again to fold it» (round
+            18.11.2026, owner pick M4 B): the 14 % blue wash it wore read as «still standing there» */}
+        {open && <Icon id="chevron-down" className="wb-chip-chev" />}
       </button>
       {open && (
         <div className={s.pop} role="dialog" aria-label={C.title}>

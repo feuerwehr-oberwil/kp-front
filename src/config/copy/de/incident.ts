@@ -241,6 +241,9 @@ export const incidentCopy = {
     insideMany: '{n} Trupps sind noch drin:',
     insideTrupp: 'Trupp {no}',
     insideClose: 'Trotzdem abschliessen',
+    crewStatusUnknown: 'Truppstatus unbekannt',
+    crewStatusUnknownBody: 'Die Atemschutztafel konnte nicht gelesen werden. Es können noch Trupps drin sein. Mit dem Abschluss endet ihre Überwachung auf allen Geräten.',
+    checkCrewsAgain: 'Truppstatus erneut prüfen',
     insideTitle: 'Trupps noch drin',
     // …für wen die Trupps nicht schreibbar sind (Rolle el): kein «Zu den Trupps», dafür wer raus meldet
     boardNotYours: 'Raus melden kann nur, wer die Trupps führt.',

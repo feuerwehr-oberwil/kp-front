@@ -35,6 +35,13 @@ the module they concern (`lib/connectivity`, `lib/eventScope`, `lib/jsonEqual`,
   service worker's `height-profiles` cache answers the same URL offline (`vite.config` ·
   runtimeCaching: network first, 4 s timeout, 300 paths / 30 days). A path never fetched online
   has no profile and plans on flat ground, as the editor says («Ohne Höhenprofil gerechnet»).
+- **A failed switch keeps the active incident live.** The workspace, alarm and sync engine stay
+  mounted until the requested incident is ready. Two taps on the same incident share its load.
+  A superseded request for a different incident disposes its candidate, as does a session change.
+  Recovery updates reach the view when that incident opens. A late save response from an ended
+  session leaves the next operator's pending edits intact.
+  Undoing an alarm take leaves its workspace only after the server accepted the archive and only
+  if the operator is still on that incident.
 - **Saved means every operational queue is acknowledged.** Workspace, journal and client audit
   outboxes and the media upload queue contribute to the shared sync status. Preserve rejected
   entries for retry/export; a failed IndexedDB write must never claim local durability. Hydrate
@@ -199,9 +206,26 @@ beendet». The rules: [`presentation.md`](presentation.md).
 - Journal lifecycle boundaries and the `sys` id namespace belong to the server. Neither a
   client row nor a patch targeting a system row may create, retract or edit them; the client
   alarm clock ignores ordinary journal rows carrying lifecycle-looking metadata.
-- A failed conflict PUT still hands the merged union to the live view before another edit.
-  Re-sending parked workspace saves first commits their replacement cache entry, with transfer
-  markers for crash-safe retry, before clearing the parked originals.
+- While a conflict PUT is pending, the operator still edits the view last shown. Each such edit
+  is rebased onto the union in the dirty draft. A handover flushes pending cache writes before
+  the new account opens a slot. Disposal also flushes the draft, even if the PUT never answers.
+  A failed PUT hands the union back to the active view so the next edit includes remote additions.
+- An open interrupted during a cache read, parking write or server GET is cancelled. The incoming
+  account opens its own workspace and parks its predecessor's draft. Only the active selection
+  can deliver a GET result, act on its 401 or adopt an unread slot.
+- If a dirty cache write runs out of space and map-tile eviction finishes after the editor
+  retires, the retry writes to one recovery slot per Einsatz and author. Another tab can keep
+  editing the main slot while eviction runs. On the author's next open, recovery reads the latest
+  same-author main or parked copy and merges it into the view. This happens before the UI takes
+  the edit lock, so opening leaves both copies on disk. The recovering editor saves changes in
+  the author’s recovery slot, including the peer snapshot it saw so deliberate deletions survive.
+  Independently recovered edits merge there before upload. A server acknowledgement (or durable
+  refusal park) reconciles the still-current peer copy and clears only the recovery receipt it
+  settled. Wider-role edits must first be parked for export. An unreadable slot or refused import
+  lock keeps the source on disk for a later open. A denied session cannot read it.
+- Re-sending parked workspace saves first commits their replacement cache entry with transfer
+  markers for crash-safe retry. Each cleanup write checks the session again when it finishes.
+  A handover during cleanup leaves those markers in the author's cache for the next session.
 - Blob data never falls back to JSON storage. Failed local media persistence retains bytes in
   memory and reports storage failure. Pending uploads retry by themselves, one attempt per item
   per pause (5 s doubling, capped at 5 min, with jitter). «No answer at all» (offline, timeout)
@@ -260,7 +284,12 @@ its Verlauf and audit outboxes before the archive `PATCH`. The outboxes keep DEL
 closed view (`outboxReadOnly`), and a refused write is parked — journal `refused`, audit
 `closed` (apart from the role bucket `refused`), the workspace's `::__refused__` slots, whose
 record part is re-saved at once through the record route and whose ancestor goes straight
-back on screen. Parked entries are exported by «Einträge sichern», keep the lamp amber until
+back on screen. Each new workspace refusal gets its own slot under its author’s key. Export and replay are limited to
+the author who is still signed in. A slice session keeps the author's wider or unstamped
+drafts in the role's export until a full editor session can replay them. Older aggregate and timestamp slots are read by owner stamp;
+unattributable entries stay on disk. A failed slot read leaves recovery pending, and cleanup
+removes only drafts durably transferred to their author's workspace.
+Parked entries are exported by «Einträge sichern», keep the lamp amber until
 then, and are SENT again once the Einsatz runs again. A plain 409 on the workspace is still
 the revision conflict: test the code first. «Wieder öffnen» elsewhere comes back the same way
 (`X-Incident-Open: 1`, the same wake, the list watch, `reopenedMetaFor`) on EVERY device that

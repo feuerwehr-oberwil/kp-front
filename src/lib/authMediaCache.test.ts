@@ -10,13 +10,17 @@ function serviceWorkerHarness() {
   const keyOf = (input: RequestInfo | URL) =>
     typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
 
+  const failedWrites = new Set<string>()
   const cachesMock = {
     open: vi.fn(async (name: string) => {
       const store = stores.get(name) ?? new Map<string, Response>()
       stores.set(name, store)
       return {
         match: async (input: RequestInfo | URL) => store.get(keyOf(input))?.clone(),
-        put: async (input: RequestInfo | URL, response: Response) => { store.set(keyOf(input), response.clone()) },
+        put: async (input: RequestInfo | URL, response: Response) => {
+          if (failedWrites.has(name)) throw new DOMException('Full', 'QuotaExceededError')
+          store.set(keyOf(input), response.clone())
+        },
         keys: async () => [...store.keys()].map((url) => new Request(url)),
         delete: async (input: RequestInfo | URL) => store.delete(keyOf(input)),
       }
@@ -91,13 +95,48 @@ function serviceWorkerHarness() {
     if (!selfMock.kpReferenceCacheAllowed) throw new Error('reference session hook missing')
     return selfMock.kpReferenceCacheAllowed({ clientId: id }, new Request('https://kp.test/api/reference/plan%3Ax?v=1'))
   }
-  return { cachesMock, fetchMock, media, reference, message, stores, restart, cacheAllowed }
+  return { failedWrites, cachesMock, fetchMock, media, reference, message, stores, restart, cacheAllowed }
 }
 
 describe('auth-aware service-worker media cache', () => {
+  it.each(['viewer', undefined])('reauthorizes incident media for role %s, including after an upgrade', async (role) => {
+    const h = serviceWorkerHarness()
+    await h.message('tablet', { type: 'kp-media-auth', kind: 'user', userId: 'u', role: 'editor' })
+    expect(await h.media('tablet')).toBe('network-1')
+    await h.message('tablet', { type: 'kp-media-auth', kind: 'user', userId: 'u', role })
+    expect(await h.cacheAllowed('tablet')).toBe(true) // station plans remain available
+    h.fetchMock.mockResolvedValueOnce(new Response('expired', { status: 404 }))
+    expect(await h.media('tablet')).toBe('expired')
+    expect(h.fetchMock.mock.lastCall?.[1]?.cache).toBe('no-store')
+    h.fetchMock.mockRejectedValueOnce(new TypeError('offline'))
+    await expect(h.media('tablet')).rejects.toThrow('offline')
+  })
+
+  it('reads every transcription state live, even with an older cached draft', async () => {
+    const h = serviceWorkerHarness()
+    await h.message('tablet', { type: 'kp-media-auth', kind: 'user', userId: 'u', role: 'el' })
+    const path = '/api/media/m1/transcription'
+    h.stores.set('incident-media', new Map([['https://kp.test' + path, new Response('old draft')]]))
+    for (const state of ['none', 'running', 'done', 'none']) {
+      h.fetchMock.mockResolvedValueOnce(new Response(state))
+      expect(await h.media('tablet', path)).toBe(state)
+    }
+    expect(h.fetchMock).toHaveBeenCalledTimes(4)
+  })
+
+  it('delivers a new attachment when the device cannot cache the bytes', async () => {
+    const h = serviceWorkerHarness()
+    await h.message('tablet', { type: 'kp-media-auth', kind: 'user', userId: 'u', role: 'editor' })
+    h.failedWrites.add('incident-media')
+    expect(await h.media('tablet')).toBe('network-1')
+    h.failedWrites.clear()
+    expect(await h.media('tablet')).toBe('network-2')
+    expect(await h.media('tablet')).toBe('network-2')
+  })
+
   it('recovers the current account context from the page after an idle worker restart', async () => {
     const h = serviceWorkerHarness()
-    await h.message('tablet', { type: 'kp-media-auth', kind: 'user', userId: 'user-a' })
+    await h.message('tablet', { type: 'kp-media-auth', kind: 'user', role: 'editor', userId: 'user-a' })
     await h.media('tablet')
     h.restart()
     expect(await h.cacheAllowed('tablet')).toBe(true)
@@ -107,7 +146,7 @@ describe('auth-aware service-worker media cache', () => {
 
   it('a restarted worker accepts the latest link/denied context, never an old account grant', async () => {
     const h = serviceWorkerHarness()
-    await h.message('tablet', { type: 'kp-media-auth', kind: 'user', userId: 'user-a' })
+    await h.message('tablet', { type: 'kp-media-auth', kind: 'user', role: 'editor', userId: 'user-a' })
     await h.message('tablet', { type: 'kp-media-auth', kind: 'link' })
     h.restart()
     expect(await h.cacheAllowed('tablet')).toBe(false)
@@ -127,13 +166,13 @@ describe('auth-aware service-worker media cache', () => {
 
   it('caches only for its persisted owner and purges on user change or logout', async () => {
     const h = serviceWorkerHarness()
-    await h.message('tablet', { type: 'kp-media-auth', kind: 'user', userId: 'user-a' })
+    await h.message('tablet', { type: 'kp-media-auth', kind: 'user', role: 'editor', userId: 'user-a' })
 
     expect(await h.media('tablet')).toBe('network-1')
     expect(await h.media('tablet')).toBe('network-1')
     expect(h.fetchMock).toHaveBeenCalledTimes(1)
 
-    await h.message('second-user', { type: 'kp-media-auth', kind: 'user', userId: 'user-b' })
+    await h.message('second-user', { type: 'kp-media-auth', kind: 'user', role: 'editor', userId: 'user-b' })
     expect(await h.media('second-user')).toBe('network-2')
     // The old client remains known, but it no longer owns the cache and must go to network.
     expect(await h.media('tablet')).toBe('network-3')
@@ -170,7 +209,7 @@ describe('auth-aware service-worker media cache', () => {
 
   it('preserves account reference caching, but an explicit link header bypasses it immediately', async () => {
     const h = serviceWorkerHarness()
-    await h.message('tablet', { type: 'kp-media-auth', kind: 'user', userId: 'user-a' })
+    await h.message('tablet', { type: 'kp-media-auth', kind: 'user', role: 'editor', userId: 'user-a' })
     const account = await h.reference('tablet', '/api/reference/plan%3Astation?v=1', { 'X-Incident-Link': 'off' })
     expect(account).toEqual({ stopped: false, response: undefined }) // Workbox owns account caching
     expect(h.fetchMock).not.toHaveBeenCalled()

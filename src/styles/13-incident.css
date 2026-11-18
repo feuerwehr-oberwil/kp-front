@@ -1117,9 +1117,15 @@ button[data-folded]:not([data-fold-beside]):has(> :is(svg, .print-send-main):not
 .ip-menu-row .ip-badge { flex: none; }
 /* THE Einsatz row (components/EinsatzRow, LISTS.2): the name, its tags beside it (wrapping under
    it when the line is full – the tag is never what gets cut), the red Atemschutz word under the
-   place, the menu's `.ip-menu-az` */
+   place, the menu's `.ip-menu-az`.
+   ⚠️ The NAME is clamped to two lines, never the title box around it (round 18.11.2026 #1, owner's
+   iPhone: «Gymnasium ÜBU…» and no «ABGESCHLOSSEN»): WebKit's `-webkit-line-clamp` on
+   `.list-row-title` counts each flex item of this row as a line, so it cut the second one – the
+   ÜBUNG tag – to «…» and hid the third. Chromium clamps only the box's own lines and never showed it. */
+.list-row-title:has(> .einsatz-row-title) { display: block; overflow: visible; -webkit-line-clamp: none; }
 .einsatz-row-title { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1) var(--sp-2); min-width: 0; }
-.einsatz-row-name { min-width: 0; overflow-wrap: anywhere; }
+.einsatz-row-name { min-width: 0; overflow-wrap: anywhere; overflow: hidden;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .einsatz-row-when { font-variant-numeric: tabular-nums; }
 .einsatz-row-alarm { display: inline-flex; align-items: center; gap: var(--sp-1); align-self: flex-start;
   font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--red-strong); }
@@ -2358,9 +2364,12 @@ select.cv-input { appearance: none; -webkit-appearance: none;
      not on the caps like an eyebrow's */
   .rp-tabs .useg-btn .rp-check-dot { vertical-align: calc(.5ex - 6px); }
   .rp-tabs .useg-btn.on .rp-check-dot { background: currentColor; }
-  /* …and a strip carrying one shares its width by content: at 390px «Personal & Mittel» fills its
-     equal third to the padding, and its mark pushed the word 6px over the segment's edges */
-  .rp-tabs > .useg:has(.rp-check-dot) > .useg-btn { flex: 1 1 auto; }
+  /* …and a segment is never narrower than its word (round 18.11.2026 #4, owner's iPhone: «Personal
+     & Material» spilled past its selected pill – an equal third of 390px is narrower than the
+     word, and `min-width: 0` let it). Equal shares while every word fits, the long one at its
+     word's width where it does not, the others sharing the rest – for every docked strip (the
+     Anwesenheit's three too). It was only a strip carrying an open mark that shared by content. */
+  .rp-tabs > .useg:not(.useg-scroll) > .useg-btn { flex: 1 1 0; min-width: auto; }
 
   /* One rule per tab: everything carrying a DIFFERENT tab is off screen. Blocks with no
      `data-tab` at all (the fieldset, the columns) are structure and are not addressed here —
@@ -2618,6 +2627,8 @@ summary.ip-group-head > .chev { flex: none; width: 16px; height: 16px; margin-le
 .esh-url { flex: 1 1 240px; min-width: 0; display: flex; align-items: center; gap: 8px;
   min-height: var(--tap); padding: 0 12px; border: none; cursor: pointer; text-align: left;
   border-radius: var(--r-ctl); background: var(--surface); box-shadow: inset 0 0 0 1px var(--border); }
+.esh-manual-url { flex: 1 1 100%; min-width: 0; }
+.esh-manual-url input { user-select: text; -webkit-user-select: text; }
 .esh-url code { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis;
   white-space: nowrap; font: var(--fw-medium) var(--fs-1) var(--mono); color: var(--ink); }
 .esh-url:active { background-image: linear-gradient(var(--press), var(--press)); }

@@ -41,6 +41,10 @@ describe('changedOnly — only what the operator actually touched reaches the PA
     expect(changedOnly({ ...seed, type: 'Brandbekämpfung' }, seed)).toEqual({ type: 'Brandbekämpfung' })
   })
 
+  it('keeps both components of an edited pin together', () => {
+    expect(changedOnly({ ...seed, lat: 47.51 }, seed)).toEqual({ lng: seed.lng, lat: 47.51 })
+  })
+
   // clearing the location has to be an explicit null — an omitted key is never written
   it('passes an explicit null coordinate through', () => {
     expect(changedOnly({ ...seed, lng: null, lat: null }, seed)).toEqual({ lng: null, lat: null })

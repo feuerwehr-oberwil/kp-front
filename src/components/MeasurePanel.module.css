@@ -41,8 +41,9 @@
 .mp-prof-title { font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
 .mp-prof-msg { font-size: var(--fs-1); color: var(--ink-faint); padding: 8px 0; text-align: center; }
 .mp-chart-wrap { width: 100%; }
-/* touch-action: a finger scrubs the read-out instead of scrolling the panel */
-.mp-chart-plot { position: relative; touch-action: none; cursor: crosshair; }
+/* touch-action: a finger scrubs the read-out instead of scrolling the panel; the container is
+   what the read-out tag measures its slide against (.mp-readout) */
+.mp-chart-plot { position: relative; touch-action: none; cursor: crosshair; container-type: inline-size; }
 .mp-chart { width: 100%; height: 84px; display: block; }
 /* the tapped nodes on their own profile (lib/profile · profileNodes): a faint guide through the
    plot, a node dot in the map's own vocabulary – white fill, --blue ring; the two ends solid –
@@ -60,11 +61,16 @@
 /* the read-out (ProfileChart, and the Wassertransport's chart – WaterRelay · RelayChart): where the
    pointer reads the profile, a guide and a dot in the curve's ink, the numbers in a tag at the
    plot's top edge – inside it, so it never covers the panel's readout row above. The dot is HTML
-   in per cent, like the node dots (the profile's SVG is stretched). */
+   in per cent, like the node dots (the profile's SVG is stretched).
+   ⚠️ The tag is centred on the spot (`--at`, the spot as a fraction of the plot) and slides by its
+   OWN width to stay inside the plot (round 18.11.2026 #3, owner's iPhone: a clamp at 20–80 % of the
+   plot let a 175px tag run 20px past a phone's chart, and the panel then scrolled sideways). The
+   plot is a size container (`cqw`); its parent stops being one only by hand. */
 .mp-chart-cursor { stroke: var(--ink-45); stroke-width: 1; vector-effect: non-scaling-stroke; }
 .mp-chart-dot { position: absolute; width: 9px; height: 9px; translate: -50% -50%; border-radius: 50%; box-sizing: border-box;
   background: var(--ink); border: 1.5px solid var(--surface); pointer-events: none; }
-.mp-readout { position: absolute; top: 0; transform: translateX(-50%); z-index: 1; display: flex; gap: var(--sp-2);
+.mp-readout { position: absolute; top: 0; left: 0; z-index: 1;
+  translate: clamp(0px, calc(var(--at, .5) * 100cqw - 50%), calc(100cqw - 100%)) 0; display: flex; gap: var(--sp-2);
   padding: var(--sp-1) var(--sp-2); border-radius: var(--r-ctl); background: var(--surface); box-shadow: var(--e2); pointer-events: none;
   white-space: nowrap; font: var(--fw-medium) var(--fs-micro) var(--mono); color: var(--ink-dim); }
 .mp-readout b { color: var(--ink); }
@@ -121,6 +127,10 @@
        itself – it grew up behind the Einsatz header (owner's screenshot, ~83 m Strecke) */
     max-height: calc(100dvh - var(--mp-bottom) - var(--under-bar));
     overflow-y: auto; overscroll-behavior: contain;
+    /* …and never sideways (round 18.11.2026 #3): the panel is one column as wide as the screen
+       allows, so anything wider is a bug to fix where it grows – but the owner's iPhone scrolled
+       the whole Wassertransport 80px left and cut its labels, so the guard stays */
+    overflow-x: hidden;
     /* …which is the wind chip's row (15-mobile · .phone-wx, --z-map-util): reaching it, the panel
        lies OVER the chip, as the Gebäude card does (--z-map-card) – the chip lay on the
        Wassertransport's ✕ */

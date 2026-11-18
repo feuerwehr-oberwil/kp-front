@@ -251,6 +251,7 @@ describe('MeasurePanel · Wassertransport', () => {
     fireEvent.click(screen.getByRole('button', { name: R.sourcesLabel }))
     const note = screen.getByRole('dialog', { name: R.sourcesLabel })
     expect(note.textContent).toContain('AGV')
+    expect(note.textContent).toMatch(/Berechnet am .*\d{2}:\d{2}/)
     expect(container.contains(note)).toBe(false)
   })
 
