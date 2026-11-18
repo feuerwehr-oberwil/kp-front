@@ -2156,6 +2156,7 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
         unproject={unprojectPoint}
         setDragPan={setDragPanEnabled}
         onSelect={onSelect}
+        onDeselect={onSelectionDone}
         onMarkerDragStart={onMarkerDragStart}
         onMarkerMove={teamJoinMarkerMove}
         onMarkerDragEnd={teamJoinMarkerDragEnd}
