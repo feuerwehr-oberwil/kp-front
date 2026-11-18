@@ -31,6 +31,16 @@ AGENTS.md on 2026-10-08, wording unchanged.
   `grundriss · shiftStoreys`): every storey it is on shifts by the same step, a symbol's Von/Bis
   with it, the target tile lights up, one ↶. A docked line, a turn, or a step that would put any
   vertex off the stack keeps it on its storeys; a single vertex still changes storey by its own grip.
+  - *The pack's own sheet* (Modul 6, or any module whose binding carries `floors`) shows the same
+    drawings side by side on one page. A symbol placed or moved INTO one of them takes its storey
+    – what a storey tile does on the stack (owner, 18.11.2026, `lib/floorPackBinding ·
+    withDrawingStorey`): it writes the sheet's badge `storey` (what Von/Bis shows there), or shifts
+    a Von/Bis span whole by the step between the two drawings. Inside the drawing it came from and
+    outside every drawing it keeps its storey, so one set by hand stays. Placing, the chip drag and
+    the bar's ✥ do it; its `board.move` carries the storey for the replay. Such a symbol stays on its
+    sheet: the Gebäude stack does not show another sheet's ink, and its Karte body is placed through
+    the pack's ONE fit, which is measured on the reference drawing – a symbol in another drawing
+    lands where that drawing's paper position puts it.
   - *A storey's acts live in its LABEL* (29.09.2026). The label shows the word only («4. OG»,
     «EG», a custom name); the signed chip comes back only when a custom name hides the order. A
     tap opens a Menu «Ausblenden · Geschoss entfernen» — Ausblenden is a way of looking

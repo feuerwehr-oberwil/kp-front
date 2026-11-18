@@ -86,7 +86,7 @@ import { foldedStoreyTeams, loadHiddenFloors, saveHiddenFloors, shownFloors, sto
 import { arrowEdgePadPx, attachInsetPx, boundaryPoint, candidateAttachment, DEFAULT_OBJECT_ROUTING, DETACH_SHOW_PROGRESS, detachAnnos, dwellFor, flipLine, forkPortPoint, wireFreed, isMagnetAnno, lineEndTargets, relationshipNetwork, resolveLinePoints, withDetach, type AnnoDetachPatch, type AttachableLine, type MagneticTarget } from '../lib/lineAttachments'
 import { packFrameRing, packPagePlacement, pagePlacement, regionCorners, stackGroundFit } from '../lib/stackFit'
 import { circleRing, enclosesSection, inSection, rectPoly, storeySections, visibleCentre } from '../lib/storeyClip'
-import type { FloorPackView } from '../lib/floorPackBinding'
+import { sheetDrawings, type FloorPackView } from '../lib/floorPackBinding'
 import { stackInstances } from '../lib/stackFloors'
 import { StackReadings } from './ReadingParts'
 import { READING_ICON, readingAct } from '../lib/readingLog'
@@ -738,6 +738,10 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   const inkTap = useRef<InkTap | null>(null)
   // floor-stack ↔ board-normalized y maps for the current document (see lib/whiteboard)
   const { mapY, localY, floorAt, boardPts, moveRigid } = floorGeometry(stack, floorsTTB, N)
+  // …and on a plain sheet that IS a floor pack's page (Modul 6, its storeys drawn side by side):
+  // the storey drawings, so a symbol placed or moved into one takes its storey, as on the stack
+  // (lib/floorPackBinding · withDrawingStorey). Empty on every other sheet and on the stack.
+  const storeyDrawings = stack ? [] : sheetDrawings(floorPack, active?.imageUrl ?? '')
 
   // Leaving Linie/Fläche mid-shape never silently drops a committable draft: it asks «Speichern ·
   // Verwerfen · Weiterzeichnen» (27.10.2026; the A6 auto-commit of 29.08. before it). The
@@ -1328,7 +1332,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
 
   // --- create-tool interactions (on the ink overlay) — components/usePlanCreate ---
   const { inkDown, inkMove, inkUp, placeTeamChip, doorGhost, clearDoorGhost } = usePlanCreate({
-    tool, setTool, pending, setPending, pendingShape, setPendingShape, placeLock, setPaletteOpen, stack,
+    tool, setTool, pending, setPending, pendingShape, setPendingShape, placeLock, setPaletteOpen, stack, drawings: storeyDrawings,
     toNorm, floorAt, localY, mapY, sW, sH, tileAR, scale, posRef, scaleRef, applyView, zoomTo, canvasRef, boardRef, inkTapRef: inkTap,
     planDraft, rotor, measure: planMeasure, rotPlacing, rotStart, setRotStart, rotN, noteDefaults, txtBase, setNotePanelId, setNotePlacedId,
     sym, onRecent, annos, trupps, placedTeamNames, onLinkTrupp, setTruppPick, add, log, setSelId,
@@ -1376,7 +1380,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     })))
   }
   const { chipDrag, chipDown, chipMove, chipUp, fan } = useWbChipDrag({
-    tool, readOnly, annos, selId, editId, setSelId, setSelIds, setNotePanelId, toNorm, stack, floorAt, localY, mapY, sW, sH, tileAR,
+    tool, readOnly, annos, selId, editId, setSelId, setSelIds, setNotePanelId, toNorm, stack, drawings: storeyDrawings, floorAt, localY, mapY, sW, sH, tileAR,
     attachmentLines, pushPast, set, emit, activeId, onLinkLineTrupp,
     panFrom: (e) => panFrom(e), stopPan: () => stopPan(), scale, pileUnder,
   })
@@ -1730,7 +1734,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // --- the selection bar's transform target — components/useWbSelectionBar -----------------
   const { barIds, barActive, barMove, barRotate, barDone, barCanRotate, barTurn, arm } = useWbSelectionBar({
     tool, readOnly, georefArmed, annos, selIds, editDraw, selShape, setSelId, setSelIds, setNotePanelId, setEditId, setAnnoTap,
-    sW, sH, mapY, localY, boardPts, moveRigid, stack, floorAt, floorsTTB, setDropFloor, snapMove: snapMoveOf, pushPast, set, emit, activeId, boardRef, canvasRef, onStepEnd,
+    sW, sH, mapY, localY, boardPts, moveRigid, stack, drawings: storeyDrawings, floorAt, floorsTTB, setDropFloor, snapMove: snapMoveOf, pushPast, set, emit, activeId, boardRef, canvasRef, onStepEnd,
   })
   // --- removing objects: with their coupled Leitungen, with a Trupp's trail, a group, the Delete
   // key — components/usePlanRemoval

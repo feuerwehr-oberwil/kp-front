@@ -2,9 +2,9 @@ import type { PlanFloor } from './api/reference'
 import { floorKey, joinKey, referenceUrl } from './api/reference'
 import { effectiveBindingGeoref, type IncidentPlanBinding } from './incidentPlanBindings'
 import { fitSimilarity, type GeorefFit } from './georef'
-import { withPdfPage } from './whiteboard'
+import { pdfPageOf, withPdfPage } from './whiteboard'
 import { bandAspect } from './footprint'
-import type { BuildingDoc } from '../types'
+import type { BoardAnno, BuildingDoc } from '../types'
 
 /**
  * The active object's floor pack as the Gebäude stack needs it, read from the incident's frozen
@@ -195,3 +195,65 @@ export async function trimmedPackFrame(
   // a degenerate result (a single line of ink, everything blank) is no frame at all
   return out[2] - out[0] > 0.01 && out[3] - out[1] > 0.01 ? out : view.frame
 }
+
+/** One storey drawing on a plain sheet that shows a floor pack's page – Modul 6 with its storeys
+ *  drawn side by side: the drawing's storey and its rectangle in the sheet's own normalized
+ *  coordinates (a plain sheet IS its page). */
+export interface SheetDrawing {
+  storey: number
+  clip: [number, number, number, number]
+}
+
+/** The storey drawings the sheet at `imageUrl` shows – the pack's drawings on that sheet's page.
+ *  Empty for every other sheet. Any module whose binding carries floors, not only Modul 6. */
+export function sheetDrawings(pack: FloorPackView | null | undefined, imageUrl: string): SheetDrawing[] {
+  if (!pack || !imageUrl) return []
+  const page = withPdfPage(imageUrl, pdfPageOf(imageUrl) ?? 0)
+  return Object.entries(pack.tiles).flatMap(([storey, tiles]) =>
+    tiles.filter((t) => t.url === page).map((t) => ({ storey: Number(storey), clip: t.clip })))
+}
+
+/** the storey of the drawing at (x, y), or null outside every drawing */
+export const drawingAt = (drawings: readonly SheetDrawing[], x: number, y: number): number | null =>
+  drawings.find(({ clip: [x0, y0, x1, y1] }) => x >= x0 && x <= x1 && y >= y0 && y <= y1)?.storey ?? null
+
+/**
+ * A symbol placed or moved on such a sheet takes the storey of the drawing it lands in – what the
+ * Gebäude stack does with a storey tile (owner, 18.11.2026: «also auto-change storeys like in
+ * gebäude»). `orig` is the symbol as the gesture FOUND it (null for a placement), `moved` the
+ * gesture's current frame; the storey is always worked out from `orig`, so a drag that streams
+ * frames never shifts a span twice, and one that comes back to its drawing gets its own back.
+ *
+ * It writes what Von/Bis reads on a plain sheet: `storey` (the Gebäude writes its tile, and the
+ * plain sheet's twin of it is the badge – types · BoardAnno.storey), or, for a span, Von and Bis
+ * shifted whole by the step between the two drawings, as a span dragged between Gebäude storeys
+ * is (stackFloors · normalizeStackEdit). Outside every drawing, and inside the drawing it came
+ * from, the storey is the one it had: a storey set by hand within one drawing stays.
+ */
+export function withDrawingStorey(orig: BoardAnno | null, moved: BoardAnno, drawings: readonly SheetDrawing[]): BoardAnno {
+  if (moved.kind !== 'symbol' || !drawings.length || moved.x == null || moved.y == null) return moved
+  const to = drawingAt(drawings, moved.x, moved.y)
+  const from = orig?.x != null && orig.y != null ? drawingAt(drawings, orig.x, orig.y) : null
+  const base = orig ?? moved
+  const out: BoardAnno = { ...moved }
+  // absent stays absent – never an explicit `undefined` the store would read as a change
+  delete out.storey; delete out.floorFrom; delete out.floorTo
+  if (to == null || to === from) {
+    if (base.storey != null) out.storey = base.storey
+    if (base.floorFrom != null) out.floorFrom = base.floorFrom
+    if (base.floorTo != null) out.floorTo = base.floorTo
+    return out
+  }
+  if (base.floorFrom == null && base.floorTo == null) return { ...out, storey: to }
+  const delta = to - (from ?? base.floorFrom ?? base.floorTo ?? to)
+  if (base.floorFrom != null) out.floorFrom = base.floorFrom + delta
+  if (base.floorTo != null) out.floorTo = base.floorTo + delta
+  return out
+}
+
+/** The storey half of a symbol's `board.move` payload, so the Verlauf replay folds it too
+ *  (lib/replay · board.move): Von/Bis on the Gebäude stack, and on a sheet with storey drawings
+ *  the storey a drawing may have given it. Nothing elsewhere – a move there keeps its storey. */
+export const storeyMove = (a: BoardAnno, stack: boolean, drawings: readonly SheetDrawing[]): Partial<BoardAnno> =>
+  stack ? { floorFrom: a.floorFrom, floorTo: a.floorTo }
+    : drawings.length ? { storey: a.storey, floorFrom: a.floorFrom, floorTo: a.floorTo } : {}

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { floorPackOf, frameAspect, joinShifts, packFloorNames, packStoreys, trimmedPackFrame } from './floorPackBinding'
+import { floorPackOf, frameAspect, joinShifts, packFloorNames, packStoreys, sheetDrawings, trimmedPackFrame, withDrawingStorey } from './floorPackBinding'
+import type { BoardAnno } from '../types'
 import { inheritPlanBinding } from './incidentPlanBindings'
 import type { GeorefPair } from './georef'
 
@@ -149,5 +150,53 @@ describe('trimmedPackFrame', () => {
   it('keeps the frame it was given rather than collapsing onto a speck of ink', async () => {
     const speck = async (_u: string, c: [number, number, number, number]) => [c[0], c[1], c[0] + 0.001, c[1] + 0.001] as const
     expect(await trimmedPackFrame(view, speck)).toEqual(view.frame)
+  })
+})
+
+// owner, 18.11.2026: «on georeferenced module 6 also auto-change storeys like in gebäude» – a sheet
+// with its storeys drawn side by side (the shot: 3OG · EG over 2OG · 1UG on one page)
+describe('a plain sheet that shows a floor pack\'s page', () => {
+  const c = (x0: number, y0: number, x1: number, y1: number): [number, number, number, number] => [x0, y0, x1, y1]
+  const floors = [
+    { page: 0, index: 3, name: '3OG', clip: c(0, 0, 0.5, 0.5) }, { page: 0, index: 0, name: 'EG', clip: c(0.5, 0, 1, 0.5) },
+    { page: 0, index: 2, name: '2OG', clip: c(0, 0.5, 0.5, 1) }, { page: 0, index: -1, name: '1UG', clip: c(0.5, 0.5, 1, 1) },
+    { page: 1, index: 1, name: '1OG', clip: null },
+  ]
+  const pack = floorPackOf([{ ...inheritPlanBinding(sheet, approval, null, false, floors), page: 0 }], 'wyss')!
+  const url = '/api/reference/plan%3Awyss%3Amodul6?v=2'
+  const drawings = sheetDrawings(pack, url)
+  const fire = (x: number, y: number, more: Partial<BoardAnno> = {}): BoardAnno => ({ id: 'f', kind: 'symbol', symbol: 'Feuer', x, y, ...more })
+
+  it('knows the drawings of its own page only – and none on another sheet', () => {
+    expect(drawings.map((d) => d.storey).sort()).toEqual([-1, 0, 2, 3])
+    expect(sheetDrawings(pack, `${url}#page=2`)).toEqual([{ storey: 1, clip: [0, 0, 1, 1] }])
+    expect(sheetDrawings(pack, '/api/reference/plan%3Awyss%3Amodul2?v=1')).toEqual([])
+    expect(sheetDrawings(null, url)).toEqual([])
+  })
+  it('a symbol placed in the 2OG drawing is on the 2OG; outside every drawing it has none', () => {
+    expect(withDrawingStorey(null, fire(0.25, 0.75), drawings)).toMatchObject({ storey: 2 })
+    expect(withDrawingStorey(null, fire(0.25, 0.75), drawings).floorFrom).toBeUndefined()
+    expect('storey' in withDrawingStorey(null, fire(1.2, 0.75), drawings)).toBe(false)
+    // a Linie or a note is not a symbol
+    expect(withDrawingStorey(null, { id: 't', kind: 'text', x: 0.25, y: 0.75 }, drawings).storey).toBeUndefined()
+  })
+  it('moved into another drawing it changes storey; within its drawing a storey set by hand stays', () => {
+    const onEg = fire(0.75, 0.25, { storey: 0 })
+    expect(withDrawingStorey(onEg, { ...onEg, x: 0.75, y: 0.75 }, drawings)).toMatchObject({ storey: -1 })
+    const byHand = fire(0.75, 0.25, { storey: 5 })
+    expect(withDrawingStorey(byHand, { ...byHand, x: 0.8, y: 0.3 }, drawings).storey).toBe(5)
+    expect(withDrawingStorey(byHand, { ...byHand, x: 1.3, y: 0.3 }, drawings).storey).toBe(5) // off every drawing
+  })
+  it('a span moves whole by the step between the drawings, as on the Gebäude', () => {
+    const stair = fire(0.75, 0.25, { floorFrom: 0, floorTo: 1 })
+    const out = withDrawingStorey(stair, { ...stair, x: 0.25, y: 0.75 }, drawings)
+    expect(out).toMatchObject({ floorFrom: 2, floorTo: 3 })
+    expect('storey' in out).toBe(false)
+  })
+  it('works from the symbol as the gesture found it: a streamed frame never shifts twice, and back home is home', () => {
+    const stair = fire(0.75, 0.25, { floorFrom: 0, floorTo: 1 })
+    const frame1 = withDrawingStorey(stair, { ...stair, x: 0.25, y: 0.75 }, drawings)
+    expect(withDrawingStorey(stair, { ...frame1, x: 0.3, y: 0.8 }, drawings)).toMatchObject({ floorFrom: 2, floorTo: 3 })
+    expect(withDrawingStorey(stair, { ...frame1, x: 0.75, y: 0.3 }, drawings)).toMatchObject({ floorFrom: 0, floorTo: 1 })
   })
 })
