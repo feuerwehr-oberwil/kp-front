@@ -32,6 +32,10 @@ const WORST = {
   people: ['Schönenberger-Vonlanthen Jean-Christophe', 'Schönenberger-Vonlanthen Anna-Barbara'],
 } as const
 const CENTER: [number, number] = [7.570345, 47.523718]
+/** the chips' `title`s: seed data in copy · atemschutz `dockedAt` («bei «{host}»») and the
+ *  Auftrag · Ziel line – what the copy guard (e2eSelectors.test) cannot read as one literal */
+const DOCKED_TITLE = `bei «${WORST.host}»`
+const AUFTRAG_TITLE = `Löschen · ${WORST.ziel}`
 
 /** An Übung carrying every worst case at once: one Trupp inside with the long crew, Ziel and a
  *  marker docked to an Angehörigensammelstelle named like a real Hydrant spot, two present people
@@ -67,8 +71,8 @@ const overlaps = (a: Box, b: Box) => a.x < b.x + b.width - 1 && b.x < a.x + a.wi
 
 async function boxOf(el: Locator, what: string): Promise<Box> {
   const box = await el.boundingBox()
-  expect(box, `${what} is on screen`).not.toBeNull()
-  return box!
+  if (!box) throw new Error(`${what} is not on screen`)
+  return box
 }
 
 /** Every box of `parts` stands inside `container` – its text clipped by nothing. */
@@ -149,7 +153,7 @@ for (const device of [
       incidentId = ''
     })
 
-    test('the Trupp card keeps a long crew, host and Ziel inside it', async ({ page }) => {
+    test(`the Trupp card keeps a long crew, host and Ziel inside it (${device.name})`, async ({ page }) => {
       await openEinsatz(page)
       await go(page, 'Trupps')
       const card = page.locator('[class*="trowCard"]').filter({ hasText: WORST.crew[0] })
@@ -164,13 +168,13 @@ for (const device of [
           expect(overlaps(await boxOf(n, 'a crew name'), c), 'a crew name never runs under the clock').toBe(false)
         }
       }
-      const docked = card.getByTitle(`bei «${WORST.host}»`)
+      const docked = card.getByTitle(DOCKED_TITLE)
       await expectInside(docked, card, 'the «bei ‹Host›» chip')
       await expectInside(docked.locator(':scope > svg'), docked, 'the ▸ of the «bei ‹Host›» chip')
-      await expectInside(card.getByTitle(`Löschen · ${WORST.ziel}`), card, 'the Auftrag · Ziel chip')
+      await expectInside(card.getByTitle(AUFTRAG_TITLE), card, 'the Auftrag · Ziel chip')
     })
 
-    test('the Anwesenheit gives «Nachname Vorname» two lines', async ({ page }) => {
+    test(`the Anwesenheit gives «Nachname Vorname» two lines (${device.name})`, async ({ page }) => {
       await openEinsatz(page)
       await go(page, 'Anwesenheit')
       for (const who of WORST.people) {
@@ -180,7 +184,7 @@ for (const device of [
       }
     })
 
-    test('the Einsatz menu gives a long title two lines and keeps the Übung tag', async ({ page }) => {
+    test(`the Einsatz menu gives a long title two lines and keeps the Übung tag (${device.name})`, async ({ page }) => {
       // by its route: the Karte home, whose menu lists the open Einsätze (AppMenuRows)
       await openApp(page, '/karte')
       await page.locator('[data-karte-menu]').click()
@@ -191,11 +195,15 @@ for (const device of [
       await expectInside(row.locator('.ip-badge'), row, 'the Übung tag')
     })
 
-    test('the context panel breaks a long compound before the ✕', async ({ page }) => {
+    test(`the context panel breaks a long compound before the ✕ (${device.name})`, async ({ page }) => {
       await openEinsatz(page)
       await go(page, 'Karte')
-      await page.locator('.maplibregl-marker > .marker:not(.marker-note):not(.marker-shape)').first().click()
+      // the host's glyph: the top-centre of its marker (its caption hangs under it)
+      const marker = await boxOf(page.locator('.maplibregl-marker > .marker').filter({ hasText: 'Gemeindeverwaltung' }).first(), 'the host marker')
       const head = page.locator('.ctx-head').filter({ hasText: /Angehörigen/ })
+      await page.mouse.click(marker.x + marker.width / 2, marker.y + 18)
+      // a first-view Gebäude card that opened late is a layer: it takes the first tap
+      if (!await head.waitFor({ timeout: 2500 }).then(() => true, () => false)) await page.mouse.click(marker.x + marker.width / 2, marker.y + 18)
       await expect(head).toBeVisible()
       const title = head.locator('.ctx-title-ro')
       await expectWhole(title, 'the panel title')
