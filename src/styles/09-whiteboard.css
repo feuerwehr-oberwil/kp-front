@@ -726,6 +726,53 @@ span.wb-ghost-label { cursor: default; }
 .wb-pill-acts.worded .wb-pa { width: auto; min-width: 56px; height: 52px; padding: 0 var(--sp-2);
   grid-template-rows: 18px auto; align-content: center; gap: 2px; }
 .wb-pa-word { font-size: var(--fs-micro); font-weight: var(--fw-bold); line-height: 1.1; white-space: nowrap; }
+/* ── docked at the foot on a PHONE (round 18.11.2026, owner pick M1 A; components/TwinTeamPill ·
+   `docked`) ── beside the marker the card and the bar ran off the screen. The card takes the
+   floating row's slot left of the Eintrag FAB (pick M1b: the FAB keeps its corner), the bar the
+   tool bar's – the slot the ✥ ⟳ bar uses, in the same anatomy: `--rail-h` tall, 4px 8px inset,
+   46px tiles resting bare in ink, glyph 22 over its word. `--dock-bottom` is one bar over
+   `--tools-bottom` with or without a tool bar under it, so the two never meet. Both bars and the
+   chip row step aside while it shows (15-mobile · the ✥ ⟳ rule). */
+@media (--phone) {
+  .wb-pill-card { position: fixed; z-index: var(--z-chrome); box-sizing: border-box; height: var(--line-h);
+    left: max(8px, env(safe-area-inset-left)); bottom: var(--dock-bottom);
+    right: calc(max(8px, env(safe-area-inset-right)) + var(--line-h) + var(--float-gap));
+    display: flex; align-items: center; gap: var(--sp-1); padding: 0 var(--sp-2) 0 var(--sp-1);
+    border-radius: var(--r-bar); background: var(--float-bg); backdrop-filter: var(--float-blur); box-shadow: var(--float-edge);
+    color: var(--ink); animation: pop .16s var(--ease); }
+  /* the card is the material: the pill inside gives up its plate, edge and shadow, and its name
+     ellipsises before the ✕. An alarm tier tints the CARD (the pill's tint and edge, .tone-*), so
+     no box stands inside the box. */
+  .wb-pill-card .wb-resource-pill { flex: 1 1 auto; min-width: 0; border: none; box-shadow: none; background: transparent; }
+  .wb-pill-card:has(> .tone-warn) { background: color-mix(in srgb, var(--amber) 14%, var(--surface)); box-shadow: inset 0 0 0 1.5px var(--amber), var(--shadow); }
+  .wb-pill-card:has(> .tone-crit) { background: color-mix(in srgb, var(--red) 16%, var(--surface)); box-shadow: inset 0 0 0 1.5px var(--red), var(--shadow); }
+  .wb-pill-card :is(.wb-resource-body, .wb-resource-name) { min-width: 0; max-width: 100%; }
+  .wb-pill-card .wb-resource-name b { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .wb-pill-card .wb-resource-name > :not(b) { flex: none; }
+  /* its ✕ wears THE way out's plate (the colour table, as the dock's and the ✥ ⟳ bar's) */
+  .wb-pill-card-x { flex: none; display: grid; place-items: center; width: var(--tap); height: var(--tap); padding: 0;
+    border: none; border-radius: var(--r-sm); background: var(--dock-control-bg); color: var(--ink-dim); cursor: pointer; }
+  .wb-pill-card-x .i { width: 22px; height: 22px; }
+  .wb-pill-card-x:active { background-image: linear-gradient(var(--press), var(--press)); }
+  .wb-pill-acts.docked { position: fixed; z-index: var(--z-chrome); box-sizing: border-box; top: auto; transform: none;
+    left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right)); bottom: var(--tools-bottom);
+    width: auto; max-width: none; height: var(--rail-h); padding: 4px 8px; gap: 4px; flex-wrap: nowrap; align-items: center;
+    border-radius: var(--r-bar); background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
+    border: 1px solid var(--glass-line); box-shadow: var(--e4); color: var(--ink); animation: pop .16s var(--ease); }
+  .wb-pill-acts.docked .wb-pa { flex: 1 1 0; width: auto; min-width: 44px; height: 46px; padding: 0 var(--sp-2);
+    color: var(--ink); background: transparent; }
+  .wb-pill-acts.docked .wb-pa .i { width: 22px; height: 22px; }
+  .wb-pill-acts.docked.worded .wb-pa { grid-template-rows: 22px auto; gap: 0; }
+  .wb-pill-acts.docked .wb-pa-word { line-height: 1.3; }
+  .wb-pill-acts.docked .wb-pa:active { background-image: linear-gradient(var(--press), var(--press)); }
+  /* the Plan's «Verbundene Linien» card hangs under the PILL then – there is no bar under it */
+  .wb-resource-pill[data-docked] ~ .wb-resource-connections { top: calc(100% + 6px); transform: translateX(-50%); }
+}
+/* (both only exist on a phone – TwinTeamPill docks nowhere else) */
+@media (hover: hover) {
+  .wb-pill-card-x:hover { background: var(--dock-control-hover); color: var(--ink); }
+  .wb-pill-acts.docked .wb-pa:hover:not(:disabled) { background: var(--hover); }
+}
 /* ⚠️ Every action on this bar wears the bar's ONE neutral wash (29.09.2026, sweep K3). «Position
    markieren» was a --blue fill and «Bei den Trupps zeigen» a --green one: blue means «chosen»
    (--sel) and green the Eintritt tone, so colours on the bar said nothing about which to press.
@@ -937,7 +984,7 @@ span.wb-ghost-label { cursor: default; }
    nothing else in a bar or a dock (owner pick 22, 17.11.2026, docs/ui-conventions.md · «The colour
    table»): every other tile rests bare. Declared on both bars because `.sel-bar` (11-measure) is a
    sibling of the dock, not inside it (button sweep CHROME.5). */
-.wb-dock, .sel-bar {
+.wb-dock, .sel-bar, .wb-pill-card {
   --dock-control-bg: color-mix(in srgb, var(--ink) 7%, var(--surface));
   --dock-control-hover: color-mix(in srgb, var(--ink) 13%, var(--surface)); }
 .wb-dock::-webkit-scrollbar { width: 6px; }
@@ -1234,6 +1281,11 @@ span.wb-ghost-label { cursor: default; }
 .wb-join { display: inline-flex; align-items: stretch; flex: 0 1 auto; min-width: 0; max-width: 100%; border-radius: var(--r-bar);
   background: var(--float-bg); backdrop-filter: var(--float-blur); box-shadow: var(--float-edge); }
 .wb-join:empty { display: none; }
+/* ⚠️ …but a card opened from a joined chip lets go of the blur while it stands (round 18.11.2026):
+   a `backdrop-filter` makes the group the containing block of its `fixed` descendants, so on a
+   phone the Plan's Gebäude card (BuildingFloat · .pop, fixed to the bars' width) was laid out in the
+   join's own 230px and ran up under the top bar. The plate keeps its --float-bg tone. */
+@media (--phone) { .wb-join:has([role="dialog"]) { backdrop-filter: none; } }
 .wb-join .wb-scale-chip { background-color: transparent; backdrop-filter: none; box-shadow: none; border-radius: 0; }
 .wb-join > * + * { border-left: 1px solid var(--border); }
 .wb-join > :first-child, .wb-join > :first-child > .wb-scale-chip { border-top-left-radius: var(--r-bar); border-bottom-left-radius: var(--r-bar); }
@@ -1279,11 +1331,14 @@ span.wb-ghost-label { cursor: default; }
   .wb-scale-persist { left: 10px; right: 10px; bottom: calc(var(--float-bottom) + var(--line-h) + var(--float-gap));
     max-width: none; flex-wrap: wrap; }
 }
-/* armed (its Plan sheet or card open) = the chip is LIT, the way an armed tile of the tool
-   bar is: a quiet blue wash mixed INTO the glass (never a see-through tint — see below) and a
-   blue glyph. Not a ring (26.09.2026). */
-.wb-scale-chip.arm { background: color-mix(in srgb, var(--blue) 14%, var(--float-bg)); }
-.wb-scale-chip.arm svg:not(.wb-chip-chev) { color: var(--blue); }
+/* armed (its Plan sheet or card open) = the chip is LIT, the way a «here» tile of the bars is
+   (Auswahl, Karte): the `--here-fill` plate, its ink and glyphs in `--on-here` – what is lit is
+   open (round 18.11.2026, owner pick M4 B; the Gebäude and Messungen chips add ⌄, «tap again
+   folds it»). It was a 14 % blue wash over the glass, which on the iPhone nobody read as «open».
+   Opaque, so nothing shows through; not a ring (26.09.2026). */
+.wb-scale-chip.arm { background: var(--here-fill); color: var(--on-here); }
+.wb-scale-chip.arm svg:not(.wb-chip-chev), .wb-scale-chip.arm .wb-chip-chev { color: var(--on-here); }
+@media (hover: hover) { .wb-scale-chip.arm:hover { background-color: var(--here-fill-hover); } }
 /* …except the Messgerät inside a reading pill (ReadingsChip): it is the pill's ink, on amber/red
    in any state of the chip – the chip's dim/hover/armed glyph colours made it navy on red */
 .wb-scale-chip .sym-pill svg:not(.wb-chip-chev) { color: inherit; }

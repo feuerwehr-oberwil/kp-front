@@ -88,6 +88,8 @@ export interface MapMarkersProps {
   /** toggle the map's own pan so a hold-drag of a symbol doesn't also pan the map under it */
   setDragPan: (on: boolean) => void
   onSelect: (e: Entity) => void
+  /** the selection ends – the phone's docked Trupp card's ✕ (components/TwinTeamPill · onClose) */
+  onDeselect?: () => void
   onMarkerDragStart: (id: string) => void
   onMarkerMove: (id: string, c: LngLat) => void
   onMarkerDragEnd: (id: string, c: LngLat) => void
@@ -164,7 +166,7 @@ export interface MapMarkersProps {
  * vehicle) plus its selection affordances — delete, rotor (live vehicles), and the
  * shape/symbol transform handles. Owns the rotor/transform pointer-drag refs.
  */
-export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelectedIds = [], networkEntityIds = [], zoom, bearing = 0, symMul = 1, captionMode = 'off', suppressedLabels, draggable, project, unproject, setDragPan, onSelect, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onDelete, onRotate, onShapeTransform, onUnlockShape, readOnly = false, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, trupps, onShowTrupp, onTeamTrupp, onTeamNewTrupp, onTeamMark, onTeamRename, onTeamClearTrail, onTeamRemoveWithTrail, hiddenTrails, onToggleTrail, teamLines, onTeamUnlink, onTeamUndock, ghostTrails, onGhostTrail, truppSeverities }: MapMarkersProps) {
+export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelectedIds = [], networkEntityIds = [], zoom, bearing = 0, symMul = 1, captionMode = 'off', suppressedLabels, draggable, project, unproject, setDragPan, onSelect, onDeselect, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onDelete, onRotate, onShapeTransform, onUnlockShape, readOnly = false, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, trupps, onShowTrupp, onTeamTrupp, onTeamNewTrupp, onTeamMark, onTeamRename, onTeamClearTrail, onTeamRemoveWithTrail, hiddenTrails, onToggleTrail, teamLines, onTeamUnlink, onTeamUndock, ghostTrails, onGhostTrail, truppSeverities }: MapMarkersProps) {
   const ghostLabel = (g: TruppTrail) => ghostTrailLabel(g, appConfig.copy.whiteboard.team, trupps ?? [])
   // repaint the baked placard glyphs (Kemler auto-derived via lookupUN) when the fetched
   // ADR dataset lands — see lib/useHazardData.
@@ -686,7 +688,7 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
           dockedSlots={dockedSlots} dockedHosts={dockedHosts} onPress={pressMarker}
           rotDown={rotDown} rotMove={rotMove} rotUp={rotUp} shapeDown={shapeDown} shapeMove={shapeMove} shapeUp={shapeUp}
           focusNote={focusNote} focusTeam={focusTeam} noteChange={noteChange} noteBlur={noteBlur} noteKeyDown={noteKeyDown} noteDone={noteDone}
-          onSelect={onSelect} onDelete={onDelete} onRotate={onRotate} onShapeTransform={onShapeTransform} onUnlockShape={onUnlockShape} onNoteEdit={onNoteEdit}
+          onSelect={onSelect} onDeselect={onDeselect} onDelete={onDelete} onRotate={onRotate} onShapeTransform={onShapeTransform} onUnlockShape={onUnlockShape} onNoteEdit={onNoteEdit}
           trupps={trupps} onShowTrupp={onShowTrupp} onTeamTrupp={onTeamTrupp} onTeamNewTrupp={onTeamNewTrupp} onTeamMark={onTeamMark}
           onTeamRename={onTeamRename} onTeamClearTrail={onTeamClearTrail} onTeamRemoveWithTrail={onTeamRemoveWithTrail}
           hiddenTrails={hiddenTrails} onToggleTrail={onToggleTrail} teamLines={teamLines} onTeamUnlink={onTeamUnlink} onTeamUndock={onTeamUndock}

@@ -15,6 +15,10 @@
    (no fill: a known hazard is a fact, not an alarm). */
 .hazard svg:first-child { color: var(--amber-strong); }
 .words { color: var(--amber-strong); font-weight: var(--fw-heavy); }
+/* …and on the LIT chip (open, 09-whiteboard · .wb-scale-chip.arm) the words take its ink and the ⚠
+   the plain amber: amber-strong is a light-ground ink, ~2.5:1 on the day's dark plate */
+:global(.wb-scale-chip.arm).hazard > svg:first-child { color: var(--amber); }
+:global(.wb-scale-chip.arm).hazard .words { color: inherit; }
 /* …at 700 on a phone, where the words are the tile's whole word (BuildingFloat) */
 @media (--phone) { .words { font-weight: var(--fw-bold); } }
 /* the Sofortmassnahmen's count: the ONE count badge (05-navrail · .nav-count – 16px, 11/800,

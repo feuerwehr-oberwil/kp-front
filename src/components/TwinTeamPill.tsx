@@ -16,8 +16,18 @@
  *  What a surface says by LEAVING A WRITER OUT is «this door is not mine to open»: an action
  *  that is absent draws no button. That is how the plan board keeps its chip colour in the
  *  SelectionBar (no swatch here), and how a read-only Karte shows the pill with no bar at all.
+ *
+ *  ON A PHONE the card and the bar DOCK at the foot (round 18.11.2026, owner pick M1 A): beside the
+ *  marker they hung right of the dot and ran off the screen, while the stepped-aside bars left an
+ *  empty band. The card – name, state, storey, time and a ✕ – takes the floating row's slot left of
+ *  the Eintrag FAB (`--dock-bottom`), the bar the tool bar's (`--tools-bottom`), the slot the ✥ ⟳
+ *  bar uses; both step aside for it (15-mobile). On the surface only the ringed name stays. Both
+ *  are portaled into the SURFACE (`DOCK_HOST`): out of the marker's transform, which would pin a
+ *  `fixed` box to the marker, and still inside the surface, so a Karte hidden behind a Plan hides
+ *  its dock with it. The tablet keeps card and bar beside the marker.
  */
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { Icon } from '../lib/icons'
 import { leaveOnEnter } from '../lib/fieldKeys'
 import { Menu, type MenuActionItem } from '../lib/overlays'
@@ -28,6 +38,7 @@ import { floorLabel } from '../lib/whiteboard'
 import type { LineTone, TeamLineBadge } from '../lib/truppLines'
 import { truppStateWord } from './truppCardText'
 import { useRailLabels } from '../lib/useDevicePrefs'
+import { useIsPhone } from '../lib/useIsPhone'
 import type { Trupp } from '../types'
 
 /**
@@ -134,6 +145,10 @@ const BAR_GAP = 9
  *  `position: fixed` only where they actually cover the surface, and none of them exists on the
  *  Karte — so this is a query, never a table of per-surface offsets. */
 const BOTTOM_LANES = '.wb-botleft, .wb-tools, .wb-dock'
+/** Where a phone's docked card + bar are portaled: the surface the marker is drawn on – the
+ *  Plan's board, or the Karte's map container (outside its canvas container, so MapLibre's own
+ *  gestures never see a press on the card). */
+const DOCK_HOST = '.whiteboard, .maplibregl-map'
 
 /**
  * Keep the action bar on screen. It hangs BELOW the marker, and a marker low on the stage put it
@@ -215,7 +230,7 @@ function useBarPlacement(on: boolean) {
   return [ref, place] as const
 }
 
-export function TwinTeamPill({ name, time, color, originalLabel, raus, truppId, floor, tone = 'idle', trailCount, trailShown, trupps, line, acts, hit, renameRef, renaming: renamingProp, onRenaming }: {
+export function TwinTeamPill({ name, time, color, originalLabel, raus, truppId, floor, tone = 'idle', trailCount, trailShown, trupps, line, acts, hit, renameRef, renaming: renamingProp, onRenaming, onClose }: {
   name: string
   time?: string
   /** the colour actually painted (the source's own, or the palette's first) */
@@ -260,10 +275,18 @@ export function TwinTeamPill({ name, time, color, originalLabel, raus, truppId, 
    *  mirrors: «Mehr › Bearbeiten» only) and the pill keeps the flag, since leaving the pill IS the commit. */
   renaming?: boolean
   onRenaming?: (on: boolean) => void
+  /** the phone's docked card's ✕: the selection ends. Absent ⇒ no ✕ (a tap beside still ends it). */
+  onClose?: () => void
 }) {
   // inline rename («Mehr › Bearbeiten») — the same grammar every surface uses
   const [selfRenaming, setSelfRenaming] = useState(false)
-  const [barRef, barPlace] = useBarPlacement(!!acts)
+  // the phone's dock (header): found from the pill once it is in the DOM, before the first paint
+  const phone = useIsPhone()
+  const pillRef = useRef<HTMLSpanElement>(null)
+  const [dockHost, setDockHost] = useState<HTMLElement | null>(null)
+  useLayoutEffect(() => { setDockHost(phone ? pillRef.current?.closest<HTMLElement>(DOCK_HOST) ?? null : null) }, [phone])
+  const docked = !!dockHost
+  const [barRef, barPlace] = useBarPlacement(!!acts && !docked)
   const renaming = renamingProp ?? selfRenaming
   /* The field is CONTROLLED since 18.09.2026, for the ✕ beside it: a `defaultValue` input cannot
      be emptied from the outside, and «Trupp Nord 2» is exactly the kind of free-text name that
@@ -331,85 +354,110 @@ export function TwinTeamPill({ name, time, color, originalLabel, raus, truppId, 
     ].map((r) => ({ ...r, label: <>{lead('trash')}<span>{r.label}</span></> })) : []),
   ]
   const outTrupp = raus ? trupps.find((t) => t.id === truppId) : undefined
-  // ⚠️ the pill span carries the native class untouched: putting it on the hit shell made
-  // the button the flex container, and Safari's anonymous button box misplaced the cap.
-  const pill = (
-    <span className={`wb-resource-pill ${raus ? 'raus' : ''}${line ? ' joined' : ''}${tone === 'warn' || tone === 'crit' ? ` tone-${tone}` : ''}`}
-      style={{ '--team': color, ...(line ? { '--line': line.color } : null) } as CSSProperties}>
-      {/* The coupling, in the hose's ink, at the pill's LEFT edge — the same edge the marker is
-          anchored by, so the stub sits exactly where the line ends. Absolutely positioned: it
-          must not push the cap (and with it the coordinate the pill states) sideways. */}
-      <span className="wb-resource-cap" />
-      <span className="wb-resource-body">
-        <span className="wb-resource-name">
-          {renaming && rename
-            ? <span className="wb-resource-edit">
-                <input className="wb-resource-input" autoFocus={!renameRef} ref={renameRef} value={draft}
-                  onPointerDown={(ev) => ev.stopPropagation()}
-                  onChange={(ev) => setDraft(ev.target.value)}
-                  onBlur={(ev) => { rename(ev.target.value); setRenaming(false) }}
-                  enterKeyHint="done"
-                  // Return commits, Esc KEEPS what was typed – both leave the field, whose blur
-                  // renames (owner, 17.11.2026 – lib/fieldKeys; Esc used to abandon the edit)
-                  onKeyDown={(ev) => { if (leaveOnEnter(ev)) ev.stopPropagation() }} />
-                {/* ✕ empties the field WITHOUT committing or closing — `preventDefault` on the
-                    press keeps the focus (and the phone keyboard) on the field the operator is
-                    about to type the new name into, exactly as ClearableInput does it. */}
-                {draft !== '' && (
-                  <button type="button" className="wb-resource-clear"
-                    title={appConfig.copy.atemschutz.clearName} aria-label={appConfig.copy.atemschutz.clearName}
-                    onPointerDown={(ev) => { ev.preventDefault(); ev.stopPropagation() }}
-                    onClick={() => setDraft('')}
-                  ><Icon id="close" /></button>
-                )}
-              </span>
-            : <b>{name}</b>}
-          {/* no «#N» badge here either (14.09.) — on the picture the name alone is the label, the
-              number lives on the Atemschutz card (docs/trupp-naming.md §2) */}
-          {/* the board's word for it (truppCardText · truppStateWord): a work squad is «Ohne
-              Auftrag», not the PA-out «Draussen» (ENT.7); a marker on no Trupp keeps the plain word */}
-          {raus && <span className="wb-resource-raus">{outTrupp ? truppStateWord(outTrupp) : appConfig.copy.atemschutz.status.raus}</span>}
-          {/* the storey, LAST: the cap is the coordinate this marker states, and everything in
-              front of it moves the point (see the cap comment above). Same chip chrome as the
-              Leitung's number beside it, in the Trupp's own ink. */}
-          {floor != null && <span className="team-floor" title={floorLabel(floor)}>{floorBadge(floor)}</span>}
+  /** The pill, in its two places. ON THE SURFACE it is the marker's own picture – the one that is
+   *  renamed in place, and the one the dock is found from; while the phone docks the card it is
+   *  the ringed name alone (and the storey: where it is). IN THE CARD it says everything. */
+  const pillOf = (onSurface: boolean) => {
+    const whole = !onSurface || !docked
+    return (
+      // ⚠️ the pill span carries the native class untouched: putting it on the hit shell made
+      // the button the flex container, and Safari's anonymous button box misplaced the cap.
+      <span ref={onSurface ? pillRef : undefined} data-docked={onSurface && docked ? '' : undefined}
+        className={`wb-resource-pill ${raus ? 'raus' : ''}${line ? ' joined' : ''}${tone === 'warn' || tone === 'crit' ? ` tone-${tone}` : ''}`}
+        style={{ '--team': color, ...(line ? { '--line': line.color } : null) } as CSSProperties}>
+        {/* The coupling, in the hose's ink, at the pill's LEFT edge — the same edge the marker is
+            anchored by, so the stub sits exactly where the line ends. Absolutely positioned: it
+            must not push the cap (and with it the coordinate the pill states) sideways. */}
+        <span className="wb-resource-cap" />
+        <span className="wb-resource-body">
+          <span className="wb-resource-name">
+            {onSurface && renaming && rename
+              ? <span className="wb-resource-edit">
+                  <input className="wb-resource-input" autoFocus={!renameRef} ref={renameRef} value={draft}
+                    onPointerDown={(ev) => ev.stopPropagation()}
+                    onChange={(ev) => setDraft(ev.target.value)}
+                    onBlur={(ev) => { rename(ev.target.value); setRenaming(false) }}
+                    enterKeyHint="done"
+                    // Return commits, Esc KEEPS what was typed – both leave the field, whose blur
+                    // renames (owner, 17.11.2026 – lib/fieldKeys; Esc used to abandon the edit)
+                    onKeyDown={(ev) => { if (leaveOnEnter(ev)) ev.stopPropagation() }} />
+                  {/* ✕ empties the field WITHOUT committing or closing — `preventDefault` on the
+                      press keeps the focus (and the phone keyboard) on the field the operator is
+                      about to type the new name into, exactly as ClearableInput does it. */}
+                  {draft !== '' && (
+                    <button type="button" className="wb-resource-clear"
+                      title={appConfig.copy.atemschutz.clearName} aria-label={appConfig.copy.atemschutz.clearName}
+                      onPointerDown={(ev) => { ev.preventDefault(); ev.stopPropagation() }}
+                      onClick={() => setDraft('')}
+                    ><Icon id="close" /></button>
+                  )}
+                </span>
+              : <b>{name}</b>}
+            {/* no «#N» badge here either (14.09.) — on the picture the name alone is the label, the
+                number lives on the Atemschutz card (docs/trupp-naming.md §2) */}
+            {/* the board's word for it (truppCardText · truppStateWord): a work squad is «Ohne
+                Auftrag», not the PA-out «Draussen» (ENT.7); a marker on no Trupp keeps the plain word */}
+            {whole && raus && <span className="wb-resource-raus">{outTrupp ? truppStateWord(outTrupp) : appConfig.copy.atemschutz.status.raus}</span>}
+            {/* the storey, LAST: the cap is the coordinate this marker states, and everything in
+                front of it moves the point (see the cap comment above). Same chip chrome as the
+                Leitung's number beside it, in the Trupp's own ink. */}
+            {floor != null && <span className="team-floor" title={floorLabel(floor)}>{floorBadge(floor)}</span>}
+          </span>
+          {whole && time && <i className="wb-resource-time">{time}</i>}
         </span>
-        {time && <i className="wb-resource-time">{time}</i>}
       </span>
-    </span>
+    )
+  }
+  const pill = pillOf(true)
+  const bar = acts && (
+    <div ref={docked ? undefined : barRef} className={`wb-pill-acts${worded ? ' worded' : ''}${docked ? ' docked' : ''}`}
+      data-flip={!docked && barPlace.up ? 'up' : undefined}
+      style={docked ? undefined : { transform: `translateX(calc(-50% + ${barPlace.dx}px))` }}
+      onPointerDown={(ev) => ev.stopPropagation()}>
+      {zumTrupp ? (
+        // the Trupps nav glyph (NavRail · stopwatch): a door to that page, never a warning ⚠
+        <button className="wb-pa wb-pa-show" title={W.showTrupp} aria-label={W.showTrupp}
+          onClick={() => showTrupp?.(zumTrupp)}><Icon id="stopwatch" />{barWord(W.showTrupp)}</button>
+      ) : join && <TruppJoinMenu {...join} word={barWord(W.joinShort)} />}
+      {/* the bar's short word for «Position markieren», whose full words stay title + label */}
+      {mark && (
+        <button className="wb-pa" title={W.markPosition} aria-label={W.markPosition}
+          onClick={mark}><Icon id="flag" />{barWord(W.markShort)}</button>
+      )}
+      {moreRows.length > 0 && (
+        <Menu
+          popupClassName="de-menu-pop"
+          itemClassName={() => 'de-menu-item'}
+          onOpenChange={(open) => { if (open) setMorePage('rows') }}
+          trigger={
+            <button className="wb-pa wb-pa-more" title={W.barMore} aria-label={W.barMore}>
+              <Icon id="more" />{barWord(W.barMore)}
+            </button>
+          }
+          items={morePage === 'join' && join ? truppJoinItems(join) : moreRows}
+        />
+      )}
+    </div>
   )
   return (
     <>
       {hit ? hit(pill) : pill}
-      {acts && (
-        <div ref={barRef} className={`wb-pill-acts${worded ? ' worded' : ''}`} data-flip={barPlace.up ? 'up' : undefined}
-          style={{ transform: `translateX(calc(-50% + ${barPlace.dx}px))` }}
-          onPointerDown={(ev) => ev.stopPropagation()}>
-          {zumTrupp ? (
-            // the Trupps nav glyph (NavRail · stopwatch): a door to that page, never a warning ⚠
-            <button className="wb-pa wb-pa-show" title={W.showTrupp} aria-label={W.showTrupp}
-              onClick={() => showTrupp?.(zumTrupp)}><Icon id="stopwatch" />{barWord(W.showTrupp)}</button>
-          ) : join && <TruppJoinMenu {...join} word={barWord(W.joinShort)} />}
-          {/* the bar's short word for «Position markieren», whose full words stay title + label */}
-          {mark && (
-            <button className="wb-pa" title={W.markPosition} aria-label={W.markPosition}
-              onClick={mark}><Icon id="flag" />{barWord(W.markShort)}</button>
-          )}
-          {moreRows.length > 0 && (
-            <Menu
-              popupClassName="de-menu-pop"
-              itemClassName={() => 'de-menu-item'}
-              onOpenChange={(open) => { if (open) setMorePage('rows') }}
-              trigger={
-                <button className="wb-pa wb-pa-more" title={W.barMore} aria-label={W.barMore}>
-                  <Icon id="more" />{barWord(W.barMore)}
-                </button>
-              }
-              items={morePage === 'join' && join ? truppJoinItems(join) : moreRows}
-            />
-          )}
-        </div>
-      )}
+      {dockHost ? createPortal(
+        // ⚠️ React bubbles a portal's events up its COMPONENT tree – into the marker's press
+        // (select / hold-drag) and the Plan anno's double tap. The card stops them at its edge,
+        // as the bar always has.
+        <>
+          <div className="wb-pill-card" onPointerDown={(ev) => ev.stopPropagation()} onDoubleClick={(ev) => ev.stopPropagation()}>
+            {pillOf(false)}
+            {onClose && (
+              <button type="button" className="wb-pill-card-x" title={appConfig.copy.closeDialog} aria-label={appConfig.copy.closeDialog}
+                onClick={onClose}><Icon id="close" /></button>
+            )}
+          </div>
+          {bar}
+        </>,
+        dockHost,
+      ) : bar}
     </>
   )
 }

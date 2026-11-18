@@ -35,7 +35,7 @@ export type ShapeGripMode = 'rotate' | 'resize' | 'width' | 'rotate2' | 'cage' |
 
 type EntityMarkerProps = Pick<MapMarkersProps,
   'entities' | 'byName' | 'selectedId' | 'zoom' | 'suppressedLabels' | 'draggable' | 'project' | 'unproject'
-  | 'onSelect' | 'onDelete' | 'onRotate' | 'onShapeTransform' | 'onUnlockShape' | 'onNoteEdit' | 'trupps' | 'onShowTrupp'
+  | 'onSelect' | 'onDeselect' | 'onDelete' | 'onRotate' | 'onShapeTransform' | 'onUnlockShape' | 'onNoteEdit' | 'trupps' | 'onShowTrupp'
   | 'onTeamTrupp' | 'onTeamNewTrupp' | 'onTeamMark' | 'onTeamRename' | 'onTeamClearTrail' | 'onTeamRemoveWithTrail'
   | 'hiddenTrails' | 'onToggleTrail' | 'teamLines' | 'onTeamUnlink' | 'onTeamUndock' | 'truppSeverities'>
   & Required<Pick<MapMarkersProps, 'groupSelectedIds' | 'networkEntityIds' | 'bearing' | 'symMul' | 'captionMode' | 'readOnly' | 'editNoteId'>> & {
@@ -129,7 +129,7 @@ export function EntityMarker({
   e, entities, byName, selectedId, groupSelectedIds, networkEntityIds, zoom, bearing, symMul, captionMode, suppressedLabels,
   readOnly, draggable, editNoteId, project, unproject, spoke, draggingId, grabbedId, dockedSlots, dockedHosts, onPress,
   rotDown, rotMove, rotUp, shapeDown, shapeMove, shapeUp, focusNote, focusTeam, noteChange, noteBlur, noteKeyDown, noteDone,
-  onSelect, onDelete, onRotate, onShapeTransform, onUnlockShape, onNoteEdit, trupps, onShowTrupp, onTeamTrupp, onTeamNewTrupp,
+  onSelect, onDeselect, onDelete, onRotate, onShapeTransform, onUnlockShape, onNoteEdit, trupps, onShowTrupp, onTeamTrupp, onTeamNewTrupp,
   onTeamMark, onTeamRename, onTeamClearTrail, onTeamRemoveWithTrail, hiddenTrails, onToggleTrail, teamLines, onTeamUnlink,
   onTeamUndock, truppSeverities, renaming, onRenaming,
 }: EntityMarkerProps) {
@@ -278,7 +278,7 @@ export function EntityMarker({
             trailCount={e.trail?.length ?? 0}
             trailShown={!hiddenTrails?.has(e.id)} trupps={trupps ?? []}
             line={badge}
-            renameRef={focusTeam} renaming={renaming} onRenaming={onRenaming}
+            renameRef={focusTeam} renaming={renaming} onRenaming={onRenaming} onClose={onDeselect}
             acts={draggable ? {
               rename: onTeamRename && ((name) => onTeamRename(e.id, name)),
               pick: onTeamTrupp && ((truppId) => onTeamTrupp(e.id, truppId)),

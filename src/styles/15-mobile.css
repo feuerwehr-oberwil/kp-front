@@ -392,11 +392,14 @@
      can stay peeked, and the bar then sat on «Hinzufügen» and the Gebäude chip at rest too. With
      the sheet half or full open the tools are under it anyway, so this only ever removes a clash.
      Deselecting (the sheet's ✕) brings both straight back.
+     …and for as long as a selected Trupp's card is DOCKED at the foot (`.wb-pill-card`, round
+     18.11.2026, owner pick M1 A – components/TwinTeamPill): its card takes the chip row's slot and
+     its bar the tool bar's.
      ⚠️ Per SURFACE, never `body:has(.sel-bar)`: the Karte stays mounted behind a Plan, and a jump to
      the Plan (a Verlauf entry, «zum Trupp») keeps the map's selection – its bar, out of sight, would
      hide the Plan's tools. On the Karte only the map's bar counts, on a Plan only the board's own. */
   :is(body.sel-transforming, body.geom-dragging) :is(.tool-rail, .wb-tools, .wb-botleft),
-  :is(.app.mode-map:has(.sel-bar:not(.whiteboard .sel-bar)), .app:not(.mode-map):has(.whiteboard .sel-bar))
+  :is(.app.mode-map:has(:is(.sel-bar, .wb-pill-card):not(.whiteboard *)), .app:not(.mode-map):has(.whiteboard :is(.sel-bar, .wb-pill-card)))
     :is(.tool-rail, .wb-tools, .wb-botleft) { visibility: hidden; }
   /* phone scroll model: the sheet is a fixed flex column. The grip + header are pinned, and so
      is the ACTIONS row — by layout, never position:sticky, because sticky inside a
