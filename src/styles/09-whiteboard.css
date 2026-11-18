@@ -591,7 +591,8 @@
 /* touch-action:none so a stylus/touch drag on a chip moves the chip (our pointer handlers) instead
    of the browser hijacking it as a scroll/pan — without it the whole board pans on Android */
 .wb-anno { position: absolute; z-index: 3; cursor: grab; user-select: none; -webkit-user-select: none; touch-action: none; }
-.wb-resource-input, .wb-text-input { user-select: text; -webkit-user-select: text; touch-action: auto; }
+/* (selectable as every field is, 02-base) – and a finger in them types, it does not drag the chip */
+.wb-resource-input, .wb-text-input { touch-action: auto; }
 /* the rotatable-symbol rotor shares the map's handle ring — anchor it off the plan
    symbol's on-screen size (--gpx set inline = 42px × zoom), min 56px like the map */
 .wb-anno.sel { z-index: 6; --hbox: max(var(--gpx, 56px), 56px); }

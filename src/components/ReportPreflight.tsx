@@ -1640,7 +1640,8 @@ export function ReportPreflight({
                   {P.fromDispatch}<StatusMark done={dispatchDone} />
                 </span>
               ) : <span className="report-meta-dispatch-head">{P.fromDispatch}<StatusMark done={dispatchDone} /></span>}
-              <dl className="report-meta-readout">
+              {/* copyable (ui-conventions · «Copyable text»): the address and the Alarmmeldung get pasted on */}
+              <dl className="report-meta-readout ui-selectable">
                 {/* Stichwort, Art and Ort first (owner, 18.09.2026): the block is what the Rapport
                     was opened FOR, and with the three pages behind one tile the reader must see
                     which Einsatz this is without going back to the Karte. */}
