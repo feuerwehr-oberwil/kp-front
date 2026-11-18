@@ -128,7 +128,9 @@
 /* the quiet lead: «Kontakt fällig» in amber, no pulse — the pulse is the alarm's voice */
 .tb-az.warn { background: var(--amber-16); color: var(--amber-strong); }
 .tb-az.crit { background: var(--red-16); color: var(--red-strong); animation: tb-az-pulse 1.6s infinite; }
-/* ⚠️ The pulse animates the BACKGROUND, not `opacity` (15.09.2026). An opacity animation put the
+/* This is the app's ONE Überfällig pulse (design pass C3, 18.11.2026): the top bar shows on every
+   surface, so the board's badge and the rail dot stand still beside it.
+   ⚠️ The pulse animates the BACKGROUND, not `opacity` (15.09.2026). An opacity animation put the
    chip on its own compositor layer over the bar's backdrop-filter, and WebKit then left the
    previous second's digits ghosting under the new ones («6:18» over «6:08») – a background
    keyframe repaints the whole chip every frame and the clock stays one clock. */
@@ -289,7 +291,8 @@
 .tb-act-add.cancelling .tb-act-ic .i-entry-x, .fab-entry.cancelling .tb-act-ic .i-entry-x { display: block; }
 .tb-act-add.cancelling .tb-act-label, .fab-entry.cancelling .tb-act-label { display: none; }
 
-.tb-act-add.rec { background: var(--red-fill); color: var(--on-fill); box-shadow: none; animation: recPulse 1.4s ease-in-out infinite; }
+/* recording: red + the running timer, and still (design pass C6, 18.11.2026 – it pulsed too) */
+.tb-act-add.rec { background: var(--red-fill); color: var(--on-fill); box-shadow: none; }
 .tb-act-add.rec span { font-family: var(--mono); }
 
 /* ── the latched hold's two slide targets (Sprachnotiz · Foto) ──
@@ -873,8 +876,8 @@ button.jr-link-go:focus-visible { outline: 2px solid var(--blue); outline-offset
 @media (hover: hover) {
   .jc-rec:hover { color: var(--ink); }
 }
-.jc-rec.on { background: var(--red-fill); border-color: var(--red-fill); color: var(--on-fill); animation: recPulse 1.4s ease-in-out infinite; }
-@keyframes recPulse { 50% { opacity: .72; } }
+/* recording: red + the running .jc-rec-time say it; no pulse (design pass C6, 18.11.2026) */
+.jc-rec.on { background: var(--red-fill); border-color: var(--red-fill); color: var(--on-fill); }
 /* framed exactly like the imported-memo row below it — the two say the same thing about the same
    kind of thing, and a bare play/length/✕ floating on an empty row read as unfinished next to it */
 .jc-clip { display: flex; align-items: center; gap: var(--sp-3); min-width: 0;

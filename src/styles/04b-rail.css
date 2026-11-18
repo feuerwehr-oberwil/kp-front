@@ -54,11 +54,11 @@
    top of a rail glyph */
 .rail-more .i { width: 17px; height: 17px; background: var(--app-bg); border-radius: 50%;
   box-shadow: 0 0 0 4px var(--app-bg); }
-/* nudge a handful of times, then rest — a PERPETUAL animation over the backdrop-filtered
-   rail keeps the GPU compositing forever (measured battery cost on phones); the keyframes
-   end on the base offset, so the settled chevron still reads as "more" */
-.rail-more-down { bottom: 0; animation: navMoreDown 1.6s var(--ease) 6; }
-.rail-more-up { top: 0; animation: navMoreUp 1.6s var(--ease) 6; }
+/* nudge twice, then rest (design pass C7, 18.11.2026 – it was 6 × 1.6 s) — a PERPETUAL animation
+   over the backdrop-filtered rail keeps the GPU compositing forever (measured battery cost on
+   phones); the keyframes end on the base offset, so the settled chevron still reads as "more" */
+.rail-more-down { bottom: 0; animation: navMoreDown 1.6s var(--ease) 2; }
+.rail-more-up { top: 0; animation: navMoreUp 1.6s var(--ease) 2; }
 .rail-more-up .i { transform: rotate(180deg); }
 @keyframes navMoreDown { 0%, 100% { transform: translateY(-1px); } 50% { transform: translateY(2px); } }
 @keyframes navMoreUp { 0%, 100% { transform: translateY(1px); } 50% { transform: translateY(-2px); } }
