@@ -244,8 +244,7 @@ export function HelpOverlay({ onClose, tutorials = [] }: {
         {/* the search lives in the HEADER, not above the TOC: the TOC is hidden on a phone,
             and that is exactly where someone is standing with one question and no patience */}
         <div className="help-search">
-          <SearchField value={query} onChange={search} placeholder={C.search} aria-label={C.search}
-            autoCapitalize="none" autoCorrect="off" spellCheck={false} enterKeyHint="search" />
+          <SearchField value={query} onChange={search} placeholder={C.search} aria-label={C.search} />
         </div>
         <div className="help-body">
           <nav className="help-toc" ref={tocRef}>

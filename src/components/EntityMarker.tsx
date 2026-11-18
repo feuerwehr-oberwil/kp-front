@@ -342,8 +342,9 @@ export function EntityMarker({
         // mixed in CSS so it holds up in day and night.
         const tinted = !e.notePlain && !!e.color
         const cls = (base: string) => `${base} box${e.notePlain ? ' plain' : ''}${tinted ? ' tinted' : ''}`
+        const notePx = 12 * noteScale(e.noteSize)
         const nStyle = {
-          fontSize: 12 * noteScale(e.noteSize), width: noteWPx(e.noteW),
+          fontSize: notePx, width: noteWPx(e.noteW),
           ...(e.color ? (e.notePlain ? { color: e.color } : { '--note-tint': e.color }) : null),
         } as React.CSSProperties
         return editNoteId === e.id ? (
@@ -351,7 +352,8 @@ export function EntityMarker({
             className={cls('note-pill note-pill-input')}
             ref={focusNote}
             rows={1}
-            style={nStyle}
+            // the size as a variable, so a finger's floor can lift it (08-toasts · .note-pill-input)
+            style={{ ...nStyle, fontSize: undefined, '--note-fs': `${notePx}px` } as React.CSSProperties}
             value={e.label ?? ''}
             placeholder={appConfig.copy.whiteboard.textPlaceholder}
             onPointerDown={(ev) => ev.stopPropagation()}

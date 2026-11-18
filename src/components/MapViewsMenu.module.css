@@ -102,6 +102,8 @@
 .input { flex: 1 1 auto; min-width: 0; height: var(--tap); padding: 0 8px; font: inherit; font-size: var(--fs-2);
   color: var(--ink); background: var(--surface);
   border: 1px solid var(--glass-edge); border-radius: var(--r-sm); outline: none; }
+/* no field under 16px on touch – iOS zooms into it (20-touch-floors · E1) */
+@media (pointer: coarse) { .input { font-size: var(--fs-3); } }
 .input:focus { border-color: var(--focus-edge); box-shadow: var(--focus-halo); }
 
 /* a LOCKED device's ⓘ (no «Ansicht speichern» row to end with) sits bottom-right, flush to the

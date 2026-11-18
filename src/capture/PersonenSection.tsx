@@ -67,8 +67,7 @@ export function PersonenSection({
     <AccSection open={open} label={C.sectionPersonen} sub={fillTemplate(C.presentCount, { n: presentCount })} onToggle={onToggle}
       step="anwesenheit" sectionRef={sectionRef}>
       <div className="cv-search-row cv-sticky-search">
-        <SearchField className="cv-search" placeholder={C.searchName} aria-label={C.searchName} value={search} onChange={setSearch}
-          autoCapitalize="none" autoCorrect="off" spellCheck={false} enterKeyHint="search" />
+        <SearchField className="cv-search" placeholder={C.searchName} aria-label={C.searchName} value={search} onChange={setSearch} />
         {/* «Erfasste N» — the check-back filter. Only once there IS something to check
             back on: on an untouched roster it would filter to an empty list, and a
             control that can only produce nothing is a trap on a phone at a door.

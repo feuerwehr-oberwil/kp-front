@@ -25,8 +25,6 @@ export function restoreUmlauts(s: string): string {
   return UMLAUTS.reduce((acc, [re, rep]) => acc.replace(re, rep), s)
 }
 
-// Avatar initials from a display name, umlaut-folded so "Führungsunterstützung" → "FU"
-// (not "FÜ"). Single word → its first two letters; multiple → first + last initial.
 function foldUmlauts(s: string): string {
   return s
     .replace(/[ÄäÀ-Åà-å]/g, (c) => (c === c.toUpperCase() ? 'A' : 'a'))
@@ -34,11 +32,22 @@ function foldUmlauts(s: string): string {
     .replace(/[Üüù-ü]/g, (c) => (c === c.toUpperCase() ? 'U' : 'u'))
     .replace(/ß/g, 'SS')
 }
+// a generational suffix is not the surname: «Carl Meier III» is «CM», not «CI»
+const NAME_SUFFIX = /^(jr|sr|ii|iii|iv)\.?$/i
+const graphemes = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
+const leading = (word: string, n: number) => Array.from(graphemes.segment(word), (g) => g.segment).slice(0, n).join('')
+
+/** Avatar initials from a display name, umlaut-folded so «Führungsunterstützung» → «FU» (not
+ *  «FÜ»). Single word → its first two characters; several → first + last initial, a trailing
+ *  Jr/Sr/II/III/IV skipped. Cut by GRAPHEME (design pass A6, 18.11.2026): «🦊 Fox» is «🦊F» – a
+ *  UTF-16 cut left half a surrogate, a «�» on the avatar and a URIError when the shared-position
+ *  marker SVG (usePersonPositions) went through `encodeURIComponent` (mapImages). */
 export function initials(name: string): string {
-  const parts = foldUmlauts(name).trim().split(/\s+/).filter(Boolean)
+  const words = foldUmlauts(name).trim().split(/\s+/).filter(Boolean)
+  const parts = words.filter((w, i) => i === 0 || !NAME_SUFFIX.test(w))
   if (parts.length === 0) return '?'
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+  if (parts.length === 1) return leading(parts[0], 2).toUpperCase()
+  return (leading(parts[0], 1) + leading(parts[parts.length - 1], 1)).toUpperCase()
 }
 
 // Display label for a backend role (editor/el/viewer). Display-only; the wire value

@@ -9,7 +9,8 @@ import s from './BuildingFacts.module.css'
 // «Gebäude laut Register», the station's word) and the Einsatz's «Gebäude» card (BuildingCard).
 // Both read the same `lib/buildingCard` data; they had two tag recipes and two note layouts
 // (reuse audit, 19.10.2026). The callers decide WHICH facts and notes, and where they stand; both
-// draw the facts as bullet lines since 27.10.2026 (they were tags).
+// draw the facts as bullet lines since 27.10.2026 (they were tags). The lines are copyable
+// (`ui-selectable`, design pass E2): a Sofortmassnahme or a register fact gets passed on.
 
 /** The register facts (`buildingChips`) as a bullet list, one fact a line, read like the
  *  station's notes (owner, 27.10.2026: «bullet points instead of the tags» – the Karte panel and the
@@ -20,7 +21,7 @@ import s from './BuildingFacts.module.css'
 export function RegisterLines({ chips, className }: { chips: BuildingChip[]; className?: string }) {
   if (!chips.length) return null
   return (
-    <ul className={cx(s.lines, s.facts, className)}>
+    <ul className={cx(s.lines, s.facts, 'ui-selectable', className)}>
       {chips.map((c) => (
         <li key={c.key} className={cx(c.hazard && s.hazardLine)} title={c.title}>
           {c.hazard && <Icon id="warn" />}{c.text}
@@ -67,13 +68,13 @@ export function StationNotes({ measures, remarks, source, className, end }: {
       {measures.length > 0 && (
         <>
           <Head end={end}>{C.measures}</Head>
-          <ul className={s.lines}>{measures.map((l, i) => <li key={i}>{l}</li>)}</ul>
+          <ul className={cx(s.lines, 'ui-selectable')}>{measures.map((l, i) => <li key={i}>{l}</li>)}</ul>
         </>
       )}
       {remarks.length > 0 && (
         <>
           <Head end={measures.length ? undefined : end}>{C.remarks}</Head>
-          <ul className={s.lines}>{remarks.map((l, i) => <li key={i}>{l}</li>)}</ul>
+          <ul className={cx(s.lines, 'ui-selectable')}>{remarks.map((l, i) => <li key={i}>{l}</li>)}</ul>
         </>
       )}
       {source && <p className={s.source}>{source}</p>}
