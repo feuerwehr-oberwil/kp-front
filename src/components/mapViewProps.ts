@@ -107,7 +107,8 @@ export interface MapTacticalProps {
   /** join a team marker to an Atemschutz-Trupp (undefined = let go) — see MapMarkers */
   onTeamTrupp?: (entityId: string, truppId: string | undefined) => void
   onTeamNewTrupp?: (entityId: string) => void
-  onTeamMark?: (id: string) => void
+  /** stamp the team marker's trail; `at` = where it is DRAWN when that is not its own point (docked) */
+  onTeamMark?: (id: string, at?: LngLat) => void
   /** rename an untracked team marker (absent = locked, or a Trupp-bound marker) */
   onTeamRename?: (id: string, name: string) => void
   /** see MapMarkers — the marker on the Karte is the only place a colour is still chosen */
