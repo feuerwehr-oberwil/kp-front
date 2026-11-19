@@ -23,7 +23,7 @@ import { newId } from '../lib/ids'
 import { Palette } from './Palette'
 import { FloorPage } from './FloorPage'
 import { usePlanPaperMm } from './usePlanPaper'
-import { paperMaxScale } from '../lib/planTiles'
+import { paperMaxScale, type PageSize } from '../lib/planTiles'
 import { prefetchPlanTiles } from '../lib/planTilePrefetch'
 import { PdfViewport } from './PdfViewport'
 import { prewarmPlans } from '../lib/pdfRaster'
@@ -86,7 +86,8 @@ import { foldedStoreyTeams, loadHiddenFloors, saveHiddenFloors, shownFloors, sto
 import { arrowEdgePadPx, attachInsetPx, boundaryPoint, candidateAttachment, DEFAULT_OBJECT_ROUTING, DETACH_SHOW_PROGRESS, detachAnnos, dwellFor, flipLine, forkPortPoint, wireFreed, isMagnetAnno, lineEndTargets, relationshipNetwork, resolveLinePoints, withDetach, type AnnoDetachPatch, type AttachableLine, type MagneticTarget } from '../lib/lineAttachments'
 import { packFrameRing, packPagePlacement, pagePlacement, regionCorners, stackGroundFit } from '../lib/stackFit'
 import { circleRing, enclosesSection, inSection, rectPoly, storeySections, visibleCentre } from '../lib/storeyClip'
-import { sheetDrawings, type FloorPackView } from '../lib/floorPackBinding'
+import { withDrawingStorey, type FloorPackView } from '../lib/floorPackBinding'
+import type { SheetDrawing } from '../lib/floorPackDrawings'
 import { stackInstances } from '../lib/stackFloors'
 import { StackReadings } from './ReadingParts'
 import { READING_ICON, readingAct } from '../lib/readingLog'
@@ -150,6 +151,8 @@ import { answerZielPick, zielPicking } from '../lib/zielPick'
 const COLORS = appConfig.drawing.colors
 /** height of the strip a folded-away storey leaves behind (board px, matches 09-whiteboard.css) */
 const FOLDED_H = 28
+/** the storey drawings of a sheet that shows none – one identity, so hooks reading it stay put */
+const NO_DRAWINGS: readonly SheetDrawing[] = []
 
 
 interface Props {
@@ -173,6 +176,11 @@ interface Props {
   /** the active object's floor pack – the PDF page each storey tile draws underneath, and the
    *  pack's shared map fit that places it (lib/floorPackBinding) */
   floorPack?: FloorPackView | null
+  /** the OPEN sheet's own floor pack, when it shows one (its pinned binding – Modul 6 with its
+   *  storeys side by side, lib/useGeorefFits · sheetPack): its storey drawings, a symbol placed or
+   *  moved into one takes its storey – the same drawings the Karte bake uses; and `onPages`, which
+   *  the renderer tells the pages it loaded (PdfViewport · onPages). Absent on every other sheet. */
+  sheetPack?: { drawings: readonly SheetDrawing[]; onPages: (url: string, pages: readonly PageSize[]) => void }
   /** the picked footprints, their auto-orientation angle, and WHERE that footprint box sits on
    *  the ground — the third is what lets the workspace carry the floor stack across the change
    *  instead of clearing it (lib/buildingTransfer · amendBuilding). */
@@ -416,7 +424,7 @@ export interface PlanLogExtra {
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
 
-export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange: onChangeAll, building, floorPack, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, authorName, onStepLabel, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], truppColors, placedTeamNames, teamNameTaken, onLinkTrupp, onShowTrupp, truppFinder, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, buildingInfo, readingsChip, incidentId, incidentAddress, incidentPos, onObjectSwitch, planScale = {}, onCalibrate, live = [], photos = [], liveFacts, onPlanLiveMove, onStepEnd, slimTools: slimToolsProp = false, linkViewer = false, railLabels, tafel, presentation, replay = false }: Props) {
+export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange: onChangeAll, building, floorPack, sheetPack, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, authorName, onStepLabel, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], truppColors, placedTeamNames, teamNameTaken, onLinkTrupp, onShowTrupp, truppFinder, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, buildingInfo, readingsChip, incidentId, incidentAddress, incidentPos, onObjectSwitch, planScale = {}, onCalibrate, live = [], photos = [], liveFacts, onPlanLiveMove, onStepEnd, slimTools: slimToolsProp = false, linkViewer = false, railLabels, tafel, presentation, replay = false }: Props) {
   // ⚠️ RIDERS: what lives on a sheet but is not drawn ON it — the Tafel's pages (kind `form`,
   // lib/boardForm) and any board object this build does not understand (lib/workspace ·
   // isPassengerAnno). Nothing positional may see them: every drawing path below reads `annos` —
@@ -738,10 +746,13 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   const inkTap = useRef<InkTap | null>(null)
   // floor-stack ↔ board-normalized y maps for the current document (see lib/whiteboard)
   const { mapY, localY, floorAt, boardPts, moveRigid } = floorGeometry(stack, floorsTTB, N)
-  // …and on a plain sheet that IS a floor pack's page (Modul 6, its storeys drawn side by side):
-  // the storey drawings, so a symbol placed or moved into one takes its storey, as on the stack
-  // (lib/floorPackBinding · withDrawingStorey). Empty on every other sheet and on the stack.
-  const storeyDrawings = stack ? [] : sheetDrawings(floorPack, active?.imageUrl ?? '')
+  // …and on a plain sheet that shows a floor pack (Modul 6, its storeys drawn side by side or one
+  // per page): the storey drawings, laid onto the board as the board lays its pages, so a symbol
+  // placed or moved into one takes its storey, as on the stack (lib/floorPackBinding ·
+  // sheetDrawings, withDrawingStorey). Empty on every other sheet, on the stack, and until the
+  // renderer's own successful load told its pages (PdfViewport · onPages) – so a sheet whose first
+  // load failed gets its drawings back with «Erneut laden» (Sol review round 2, S3).
+  const storeyDrawings = (!stack && sheetPack?.drawings) || NO_DRAWINGS
 
   // Leaving Linie/Fläche mid-shape never silently drops a committable draft: it asks «Speichern ·
   // Verwerfen · Weiterzeichnen» (27.10.2026; the A6 auto-commit of 29.08. before it). The
@@ -1024,7 +1035,9 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     const src = annos.find((a) => a.id === selId)
     if (!src) return
     const id = newId(DUP_PREFIX[src.kind])
-    const copy = duplicateAnno(src, id, () => [...annos.filter((a) => a.kind === 'resource').map((a) => a.text), ...(placedTeamNames?.() ?? [])])
+    // the nudge may carry the copy across a storey drawing's edge: it takes that drawing's storey,
+    // as a move from the source's place would (Sol review round 2, S4)
+    const copy = withDrawingStorey(src, duplicateAnno(src, id, () => [...annos.filter((a) => a.kind === 'resource').map((a) => a.text), ...(placedTeamNames?.() ?? [])]), storeyDrawings)
     add(copy)
     setSelId(id); setSelIds([])
     log('layers', appConfig.copy.log.duplicated, { annoId: id, x: copy.x ?? copy.pts?.[0]?.[0], y: copy.y ?? copy.pts?.[0]?.[1], floor: copy.floor })
@@ -2523,6 +2536,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
                 vw={vp.w}
                 vh={vp.h}
                 onAspect={takeAspect}
+                onPages={sheetPack && !stack ? (pages) => sheetPack.onPages(active.imageUrl, pages) : undefined}
               />
             )}
 

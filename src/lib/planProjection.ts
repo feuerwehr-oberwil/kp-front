@@ -7,7 +7,7 @@ import { SHAPE_DEFS } from './shapes'
 import { entityToBoardSymbol, onSheet, planGroundWidthM, TWIN_CLIP_MARGIN } from './georefTwins'
 import type { PlanFit, TacticalObject } from './tacticalObjects'
 import { GEBAEUDE_PLAN_ID } from './whiteboard'
-import { offReference, storeyDrawing } from './floorPackBinding'
+import { offReference, storeyDrawing } from './floorPackDrawings'
 
 /**
  * The Karte, said in ONE sheet's own words — the second half of the unified object

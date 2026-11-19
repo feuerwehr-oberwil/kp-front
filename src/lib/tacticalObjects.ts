@@ -5,7 +5,7 @@ import type { GeorefFit } from './georef'
 import { planGroundWidthM, boardSymbolToEntity, entitySharedProps } from './georefTwins'
 import { directionalGlyph, directionalGlyph2, projectOnto, turnedToGround, turnedToSheet } from './planProjection'
 import { normalizeStackEdit } from './stackFloors'
-import { drawingContaining, offReference, onReference, type SheetDrawing } from './floorPackBinding'
+import { drawingAt, offReference, onReference, type SheetDrawing } from './floorPackDrawings'
 
 /**
  * The unified tactical object — ONE record per object, whatever surface it stands on
@@ -155,7 +155,7 @@ export interface PlanFit {
   stack?: { floors: number[] }
   /** a floor pack's own sheet (Modul 6): its storey drawings (lib/floorPackBinding ·
    *  sheetDrawings). `fit` is measured on the reference drawing, so a point crosses to the
-   *  ground and back through the drawing it is in (floorPackBinding · onReference) */
+   *  ground and back through the drawing it is in (floorPackDrawings · onReference) */
   drawings?: readonly SheetDrawing[]
 }
 
@@ -411,7 +411,7 @@ function annoAfterMapEdit(
   // pack's sheet (PlanFit.drawings); everywhere else straight through the fit
   const at = (fit: PlanFit, c: LngLat, from?: { x?: number; y?: number } | BoardPoint) => {
     const [fx, fy] = Array.isArray(from) ? from : [from?.x, from?.y]
-    const into = fit.drawings && fx != null && fy != null ? drawingContaining(fit.drawings, fx, fy) : undefined
+    const into = fit.drawings && fx != null && fy != null ? drawingAt(fit.drawings, fx, fy) : undefined
     return offReference(fit.fit.toPlan({ lng: c[0], lat: c[1] }), into)
   }
   const machine = movedBy === 'machine' && plan

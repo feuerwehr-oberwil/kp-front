@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { floorPackOf, frameAspect, joinShifts, packFloorNames, packStoreys, sheetDrawings, trimmedPackFrame, withDrawingStorey } from './floorPackBinding'
+import { barStorey, floorPackOf, frameAspect, joinShifts, packFloorNames, packStoreys, sheetDrawings, sheetFloorsOf, storeyMove, trimmedPackFrame, withDrawingStorey } from './floorPackBinding'
 import type { BoardAnno } from '../types'
 import { inheritPlanBinding } from './incidentPlanBindings'
 import type { GeorefPair } from './georef'
@@ -157,23 +157,52 @@ describe('trimmedPackFrame', () => {
 
 // owner, 18.11.2026: «on georeferenced module 6 also auto-change storeys like in gebäude» – a sheet
 // with its storeys drawn side by side (the shot: 3OG · EG over 2OG · 1UG on one page)
-describe('a plain sheet that shows a floor pack\'s page', () => {
+describe('a plain sheet that shows a floor pack', () => {
   const c = (x0: number, y0: number, x1: number, y1: number): [number, number, number, number] => [x0, y0, x1, y1]
   const floors = [
     { page: 0, index: 3, name: '3OG', clip: c(0, 0, 0.5, 0.5) }, { page: 0, index: 0, name: 'EG', clip: c(0.5, 0, 1, 0.5) },
     { page: 0, index: 2, name: '2OG', clip: c(0, 0.5, 0.5, 1) }, { page: 0, index: -1, name: '1UG', clip: c(0.5, 0.5, 1, 1) },
-    { page: 1, index: 1, name: '1OG', clip: null },
   ]
-  const pack = floorPackOf([{ ...inheritPlanBinding(sheet, approval, null, false, floors), page: 0 }], 'wyss')!
-  const url = '/api/reference/plan%3Awyss%3Amodul6?v=2'
-  const drawings = sheetDrawings(pack, url)
+  const a3 = (page: number) => ({ page, widthPt: 1191, heightPt: 842 })
+  const drawings = sheetDrawings({ floors, page: 0 }, [a3(0)])
   const fire = (x: number, y: number, more: Partial<BoardAnno> = {}): BoardAnno => ({ id: 'f', kind: 'symbol', symbol: 'Feuer', x, y, ...more })
 
-  it('knows the drawings of its own page only – and none on another sheet', () => {
+  it('S1: the drawings come from the binding that pinned THIS sheet, not the Gebäude\'s pack', () => {
+    const modul6 = { ...inheritPlanBinding(sheet, approval, null, false, floors), page: 0 }
+    const modul7 = { ...inheritPlanBinding({ ...sheet, id: 'object:wyss:plan:modul7', planId: 'modul7', datasetId: 'plan:wyss:modul7' }, approval, null, false, [{ page: 0, index: 5, name: '5OG' }]), page: 0 }
+    const other = { ...inheritPlanBinding({ ...sheet, id: 'object:haus:plan:modul6', objectId: 'haus', datasetId: 'plan:haus:modul6' }, approval, null, false, [{ page: 0, index: 1, name: '1OG' }]), page: 0 }
+    const bindings = [modul6, modul7, other]
+    // a second floor-pack sheet of the same object, and the sheet of the object switched to
+    expect(sheetFloorsOf(bindings, '/api/reference/plan%3Awyss%3Amodul7?v=2')?.floors).toBe(modul7.floors)
+    expect(sheetFloorsOf(bindings, '/api/reference/plan%3Ahaus%3Amodul6?v=2')?.floors).toBe(other.floors)
+    expect(sheetFloorsOf(bindings, '/api/reference/plan%3Awyss%3Amodul6?v=2')?.floors).toBe(modul6.floors)
+    // another revision of the same dataset is another sheet; so is an unbound one
+    expect(sheetFloorsOf(bindings, '/api/reference/plan%3Awyss%3Amodul6?v=1')).toBeUndefined()
+    expect(sheetFloorsOf(bindings, '/plans/modul2.pdf')).toBeUndefined()
+  })
+  it('one page: the drawings are the clips as they are; none without floors or pages', () => {
     expect(drawings.map((d) => d.storey).sort()).toEqual([-1, 0, 2, 3])
-    expect(sheetDrawings(pack, `${url}#page=2`)).toEqual([{ storey: 1, clip: [0, 0, 1, 1], shift: [0, 0] }])
-    expect(sheetDrawings(pack, '/api/reference/plan%3Awyss%3Amodul2?v=1')).toEqual([])
-    expect(sheetDrawings(null, url)).toEqual([])
+    expect(drawings.find((d) => d.storey === 2)?.clip).toEqual([0, 0.5, 0.5, 1])
+    expect(sheetDrawings(undefined, [a3(0)])).toEqual([])
+    expect(sheetDrawings({ floors, page: 0 }, null)).toEqual([])
+  })
+  it('S2: every page stitched – a drawing on page 2 lies where the board stacks page 2', () => {
+    // one storey per page, the whole document on the board (no #page): EG on top, 1OG below it
+    const perPage = [{ page: 0, index: 0, name: 'EG' }, { page: 1, index: 1, name: '1OG', clip: c(0, 0.5, 0.5, 1) }]
+    const stitched = sheetDrawings({ floors: perPage, page: 0 }, [a3(0), a3(1)])
+    // (the clipped drawing first: an explicit clip wins over a whole page, round 2 S2)
+    expect(stitched.map(({ storey, part, clip }) => ({ storey, part, clip }))).toEqual([
+      { storey: 1, part: 0, clip: [0, 0.75, 0.5, 1] },
+      { storey: 0, part: 0, clip: [0, 0, 1, 0.5] },
+    ])
+    // a Feuer placed in the 1OG drawing – the board's lower quarter, left – is on the 1. OG
+    expect(withDrawingStorey(null, fire(0.25, 0.9), stitched)).toMatchObject({ storey: 1 })
+    // …and the lower half's right side is page 2 OUTSIDE its drawing: no storey
+    expect('storey' in withDrawingStorey(null, fire(0.75, 0.6), stitched)).toBe(false)
+    // a narrower page is centred, as the bake stitches it
+    expect(sheetDrawings({ floors: perPage, page: 0 }, [a3(0), { page: 1, widthPt: 595.5, heightPt: 842 }])[0].clip).toEqual([0.25, 0.75, 0.5, 1])
+    // a `#page=2` sheet shows that page alone: its drawings, and only its
+    expect(sheetDrawings({ floors: perPage, page: 0 }, [a3(1)])).toMatchObject([{ storey: 1, part: 0, clip: [0, 0.5, 0.5, 1] }])
   })
   it('a symbol placed in the 2OG drawing is on the 2OG; outside every drawing it has none', () => {
     expect(withDrawingStorey(null, fire(0.25, 0.75), drawings)).toMatchObject({ storey: 2 })
@@ -189,17 +218,51 @@ describe('a plain sheet that shows a floor pack\'s page', () => {
     expect(withDrawingStorey(byHand, { ...byHand, x: 0.8, y: 0.3 }, drawings).storey).toBe(5)
     expect(withDrawingStorey(byHand, { ...byHand, x: 1.3, y: 0.3 }, drawings).storey).toBe(5) // off every drawing
   })
+  it('S4: two drawings of ONE storey are two drawings – wing to wing takes the storey, a span moves by none', () => {
+    const wings = sheetDrawings({ page: 0, floors: [
+      { page: 0, index: 1, part: 0, name: 'Westflügel', clip: c(0, 0, 0.5, 1) },
+      { page: 0, index: 1, part: 1, name: 'Ostflügel', clip: c(0.5, 0, 1, 1) },
+    ] }, [a3(0)])
+    const byHand = fire(0.25, 0.5, { storey: 5 })
+    expect(withDrawingStorey(byHand, { ...byHand, x: 0.75 }, wings).storey).toBe(1)
+    const stair = fire(0.25, 0.5, { floorFrom: 0, floorTo: 2 })
+    expect(withDrawingStorey(stair, { ...stair, x: 0.75 }, wings)).toMatchObject({ floorFrom: 0, floorTo: 2 })
+  })
   it('a span moves whole by the step between the drawings, as on the Gebäude', () => {
     const stair = fire(0.75, 0.25, { floorFrom: 0, floorTo: 1 })
     const out = withDrawingStorey(stair, { ...stair, x: 0.25, y: 0.75 }, drawings)
     expect(out).toMatchObject({ floorFrom: 2, floorTo: 3 })
     expect('storey' in out).toBe(false)
   })
+  // Sol review round 2, S1: «5» set on the EG drawing, moved to the 2OG's, read «7»
+  it('Von alone, Bis alone or Von = Bis is ONE storey: moved across, it becomes the drawing\'s storey', () => {
+    for (const one of [{ floorFrom: 5 }, { floorTo: 5 }, { floorFrom: 5, floorTo: 5 }]) {
+      const sym = fire(0.75, 0.25, one)
+      const out = withDrawingStorey(sym, { ...sym, x: 0.25, y: 0.75 }, drawings)
+      expect(out.storey).toBe(2)
+      expect('floorFrom' in out || 'floorTo' in out).toBe(false)
+      // …and the replay hears the cleared ends (JSON drops an undefined, never a null)
+      expect(storeyMove(out, false, drawings)).toEqual({ storey: 2, floorFrom: null, floorTo: null })
+    }
+  })
+  // Sol review round 2, S2: floors come in storey order, so the EG whole page used to win
+  it('an explicit clip wins over a whole-page drawing on the same page', () => {
+    const mixed = sheetDrawings({ page: 0, floors: [{ page: 0, index: 0, name: 'EG' }, { page: 0, index: 1, name: '1OG', clip: c(0.5, 0.5, 1, 1) }] }, [a3(0)])
+    expect(withDrawingStorey(null, fire(0.75, 0.75), mixed).storey).toBe(1)
+    expect(withDrawingStorey(null, fire(0.25, 0.25), mixed).storey).toBe(0)
+  })
   it('works from the symbol as the gesture found it: a streamed frame never shifts twice, and back home is home', () => {
     const stair = fire(0.75, 0.25, { floorFrom: 0, floorTo: 1 })
     const frame1 = withDrawingStorey(stair, { ...stair, x: 0.25, y: 0.75 }, drawings)
     expect(withDrawingStorey(stair, { ...frame1, x: 0.3, y: 0.8 }, drawings)).toMatchObject({ floorFrom: 2, floorTo: 3 })
     expect(withDrawingStorey(stair, { ...frame1, x: 0.75, y: 0.3 }, drawings)).toMatchObject({ floorFrom: 0, floorTo: 1 })
+  })
+  it('S3: the bar\'s turn keeps every storey – a member swung across a drawing\'s edge is not carried there', () => {
+    const onEg = fire(0.55, 0.25, { storey: 0 })
+    const swung = { ...onEg, x: 0.45, y: 0.25 } // now over the 3OG drawing
+    expect(barStorey(onEg, swung, drawings, false, 30).storey).toBe(0)
+    expect(barStorey(onEg, swung, drawings, false, 0).storey).toBe(3) // the same place by a move
+    expect(barStorey(onEg, swung, drawings, true, 0)).toBe(swung) // the stack has its own step
   })
 })
 
@@ -216,7 +279,8 @@ describe('a storey drawing reaches the ground through its join', () => {
     { page: 0, index: -1, name: '1UG', clip: c(0.5, 0.5, 1, 1) },
   ]
   const pack = floorPackOf([{ ...inheritPlanBinding(sheet, approval, null, false, floors), page: 0 }], 'wyss')!
-  const drawings = sheetDrawings(pack, '/api/reference/plan%3Awyss%3Amodul6?v=2')
+  const a3 = (page: number) => ({ page, widthPt: 1191, heightPt: 842 })
+  const drawings = sheetDrawings({ floors, page: 0 }, [a3(0)])
   const plan: PlanFit = { fit: pack.fit!, aspect: 1.414, drawings }
   const ground = (x: number, y: number, more: Partial<BoardAnno> = {}) =>
     bakeGeoBody({ id: 'f', sheet: { planId: 'modul6', anno: { id: 'f', kind: 'symbol', symbol: 'Feuer', x, y, ...more } } }, plan, 'lage').entity!.coord
@@ -245,5 +309,22 @@ describe('a storey drawing reaches the ground through its join', () => {
     const moved = { ...o.entity!, coord: ground(0.63, 0.13) }
     const [out] = applyDocToObjects([o], { entities: [moved], drawings: [] }, new Map([['modul6', plan]]), false)
     expect(out.sheet!.anno.x).toBeCloseTo(0.11); expect(out.sheet!.anno.y).toBeCloseTo(0.61)
+  })
+  // the join shift is in PAGE coordinates; a sheet without `#page=` stitches every page top-down
+  it('a stitched two-page sheet: a symbol in page 2\'s drawing reaches the ground at its join partner', () => {
+    // EG = page 1 whole (the fit's page), 1OG = left half of page 2: its (0.2, 0.3) = EG (0.6, 0.4)
+    const perPage = [
+      { page: 0, index: 0, name: 'EG' },
+      { page: 1, index: 1, name: '1OG', clip: c(0, 0, 0.5, 1), join: { to: 0, at: [0.2, 0.3] as [number, number], there: [0.6, 0.4] as [number, number] } },
+    ]
+    const board: PlanFit = { fit: pack.fit!, aspect: 0.707, drawings: sheetDrawings({ floors: perPage, page: 0 }, [a3(0), a3(1)]) }
+    const bake = (x: number, y: number) =>
+      bakeGeoBody({ id: 'f', sheet: { planId: 'modul6', anno: { id: 'f', kind: 'symbol', symbol: 'Feuer', x, y } } }, board, 'lage').entity!.coord
+    // page 2's (0.2, 0.3) is the board's (0.2, 0.65); page 1's (0.6, 0.4) is the board's (0.6, 0.2)
+    const partner = bake(0.6, 0.2)
+    near(bake(0.2, 0.65), partner)
+    // …and back: a Karte symbol of the 1. OG at that ground point lands at page 2's point
+    const back = projectOnto({ id: 'k', entity: { id: 'k', kind: 'symbol', symbol: 'Feuer', layer: 'lage', coord: partner, floor: 1 } }, board)!
+    expect(back.x).toBeCloseTo(0.2); expect(back.y).toBeCloseTo(0.65)
   })
 })

@@ -32,23 +32,36 @@ AGENTS.md on 2026-10-08, wording unchanged.
   with it, the target tile lights up, one ↶. A docked line, a turn, or a step that would put any
   vertex off the stack keeps it on its storeys; a single vertex still changes storey by its own grip.
   - *The pack's own sheet* (Modul 6, or any module whose binding carries `floors`) shows the same
-    drawings side by side on one page. A symbol placed or moved INTO one of them takes its storey
+    drawings side by side on one page, or one per page. A symbol placed or moved INTO one of them takes its storey
     – what a storey tile does on the stack (owner, 18.11.2026, `lib/floorPackBinding ·
     withDrawingStorey`): it writes the sheet's badge `storey` (what Von/Bis shows there), or shifts
-    a Von/Bis span whole by the step between the two drawings. Inside the drawing it came from and
-    outside every drawing it keeps its storey, so one set by hand stays. Placing, the chip drag and
-    the bar's ✥ do it; its `board.move` carries the storey for the replay. Such a symbol stays on its
+    a Von/Bis span – two DISTINCT ends – whole by the step between the two drawings. Von alone, Bis
+    alone or Von = Bis is one storey: it becomes the drawing's `storey` and the ends are cleared.
+    Inside the drawing it came from and outside every drawing it keeps its storey, so one set by
+    hand stays; a drawing is (storey, part), so wing to wing of one storey takes the storey too.
+    Placing, the chip drag, the bar's ✥ and Cmd/Ctrl+D's nudge do it (a ⟳ turn never does); its
+    `board.move` carries the storey for the replay, a cleared field as `null` (`storeyMove`).
+    The drawings are the floors of THIS sheet's own pinned binding (`sheetFloorsOf`), never the
+    Gebäude's pack, laid onto the board with the renderer's page layout (`planTiles · sheetLayout`)
+    and the pages of the renderer's own successful load (`PdfViewport · onPages`, so «Erneut laden»
+    brings them back too): a sheet without `#page=` shows every page stitched top-down. An explicit
+    clip wins over a whole-page drawing on the same page. Such a symbol stays on its
     sheet: the Gebäude stack does not show another sheet's ink.
   - *Every drawing of that sheet lands on the building* (19.11.2026). The pack's ONE fit is measured
-    on the reference drawing, so a sheet point reaches the ground through the drawing it is in: laid
-    onto the reference by that drawing's join shift – the same `joinShifts` the stack and the station
-    editor use, so an unjoined drawing sits by its rectangle's corner exactly as its stack tile shows
-    it (`lib/floorPackBinding · onReference`, carried as `PlanFit.drawings`). Back from the Karte, an
-    object lands in the drawing of ITS storey (badge, else Von; a line's end tag), else in the
-    reference drawing (`offReference`, `storeyDrawing`); a machine move keeps an anno in its drawing.
-    A point outside every drawing is paper and goes straight through the fit. The drawings re-bake
-    silently, like the stack (`useGeorefFits`). ⚠️ A fit the operator re-links by hand on such a
-    sheet is still read as measured on the reference drawing.
+    on the reference drawing, so a sheet point reaches the ground through the drawing it is in:
+    into its page's coordinates, plus that drawing's join shift (a page-coordinate thing), back onto
+    the board where the reference page lies – the same `joinShifts` the stack and the station
+    editor use (from `packReference`), so an unjoined drawing sits by its rectangle's corner exactly
+    as its stack tile shows it (`lib/floorPackDrawings · onReference`, carried as `PlanFit.drawings`).
+    Back from the Karte, an object lands in the drawing of ITS storey (badge, else Von; a line's end
+    tag), else in the reference drawing (`offReference`, `storeyDrawing`); a machine move keeps an
+    anno in its drawing. A point outside every drawing is paper and goes straight through the fit.
+    ONE set of drawings per sheet (`useGeorefFits · drawingsByPlan`): the open sheet's storeys and
+    the Karte bake read the same, from the pages its renderer told (kept per sheet URL for the
+    session). Until a floor-pack sheet has told its pages it has NO fit in the bake, so its map
+    bodies stay as baked rather than go back to their paper position. The drawings re-bake
+    silently, like the stack. ⚠️ A fit the operator re-links by hand on such a sheet is still read
+    as measured on the reference drawing.
     *Not done:* a Trupp docked to a symbol on the Karte is drawn beside its host in screen px
     (`mapView · teamDockAnchor`); the sheet has no docking and projects its stored point, through no
     drawing (it has no storey).

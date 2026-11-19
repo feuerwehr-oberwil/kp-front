@@ -49,15 +49,18 @@ export const tileUrl = (s: TileSource, page: number, z: number, x: number, y: nu
 export const sourcePages = (m: TileManifest, s: TileSource): TilePage[] =>
   s.page == null ? m.pages : m.pages.filter((p) => p.page === Math.min(s.page!, m.pages.length - 1))
 
-export interface PageBox { page: TilePage; left: number; top: number; width: number; height: number }
+/** A page's size as the layout needs it – a manifest page, or pdf.js's own page viewport */
+export type PageSize = Pick<TilePage, 'page' | 'widthPt' | 'heightPt'>
+export interface PageBox<P extends PageSize = TilePage> { page: P; left: number; top: number; width: number; height: number }
 
 /**
  * Where each page lies on the board, as fractions of it — the SAME layout the pdf.js bake
  * stitched (components/PdfViewport · render): the board is as wide as the widest page, pages
  * run top-down, a narrower one is centred. ⚠️ Ink on a multi-page sheet is stored in these
- * fractions, so this must never drift from that function.
+ * fractions, so this must never drift from that function. A floor pack's storey drawings are
+ * laid onto the board through it too (lib/floorPackBinding · sheetDrawings).
  */
-export function sheetLayout(pages: TilePage[]): { aspect: number; boxes: PageBox[] } {
+export function sheetLayout<P extends PageSize>(pages: readonly P[]): { aspect: number; boxes: PageBox<P>[] } {
   const W = Math.max(...pages.map((p) => p.widthPt), 1)
   const H = pages.reduce((sum, p) => sum + p.heightPt, 0) || 1
   let y = 0

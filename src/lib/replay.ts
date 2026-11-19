@@ -526,8 +526,16 @@ function applyEvent(ws: Saved, e: ReplayEvent): void {
       // lib/floorPackBinding · withDrawingStorey)
       if (typeof p.storey === 'number') patch.storey = p.storey
       if (Array.isArray(p.pts)) patch.pts = p.pts as BoardAnno['pts']
-      if (planId && id && Object.keys(patch).length) {
-        ws.board = { ...(ws.board ?? {}), [planId]: (ws.board?.[planId] ?? []).map((a) => a.id === id ? gated(isBoardAnno, a, patch) : a) }
+      // …and the storey fields such a move CLEARED, as null: a single-storey Von/Bis that the
+      // drawing replaced with its `storey` (lib/floorPackBinding · storeyMove)
+      const cleared = (['storey', 'floorFrom', 'floorTo'] as const).filter((k) => p[k] === null)
+      const fold = (a: BoardAnno) => {
+        const cur = { ...a }
+        for (const k of cleared) delete cur[k]
+        return gated(isBoardAnno, cur, patch)
+      }
+      if (planId && id && (Object.keys(patch).length || cleared.length)) {
+        ws.board = { ...(ws.board ?? {}), [planId]: (ws.board?.[planId] ?? []).map((a) => a.id === id ? fold(a) : a) }
       }
       break
     }

@@ -12,7 +12,8 @@ import { useArmedTransform } from '../lib/useArmedTransform'
 import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
 import type { floorGeometry } from '../lib/whiteboard'
 import { doorsOn, shiftStoreys } from '../lib/grundriss'
-import { storeyMove, withDrawingStorey, type SheetDrawing } from '../lib/floorPackBinding'
+import { barStorey, storeyMove } from '../lib/floorPackBinding'
+import type { SheetDrawing } from '../lib/floorPackDrawings'
 import type { useBoardDoc } from './useBoardDoc'
 
 type FloorGeometry = ReturnType<typeof floorGeometry>
@@ -190,7 +191,9 @@ export function useWbSelectionBar({
           : null)) }
       const [rx, ry] = turn(o.bx ?? 0, o.by ?? 0)
       const moved = { ...a, ...turned, ...storeyOf(src, a), x: rx + t.ndx, y: localY(ry + t.ndy - jump, o.floor) }
-      return stack ? moved : withDrawingStorey(o.orig, moved, drawings)
+      // a storey drawing gives its storey on a MOVE only: a turn swings members across a drawing's
+      // edge without anybody carrying them there (lib/floorPackBinding · barStorey, Sol review S3)
+      return barStorey(o.orig, moved, drawings, stack, t.deg)
     })
     set(next)
     return next
