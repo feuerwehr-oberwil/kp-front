@@ -130,8 +130,10 @@ export function TagScan({ personnel, assignedIds, chosenIds, onTake, onClose }: 
    * being checked, and the form can gain them by name meanwhile (Sol review 19.11.2026). The list
    * and the take read the same answer, so what is shown is what is taken. */
   const hits = codes.flatMap((t) => {
+    // a dropped read is gone for good – also if the board turns it into «schon in einem Trupp» later
+    if (dropped.has(personIdFromTag(t) ?? '')) return []
     const h = tagHit(t, roster, assignedIds, chosenIds)
-    return h && h.kind !== 'here' && !(h.kind === 'add' && dropped.has(h.person.id)) ? [h] : []
+    return h && h.kind !== 'here' ? [h] : []
   })
   const adds = hits.flatMap((h) => (h.kind === 'add' ? [h.person] : []))
   const take = () => { if (adds.length) onTake(adds) }
@@ -191,7 +193,7 @@ export function TagScan({ personnel, assignedIds, chosenIds, onTake, onClose }: 
       </ul>
       <SheetFoot className={s.foot}>
         <Button variant="primary" size="lg" block className={s.take} disabled={!adds.length} onClick={take}>
-          {adds.length ? fillTemplate(az.scanTake, { n: adds.length }) : hits.length ? az.scanTakeNobody : az.scanTakeNone}
+          {adds.length ? fillTemplate(az.scanTake, { n: adds.length }) : hits.length || dropped.size ? az.scanTakeNobody : az.scanTakeNone}
         </Button>
       </SheetFoot>
     </Overlay>

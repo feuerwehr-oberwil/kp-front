@@ -55,6 +55,9 @@ export const tagHitKey = (h: TagHit) => (h.kind === 'unknown' ? `?${h.id}` : h.p
  *  a BOM, so Excel opens «Šimunović» as written. */
 export function tagsCsv(people: { id: string; name: string; rank: string }[]): string {
   const cell = (v: string) => `"${v.replace(/"/g, '""')}"`
-  const rows = people.map((p) => [p.name, p.rank, tagPayload(p.id)].map(cell).join(','))
+  // a name or rank that starts like a formula (`=`, `+`, `-`, `@`) would RUN in Excel even quoted:
+  // a leading apostrophe makes it text. The QR text stays verbatim – it is what gets encoded.
+  const text = (v: string) => cell(/^[=+\-@\t\r]/.test(v) ? `'${v}` : v)
+  const rows = people.map((p) => [text(p.name), text(p.rank), cell(tagPayload(p.id))].join(','))
   return `\uFEFF${['name', 'rank', 'qr'].join(',')}\n${rows.join('\n')}\n`
 }

@@ -56,3 +56,10 @@ describe('tagsCsv', () => {
       .toBe('\uFEFFname,rank,qr\n"Šimunović ""Đorđe""","Wm","KPF1:p1"\n')
   })
 })
+
+describe('tagsCsv in a spreadsheet', () => {
+  it('keeps a formula-like name from running, the QR text untouched', () => {
+    expect(tagsCsv([{ id: 'p1', name: '=HYPERLINK("x")', rank: '-' }]).split('\n')[1])
+      .toBe(`"'=HYPERLINK(""x"")","'-","KPF1:p1"`)
+  })
+})
