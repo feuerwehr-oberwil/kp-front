@@ -49,6 +49,8 @@ const REMIND_DAYS = 7
  *  going out, «EL ← Sanität» is a message coming in, and rewriting the second as the first means
  *  reversing the sentence you just heard. */
 const ARROW = '→'
+/** the tap area every control keeps (docs/ui-conventions.md · touch targets) */
+const HIT_PX = 44
 
 export interface JournalDraft {
   text: string
@@ -422,9 +424,15 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
     const box = el?.closest<HTMLElement>('.jc-body')
     if (!el || !box) return
     const r = el.getBoundingClientRect(), b = box.getBoundingClientRect()
-    const actEnd = (el.querySelector('.form-warn-act') ?? el).getBoundingClientRect().bottom
-    const by = r.height > b.height ? Math.max(r.top - b.top, actEnd - b.bottom)
-      : r.bottom > b.bottom ? r.bottom - b.bottom : r.top < b.top ? r.top - b.top : 0
+    if (!r.height || !b.height) return // not laid out (hidden, or a test DOM): nothing to show
+    // the action's TAP area, not its face: `.form-warn-act` is 36px with a 44px hit centred on it
+    // (13-incident.css), and a face flush with the scroller's edge left 4px of the hit clipped
+    // (Sol review round 2, PR #704)
+    const act = el.querySelector('.form-warn-act')?.getBoundingClientRect()
+    const actEnd = act ? act.bottom + Math.max(0, (HIT_PX - act.height) / 2) : r.bottom
+    const end = Math.max(r.bottom, actEnd)
+    const by = end - r.top > b.height ? Math.max(r.top - b.top, actEnd - b.bottom)
+      : end > b.bottom ? end - b.bottom : r.top < b.top ? r.top - b.top : 0
     if (by) box.scrollBy({ top: by, behavior: scrollBehavior() })
   }, [attachWarn])
   // closing the composer mid-upload means "cancel": the upload may finish server-side (the
@@ -483,9 +491,17 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
   const attachBtnRef = useRef<HTMLButtonElement>(null)
   const stopBtnRef = useRef<HTMLButtonElement>(null)
   const markHandFocus = (on: boolean) => { handFocusRef.current = on; setHandFocus(on) }
+  /** The focus has nowhere of its own: the page, the closing menu, or one of the two controls. A
+   *  caret the user put elsewhere while the microphone prompt was open stays where it is (Sol
+   *  review round 2, PR #704: Stop took the focus back from the field when access resolved). */
+  const focusIsAdrift = () => {
+    const a = document.activeElement
+    return !a || a === document.body || a === attachBtnRef.current || a === stopBtnRef.current || !!a.closest('[role="menu"]')
+  }
   useEffect(() => {
     if (!handFocusRef.current) return
     handFocusRef.current = false; setHandFocus(false)
+    if (!focusIsAdrift()) return
     ;(recording ? stopBtnRef : attachBtnRef).current?.focus()
   }, [recording])
 
@@ -521,7 +537,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
       recRef.current = { rec, startedAt }; setRecording(true); rec.start()
     } catch (e) {
       // no recording, so nothing took «Anhang»'s place – its focus goes back to it
-      if (handFocusRef.current) { markHandFocus(false); attachBtnRef.current?.focus() }
+      if (handFocusRef.current) { markHandFocus(false); if (focusIsAdrift()) attachBtnRef.current?.focus() }
       toast(micFailedText(e), { icon: 'mic', tone: 'warn' })
     }
   }

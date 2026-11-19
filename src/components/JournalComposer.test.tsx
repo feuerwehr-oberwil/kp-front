@@ -659,6 +659,25 @@ describe('JournalComposer · the one row under the field', () => {
     }
   })
 
+  // Sol review round 2, PR #704: started by keyboard, then the caret put in the field while the
+  // microphone prompt is still open – the stop control must not take the focus back when access
+  // resolves
+  it('leaves a caret the user moved during the microphone prompt where it is', async () => {
+    fakeMic()
+    let grant: (s: MediaStream) => void = () => {}
+    vi.stubGlobal('navigator', { ...navigator, mediaDevices: { getUserMedia: vi.fn(() => new Promise<MediaStream>((r) => { grant = r })) } })
+    setup()
+    const attach = screen.getByRole('button', { name: C.attachMenu })
+    attach.focus()
+    fireEvent.click(attach)
+    fireEvent.click(await screen.findByRole('menuitem', { name: C.record }))
+    const field = screen.getByRole('textbox')
+    field.focus()
+    grant({ getTracks: () => [{ stop: () => {} }] } as unknown as MediaStream)
+    await screen.findByRole('button', { name: C.recordStop })
+    expect(document.activeElement).toBe(field)
+  })
+
   // ⚠️ The rows have to BE the frame's children. They sat inside a `display: contents` wrapper —
   // an element the layout does not give a box, so `.journal-composer > * { flex: none }` addressed
   // the wrapper and nothing else: the predictive band was flex-squeezed to 0 in the real app for

@@ -146,6 +146,13 @@ test('composer: an offline refusal shows its warning inside the visible sheet at
     // the action whole, and the reason beside it on screen too (the line is taller than the room)
     return a.top >= b.top - 1 && a.bottom <= b.bottom + 1 && t.bottom > b.top + 8
   }), 'the warning\'s action whole inside the visible scroller, its reason showing').toBe(true)
+  // …its whole 44px TAP area too, not only the 36px face (Sol review round 2): the last pixel row
+  // of the hit, just inside its bottom edge, still lands on the button
+  await expect.poll(() => skip.evaluate((btn) => {
+    const r = btn.getBoundingClientRect()
+    const y = r.top + r.height / 2 + 21.5
+    return btn.contains(document.elementFromPoint(r.left + r.width / 2, y))
+  }), 'the bottom of the 44px hit area is still the button').toBe(true)
   await page.setViewportSize({ width: 390, height: 844 })
   await expectNoCrash(page, 'composer offline refusal')
 })
