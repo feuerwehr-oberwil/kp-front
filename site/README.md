@@ -10,7 +10,7 @@ site/
   content/fr|it|rm|en.json ← the translations, layered over de.json
   landing.css           ← the shared design of KP Front and KP Rück
   fonts/                ← Sora + Spline Sans Mono (variable, self-hosted, no CDN)
-  shots/                ← screenshots from a real instance (generated, WebP)
+  shots/                ← screenshots from a real instance (generated): tablet/, phone/, dark/, lage.jpg
   capture.mjs           ← re-captures shots/
   build.mjs             ← builds the pages from template + texts
   llms.txt              ← product facts for language models – written by hand, not built
@@ -82,15 +82,10 @@ origin. Keep `theme.js`, `build.mjs` and `landing.css` byte-identical in both re
 The builder embeds the runtime in the page head, including the single-file hand-out.
 KP Front lists it as a Knip entry because the builder reads it as text rather than importing it.
 
-Capture both real app palettes: the existing `shots/<name>.webp` is light, and
-`shots/dark/<name>.webp` is its night counterpart, with matching names and dimensions.
-Both heroes also have a 992px version. The link-preview JPEG and README PNGs remain light.
-Do not simulate night mode by filtering a day screenshot.
-
-```bash
-node site/capture.mjs --site-only             # both themes, leave README PNGs alone
-node site/capture.mjs --theme dark --site-only # night variants only
-```
+Capture both real app palettes: `shots/<device>/<name>.webp` is light, and
+`shots/dark/<device>/<name>.webp` is its night counterpart, with matching names and dimensions.
+The link-preview JPEG and README PNGs remain light. Do not simulate night mode by filtering a
+day screenshot.
 
 The offline builder preserves and embeds both picture sources; changing the theme must
 never make the hand-out request an image from a server.
@@ -100,39 +95,45 @@ never make the hand-out request an image from a server.
 ```bash
 node site/capture.mjs                        # against https://demo.kp-front.ch
 node site/capture.mjs --base http://localhost:5188
-node site/capture.mjs --only lage,mittel     # only individual images
+node site/capture.mjs --only feuer,trupps    # only individual images
+node site/capture.mjs --theme dark --site-only # night device pictures only
 node site/capture.mjs --scale 2 --docs-only  # refresh the README images at 2x
 node site/build.mjs                          # then rebuild
 ```
 
 `capture.mjs` drives a running instance with Playwright (from `node_modules`, no extra
-dependency), selects day and night mode via the prefs cookie, skips the demo welcome dialog, hides the
-DEMO banner and shoots every view at 1500 × 937. New images go in as a new entry in the
-`shots` list in the script **and** as an entry under `shots.items` in `content/de.json` –
-the filenames are the contract between the two. The filename lives only in `de.json`; the
-translations inherit it and only provide the caption.
+dependency), selects day and night mode via the prefs cookie, skips the demo welcome dialog and
+hides the DEMO banner and the alarm strips. Two passes:
 
-**The format is WebP** – the same capture weighs about half of what the old JPEG did, and
-encoding happens in the Chromium that Playwright brings along anyway (no second dependency,
-no `cwebp` on the machine). Day captures produce three outputs; night captures produce both WebP sizes:
+| Pass | Output | what for |
+| --- | --- | --- |
+| devices | `shots/tablet/<name>.webp` (1600 × 1090), `shots/phone/<name>.webp` (780 × 1592), each with its `dark/` twin | the hero and the chapters |
+| desktop | `shots/lage.jpg` (1500 × 937) | **only** the link preview (`og:image`): WhatsApp, Facebook and co. don't show WebP |
+| desktop | `docs/screenshots/*.png` | the README (see below) |
 
-| File | what for |
-| --- | --- |
-| `<name>.webp` (1500 px) | the tiles and the lightbox |
-| `lage-992.webp` | the hero image on phones and 1x screens – it is never shown wider than 992 px (`.wrap` = 1040 px minus 2×24 px) |
-| `lage.jpg` | **only** the link preview (`og:image`): WhatsApp, Facebook and co. don't show WebP |
+The device pictures are the app at a real screen size – iPad 1180 × 820 at 2x, iPhone 390 × 844
+at 3x – with the safe-area insets emulated, so the app sits where it sits on the device. The
+picture keeps only part of that gap (8 pt at the iPad's top, 19/14 pt on the phone); the crop
+happens in the file, never in CSS. ⚠️ Playwright's `devices['iPhone 14']` is the Safari
+viewport (390 × 664), not the screen – don't use it for these.
 
-The small version and the JPEG are derived from the one shot that carries `hero: true` in
-the script.
+New pictures go in as an entry in `deviceShots` in the script **and** under `hero.img` or a
+chapter's `img` in `content/de.json` – the filenames are the contract between the two. The
+filename lives only in `de.json`; the translations inherit it and only provide the `alt` text.
+A chapter with `img.tablet` shows the iPad picture on wide screens and its phone picture on
+narrow ones; without one it shows the phone everywhere.
+
+**The format is WebP**, encoded in the Chromium that Playwright brings along anyway (no second
+dependency, no `cwebp` on the machine).
 
 Two things about the demo: it is shared with visitors and reset twice a day (00:00 and
-12:00 Europe/Zurich). So for clean images, capture shortly after a reset – or use `--base`
-against a local instance.
+12:00 Europe/Zurich). So for clean images, capture shortly after a reset – the seeded Trupps
+run overdue within ~10 minutes – or use `--base` against a local instance.
 
 A local demo instance (the Musterdorf dataset with `demoMode`, seeded by `app.demo_reset`)
 lets the capture in without `--pin`. ⚠️ It needs a `CARTO_API_KEY` that CARTO accepts for
-`localhost`: without one the base map is tiled with «API KEY REQUIRED», which spoils `lage`
-(the hero) and `verlauf`. The other eight views have no base map.
+`localhost`: without one the base map is tiled with «API KEY REQUIRED», which spoils every
+map picture.
 
 ## Contact
 
@@ -161,12 +162,11 @@ embedded – for passing around or for a host that only accepts one file.
 
 Shots with `docs:` additionally write the same page state as PNG to `docs/screenshots/` –
 which is why the README images used to be half a year older than the landing page. Both
-outputs come from one capture but don't want the same resolution: the landing page embeds
-the images inline (1x, page weight counts), the README images are viewed enlarged on
-GitHub.
+outputs come from one capture but don't want the same resolution: the link preview is 1x,
+the README images are viewed enlarged on GitHub.
 
 ```bash
-node site/capture.mjs                    # landing-page WebP (1x) + README PNGs
+node site/capture.mjs                    # device pictures + link preview + README PNGs
 node site/capture.mjs --scale 2 --docs-only --only lage,gebaeude,atemschutz,mittel
 ```
 

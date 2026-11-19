@@ -92,13 +92,15 @@ let version: string | null = null
 /** Take a server answer as THE document: the singleton, the offline cache, the version token and
  *  the «a real document has landed» flag all move together. Returns whether anything actually
  *  changed, so a refresh that brought nothing new costs no re-render — the caller decides whether
- *  to notify. The cache is refilled either way, and deliberately: an answer identical to what is
+ *  to notify. The FIRST real answer counts as a change even when it is as empty as the boot
+ *  singleton: «unknown» became «known», and a reader waiting for that (a plan binding deferred
+ *  on a cold start, useObjectPlans) has nothing else to wake on. The cache is refilled either way, and deliberately: an answer identical to what is
  *  in memory is not necessarily what is on disk, and a station whose document is empty has to be
  *  cacheable too or an offline boot would go on knowing nothing at all. */
 function adopt(wire: StationPlanScalesWire | null | undefined): boolean {
   const next = normalize(wire)
   version = wire?.version ?? null
-  const changed = JSON.stringify(next) !== JSON.stringify(resolved)
+  const changed = !loaded || JSON.stringify(next) !== JSON.stringify(resolved)
   resolved = next
   loaded = true
   void idbSet(CACHE_KEY, next)
@@ -148,6 +150,10 @@ const notify = () => listeners.forEach((l) => l())
 /** Bumped by every write, so a GET that was already in the air when a local save started cannot
  *  land on top of it with the server's older answer. */
 let writeSeq = 0
+/** Reads are numbered too: a slow GET must not land on top of a later one that already answered
+ *  (a cold-start load overtaken by a refresh that picked up another device's Georeferenz). */
+let readSeq = 0
+let adoptedRead = 0
 
 /** The endpoint replaces the WHOLE document. Keep writes in call order so linking several
  *  Modules in quick succession cannot let a slower, older PUT land after the newer aggregate
@@ -211,14 +217,24 @@ async function rereadForConflict(): Promise<StationPlanScales | null> {
 }
 
 export async function loadStationPlanScales(): Promise<StationPlanScales> {
+  const seq = ++readSeq
+  const seenWrites = writeSeq
   try {
-    if (adopt(await apiGet<StationPlanScalesWire>('/api/plan-scales'))) notify()
+    const wire = await apiGet<StationPlanScalesWire>('/api/plan-scales')
+    // a local write started while the GET was in the air – its body is newer than this answer
+    if (writeSeq !== seenWrites) return resolved
+    if (seq < adoptedRead) return resolved // a later read already answered
+    adoptedRead = seq
+    if (adopt(wire)) notify()
     return resolved
   } catch {
     // A cache HIT is a real document too — it is the last one the server confirmed to this
     // device. A miss (or an IDB that refuses to open) leaves us knowing nothing at all, and
     // `loaded` has to stay false so that no read-modify-write builds on the void.
     const cached = await idbGet<StationPlanScales>(CACHE_KEY).catch(() => null)
+    // …a real answer may have landed while the cache was being read (a refresh, a write's
+    // response). It is newer than anything on disk – a late cache miss must not wipe it.
+    if (loaded) return resolved
     const changed = JSON.stringify(normalize(cached)) !== JSON.stringify(resolved)
     resolved = normalize(cached)
     loaded = !!cached
@@ -325,6 +341,7 @@ export async function saveStationPlanScales(next: StationPlanScales): Promise<vo
  */
 export async function refreshStationPlanScales(): Promise<void> {
   const seenWrites = writeSeq
+  const seq = ++readSeq
   let wire: StationPlanScalesWire
   try {
     wire = await apiGet<StationPlanScalesWire>('/api/plan-scales')
@@ -334,6 +351,8 @@ export async function refreshStationPlanScales(): Promise<void> {
   // a local write started while the GET was in the air — its body is newer than this answer, and
   // so is the token it came back with
   if (writeSeq !== seenWrites) return
+  if (seq < adoptedRead) return // a later read already answered
+  adoptedRead = seq
   if (adopt(wire)) notify()
 }
 

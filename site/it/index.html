@@ -231,7 +231,7 @@
         "height": 937
       },
       "inLanguage": "it-CH",
-      "dateModified": "2026-11-18",
+      "dateModified": "2026-11-19",
       "isPartOf": {
         "@id": "https://kp-front.ch/#website"
       },
@@ -250,6 +250,14 @@
           "acceptedAnswer": {
             "@type": "Answer",
             "text": "Tutti vedono nello stesso momento la stessa situazione – al veicolo di comando, sul tablet e dal capo intervento. Nessun messaggio si perde su un foglietto. La sorveglianza della protezione respiratoria si fa sentire da sola prima che diventi stretta. Meno traffico radio per domande che stanno comunque sul quadro della situazione – e il rapporto è quasi pronto al rientro invece che il fine settimana dopo. KP Front aiuta la direzione dell’intervento a tenere la situazione priva di contraddizioni e a rendere visibili gli scarti: una squadra senza contatto radio, un veicolo che non sta da nessuna parte, un riscontro che non è mai arrivato."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Per quali corpi e quali interventi è pensato KP Front?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Per pompieri di milizia, corpi locali, centri di soccorso, pompieri professionisti e pompieri aziendali – in caso di incendi, incidenti della circolazione, interventi di soccorso tecnico, difesa chimica e antinquinamento e grandi eventi. KP Front è nato nell’attività d’intervento di un corpo di pompieri di milizia; per questo è fatto per persone che non lo usano tutti i giorni."
           }
         },
         {
@@ -305,7 +313,7 @@
           "name": "Possiamo adattarlo ai nostri processi?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Sì. Ogni corpo ha la propria area amministrativa: uomini, veicoli, dottrina e modelli si impostano liberamente lì. Liste di controllo, piani d’oggetto e livelli cartografici arrivano dai dati della vostra sede e si caricano con gli strumenti da riga di comando forniti. E poiché tutto il codice sta su GitHub , tutto il resto si può costruire – da soli o su mandato."
+            "text": "Sì. Ogni corpo ha la propria area amministrativa: uomini, veicoli, dottrina e modelli si impostano liberamente lì. Liste di controllo, piani d’oggetto e livelli cartografici arrivano dai dati della vostra sede: uno alla volta si caricano nell’area amministrativa, molti insieme con gli strumenti da riga di comando forniti. E poiché tutto il codice sta su GitHub , tutto il resto si può costruire – da soli o su mandato."
           }
         },
         {
@@ -410,72 +418,35 @@
   <p class="wrap">Questa traduzione non è ancora stata verificata da una persona italofona dei pompieri – <a href="#kontakt">suggerimenti e correzioni</a> sono benvenuti. La demo è in tedesco.</p>
 </div>
 <main>
-  <section class="hero wrap">
+  <section class="hero hero-center wrap">
     <p class="eyebrow">Open source&nbsp;· gratuito&nbsp;· Svizzera</p>
     <h1>La condotta d’intervento digitale per i pompieri.</h1>
     <p class="lede">KP Front è il posto di comando digitale sul posto:
-      <strong>mappa, piani, squadre, diario e rapporto</strong> in un’unica app.</p>
+      <strong>mappa, piani, squadre, diario e rapporto</strong> in un’unica app – su tablet, portatile e telefono.</p>
     <div class="cta-row">
       <a class="btn btn-primary" href="https://demo.kp-front.ch" target="_blank" rel="noopener"><svg class="ico"><use href="#i-play"/></svg>Apri la demo</a>
-      <a class="btn btn-ghost" href="https://github.com/feuerwehr-oberwil/kp-front/blob/main/docs/SETUP.md" target="_blank" rel="noopener">Gestirlo in proprio</a>
-      <span class="cta-note">Senza registrazione – nella demo Musterdorf sta bruciando adesso (interfaccia in tedesco)</span>
+      <a class="btn btn-ghost" href="#betrieb">Gestirlo in proprio</a>
     </div>
-    <p class="fit-note demo-note" role="note"><strong>Demo pubblica:</strong> non inserite dati reali su interventi, persone, luoghi od organizzazioni. Tutti i visitatori condividono la stessa demo. I dati inseriti restano salvati fino al prossimo azzeramento automatico.</p>
-    <figure class="frame">
-      <div class="frame-bar" aria-hidden="true">
-        <span class="dot live"></span><span class="dot"></span><span class="dot"></span>
-        <span class="addr">KARTE · ZIMMERBRAND · 2611624 / 1263070</span>
+    <p class="cta-note">Senza registrazione – nella demo Musterdorf sta bruciando adesso (interfaccia in tedesco)</p>
+    <div class="duo">
+      <div class="dev dev-tab">
+        <picture>
+          <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="../shots/dark/tablet/karte.webp">
+          <script>document.currentScript.previousElementSibling.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';</script>
+          <img src="../shots/tablet/karte.webp" alt="KP Front su tablet: carta della situazione con simboli tattici, condotta e barre degli strumenti" width="1600" height="1090" fetchpriority="high">
+        </picture>
       </div>
-      <picture>
-        <source data-theme-dark media="(prefers-color-scheme: dark)"
-                srcset="../shots/dark/lage-992.webp 992w, ../shots/dark/lage.webp 1500w"
-                sizes="(min-width: 1040px) 992px, calc(100vw - 48px)">
-        <script>document.currentScript.previousElementSibling.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';</script>
-        <img src="../shots/lage.webp"
-           srcset="../shots/lage-992.webp 992w, ../shots/lage.webp 1500w"
-           sizes="(min-width: 1040px) 992px, calc(100vw - 48px)"
-           alt="Vista Mappa: simboli tattici CSP, settori e condotte sulla carta tattica" width="1500" height="937" fetchpriority="high">
-      </picture>
-    </figure>
-  </section>
-
-  <section class="fit">
-    <div class="wrap fit-split">
-      <div>
-        <div class="fit-row">
-          <p class="fit-k">Per chi</p>
-          <ul class="fit-v">
-            <li>Pompieri di milizia</li>
-            <li>Corpi locali</li>
-            <li>Centri di soccorso</li>
-            <li>Pompieri professionisti</li>
-            <li>Pompieri aziendali</li>
-          </ul>
-        </div>
-        <div class="fit-row">
-          <p class="fit-k">Per cosa</p>
-          <ul class="fit-v">
-            <li>Incendi</li>
-            <li>Incidenti della circolazione</li>
-            <li>Interventi di soccorso tecnico</li>
-            <li>Difesa chimica e antinquinamento</li>
-            <li>Grandi eventi</li>
-          </ul>
-        </div>
-        <p class="fit-note">Nato dall’attività operativa reale dei
+      <div class="dev dev-ph">
+        <picture>
+          <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="../shots/dark/phone/karte.webp">
+          <script>document.currentScript.previousElementSibling.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';</script>
+          <img src="../shots/phone/karte.webp" alt="KP Front sul telefono: la stessa carta della situazione con barre degli strumenti e di navigazione" width="780" height="1592">
+        </picture>
+      </div>
+    </div>
+    <p class="fit-note">Nato dall’attività operativa reale dei
         <a href="https://www.feuerwehr-oberwil.ch" target="_blank" rel="noopener">pompieri di Oberwil BL</a>
         – lì collaudato e sviluppato di intervento in intervento.</p>
-      </div>
-      <div class="fit-panel">
-        <h2>I vostri dati restano vostri.</h2>
-        <p>KP Front è open source e gira su una macchina nella vostra caserma o nel vostro cloud. Dati d’intervento, piani, personale e rapporti restano sotto il vostro controllo.</p>
-        <ul>
-          <li>Nessun costo di licenza</li>
-          <li>Nessun vincolo con il fornitore</li>
-          <li>Da gestire e sviluppare da voi</li>
-        </ul>
-      </div>
-    </div>
   </section>
 
   <section class="tenet">
@@ -489,374 +460,259 @@
     </div>
   </section>
 
-  <section class="wrap" id="einsatz">
-    <div class="sec-head">
-      <p class="eyebrow">Dall’allarme al rapporto</p>
-      <h2>Un intervento, un’app.</h2>
-      <p>Ecco com’è una notte con KP Front – mappa, squadre e documentazione
-        restano coerenti e comprensibili per tutte le persone coinvolte.</p>
-    </div>
-    <div class="verlauf-list">
-      <article class="entry">
-        <div class="time">03:01</div><div class="rail" aria-hidden="true"></div>
-        <div class="body">
-          <p class="tag">Allarme</p>
-          <h3>Arriva l’allarme.</h3>
-          <p>Riprendere con un tocco un allarme dal sistema di allertamento (p.&nbsp;es. Divera o FireHub) –
-            oppure partire a mano da un indirizzo, un oggetto o la carta. Il luogo e i dati
-            dell’oggetto ci sono prima che il primo veicolo si muova.</p>
+  <div id="einsatz">
+    <p class="wrap chap-note">Gli screenshot sono in tedesco: la demo pubblica lo è, e vengono da lì – immagini ricostruite sarebbero un’affermazione invece che una prova.</p>
+    <section class="wrap chap">
+      <div class="chap-txt">
+        <p class="chap-was">Carta della situazione su carta</p>
+        <h2>Un quadro della situazione su ogni dispositivo.</h2>
+        <p>Simboli tattici CSP, settori, condotte e note sulle carte swisstopo. Idranti, condotte e posizioni dei veicoli stanno sotto come livelli. L’allarme da Divera o FireHub si riprende con un tocco.</p>
+        <ul class="checks">
+          <li>Simboli tattici secondo la CSP – con piano, propagazione e note</li>
+          <li>Trasporto d’acqua: pressione lungo la condotta e posizione delle pompe</li>
+          <li>Informazioni sull’edificio e misure immediate per l’oggetto</li>
+        </ul>
+      </div>
+      <div class="chap-img">
+        <div class="dev dev-tab wide-only">
+          <picture>
+          <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="../shots/dark/tablet/feuer.webp">
+          <script>document.currentScript.previousElementSibling.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';</script>
+          <img src="../shots/tablet/feuer.webp" alt="Carta della situazione con il simbolo fuoco selezionato: piano, propagazione e note nel pannello dei dettagli" width="1600" height="1090" loading="lazy" decoding="async">
+        </picture>
         </div>
-      </article>
-      <article class="entry">
-        <div class="time">03:07</div><div class="rail" aria-hidden="true"></div>
-        <div class="body">
-          <p class="tag">Situazione</p>
-          <h3>Il primo quadro della situazione è pronto.</h3>
-          <p>Simboli tattici CSP, settori, condotte e note sulla carta digitale della situazione.
-            Idranti, condotte e posizioni dei veicoli stanno sotto come livelli.</p>
+        <div class="dev dev-ph narrow-only">
+          <picture>
+          <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="../shots/dark/phone/feuer.webp">
+          <script>document.currentScript.previousElementSibling.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';</script>
+          <img src="../shots/phone/feuer.webp" alt="Carta della situazione con il simbolo fuoco selezionato: piano, propagazione e note nel pannello dei dettagli" width="780" height="1592" loading="lazy" decoding="async">
+        </picture>
         </div>
-      </article>
-      <article class="entry">
-        <div class="time">03:12</div><div class="rail" aria-hidden="true"></div>
-        <div class="body">
-          <p class="tag">Squadre</p>
-          <h3>La squadra 1 entra.</h3>
-          <p>Pressione, tempo di rientro e tempo dall’ultimo contatto vengono rilevati per ogni squadra. L’app
-            avvisa prima che il margine diventi critico – anche quando nessuno sta guardando l’ora.
-            KP Front emette gli avvisi rilevanti direttamente nell’applicazione, in modo visivo e acustico. Se si
-            usano più dispositivi sincronizzati, gli stati di allarme vengono allineati tramite la connessione di rete
-            esistente. Gli avvisi acustici possono essere disattivati all’occorrenza.</p>
+      </div>
+    </section>
+    <section class="wrap chap">
+      <div class="chap-txt">
+        <p class="chap-was">Tabella protezione respiratoria e cronometro</p>
+        <h2>Una sorveglianza che si fa sentire da sola.</h2>
+        <p>Pressione, tempo di rientro e tempo dall’ultimo contatto vengono rilevati per ogni squadra. L’app avvisa prima che il margine diventi critico – anche quando nessuno sta guardando l’ora. Sul telefono come sul tablet.</p>
+        <ul class="checks">
+          <li>Tempo dal contatto e tempo di rientro per ogni squadra</li>
+          <li>Emergenza protezione respiratoria subito in cima, su tutti i dispositivi</li>
+          <li>Squadre con o senza protezione respiratoria, con il loro compito</li>
+        </ul>
+      </div>
+      <div class="chap-img">
+        <div class="dev dev-ph">
+          <picture>
+          <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="../shots/dark/phone/trupps.webp">
+          <script>document.currentScript.previousElementSibling.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';</script>
+          <img src="../shots/phone/trupps.webp" alt="Squadre sul telefono: pressione e tempo dall’ultimo contatto per ogni squadra" width="780" height="1592" loading="lazy" decoding="async">
+        </picture>
         </div>
-      </article>
-      <article class="entry">
-        <div class="time">03:18</div><div class="rail" aria-hidden="true"></div>
-        <div class="body">
-          <p class="tag">Piano</p>
-          <h3>Il piano d’oggetto diventa una lavagna.</h3>
-          <p>Aprire il piano d’intervento, disegnarci sopra, posizionare le squadre, misurare in
-            scala – con gli stessi strumenti della carta.</p>
+      </div>
+    </section>
+    <section class="wrap chap">
+      <div class="chap-txt">
+        <p class="chap-was">Piano d’oggetto nel classificatore</p>
+        <h2>Un piano su cui disegnare.</h2>
+        <p>Aprire il piano d’intervento, disegnarci sopra, posizionare le squadre, misurare in scala – con gli stessi strumenti della carta. La pila dei piani mostra quale squadra lavora a quale piano.</p>
+        <ul class="checks">
+          <li>Piani d’oggetto e d’intervento del proprio corpo</li>
+          <li>Georeferenziato: ciò che sta sulla carta sta anche sul piano</li>
+          <li>Pila dei piani con le squadre per piano</li>
+        </ul>
+      </div>
+      <div class="chap-img">
+        <div class="dev dev-tab wide-only">
+          <picture>
+          <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="../shots/dark/tablet/plan.webp">
+          <script>document.currentScript.previousElementSibling.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';</script>
+          <img src="../shots/tablet/plan.webp" alt="Piano d’oggetto (modulo 1): i simboli della carta della situazione stanno anche sul piano" width="1600" height="1090" loading="lazy" decoding="async">
+        </picture>
         </div>
-      </article>
-      <article class="entry">
-        <div class="time">03:40</div><div class="rail" aria-hidden="true"></div>
-        <div class="body">
-          <p class="tag">Diario</p>
-          <h3>Tutto sta nel diario.</h3>
-          <p>Scrivere, oppure semplicemente parlare – quando è configurato un servizio di
-            trascrizione, le note vocali possono diventare testo; altrimenti restano audio nel
-            diario. Il diario viene solo integrato: si corregge con nuove voci.</p>
+        <div class="dev dev-ph narrow-only">
+          <picture>
+          <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="../shots/dark/phone/plan.webp">
+          <script>document.currentScript.previousElementSibling.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';</script>
+          <img src="../shots/phone/plan.webp" alt="Piano d’oggetto (modulo 1): i simboli della carta della situazione stanno anche sul piano" width="780" height="1592" loading="lazy" decoding="async">
+        </picture>
         </div>
-      </article>
-      <article class="entry">
-        <div class="time">04:30</div><div class="rail" aria-hidden="true"></div>
-        <div class="body">
-          <p class="tag">Piano turni</p>
-          <h3>Il cambio si pianifica, non si stima.</h3>
-          <p>Se diventa una notte lunga, il piano turni indica, per ogni persona, quando è
-            disponibile e quando è impiegata. La linea di copertura mostra dove le persone sono
-            troppo poche – prima che si crei una carenza di personale. La gestione delle presenze
-            resta separata: qui si pianifica, lì si registra la presenza effettiva.</p>
+      </div>
+    </section>
+    <section class="wrap chap">
+      <div class="chap-txt">
+        <p class="chap-was">Foglietti e memoria</p>
+        <h2>Un diario che sta al passo.</h2>
+        <p>Scrivere o parlare. Il diario viene solo integrato, mai riscritto: si corregge con una nuova voce, non con la gomma. I compiti aperti si ricordano da soli.</p>
+        <ul class="checks">
+          <li>Note vocali – come testo con un servizio di trascrizione</li>
+          <li>Compiti aperti con promemoria</li>
+          <li>Foglio di rilevamento via codice QR per chiunque contribuisca</li>
+        </ul>
+      </div>
+      <div class="chap-img">
+        <div class="dev dev-ph">
+          <picture>
+          <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="../shots/dark/phone/verlauf.webp">
+          <script>document.currentScript.previousElementSibling.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';</script>
+          <img src="../shots/phone/verlauf.webp" alt="Diario sul telefono: voci con l’ora e un compito aperto" width="780" height="1592" loading="lazy" decoding="async">
+        </picture>
         </div>
-      </article>
-      <article class="entry">
-        <div class="time">05:55</div><div class="rail" aria-hidden="true"></div>
-        <div class="body">
-          <p class="tag">Rapporto</p>
-          <h3>Al rientro il rapporto è quasi pronto.</h3>
-          <p>Situazione, uomini, materiale e diario confluiscono direttamente nel rapporto
-            d’intervento. Nessuno deve ricostruire la notte a memoria.</p>
+      </div>
+    </section>
+    <section class="wrap chap">
+      <div class="chap-txt">
+        <p class="chap-was">Rapporto il giorno dopo</p>
+        <h2>Il rapporto al rientro.</h2>
+        <p>Situazione, uomini, materiale e diario confluiscono direttamente nel rapporto: controllare, completare, stampare come PDF. Per il debriefing il viaggio nel tempo riproduce tutta la notte.</p>
+        <ul class="checks">
+          <li>Rapporto d’intervento come PDF pronto</li>
+          <li>Il controllo finale mostra cosa manca ancora</li>
+          <li>Viaggio nel tempo: l’intervento minuto per minuto</li>
+        </ul>
+      </div>
+      <div class="chap-img">
+        <div class="dev dev-tab wide-only">
+          <picture>
+          <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="../shots/dark/tablet/rapport.webp">
+          <script>document.currentScript.previousElementSibling.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';</script>
+          <img src="../shots/tablet/rapport.webp" alt="Rapporto d’intervento: dati già ripresi, rapporto breve e capo intervento da completare" width="1600" height="1090" loading="lazy" decoding="async">
+        </picture>
         </div>
-      </article>
-      <article class="entry">
-        <div class="time">Dopo</div><div class="rail" aria-hidden="true"></div>
-        <div class="body">
-          <p class="tag">Viaggio nel tempo</p>
-          <h3>La notte scorre un’altra volta.</h3>
-          <p>Per il debriefing il viaggio nel tempo riproduce tutto l’intervento: situazione,
-            squadre e diario esattamente come stavano minuto per minuto. Le lunghe attese le
-            salta – quattro ore diventano pochi minuti.</p>
+        <div class="dev dev-ph narrow-only">
+          <picture>
+          <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="../shots/dark/phone/rapport.webp">
+          <script>document.currentScript.previousElementSibling.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';</script>
+          <img src="../shots/phone/rapport.webp" alt="Rapporto d’intervento: dati già ripresi, rapporto breve e capo intervento da completare" width="780" height="1592" loading="lazy" decoding="async">
+        </picture>
         </div>
-      </article>
-    </div>
-  </section>
+      </div>
+    </section>
+  </div>
 
-  <section class="wrap">
+  <section class="wrap" id="betrieb">
     <div class="sec-head">
-      <p class="eyebrow">Dalla demo</p>
-      <h2>Ecco come si presenta.</h2>
-      <p>Tutte le immagini sono riprese dalla demo pubblica. Clicca su «Apri la demo» e ti
-        ritrovi nella stessa situazione.</p>
-      <p class="sec-note">Gli screenshot sono in tedesco: la demo pubblica lo è, e vengono da lì – immagini ricostruite sarebbero un’affermazione invece che una prova.</p>
+      <p class="eyebrow">Funzionamento</p>
+      <h2>I vostri dati restano vostri.</h2>
+      <p>KP Front è open source. Ogni corpo gestisce la propria installazione – non c’è un server centrale, e niente ci viene inviato automaticamente.</p>
     </div>
-    <div class="shots-grid">
-      <figure class="shot">
-        <button class="shot-zoom" type="button" aria-label="Ingrandisci: Piano">
-          <picture>
-            <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="../shots/dark/plan.webp">
-            <img src="../shots/plan.webp" alt="Vista Piano: piano d’oggetto come lavagna, con disegno, simboli e scala" width="1500" height="937" loading="lazy" decoding="async">
-          </picture>
-        </button>
-        <figcaption>
-          <div class="cap-t">Piano</div>
-          <div class="cap-s">Piani d’oggetto e d’intervento con segni tattici, marcature e misurazione in scala</div>
-        </figcaption>
-      </figure>
-      <figure class="shot">
-        <button class="shot-zoom" type="button" aria-label="Ingrandisci: Squadre">
-          <picture>
-            <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="../shots/dark/atemschutz.webp">
-            <img src="../shots/atemschutz.webp" alt="Vista Squadre: squadre sotto ARA con pressione e tempo dall’ultimo contatto in corso" width="1500" height="937" loading="lazy" decoding="async">
-          </picture>
-        </button>
-        <figcaption>
-          <div class="cap-t">Squadre</div>
-          <div class="cap-s">Sorveglianza delle squadre impiegate – tempi, pressioni e riscontri, con o senza protezione respiratoria</div>
-        </figcaption>
-      </figure>
-      <figure class="shot">
-        <button class="shot-zoom" type="button" aria-label="Ingrandisci: Edificio">
-          <picture>
-            <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="../shots/dark/gebaeude.webp">
-            <img src="../shots/gebaeude.webp" alt="Vista Edificio: piani sovrapposti con l’assegnazione delle squadre" width="1500" height="937" loading="lazy" decoding="async">
-          </picture>
-        </button>
-        <figcaption>
-          <div class="cap-t">Edificio</div>
-          <div class="cap-s">I piani uno sopra l’altro – quale squadra lavora a quale piano</div>
-        </figcaption>
-      </figure>
-      <figure class="shot">
-        <button class="shot-zoom" type="button" aria-label="Ingrandisci: Diario">
-          <picture>
-            <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="../shots/dark/verlauf.webp">
-            <img src="../shots/verlauf.webp" alt="Diario: voci in ordine cronologico accanto alla carta" width="1500" height="937" loading="lazy" decoding="async">
-          </picture>
-        </button>
-        <figcaption>
-          <div class="cap-t">Diario</div>
-          <div class="cap-s">Documentazione continua di tutto ciò che conta – un servizio di trascrizione configurato può convertire le note vocali in testo</div>
-        </figcaption>
-      </figure>
-      <figure class="shot">
-        <button class="shot-zoom" type="button" aria-label="Ingrandisci: Presenze">
-          <picture>
-            <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="../shots/dark/anwesenheit.webp">
-            <img src="../shots/anwesenheit.webp" alt="Presenze: elenco degli uomini con gli orari di arrivo" width="1500" height="937" loading="lazy" decoding="async">
-          </picture>
-        </button>
-        <figcaption>
-          <div class="cap-t">Presenze</div>
-          <div class="cap-s">Chi è arrivato e da quando – la base per l’elenco degli uomini e per il rapporto</div>
-        </figcaption>
-      </figure>
-      <figure class="shot">
-        <button class="shot-zoom" type="button" aria-label="Ingrandisci: Piano turni">
-          <picture>
-            <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="../shots/dark/zeitplan.webp">
-            <img src="../shots/zeitplan.webp" alt="Piano turni: griglia dei turni con una riga per persona, barre pianificate ed effettive e sotto la linea di copertura" width="1500" height="937" loading="lazy" decoding="async">
-          </picture>
-        </button>
-        <figcaption>
-          <div class="cap-t">Piano turni</div>
-          <div class="cap-s">Pianificare i turni negli interventi lunghi – disponibile, impiegato, davvero presente, e dove la copertura cede</div>
-        </figcaption>
-      </figure>
-      <figure class="shot">
-        <button class="shot-zoom" type="button" aria-label="Ingrandisci: Liste di controllo">
-          <picture>
-            <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="../shots/dark/checkliste.webp">
-            <img src="../shots/checkliste.webp" alt="Lista di controllo: compiti del supporto alla condotta con l’avanzamento" width="1500" height="937" loading="lazy" decoding="async">
-          </picture>
-        </button>
-        <figcaption>
-          <div class="cap-t">Liste di controllo</div>
-          <div class="cap-s">Le liste di controllo per la condotta d’intervento del vostro corpo pompieri, con accesso diretto a piano, diario e strumenti</div>
-        </figcaption>
-      </figure>
-      <figure class="shot">
-        <button class="shot-zoom" type="button" aria-label="Ingrandisci: Materiale">
-          <picture>
-            <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="../shots/dark/mittel.webp">
-            <img src="../shots/mittel.webp" alt="Vista Materiale: ciò che è stato impiegato, per provenienza" width="1500" height="937" loading="lazy" decoding="async">
-          </picture>
-        </button>
-        <figcaption>
-          <div class="cap-t">Materiale</div>
-          <div class="cap-s">Rilevare ciò che è stato impiegato e consumato durante l’intervento, invece di stimarlo dopo</div>
-        </figcaption>
-      </figure>
-      <figure class="shot">
-        <button class="shot-zoom" type="button" aria-label="Ingrandisci: Rapporto">
-          <picture>
-            <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="../shots/dark/rapport.webp">
-            <img src="../shots/rapport.webp" alt="Rapporto d’intervento prima della stampa: presenze e materiale già ripresi, sotto le sezioni del PDF da spuntare" width="1500" height="937" loading="lazy" decoding="async">
-          </picture>
-        </button>
-        <figcaption>
-          <div class="cap-t">Rapporto</div>
-          <div class="cap-s">Quasi pronto al rientro – controllare, completare, esportare in PDF e stampare</div>
-        </figcaption>
-      </figure>
+    <div class="own">
+      <div class="own-card">
+        <h3>Gratuito</h3>
+        <p>AGPL-3.0: nessun costo di licenza, nessun abbonamento, nessun costo per dispositivo. Restano i vostri costi di gestione e infrastruttura.</p>
+      </div>
+      <div class="own-card">
+        <h3>Da voi</h3>
+        <p>Su un mini PC in caserma, su un vostro server o presso un fornitore cloud a vostra scelta. Funziona offline come app installabile.</p>
+      </div>
+      <div class="own-card">
+        <h3>Senza vincoli</h3>
+        <p>Tutto il codice è aperto: gestirlo, adattarlo, svilupparlo da voi.</p>
+      </div>
+      <div class="own-card">
+        <h3>Su misura per voi</h3>
+        <p>Uomini, veicoli, piani, liste di controllo e livelli della carta si configurano nella vostra area di amministrazione – senza programmare.</p>
+      </div>
     </div>
-  </section>
-
-  <section class="wrap" id="aenderung">
-    <div class="sec-head">
-      <p class="eyebrow">Il passaggio</p>
-      <h2>Cosa cambia.</h2>
-      <p>Niente di tutto questo è rotto oggi – la carta della situazione su carta funziona da
-        decenni. KP Front si mette negli stessi posti, solo senza ricopiare.</p>
-    </div>
-    <div class="change-wrap">
-      <table class="change">
-        <thead>
-          <tr><th scope="col">Oggi</th><th scope="col">Con KP Front</th></tr>
-        </thead>
-        <tbody>
-          <tr><td>Carta della situazione su carta</td><td>Quadro della situazione su ogni dispositivo</td></tr>
-          <tr><td>Tabella protezione respiratoria e cronometro</td><td>Una sorveglianza che si fa sentire da sola</td></tr>
-          <tr><td>Foglietti e memoria</td><td>Un diario che sta al passo</td></tr>
-          <tr><td>Piano d’oggetto nel classificatore</td><td>Un piano su cui disegnare</td></tr>
-          <tr><td>Rapporto il giorno dopo</td><td>Rapporto al rientro</td></tr>
-          <tr><td>Debriefing a memoria</td><td>Far scorrere la notte un’altra volta</td></tr>
-        </tbody>
-      </table>
-    </div>
+    <p class="own-link"><a href="https://github.com/feuerwehr-oberwil/kp-front/blob/main/docs/SETUP.md" target="_blank" rel="noopener">Guida per gestirlo da voi →</a></p>
   </section>
 
   <section class="wrap" id="funktionen">
-    <div class="sec-head">
-      <p class="eyebrow">Funzionalità</p>
-      <h2>Cosa c’è dentro.</h2>
-      <p>Cresciuta su interventi ed esercitazioni veri, non su un elenco di funzioni. Tutto ciò
+    <div class="split">
+      <div class="sec-head">
+        <p class="eyebrow">Funzionalità</p>
+        <h2>Cosa c’è dentro.</h2>
+        <p>Cresciuta su interventi ed esercitazioni veri, non su un elenco di funzioni. Tutto ciò
         che arriva da fuori – allertamento, GPS, accesso con Microsoft – è <strong>opzionale</strong>: KP Front
         funziona anche del tutto senza questi collegamenti.</p>
-    </div>
-    <div class="feature-cols">
-      <div class="fgroup">
-        <h3>Mappa &amp; piano</h3>
-        <ul class="flist">
-          <li><strong>Segni tattici</strong> secondo le convenzioni CSP, con attributi e diciture</li>
-          <li>Settori, cerchi di sbarramento, superfici e disegno a mano libera</li>
-          <li>Condotte con annotazioni CSP, ognuna assegnata a una squadra</li>
-          <li>Misurazione di distanze e superfici, in scala anche sul piano</li>
-          <li><strong>Trasporto d’acqua</strong>: pressione lungo una condotta in base al profilo altimetrico, al diametro della manichetta e alla portata – il calcolo posiziona da sé le pompe e può riportarle direttamente sulla mappa</li>
-          <li>Livelli: idranti, catasto delle condotte, servizi cartografici cantonali</li>
-          <li><strong>Prontuario delle sostanze pericolose</strong>: numeri ONU, informazioni sulle sostanze e indicazioni sulle distanze di isolamento e protezione, disponibili direttamente durante l’intervento</li>
-          <li>Informazioni meteorologiche e sul vento a supporto della valutazione della situazione, più il radar delle precipitazioni di MeteoSvizzera come livello</li>
-          <li>Piani d’oggetto come lavagna e piani sovrapposti</li>
-          <li><strong>Carta &amp; oggetti</strong>: senza intervento, la carta del proprio corpo – consultare oggetti, pericoli, idranti e piani d’oggetto</li>
-          <li><strong>Lavagna con pagine CSP</strong>: schizzo libero, Prima coordinazione e fogli del manuale – stampati nel rapporto come l’originale</li>
-          <li><strong>Info edificio</strong>: dati del registro degli edifici – gas, olio combustibile, fotovoltaico – e misure immediate per l’oggetto</li>
-          <li><strong>Misurazioni</strong>: punti di misura con valori dei gas per locale e per piano, con cronologia e soglie d’allarme</li>
-          <li><strong>Georeferenziazione</strong>: collegare una planimetria alla mappa tramite punti di riferimento comuni – un solo oggetto, visibile su entrambe le superfici, con un’indicazione onesta della precisione. La stazione fa allineare le planimetrie in anticipo e le approva</li>
-          <li>Annulla/ripristina su ogni superficie – le attività documentate restano tracciabili</li>
-        </ul>
       </div>
-      <div class="fgroup">
-        <h3>Uomini &amp; mezzi</h3>
-        <ul class="flist">
-          <li><strong>Sorveglianza della protezione respiratoria</strong>: pressione, tempo di rientro, tempo dall’ultimo contatto, allarmi</li>
-          <li><strong>Emergenza protezione respiratoria</strong>: una squadra in difficoltà appare subito in rosso, in cima, su tutti i dispositivi – con cronometro d’emergenza e squadra di sicurezza</li>
-          <li><strong>Squadre con o senza protezione respiratoria</strong>: personale, incarico e caposquadra – sulla carta, sul piano e nei piani sovrapposti, con il proprio colore di squadra, lo stesso ovunque</li>
-          <li>Presenze con orari di arrivo e gradi</li>
-          <li>In arrivo: chi ha confermato l’allarme Divera, direttamente sopra le presenze</li>
-          <li><strong>Piano turni</strong>: pianificare disponibilità e turni per persona,
+      <div class="acc">
+        <details>
+          <summary><span>Mappa &amp; piano<span class="peek">Simboli tattici · trasporto d’acqua · merci pericolose · info edificio · misure dei gas</span></span></summary>
+          <ul class="flist">
+            <li><strong>Segni tattici</strong> secondo le convenzioni CSP, con attributi e diciture</li>
+            <li>Settori, cerchi di sbarramento, superfici e disegno a mano libera</li>
+            <li>Condotte con annotazioni CSP, ognuna assegnata a una squadra</li>
+            <li>Misurazione di distanze e superfici, in scala anche sul piano</li>
+            <li><strong>Trasporto d’acqua</strong>: pressione lungo una condotta in base al profilo altimetrico, al diametro della manichetta e alla portata – il calcolo posiziona da sé le pompe e può riportarle direttamente sulla mappa</li>
+            <li>Livelli: idranti, catasto delle condotte, servizi cartografici cantonali</li>
+            <li><strong>Prontuario delle sostanze pericolose</strong>: numeri ONU, informazioni sulle sostanze e indicazioni sulle distanze di isolamento e protezione, disponibili direttamente durante l’intervento</li>
+            <li>Informazioni meteorologiche e sul vento a supporto della valutazione della situazione, più il radar delle precipitazioni di MeteoSvizzera come livello</li>
+            <li>Piani d’oggetto come lavagna e piani sovrapposti</li>
+            <li><strong>Carta &amp; oggetti</strong>: senza intervento, la carta del proprio corpo – consultare oggetti, pericoli, idranti e piani d’oggetto</li>
+            <li><strong>Lavagna con pagine CSP</strong>: schizzo libero, Prima coordinazione e fogli del manuale – stampati nel rapporto come l’originale</li>
+            <li><strong>Info edificio</strong>: dati del registro degli edifici – gas, olio combustibile, fotovoltaico – e misure immediate per l’oggetto</li>
+            <li><strong>Misurazioni</strong>: punti di misura con valori dei gas per locale e per piano, con cronologia e soglie d’allarme</li>
+            <li><strong>Georeferenziazione</strong>: collegare una planimetria alla mappa tramite punti di riferimento comuni – un solo oggetto, visibile su entrambe le superfici, con un’indicazione onesta della precisione. La stazione fa allineare le planimetrie in anticipo e le approva</li>
+            <li>Annulla/ripristina su ogni superficie – le attività documentate restano tracciabili</li>
+          </ul>
+        </details>
+        <details>
+          <summary><span>Uomini &amp; mezzi<span class="peek">Sorveglianza protezione respiratoria · presenze · piano turni · condivisione posizione · materiale</span></span></summary>
+          <ul class="flist">
+            <li><strong>Sorveglianza della protezione respiratoria</strong>: pressione, tempo di rientro, tempo dall’ultimo contatto, allarmi</li>
+            <li><strong>Emergenza protezione respiratoria</strong>: una squadra in difficoltà appare subito in rosso, in cima, su tutti i dispositivi – con cronometro d’emergenza e squadra di sicurezza</li>
+            <li><strong>Squadre con o senza protezione respiratoria</strong>: personale, incarico e caposquadra – sulla carta, sul piano e nei piani sovrapposti, con il proprio colore di squadra, lo stesso ovunque</li>
+            <li>Presenze con orari di arrivo e gradi</li>
+            <li>In arrivo: chi ha confermato l’allarme Divera, direttamente sopra le presenze</li>
+            <li><strong>Piano turni</strong>: pianificare disponibilità e turni per persona,
             visualizzare la copertura dell’intero intervento e stampare i formulari di condotta</li>
-          <li><strong>Condividere la posizione</strong>: chi apre il link appare come punto sulla
+            <li><strong>Condividere la posizione</strong>: chi apre il link appare come punto sulla
             carta della situazione – volontario, e solo per questo intervento</li>
-          <li>Condividere l’intervento tramite link; l’accesso è indicato chiaramente e può essere
+            <li>Condividere l’intervento tramite link; l’accesso è indicato chiaramente e può essere
             revocato in qualsiasi momento</li>
-          <li><strong>Modalità presentazione</strong>: chi ha l’intervento aperto segue lo schermo di chi presenta – tutti possono indicare, nulla viene salvato</li>
-          <li>Materiale con scorte e consumo</li>
-          <li>Liste di controllo per il supporto alla condotta e la direzione dell’intervento</li>
-          <li>Ruolo capo intervento: tenere presenze, mezzi, check-list e rapporto – leggere carta e squadre senza spostare nulla</li>
-        </ul>
-      </div>
-      <div class="fgroup">
-        <h3>Documentazione</h3>
-        <ul class="flist">
-          <li>Un <strong>diario</strong> che viene solo integrato e mai riscritto</li>
-          <li>Note vocali con trascrizione, foto, promemoria</li>
-          <li><strong>Viaggio nel tempo</strong>: riprodurre l’intervento minuto per minuto, con le
+            <li><strong>Modalità presentazione</strong>: chi ha l’intervento aperto segue lo schermo di chi presenta – tutti possono indicare, nulla viene salvato</li>
+            <li>Materiale con scorte e consumo</li>
+            <li>Liste di controllo per il supporto alla condotta e la direzione dell’intervento</li>
+            <li>Ruolo capo intervento: tenere presenze, mezzi, check-list e rapporto – leggere carta e squadre senza spostare nulla</li>
+          </ul>
+        </details>
+        <details>
+          <summary><span>Documentazione<span class="peek">Diario · viaggio nel tempo · rapporto in PDF · stampante della caserma</span></span></summary>
+          <ul class="flist">
+            <li>Un <strong>diario</strong> che viene solo integrato e mai riscritto</li>
+            <li>Note vocali con trascrizione, foto, promemoria</li>
+            <li><strong>Viaggio nel tempo</strong>: riprodurre l’intervento minuto per minuto, con le
             attese saltate – per il debriefing</li>
-          <li>Rapporto d’intervento pronto in PDF, con personale, materiale, orari, diario, croquis,
+            <li>Rapporto d’intervento pronto in PDF, con personale, materiale, orari, diario, croquis,
             foto e sorveglianza della protezione respiratoria</li>
-          <li>Stampare rapporto e piano orario direttamente sulla <strong>stampante della caserma</strong> <span class="opt">opzionale</span></li>
-          <li><strong>Analisi</strong> per il debriefing: cifre chiave e linea del tempo su un foglio a parte, alla fine del rapporto</li>
-          <li>Foto come allegati al rapporto</li>
-          <li><strong>Controllo finale</strong>: prima della chiusura, KP Front mostra quali informazioni o chiarimenti mancano ancora nel rapporto</li>
-          <li>Organizzazioni partner con la loro osservazione nel rapporto</li>
-          <li>Scheda di rilevamento via codice QR per tutti quelli che hanno qualcosa da aggiungere</li>
-          <li>Orari di allarme e d’intervento dallo svolgimento invece che dalla memoria</li>
-        </ul>
-      </div>
-      <div class="fgroup">
-        <h3>Funzionamento</h3>
-        <ul class="flist">
-          <li><strong>Funziona offline</strong> come app installabile – la verifica di prontezza indica prima dell’intervento se i dati necessari sono sul dispositivo</li>
-          <li>Più dispositivi collegati lavorano sullo stesso stato – dopo un’interruzione della connessione, le modifiche vengono nuovamente sincronizzate</li>
-          <li>Tre ruoli: l’aiuto alla condotta modifica tutto, il capo intervento tiene la documentazione e segue la situazione, gli osservatori leggono soltanto</li>
-          <li>Modalità giorno/notte, dimensione dei simboli e grandi superfici di comando per il tablet</li>
-          <li>Può riprendere allarmi da Divera o FireHub; altri sistemi di allertamento possono essere collegati tramite l’interfaccia aperta <span class="opt">opzionale</span></li>
-          <li>Posizioni dei veicoli via GPS <span class="opt">opzionale</span></li>
-          <li>Accesso con Microsoft all’account esistente, in aggiunta al PIN <span class="opt">opzionale</span></li>
-          <li><strong>Visite agli oggetti</strong> senza intervento, offline – lista di controllo, foto e rapporto <span class="opt">opzionale</span></li>
-          <li><strong>Area amministrativa propria</strong> per ogni corpo: uomini, veicoli, liste di controllo, livelli cartografici e modelli</li>
-        </ul>
-      </div>
-    </div>
-  </section>
-
-  <section class="sibling">
-    <div class="wrap">
-      <div class="sibling-grid">
-        <div class="sibling-txt">
-          <p class="eyebrow">Progetto affine</p>
-          <h2>KP Front crea profondità tattica sul luogo d’intervento. KP Rück crea ampiezza operativa nella situazione generale.</h2>
-          <p><strong>KP Rück</strong> riproduce in digitale la lavagna magnetica del posto di comando
-          arretrato: una tavola per personale, veicoli e materiale. App propria, stessa grafia –
-          i due ricevono lo stesso allarme dal sistema di allertamento
-          e non hanno bisogno l’uno dell’altro. Le due applicazioni possono essere impiegate nella stessa situazione in parallelo e in modo indipendente l’una dall’altra.</p>
-          <a class="btn btn-ghost" href="https://kp-rueck.ch/it/">Guarda KP Rück<svg class="ico" style="width:14px;height:14px"><use href="#i-arrow"/></svg></a>
-        </div>
-
-        <div class="setup-card">
-          <h3>Gestirli entrambi – senza configurare tutto due volte</h3>
-          <dl>
-            <div class="setup-row">
-              <dt>Allertamento</dt>
-              <dd>Lo stesso payload per entrambi. Il collegamento del vostro sistema di allertamento si fa una volta sola; ogni app riceve solo il proprio indirizzo.</dd>
-            </div>
-            <div class="setup-row">
-              <dt>Accesso Divera</dt>
-              <dd>Una sola chiave per entrambi – stessi allarmi, stesso personale. <span class="opt">facoltativo</span></dd>
-            </div>
-            <div class="setup-row">
-              <dt>Elenco personale</dt>
-              <dd>La stessa fonte nello stesso formato di file – la stessa persona su entrambi i lati.</dd>
-            </div>
-            <div class="setup-row">
-              <dt>Parole chiave</dt>
-              <dd>La stessa lista di parole chiave d’allarme, quindi la stessa classificazione in entrambe le app.</dd>
-            </div>
-          </dl>
-          <p class="setup-foot"><strong>Banca dati, aggiornamenti e login restano separati.</strong> Nessuna delle due ha bisogno dell’altra per funzionare.
-            <a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/RUNNING-BOTH.md" target="_blank" rel="noopener">Guida: entrambi su un solo server →</a></p>
-        </div>
+            <li>Stampare rapporto e piano orario direttamente sulla <strong>stampante della caserma</strong> <span class="opt">opzionale</span></li>
+            <li><strong>Analisi</strong> per il debriefing: cifre chiave e linea del tempo su un foglio a parte, alla fine del rapporto</li>
+            <li>Foto come allegati al rapporto</li>
+            <li><strong>Controllo finale</strong>: prima della chiusura, KP Front mostra quali informazioni o chiarimenti mancano ancora nel rapporto</li>
+            <li>Organizzazioni partner con la loro osservazione nel rapporto</li>
+            <li>Scheda di rilevamento via codice QR per tutti quelli che hanno qualcosa da aggiungere</li>
+            <li>Orari di allarme e d’intervento dallo svolgimento invece che dalla memoria</li>
+          </ul>
+        </details>
+        <details>
+          <summary><span>Funzionamento<span class="peek">Offline · più dispositivi · ruoli · allarme · accesso Microsoft</span></span></summary>
+          <ul class="flist">
+            <li><strong>Funziona offline</strong> come app installabile – la verifica di prontezza indica prima dell’intervento se i dati necessari sono sul dispositivo</li>
+            <li>Più dispositivi collegati lavorano sullo stesso stato – dopo un’interruzione della connessione, le modifiche vengono nuovamente sincronizzate</li>
+            <li>Tre ruoli: l’aiuto alla condotta modifica tutto, il capo intervento tiene la documentazione e segue la situazione, gli osservatori leggono soltanto</li>
+            <li>Modalità giorno/notte, dimensione dei simboli e grandi superfici di comando per il tablet</li>
+            <li>Può riprendere allarmi da Divera o FireHub; altri sistemi di allertamento possono essere collegati tramite l’interfaccia aperta <span class="opt">opzionale</span></li>
+            <li>Posizioni dei veicoli via GPS <span class="opt">opzionale</span></li>
+            <li>Accesso con Microsoft all’account esistente, in aggiunta al PIN <span class="opt">opzionale</span></li>
+            <li><strong>Visite agli oggetti</strong> senza intervento, offline – lista di controllo, foto e rapporto <span class="opt">opzionale</span></li>
+            <li><strong>Area amministrativa propria</strong> per ogni corpo: uomini, veicoli, liste di controllo, livelli cartografici e modelli</li>
+          </ul>
+        </details>
       </div>
     </div>
   </section>
 
   <section class="wrap" id="fragen">
-    <div class="sec-head">
-      <p class="eyebrow">Domande &amp; risposte</p>
-      <h2>Le domande più frequenti.</h2>
-    </div>
-    <div class="faq-list">
-      <div class="faq-item">
-        <h3>Perché cambiare?</h3>
-        <p>Tutti vedono nello stesso momento la stessa situazione – al veicolo di comando, sul
+    <div class="split">
+      <div class="sec-head">
+        <p class="eyebrow">Domande &amp; risposte</p>
+        <h2>Le domande più frequenti.</h2>
+      </div>
+      <div class="acc">
+        <details>
+          <summary><span>Perché cambiare?</span></summary>
+          <p>Tutti vedono nello stesso momento la stessa situazione – al veicolo di comando, sul
           tablet e dal capo intervento. Nessun messaggio si perde su un foglietto. La
           sorveglianza della protezione respiratoria si fa sentire da sola prima che diventi
           stretta. Meno traffico radio per domande che stanno comunque sul quadro della
@@ -864,34 +720,38 @@
           KP Front aiuta la direzione dell’intervento a tenere la situazione priva di
           contraddizioni e a rendere visibili gli scarti: una squadra senza contatto radio, un
           veicolo che non sta da nessuna parte, un riscontro che non è mai arrivato.</p>
-      </div>
-      <div class="faq-item">
-        <h3>Dove vengono salvati i dati sensibili d’intervento?</h3>
-        <p>KP Front è gestito da ogni corpo pompieri in proprio (self-hosted). I dati d’intervento – carta della situazione, sorveglianza della protezione respiratoria, diario e piani degli edifici – restano sulla propria installazione e sui propri dispositivi: ad esempio un mini-PC in caserma, un proprio server o un fornitore cloud scelto dal corpo. Non c’è un server centrale e nulla viene inviato automaticamente a un fornitore o a noi. I servizi di cartografia, indirizzi e meteo (tra cui swisstopo come impostazione predefinita) ricevono soltanto la posizione richiesta; gli altri servizi esterni funzionano solo se il corpo li configura.</p>
-      </div>
-      <div class="faq-item">
-        <h3>In cosa si distingue KP Front dai sistemi commerciali?</h3>
-        <p>KP Front è open source (AGPL-3.0): <strong>nessuna tassa di licenza, nessun abbonamento, nessun costo per dispositivo</strong>. Ogni corpo gestisce la propria installazione e mantiene così il controllo sui propri dati. Restano i costi propri per l’esercizio, l’infrastruttura ed eventualmente il supporto esterno. Lo sviluppo nasce direttamente dalla pratica dei pompieri di Oberwil BL; segnalazioni di errori, idee e contributi dalla comunità open source sono benvenuti.</p>
-      </div>
-      <div class="faq-item">
-        <h3>Su quali dispositivi funziona KP Front?</h3>
-        <p>KP Front funziona nel browser – senza App Store. È pensato per il tablet: su iPad e sui tablet Android si installa sulla schermata Home come un’app e funziona poi anche senza connessione. Sul portatile, nel veicolo di comando o in caserma, la stessa interfaccia si usa con mouse e tastiera. Il telefono è il compagno: guardare la situazione, registrare annotazioni, tenere d’occhio la protezione respiratoria – si disegna e si conduce sullo schermo più grande. Tutti i dispositivi mostrano lo stesso intervento.</p>
-      </div>
-      <div class="faq-item">
-        <h3>Cosa serve per farlo funzionare?</h3>
-        <p>Basta un piccolo mini-PC o server in rimessa. Per l’installazione, gli aggiornamenti
+        </details>
+        <details>
+          <summary><span>Per quali corpi e quali interventi è pensato KP Front?</span></summary>
+          <p>Per pompieri di milizia, corpi locali, centri di soccorso, pompieri professionisti e pompieri aziendali – in caso di incendi, incidenti della circolazione, interventi di soccorso tecnico, difesa chimica e antinquinamento e grandi eventi. KP Front è nato nell’attività d’intervento di un corpo di pompieri di milizia; per questo è fatto per persone che non lo usano tutti i giorni.</p>
+        </details>
+        <details>
+          <summary><span>Dove vengono salvati i dati sensibili d’intervento?</span></summary>
+          <p>KP Front è gestito da ogni corpo pompieri in proprio (self-hosted). I dati d’intervento – carta della situazione, sorveglianza della protezione respiratoria, diario e piani degli edifici – restano sulla propria installazione e sui propri dispositivi: ad esempio un mini-PC in caserma, un proprio server o un fornitore cloud scelto dal corpo. Non c’è un server centrale e nulla viene inviato automaticamente a un fornitore o a noi. I servizi di cartografia, indirizzi e meteo (tra cui swisstopo come impostazione predefinita) ricevono soltanto la posizione richiesta; gli altri servizi esterni funzionano solo se il corpo li configura.</p>
+        </details>
+        <details>
+          <summary><span>In cosa si distingue KP Front dai sistemi commerciali?</span></summary>
+          <p>KP Front è open source (AGPL-3.0): <strong>nessuna tassa di licenza, nessun abbonamento, nessun costo per dispositivo</strong>. Ogni corpo gestisce la propria installazione e mantiene così il controllo sui propri dati. Restano i costi propri per l’esercizio, l’infrastruttura ed eventualmente il supporto esterno. Lo sviluppo nasce direttamente dalla pratica dei pompieri di Oberwil BL; segnalazioni di errori, idee e contributi dalla comunità open source sono benvenuti.</p>
+        </details>
+        <details>
+          <summary><span>Su quali dispositivi funziona KP Front?</span></summary>
+          <p>KP Front funziona nel browser – senza App Store. È pensato per il tablet: su iPad e sui tablet Android si installa sulla schermata Home come un’app e funziona poi anche senza connessione. Sul portatile, nel veicolo di comando o in caserma, la stessa interfaccia si usa con mouse e tastiera. Il telefono è il compagno: guardare la situazione, registrare annotazioni, tenere d’occhio la protezione respiratoria – si disegna e si conduce sullo schermo più grande. Tutti i dispositivi mostrano lo stesso intervento.</p>
+        </details>
+        <details>
+          <summary><span>Cosa serve per farlo funzionare?</span></summary>
+          <p>Basta un piccolo mini-PC o server in rimessa. Per l’installazione, gli aggiornamenti
           e i backup serve qualcuno con esperienza nell’uso di Docker e della riga di comando, che
           si trovi nel corpo, in Comune o presso un supporto informatico esterno. La guida e
           l’area amministrativa accompagnano la configurazione. Rispondiamo volentieri alle
           domande generali; i dati e l’esercizio restano sotto la responsabilità di ciascun corpo.</p>
-      </div>
-      <div class="faq-item">
-        <h3>È disponibile assistenza per l’installazione e la gestione?</h3>
-        <p>Sì. Le domande generali sull’installazione e sull’utilizzo possono ricevere una risposta gratuita. KP Front può essere gestito su un’infrastruttura propria oppure presso un fornitore di hosting o cloud scelto dal corpo pompieri. Previo accordo individuale è possibile ricevere assistenza anche per l’installazione, la configurazione, gli aggiornamenti o la gestione. Un’assistenza più estesa può essere a pagamento.</p>
-      </div>
-      <div class="faq-item">
-        <h3>KP Front funziona senza connessione a Internet?</h3>
-        <p>Sì. KP Front è in linea di principio utilizzabile offline. Le mappe e gli altri dati necessari vengono
+        </details>
+        <details>
+          <summary><span>È disponibile assistenza per l’installazione e la gestione?</span></summary>
+          <p>Sì. Le domande generali sull’installazione e sull’utilizzo possono ricevere una risposta gratuita. KP Front può essere gestito su un’infrastruttura propria oppure presso un fornitore di hosting o cloud scelto dal corpo pompieri. Previo accordo individuale è possibile ricevere assistenza anche per l’installazione, la configurazione, gli aggiornamenti o la gestione. Un’assistenza più estesa può essere a pagamento.</p>
+        </details>
+        <details>
+          <summary><span>KP Front funziona senza connessione a Internet?</span></summary>
+          <p>Sì. KP Front è in linea di principio utilizzabile offline. Le mappe e gli altri dati necessari vengono
           salvati localmente. L’app carica da sé le mappe e i piani attorno a un intervento, poco dopo che è stato
           aperto – e la <strong>verifica di prontezza</strong> indica prima dell’intervento se i dati necessari sono
           sul dispositivo. Offline, i dati meteo e gli altri dati esterni legati al tempo corrispondono allo stato
@@ -899,90 +759,98 @@
           esistente, se necessario anche all’interno di una propria rete locale senza accesso a Internet. Dopo
           un’interruzione le modifiche vengono sincronizzate appena la connessione è di nuovo disponibile; quanto è
           stato registrato nel frattempo viene conservato.</p>
-      </div>
-      <div class="faq-item">
-        <h3>Possiamo adattarlo ai nostri processi?</h3>
-        <p>Sì. Ogni corpo ha la propria area amministrativa: uomini, veicoli, dottrina e modelli
-          si impostano liberamente lì. Liste di controllo, piani d’oggetto e livelli cartografici
-          arrivano dai dati della vostra sede e si caricano con gli strumenti da riga di comando
-          forniti. E poiché tutto il codice sta su <a href="https://github.com/feuerwehr-oberwil/kp-front" target="_blank" rel="noopener">GitHub <svg class="ico" style="width:13px;height:13px;vertical-align:-2px"><use href="#i-gh"/></svg></a>,
+        </details>
+        <details>
+          <summary><span>Possiamo adattarlo ai nostri processi?</span></summary>
+          <p>Sì. Ogni corpo ha la propria area amministrativa: uomini, veicoli, dottrina e modelli
+          si impostano liberamente lì. Liste di controllo, piani d’oggetto e livelli cartografici arrivano dai dati della vostra sede: uno alla volta si caricano nell’area amministrativa, molti insieme con gli strumenti da riga di comando forniti. E poiché tutto il codice sta su <a href="https://github.com/feuerwehr-oberwil/kp-front" target="_blank" rel="noopener">GitHub <svg class="ico" style="width:13px;height:13px;vertical-align:-2px"><use href="#i-gh"/></svg></a>,
           tutto il resto si può costruire – da soli o su mandato.</p>
-      </div>
-      <div class="faq-item">
-        <h3>KP Front funziona solo in Svizzera?</h3>
-        <p>No. Come software open source, KP Front è liberamente accessibile e può essere adattato alle condizioni locali in tutto il mondo. Di fabbrica l’app è preconfigurata per la Svizzera – con le carte swisstopo, i segni tattici secondo le convenzioni CSP e i modelli CSP per la condotta d’intervento. Fuori dalla Svizzera si possono impostare altre basi cartografiche; la ricerca di indirizzi oggi supporta solo l’interfaccia swisstopo e lì va adattata.</p>
-      </div>
-      <div class="faq-item">
-        <h3>In quali lingue è disponibile KP Front?</h3>
-        <p>L’interfaccia utente di KP Front esiste in tedesco, francese, italiano e inglese. Fa stato il tedesco; le altre tre lingue sono complete, ma non sono ancora state rilette da pompieri. Essendo un’applicazione open source, KP Front può essere esteso ad altre lingue. A tal fine è necessaria una traduzione completa e verificata da specialisti della terminologia dei pompieri.</p>
-      </div>
-      <div class="faq-item">
-        <h3>Come cominciamo?</h3>
-        <p>Con la <a href="https://demo.kp-front.ch" target="_blank" rel="noopener">demo</a>,
+        </details>
+        <details>
+          <summary><span>KP Front funziona solo in Svizzera?</span></summary>
+          <p>No. Come software open source, KP Front è liberamente accessibile e può essere adattato alle condizioni locali in tutto il mondo. Di fabbrica l’app è preconfigurata per la Svizzera – con le carte swisstopo, i segni tattici secondo le convenzioni CSP e i modelli CSP per la condotta d’intervento. Fuori dalla Svizzera si possono impostare altre basi cartografiche; la ricerca di indirizzi oggi supporta solo l’interfaccia swisstopo e lì va adattata.</p>
+        </details>
+        <details>
+          <summary><span>In quali lingue è disponibile KP Front?</span></summary>
+          <p>L’interfaccia utente di KP Front esiste in tedesco, francese, italiano e inglese. Fa stato il tedesco; le altre tre lingue sono complete, ma non sono ancora state rilette da pompieri. Essendo un’applicazione open source, KP Front può essere esteso ad altre lingue. A tal fine è necessaria una traduzione completa e verificata da specialisti della terminologia dei pompieri.</p>
+        </details>
+        <details>
+          <summary><span>Come cominciamo?</span></summary>
+          <p>Con la <a href="https://demo.kp-front.ch" target="_blank" rel="noopener">demo</a>,
           senza registrazione – a Musterdorf sta già bruciando, e tutti i visitatori condividono lo
           stesso intervento (si riavvia due volte al giorno, alle 00:00 e alle 12:00, fuso orario Europe/Zurich). Poi provatela a un’esercitazione.
           Se va bene, la <a href="https://github.com/feuerwehr-oberwil/kp-front/blob/main/docs/SETUP.md" target="_blank" rel="noopener">guida all’installazione</a> porta alla vostra istanza.</p>
+        </details>
       </div>
     </div>
   </section>
 
-  <section class="wrap" id="kontakt">
-    <div class="contact-grid">
-      <div class="contact-side">
-        <p class="eyebrow">Contatto</p>
-        <h2>Diteci cosa ne pensate.</h2>
-        <p>Volete provare KP Front da voi? Manca qualcosa, oppure qualcosa non funziona come vi
-          aspettate? Scriveteci – leggiamo tutto.</p>
-        <p class="alt">Per domande e idee ancora aperte ci sono le
-          <a href="https://github.com/feuerwehr-oberwil/kp-front/discussions" target="_blank" rel="noopener">discussioni su GitHub</a>.</p>
-      </div>
-      <div class="contact-ways">
-        <a class="way" href="https://github.com/feuerwehr-oberwil/kp-front/issues/new?template=bug_report.yml" target="_blank" rel="noopener">
-          <span class="way-ico"><svg class="ico"><use href="#i-bug"/></svg></span>
-          <span class="way-body">
-            <span class="way-t">Segnalare un errore</span>
-            <span class="way-s">Cos’è successo, cosa vi sareste aspettati? Gli screenshot si trascinano direttamente nel formulario.</span>
-          </span>
-          <svg class="way-go"><use href="#i-arrow"/></svg>
-        </a>
-        <a class="way" href="https://github.com/feuerwehr-oberwil/kp-front/issues/new?template=feature_request.md" target="_blank" rel="noopener">
-          <span class="way-ico"><svg class="ico"><use href="#i-idea"/></svg></span>
-          <span class="way-body">
-            <span class="way-t">Chiedere qualcosa</span>
-            <span class="way-s">Manca un gesto che da voi fa parte del processo? Descrivete il caso, non la soluzione.</span>
-          </span>
-          <svg class="way-go"><use href="#i-arrow"/></svg>
-        </a>
-        <form class="way way-form" action="https://api.staticforms.dev/submit" method="POST">
+  <div class="wrap">
+    <div class="sib">
+      <p><strong>KP Rück</strong> – il progetto gemello per il posto di comando arretrato: una lavagna per personale, veicoli e materiale. Entrambi ricevono lo stesso allarme e funzionano in modo indipendente. <a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/RUNNING-BOTH.md" target="_blank" rel="noopener">Guida: entrambi su un solo server →</a></p>
+      <a class="btn btn-ghost" href="https://kp-rueck.ch/it/">Guarda KP Rück<svg class="ico" style="width:14px;height:14px"><use href="#i-arrow"/></svg></a>
+    </div>
+  </div>
+
+  <section class="wrap close" id="kontakt">
+    <p class="eyebrow">Contatto</p>
+    <h2>Provatelo voi stessi.</h2>
+    <p class="close-p">La demo funziona senza registrazione. Volete usare KP Front da voi, oppure manca qualcosa? Scriveteci – leggiamo tutto.</p>
+    <div class="cta-row">
+      <a class="btn btn-primary" href="https://demo.kp-front.ch" target="_blank" rel="noopener"><svg class="ico"><use href="#i-play"/></svg>Apri la demo</a>
+      <a class="btn btn-ghost" href="#betrieb">Gestirlo in proprio</a>
+    </div>
+    <p class="fit-note demo-note" role="note"><strong>Demo pubblica:</strong> non inserite dati reali su interventi, persone, luoghi od organizzazioni. Tutti i visitatori condividono la stessa demo. I dati inseriti restano salvati fino al prossimo azzeramento automatico.</p>
+    <div class="ways">
+      <details class="way way-form">
+        <summary>
           <span class="way-ico"><svg class="ico"><use href="#i-mail"/></svg></span>
-          <div class="way-body">
+          <span class="way-body">
             <span class="way-t">Scrivere direttamente</span>
             <span class="way-s">Senza un conto GitHub, o quando qualcosa non deve stare in pubblico – anche per «vorremmo provarlo da noi».</span>
-            <input type="hidden" name="apiKey" value="sf_ed957c38761f21e20b01928a">
-            <input type="hidden" name="subject" value="KP Front – Landingpage (it)">
-            <p class="hp"><label>Lasciare questo campo vuoto
-              <input type="text" name="website" tabindex="-1" autocomplete="off"></label></p>
-            <div class="f-fields">
-              <div class="f-row">
-                <label class="f-lab" for="f-name">Nome</label>
-                <input class="f-in" id="f-name" type="text" name="name" autocomplete="name" placeholder="Chi scrive?">
-              </div>
-              <div class="f-row">
-                <label class="f-lab" for="f-mail">E-mail</label>
-                <input class="f-in" id="f-mail" type="email" name="email" required autocomplete="email" placeholder="Per poter rispondere">
-              </div>
-              <div class="f-row">
-                <label class="f-lab" for="f-msg">Messaggio</label>
-                <textarea class="f-in" id="f-msg" name="message" rows="4" required placeholder="Di cosa si tratta?"></textarea>
-              </div>
+          </span>
+        </summary>
+        <form action="https://api.staticforms.dev/submit" method="POST">
+          <input type="hidden" name="apiKey" value="sf_ed957c38761f21e20b01928a">
+          <input type="hidden" name="subject" value="KP Front – Landingpage (it)">
+          <p class="hp"><label>Lasciare questo campo vuoto
+            <input type="text" name="website" tabindex="-1" autocomplete="off"></label></p>
+          <div class="f-fields">
+            <div class="f-row">
+              <label class="f-lab" for="f-name">Nome</label>
+              <input class="f-in" id="f-name" type="text" name="name" autocomplete="name" placeholder="Chi scrive?">
             </div>
-            <button class="btn btn-primary f-send" type="submit">Invia il messaggio</button>
-            <p class="f-note" role="status" hidden></p>
-            <p class="contact-note">Inviato per e-mail tramite il servizio di moduli staticforms.dev. <a href="https://github.com/feuerwehr-oberwil/kp-front/blob/main/PRIVACY.md#the-project-website" target="_blank" rel="noopener">Protezione dei dati</a></p>
+            <div class="f-row">
+              <label class="f-lab" for="f-mail">E-mail</label>
+              <input class="f-in" id="f-mail" type="email" name="email" required autocomplete="email" placeholder="Per poter rispondere">
+            </div>
+            <div class="f-row">
+              <label class="f-lab" for="f-msg">Messaggio</label>
+              <textarea class="f-in" id="f-msg" name="message" rows="4" required placeholder="Di cosa si tratta?"></textarea>
+            </div>
           </div>
+          <button class="btn btn-primary f-send" type="submit">Invia il messaggio</button>
+          <p class="f-note" role="status" hidden></p>
+          <p class="contact-note">Inviato per e-mail tramite il servizio di moduli staticforms.dev. <a href="https://github.com/feuerwehr-oberwil/kp-front/blob/main/PRIVACY.md#the-project-website" target="_blank" rel="noopener">Protezione dei dati</a></p>
         </form>
-      </div>
+      </details>
+      <a class="way" href="https://github.com/feuerwehr-oberwil/kp-front/issues/new?template=bug_report.yml" target="_blank" rel="noopener">
+        <span class="way-ico"><svg class="ico"><use href="#i-bug"/></svg></span>
+        <span class="way-body">
+          <span class="way-t">Segnalare un errore</span>
+          <span class="way-s">Cos’è successo, cosa vi sareste aspettati? Gli screenshot si trascinano direttamente nel formulario.</span>
+        </span>
+      </a>
+      <a class="way" href="https://github.com/feuerwehr-oberwil/kp-front/issues/new?template=feature_request.md" target="_blank" rel="noopener">
+        <span class="way-ico"><svg class="ico"><use href="#i-idea"/></svg></span>
+        <span class="way-body">
+          <span class="way-t">Chiedere qualcosa</span>
+          <span class="way-s">Manca un gesto che da voi fa parte del processo? Descrivete il caso, non la soluzione.</span>
+        </span>
+      </a>
     </div>
+    <p class="close-alt">Per domande e idee ancora aperte ci sono le
+          <a href="https://github.com/feuerwehr-oberwil/kp-front/discussions" target="_blank" rel="noopener">discussioni su GitHub</a>.</p>
   </section>
 </main>
 
@@ -1031,7 +899,7 @@
   // Elemente erscheinen sofort (kein Nachfaden beim Reload mitten auf der Seite)
   document.documentElement.classList.add('js');
   if (!matchMedia('(prefers-reduced-motion: reduce)').matches && 'IntersectionObserver' in window) {
-    var els = document.querySelectorAll('.sec-head, .entry, .pillar, .shot, .fgroup, .faq-item, .tenet .wrap, .sibling-txt, .setup-card, .contact-side, .contact-ways');
+    var els = document.querySelectorAll('.sec-head, .chap-txt, .chap-img, .own-card, .acc, .tenet .wrap, .sib, .ways');
     var io = new IntersectionObserver(function (entries) {
       entries.forEach(function (e) {
         if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
@@ -1049,7 +917,7 @@
   // Hintergrund und bleiben auf der Seite. Der Honigtopf ist für Menschen
   // unsichtbar: ist er ausgefüllt, war es ein Bot, und wir brechen still ab.
   (function () {
-    var form = document.querySelector('.way-form');
+    var form = document.querySelector('.way-form form');
     if (!form || !window.fetch || !window.FormData) return;
     var fields = form.querySelector('.f-fields');
     var note = form.querySelector('.f-note');
@@ -1079,101 +947,5 @@
           note.textContent = 'Non ha funzionato. Scrivete direttamente a bastian.eichenberger@feuerwehr-oberwil.ch.';
         });
     });
-  })();
-
-  // Both the gallery and its enlarged picture use native theme-aware sources.
-  // On a phone (landing.css, max-width 620px) a 1500 px tablet capture at viewport width is
-  // unreadable, so there the picture is shown taller than it is wide enough for: it scrolls
-  // sideways inside <picture>, a track and a hint say so, and «‹ 2 / 9 ›» sits at the bottom.
-  // A swipe changes the picture – on the picture itself only from the edge it is scrolled to,
-  // so that sliding it never flips it. Nothing here animates.
-  (function () {
-    var btns = [].slice.call(document.querySelectorAll('.shot-zoom'));
-    if (!btns.length || typeof HTMLDialogElement === 'undefined') return;
-
-    var dlg = document.createElement('dialog');
-    dlg.className = 'lb';
-    dlg.innerHTML =
-      '<button class="lb-x" type="button" aria-label="Chiudi">×</button>' +
-      '<button class="lb-nav lb-prev" type="button" aria-label="Immagine precedente">‹</button>' +
-      '<button class="lb-nav lb-next" type="button" aria-label="Immagine successiva">›</button>' +
-      '<span class="lb-count"></span>' +
-      '<figure class="lb-fig"><picture><source data-theme-dark><img alt=""></picture>' +
-      '<div class="lb-track" aria-hidden="true" hidden><i></i></div>' +
-      '<p class="lb-hint" aria-hidden="true" hidden>← Far scorrere l’immagine di lato →</p>' +
-      '<figcaption></figcaption></figure>';
-    document.body.appendChild(dlg);
-
-    var img = dlg.querySelector('.lb-fig img');
-    var dark = dlg.querySelector('source');
-    var cap = dlg.querySelector('.lb-fig figcaption');
-    var pan = dlg.querySelector('.lb-fig picture');
-    var track = dlg.querySelector('.lb-track');
-    var thumb = track.firstChild;
-    var hint = dlg.querySelector('.lb-hint');
-    var count = dlg.querySelector('.lb-count');
-    var idx = 0;
-
-    // The track mirrors the sideways scroll; it and the hint exist only while the picture
-    // really is wider than its box (never on a desktop, where the picture is fitted).
-    var syncPan = function () {
-      var fits = pan.scrollWidth <= pan.clientWidth + 1;
-      track.hidden = hint.hidden = fits;
-      if (fits) return;
-      thumb.style.left = (pan.scrollLeft / pan.scrollWidth * 100) + '%';
-      thumb.style.width = (pan.clientWidth / pan.scrollWidth * 100) + '%';
-    };
-
-    var show = function (i) {
-      idx = (i + btns.length) % btns.length;
-      var s = btns[idx].closest('.shot');
-      var src = s.querySelector('img');
-      dark.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';
-      dark.srcset = s.querySelector('source').srcset;
-      img.src = src.src;
-      img.alt = src.alt;
-      cap.innerHTML = '<b>' + s.querySelector('.cap-t').textContent + '</b> – '
-        + s.querySelector('.cap-s').textContent;
-      count.textContent = (idx + 1) + ' / ' + btns.length;
-      pan.scrollLeft = 0;
-      syncPan();
-    };
-
-    btns.forEach(function (btn, i) {
-      btn.addEventListener('click', function () { show(i); dlg.showModal(); syncPan(); });
-    });
-    dlg.querySelector('.lb-x').addEventListener('click', function () { dlg.close(); });
-    dlg.querySelector('.lb-prev').addEventListener('click', function () { show(idx - 1); });
-    dlg.querySelector('.lb-next').addEventListener('click', function () { show(idx + 1); });
-    dlg.addEventListener('click', function (e) { if (e.target === dlg) dlg.close(); });
-    dlg.addEventListener('keydown', function (e) {
-      if (e.key === 'ArrowLeft') { e.preventDefault(); show(idx - 1); }
-      if (e.key === 'ArrowRight') { e.preventDefault(); show(idx + 1); }
-    });
-
-    pan.addEventListener('scroll', syncPan, { passive: true });
-    img.addEventListener('load', syncPan);
-    addEventListener('resize', syncPan);
-
-    var touch = null;
-    dlg.addEventListener('touchstart', function (e) {
-      if (e.touches.length !== 1) { touch = null; return; }
-      var onPicture = pan.contains(e.target);
-      touch = {
-        x: e.touches[0].clientX, y: e.touches[0].clientY,
-        prev: !onPicture || pan.scrollLeft <= 1,
-        next: !onPicture || pan.scrollLeft >= pan.scrollWidth - pan.clientWidth - 1
-      };
-    }, { passive: true });
-    dlg.addEventListener('touchend', function (e) {
-      if (!touch) return;
-      var dx = e.changedTouches[0].clientX - touch.x;
-      var dy = e.changedTouches[0].clientY - touch.y;
-      if (Math.abs(dx) > 48 && Math.abs(dx) > Math.abs(dy) * 1.5) {
-        if (dx > 0 && touch.prev) show(idx - 1);
-        if (dx < 0 && touch.next) show(idx + 1);
-      }
-      touch = null;
-    }, { passive: true });
   })();
 </script>

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { renderHook, waitFor } from '@testing-library/react'
+import { act, renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { hasLegacyAlignmentContext, inheritPlanBinding, type IncidentPlanBinding } from './incidentPlanBindings'
 import { sanitizeWorkspace } from './workspace'
@@ -7,13 +7,17 @@ import { useObjectPlans } from './useObjectPlans'
 import type { ObjectWithPlans } from './api/objects'
 import type { LngLat } from '../types'
 
-const { near, metadata, legacy, onBind } = vi.hoisted(() => ({ near: vi.fn(), metadata: vi.fn(), legacy: vi.fn(), onBind: vi.fn() }))
+const { near, metadata, legacy, onBind, loaded, load, subscribe } = vi.hoisted(() => ({
+  near: vi.fn(), metadata: vi.fn(), legacy: vi.fn(), onBind: vi.fn(), loaded: vi.fn(), load: vi.fn(), subscribe: vi.fn(),
+}))
 vi.mock('./incidents', () => ({
   objectsNearIncidentResilient: near, getObjectResilient: vi.fn(),
   referenceUrl: (id: string, version: number) => `/api/reference/${encodeURIComponent(id)}?v=${version}`,
 }))
 vi.mock('./api/reference', () => ({ getApprovedPlanAlignments: metadata }))
-vi.mock('./stationPlanScale', () => ({ georefForPlan: legacy }))
+vi.mock('./stationPlanScale', () => ({
+  georefForPlan: legacy, stationPlanScalesLoaded: loaded, loadStationPlanScales: load, subscribeStationPlanScales: subscribe,
+}))
 
 const center: LngLat = [7.5, 47.5]
 const noBindings: IncidentPlanBinding[] = []
@@ -31,7 +35,10 @@ const object: ObjectWithPlans = {
     feature_count: null, current_version: 4, fetch_url: null, updated_at: '2026-09-09',
   }],
 }
-beforeEach(() => { vi.clearAllMocks(); near.mockResolvedValue([object]); legacy.mockReturnValue(null) })
+beforeEach(() => {
+  vi.clearAllMocks(); near.mockResolvedValue([object]); legacy.mockReturnValue(null)
+  loaded.mockReturnValue(true); load.mockResolvedValue({}); subscribe.mockReturnValue(() => {})
+})
 
 describe('object plans bind before field use', () => {
   it('preserves annotated legacy alignment offline without waiting for approval metadata', async () => {
@@ -72,6 +79,50 @@ describe('object plans bind before field use', () => {
     await waitFor(() => expect(onBind).toHaveBeenCalled())
     expect(hook.result.current.effectiveBindings[0].source).toBe('legacy')
     expect(metadata).not.toHaveBeenCalled()
+    hook.unmount()
+  })
+  it('reads the station document before freezing a binding on a cold start', async () => {
+    // the station fit only exists once the boot load lands – freezing before it froze «none»
+    let landed = false
+    loaded.mockImplementation(() => landed)
+    load.mockImplementation(async () => { landed = true; return {} })
+    legacy.mockImplementation(() => (landed ? knownLegacy : null))
+    metadata.mockResolvedValue({ alignments: [] })
+    const hook = renderHook(() => useObjectPlans('incident', center, noop, undefined, noop, { bindings: noBindings, onBind, legacyPlanIds: new Set() }))
+    await waitFor(() => expect(onBind).toHaveBeenCalled())
+    expect(load).toHaveBeenCalled()
+    expect(hook.result.current.effectiveBindings[0]).toMatchObject({ source: 'legacy', georef: knownLegacy })
+    hook.unmount()
+  })
+  it('stays unbound while the station document is unknown, and binds once it lands', async () => {
+    // the read failed and nothing is cached: binding now would freeze «none» for the whole Einsatz
+    let landed = false
+    let notify = () => {}
+    loaded.mockImplementation(() => landed)
+    load.mockResolvedValue({})
+    subscribe.mockImplementation((fn: () => void) => { notify = fn; return () => {} })
+    legacy.mockImplementation(() => (landed ? knownLegacy : null))
+    metadata.mockResolvedValue({ alignments: [] })
+    const hook = renderHook(() => useObjectPlans('incident', center, noop, undefined, noop, { bindings: noBindings, onBind, legacyPlanIds: new Set() }))
+    await waitFor(() => expect(load).toHaveBeenCalled())
+    expect(onBind).not.toHaveBeenCalled()
+    landed = true
+    act(() => notify())
+    await waitFor(() => expect(onBind).toHaveBeenCalled())
+    expect(hook.result.current.effectiveBindings[0]).toMatchObject({ source: 'legacy', georef: knownLegacy })
+    hook.unmount()
+  })
+  it('keeps the legacy fit when ink arrives on the sheet while the approval is being asked', async () => {
+    legacy.mockReturnValue(knownLegacy)
+    let answer = (_: unknown) => {}
+    metadata.mockImplementation(() => new Promise((r) => { answer = r }))
+    const props = { legacyPlanIds: new Set<string>() }
+    const hook = renderHook(({ legacyPlanIds }) => useObjectPlans('incident', center, noop, undefined, noop, { bindings: noBindings, onBind, legacyPlanIds }), { initialProps: props })
+    await waitFor(() => expect(metadata).toHaveBeenCalled())
+    hook.rerender({ legacyPlanIds: new Set(['modul2']) }) // somebody draws on Modul 2 meanwhile
+    answer({ alignments: [{ id: 9, page: 0, aspect: 1.6, approved_at: '2026-09-08', pairs: [] }] })
+    await waitFor(() => expect(onBind).toHaveBeenCalled())
+    expect(hook.result.current.effectiveBindings[0]).toMatchObject({ source: 'legacy', georef: knownLegacy })
     hook.unmount()
   })
 })
