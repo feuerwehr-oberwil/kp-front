@@ -395,7 +395,9 @@ jobs:
     # 24.04 WebKit could not start (libicudata.so.74) and every recovery run went red. Move the pin
     # on purpose, in its own PR, in all four browser jobs (e2e, perf, visual, visual-baselines.yml).
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    # workspace: 42 tests after ~5 min of setup sat at the 10-min limit (#700, 19.11.2026: cancelled
+    # with two tests to go, every one green); field and recovery keep the tighter guard
+    timeout-minutes: ${{ matrix.suite == 'workspace' && 15 || 10 }}
     strategy:
       fail-fast: false
       matrix:
