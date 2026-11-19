@@ -15,7 +15,7 @@
 import { jsPDF } from 'jspdf'
 import { create } from 'qrcode'
 import tagFontUrl from 'pdfjs-dist/standard_fonts/LiberationSans-Bold.ttf?url'
-import { rankAbbr } from '../lib/rank'
+import { rankAbbr, rankDisplay } from '../lib/rank'
 import { tagPayload } from '../lib/tagCode'
 
 /** One printable tag: who, and what the QR says (the roster id). */
@@ -95,7 +95,8 @@ function drawTag(doc: jsPDF, p: TagPerson, f: Format, x: Mm, y: Mm) {
 
   const textX = x + pad + qrSize + pad * 1.5
   const textW = x + w - pad - textX
-  const rank = rankAbbr(p.rank ?? undefined)
+  // a key the station's list no longer has still prints, as the roster table shows it
+  const rank = p.rank ? rankAbbr(p.rank) || rankDisplay(p.rank) : ''
   let nameSize = band * 0.3 * PT_PER_MM
   doc.setFont(TAG_FONT, 'bold').setFontSize(nameSize)
   // a long name shrinks to fit rather than run off the tag; it never wraps (one line reads at arm's length)

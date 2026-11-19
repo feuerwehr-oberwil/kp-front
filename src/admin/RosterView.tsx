@@ -663,7 +663,7 @@ function TagPrintSheet({ people, onClose }: { people: RosterPerson[]; onClose: (
   const [err, setErr] = useState<string | null>(null)
   const active = people.filter((p) => p.is_active)
   const downloadCsv = () => {
-    const csv = tagsCsv(active.map((p) => ({ id: p.id, name: p.display_name, rank: rankAbbr(p.rank ?? undefined) })))
+    const csv = tagsCsv(active.map((p) => ({ id: p.id, name: p.display_name, rank: p.rank ? rankAbbr(p.rank) || rankDisplay(p.rank) : '' })))
     downloadBlob(new Blob([csv], { type: 'text/csv;charset=utf-8' }), 'atemschutz-tags.csv')
   }
   const create = async () => {
