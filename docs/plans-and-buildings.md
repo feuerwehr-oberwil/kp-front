@@ -52,8 +52,9 @@ AGENTS.md on 2026-10-08, wording unchanged.
     lands where that drawing's paper position puts it. A symbol the Gebäude OWNS (lent to the sheet)
     and dragged into another drawing stays the Gebäude's: the new storey is written as the stack's
     tile `floor`, Von/Bis cleared, and a shifted span as its new ends. A storey the stack has no
-    tile for – for a span, either end – keeps the old storey or span, like a drop outside every
-    drawing; it never hands the symbol to this sheet, because the selection bar writes every frame
+    tile for – for a span, either end – keeps the storey or span the drag STARTED with, like a
+    drop outside every drawing, so the result depends only on where the drag starts and ends
+    (1 → 2 → 3 without a tile ends on 1, not on 2); it never hands the symbol to this sheet, because the selection bar writes every frame
     and a drag only passing over such a drawing would lose it (`tacticalObjects ·
     applyBoardToObjects`).
   - *A storey's acts live in its LABEL* (29.09.2026). The label shows the word only («4. OG»,

@@ -634,6 +634,11 @@ export function applyBoardToObjects(
    *  amend or storey removal (lib/useObjectStore · setBoard's `gesture` option). */
   gesture = true,
   fits?: ReadonlyMap<string, PlanFit>,
+  /** An object as the open plan gesture FOUND it, before its first frame – absent outside a
+   *  gesture, or for an object the gesture has not changed yet (then the store's own record is
+   *  that state). The storey a drag into an untiled drawing falls back to (useObjectStore ·
+   *  setBoard, the `before` of foreignPending). */
+  gestureStart?: (id: string) => TacticalObject | undefined,
 ): TacticalObject[] {
   const anchoredHere = (o: TacticalObject) => o.sheet?.planId === planId
   /** The anno this sheet is CURRENTLY showing for each geo-anchored object — the yardstick every
@@ -704,17 +709,21 @@ export function applyBoardToObjects(
       // On the stack a storey is a tile: one the stack can hold is written as the tile – a single
       // storey as the stack's `floor`, no span, or the bake below would read the old tile back; a
       // span as its shifted ends. A storey the stack has NO tile for keeps the owner's storey and
-      // span as they were, exactly like a drop outside every drawing – never a hand-over: the bar
-      // writes every frame, and a drag passing over such a drawing must not take the symbol off
-      // the Gebäude (Sol review rounds 3 S2, 4 S1/S2).
+      // span as the GESTURE FOUND them, exactly like a drop outside every drawing – never a
+      // hand-over: the bar writes every frame, and a drag passing over such a drawing must not
+      // take the symbol off the Gebäude (Sol review rounds 3 S2, 4 S1/S2). ⚠️ The gesture's
+      // start, not the store's record: an earlier frame over a tiled drawing already rewrote that,
+      // and 1 → 2 → 3 (no tile) ended on 2 – the storey hung on the path (Sol review round 5).
       const tiles = owner?.stack?.floors
       if (tiles && dragged && anno.kind === 'symbol') {
+        const start = gestureStart?.(prev.id)
+        const home = start?.sheet?.planId === prev.sheet.planId ? start.sheet.anno : prev.sheet.anno
         const single = anno.storey != null && anno.storey !== was.storey ? anno.storey : null
         const asked = single != null ? [single]
           : anno.floorFrom != null && anno.floorTo != null && (anno.floorFrom !== was.floorFrom || anno.floorTo !== was.floorTo) ? [anno.floorFrom, anno.floorTo]
           : []
         const { storey: _badge, floor: _tile, floorFrom: _from, floorTo: _to, ...rest } = edited
-        if (asked.some((storey) => !tiles.includes(storey))) edited = { ...rest, ...pick(prev.sheet.anno, STOREY_KEYS) }
+        if (asked.some((storey) => !tiles.includes(storey))) edited = { ...rest, ...pick(home, STOREY_KEYS) }
         else if (single != null) edited = { ...rest, floor: single }
       }
       // …and a derived value handed back unchanged stays derived: the stack bakes a Leitung's
