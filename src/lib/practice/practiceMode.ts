@@ -1,4 +1,5 @@
-// SPIKE «Üben» (19.11.2026): the private practice Einsatz that lives only on this device.
+// «Üben»: the private practice Einsatz that lives only on this device (owner pick, 19.11.2026:
+// «only its own device» – nothing reaches the server, every role works in it, offline too).
 //
 // One practice incident per device: a stable UUID in localStorage (`kp.practice.id`), minted on
 // first use. While it exists, lib/practice/installFetch routes every request that names it to
@@ -10,12 +11,16 @@
 // teardown beacon of the page being left cannot recreate it) and every IndexedDB/localStorage key
 // that names it is deleted on the next boot (`purgeRetired`), when no store of it is alive any more.
 //
-// The mode flag (`kp.practice.on`) says whether App boots INTO the practice Einsatz. Dev entry:
-// `?ueben=1` turns it on, `?ueben=0` off (readPracticeParam, called once from main.tsx).
+// The mode flag (`kp.practice.on`) says whether App boots INTO the practice Einsatz: a drill
+// started from the «Üben» sheet sets it, «Übung verlassen» (`leavePractice`) clears it. `?ueben=1`
+// / `?ueben=0` sets it from the address (readPracticeParam, called once from main.tsx) – the e2e
+// and proof scripts' entry.
 
 import { idbDel, idbKeys } from '../idb'
 import { deploymentDefaultCenter } from '../deploymentConfig'
 import type { IncidentFull } from '../api/incidents'
+import { appConfig } from '../../config/appConfig'
+import { loadPrefs, savePrefs } from '../prefs'
 
 const ID_KEY = 'kp.practice.id'
 const ON_KEY = 'kp.practice.on'
@@ -67,7 +72,7 @@ export function setPracticeMode(on: boolean): void {
   lsSet(ON_KEY, on ? '1' : null)
 }
 
-/** `?ueben=1` / `?ueben=0` — the spike's dev entry. Strips the parameter so a reload is plain. */
+/** `?ueben=1` / `?ueben=0` — the scripted entry. Strips the parameter so a reload is plain. */
 export function readPracticeParam(): void {
   const url = new URL(window.location.href)
   const v = url.searchParams.get('ueben')
@@ -77,14 +82,15 @@ export function readPracticeParam(): void {
   window.history.replaceState(window.history.state, '', url.toString())
 }
 
-/** The seed meta of a fresh practice Einsatz: an Übung, «Übungsplatz», at the station centre. */
+/** The seed meta of a fresh practice Einsatz: an Übung, «Übungsplatz», at the station centre
+ *  (the site of lib/ueben/site is laid out around it). */
 export function practiceSeedMeta(id: string, now = new Date()): IncidentFull {
   const center = deploymentDefaultCenter()
   const iso = now.toISOString()
   return {
     id,
     divera_id: null,
-    title: 'Übungsplatz',
+    title: appConfig.copy.ueben.idleTitle,
     type: null,
     priority: null,
     address: null,
@@ -142,4 +148,13 @@ export async function purgeRetired(): Promise<void> {
     }
     for (const k of doomed) localStorage.removeItem(k)
   } catch { /* nothing to purge without localStorage */ }
+}
+
+/** «Übung verlassen»: practice mode off, the practice Einsatz forgotten as the one to reopen, and
+ *  a fresh boot onto home – the sync engines of the practice Einsatz end with the page. The
+ *  practice Einsatz itself stays on the device for the next drill. */
+export function leavePractice(): void {
+  setPracticeMode(false)
+  savePrefs({ ...loadPrefs(), incidentId: undefined })
+  window.location.assign('/')
 }

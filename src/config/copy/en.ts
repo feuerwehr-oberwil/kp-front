@@ -43,6 +43,7 @@ import { materialCopy } from './en/material'
 import { objectVisitsCopy } from './en/objectVisits'
 import { karteCopy } from './en/karte'
 import { adminCopy } from './en/admin'
+import { uebenCopy } from './en/ueben'
 
 export const en: Localizable<Copy> = {
   ...shellCopy,
@@ -68,4 +69,5 @@ export const en: Localizable<Copy> = {
   ...objectVisitsCopy,
   ...karteCopy,
   ...adminCopy,
+  ...uebenCopy,
 }

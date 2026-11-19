@@ -34,7 +34,7 @@ import { GIT_SHA } from './lib/buildInfo'
 import { installPracticeFetch } from './lib/practice/installFetch'
 import { purgeRetired, readPracticeParam } from './lib/practice/practiceMode'
 
-// SPIKE «Üben»: the practice Einsatz's requests are answered on this device (lib/practice). FIRST,
+// «Üben»: the practice Einsatz's requests are answered on this device (lib/practice). FIRST,
 // before any module can send one; `?ueben=1` / `?ueben=0` is the dev entry.
 readPracticeParam()
 installPracticeFetch()

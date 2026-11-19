@@ -289,7 +289,7 @@ async function rawFetch(path: string, init?: RequestInit, timeoutMs = DEFAULT_TI
   // `online` event does not reliably say. Fresh only, for the same reason: a cached answer is
   // not today's. A 304 is the live-follow poll's «nothing new» — an answer all the same.
   if (res.status === 502 || res.status === 503 || res.status === 504) noteUnreached()
-  // (SPIKE «Üben»: an answer of the on-device practice server — `X-Practice` — is not the server's)
+  // («Üben»: an answer of the on-device practice server — `X-Practice` — is not the server's)
   else if (fresh && (res.ok || res.status === 304) && !res.headers.has('X-Practice')) noteAnswered()
   return res
 }

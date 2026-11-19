@@ -12,6 +12,7 @@ import type { ReactivateResult } from '../../types'
 import { useIsPhone } from '../../lib/useIsPhone'
 import { useEinsatzuhr } from '../../lib/einsatzuhr'
 import { useLate } from '../../lib/useLate'
+import { isPracticeIncident } from '../../lib/practice/practiceMode'
 import { AppMenuRows, type AppMenuAlarms, type FoldedMenuRow } from './AppMenuRows'
 import { pillDot } from '../../lib/foreignAlarm'
 import { runningOthers } from '../../lib/switcherLists'
@@ -34,7 +35,7 @@ function fmtClock(ms: number): string {
 
 // --- TopBar switcher ----------------------------------------------------------------
 export function IncidentSwitcher({
-  active, incidents, isEditor, syncStatus, lastSyncedAt, user, startedAt, endedAt, onSettings, onSwitch, onHistory, onObjectVisits, onKarte, onDivera, onEditMeta, onArchive, onShare, archiveOpenCount = 0, onHelp, onInstall, onSyncNow, onLogout, onLogin, onPresent, alarms, folded, navKey, sheetOpen = false, syncDetail,
+  active, incidents, isEditor, syncStatus, lastSyncedAt, user, startedAt, endedAt, onSettings, onSwitch, onHistory, onObjectVisits, onKarte, onDivera, onEditMeta, onArchive, onShare, archiveOpenCount = 0, onHelp, onUeben, onInstall, onSyncNow, onLogout, onLogin, onPresent, alarms, folded, navKey, sheetOpen = false, syncDetail,
   onBackFromArchive, onReactivate, viewOnly = null,
 }: {
   active: IncidentMeta | null
@@ -76,6 +77,8 @@ export function IncidentSwitcher({
    *  happen only after the press, and only on the other door — see confirmAndComplete. */
   archiveOpenCount?: number
   onHelp: () => void
+  /** «Üben» – the drills' sheet (lib/ueben); absent for a link session */
+  onUeben?: () => void
   /** open the "Als App installieren" guide — App passes it only in a plain browser tab */
   onInstall?: () => void
   /** push edits queued while offline (also auto-fires on reconnect) */
@@ -188,13 +191,15 @@ export function IncidentSwitcher({
   // Sync state surfaced two ways: a FIXED-WIDTH coloured mark in the header (so the constant
   // saving↔saved flip never shifts the title/chevron — no inline time/label), and the full
   // text + save time in the dropdown the user taps open (hover tooltips don't fire on a tablet).
+  // «Üben»: the practice Einsatz never synchronises (lib/practice) – its «saved» says where it is
+  const localOnly = isPracticeIncident(active?.id) ? appConfig.copy.ueben.localOnly : null
   const savedText = syncStatus === 'synced'
-    ? (lastSyncedAt != null ? fillTemplate(cp.savedAt, { t: fmtClock(lastSyncedAt) }) : cp.saved)
+    ? localOnly ?? (lastSyncedAt != null ? fillTemplate(cp.savedAt, { t: fmtClock(lastSyncedAt) }) : cp.saved)
     : syncDetail ?? badgeTitle[syncStatus]
   // The CARD's pill says «Gespeichert» without the time (27.09.2026, slim sweep · decision D1):
   // one wording for one fact, the same the Trupps head shows; the time stays in the title (it
   // was «Gespeichert um 23:16»). The other states keep their words — they are warnings.
-  const savedPill = syncStatus === 'synced' ? cp.saved : savedText
+  const savedPill = syncStatus === 'synced' ? localOnly ?? cp.saved : savedText
   // «Speicher voll» wears its own glyph (lib/icons · #storage, S1): on a phone the chip is its
   // glyph alone, and the ⚠ it shared with «Sync-Fehler» made the worse state read as the milder.
   // Not yet synced is a cloud in the quiet ink (M2, owner's pick A, 13.11.2026: amber is the open
@@ -516,6 +521,7 @@ export function IncidentSwitcher({
             onObjectVisits={onObjectVisits && (() => { setOpen(false); onObjectVisits() })}
             onDevice={onSettings}
             onHelp={onHelp}
+            onUeben={onUeben && (() => { setOpen(false); onUeben() })}
             onInstall={onInstall}
             onLogout={onLogout && (() => { onLogout(); setOpen(false) })}
             onLogin={onLogin}

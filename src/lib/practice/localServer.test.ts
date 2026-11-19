@@ -37,18 +37,28 @@ describe('practice local server', () => {
     expect(practiceTarget('/api/incidents/other-id/workspace', ctx)).toBeNull()
   })
 
+  it('starts a fresh practice Einsatz on the practice site, as rev 1', async () => {
+    const first = await (await call('GET', `/api/incidents/${ID}/workspace`)).json()
+    expect(first.workspace_rev).toBe(1)
+    expect(first.workspace.entities.map((e: { id: string }) => e.id)).toEqual(['ueben-h1', 'ueben-w', 'ueben-eingang'])
+    // …and only once: a second open keeps what was done there
+    await call('PUT', `/api/incidents/${ID}/workspace`, { workspace: { entities: [] }, base_rev: 1 })
+    await ensurePracticeIncident(seed)
+    expect((await (await call('GET', `/api/incidents/${ID}/workspace`)).json()).workspace).toEqual({ entities: [] })
+  })
+
   it('accepts every save, bumps the rev, and answers its own saves with a bodyless 304', async () => {
     const a = await (await call('PUT', `/api/incidents/${ID}/workspace?slim=1`, { workspace: { entities: [1] }, base_rev: 0 }, { 'X-Workspace-Writer': 'me' })).json()
     // a stale base_rev is no race on one device: accepted
     const b = await (await call('PUT', `/api/incidents/${ID}/workspace/trupps`, { trupps: [{ id: 't1' }], base_rev: 0 }, { 'X-Workspace-Writer': 'me' })).json()
-    expect([a.workspace_rev, b.workspace_rev]).toEqual([1, 2])
-    const own = await call('GET', `/api/incidents/${ID}/workspace?since=0&writer=me`)
+    expect([a.workspace_rev, b.workspace_rev]).toEqual([2, 3])
+    const own = await call('GET', `/api/incidents/${ID}/workspace?since=1&writer=me`)
     expect(own.status).toBe(304)
-    expect(own.headers.get('X-Workspace-Rev')).toBe('2')
+    expect(own.headers.get('X-Workspace-Rev')).toBe('3')
     expect(own.headers.get('X-Incident-Open')).toBe('1')
-    const other = await call('GET', `/api/incidents/${ID}/workspace?since=0&writer=someone-else`)
-    expect(await other.json()).toEqual({ workspace: { entities: [1], trupps: [{ id: 't1' }] }, workspace_rev: 2 })
-    expect((await call('GET', `/api/incidents/${ID}/workspace?since=2`)).status).toBe(304)
+    const other = await call('GET', `/api/incidents/${ID}/workspace?since=1&writer=someone-else`)
+    expect(await other.json()).toEqual({ workspace: { entities: [1], trupps: [{ id: 't1' }] }, workspace_rev: 3 })
+    expect((await call('GET', `/api/incidents/${ID}/workspace?since=3`)).status).toBe(304)
   })
 
   it('appends the Verlauf idempotently by row id, with ascending seqs', async () => {

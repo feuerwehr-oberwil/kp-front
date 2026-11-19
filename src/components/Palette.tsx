@@ -51,7 +51,8 @@ interface PaletteTool { id: string; icon: string; label: string; sep?: boolean; 
 /** a tool in the sheet: the same cell a symbol gets, wearing the glyph its rail tile wears */
 function ToolCell({ tool, onPick }: { tool: PaletteTool; onPick: (id: string) => void }) {
   return (
-    <button className="sym-cell sym-cell-tool" title={tool.label} onClick={() => onPick(tool.id)} draggable={false}>
+    // `data-tool` / `data-sym`: the anchors «Üben»'s «Zeigen» rings (lib/ueben)
+    <button className="sym-cell sym-cell-tool" title={tool.label} onClick={() => onPick(tool.id)} draggable={false} data-tool={tool.id}>
       <span className="sym-cell-in">
         <span className="sym-tool-glyph"><Icon id={tool.icon} /></span>
         <small>{tool.label}</small>
@@ -62,7 +63,7 @@ function ToolCell({ tool, onPick }: { tool: PaletteTool; onPick: (id: string) =>
 
 function Cell({ name, svg, onPick }: { name: string; svg: string; onPick: (n: string) => void }) {
   return (
-    <button className="sym-cell" title={name} onClick={() => onPick(name)} draggable={false}>
+    <button className="sym-cell" title={name} onClick={() => onPick(name)} draggable={false} data-sym={name}>
       {/* ⚠️ layout on the inner span, not the button — see .sym-cell-in in 07-toolrail.css */}
       <span className="sym-cell-in">
         {/* ⚠️ SEC-01 — sanitise AT THIS SINK. This glyph string can be an editor-supplied

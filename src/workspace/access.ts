@@ -35,7 +35,7 @@ export function useSessionRole(incidentMeta: IncidentMeta) {
    *  NOT an editor (`isEditor`/`canEditIncident` stay false, `tacticalLocked` is permanently
    *  on, and the sync pushes only the record slice, so a local doc write could never reach
    *  the server). Distinct from `elView` (workspaceFlags), which is an EDITOR's hands-off mode. */
-  // SPIKE «Üben»: inside the practice Einsatz every role works as an editor — nothing it does
+  // «Üben»: inside the practice Einsatz every role works as an editor — nothing it does
   // leaves the device (lib/practice), so there is nothing for the role to protect
   const practice = isPracticeIncident(incidentMeta.id)
   const isEl = !practice && user?.role === 'el'

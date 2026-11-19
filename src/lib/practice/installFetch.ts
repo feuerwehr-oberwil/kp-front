@@ -1,4 +1,4 @@
-// SPIKE «Üben» (19.11.2026): the seam. Wraps `window.fetch` and `navigator.sendBeacon` ONCE at
+// «Üben»: the seam of the practice Einsatz. Wraps `window.fetch` and `navigator.sendBeacon` ONCE at
 // boot (main.tsx), before any module sends a request: a request whose path names a practice
 // incident (lib/practice/practiceMode — the current id or a retired one) is answered by
 // lib/practice/localServer and never reaches the network or the service worker; everything else
@@ -6,8 +6,8 @@
 // on — so no code path, however it got hold of the id, can send it to the server.
 //
 // What it cannot see: a request the BROWSER makes on its own — an `<img src>`, `<audio src>`, a
-// CSS url(), a navigation. Practice media rendered that way would leak its URL (see the spike
-// report); the app's media go through fetch + blob URLs today.
+// CSS url(), a navigation. Practice media rendered that way would leak its URL – open: practice
+// photos as blob URLs (spike report 19.11.2026); the app's media go through fetch today.
 
 import { answerPractice, practiceTarget, type PracticeContext } from './localServer'
 import { knownPracticeId, retiredPracticeIds } from './practiceMode'
@@ -42,7 +42,7 @@ export function installPracticeFetch(): void {
     // a caller's abort/timeout still applies to a parked long poll
     if (req.signal.aborted) throw new DOMException('Aborted', 'AbortError')
     const res = await answerPractice(req, ctx)
-    // spike: say what the fake refused — the list of what practice mode still lacks
+    // say what the fake refused — the list of what practice mode still lacks, in the console
     if (res.status >= 400) console.warn(`[practice] ${res.status} ${req.method} ${new URL(req.url).pathname}`)
     // …and an aborted one rejects like a real fetch, not with the 304 it was parked for
     if (req.signal.aborted) throw new DOMException('Aborted', 'AbortError')
