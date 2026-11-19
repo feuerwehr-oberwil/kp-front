@@ -38,12 +38,24 @@ runs:
         # does not start on the next (12.11.2026: libicudata.so.74 missing on 26.04)
         key: playwright-${{ runner.os }}-${{ steps.pw.outputs.image }}-${{ steps.pw.outputs.version }}-${{ inputs.browsers }}
 
+    # Both steps run apt. Three tries, 30 s apart: security.ubuntu.com was unreachable from the
+    # runners for ~30 min on 19.11.2026 and failed every browser job of #704 three times (exit 100).
     - name: Download the browsers (cache miss)
       if: steps.cache.outputs.cache-hit != 'true'
       shell: bash
-      run: pnpm exec playwright install --with-deps ${{ inputs.browsers }}
+      run: |
+        for try in 1 2 3; do
+          pnpm exec playwright install --with-deps ${{ inputs.browsers }} && exit 0
+          echo "::warning::playwright install failed (try $try of 3)"; sleep 30
+        done
+        exit 1
 
     - name: System dependencies only (cache hit)
       if: steps.cache.outputs.cache-hit == 'true'
       shell: bash
-      run: pnpm exec playwright install-deps ${{ inputs.browsers }}
+      run: |
+        for try in 1 2 3; do
+          pnpm exec playwright install-deps ${{ inputs.browsers }} && exit 0
+          echo "::warning::playwright install-deps failed (try $try of 3)"; sleep 30
+        done
+        exit 1
