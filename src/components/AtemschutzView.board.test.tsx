@@ -659,19 +659,17 @@ describe('the Reihenfolge menu', () => {
     expect(screen.queryByText(F.sorted)).toBeNull()
   })
 
-  // owner pick 26 (17.11.2026): the order is the LIST's question – it stands in the row under the
-  // head, worded, and the head keeps what acts on the whole board
-  it('stands in the list row under the head, not in the head, and the strip follows that row', () => {
+  // owner pick 2A (18.11.2026 evening, «Acts up»): every action stands in the head – the order sits
+  // beside «Trupps teilen», worded, and the «Sortiert:» strip comes right under the head
+  it('stands in the head beside «Trupps teilen», and the strip follows the head', () => {
     vi.mocked(useIsPhone).mockReturnValue(false)
-    mount({ order: 'name', onOrder: vi.fn(), trupps: [plain('t1', 'Berta'), plain('t2', 'Anna')] })
+    mount({ order: 'name', onOrder: vi.fn(), onShareLink: vi.fn(), trupps: [plain('t1', 'Berta'), plain('t2', 'Anna')] })
     const trigger = screen.getByRole('button', { name: az.orderLabel })
     const head = document.querySelector('header')!
-    expect(head.contains(trigger)).toBe(false)
-    const row = trigger.closest(`.${s.listRow}`)!
-    expect(row.previousElementSibling).toBe(head)
+    expect(head.contains(trigger)).toBe(true)
     expect(trigger.textContent).toBe(az.orderLabel)
-    expect(row.nextElementSibling?.textContent).toContain(appConfig.copy.filterStrip.sorted)
-    expect(head.querySelector('button[aria-label="' + az.newTrupp + '"]')).toBeTruthy()
+    expect(trigger.nextElementSibling?.textContent).toContain(az.shareLink)
+    expect(head.nextElementSibling?.textContent).toContain(appConfig.copy.filterStrip.sorted)
   })
 })
 
