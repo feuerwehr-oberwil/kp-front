@@ -572,6 +572,32 @@ section[id] { scroll-margin-top: 76px; } /* anchor targets clear the sticky head
 .setup-foot strong { color: var(--ink-dim); font-weight: 600; }
 .setup-foot a { color: var(--ink-dim); }
 
+/* ---------- Selbst betreiben (KP Rück) ---------- */
+/* Drei Wege nebeneinander, gleich gewichtet: keiner ist «der richtige». Die Zeile
+   über dem Titel sagt, wofür der Weg steht. Unter #betrieb, weil `.way` auch die
+   Kontaktkarten heisst – ungescoped legte dieser Block sie auf den Kopf (19.11.2026). */
+#betrieb .ways { margin-top: 36px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+#betrieb .way {
+  display: flex; flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-surface);
+  padding: 20px 22px;
+}
+.way-tag {
+  font-family: var(--mono); font-size: 11.5px; font-weight: 600;
+  letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint);
+}
+#betrieb .way h3 { font-size: 1.08rem; font-weight: 700; letter-spacing: -.015em; margin-top: 8px; }
+#betrieb .way p:not(.way-tag) { font-size: .93rem; color: var(--ink-dim); margin-top: 8px; }
+#betrieb .way a {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin-top: auto; padding-top: 16px;
+  font-size: .9rem; font-weight: 600; color: var(--ink);
+}
+#betrieb .way a .ico { width: 14px; height: 14px; }
+.ways-note { margin-top: 18px; }
+
 /* ---------- contact ---------- */
 .contact-grid { margin-top: 40px; display: grid; grid-template-columns: 5fr 7fr; gap: 44px; align-items: start; }
 .contact-side h2 {
@@ -786,6 +812,7 @@ dialog.lb::backdrop { background: rgba(12, 14, 17, .9); }
   .pillars-grid { grid-template-columns: 1fr; }
   .stages { grid-template-columns: 1fr; gap: 22px; }
   .contact-grid { grid-template-columns: 1fr; gap: 28px; }
+  #betrieb .ways { grid-template-columns: 1fr; gap: 14px; }
   .fit-split { grid-template-columns: 1fr; gap: 24px; }
   .entry { grid-template-columns: 52px 16px 1fr; gap: 0 12px; }
   .sibling-grid { grid-template-columns: 1fr; gap: 34px; }
