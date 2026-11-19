@@ -3,7 +3,7 @@ import { planDocuments } from '../data/demoIncident'
 import { objectsNearIncidentResilient, getObjectResilient, referenceUrl, type ObjectWithPlans, type ReferenceDataset } from './incidents'
 import { getApprovedPlanAlignments } from './api/reference'
 import { addPlanBindings, fillBindingFloors, incidentGeorefKey, inheritPlanBinding, type IncidentPlanBinding } from './incidentPlanBindings'
-import { georefForPlan, loadStationPlanScales, stationPlanScalesLoaded } from './stationPlanScale'
+import { georefForPlan, loadStationPlanScales, stationPlanScalesLoaded, subscribeStationPlanScales } from './stationPlanScale'
 import { appConfig } from '../config/appConfig'
 import { modulesFromConfig, moduleViewer, moduleHiddenWithGebaeude, nearbyObjectWarnM } from './deploymentConfig'
 import { comparePlanModules, moduleCatalogue, sortPlanModuleIds } from './planOrder'
@@ -340,6 +340,9 @@ export function useObjectPlans(
   // «Unknown» is not «none»: when the answer is unreachable and uncached, the sheet stays
   // unbound this round and is asked again rather than frozen without its approval.
   const boundIdsKey = effectiveBindings.map((b) => b.id).join('|')
+  // bumped whenever the station document changes – the retry for a binding round that found it unknown
+  const [stationRev, setStationRev] = useState(0)
+  useEffect(() => subscribeStationPlanScales(() => setStationRev((n) => n + 1)), [])
   useEffect(() => {
     const opts = bindingRef.current
     if (!opts || !activeObjectId) return
@@ -352,8 +355,11 @@ export function useObjectPlans(
       // A binding freezes the station fit it reads (`georefForPlan` below), and that document is
       // a module singleton – empty until the boot load lands. Freezing out of the empty one made
       // a sheet's binding permanently fit-less on a cold start (the demo's Modul 1, 19.11.2026).
-      // So read it first; the load never throws, and offline the cache is the honest answer.
+      // So read it first (the load never throws; offline the cache is the honest answer), and
+      // while nothing at all is known stay unbound – an unbound sheet still reads the live
+      // station fit – until a load lands and `stationRev` runs this again.
       if (!stationPlanScalesLoaded()) await loadStationPlanScales()
+      if (!stationPlanScalesLoaded()) return
       const out: IncidentPlanBinding[] = []
       for (const [planId, ds] of targets) {
         const sheet = {
@@ -385,7 +391,7 @@ export function useObjectPlans(
       }
     })()
     return () => { alive = false }
-  }, [activeObjectId, backendDatasets, backendTitles, boundIdsKey])
+  }, [activeObjectId, backendDatasets, backendTitles, boundIdsKey, stationRev])
 
   // …and a sheet bound WITHOUT floors asks once per session whether its revision has them by now
   // (lib/incidentPlanBindings · fillBindingFloors): bound before the station published the pack,
