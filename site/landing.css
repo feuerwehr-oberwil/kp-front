@@ -946,6 +946,8 @@ section.close { text-align: center; }
   .duo .dev-tab { position: absolute; left: 0; top: 0; width: 74%; }
   .duo .dev-ph { position: relative; top: auto; width: 42%; margin: 16% 0 0 auto; }
   .hero-center .fit-note { margin-top: 32px; }
+  /* the eyebrow wraps here, and its dash would stay behind at the left edge of a centred line */
+  .hero-center .eyebrow::before { display: none; }
   .wide-only { display: none; }
   .narrow-only { display: block; }
   .sib { flex-direction: column; align-items: flex-start; }
