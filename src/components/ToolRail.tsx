@@ -131,6 +131,8 @@ export function ToolRail({ primary, tools, active, open = false, onPick, toolRef
         title={shown.label}
         aria-label={shown.label}
         aria-pressed={on}
+        // the tool's id – the anchor «Üben»'s «Zeigen» rings (lib/ueben), not an e2e hook
+        data-tool={t.id}
         onClick={() => onPick(target)}
       >
         <span className="vrail-glyph"><Icon id={shown.icon} /></span><span className="vrail-label">{alt?.label ?? t.short ?? t.label}</span>
@@ -179,6 +181,7 @@ export function ToolRail({ primary, tools, active, open = false, onPick, toolRef
                 aria-label={label}
                 aria-pressed={on}
                 aria-haspopup={phone ? 'dialog' : undefined}
+                data-tool={primary.id}
                 onClick={() => onPick(primary.id)}
               >
                 <span className="vrail-glyph"><Icon id={face?.icon ?? primary.icon} /></span><span className="vrail-label">{face?.short ?? label}</span>

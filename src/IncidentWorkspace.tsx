@@ -7,7 +7,7 @@
 // docs/sync-and-offline.md.
 
 import type { AppMenuAlarms, FoldedMenuRow } from './components/panels/AppMenuRows'
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type MutableRefObject, type ReactNode } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type MutableRefObject, type ReactNode } from 'react'
 import type { MapRef } from 'react-map-gl/maplibre'
 import './app.css'
 import { IconSprite } from './lib/icons'
@@ -37,7 +37,7 @@ import { clearAllDrafts } from './lib/draftKeep'
 import { newRowId } from './lib/ids'
 import { atemschutzDoctrine, getDeploymentConfig, deploymentDefaultCenter, isDemoMode } from './lib/deploymentConfig'
 import { countSurface } from './lib/visitBeacon'
-import { fillTemplate, formatTime } from './lib/format'
+import { fillTemplate, formatSymbolName, formatTime } from './lib/format'
 import { addSignature, shortChecksum, type ReportSignature } from './lib/reportSignature'
 import { drawingExtent } from './lib/geo'
 import { isPresent } from './lib/attendanceIntervals'
@@ -191,6 +191,11 @@ import { useLifecycleElsewhere } from './workspace/useLifecycleElsewhere'
 import { usePresentation } from './workspace/usePresentation'
 import { isFollower } from './lib/presentation'
 import { MapRings, PresentationPill } from './components/Presentation'
+import { isPracticeIncident } from './lib/practice/practiceMode'
+import type { SolveApi } from './lib/ueben/model'
+
+// «Üben»'s task card (components/ueben/UebenRunner): its own chunk, loaded on the practice Einsatz only
+const UebenRunner = lazy(() => import('./components/ueben/UebenRunner'))
 
 /** How long an edit has to sit still before it earns a Verlauf row. Long enough that a sentence
  *  being typed is ONE edit, short enough that reading the Verlauf a moment later already shows
@@ -858,8 +863,10 @@ export function IncidentWorkspace({
   const { viewsOpen, setViewsOpen, paletteOpen, setPaletteOpen, settingsOpen, setSettingsOpen, pickerOpen, setPickerOpen, helpOpen, setHelpOpen, installGuideOpen, setInstallGuideOpen, offlineReadyOpen, setOfflineReadyOpen, shareLink, setShareLink } = useSheets()
   /** Who may hand a link out at all — an editor on a live view, and never a link session itself
    *  (a link may not mint further links). Says nothing about WHICH link: after the Abschluss only
-   *  the read-only link is still a thing, and that is `shareDoors`' business (lib/viewLink). */
-  const canShareLink = canEditIncident && !readOnly && !linkScoped
+   *  the read-only link is still a thing, and that is `shareDoors`' business (lib/viewLink).
+   *  Never on the practice Einsatz («Üben»): a link names an Einsatz the server has never seen. */
+  const practice = isPracticeIncident(incidentMeta.id)
+  const canShareLink = canEditIncident && !readOnly && !linkScoped && !practice
   /** …and the ONE link that DIES with the Abschluss — the Truppüberwacher-Link (its session
    *  404s). A door straight to it, bypassing the sheet's own tabs, has to close when the Einsatz
    *  does, or it offers an address that never worked. Same guard the «Einsatz abschliessen» row
@@ -2381,6 +2388,18 @@ export function IncidentWorkspace({
     endDrag, flyToMapVisible, setVehicleOverrides, trupps, linkTruppLine, patchEntity, objectsRef, objects,
     setPlanFocus, focusEntity, editNoteId, user, stepLabelRef: stepLabel,
   })
+  /** «Üben»'s «Lösung» (lib/ueben · SolveApi): a placement is addSymbol's four steps – one undo
+   *  step, the layer shown, the «… platziert» Verlauf row and the `entity.add` event */
+  const uebenApi: SolveApi = {
+    addEntity: (e) => {
+      commit((d) => ({ ...d, entities: [...d.entities, e] }))
+      revealLayer(e.layer)
+      log('hex', fillTemplate(appConfig.copy.log.symbolPlaced, { name: e.label || formatSymbolName(e.symbol ?? '') }), 'symbol', undefined, e.id)
+      emit('entity.add', { id: e.id, symbol: e.symbol, entity: e })
+    },
+    patchEntity,
+    addLine: (coords, attachments) => { createLine(coords, attachments, { select: false }) },
+  }
   const {
     deleteGroup, deleteEntity, placed, goToModule, goToTrupp, viewsApi, toggleViews, selected,
     undockTeam, setEntityDone, commitEntityFields, focusDrawing, noteEntity, pick, pickShape,
@@ -3467,6 +3486,21 @@ export function IncidentWorkspace({
       {!readOnly && !linkScoped && (
         <input ref={photoInputRef} type="file" accept="image/*" capture="environment" multiple
           className="file-picker" tabIndex={-1} onChange={onQuickPhotoPicked} />
+      )}
+
+      {/* «Üben»: the drill's card on the practice Einsatz (lib/practice), and nowhere else. «Lösung»
+          writes through the same writers a hand uses, so ↶ takes it back step by step. */}
+      {practice && !replayActive && (
+        <Suspense fallback={null}>
+          <UebenRunner
+            doc={doc}
+            ui={{ phone: isPhone, mode, paletteOpen, tool, pending, selectedId }}
+            detailOpen={!!selectedId || !!selectedDrawingId}
+            mapRef={mapRef}
+            commit={commit}
+            api={uebenApi}
+          />
+        </Suspense>
       )}
 
       {/* «Karte verknüpfen» runs ACROSS surfaces (Plan ⇄ Karte), so its instruction and action

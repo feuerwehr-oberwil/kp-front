@@ -58,6 +58,11 @@ import { onStorageDegraded } from './lib/idb'
 import { loadRoster } from './lib/usePersonnel'
 import { HelpOverlay } from './components/HelpOverlay'
 import { installHoldTooltip } from './lib/holdTooltip'
+import { isPracticeIncident, practiceModeOn, setPracticeMode } from './lib/practice/practiceMode'
+import { openPracticeIncident } from './lib/practice/practiceSeed'
+import { setPracticeUser } from './lib/practice/installFetch'
+import { closeUebenSheet, openUebenSheet, startDrill, useUeben } from './lib/ueben/session'
+import type { DrillId } from './lib/ueben/model'
 
 // Objektbesuche (/besuche…, docs/object-visits.md): its own lazy chunk — precached with the field
 // app, so the surface opens offline — mounted in place of home while its route is on.
@@ -65,6 +70,9 @@ const ObjectVisitsApp = lazy(() => import('./components/objectVisits/ObjectVisit
 // «Karte & Objekte» (/karte…, docs/karte-objekte.md): the station reference viewer outside an
 // Einsatz — its own lazy chunk too — and, with no Einsatz open, home itself (lib/karte/home).
 const KarteApp = lazy(() => import('./components/karte/KarteApp'))
+// «Üben»'s sheet (docs/planning: drills on the private practice Einsatz): a lazy chunk, opened from
+// both menus (lib/ueben/session · openUebenSheet)
+const UebenSheet = lazy(() => import('./components/ueben/UebenSheet'))
 
 // ---------------------------------------------------------------------------------
 // Incident root: owns the incident list, the active selection, and the per-incident
@@ -81,6 +89,10 @@ export default function App() {
 
 function IncidentApp() {
   const { user, logout, sessionExpired } = useAuth()
+  // «Üben»: the fake stamps the account on audit events, as the server does
+  useEffect(() => setPracticeUser(user?.id ?? null), [user?.id])
+  // «Üben»: the running drill, the drills done here, the sheet (lib/ueben/session)
+  const ueben = useUeben()
   const isEditor = user?.role === 'editor'
   /** may close and reopen Einsätze – an editor, but not in the Führungsansicht, the editor's
    *  locked view (workspace/access · elView; RBAC audit 22.10.2026: it got «Wieder öffnen»), and
@@ -378,6 +390,8 @@ function IncidentApp() {
     // the bell honestly saying «Ton nicht freigegeben» (see useAtemschutzMute).
     if (!isSessionCurrent()) return
     unlockAlarm()
+    // «Üben»: opening a real Einsatz ends practice mode – the next boot opens the real one
+    if (!isPracticeIncident(id) && practiceModeOn()) setPracticeMode(false)
     const opening = activeIdRef.current !== id
     const selected = await syncRef.open(id, opts.meta, {
       debounceMs: appConfig.sync.saveDebounceMs,
@@ -387,7 +401,8 @@ function IncidentApp() {
       // unchanged: the merge still reasons about the whole blob, because the server's copy has
       // one. Read as of THIS call: selectIncident is a stable ([] deps) callback, and the
       // link_kind cannot change without a fresh session anyway.
-      ...(asLinkRef.current ? { slice: 'trupps' as const } : isElRef.current ? { slice: 'record' as const } : {}),
+      // «Üben»: the practice Einsatz takes the whole blob from every role (lib/practice)
+      ...(isPracticeIncident(id) ? {} : asLinkRef.current ? { slice: 'trupps' as const } : isElRef.current ? { slice: 'record' as const } : {}),
       // Concurrent edits are auto-merged three-way (see mergeWorkspace) — silently: no dialog
       // and no toast (toast diet 17.11.2026: «Änderungen zusammengeführt» asked nothing of the
       // operator). The merged result is applied in place via onApplyMerged (registered by the
@@ -490,6 +505,15 @@ function IncidentApp() {
         if (!alive) return
         setIncidents(inc ? [inc as IncidentMeta] : [])
         if (inc) await bootOpen(inc as IncidentMeta)
+        return
+      }
+      // «Üben»: practice mode boots INTO this device's practice Einsatz (lib/practice),
+      // seeded on first use — the list still loads for the switcher, but nothing is picked from it
+      if (practiceModeOn()) {
+        const meta = await openPracticeIncident()
+        if (!alive) return
+        void listIncidentsShared().then(({ list }) => { if (alive) setIncidents(list) }).catch(() => {})
+        await bootOpen(meta)
         return
       }
       let { list, offline } = await listIncidentsShared().catch((e: unknown) => {
@@ -731,7 +755,8 @@ function IncidentApp() {
       .finally(() => { clearCrash(); location.reload() })
   }
 
-  const allIncidents = incidents ?? []
+  // «Üben»: the practice Einsatz is in no list (lib/practice) – not even after this device opened it
+  const allIncidents = (incidents ?? []).filter((i) => !isPracticeIncident(i.id))
   // «Abmelden» at home asks first, like the Einsatz-Menü's (lib/logoutConfirm). With no Einsatz
   // open there is no live store to ask, so the unsent Verlauf rows are read off the persisted
   // outboxes of every Einsatz this device knows.
@@ -781,6 +806,16 @@ function IncidentApp() {
     openOrUncover(i)
   }
 
+  // «Üben»: a drill runs on this device's practice Einsatz (lib/practice) – seeded with the site on
+  // first use, opened like any Einsatz, or only uncovered when it already stands behind the viewer
+  const startPracticeDrill = async (id: DrillId) => {
+    startDrill(id)
+    setPracticeMode(true)
+    const meta = await openPracticeIncident()
+    if (screen === 'einsatz' && activeId === meta.id) return
+    openOrUncover(meta as IncidentMeta)
+  }
+
   // the two home menus (components/HomeMenus): the launcher card and «Einsätze ▾» on the viewer
   const home: HomeActions = {
     trouble, onTrouble: (t) => { setFeedbackFor(t); setTrouble(null) }, onTroubleDismiss: () => setTrouble(null),
@@ -794,6 +829,7 @@ function IncidentApp() {
     onObjectVisits: objectVisitsConfig().enabled ? () => enterObjectVisits() : undefined,
     onSettings: () => setLandingSheet('settings'),
     onHelp: () => setLandingSheet('help'),
+    onUeben: linkScoped ? undefined : openUebenSheet,
     onInstall: !isStandalone() && installOffered(getInstallPlatform()) ? () => setLandingSheet('install') : undefined,
     onLogout: () => void askLogout(),
   }
@@ -944,6 +980,12 @@ function IncidentApp() {
         />
       )}
       {screen !== 'einsatz' && landingSheet === 'help' && <HelpOverlay onClose={() => setLandingSheet(null)} />}
+      {/* «Üben»: one sheet for both menus, home's and the Einsatz's (lib/ueben/session) */}
+      {ueben.sheetOpen && (
+        <Suspense fallback={null}>
+          <UebenSheet done={ueben.done} current={ueben.drill} onClose={closeUebenSheet} onStart={(id) => void startPracticeDrill(id)} />
+        </Suspense>
+      )}
       {screen !== 'einsatz' && landingSheet === 'install' && <InstallGuide onClose={() => setLandingSheet(null)} />}
       {/* «Als App installieren» nudge – browser tab only, one ✕ puts it away for good on this
           device (the menu keeps the permanent entry). Never inside an Einsatz (EL phone sweep C1,

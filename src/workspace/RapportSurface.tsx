@@ -2,6 +2,7 @@
 // Abschluss). Split out of IncidentWorkspace (E1, 09.10.2026) verbatim; the Rapport's one write
 // path (`saveReportMeta`) and the Abschluss (`confirmAndComplete`) stay in the workspace.
 
+import { isPracticeIncident } from '../lib/practice/practiceMode'
 import { type ReactNode, type Dispatch, type SetStateAction, Suspense } from 'react'
 import type { JSX } from 'react/jsx-runtime'
 import { LoadingStatus } from '../components/ShellLoader'
@@ -135,6 +136,8 @@ export function RapportSurface({
           // open or closed (`closed` locks the form, owner 12.11.2026)
           canEdit={canEditRapport || canSignRapport}
           canShare={canShareLink}
+          // «Üben»: the practice Einsatz prints nothing – PDF and print need the server (lib/practice)
+          noOutput={isPracticeIncident(incidentMeta.id)}
           // a closed Einsatz's form is read-only; the Unterschriften card does not care
           closed={!running}
           // …whose strip offers the way back to editing

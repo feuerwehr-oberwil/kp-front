@@ -31,6 +31,7 @@ import type { ReportMeta } from '../lib/workspace'
 import type { Incident, WeatherData, LngLat, ReactivateResult } from '../types'
 import type { WorkspaceMode } from './types'
 import type { ViewOnlyReason } from './access'
+import { openUebenSheet } from '../lib/ueben/session'
 
 export interface WorkspaceTopBarProps {
   incidentView: Incident
@@ -269,6 +270,7 @@ export function WorkspaceTopBar({
             // this device can start one and is not already presenting.
             onPresent={canShareLink && presentation.canStart && presentation.follow.kind !== 'presenting' ? () => void presentation.start() : undefined}
             onHelp={() => setHelpOpen(true)}
+            onUeben={linkScoped ? undefined : openUebenSheet}
             onInstall={isStandalone() || !installOffered(getInstallPlatform()) ? undefined : () => setInstallGuideOpen(true)}
             onSyncNow={syncNow}
             // ⚠️ No «Abmelden» for a link session (02.09.): a link is the literal page and owns
