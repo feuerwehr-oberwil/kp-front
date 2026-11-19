@@ -7,7 +7,6 @@ import { confirmDialog, toast } from '../../lib/ui'
 import { createShareLink, fetchShareLink, revokeShareLink, shareDoors, viewLinkUrl, type ShareLink, type ShareLinkKind } from '../../lib/viewLink'
 import { Segmented } from '../Segmented'
 import { Modal } from './_shared'
-import { PresentCard } from '../Presentation'
 
 // «Teilen» — every way this app hands an Einsatz to somebody, in one file.
 //
@@ -339,7 +338,6 @@ export function ShareIncident({ incidentId, initialKind = 'view', archived, auto
       <>
         {picker}
         <p className="esh-lede">{kc.lede}</p>
-        {kind === 'view' && <PresentCard />}
       </>,
       <button type="button" className="ip-btn primary" disabled={busy}
         onClick={() => void run(() => createShareLink(incidentId, kind), C.shareCreateFailed)}>
@@ -365,10 +363,6 @@ export function ShareIncident({ incidentId, initialKind = 'view', archived, auto
       {/* Says what the link actually hands over. It is the one thing somebody has to have read
           BEFORE sending it, so it stands under the address, not behind a tooltip. */}
       <p className="esh-warn"><Icon id="warn" />{kc.warn}</p>
-      {/* «Präsentieren» (05.11.2026, mock 8B): under the read link, because whoever follows is
-          either on the Einsatz already or holds exactly this link. Absent outside the Einsatz
-          (the Rapport's inline «Weitergeben»: no PresentationContext there). */}
-      {kind === 'view' && <PresentCard />}
     </>,
     null,
   )

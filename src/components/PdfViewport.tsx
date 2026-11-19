@@ -7,7 +7,7 @@ import { bake, cachedBake, clamp01, DPR, evictPlan, loadDoc, pdfWorkerUrl, type 
 import { RetryButton } from './RetryButton'
 import s from './PdfViewport.module.css'
 import { pdfPageOf } from '../lib/whiteboard'
-import { dropTileManifest, loadTileManifest, tileSource, type TileManifest } from '../lib/planTiles'
+import { dropTileManifest, loadTileManifest, sourcePages, tileSource, type PageSize, type TileManifest } from '../lib/planTiles'
 import { PlanTileLayer } from './PlanTileLayer'
 import { PlanSharpnessContext } from '../lib/planSharpness'
 
@@ -56,6 +56,10 @@ interface Props {
   vw: number
   vh: number
   onAspect: (a: number) => void
+  /** the pages the sheet shows, sized, in board order – told on every SUCCESSFUL load (the tile
+   *  manifest, or the pdf.js bake), so a load that failed and came back through «Erneut laden»
+   *  tells them too (lib/floorPackBinding · sheetDrawings) */
+  onPages?: (pages: readonly PageSize[]) => void
 }
 
 const REFINE_FROM = 1.15  // engage the full-res pass just past the base bitmap's crisp range, so there's no blurry dead zone between base and refine
@@ -87,7 +91,11 @@ export function PdfViewport(props: Props) {
     let cancelled = false
     setTiles(undefined)
     loadTileManifest(source).then(
-      (manifest) => { if (!cancelled) setTiles({ url, manifest }) },
+      (manifest) => {
+        if (cancelled) return
+        setTiles({ url, manifest })
+        if (manifest) props.onPages?.(sourcePages(manifest, source))
+      },
       () => { if (!cancelled) setTiles({ url, manifest: null }) },
     )
     return () => { cancelled = true }
@@ -112,7 +120,7 @@ export function PdfViewport(props: Props) {
   )
 }
 
-function PdfJsViewport({ url, fitW, fitH, scale, pos, vw, vh, onAspect }: Props) {
+function PdfJsViewport({ url, fitW, fitH, scale, pos, vw, vh, onAspect, onPages }: Props) {
   const baseRef = useRef<HTMLCanvasElement>(null)
   const refineRef = useRef<HTMLCanvasElement>(null)
   const refineTask = useRef<{ cancel: () => void } | null>(null)
@@ -138,10 +146,11 @@ function PdfJsViewport({ url, fitW, fitH, scale, pos, vw, vh, onAspect }: Props)
     let cancelled = false
     let painted: Baked | null = null
     const paint = (b: Baked) => {
-      const { bitmap, aspect, pages: n } = b
+      const { bitmap, aspect, pages: shown } = b
       painted = b
       onAspect(aspect)
-      setPages(n)
+      onPages?.(shown)
+      setPages(shown.length)
       const canvas = baseRef.current
       if (!canvas) return
       canvas.width = bitmap.width

@@ -89,8 +89,8 @@ export function IncidentSwitcher({
    *  site's sign-in. Never together with `onLogout`. */
   onLogin?: () => void
   /** «Präsentieren» – the card's fourth act, beside «Teilen» (F15, 17.11.2026): starts the
-   *  presentation at once (owner pick 29) and closes the menu; editors only, like the share
-   *  sheet's «Präsentieren» card (`canShareLink`) */
+   *  presentation at once (owner pick 29) and closes the menu; editors only (`canShareLink`) –
+   *  the one door to it since «Einsatz teilen» lost its card (owner, 18.11.2026) */
   onPresent?: () => void
   /** the alarms waiting to be opened – listed here as on home, a row's tap takes it (AppMenuRows) */
   alarms?: AppMenuAlarms

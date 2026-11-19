@@ -53,8 +53,9 @@ describe('BuildingFloat', () => {
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 
-  // owner pick M4 B (18.11.2026): open reads as a pressed tile – lit, with ⌄ in the count's corner
-  it('open: the chip is lit and wears ⌄ where the Sofortmassnahmen count stood', () => {
+  // owner pick M4 B (18.11.2026): open reads as a pressed tile – lit; no chevron, open or closed
+  // (owner, 18.11.2026 evening: «drop the chevron»)
+  it('open: the chip is lit, the count goes, and no chevron appears', () => {
     asPhone()
     render(<BuildingFloat info={base} />)
     const chip = screen.getByRole('button', { name: /Steckbrief öffnen/ })
@@ -63,7 +64,7 @@ describe('BuildingFloat', () => {
     expect(chip.textContent).toContain('1')
     fireEvent.click(chip)
     expect(chip.classList.contains('arm')).toBe(true)
-    expect(glyphs()).toEqual(['#warn', '#chevron-down'])
+    expect(glyphs()).toEqual(['#warn'])
     expect(chip.textContent).toBe('Gas · PV')
     fireEvent.click(chip)
     expect(chip.classList.contains('arm')).toBe(false)

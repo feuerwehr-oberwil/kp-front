@@ -16,7 +16,7 @@ import './pdfPolyfills'
 import pdfWorkerShimUrl from './pdfWorkerEntry?worker&url'
 import { pdfPageOf } from './whiteboard'
 import { FLOOR_PAGE_SIDE, pageCanvasBudget, rasterSide, regionRaster, renderScale } from './pdfRenderBudget'
-import { loadTileManifest, tileSource } from './planTiles'
+import { loadTileManifest, tileSource, type PageSize } from './planTiles'
 import { composeTiles } from './planTileRaster'
 
 
@@ -143,7 +143,10 @@ const PREVIEW_SIDE = 1024
 export const DPR = () => Math.min(window.devicePixelRatio || 1, 2)
 export const clamp01 = (v: number) => Math.min(1, Math.max(0, v))
 
-export type Baked = { bitmap: ImageBitmap; aspect: number; side: number; pages: number }
+/** One baked sheet. `pages` are the pages the bitmap stitches, top-down, with their sizes in pt –
+ *  the geometry a floor pack's storey drawings are laid onto the board with (components/
+ *  PdfViewport · onPages, lib/floorPackBinding · sheetDrawings). */
+export type Baked = { bitmap: ImageBitmap; aspect: number; side: number; pages: PageSize[] }
 
 // What the resident bitmaps may weigh together. ⚠️ Bytes, not a count: one stitched A4 plan at
 // 3840 px on an iPad is ~83 MB, and the old cap of twelve bitmaps allowed close to a gigabyte —
@@ -225,6 +228,7 @@ function render(url: string, vw: number, vh: number, maxSide: number, budgetPx: 
     const only = pdfPageOf(url)
     const pageNos = only != null ? [Math.min(only, pdf.numPages - 1) + 1] : Array.from({ length: pdf.numPages }, (_, i) => i + 1)
     const n = pageNos.length
+    const pages: PageSize[] = []
     // measure every page; stitched width is the widest page, height is the sum
     const metas: { page: Awaited<ReturnType<PDFDocumentProxy['getPage']>>; w: number; h: number }[] = []
     let W = 0, totalH = 0
@@ -232,6 +236,7 @@ function render(url: string, vw: number, vh: number, maxSide: number, budgetPx: 
       const pg = await pdf.getPage(i)
       const vp = pg.getViewport({ scale: 1 })
       metas.push({ page: pg, w: vp.width, h: vp.height })
+      pages.push({ page: i - 1, widthPt: vp.width, heightPt: vp.height })
       W = Math.max(W, vp.width)
       totalH += vp.height
     }
@@ -277,7 +282,7 @@ function render(url: string, vw: number, vh: number, maxSide: number, budgetPx: 
     // the bitmap owns the pixels from here; zeroing the canvas hands its backing store back
     // immediately instead of waiting for a collection that an iOS tab may not get to
     canvas.width = canvas.height = 0
-    return { bitmap, aspect, side, pages: n }
+    return { bitmap, aspect, side, pages }
   })
 }
 

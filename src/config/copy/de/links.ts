@@ -131,17 +131,11 @@ export const linksCopy = {
     atScene: 'Am Einsatzort',
     tapHint: 'Auf der Karte zeigen',
   },
-  // Präsentationsmodus (docs/presentation.md): the «Präsentieren» card in «Einsatz teilen» and the
-  // pill bottom-centre. «Zeigen» is the switch that turns a tap into a fading pointer and a drag into a
+  // Präsentationsmodus (docs/presentation.md): the Einsatz card's «Präsentieren» act and the pill
+  // bottom-centre. «Zeigen» is the switch that turns a tap into a fading pointer and a drag into a
   // fading line.
   presentation: {
     title: 'Präsentieren',
-    lede: 'Wer diesen Link oder den Einsatz offen hat, folgt deinem Bildschirm. Alle können zeigen, nichts wird gespeichert.',
-    start: 'Starten',
-    runningMine: 'Du präsentierst gerade.',
-    runningOther: '{name} präsentiert gerade.',
-    takeOver: 'Übernehmen',
-    needsServer: 'Braucht Netz.',
     youPresent: 'Du präsentierst',
     followersNone: 'noch niemand folgt',
     followersOne: '1 folgt',

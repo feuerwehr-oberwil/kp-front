@@ -92,12 +92,6 @@ export const linksCopy: Localizable<Pick<Copy, Keys>> = {
   },
   presentation: {
     title: 'Present',
-    lede: 'Everyone with this link or the incident open follows your screen. Everyone can point, nothing is saved.',
-    start: 'Start',
-    runningMine: 'You are presenting.',
-    runningOther: '{name} is presenting.',
-    takeOver: 'Take over',
-    needsServer: 'Needs network.',
     youPresent: 'You are presenting',
     followersNone: 'nobody following yet',
     followersOne: '1 following',

@@ -3,8 +3,9 @@ import { floorKey, joinKey, referenceUrl } from './api/reference'
 import { effectiveBindingGeoref, type IncidentPlanBinding } from './incidentPlanBindings'
 import { fitSimilarity, type GeorefFit } from './georef'
 import { withPdfPage } from './whiteboard'
+import { sheetLayout, type PageSize } from './planTiles'
 import { bandAspect } from './footprint'
-import type { BuildingDoc } from '../types'
+import type { BoardAnno, BuildingDoc } from '../types'
 
 /**
  * The active object's floor pack as the Gebäude stack needs it, read from the incident's frozen
@@ -195,3 +196,103 @@ export async function trimmedPackFrame(
   // a degenerate result (a single line of ink, everything blank) is no frame at all
   return out[2] - out[0] > 0.01 && out[3] - out[1] > 0.01 ? out : view.frame
 }
+
+/** One storey drawing on a plain sheet that shows a floor pack's pages – Modul 6 with its storeys
+ *  drawn side by side, or one storey per page: which drawing it is (storey + part, as `floorKey`)
+ *  and its rectangle in the BOARD's normalized coordinates. */
+export interface SheetDrawing {
+  storey: number
+  part: number
+  clip: [number, number, number, number]
+}
+
+/** The floors of the binding whose revision THIS sheet shows: `imageUrl` is the URL a bound sheet
+ *  is pinned to (lib/useObjectPlans · pin: `referenceUrl` of the binding). Never the Gebäude's
+ *  pack nor the selected object's first pack – a second floor-pack sheet, or a sheet after an
+ *  object switch while the Gebäude stays on the old one, has floors of its own (Sol review S1,
+ *  19.11.2026). Undefined for every sheet that is not a floor pack. */
+export function sheetFloorsOf(bindings: readonly IncidentPlanBinding[], imageUrl: string): PlanFloor[] | undefined {
+  const url = imageUrl.replace(/#.*$/, '')
+  return url ? bindings.find((b) => b.floors?.length && referenceUrl(b.datasetId, b.planVersion) === url)?.floors : undefined
+}
+
+/** The storey drawings the board shows, laid onto it the way the board lays its pages: `pages` are
+ *  the pages the sheet's URL shows, in order, as the renderer loaded them (components/PdfViewport ·
+ *  onPages), stacked by `sheetLayout` – the renderer's own layout. A sheet without `#page=` shows EVERY page stitched,
+ *  so a drawing on page 2 lies in the board's lower half, not where page 1 would put it (Sol
+ *  review S2). A drawing on a page the board does not show is no drawing here. Empty while the
+ *  pages are not known, and for a sheet without floors. */
+export function sheetDrawings(floors: readonly PlanFloor[] | undefined, pages: readonly PageSize[] | null): SheetDrawing[] {
+  if (!floors?.length || !pages?.length) return []
+  const { boxes } = sheetLayout(pages)
+  // explicit clips first: `drawingAt` takes the first hit and the floors come in storey order, so
+  // an EG whole page would mask a 1. OG region drawn on that same page (Sol review round 2, S2)
+  return [...floors].sort((a, b) => Number(!a.clip) - Number(!b.clip)).flatMap((f) => {
+    const box = boxes.find((b) => b.page.page === f.page)
+    if (!box) return []
+    const [x0, y0, x1, y1] = f.clip ?? WHOLE
+    const at = (x: number, y: number) => [box.left + x * box.width, box.top + y * box.height] as const
+    return [{ storey: f.index, part: f.part ?? 0, clip: [...at(x0, y0), ...at(x1, y1)] }]
+  })
+}
+
+/** the drawing at (x, y), or null outside every drawing */
+export const drawingAt = (drawings: readonly SheetDrawing[], x: number, y: number): SheetDrawing | null =>
+  drawings.find(({ clip: [x0, y0, x1, y1] }) => x >= x0 && x <= x1 && y >= y0 && y <= y1) ?? null
+
+/**
+ * A symbol placed or moved on such a sheet takes the storey of the drawing it lands in – what the
+ * Gebäude stack does with a storey tile (owner, 18.11.2026: «also auto-change storeys like in
+ * gebäude»). `orig` is the symbol as the gesture FOUND it (null for a placement), `moved` the
+ * gesture's current frame; the storey is always worked out from `orig`, so a drag that streams
+ * frames never shifts a span twice, and one that comes back to its drawing gets its own back.
+ *
+ * It writes what Von/Bis reads on a plain sheet: `storey` (the Gebäude writes its tile, and the
+ * plain sheet's twin of it is the badge – types · BoardAnno.storey), or, for a span, Von and Bis
+ * shifted whole by the step between the two drawings, as a span dragged between Gebäude storeys
+ * is (stackFloors · normalizeStackEdit). Outside every drawing, and inside the drawing it came
+ * from, the storey is the one it had: a storey set by hand within one drawing stays.
+ */
+export function withDrawingStorey(orig: BoardAnno | null, moved: BoardAnno, drawings: readonly SheetDrawing[]): BoardAnno {
+  if (moved.kind !== 'symbol' || !drawings.length || moved.x == null || moved.y == null) return moved
+  const to = drawingAt(drawings, moved.x, moved.y)
+  const from = orig?.x != null && orig.y != null ? drawingAt(drawings, orig.x, orig.y) : null
+  const base = orig ?? moved
+  const out: BoardAnno = { ...moved }
+  // absent stays absent – never an explicit `undefined` the store would read as a change
+  delete out.storey; delete out.floorFrom; delete out.floorTo
+  // «its own drawing» is the DRAWING (storey + part): two wings of one storey are two drawings,
+  // and a move between them takes the storey like any other (Sol review S4)
+  if (to == null || (from && to.storey === from.storey && to.part === from.part)) {
+    if (base.storey != null) out.storey = base.storey
+    if (base.floorFrom != null) out.floorFrom = base.floorFrom
+    if (base.floorTo != null) out.floorTo = base.floorTo
+    return out
+  }
+  // only a span with two DISTINCT ends is a span: Von alone, Bis alone or Von = Bis name ONE
+  // storey, and that one storey is the drawing's – shifting it would read «5» on the EG drawing
+  // as «7» on the 2. OG's (Sol review round 2, S1)
+  if (base.floorFrom == null || base.floorTo == null || base.floorFrom === base.floorTo) return { ...out, storey: to.storey }
+  // the span's step is between STOREYS: wing to wing of one storey moves it by none
+  const delta = to.storey - (from?.storey ?? base.floorFrom)
+  out.floorFrom = base.floorFrom + delta
+  out.floorTo = base.floorTo + delta
+  return out
+}
+
+/** One frame of the selection bar's ✥ ⟳ (components/useWbSelectionBar): a storey drawing gives its
+ *  storey on a MOVE only. A turn (`deg` ≠ 0) swings members across a drawing's edge without
+ *  anybody carrying them there, so it keeps every storey (Sol review S3); the Gebäude stack has
+ *  its own storey step (lib/grundriss · shiftStoreys). */
+export const barStorey = (orig: BoardAnno, moved: BoardAnno, drawings: readonly SheetDrawing[], stack: boolean, deg: number): BoardAnno =>
+  stack || deg ? moved : withDrawingStorey(orig, moved, drawings)
+
+/** The storey half of a symbol's `board.move` payload, so the Verlauf replay folds it too
+ *  (lib/replay · board.move): Von/Bis on the Gebäude stack, and on a sheet with storey drawings
+ *  the storey a drawing may have given it. Nothing elsewhere – a move there keeps its storey.
+ *  On such a sheet an absent field travels as `null`: a single-storey Von/Bis that a drawing
+ *  replaced with its `storey` is CLEARED, and JSON would drop an `undefined` (Sol review round 2,
+ *  S1). */
+export const storeyMove = (a: BoardAnno, stack: boolean, drawings: readonly SheetDrawing[]): Partial<Record<'storey' | 'floorFrom' | 'floorTo', number | null>> =>
+  stack ? { floorFrom: a.floorFrom, floorTo: a.floorTo }
+    : drawings.length ? { storey: a.storey ?? null, floorFrom: a.floorFrom ?? null, floorTo: a.floorTo ?? null } : {}

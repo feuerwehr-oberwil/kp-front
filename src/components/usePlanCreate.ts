@@ -22,6 +22,7 @@ import { seedSymbolProps } from '../lib/symbols'
 import { SHAPE_DEFS, SHAPE_MIN_N, SHAPE_TWO_POINT, rotationBox, type rotationBoundsN } from '../lib/shapes'
 import { autoNoteWN, noteScale } from '../lib/notes'
 import { floorLabel } from '../lib/whiteboard'
+import { withDrawingStorey, type SheetDrawing } from '../lib/floorPackBinding'
 import { DOOR_SNAP_PX, DOOR_SYMBOL, nearestWall } from '../lib/grundriss'
 import type { useBoardView } from './useBoardView'
 import type { usePlanDraft } from './usePlanDraft'
@@ -49,6 +50,9 @@ interface Args {
   setPaletteOpen: (open: boolean) => void
   /** the Gebäude floor stack: a press lands on the storey under it */
   stack: boolean
+  /** a plain sheet's storey drawings (Modul 6 with its storeys side by side): a symbol landing in
+   *  one takes its storey (lib/floorPackBinding · withDrawingStorey); empty elsewhere */
+  drawings: readonly SheetDrawing[]
   toNorm: (clientX: number, clientY: number) => [number, number] | null
   floorAt: (y: number) => number
   localY: (y: number, floor: number) => number
@@ -100,7 +104,7 @@ interface Args {
 
 /** The ink overlay's pointer handlers and the placement they make; see the file header. */
 export function usePlanCreate({
-  tool, setTool, pending, setPending, pendingShape, setPendingShape, placeLock, setPaletteOpen, stack,
+  tool, setTool, pending, setPending, pendingShape, setPendingShape, placeLock, setPaletteOpen, stack, drawings,
   toNorm, floorAt, localY, mapY, sW, sH, tileAR, scale, posRef, scaleRef, applyView, zoomTo, canvasRef, boardRef, inkTapRef,
   planDraft, rotor, measure, rotPlacing, rotStart, setRotStart, rotN, noteDefaults, txtBase, setNotePanelId, setNotePlacedId,
   sym, onRecent, annos, trupps, placedTeamNames, onLinkTrupp, setTruppPick, add, log, setSelId, tapZoomPress, tapZoomOwns,
@@ -281,7 +285,8 @@ export function usePlanCreate({
       if (seat) { x = seat.x; y = seat.y }
       // shared seeding (label / subtitle / fields) — identical to the Lage placement
       // path, so a plan symbol now carries the same editable structure as a map one
-      add({ id, kind: 'symbol', x, y, floor, ...seedSymbolProps(s, sym.symbols), ...(seat ? { rotation: seat.rotation, onWall: seat.wallId } : null) })
+      // …and on a sheet with storey drawings (Modul 6) it takes the storey of the drawing it lands in
+      add(withDrawingStorey(null, { id, kind: 'symbol', x, y, floor, ...seedSymbolProps(s, sym.symbols), ...(seat ? { rotation: seat.rotation, onWall: seat.wallId } : null) }, drawings))
       onRecent(s); log('hex', fillTemplate(appConfig.copy.whiteboard.placeSymbol, { name: formatSymbolName(s) }), { annoId: id, x, y, floor })
       // unlocked: place once, then drop to pan with the new symbol selected so its
       // editor + rotor are immediately usable. locked: stay armed (no selection) to

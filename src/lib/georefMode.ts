@@ -676,8 +676,9 @@ export interface GeorefLamp {
   /** the state, in three or four words — «2 Punkte – exakt, aber ungeprüft» */
   head: string
   /** why that is, and what one more point buys — the instruction behind the (i). The sentence
-   *  the operator is missing when they decide to stop at two. */
-  body: string
+   *  the operator is missing when they decide to stop at two. Absent when the head already says
+   *  it all (the station-approved fit: a body repeated it, owner 18.11.2026 «duplicate»). */
+  body?: string
 }
 
 /**
@@ -715,9 +716,10 @@ export function georefLamp(fit: GeorefFit | null, mode: GeorefModeState): Georef
     // an admin looked at the coverage on the Objektpläne review wall and published it, which is
     // the same act of checking a third reference point performs — so the lamp goes green and the
     // word «ungemessen» is gone. What it still does NOT do is invent a ⌀: there is no residual to
-    // claim off two synthetic pairs, and the body says who vouches for the fit instead.
+    // claim off two synthetic pairs, and the head says who vouches for the fit instead – one
+    // line, no body (a body only said the head again, owner 18.11.2026).
     return approvedUntouched(mode.pairs, !!mode.storageKey && incidentBindingApproved(mode.storageKey))
-      ? { tone: 'green', head: withOpen(C.lampApprovedHead), body: C.lampApprovedBody }
+      ? { tone: 'green', head: withOpen(C.lampApprovedHead) }
       : { tone: 'amber', head: withOpen(C.lampAutoHead), body: C.warnAuto }
   }
   if (claim == null) return { tone: 'amber', head: withOpen(C.lampTwoHead), body: C.warnTwoPoints }

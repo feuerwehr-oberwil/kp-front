@@ -188,7 +188,7 @@ import { useRecordSlices } from './workspace/useRecordSlices'
 import { useRosterRoles } from './workspace/useRosterRoles'
 import { useMediaOutbox } from './workspace/useMediaOutbox'
 import { useLifecycleElsewhere } from './workspace/useLifecycleElsewhere'
-import { PresentationContext, usePresentation } from './workspace/usePresentation'
+import { usePresentation } from './workspace/usePresentation'
 import { isFollower } from './lib/presentation'
 import { MapRings, PresentationPill } from './components/Presentation'
 
@@ -3419,7 +3419,6 @@ export function IncidentWorkspace({
           }}
         />
       )}
-      <PresentationContext.Provider value={canShareLink ? presentation : null}>
       <WorkspaceSheets {...{
         helpOpen, setHelpOpen, shareLink, incidentMeta, setShareLink, setAtemschutzLinkOn, installGuideOpen,
         setInstallGuideOpen, offlineReadyOpen, setOfflineReadyOpen, offlineProbeUrls, sym, backendPlans,
@@ -3430,7 +3429,6 @@ export function IncidentWorkspace({
         setKeepScreenOn, linkScoped, setFeedbackParent, setFeedbackOpen, share, setShareParent, setSharePick,
         feedbackParent, canWriteRecord, photoPosition, setPhotoPosition,
       }} />
-      </PresentationContext.Provider>
       <PresentationPill p={presentation} overVerlauf={isPhone && journalOpen} />
       <MapRings mapRef={mapRef} rings={presentation.mapRings} strokes={presentation.mapStrokes} presenter={presentation.state?.presenter?.client ?? null} onUnmark={presentation.unmark} />
 
