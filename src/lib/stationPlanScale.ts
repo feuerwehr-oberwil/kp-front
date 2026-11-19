@@ -221,6 +221,9 @@ export async function loadStationPlanScales(): Promise<StationPlanScales> {
     // device. A miss (or an IDB that refuses to open) leaves us knowing nothing at all, and
     // `loaded` has to stay false so that no read-modify-write builds on the void.
     const cached = await idbGet<StationPlanScales>(CACHE_KEY).catch(() => null)
+    // …a real answer may have landed while the cache was being read (a refresh, a write's
+    // response). It is newer than anything on disk – a late cache miss must not wipe it.
+    if (loaded) return resolved
     const changed = JSON.stringify(normalize(cached)) !== JSON.stringify(resolved)
     resolved = normalize(cached)
     loaded = !!cached
