@@ -92,13 +92,15 @@ let version: string | null = null
 /** Take a server answer as THE document: the singleton, the offline cache, the version token and
  *  the «a real document has landed» flag all move together. Returns whether anything actually
  *  changed, so a refresh that brought nothing new costs no re-render — the caller decides whether
- *  to notify. The cache is refilled either way, and deliberately: an answer identical to what is
+ *  to notify. The FIRST real answer counts as a change even when it is as empty as the boot
+ *  singleton: «unknown» became «known», and a reader waiting for that (a plan binding deferred
+ *  on a cold start, useObjectPlans) has nothing else to wake on. The cache is refilled either way, and deliberately: an answer identical to what is
  *  in memory is not necessarily what is on disk, and a station whose document is empty has to be
  *  cacheable too or an offline boot would go on knowing nothing at all. */
 function adopt(wire: StationPlanScalesWire | null | undefined): boolean {
   const next = normalize(wire)
   version = wire?.version ?? null
-  const changed = JSON.stringify(next) !== JSON.stringify(resolved)
+  const changed = !loaded || JSON.stringify(next) !== JSON.stringify(resolved)
   resolved = next
   loaded = true
   void idbSet(CACHE_KEY, next)

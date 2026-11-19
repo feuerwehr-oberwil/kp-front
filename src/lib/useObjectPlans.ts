@@ -340,9 +340,13 @@ export function useObjectPlans(
   // «Unknown» is not «none»: when the answer is unreachable and uncached, the sheet stays
   // unbound this round and is asked again rather than frozen without its approval.
   const boundIdsKey = effectiveBindings.map((b) => b.id).join('|')
-  // bumped whenever the station document changes – the retry for a binding round that found it unknown
+  // The retry for a binding pass that found the station document unknown: only a DEFERRED pass
+  // asks to be woken, so an ordinary change of the document never re-runs the binding.
   const [stationRev, setStationRev] = useState(0)
-  useEffect(() => subscribeStationPlanScales(() => setStationRev((n) => n + 1)), [])
+  const bindDeferred = useRef(false)
+  useEffect(() => subscribeStationPlanScales(() => {
+    if (bindDeferred.current) { bindDeferred.current = false; setStationRev((n) => n + 1) }
+  }), [])
   useEffect(() => {
     const opts = bindingRef.current
     if (!opts || !activeObjectId) return
@@ -359,9 +363,11 @@ export function useObjectPlans(
       // while nothing at all is known stay unbound – an unbound sheet still reads the live
       // station fit – until a load lands and `stationRev` runs this again.
       if (!stationPlanScalesLoaded()) await loadStationPlanScales()
-      if (!stationPlanScalesLoaded()) return
+      if (!alive) return
+      if (!stationPlanScalesLoaded()) { bindDeferred.current = true; return }
       const out: IncidentPlanBinding[] = []
       for (const [planId, ds] of targets) {
+        if (!alive) return // superseded by a newer pass – it asks for whatever is still unbound
         const sheet = {
           id: objectPlanGeorefKey(activeObjectId, planId),
           objectId: activeObjectId,

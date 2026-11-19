@@ -360,6 +360,22 @@ describe('refreshStationPlanScales — a second device picks up the change', () 
     expect(seen).toHaveBeenCalledTimes(1)
   })
 
+  it('tells its subscribers when an empty document is the first one ever to land', async () => {
+    // a cold start with no cache: «unknown» – then the refresh learns the station has nothing.
+    // Same contents as the boot singleton, but now KNOWN, and a deferred plan binding waits on it.
+    const m = await load()
+    apiGet.mockRejectedValue(new Error('offline'))
+    await m.loadStationPlanScales()
+    const seen = vi.fn()
+    m.subscribeStationPlanScales(seen)
+
+    apiGet.mockResolvedValue(doc({}))
+    await m.refreshStationPlanScales()
+
+    expect(m.stationPlanScalesLoaded()).toBe(true)
+    expect(seen).toHaveBeenCalledTimes(1)
+  })
+
   it('stays silent when the server answers with what we already have', async () => {
     const m = await booted({ default: scale(100) })
     const seen = vi.fn()
