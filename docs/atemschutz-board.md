@@ -280,6 +280,31 @@ good but we don't need the triangle thing. red and notfall is already enough»):
   form reaches the Anwesenheit only at the save (`fileGuests`, after every question) — never
   from the picker, and Enter in «Person suchen» only takes a listed person.
 
+- *The crew can be scanned off their Atemschutz tags* (owner, 19.11.2026; picks 1A · 4B, sign-off
+  round: manual take, quiet «Scan»).
+  Every AdF carries a plastic tag with a QR code that holds `KPF1:` + their roster Person id and
+  nothing else – the name and Dienstgrad are printed beside it (`lib/tagCode`). «Scan» at the end of
+  «Person suchen» (`TruppTeam`, only with a camera and a synced roster) opens «Tags scannen»
+  (`TagScan`): full screen like the MapPicker, the decoder reads every tag in the frame at once
+  (`lib/tagDecoder`, zxing-wasm, precached – it works offline). Somebody in another active Trupp
+  is taken TOO, ringed amber, «schon in einem Trupp» on a quieter second line (owner, sign-off
+  round 2: «don't prevent … just highlight»; the picker still greys them). A take with such a
+  person ASKS first: «Verschieben und übernehmen» (out of the old Trupp through the form's own
+  move – one Verlauf row and one undo step each – then everyone in), «Nur freie übernehmen (n)»,
+  or «Zurück zum Scan» (a stray tag in the frame). Somebody whose old Trupp is still inside is
+  never moved silently: they come along («Trotzdem übernehmen» when nobody can be moved) and the
+  form shows its conflict row. An unknown tag says so, any other code is ignored. ⚠️ «Taken» is
+  read off roster ids, as in the picker: a crew stored by name only (an older build, a device
+  offline through a roster sync) is not seen as holding anybody – an open follow-up, app-wide.
+  ⚠️ The operator presses «Übernehmen · n» after checking the names – it pressed itself one
+  second after the last new tag until the sign-off round, and a tag read late missed the take. A
+  wrong read is dropped with its ✕. The crew goes into the form as ONE add, so the form's rank
+  rule crowns the leader. «Scan» wears the plain secondary look of «Karte» (not the primary
+  fill). The tags come out of admin › Personal › «Tags drucken»: every active person, one PDF in
+  the chosen format – 150 × 35 mm per page, A4 sheet with cut lines, Brother tape 36 / 24 mm –
+  or «Codes als CSV» (name, Grad, QR text) for whoever makes their own; the sheet states the
+  format (QR, `KPF1:<Personen-ID>`, any error correction, Q recommended, ≥ 20 mm)
+  (`admin/tagPrint`: the QR drawn as vector squares, the names in an embedded Unicode font).
 - *One person in two active Trupps is a band, not a guess* (audit F05; owner pick B, 26.10.2026):
   the form refuses a double assignment on one device, but two offline devices can each make one
   half and the merge keeps both. `DoubleAssignmentBanner` stands above the sections («Müller Hans

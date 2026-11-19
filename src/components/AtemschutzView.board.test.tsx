@@ -158,6 +158,16 @@ describe('the board with Trupps that are not under Atemschutz', () => {
     expect(screen.queryByRole('radiogroup', { name: az.kindLabel })).toBeNull()
   })
 
+  // …but somebody in one of those hidden Trupps is still in a Trupp: the picker (and the tag scan
+  // beside it) must not offer them for an Atemschutz crew (Sol review 19.11.2026).
+  it('still counts the people of a hidden plain Trupp as taken', () => {
+    const upd = '2026-11-19T06:00:00.000Z'
+    const personnel = [{ id: 'pg', displayName: 'Gerber Ueli', active: true, updatedAt: upd }]
+    mount({ lite: { subtitle: 'Brand' }, trupps: [aktivTrupp(), { ...plainTrupp(), name: 'Gerber Ueli', leaderPersonId: 'pg' }], personnel })
+    fireEvent.click(firstBtn(az.newTrupp))
+    expect(screen.getByRole('option', { name: /Gerber Ueli/ })).toHaveProperty('disabled', true)
+  })
+
   /* ⚠️ Changeable while EDITING since 04.09. A Verkehrstrupp that ends up going in under PA, and a
    * Trupp registered under Atemschutz by mistake, were both a delete and a re-registration until
    * then — which throws away the record of a crew that was already working. */
@@ -788,7 +798,7 @@ describe('the Reihenfolge menu', () => {
     expect(warn.textContent).toContain(fillTemplate(az.assignedConflict, { name: 'Steiner' }))
     fireEvent.click(screen.getByRole('button', { name: az.assignedTransfer }))
     // …out of THAT Trupp, naming the one being formed here so its Verlauf row can say where to
-    expect(transferOutOfTrupp).toHaveBeenCalledWith('tr2', 'p1', 'Steiner')
+    expect(transferOutOfTrupp).toHaveBeenCalledWith('tr2', ['p1'], 'Steiner')
   })
 
   /* ONE placeholder for every Auftrag (03.09.): «z. B. 2OG links» proposed a storey to a

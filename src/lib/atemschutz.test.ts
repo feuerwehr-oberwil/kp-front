@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { notfallFacts, notfallOffered, safetyCandidates, safetyInside, safetyMissing, safetyReady, truppInNotfall, alarmBarFor, anyTruppInField, contactSeverity, deriveTruppLive, EARLY_PRESSURE_CORRECTION_MS, earlyEntryCorrection, entryPressureAsks, entryPressureConfirmed, estimatePressure, fmtClock, fmtDuration, fmtElapsedFull, isAtemschutzTrupp, isStandDownExit, peakAtemschutzAlarm, pressureAlarm, truppAlarm, truppCrewWithout, truppEditPatch, truppFieldGroupsChanged, truppFieldsOf, truppInField, truppLogName, truppNeverDeployed, truppStillDeployed, truppStillRegistered, truppTransferState } from './atemschutz'
 import type { Trupp } from '../types'
-import { alarmRowKey, azChipRedundant, truppAwaitsEntry, truppHeadName, truppRegisteredAt } from './atemschutz'
+import { alarmRowKey, azChipRedundant, truppAwaitsEntry, truppGroupTransfer, truppHeadName, truppRegisteredAt } from './atemschutz'
 
 // A Trupp that entered at a fixed reference time; its contact clock starts at entry.
 const REF = Date.parse('2026-06-21T10:00:00Z')
@@ -954,5 +954,31 @@ describe('the Atemschutznotfall', () => {
     })
     // never reported: the Eingangsdruck, no age
     expect(notfallFacts({ ...base, notfallAt: N }, REF + 5 * 60_000)).toMatchObject({ bar: 300, barAt: null, barAgeSec: null, funkkanal: null })
+  })
+})
+
+/* The tag scan's «Verschieben und übernehmen» asks for several people at once (Sol review
+ * 19.11.2026): two who may each leave alone may not leave together, and a Trupp that came out or
+ * was deleted while the question was open is never rewritten. */
+describe('truppGroupTransfer', () => {
+  const two = (over: Partial<Trupp> = {}): Trupp => ({
+    id: 'T9', name: 'Keller Anna', members: ['Frei Nina'], leaderPersonId: 'p1', memberPersonIds: ['p2'],
+    entryPressureBar: 300, entryTime: '', lastContactTime: '', status: 'angemeldet', ...over,
+  })
+
+  it('lets one of a two-person crew go, not both', () => {
+    expect(truppGroupTransfer(two(), ['p2']).state).toBe('ready')
+    expect(truppGroupTransfer(two(), ['p1', 'p2']).state).toBe('blocked')
+  })
+
+  it('builds the second removal on the first', () => {
+    const r = truppGroupTransfer(two({ members: ['Frei Nina', 'Amrein Patrick'], memberPersonIds: ['p2', 'p3'] }), ['p2', 'p3'])
+    expect(r).toMatchObject({ state: 'ready', who: ['Frei Nina', 'Amrein Patrick'], crew: { name: 'Keller Anna', members: [] } })
+  })
+
+  it('never touches a Trupp that is out, deleted or inside', () => {
+    expect(truppGroupTransfer(two({ status: 'raus' }), ['p2']).state).toBe('blocked')
+    expect(truppGroupTransfer(two({ removedAt: '2026-11-19T10:00:00Z' }), ['p2']).state).toBe('blocked')
+    expect(truppGroupTransfer(two({ status: 'aktiv', entryTime: '2026-11-19T10:00:00Z' }), ['p2']).state).toBe('deployed')
   })
 })

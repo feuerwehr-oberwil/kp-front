@@ -102,7 +102,7 @@ function truppDraftStamp(t: Trupp): string {
 }
 
 export function TruppForm({
-  mode, initial, presetAuftrag, focusSection, roster, defaultFunkkanal, personnel, presentIds, stationIds, assignedIds, transferState, onTransfer, rolesById, leitungOptions, lite = false, stack = false, sheet = false, pinned, zielPickOn, onPickZiel, onAddGuest, onCancel, onSubmit,
+  mode, initial, presetAuftrag, focusSection, roster, defaultFunkkanal, personnel, presentIds, stationIds, assignedIds, transferState, groupTransferState, onTransfer, rolesById, leitungOptions, lite = false, stack = false, sheet = false, pinned, zielPickOn, onPickZiel, onAddGuest, onCancel, onSubmit,
 }: {
   mode: FormMode
   initial?: Trupp
@@ -121,9 +121,12 @@ export function TruppForm({
    *  «In diesen Trupp verschieben», `deployed` says instead that the other crew is out there,
    *  `blocked` leaves the plain sentence (lib/atemschutz · truppTransferState). */
   transferState?: (personId: string) => TruppTransferState
+  /** whether people can leave their old Trupps TOGETHER (lib/atemschutz · truppGroupTransfer) –
+   *  the tag scan's question (TruppTeam → TagScan) */
+  groupTransferState?: (personIds: readonly string[]) => ReadonlyMap<string, TruppTransferState>
   /** move that person out of the Trupp they are still in — `toName` is the Gruppenführer this
    *  form is forming, so the other Trupp's Verlauf row can say where they went */
-  onTransfer?: (personId: string, toName: string) => void
+  onTransfer?: (personIds: readonly string[], toName: string) => void
   /** who already holds a job on this Einsatz (Anwesenheits-Bemerkung), so the picker can say
    *  «schon: Einsatzleiter» beside a name — a hint, never a block */
   rolesById: Map<string, string>
@@ -627,7 +630,7 @@ export function TruppForm({
       <TruppTeam
         value={team} onChange={changeTeam} phone={stack} wanted={mode === 'create'} searchInputRef={teamSearchRef}
         personnel={personnel} legacyRoster={roster} presentIds={presentIds} stationIds={stationIds}
-        assignedIds={assignedIds} rolesById={rolesById}
+        assignedIds={assignedIds} rolesById={rolesById} groupTransferState={groupTransferState} onTransfer={onTransfer}
       />
     </div>
   )

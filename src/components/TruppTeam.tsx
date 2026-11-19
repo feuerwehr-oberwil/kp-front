@@ -8,9 +8,14 @@ import { matchesQuery, searchQuery } from '../lib/search'
 import { useLongPress } from '../lib/useLongPress'
 import type { Person } from '../types'
 import type { CrewChange } from '../lib/truppLeader'
+import type { TruppTransferState } from '../lib/atemschutz'
 import type { Slot } from './PersonField'
 import { ComboRank } from './ComboMenu'
+import { Button } from './Button'
 import { SearchField } from './SearchField'
+import { TagScan } from './TagScan'
+import { useHasCamera } from '../lib/tagDecoder'
+import { personIdForName, rosterIdByName } from '../lib/personnel'
 import s from './Atemschutz.module.css'
 // the Dienstgrad chip and the name cell of a roster row live with the picker they were shared
 // with (ComboMenu.module.css) — this list draws the same row, so it draws the same two marks
@@ -40,8 +45,13 @@ const PHONE_HITS = 4
  */
 export function TruppTeam({
   value, onChange, personnel, legacyRoster, presentIds, stationIds, assignedIds, rolesById,
-  phone = false, wanted = false, searchInputRef,
+  groupTransferState, onTransfer, phone = false, wanted = false, searchInputRef,
 }: {
+  /** whether people in other active Trupps can be moved out TOGETHER (lib/atemschutz ·
+   *  truppGroupTransfer), and the move itself – the form's own «In diesen Trupp verschieben» –
+   *  both handed to the tag scan's question */
+  groupTransferState?: (personIds: readonly string[]) => ReadonlyMap<string, TruppTransferState>
+  onTransfer?: (personIds: readonly string[], toName: string) => void
   /** this form is here to NAME a Trupp and has nobody in it yet («Trupp anmelden»): the search
    *  wears the ring until the first person stands in the list – who is going in matters more than
    *  what they will do there, and the field looked exactly as optional as the rest (20.09.2026) */
@@ -224,6 +234,30 @@ export function TruppTeam({
     add({ name: guestOffer })
   }
 
+  /* «Scan» (owner pick 1A, 19.11.2026): the camera reads the crew's Atemschutz tags and hands
+   * back who they are (TagScan). ONE `add` for the whole crew, so the form's rank rule
+   * (lib/truppLeader) crowns once, over everybody. Only where it can work: a device with a camera
+   * and a synced roster – a tag carries a roster id, and the legacy name list or a list of
+   * Einsatz-Gäste has none. */
+  const camera = useHasCamera()
+  const [scanning, setScanning] = useState(false)
+  // who is already in, as the camera has to know it: a slot typed by NAME has no id yet but is
+  // still that roster person (lib/personnel), and their tag must not add them a second time
+  const byName = useMemo(() => rosterIdByName(personnel), [personnel])
+  const inCrew = new Set(value.flatMap((v) => {
+    const id = v.personId ?? personIdForName(byName, v.name)
+    return id ? [id] : []
+  }))
+  const takeScanned = (people: Person[], move: string[]) => {
+    setScanning(false)
+    // out of the old Trupp FIRST – the same move as the form's conflict row, one Verlauf row and
+    // one undo step per Trupp they come out of – so the crew lands without a conflict to answer.
+    // No target name in that row: the rank rule may crown a scanned person on this very add, so
+    // whoever leads the draft now may not be the Trupp they went to (Sol review 19.11.2026).
+    if (move.length) onTransfer?.(move, '')
+    onChange([...value, ...people.map((p) => ({ name: p.displayName, personId: p.id }))], 'add')
+  }
+
   /* Enter keeps the keyboard flow one step, and it never has to be aimed: with matches on screen
    * it takes the first one that can be taken (the list is already sorted the way the hand
    * expects — present first, then alphabetical; confirmed 09.09. against the field ask for rank
@@ -327,7 +361,21 @@ export function TruppTeam({
         // is a second control to a screen reader.
         placeholder={phone && value.length ? az.teamSearchMore : az.teamSearchPlaceholder}
         aria-label={az.teamSearchPlaceholder}
+        trailing={camera && personnel.some((p) => p.active && !p.guest) && (
+          <Button
+            className={s.teamScan} icon={<Icon id="scan" />} title={az.scanTitle} aria-label={az.scanTitle}
+            // a door, not part of the search: it must not take the field's focus (keyboard up)
+            {...keepSearch} onClick={() => setScanning(true)}
+          >{az.scanButton}</Button>
+        )}
       />
+      {scanning && (
+        <TagScan
+          personnel={personnel} assignedIds={assignedIds} chosenIds={inCrew}
+          groupTransferState={onTransfer ? groupTransferState : undefined}
+          onTake={takeScanned} onClose={() => setScanning(false)}
+        />
+      )}
 
       {/* ⚠️ On a PHONE the Mannschaft appears only under a typed query, and the list is the
           ANSWER to it rather than a surface to browse: `.teamHits` shrink-wraps its ≤4 rows
