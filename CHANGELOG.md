@@ -385,6 +385,9 @@ first (`scripts/backup.sh`, docs/DEPLOYMENT.md §6) and note the version you run
   Mühlemattstrasse 22, …»), and only within 1 km of the Einsatz.
 - **«Position markieren» on a docked Trupp** stamps where the Trupp is drawn, not up to a dock's
   width away.
+- **A plan keeps its Karte symbols after a cold start** (#709). When the station's plan fits had
+  not loaded yet, a plan could stay without its Georeferenz for the whole Einsatz; it now waits
+  for them and binds once they arrive.
 
 - **The radar layer works again.** MeteoSwiss renamed its radar files on 2026-10-13 and 0.12.0
   found none afterwards. The file names are now read from the provider's own index, and a daily
