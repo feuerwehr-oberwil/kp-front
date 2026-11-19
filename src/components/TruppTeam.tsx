@@ -8,6 +8,7 @@ import { matchesQuery, searchQuery } from '../lib/search'
 import { useLongPress } from '../lib/useLongPress'
 import type { Person } from '../types'
 import type { CrewChange } from '../lib/truppLeader'
+import type { TruppTransferState } from '../lib/atemschutz'
 import type { Slot } from './PersonField'
 import { ComboRank } from './ComboMenu'
 import { Button } from './Button'
@@ -44,8 +45,12 @@ const PHONE_HITS = 4
  */
 export function TruppTeam({
   value, onChange, personnel, legacyRoster, presentIds, stationIds, assignedIds, rolesById,
-  phone = false, wanted = false, searchInputRef,
+  transferState, onTransfer, phone = false, wanted = false, searchInputRef,
 }: {
+  /** whether somebody in another active Trupp can be moved out of it (lib/atemschutz), and the
+   *  move itself – the form's own «In diesen Trupp verschieben», handed to the tag scan's question */
+  transferState?: (personId: string) => TruppTransferState
+  onTransfer?: (personId: string, toName: string) => void
   /** this form is here to NAME a Trupp and has nobody in it yet («Trupp anmelden»): the search
    *  wears the ring until the first person stands in the list – who is going in matters more than
    *  what they will do there, and the field looked exactly as optional as the rest (20.09.2026) */
@@ -242,8 +247,11 @@ export function TruppTeam({
     const id = v.personId ?? personIdForName(byName, v.name)
     return id ? [id] : []
   }))
-  const takeScanned = (people: Person[]) => {
+  const takeScanned = (people: Person[], move: string[]) => {
     setScanning(false)
+    // out of the old Trupp FIRST – the same move as the form's conflict row, one Verlauf row and
+    // one undo step each – so the crew lands without a conflict to answer
+    for (const id of move) onTransfer?.(id, value[0]?.name.trim() ?? '')
     onChange([...value, ...people.map((p) => ({ name: p.displayName, personId: p.id }))], 'add')
   }
 
@@ -361,6 +369,7 @@ export function TruppTeam({
       {scanning && (
         <TagScan
           personnel={personnel} assignedIds={assignedIds} chosenIds={inCrew}
+          transferState={onTransfer ? transferState : undefined}
           onTake={takeScanned} onClose={() => setScanning(false)}
         />
       )}

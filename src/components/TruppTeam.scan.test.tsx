@@ -8,8 +8,9 @@ import { TruppTeam } from './TruppTeam'
 // The camera and the decoder are the device's; what TruppTeam owns is what a scan DOES to the crew.
 vi.mock('../lib/tagDecoder', () => ({ useHasCamera: () => true }))
 vi.mock('./TagScan', () => ({
-  TagScan: ({ personnel, chosenIds, onTake }: { personnel: Person[]; chosenIds: ReadonlySet<string>; onTake: (p: Person[]) => void }) => (
-    <button type="button" data-chosen={[...chosenIds].join(',')} onClick={() => onTake(personnel.slice(1))}>take-stub</button>
+  // «take-stub» takes everybody but the first and asks to MOVE the last one out of their old Trupp
+  TagScan: ({ personnel, chosenIds, onTake }: { personnel: Person[]; chosenIds: ReadonlySet<string>; onTake: (p: Person[], move: string[]) => void }) => (
+    <button type="button" data-chosen={[...chosenIds].join(',')} onClick={() => onTake(personnel.slice(1), [personnel[personnel.length - 1].id])}>take-stub</button>
   ),
 }))
 
@@ -36,6 +37,21 @@ describe('TruppTeam · Scan', () => {
       { name: 'Brunner Thomas', personId: 'p3' },
     ], 'add')
     expect(screen.queryByText('take-stub')).toBeNull()
+  })
+
+  it('moves the asked-for person out of their old Trupp before the crew changes', () => {
+    const calls: string[] = []
+    const onTransfer = vi.fn((id: string, to: string) => { calls.push(`move ${id} to ${to}`) })
+    render(
+      <TruppTeam
+        value={[{ name: 'Meier Anna', personId: 'p1' }]} onChange={() => calls.push('change')}
+        personnel={personnel} legacyRoster={[]} presentIds={new Set()} assignedIds={new Set()} phone
+        transferState={() => 'ready'} onTransfer={onTransfer}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.atemschutz.scanTitle }))
+    fireEvent.click(screen.getByText('take-stub'))
+    expect(calls).toEqual(['move p3 to Meier Anna', 'change'])
   })
 
   it('tells the camera about a crew member typed by name, so their tag cannot add them twice', () => {

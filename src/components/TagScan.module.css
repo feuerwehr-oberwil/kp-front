@@ -47,8 +47,14 @@
   font: var(--fw-bold) var(--fs-2)/1.2 var(--body); animation: hitIn .16s var(--ease);
 }
 .rank { color: var(--ink-dim); font-weight: var(--fw-medium); }
-/* not taken: in another Trupp, or an unknown tag – said, and visibly not part of the take */
+/* an unknown tag – said, and visibly not part of the take */
 .hitOff { background: transparent; box-shadow: inset 0 0 0 1px var(--red); color: var(--ink-dim); }
+/* already in another active Trupp: taken too, but ringed in the amber the board's
+   DoubleAssignment cards wear – «look at this one»; the why on its own quieter line under the
+   name (owner, sign-off round 2: «below, in a slightly cleaner font») */
+.hitTaken { box-shadow: inset 0 0 0 2px var(--amber); padding-block: var(--sp-1); }
+.who { display: flex; flex-direction: column; min-width: 0; }
+.note { font: var(--fw-medium) var(--fs-1)/1.25 var(--body); color: var(--ink-dim); }
 /* the ✕ that drops a wrong read: the form's crew-chip ✕, flush with the row's right end */
 .drop { margin-right: calc(-1 * var(--sp-3)); }
 @keyframes hitIn { from { opacity: 0; transform: scale(.9); } }

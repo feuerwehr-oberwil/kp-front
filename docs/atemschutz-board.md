@@ -287,7 +287,13 @@ good but we don't need the triangle thing. red and notfall is already enough»):
   «Person suchen» (`TruppTeam`, only with a camera and a synced roster) opens «Tags scannen»
   (`TagScan`): full screen like the MapPicker, the decoder reads every tag in the frame at once
   (`lib/tagDecoder`, zxing-wasm, precached – it works offline). Somebody in another active Trupp
-  is listed and NOT taken (the picker's rule), an unknown tag says so, any other code is ignored.
+  is taken TOO, ringed amber, «schon in einem Trupp» on a quieter second line (owner, sign-off
+  round 2: «don't prevent … just highlight»; the picker still greys them). A take with such a
+  person ASKS first: «Verschieben und übernehmen» (out of the old Trupp through the form's own
+  move – one Verlauf row and one undo step each – then everyone in), «Nur freie übernehmen (n)»,
+  or «Zurück zum Scan» (a stray tag in the frame). Somebody whose old Trupp is still inside is
+  never moved silently: they come along («Trotzdem übernehmen» when nobody can be moved) and the
+  form shows its conflict row. An unknown tag says so, any other code is ignored.
   ⚠️ The operator presses «Übernehmen · n» after checking the names – it pressed itself one
   second after the last new tag until the sign-off round, and a tag read late missed the take. A
   wrong read is dropped with its ✕. The crew goes into the form as ONE add, so the form's rank

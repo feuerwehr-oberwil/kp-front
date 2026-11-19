@@ -627,7 +627,7 @@ export function TruppForm({
       <TruppTeam
         value={team} onChange={changeTeam} phone={stack} wanted={mode === 'create'} searchInputRef={teamSearchRef}
         personnel={personnel} legacyRoster={roster} presentIds={presentIds} stationIds={stationIds}
-        assignedIds={assignedIds} rolesById={rolesById}
+        assignedIds={assignedIds} rolesById={rolesById} transferState={transferState} onTransfer={onTransfer}
       />
     </div>
   )

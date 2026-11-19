@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { appConfig } from '../config/appConfig'
 import { cx } from '../lib/cx'
 import { fillTemplate } from '../lib/format'
+import type { TruppTransferState } from '../lib/atemschutz'
+import { confirmDialog } from '../lib/ui'
 import { Icon } from '../lib/icons'
 import { Overlay, SheetFoot } from '../lib/overlays'
 import { rosterFromList } from '../lib/personnel'
@@ -33,20 +35,28 @@ type Phase = 'starting' | 'live' | 'denied' | 'nocam'
  * taking back pick 2A): it pressed itself one second after the last new person, and a tag that
  * reads a moment late then missed the take. A wrong read is dropped with its ✕ before the take.
  *
- * What a tag means lives in lib/tagCode: somebody already in another active Trupp is LISTED and
- * not taken (the picker's rule), an unknown tag says so, a code that is not ours is ignored. The
+ * What a tag means lives in lib/tagCode: somebody already in another active Trupp is taken and
+ * MARKED amber (unlike the picker, which greys them – owner, sign-off round 2), an unknown tag
+ * says so, a code that is not ours is ignored. A take with such a person in it ASKS first
+ * (`askAndTake`): move them out of the old Trupp and take everyone, take only the free ones, or
+ * go back to the scan – a tag lying in the frame by mistake is the reason the third answer exists.
+ * A person whose old Trupp is still inside is never moved silently (lib/atemschutz ·
+ * truppTransferState): they come along, and the form shows its conflict row as for a typed name. The
  * leader is not decided here – the form's rule does it (lib/truppLeader: the most senior
  * Dienstgrad until somebody taps a name).
  *
  * ⚠️ The camera stream is stopped on every way out (unmount), or iOS keeps its green dot on.
  */
-export function TagScan({ personnel, assignedIds, chosenIds, onTake, onClose }: {
+export function TagScan({ personnel, assignedIds, chosenIds, transferState, onTake, onClose }: {
   personnel: Person[]
   /** ids in another ACTIVE Trupp (TruppTeam's own) */
   assignedIds: ReadonlySet<string>
   /** ids already standing in this form */
   chosenIds: ReadonlySet<string>
-  onTake: (people: Person[]) => void
+  /** whether a person in another active Trupp can be moved out of it; absent = never moved */
+  transferState?: (personId: string) => TruppTransferState
+  /** who goes into the crew, and which of them the caller moves out of their old Trupp first */
+  onTake: (people: Person[], move: string[]) => void
   onClose: () => void
 }) {
   const az = appConfig.copy.atemschutz
@@ -135,8 +145,34 @@ export function TagScan({ personnel, assignedIds, chosenIds, onTake, onClose }: 
     const h = tagHit(t, roster, assignedIds, chosenIds)
     return h && h.kind !== 'here' ? [h] : []
   })
-  const adds = hits.flatMap((h) => (h.kind === 'add' ? [h.person] : []))
-  const take = () => { if (adds.length) onTake(adds) }
+  // somebody already in another active Trupp is taken TOO, and marked (owner, sign-off round 2,
+  // 19.11.2026: «don't prevent … just highlight … in case something happens»): the board may be
+  // behind the radio. The form then shows its conflict row with «In diesen Trupp verschieben».
+  const adds = hits.flatMap((h) => (h.kind === 'add' || h.kind === 'taken' ? [h.person] : []))
+  const free = hits.flatMap((h) => (h.kind === 'add' ? [h.person] : []))
+  const taken = hits.flatMap((h) => (h.kind === 'taken' ? [h.person] : []))
+
+  /** «Übernehmen»: straight in when everybody is free, otherwise the one question first */
+  const take = async () => {
+    if (!adds.length) return
+    if (!taken.length) { onTake(adds, []); return }
+    const movable = taken.filter((p) => transferState?.(p.id) === 'ready')
+    const ask = {
+      title: az.scanAskTitle,
+      message: az.scanAskMessage,
+      items: taken.map((p) => fillTemplate(transferState?.(p.id) === 'ready' ? az.scanAskMove
+        : transferState?.(p.id) === 'deployed' ? az.scanAskDeployed : az.scanAskStays, { name: p.displayName })),
+      confirmLabel: movable.length ? az.scanAskConfirmMove : az.scanAskConfirmAnyway,
+      cancelLabel: az.scanAskBack,
+    }
+    // «nur die Freien» only where there IS somebody free to take
+    const answer = free.length
+      ? await confirmDialog({ ...ask, altLabel: fillTemplate(az.scanAskFreeOnly, { n: free.length }) })
+      : await confirmDialog(ask)
+    if (answer === true) onTake(adds, movable.map((p) => p.id))
+    else if (answer === 'alt') onTake(free, [])
+    // false: back to the picture, every read kept – a ✕ can drop the stray one
+  }
   const drop = (id: string) => setDropped((prev) => new Set(prev).add(id))
 
   const toggleTorch = async () => {
@@ -174,25 +210,25 @@ export function TagScan({ personnel, assignedIds, chosenIds, onTake, onClose }: 
           after the take); a person to be taken carries the ✕ of the form's own crew chips. */}
       <ul className={s.hits} aria-live="polite" aria-label={fillTemplate(az.scanFound, { n: hits.length })}>
         {hits.map((h) => (
-          <li key={tagHitKey(h)} className={cx(s.hit, h.kind !== 'add' && s.hitOff)}>
+          <li key={tagHitKey(h)} className={cx(s.hit, h.kind === 'unknown' && s.hitOff, h.kind === 'taken' && s.hitTaken)}>
             {h.kind === 'unknown'
               ? az.scanUnknown
-              : h.kind === 'taken'
-                ? fillTemplate(az.scanTaken, { name: h.person.displayName })
-                : (
-                  <>
-                    {h.person.rank && <span className={s.rank}>{rankAbbr(h.person.rank)}</span>}
-                    {h.person.displayName}
-                    <IconButton className={s.drop} label={fillTemplate(az.scanDrop, { name: h.person.displayName })} onClick={() => drop(h.person.id)}>
-                      <Icon id="close" />
-                    </IconButton>
-                  </>
-                )}
+              : (
+                <>
+                  {h.person.rank && <span className={s.rank}>{rankAbbr(h.person.rank)}</span>}
+                  {h.kind === 'taken'
+                    ? <span className={s.who}>{h.person.displayName}<span className={s.note}>{az.scanTaken}</span></span>
+                    : h.person.displayName}
+                  <IconButton className={s.drop} label={fillTemplate(az.scanDrop, { name: h.person.displayName })} onClick={() => drop(h.person.id)}>
+                    <Icon id="close" />
+                  </IconButton>
+                </>
+              )}
           </li>
         ))}
       </ul>
       <SheetFoot className={s.foot}>
-        <Button variant="primary" size="lg" block className={s.take} disabled={!adds.length} onClick={take}>
+        <Button variant="primary" size="lg" block className={s.take} disabled={!adds.length} onClick={() => void take()}>
           {adds.length ? fillTemplate(az.scanTake, { n: adds.length }) : hits.length || dropped.size ? az.scanTakeNobody : az.scanTakeNone}
         </Button>
       </SheetFoot>

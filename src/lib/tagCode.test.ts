@@ -29,7 +29,7 @@ describe('tagHit', () => {
     expect(tagHit(tagPayload('a'), roster, none, none)).toEqual({ kind: 'add', person: roster.get('a') })
   })
 
-  it('refuses a person in another active Trupp, as the picker does', () => {
+  it('marks a person in another active Trupp as taken', () => {
     expect(tagHit(tagPayload('a'), roster, new Set(['a']), none)?.kind).toBe('taken')
   })
 

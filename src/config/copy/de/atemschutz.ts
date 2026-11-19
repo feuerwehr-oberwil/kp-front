@@ -169,7 +169,20 @@ export const atemschutzCopy = {
     // …and once tags WERE read, but every one is taken or unknown: «noch kein Tag» would be untrue
     scanTakeNobody: 'Niemand zum Übernehmen',
     scanDrop: '{name} nicht übernehmen',
-    scanTaken: '{name} · schon in einem Trupp',
+    scanTaken: 'schon in einem Trupp',
+    // Die EINE Frage, wenn beim «Übernehmen» jemand schon in einem anderen aktiven Trupp ist
+    // (Owner, Sign-off-Runde 2): verschieben und alle übernehmen · nur die Freien · zurück zum
+    // Scan (ein Tag lag versehentlich im Bild). Wer in einem Trupp ist, der noch drin ist, wird nie
+    // stillschweigend verschoben – er kommt mit, und das Formular zeigt seine Konfliktzeile.
+    scanAskTitle: 'Schon in einem Trupp',
+    scanAskMessage: 'Diese Personen sind bereits in einem anderen aktiven Trupp:',
+    scanAskMove: '{name} – wird aus dem anderen Trupp genommen',
+    scanAskDeployed: '{name} – Trupp im Einsatz, dort korrigieren',
+    scanAskStays: '{name} – bleibt auch im anderen Trupp, dort korrigieren',
+    scanAskConfirmMove: 'Verschieben und übernehmen',
+    scanAskConfirmAnyway: 'Trotzdem übernehmen',
+    scanAskFreeOnly: 'Nur freie übernehmen ({n})',
+    scanAskBack: 'Zurück zum Scan',
     scanUnknown: 'Tag unbekannt',
     scanFound: '{n} erkannt',
     // Das EINE, was unter der Chip-Zeile noch steht (09.09., Feldtest: die alte Zeile war

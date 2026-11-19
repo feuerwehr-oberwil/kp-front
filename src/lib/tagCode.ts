@@ -27,8 +27,8 @@ export function personIdFromTag(text: string): string | undefined {
 /**
  * What one scanned tag does to the Trupp being formed:
  *  · `add`     – an active roster person, free to go: into the Trupp.
- *  · `taken`   – in another ACTIVE Trupp: shown, not added – one person, one Trupp, exactly what
- *                the picker greys out (TruppTeam · `assignedIds`).
+ *  · `taken`   – in another ACTIVE Trupp: added TOO, but marked (TagScan; the board may be behind
+ *                the radio). The form then shows its conflict row and the move.
  *  · `here`    – already standing in this form: nothing to do, and nothing to say either.
  *  · `unknown` – our code, but no active roster row (left the Wehr, a tag of another station).
  */

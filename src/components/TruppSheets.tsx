@@ -552,7 +552,7 @@ export function TruppSheet({ t, personnel, legacyRoster, presentIds, stationIds,
       <div ref={teamRef} className={s.field}>
         <TruppTeam value={team} onChange={setTeam} phone
           personnel={personnel} legacyRoster={legacyRoster} presentIds={presentIds} stationIds={stationIds}
-          assignedIds={assignedIds} rolesById={rolesById} />
+          assignedIds={assignedIds} rolesById={rolesById} transferState={transferState} onTransfer={onTransfer} />
       </div>
       {conflict && <TeamConflictRow conflict={conflict} toName={team[0]?.name.trim() ?? ''} onTransfer={onTransfer}
         onPoint={() => teamRef.current?.scrollIntoView?.({ block: 'center' })} />}
