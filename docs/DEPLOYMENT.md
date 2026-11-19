@@ -524,6 +524,8 @@ Release notes: <https://github.com/feuerwehr-oberwil/kp-front/releases>.
 **What the version number tells you** (see `CHANGELOG.md` for the full table): a **PATCH** bump
 is fixes only and always safe; a **MINOR** bump adds features and migrates automatically; a
 **MAJOR** bump needs you to read the notes first, because something requires operator action.
+While the version is 0.x, operator action bumps MINOR instead – so on a 0.x MINOR bump, read the
+Upgrade notes before you update (`CHANGELOG.md`, «Why still 0.x?»).
 
 - The new image carries its DB migrations; **they run automatically on boot** (D8, via
   `start.sh` → `alembic upgrade head`). When a migration is actually pending, `start.sh`

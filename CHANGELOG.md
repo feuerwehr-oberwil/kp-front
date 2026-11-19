@@ -40,7 +40,12 @@ app starts faster on a phone.
 
 **Before updating, check your Microsoft login allow-list.** Stations that use sign-in names
 must replace them with object IDs to keep Microsoft login available. PIN login continues to
-work. The database changes run automatically during the usual Compose update.
+work. The database changes run automatically during the usual Compose update. Take a backup
+first (`scripts/backup.sh`, docs/DEPLOYMENT.md §6) and note the version you run: going back to
+0.12.0 needs that backup.
+
+- **Synced objects before 11.09.2026 and never ran the one-off object repairs?** Run them on
+  0.12.0 before updating – 0.13.0 no longer has them (see Removed).
 
 - **«Mit Microsoft anmelden»: the allow-list takes object ids only.** `ENTRA_LOGIN_ACCOUNTS` no
   longer accepts a sign-in name (`anna.muster@…=amuster`): a name can be renamed and handed to
@@ -133,7 +138,9 @@ work. The database changes run automatically during the usual Compose update.
 - **Einsatz-Ablage.** Stations can enable SharePoint filing for closed, real Einsätze. A late
   photo or revised Rapport goes to the folder chosen at first filing. Material captured after
   reopening waits for the next close. Setup and delivery status are in
-  [the filing guide](docs/incident-archive.md).
+  [the filing guide](docs/incident-archive.md). A delivery with nothing to file says «keine
+  Dateien zum Ablegen» instead of an error, and an operator can recover a Rapport that was only
+  ever printed with `admin_incident_archive recover-report` (same guide).
 
 - **«Alarm aktualisiert»: a follow-up from the Leitstelle reaches the open Einsatz.** When Divera
   sends the Einsatz's own alarm again with a new address, title or Meldung, a red row in the
@@ -252,6 +259,8 @@ work. The database changes run automatically during the usual Compose update.
 
 ### Changed
 
+- **A symbol placed in a floor-pack storey drawing takes that drawing's storey** (Modul 6 and
+  every plan sheet with station-set storeys), as on the Gebäude; a Von/Bis span moves whole.
 - **Start-up on a phone.** The installed app opens on the config, session and Einsatz list it
   already holds and checks them behind the picture; iPhones show the splash instead of a black
   screen while iOS starts the app; map and plan tiles moved from the browser's Cache Storage to
@@ -266,7 +275,8 @@ work. The database changes run automatically during the usual Compose update.
   thing (amber only for open points, a hatched tag for «Übung»), every page has its actions in
   its head, motion is cut to what hides loading (no selection bounce, one pulsing Atemschutz
   alarm), phone sheets and toasts follow the finger, long names and titles stay inside their
-  cards, and no text field is under 16 px on a touch screen.
+  cards, and no form field is under 16 px on a touch screen (text typed straight onto the Plan
+  keeps the drawing's own size).
 - **Roles read out instead of offering dead buttons.** A viewer, an `el`, the Führungsansicht
   and link sessions see values where they cannot write: no handles on the Lage, no «Jetzt» on
   the Rapport, no composer in the Verlauf. Only editor and `el` devices sound a due

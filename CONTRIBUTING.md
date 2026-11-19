@@ -164,7 +164,8 @@ body is the committed CHANGELOG section. `docker-compose.yml` **pulls** that ima
 
 Pick the number by **what the update costs the operator**, not by how much code moved:
 PATCH = fixes only, MINOR = features with automatic migrations, MAJOR = operator action
-required. The table at the top of [`CHANGELOG.md`](CHANGELOG.md) is the contract.
+required. The table at the top of [`CHANGELOG.md`](CHANGELOG.md) is the contract – with its one
+0.x exception: while we are 0.x, operator action bumps MINOR and leads the Upgrade notes.
 
 Write the notes for a station commander deciding whether to update tonight – not for the
 person who wrote the diff.
