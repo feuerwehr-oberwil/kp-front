@@ -1,6 +1,5 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { StrictMode } from 'react'
 import { act, render, screen, cleanup, fireEvent, waitFor, within } from '@testing-library/react'
 import { JournalComposer, type JournalDraft } from './JournalComposer'
 import { clearAllDrafts } from '../lib/draftKeep'
@@ -577,55 +576,127 @@ describe('JournalComposer · the half-written draft', () => {
   })
 })
 
-// ── the sheet gives things up in a decided order ──────────────────────────────────────────
-// jsdom has no layout, so the numbers the ladder reads are stood in for. What is tested here is
-// the WIRING — that the sheet's own height against the room it has is what flips the class; the
-// rule itself is lib/composerFit.
-describe('JournalComposer · what gives way when the room runs out', () => {
-  const sheetHeight = (px: number) =>
-    Object.defineProperty(HTMLElement.prototype, 'scrollHeight', { configurable: true, get: () => px })
-  const screenHeight = (px: number) => { window.innerHeight = px }
-  /** a keyboard: it takes the VISUAL viewport and leaves `innerHeight` alone, the way iOS does */
-  const keyboard = (visible: number) => {
-    Object.defineProperty(window, 'visualViewport', {
-      configurable: true,
-      value: { height: visible, addEventListener: vi.fn(), removeEventListener: vi.fn() },
-    })
-  }
-  const original = window.innerHeight
-  afterEach(() => {
-    Object.defineProperty(HTMLElement.prototype, 'scrollHeight', { configurable: true, value: 0 })
-    Object.defineProperty(window, 'visualViewport', { configurable: true, value: undefined })
-    window.innerHeight = original
-  })
+// ── the one row: Art · ⏱ | □ · ONE «Anhang» (owner pick B «One row», 19.11.2026) ───────────
+describe('JournalComposer · the one row under the field', () => {
+  const C = appConfig.copy.journal
 
-  it('collapses Art and media into one symbol row rather than scrolling the sheet', async () => {
-    sheetHeight(386); screenHeight(340) // the full sheet in what a keyboard leaves of a small screen
+  it('holds mic · upload · camera behind ONE «Anhang» button – the media row is gone', async () => {
     setup()
-    await waitFor(() => expect(document.querySelector('.journal-composer')?.className).toContain('is-compact'))
-    // …and the words are still what the row is CALLED, whatever it now shows
+    for (const name of [C.record, C.attachUpload, C.photo]) expect(screen.queryByRole('button', { name })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: C.attachMenu }))
+    for (const name of [C.record, C.attachUpload, C.photo]) expect(await screen.findByRole('menuitem', { name })).toBeTruthy()
+    // the Art keeps its WORD as the name, whatever the button shows (the letter on a phone)
     expect(screen.getByRole('button', { name: 'Sofortmassnahme' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Foto' })).toBeTruthy()
   })
 
-  // ⚠️ The regression this exists for: on a `pointer: fine` tablet the card was capped against the
-  // whole screen while the keyboard ate the bottom of it. Nothing overflowed anything, so a rule
-  // that only watched the card's own overflow stayed silent — and the sheet ran under the
-  // keyboard until iOS scrolled its top off the screen.
-  it('…including when only the VISUAL viewport shrank, which is all a keyboard does', async () => {
-    sheetHeight(386); screenHeight(820); keyboard(400)
+  /** a microphone that records at once and stops on `stop()`; returns the track's stop spy */
+  const fakeMic = () => {
+    const stopTrack = vi.fn()
+    vi.stubGlobal('navigator', { ...navigator, mediaDevices: { getUserMedia: vi.fn(async () => ({ getTracks: () => [{ stop: stopTrack }] })) } })
+    class FakeRecorder {
+      mimeType = 'audio/webm'
+      ondataavailable: ((e: { data: Blob }) => void) | null = null
+      onstop: (() => void) | null = null
+      start() {}
+      stop() { this.onstop?.() }
+    }
+    vi.stubGlobal('MediaRecorder', FakeRecorder)
+    return stopTrack
+  }
+
+  // ⚠️ The one way to stop a recording must never sit behind a menu: while it runs, the lit stop
+  // control stands where the clip was, and the clip comes back once it is stopped.
+  it('puts the stop control in the clip\'s place while recording', async () => {
+    const stopTrack = fakeMic()
+    const createObjectURL = URL.createObjectURL
+    URL.createObjectURL = vi.fn(() => 'blob:clip')
+    try {
+      setup()
+      fireEvent.click(screen.getByRole('button', { name: C.attachMenu }))
+      fireEvent.click(await screen.findByRole('menuitem', { name: C.record }))
+      const stop = await screen.findByRole('button', { name: C.recordStop })
+      expect(screen.queryByRole('button', { name: C.attachMenu })).toBeNull()
+      fireEvent.click(stop)
+      await waitFor(() => expect(screen.getByRole('button', { name: C.attachMenu })).toBeTruthy())
+      expect(screen.queryByRole('button', { name: C.recordStop })).toBeNull()
+      expect(stopTrack).toHaveBeenCalled()
+      expect(screen.getByRole('button', { name: C.discardAudio })).toBeTruthy()
+    } finally {
+      URL.createObjectURL = createObjectURL
+    }
+  })
+
+  // Sol review, PR #704: «Anhang» and the stop control replace each other, and the focus went with
+  // the one that left – to the field (WebKit) when started from the menu, to the page when stopped
+  // with Enter. Focus ON the leaving control moves to the one in its place; a caret elsewhere stays.
+  it('hands the focus between «Anhang» and the stop control when one replaces the other', async () => {
+    fakeMic()
+    const createObjectURL = URL.createObjectURL
+    URL.createObjectURL = vi.fn(() => 'blob:clip')
+    try {
+      setup()
+      const attach = screen.getByRole('button', { name: C.attachMenu })
+      attach.focus()
+      fireEvent.click(attach)
+      fireEvent.click(await screen.findByRole('menuitem', { name: C.record }))
+      const stop = await screen.findByRole('button', { name: C.recordStop })
+      await waitFor(() => expect(document.activeElement).toBe(stop))
+      fireEvent.click(stop)
+      await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: C.attachMenu })))
+
+      // …and a caret put in the field meanwhile is left where it is: the stop control did not hold it
+      fireEvent.click(screen.getByRole('button', { name: C.attachMenu }))
+      fireEvent.click(await screen.findByRole('menuitem', { name: C.record }))
+      const field = screen.getByRole('textbox')
+      const stop2 = await screen.findByRole('button', { name: C.recordStop })
+      await waitFor(() => expect(document.activeElement).toBe(stop2))
+      field.focus()
+      fireEvent.click(stop2)
+      await waitFor(() => expect(screen.getByRole('button', { name: C.attachMenu })).toBeTruthy())
+      expect(document.activeElement).toBe(field)
+    } finally {
+      URL.createObjectURL = createObjectURL
+    }
+  })
+
+  // Sol review round 2, PR #704: started by keyboard, then the caret put in the field while the
+  // microphone prompt is still open – the stop control must not take the focus back when access
+  // resolves
+  it('leaves a caret the user moved during the microphone prompt where it is', async () => {
+    fakeMic()
+    let grant: (s: MediaStream) => void = () => {}
+    vi.stubGlobal('navigator', { ...navigator, mediaDevices: { getUserMedia: vi.fn(() => new Promise<MediaStream>((r) => { grant = r })) } })
     setup()
-    await waitFor(() => expect(document.querySelector('.journal-composer')?.className).toContain('is-compact'))
+    const attach = screen.getByRole('button', { name: C.attachMenu })
+    attach.focus()
+    fireEvent.click(attach)
+    fireEvent.click(await screen.findByRole('menuitem', { name: C.record }))
+    const field = screen.getByRole('textbox')
+    field.focus()
+    grant({ getTracks: () => [{ stop: () => {} }] } as unknown as MediaStream)
+    await screen.findByRole('button', { name: C.recordStop })
+    expect(document.activeElement).toBe(field)
   })
 
-  // ⚠️ Rendered the way the APP renders it. Both of the rungs' failures in the field were invisible
-  // to a plain render: the measure's «one frame is already pending» guard held a cancelled frame
-  // id, and StrictMode's mount → clean up → mount is exactly the sequence that leaves one behind,
-  // so the ladder never measured again in the real app while every test here passed.
-  it('…and still measures after a StrictMode mount, clean-up and mount again', async () => {
-    sheetHeight(386); screenHeight(340)
-    render(<StrictMode><JournalComposer onSubmit={vi.fn()} onClose={vi.fn()} /></StrictMode>)
-    await waitFor(() => expect(document.querySelector('.journal-composer')?.className).toContain('is-compact'))
+  // …and the same for focus in ANOTHER menu (the clock's) – only the closing «Anhang» menu counts
+  // as «nowhere of its own» (CodeRabbit on #704)
+  it('leaves focus in another menu where it is when microphone access resolves', async () => {
+    fakeMic()
+    let grant: (s: MediaStream) => void = () => {}
+    vi.stubGlobal('navigator', { ...navigator, mediaDevices: { getUserMedia: vi.fn(() => new Promise<MediaStream>((r) => { grant = r })) } })
+    setup()
+    const attach = screen.getByRole('button', { name: C.attachMenu })
+    attach.focus()
+    fireEvent.click(attach)
+    fireEvent.click(await screen.findByRole('menuitem', { name: C.record }))
+    const other = document.body.appendChild(document.createElement('div'))
+    other.setAttribute('role', 'menu')
+    const row = other.appendChild(document.createElement('button'))
+    row.focus()
+    grant({ getTracks: () => [{ stop: () => {} }] } as unknown as MediaStream)
+    await screen.findByRole('button', { name: C.recordStop })
+    expect(document.activeElement).toBe(row)
+    other.remove()
   })
 
   // ⚠️ The rows have to BE the frame's children. They sat inside a `display: contents` wrapper —
@@ -692,13 +763,6 @@ describe('JournalComposer · what gives way when the room runs out', () => {
       geoWait = null
       URL.createObjectURL = createObjectURL
     }
-  })
-
-  it('leaves the sheet alone while it fits', async () => {
-    sheetHeight(386); screenHeight(900)
-    setup()
-    await waitFor(() => expect(document.querySelector('.jc-controls')).toBeTruthy())
-    expect(document.querySelector('.journal-composer')?.className).not.toContain('is-compact')
   })
 })
 

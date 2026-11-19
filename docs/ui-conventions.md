@@ -1040,7 +1040,9 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
   - *Colour of a mention is not a state* (29.09.2026, owner pick A): every recognised word in the
     Verlauf – vehicle, partner, Trupp, person, material, group – is **medium (500) `--ink`**
     (`.jr-link`; bold until 05.11.2026, owner pick A5), prose regular, and in the composer one
-    blue wash / one blue suggestion tint (`.jc-text-marks mark`, `.jc-phrase-link`). Red and amber
+    blue wash on the marked name in the field (`.jc-text-marks mark`). The composer's suggestion
+    chips are ONE borderless ink wash, name or phrase or «EL →» alike (owner pick 6B, 18.11.2026:
+    words to insert = wash, a choice = a `.useg` track, an act = a framed plate). Red and amber
     are for alarms and warnings only; a routine «Ausrücken TLF» in the station red read as the
     loudest row on a page that carries real Atemschutz alarms. The composer's phrase chips wear
     the one corner (`--r-sm`), never a pill.

@@ -211,18 +211,13 @@
      platform's grey wash (which lingers on the chip a beat after the finger is gone) */
   -webkit-tap-highlight-color: transparent;
   background: var(--ink-8); }
-/* a NAME suggestion is a different offer from a Textbaustein — it completes the WORD under the
-   cursor rather than the sentence, and what it carries is the spelling the rest of the app uses.
-   The tints carry a touch more colour than they did as outlined chips: the border used to do
-   half the work of telling them apart. */
-/* ONE tint for every kind of name (29.09.2026) — the Verlauf's own rule: a vehicle offered in the
-   station red and a partner in warning amber read as alarm and warning, and the kind of a word is
-   not a state. */
-.jc-phrase-link { background: var(--blue-16); color: var(--blue-strong); }
-/* Spelling help — «AS», «RWA», «1. OG» (journalLinks · plain). The QUIETEST chip in the row on
-   purpose: it is the only one that does not name a thing the Einsatz has a record of, and it
-   leaves no mark behind in the Verlauf either, so it must not look like a name. */
-.jc-link-term { background: var(--ink-5); color: var(--ink-dim); }
+/* ⚠️ ONE wash for every chip that INSERTS WORDS – a Textbaustein, a name, a spelling help
+   («1. OG»), the «EL →» opener (owner pick 6B, 18.11.2026: «inconsistent color use»). They were
+   four tints – blue for a name and the opener, a fainter grey for a term – and blue on this sheet
+   is «chosen» (ui-conventions · Blue means «chosen»): a blue chip in the row above the blue
+   «Info» read as a second selection. The words still tell a name apart: its hint (`· Trupp 2`),
+   and the blue mark it leaves in the field once taken. The one chip that does NOT insert words –
+   «Meldung zu …», which re-files the entry – keeps its amber (.jc-phrase-pendenz). */
 /* ⚠️ HOVER ONLY WHERE A POINTER CAN LEAVE AGAIN — the same instrument the Ebenen list uses
    (05-navrail.css · .lrow). On a touchscreen :hover sticks to whatever was tapped last, so a
    Textbaustein stayed lit long after the finger was gone; in a row whose last chip DOES change
@@ -235,83 +230,15 @@
    the finger is up, which is exactly what «tap, and the word is in the sentence» should feel like. */
 .jc-phrase:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 
-/* ── Von / Art ────────────────────────────────────────────────────────────────────────────
-   One quiet strip under the text. Deliberately NOT field-shaped: the sentence is what this
-   surface is for, and a control that looks like a required field is one that makes people
-   close the composer. So: a small label, small chips, nothing preselected, and 12px of ink. */
-.jc-meta { display: flex; flex-direction: column; gap: 8px; }
-/* THREE EQUAL COLUMNS, and no heading over them. The chips used to sit inline after a 34px
-   «ART», sized by their own text — which worked only as long as the longest one was a
-   six-letter abbreviation. «Sofortmassnahme» is the word the Verlauf prints, so it is the word
-   the chip says; at its natural width it took the whole row and pushed the other two onto a
-   second line. Equal columns keep the three Arten one row, one shape, one tap target, and the
-   long one wraps INSIDE its own chip on a narrow phone rather than truncating.
-   The «ART» eyebrow above them is gone too (2026-08-14) — it repeated what the three chips
-   already say and cost a row on a phone. The word survives as the group's accessible name. */
-/* ⚠️ 8px, the same fugue as .jc-audio / .jc-foot / .jc-due-chips. These are two three-column
-   grids sitting directly on top of each other; at 6px against 8px their vertical seams missed
-   each other by 2px and the chips came out different widths than the buttons below them —
-   which is exactly what you see before you can say what you are seeing. */
-/* ⚠️ FOUR TRACKS, and the last one is FIXED. The ○ switch is a fourth item in a three-column
-   grid, which puts it on a second row — the sheet grows a line the moment you tap it, on the one
-   surface already fighting the keyboard for every row it has. A fixed final track keeps all four
-   on one line at every width, and because the track never changes size, cycling the switch
-   through its three states moves nothing: the three chips keep the width they had. */
-.jc-meta-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) var(--tap);
-  align-items: stretch; gap: 8px; min-width: 0; }
-/* (There was a three-track fallback here for the sheet that had no ○ switch. The switch is in
-   both modes now — a Meldung sets which item it reports on with the same control — so the row
-   always has four, and a rule for a case that cannot happen is a trap for the next reader.) */
-/* ⚠️ `min-width: 0` + a break opportunity, or the long one does NOT wrap: a grid item's
-   min-width is `auto`, so «Sofortmassnahme» — one word with nowhere to break — sized its own
-   column to the whole word and hung over the right edge of a phone screen (visible in the
-   14:56 shot from 14.08.). `minmax(0, 1fr)` on the TRACK can't stop that; the item has to
-   allow it. German hyphenation splits it properly (<html lang="de">); `anywhere` is the
-   fallback for engines that don't hyphenate. */
-/* ⚠️ --r-sm, not a 999px pill: one shape for everything on this sheet that is a control (the
-   media strip, «Erfassen», these), and the rounded pill reserved for the suggestion words above.
-   Shape now says which of the two rows you are looking at, before you have read either. */
-/* ⚠️ --tap, the same height as the media buttons below them. They were 32px: a shorter band in
-   a sheet where every other row is 44, which read as a rhythm error before you could name it,
-   and a target below the gloved floor everything else on this surface respects. «Quiet» is
-   carried by the thin outline and the small type, not by being stunted. */
-.jc-chip {
-  min-width: 0; min-height: var(--tap); padding: var(--sp-1) var(--sp-2); border-radius: var(--r-sm); cursor: pointer;
-  display: inline-flex; align-items: center; justify-content: center; text-align: center;
-  border: 1px solid var(--glass-edge); background: var(--surface); color: var(--ink-dim);
-  font: var(--fw-medium) var(--fs-1) var(--body); line-height: 1.15; -webkit-tap-highlight-color: transparent;
-  /* ⚠️ Where the long word breaks is AUTHORED, not guessed (17.08.). Three engines' worth of
-     guessing were tried here and all of them broke it mid-syllable: `overflow-wrap: anywhere` and
-     `break-word` both make every character a break opportunity, and the line-breaker then takes
-     the LONGEST prefix that fits («Sofortmassn|ahme»); `hyphens: auto` needs a German dictionary
-     that is simply absent on some engines. So the label carries ONE soft hyphen at the compound
-     seam (copy · entryTypesWrap → «Sofort­massnahme»), `manual` keeps the engine from inventing
-     others, and a narrow chip reads «Sofort-massnahme». Verified with the app's own Sora at 460px
-     and 331px. */
-  -webkit-hyphens: manual; hyphens: manual;
-}
-/* ⚠️ Whenever the ○ switch is in the row it takes 44px + a gutter, and the three chips pay for
-   it: «Sofortmassnahme» then hyphenates onto a second line and the strip stands ~24px taller — so
-   the SAME card was taller as an entry than as a Meldung (which has no switch), which is exactly
-   the thing this row is fought over to avoid. Tied to the switch's presence rather than to a
-   viewport width, because that is what actually takes the space; a phone hits it at 360px and a
-   desktop hits it too, since the sheet is 460px wide there and no wider.
-   ⚠️ Verify this with the app's OWN font. Measured first against a test page that fell back to
-   system-ui, which reported one line at every width while Sora wrapped in the real sheet. */
-.jc-meta-row:has(.jc-openwrap) { gap: var(--sp-1); }
-.jc-meta-row:has(.jc-openwrap) .jc-chip { padding: var(--sp-1); font-size: var(--fs-1); }
-/* gated like the chips above it: these DO have a selected state (.on), so a hover left behind by
-   a finger is a lie about which Art this entry carries */
-@media (hover: hover) {
-  .jc-chip:hover { color: var(--ink); border-color: var(--ink-faint); }
-}
-/* THE choice fill (01-tokens · --sel), never --accent: --accent is the deployment's brand red */
-.jc-chip.on { color: var(--on-sel); font-weight: var(--fw-bold); background: var(--sel); border-color: var(--sel); }
-/* the three Arten carry their own colour ONCE CHOSEN — the same fill, in their tone (as the
-   Suche's toned chips); an unchosen row stays uniform, so nothing on it competes with the text
-   field above it */
-.jc-chip.jc-type-auftrag.on { color: var(--on-amber); background: var(--amber); border-color: var(--amber); }
-.jc-chip.jc-type-sofort.on { color: var(--on-accent-ink); background: var(--accent); border-color: var(--accent); }
+/* ── the Art: one track of three (10-journal · .jc-row, look B 18.11.2026) ──────────────────
+   The options are `.useg-btn` in a `.useg` track – the Segmented look, so the shape, the 38px
+   option inside a 44px control, the ink and the blue «chosen» fill are the app's one segmented
+   spec. What stays here is what only the Art has: its tones. */
+/* «Info» takes THE choice fill (`.useg-btn.on` · --sel); the other two carry their own colour
+   ONCE CHOSEN — the same fill, in their tone (as the Suche's toned chips); an unchosen track
+   stays uniform, so nothing on it competes with the text field above it */
+.jc-chip.jc-type-auftrag.on { color: var(--on-amber); background: var(--amber); }
+.jc-chip.jc-type-sofort.on { color: var(--on-accent-ink); background: var(--accent); }
 
 /* ── «bleibt offen» ────────────────────────────────────────────────────────────────────────
    The ring, after the three Arten. It answers a DIFFERENT question than they do — they say what
@@ -339,14 +266,6 @@
    entry (see journalLinks · JournalLink.hint). */
 .jc-phrase-hint { font-style: normal; font-weight: var(--fw-medium); color: var(--ink-faint); }
 .jc-phrase-hint::before { content: " · "; }
-
-/* the empty-field opener («EL →»): the same chip, in the ink of a LINK, because that is what it
-   writes — the post, marked, the way it will look in the finished row. The phrases beside it stay
-   plain: they are words, not names. */
-/* ⚠️ No `border-color` here: `.jc-phrase` sets `border: none` on purpose, so it would style
-   nothing. The fill and the ink carry it. */
-.jc-phrase-starter { color: var(--blue-strong);
-  background: var(--blue-12); font-weight: var(--fw-bold); }
 
 /* the arrow chip — a suggestion like any other, but one character wide, so it needs its own
    minimum width or it reads as a stray mark rather than as a chip to tap. Ink of the text it
@@ -452,16 +371,12 @@
    picker now hangs off a LONG PRESS on the ○ switch (see JournalComposer), which is where «this
    entry belongs to something open» already lives. */
 
-/* the grid cell the ring lives in — its menu is anchored to the ring itself */
-.jc-openwrap { position: relative; display: grid; min-width: 0; }
-/* ⚠️ The clock shares the shell but NOT the class: `.jc-open` means «the ring», and one selector
-   answering to two controls is how a rule written for one of them silently reaches the other. */
-.jc-open, .jc-due-btn { min-width: 0; min-height: var(--tap); padding: 0; border-radius: var(--r-sm); cursor: pointer;
-  display: grid; place-items: center; border: 1px solid var(--glass-edge); background: var(--surface);
-  color: var(--ink-faint); -webkit-tap-highlight-color: transparent; }
-@media (hover: hover) {
-  .jc-open:hover, .jc-due-btn:hover { color: var(--ink-dim); border-color: var(--ink-faint); }
-}
+/* the track cell the ring and the clock live in — each menu is anchored to its own button.
+   ⚠️ The clock shares the shell (`.useg-btn` in the ⏱ | □ track, 10-journal · .jc-when) but NOT
+   the class: `.jc-open` means «the ring», and one selector answering to two controls is how a
+   rule written for one of them silently reaches the other. */
+.jc-openwrap { position: relative; display: flex; min-width: 0; }
+.jc-open, .jc-due-btn { -webkit-tap-highlight-color: transparent; }
 .jc-ring { width: 21px; height: 21px; border-radius: var(--r-xs); border: 2px solid currentColor;
   display: grid; place-items: center; box-sizing: border-box; }
 /* ⚠️ The Pendenz's tick box, not a ring (duck sweep ENT.5, 17.11.2026): the switch draws what the
@@ -480,59 +395,18 @@
 /* offen — amber, the same ink the Pendenzen block is tinted with, so the switch and the list it
    feeds are visibly the same thing */
 .jc-open[data-state="1"] { color: var(--amber-strong);
-  background: var(--amber-16);
-  border-color: var(--amber-45); }
+  background: var(--amber-16); }
 /* dringend — red, and the only state that carries a glyph. Not pulsing: a priority is not an
    alarm, and the pulsing red in this app belongs to the überfällige Trupp. */
 .jc-open[data-state="2"] { color: var(--red-strong);
-  background: var(--red-12);
-  border-color: var(--red-45); }
+  background: var(--red-12); }
 
 /* ── the clock beside the ring: when this entry has to come back ──
    Same shell as the ring's button, so the two read as one pair of questions about this line
-   («bleibt offen» / «meldet sich») rather than as a control and a decoration.
-   ⚠️ A FIFTH TRACK, fixed like the fourth. This row is a grid of exactly as many tracks as it has
-   items (see .jc-meta-row): a fifth item in a four-track grid drops to a second line, and the
-   sheet grows a row on the surface that fights the keyboard for every one it has. */
-/* ⚠️ …and the three Art chips stop being equal thirds here — but they do NOT take the slack
-   either. Equal thirds left «Sofortmassnahme» 105px and it broke mid-word; giving the long one a
-   `1fr` fixed that and produced the opposite complaint («Info» hugging its four letters while the
-   long chip floated in 30px of air on each side). Each chip is its own width now, with the SAME
-   padding around every word, and the leftover room becomes a track of its own between the chips
-   and the two round controls — which is where a gap belongs anyway: those answer a different
-   question than the three. The long one may still shrink (`minmax(0, …)`) on a narrow phone,
-   where it wraps at the authored break point.
-   Measured with the app's own Sora at 460px and 331px. */
-.jc-meta-row:has(.jc-due-btn) {
-  grid-template-columns: max-content max-content minmax(0, max-content) 1fr var(--tap) var(--tap); }
-/* …and with the row no longer fighting for every pixel, the chips get their ordinary air back
-   (the 3px squeeze above belongs to the four-track layout without a clock). */
-.jc-meta-row:has(.jc-due-btn) .jc-chip { padding: var(--sp-1) var(--sp-3); font-size: var(--fs-1); }
-/* the two controls are PLACED, because the flexible track is the fourth: without this the clock
-   would drop into the slack column and float in the middle of the row.
-   ⚠️ POSITIONAL, not by class: `:nth-last-child(2)` is the clock and `:last-child` the ring only
-   as long as this row holds exactly three chips and those two controls. A fourth chip would
-   silently push both into the wrong tracks — if the row ever grows, place them by their own class
-   instead. */
-.jc-meta-row:has(.jc-due-btn) > :nth-last-child(2) { grid-column: 5; }
-.jc-meta-row:has(.jc-due-btn) > :last-child { grid-column: 6; }
-/* ⚠️ …and on a PHONE there is no leftover room to give away: at 331px of card the three chips and
-   the two 44px controls already want more than there is, so the slack track goes and the long
-   chip takes what is left (where it wraps at its authored break point). Equal padding is a
-   luxury of having room; below this width the choice is between a readable long chip and a
-   pretty one. Measured at 390px. */
-@media (max-width: 480px) {
-  .jc-meta-row:has(.jc-due-btn) {
-    grid-template-columns: max-content max-content minmax(0, 1fr) var(--tap) var(--tap); }
-  .jc-meta-row:has(.jc-due-btn) .jc-chip { padding: var(--sp-1) var(--sp-2); }
-  /* the placement moves with the template — five tracks, so column 6 would be an implicit one
-     (measured once: it squeezed the ring to 23px) */
-  .jc-meta-row:has(.jc-due-btn) > :nth-last-child(2) { grid-column: 4; }
-  .jc-meta-row:has(.jc-due-btn) > :last-child { grid-column: 5; }
-}
+   («bleibt offen» / «meldet sich») rather than as a control and a decoration – one track. */
 .jc-due-btn { position: relative; }
 .jc-due-btn .i { width: 17px; height: 17px; }
-.jc-due-btn[data-on] { color: var(--on-sel); background: var(--sel); border-color: var(--sel); }
+.jc-due-btn[data-on] { color: var(--on-sel); background: var(--sel); box-shadow: var(--sel-shadow); }
 /* ⚠️ The time hangs OUT of the button, absolutely positioned. Inline it would widen the control
    by ~40px, and the three Art chips are the only things in the row that can give that up — at
    which point «Sofortmassnahme» wraps and the row grows anyway. A lit clock alone says «something
