@@ -457,7 +457,10 @@ first (`scripts/backup.sh`, docs/DEPLOYMENT.md §6) and note the version you run
   at patched versions. Two dated audit exceptions, both for development tooling only and both
   until 2026-12-31: minimatch (GHSA-g3hv-75wg-m249) and picomatch (GHSA-fc5q-39xc-vjpf, no
   patched release yet). The audit fails if picomatch reaches a production dependency.
-- <!-- lead: ReDoS fix PR -->
+- **No more slow regexes on hostile text** (#706). An editor could send an SVG glyph full of
+  unclosed `<!--` in a workspace save and keep the server busy for seconds per save; a very long
+  address in the search box did the same. The SVG scrub and the address parsers are now linear,
+  and an unclosed comment, CDATA section or `<script` in a glyph is dropped to its end.
 
 ## [0.12.0] – 2026-10-13
 
