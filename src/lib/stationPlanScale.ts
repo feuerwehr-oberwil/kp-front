@@ -150,6 +150,10 @@ const notify = () => listeners.forEach((l) => l())
 /** Bumped by every write, so a GET that was already in the air when a local save started cannot
  *  land on top of it with the server's older answer. */
 let writeSeq = 0
+/** Reads are numbered too: a slow GET must not land on top of a later one that already answered
+ *  (a cold-start load overtaken by a refresh that picked up another device's Georeferenz). */
+let readSeq = 0
+let adoptedRead = 0
 
 /** The endpoint replaces the WHOLE document. Keep writes in call order so linking several
  *  Modules in quick succession cannot let a slower, older PUT land after the newer aggregate
@@ -213,8 +217,12 @@ async function rereadForConflict(): Promise<StationPlanScales | null> {
 }
 
 export async function loadStationPlanScales(): Promise<StationPlanScales> {
+  const seq = ++readSeq
   try {
-    if (adopt(await apiGet<StationPlanScalesWire>('/api/plan-scales'))) notify()
+    const wire = await apiGet<StationPlanScalesWire>('/api/plan-scales')
+    if (seq < adoptedRead) return resolved // a later read already answered
+    adoptedRead = seq
+    if (adopt(wire)) notify()
     return resolved
   } catch {
     // A cache HIT is a real document too — it is the last one the server confirmed to this
@@ -330,6 +338,7 @@ export async function saveStationPlanScales(next: StationPlanScales): Promise<vo
  */
 export async function refreshStationPlanScales(): Promise<void> {
   const seenWrites = writeSeq
+  const seq = ++readSeq
   let wire: StationPlanScalesWire
   try {
     wire = await apiGet<StationPlanScalesWire>('/api/plan-scales')
@@ -339,6 +348,8 @@ export async function refreshStationPlanScales(): Promise<void> {
   // a local write started while the GET was in the air — its body is newer than this answer, and
   // so is the token it came back with
   if (writeSeq !== seenWrites) return
+  if (seq < adoptedRead) return // a later read already answered
+  adoptedRead = seq
   if (adopt(wire)) notify()
 }
 

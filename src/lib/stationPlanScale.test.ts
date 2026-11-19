@@ -393,6 +393,20 @@ describe('refreshStationPlanScales — a second device picks up the change', () 
     expect(m.georefForPlan('m1')?.pairs).toHaveLength(2)
   })
 
+  it('keeps a later read when an earlier one answers late', async () => {
+    const m = await load()
+    let answerBoot = (_: unknown) => {}
+    apiGet.mockImplementationOnce(() => new Promise((r) => { answerBoot = r }))
+    const booting = m.loadStationPlanScales()
+
+    apiGet.mockResolvedValue(doc({ georefByPlan: { m1: georef(2) } }))
+    await m.refreshStationPlanScales() // overtakes the boot load with another device's Georeferenz
+    answerBoot(served({})) // …and only now the boot GET answers, with the older, empty document
+    await booting
+
+    expect(m.georefForPlan('m1')?.pairs).toHaveLength(2)
+  })
+
   it('stays silent when the server answers with what we already have', async () => {
     const m = await booted({ default: scale(100) })
     const seen = vi.fn()
