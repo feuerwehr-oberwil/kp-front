@@ -642,8 +642,7 @@ def test_the_seeded_plan_georeference_validates_and_names_a_shipped_object():
     manifest = json.loads(
         (Path(__file__).resolve().parents[2] / "examples/demo-data/objects.manifest.json").read_text()
     )
-    shipped = {o["id"]: {p["module"] for p in o.get("plans", [])} for o in manifest["objects"]}
-    for key, georef in doc.georefByPlan.items():
-        _, object_id, _, plan_id = key.split(":")
-        assert plan_id in shipped.get(object_id, set()), key
-        assert len(georef.pairs) >= 2
+    schloss = next(o for o in manifest["objects"] if o["id"] == dr.DEMO_SCHLOSS_OBJECT_ID)
+    assert "modul1" in {p["module"] for p in schloss["plans"]}
+    georef = doc.georefByPlan[f"object:{schloss['id']}:plan:modul1"]
+    assert len(georef.pairs) >= 2

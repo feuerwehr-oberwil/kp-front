@@ -223,9 +223,12 @@ const prefsCookie = (theme, mode) => {
 /** Loads the demo into `page` until the app stands, signed in if `--pin`, demo chrome hidden. */
 const openApp = async (page) => {
   await page.goto(base, { waitUntil: 'domcontentloaded' })
-  if (pin) {
-    const role = page.getByRole('button', { name: /Führungsunterstützung/ }).first()
-    await role.waitFor({ timeout: 30000 })
+  const app = page.getByRole('button', { name: 'Karte', exact: true }).first()
+  const role = page.getByRole('button', { name: /Führungsunterstützung/ }).first()
+  // Every device shot opens a fresh page in the same context, so only the first one meets the
+  // login screen – the rest arrive signed in by the session cookie.
+  if (pin) await role.or(app).first().waitFor({ timeout: 45000 })
+  if (pin && await role.isVisible()) {
     await role.click()
     for (const digit of pin) {
       await page.keyboard.press(digit)
@@ -238,7 +241,7 @@ const openApp = async (page) => {
       if (await btn.count()) await btn.first().click().catch(() => {})
     }
   }
-  await page.getByRole('button', { name: 'Karte', exact: true }).first().waitFor({ timeout: 45000 })
+  await app.waitFor({ timeout: 45000 })
   await page.addStyleTag({ content: HIDE_CSS })
   await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {})
   await page.waitForTimeout(1500)
@@ -349,6 +352,8 @@ const captureDesktop = async (browser) => {
 }
 
 const run = async () => {
+  const names = [...deviceShots, ...desktopShots].map((s) => s.name)
+  if (only && !only.some((n) => names.includes(n))) throw new Error(`--only matches no shot (${[...new Set(names)].join(', ')})`)
   const browser = await chromium.launch()
   try {
     if (!docsOnly) for (const theme of themes) await captureDevices(browser, theme)

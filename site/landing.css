@@ -911,13 +911,17 @@ section.close { text-align: center; }
 .close h2 { font-size: clamp(1.9rem, 4vw, 3rem); font-weight: 800; letter-spacing: -.03em; margin-top: 14px; }
 .close-p { color: var(--ink-dim); max-width: 56ch; margin: 14px auto 0; }
 .close .demo-note { margin: 18px auto 0; }
-.ways { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 40px; text-align: left; align-items: start; }
-.ways .way { box-shadow: none; padding: 18px 20px; }
-details.way { display: block; }
-details.way summary { list-style: none; display: flex; gap: 16px; cursor: pointer; }
-details.way summary::-webkit-details-marker { display: none; }
-details.way[open] { grid-column: 1 / -1; order: 9; }
-details.way form { margin-top: 6px; padding-left: 58px; max-width: 640px; }
+.close .ways { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 40px; text-align: left; align-items: start; }
+.close .way { box-shadow: none; padding: 18px 20px; }
+.close details.way { display: block; }
+.close details.way summary { list-style: none; display: flex; gap: 16px; cursor: pointer; }
+.close details.way summary::-webkit-details-marker { display: none; }
+.close details.way[open] { grid-column: 1 / -1; order: 9; }
+.close details.way form { margin-top: 6px; padding-left: 58px; max-width: 640px; }
+/* the form's own states: the sent button goes (`.btn` would otherwise beat `hidden`), and the
+   fallback address in an error may break anywhere rather than widen a 320 px page */
+.close .f-send[hidden] { display: none; }
+.close .f-note { overflow-wrap: anywhere; }
 .close-alt { margin-top: 26px; font-size: .93rem; color: var(--ink-faint); }
 .close-alt a { color: var(--ink-dim); }
 
@@ -930,9 +934,9 @@ details.way form { margin-top: 6px; padding-left: 58px; max-width: 640px; }
   section.chap:nth-of-type(even) .chap-txt { order: 0; }
   .chap .dev-ph { max-width: 260px; }
   .own { grid-template-columns: 1fr 1fr; }
-  .ways { grid-template-columns: 1fr; }
-  details.way[open] { order: 0; }
-  details.way form { padding-left: 0; }
+  .close .ways { grid-template-columns: 1fr; }
+  .close details.way[open] { order: 0; }
+  .close details.way form { padding-left: 0; }
   .split { grid-template-columns: 1fr; gap: 20px; }
 }
 @media (max-width: 700px) {

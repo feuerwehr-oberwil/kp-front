@@ -3,7 +3,7 @@ import { planDocuments } from '../data/demoIncident'
 import { objectsNearIncidentResilient, getObjectResilient, referenceUrl, type ObjectWithPlans, type ReferenceDataset } from './incidents'
 import { getApprovedPlanAlignments } from './api/reference'
 import { addPlanBindings, fillBindingFloors, incidentGeorefKey, inheritPlanBinding, type IncidentPlanBinding } from './incidentPlanBindings'
-import { georefForPlan } from './stationPlanScale'
+import { georefForPlan, loadStationPlanScales, stationPlanScalesLoaded } from './stationPlanScale'
 import { appConfig } from '../config/appConfig'
 import { modulesFromConfig, moduleViewer, moduleHiddenWithGebaeude, nearbyObjectWarnM } from './deploymentConfig'
 import { comparePlanModules, moduleCatalogue, sortPlanModuleIds } from './planOrder'
@@ -349,6 +349,11 @@ export function useObjectPlans(
     if (!targets.length) return
     let alive = true
     void (async () => {
+      // A binding freezes the station fit it reads (`georefForPlan` below), and that document is
+      // a module singleton – empty until the boot load lands. Freezing out of the empty one made
+      // a sheet's binding permanently fit-less on a cold start (the demo's Modul 1, 19.11.2026).
+      // So read it first; the load never throws, and offline the cache is the honest answer.
+      if (!stationPlanScalesLoaded()) await loadStationPlanScales()
       const out: IncidentPlanBinding[] = []
       for (const [planId, ds] of targets) {
         const sheet = {
