@@ -876,17 +876,16 @@
   /* (`.journal-composer > * { flex: none }` used to live here — it is a base rule now, in
      10-journal.css: the tablet card is the same capped flex column and clipped the same row.) */
 
-  /* ── Tastatur oben: dieselbe Leiste, nur als Symbole ──
-     With the keyboard up there are ~460px of screen left, and the full sheet needs ~600. Rather
-     than scroll it (which buries Aufnehmen · Audio · Foto below the fold exactly when a hand in
-     the field needs them), the three «what does this entry carry» buttons drop their labels. Everything stays on screen and nothing moves anywhere else: close the
-     keyboard and every word is back. The labels live in .jc-lbl for exactly this. */
+  /* ── the Art as «I · A · S» (owner, 19.11.2026: «on mobile do the same but just with I/A/S») ──
+     The one row (10-journal · .jc-row) has no room for three words beside ⏱ □ and the clip on a
+     phone, so each Art option shows its initial, three equal thirds of the track, big enough to
+     read at arm's length with a glove on. The word stays the button's name and title. */
+  .journal-composer .jc-art > .jc-chip { flex: 1 1 0; padding: var(--sp-1) 2px; font-size: var(--fs-3); }
+  .journal-composer .jc-art .jc-chip-word { display: none; }
+  .journal-composer .jc-art .jc-chip-letter { display: block; }
   /* the keyboard covers the home indicator, so the safe-area reserve below is dead space —
      16px, the same as the top, so the sheet is framed evenly */
   .journal-composer.is-kb > .jc-foot { padding-bottom: 16px; }
-  .journal-composer.is-kb .jc-rec { padding: 8px 4px; }
-  .journal-composer.is-kb .jc-rec .jc-lbl { display: none; }
-  .journal-composer.is-kb .jc-rec .i { width: 19px; height: 19px; }
   /* ⚠️ Nothing about the suggestion band is overridden here. It is ONE sideways-scrolling row
      on every screen (see .jc-phrases in 18-audio.css), so it is 44px tall with the keyboard up
      and down alike — and the reserved empty row is the same 44px, so the sheet keeps its height
