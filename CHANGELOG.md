@@ -121,8 +121,8 @@ work. The database changes run automatically during the usual Compose update.
 
 ### Known issues
 
-- **Floor packs (Modul 6): a symbol in a storey drawing other than the reference one lands about
-  90 m off on the Karte.** On the Plan it takes that drawing's storey and stands right; the Karte
+- **Floor packs (Modul 6): a symbol in a storey drawing other than the reference one lands off
+  its building on the Karte.** On the Plan it takes that drawing's storey and stands right; the Karte
   places every drawing through the one fit measured on the reference drawing. A fix is in
   progress, not in this release.
 - **The lock on a closed Einsatz is in the app only.** The server still accepts writes to the
