@@ -348,27 +348,45 @@ describe('Gebäude range edits use the same storeys on every surface', () => {
   })
 })
 
-// Sol review round 3, S2: a Gebäude symbol lent to a Modul-6 sheet, dragged from one storey
-// drawing into another (lib/floorPackBinding · withDrawingStorey hands back ONE storey, Von/Bis
-// cleared). The drop still lies on the owner's tile, so the Gebäude keeps it – on that storey.
+// Sol review rounds 3 S2 and 4 S1/S2: a Gebäude symbol lent to a Modul-6 sheet, dragged from one
+// storey drawing into another (lib/floorPackBinding · withDrawingStorey hands back ONE storey,
+// Von/Bis cleared, or a shifted span). The Gebäude keeps it: on the new tile where the stack has
+// one, on its old storey where it has none – the bar writes every frame of the drag.
 describe('a Gebäude symbol moved across a floor-pack sheet\'s storey drawings', () => {
   const STACK: PlanFit = { ...PLAN, stack: { floors: [0, 1, 2] } }
   const fits = new Map([['gebaeude', STACK], ['modul6', PLAN]])
   const original: BoardAnno = { id: 'f', kind: 'symbol', symbol: 'brand', x: .5, y: .5, floor: 1 }
-  const objects = [bakeGeoBody({ id: 'f', sheet: { planId: 'gebaeude', anno: original } }, STACK, 'taktisch')]
-  const dropped = (storey: number): BoardAnno => {
-    const { floorFrom: _f, floorTo: _t, ...lent } = sheetAnnos(objects, 'modul6', PLAN)[0]
-    return { ...lent, x: .6, storey }
+  const bake = (anno: BoardAnno) => [bakeGeoBody({ id: anno.id, sheet: { planId: 'gebaeude', anno } }, STACK, 'taktisch')]
+  const objects = bake(original)
+  /** one frame of the drag: the lent anno at `x`, in the drawing of `storey` */
+  const frame = (from: TacticalObject[], x: number, storey: number) => {
+    const { floorFrom: _f, floorTo: _t, ...lent } = sheetAnnos(from, 'modul6', PLAN)[0]
+    return applyBoardToObjects(from, 'modul6', [{ ...lent, x, storey }], PLAN, 'taktisch', true, fits)
   }
   it('is written into the stack as that storey\'s tile, and the stack shows it there', () => {
-    const moved = applyBoardToObjects(objects, 'modul6', [dropped(2)], PLAN, 'taktisch', true, fits)
+    const moved = frame(objects, .6, 2)
     expect(moved[0].sheet).toMatchObject({ planId: 'gebaeude', anno: { floor: 2, floorFrom: 2, floorTo: 2 } })
     expect(moved[0].entity).toMatchObject({ floorFrom: 2, floorTo: 2 })
     expect(sheetAnnos(moved, 'gebaeude', STACK)[0]).toMatchObject({ floor: 2 })
   })
-  it('a storey the stack has no tile for is a move off its paper: this sheet takes it', () => {
-    const moved = applyBoardToObjects(objects, 'modul6', [dropped(-1)], PLAN, 'taktisch', true, fits)
-    expect(moved[0].sheet).toMatchObject({ planId: 'modul6', anno: { storey: -1 } })
+  it('a drag that passes over a storey without a tile and lands on one with a tile ends there', () => {
+    const moved = frame(frame(objects, .6, -1), .7, 2)
+    expect(moved[0].sheet).toMatchObject({ planId: 'gebaeude', anno: { floor: 2 } })
+    expect(sheetAnnos(moved, 'gebaeude', STACK)[0]).toMatchObject({ floor: 2 })
+  })
+  it('a drop on a storey the stack has no tile for keeps the old storey', () => {
+    const moved = frame(objects, .6, -1)
+    expect(moved[0].sheet?.planId).toBe('gebaeude')
+    expect(sheetAnnos(moved, 'gebaeude', STACK)[0]).toMatchObject({ floor: 1 })
+    expect(moved[0].sheet?.anno.storey).toBeUndefined()
+  })
+  it('a span shifted onto storeys the stack has no tiles for keeps its span', () => {
+    const span: BoardAnno = { ...original, floor: 0, floorFrom: 0, floorTo: 1 }
+    const from = bake(span)
+    const shifted = (floorFrom: number, floorTo: number) =>
+      applyBoardToObjects(from, 'modul6', [{ ...sheetAnnos(from, 'modul6', PLAN)[0], x: .6, floorFrom, floorTo }], PLAN, 'taktisch', true, fits)
+    expect(shifted(3, 4)[0].sheet).toMatchObject({ planId: 'gebaeude', anno: { floor: 0, floorFrom: 0, floorTo: 1 } })
+    expect(shifted(1, 2)[0].sheet).toMatchObject({ planId: 'gebaeude', anno: { floorFrom: 1, floorTo: 2 } })
   })
 })
 

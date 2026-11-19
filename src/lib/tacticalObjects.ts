@@ -184,6 +184,9 @@ function pick<T extends object, K extends readonly (keyof T)[]>(o: T, keys: K): 
   return out as Pick<T, K[number]>
 }
 
+/** where a symbol stands on the Gebäude stack: its tile, its span, a badge */
+const STOREY_KEYS = ['storey', 'floor', 'floorFrom', 'floorTo'] as const
+
 /**
  * ⚠️ THE shared vocabulary of a path object and its sheet anno: the fields both surfaces spell
  * the same way, in ONE list rather than two hand-kept literals — read by the bake (anno → map
@@ -695,17 +698,24 @@ export function applyBoardToObjects(
       // the position crosses exactly as a machine write's does — through the fit, each vertex
       // keeping its own storey by index (annoAfterMapEdit · path)
       let edited = annoAfterMapEdit(prev.sheet.anno, body, owner, dragged ? 'machine' : undefined)
-      // a drag into another storey drawing of a floor-pack sheet hands back ONE storey, Von/Bis
-      // cleared (floorPackBinding · withDrawingStorey). On the stack a storey is a tile, so it is
-      // written as the tile – the stack's `floor`, no span – or the bake below would read the old
-      // tile back. A storey the stack has no tile for cannot be held there (Sol review round 3, S2).
+      if (dragged && gesture && !onOwnPaper(edited)) return { ...prev, sheet: { planId, anno } }
+      // A drag into another storey drawing of a floor-pack sheet hands back ONE storey, Von/Bis
+      // cleared, or a span shifted by the drawings' step (floorPackBinding · withDrawingStorey).
+      // On the stack a storey is a tile: one the stack can hold is written as the tile – a single
+      // storey as the stack's `floor`, no span, or the bake below would read the old tile back; a
+      // span as its shifted ends. A storey the stack has NO tile for keeps the owner's storey and
+      // span as they were, exactly like a drop outside every drawing – never a hand-over: the bar
+      // writes every frame, and a drag passing over such a drawing must not take the symbol off
+      // the Gebäude (Sol review rounds 3 S2, 4 S1/S2).
       const tiles = owner?.stack?.floors
-      const crossedTo = tiles && dragged && anno.kind === 'symbol' && anno.storey != null && anno.storey !== was.storey ? anno.storey : null
-      const held = crossedTo != null && !!tiles?.includes(crossedTo)
-      if (dragged && gesture && (!onOwnPaper(edited) || (crossedTo != null && !held))) return { ...prev, sheet: { planId, anno } }
-      if (held) {
-        const { storey: _badge, floorFrom: _from, floorTo: _to, ...rest } = edited
-        edited = { ...rest, floor: crossedTo }
+      if (tiles && dragged && anno.kind === 'symbol') {
+        const single = anno.storey != null && anno.storey !== was.storey ? anno.storey : null
+        const asked = single != null ? [single]
+          : anno.floorFrom != null && anno.floorTo != null && (anno.floorFrom !== was.floorFrom || anno.floorTo !== was.floorTo) ? [anno.floorFrom, anno.floorTo]
+          : []
+        const { storey: _badge, floor: _tile, floorFrom: _from, floorTo: _to, ...rest } = edited
+        if (asked.some((storey) => !tiles.includes(storey))) edited = { ...rest, ...pick(prev.sheet.anno, STOREY_KEYS) }
+        else if (single != null) edited = { ...rest, floor: single }
       }
       // …and a derived value handed back unchanged stays derived: the stack bakes a Leitung's
       // end tag off its last vertex's storey, and the lent anno merely carries that result. Written

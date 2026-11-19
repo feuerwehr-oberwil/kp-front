@@ -50,9 +50,12 @@ AGENTS.md on 2026-10-08, wording unchanged.
     sheet: the Gebäude stack does not show another sheet's ink, and its Karte body is placed through
     the pack's ONE fit, which is measured on the reference drawing – a symbol in another drawing
     lands where that drawing's paper position puts it. A symbol the Gebäude OWNS (lent to the sheet)
-    and dragged into another drawing stays the Gebäude's while the drop lies on its tile: the new
-    storey is written as the stack's tile `floor`, Von/Bis cleared; a storey the stack has no tile
-    for moves it onto this sheet (`tacticalObjects · applyBoardToObjects`).
+    and dragged into another drawing stays the Gebäude's: the new storey is written as the stack's
+    tile `floor`, Von/Bis cleared, and a shifted span as its new ends. A storey the stack has no
+    tile for – for a span, either end – keeps the old storey or span, like a drop outside every
+    drawing; it never hands the symbol to this sheet, because the selection bar writes every frame
+    and a drag only passing over such a drawing would lose it (`tacticalObjects ·
+    applyBoardToObjects`).
   - *A storey's acts live in its LABEL* (29.09.2026). The label shows the word only («4. OG»,
     «EG», a custom name); the signed chip comes back only when a custom name hides the order. A
     tap opens a Menu «Ausblenden · Geschoss entfernen» — Ausblenden is a way of looking
