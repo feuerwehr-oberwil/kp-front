@@ -76,6 +76,7 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     scanTorch: 'Luce',
     scanTake: 'Riprendi · {n}',
     scanTakeNone: 'Nessun badge letto',
+    scanTakeNobody: 'Nessuno da riprendere',
     scanAuto: 'Riprende da solo tra un attimo',
     scanTaken: '{name} · già in una squadra',
     scanUnknown: 'Badge sconosciuto',

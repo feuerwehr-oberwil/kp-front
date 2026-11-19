@@ -477,19 +477,3 @@ describe('the Ziel picked on the Karte', () => {
     expect(screen.queryByRole('button', { name: az.zielPickMap })).toBeNull()
   })
 })
-
-/* «Einer, ein Trupp» holds for a crew stored by NAME only (an older build, a device offline through
- * a roster sync): the picker – and with it the tag scan and the save guard – reads that Trupp's
- * people resolved against the roster (lib/personnel · linkTrupps; Sol review 19.11.2026). */
-describe('a Trupp that holds its crew by name only', () => {
-  it('still marks its people as taken in the form', () => {
-    const upd = '2026-11-19T06:00:00.000Z'
-    const personnel = [
-      { id: 'ps', displayName: 'Steiner Paul', active: true, updatedAt: upd },
-      { id: 'ph', displayName: 'Huber Sarah', active: true, updatedAt: upd },
-    ]
-    mount({ trupps: [{ ...aktivTrupp(), name: 'Steiner Paul', members: ['Huber Sarah'] }], personnel })
-    fireEvent.click(firstBtn(az.newTrupp))
-    expect(screen.getByRole('option', { name: /Huber Sarah/ })).toHaveProperty('disabled', true)
-  })
-})

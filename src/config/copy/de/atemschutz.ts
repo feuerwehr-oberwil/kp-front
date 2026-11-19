@@ -166,6 +166,8 @@ export const atemschutzCopy = {
     scanTorch: 'Licht',
     scanTake: 'Übernehmen · {n}',
     scanTakeNone: 'Noch kein Tag erkannt',
+    // …and once tags WERE read, but every one is taken or unknown: «noch kein Tag» would be untrue
+    scanTakeNobody: 'Niemand zum Übernehmen',
     // steht über dem Knopf, solange er sich füllt: er übernimmt von selbst, eine Sekunde nach
     // dem letzten NEUEN Tag (Owner-Wahl 2A) – wer schneller ist, tippt.
     scanAuto: 'Übernimmt gleich von selbst',

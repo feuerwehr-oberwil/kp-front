@@ -231,7 +231,8 @@ export function TruppTeam({
   /* «Scan» (owner pick 1A, 19.11.2026): the camera reads the crew's Atemschutz tags and hands
    * back who they are (TagScan). ONE `add` for the whole crew, so the form's rank rule
    * (lib/truppLeader) crowns once, over everybody. Only where it can work: a device with a camera
-   * and a synced roster – a tag carries a roster id, and the legacy name list has none. */
+   * and a synced roster – a tag carries a roster id, and the legacy name list or a list of
+   * Einsatz-Gäste has none. */
   const camera = useHasCamera()
   const [scanning, setScanning] = useState(false)
   // who is already in, as the camera has to know it: a slot typed by NAME has no id yet but is
@@ -349,7 +350,7 @@ export function TruppTeam({
         // is a second control to a screen reader.
         placeholder={phone && value.length ? az.teamSearchMore : az.teamSearchPlaceholder}
         aria-label={az.teamSearchPlaceholder}
-        trailing={camera && personnel.length > 0 && (
+        trailing={camera && personnel.some((p) => p.active && !p.guest) && (
           <Button
             className={s.teamScan} icon={<Icon id="scan" />} title={az.scanTitle} aria-label={az.scanTitle}
             // a door, not part of the search: it must not take the field's focus (keyboard up)

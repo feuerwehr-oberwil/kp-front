@@ -195,7 +195,7 @@ export function TagScan({ personnel, assignedIds, chosenIds, onTake, onClose }: 
         <Button variant="primary" size="lg" block className={s.take} disabled={!adds.length} onClick={take}>
           {/* keyed by who is to be taken, so the fill starts over with every change to that */}
           {adds.length > 0 && <span key={addKey} className={s.fill} style={{ animationDuration: `${AUTO_TAKE_MS}ms` }} aria-hidden />}
-          <span className={s.takeLabel}>{adds.length ? fillTemplate(az.scanTake, { n: adds.length }) : az.scanTakeNone}</span>
+          <span className={s.takeLabel}>{adds.length ? fillTemplate(az.scanTake, { n: adds.length }) : hits.length ? az.scanTakeNobody : az.scanTakeNone}</span>
         </Button>
       </SheetFoot>
     </Overlay>
