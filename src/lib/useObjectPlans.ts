@@ -388,7 +388,11 @@ export function useObjectPlans(
           const floors = metadata.floors?.length ? metadata.floors : undefined
           const approved = metadata.alignments.find((a) => a.page === 0 && a.aspect > 0)
             ?? (floors ? metadata.alignments.find((a) => a.aspect > 0) : undefined)
-          out.push(inheritPlanBinding(sheet, approved ?? undefined, legacy, annotated, floors))
+          // read the board again: ink may have arrived on this sheet while the answers were out,
+          // and an annotated sheet keeps its legacy fit (inheritPlanBinding)
+          const now = bindingRef.current ?? opts
+          const inkedNow = now.legacyPlanIds.has(planId) || !!now.preserveLegacy
+          out.push(inheritPlanBinding(sheet, approved ?? undefined, georefForPlan(sheet.id), inkedNow, floors))
         } catch { /* offline and uncached — retry on the next resolve instead of freezing 'none' */ }
       }
       if (alive && out.length) {

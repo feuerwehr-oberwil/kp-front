@@ -407,6 +407,18 @@ describe('refreshStationPlanScales — a second device picks up the change', () 
     expect(m.georefForPlan('m1')?.pairs).toHaveLength(2)
   })
 
+  it('keeps a local save that landed while a load was still in the air', async () => {
+    const m = await booted({})
+    let answerLoad = (_: unknown) => {}
+    apiGet.mockImplementationOnce(() => new Promise((r) => { answerLoad = r }))
+    const loading = m.loadStationPlanScales()
+    await m.saveGeoref(KEY, georef(2)) // the operator sets a Georeferenz meanwhile
+    answerLoad(served({})) // …and the load, sent before the save, answers with the older document
+    await loading
+
+    expect(m.georefForPlan(KEY)?.pairs).toHaveLength(2)
+  })
+
   it('stays silent when the server answers with what we already have', async () => {
     const m = await booted({ default: scale(100) })
     const seen = vi.fn()

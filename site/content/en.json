@@ -132,7 +132,7 @@
     "cards": [
       {
         "h3": "Free",
-        "p": "AGPL-3.0: no licence, no subscription, no cost per device. What remains is your own cost for running it."
+        "p": "AGPL-3.0: no licence fees, no subscription, no cost per device. What remains is your own cost for running it."
       },
       {
         "h3": "On your premises",
@@ -270,7 +270,7 @@
       },
       {
         "q": "Can we adapt it to how we work?",
-        "a": "Yes. Every fire brigade has its own administration area: crew, vehicles, doctrine and\n          templates are all set there. Checklists, building plans and map layers come from your\n          own station data and are loaded with the command-line tools that ship with it. And\n          because the whole code is on <a href=\"https://github.com/feuerwehr-oberwil/kp-front\" target=\"_blank\" rel=\"noopener\">GitHub <svg class=\"ico\" style=\"width:13px;height:13px;vertical-align:-2px\"><use href=\"#i-gh\"/></svg></a>,\n          anything else can be built – by you or to your order."
+        "a": "Yes. Every fire brigade has its own administration area: crew, vehicles, doctrine and\n          templates are all set there. Checklists, building plans and map layers come from your own station data: you upload them one by one in the administration area, or many at once with the command-line tools that ship with it. And\n          because the whole code is on <a href=\"https://github.com/feuerwehr-oberwil/kp-front\" target=\"_blank\" rel=\"noopener\">GitHub <svg class=\"ico\" style=\"width:13px;height:13px;vertical-align:-2px\"><use href=\"#i-gh\"/></svg></a>,\n          anything else can be built – by you or to your order."
       },
       {
         "q": "Does KP Front only work in Switzerland?",

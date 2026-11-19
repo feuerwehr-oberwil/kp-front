@@ -218,8 +218,11 @@ async function rereadForConflict(): Promise<StationPlanScales | null> {
 
 export async function loadStationPlanScales(): Promise<StationPlanScales> {
   const seq = ++readSeq
+  const seenWrites = writeSeq
   try {
     const wire = await apiGet<StationPlanScalesWire>('/api/plan-scales')
+    // a local write started while the GET was in the air – its body is newer than this answer
+    if (writeSeq !== seenWrites) return resolved
     if (seq < adoptedRead) return resolved // a later read already answered
     adoptedRead = seq
     if (adopt(wire)) notify()

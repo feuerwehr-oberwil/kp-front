@@ -112,6 +112,19 @@ describe('object plans bind before field use', () => {
     expect(hook.result.current.effectiveBindings[0]).toMatchObject({ source: 'legacy', georef: knownLegacy })
     hook.unmount()
   })
+  it('keeps the legacy fit when ink arrives on the sheet while the approval is being asked', async () => {
+    legacy.mockReturnValue(knownLegacy)
+    let answer = (_: unknown) => {}
+    metadata.mockImplementation(() => new Promise((r) => { answer = r }))
+    const props = { legacyPlanIds: new Set<string>() }
+    const hook = renderHook(({ legacyPlanIds }) => useObjectPlans('incident', center, noop, undefined, noop, { bindings: noBindings, onBind, legacyPlanIds }), { initialProps: props })
+    await waitFor(() => expect(metadata).toHaveBeenCalled())
+    hook.rerender({ legacyPlanIds: new Set(['modul2']) }) // somebody draws on Modul 2 meanwhile
+    answer({ alignments: [{ id: 9, page: 0, aspect: 1.6, approved_at: '2026-09-08', pairs: [] }] })
+    await waitFor(() => expect(onBind).toHaveBeenCalled())
+    expect(hook.result.current.effectiveBindings[0]).toMatchObject({ source: 'legacy', georef: knownLegacy })
+    hook.unmount()
+  })
 })
 
 describe('a module the catalogue hides behind the Gebäude', () => {

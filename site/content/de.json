@@ -153,7 +153,7 @@
     "cards": [
       {
         "h3": "Kostenlos",
-        "p": "AGPL-3.0: keine Lizenz, kein Abo, keine Kosten pro Gerät. Es bleiben eure eigenen Kosten für Betrieb und Infrastruktur."
+        "p": "AGPL-3.0: keine Lizenzkosten, kein Abo, keine Kosten pro Gerät. Es bleiben eure eigenen Kosten für Betrieb und Infrastruktur."
       },
       {
         "h3": "Bei euch",
@@ -291,7 +291,7 @@
       },
       {
         "q": "Können wir es an unsere Abläufe anpassen?",
-        "a": "Ja. Jede Feuerwehr hat ihren eigenen Verwaltungsbereich: Mannschaft, Fahrzeuge,\n          Doktrin und Vorlagen sind dort frei einstellbar. Checklisten, Objektpläne und\n          Karten-Ebenen kommen aus den eigenen Stationsdaten und werden über die\n          mitgelieferten Kommandozeilen-Werkzeuge geladen. Und weil der\n          ganze Code auf <a href=\"https://github.com/feuerwehr-oberwil/kp-front\" target=\"_blank\" rel=\"noopener\">GitHub <svg class=\"ico\" style=\"width:13px;height:13px;vertical-align:-2px\"><use href=\"#i-gh\"/></svg></a>\n          steht, lässt sich alles Übrige bauen – selbst oder in Auftrag."
+        "a": "Ja. Jede Feuerwehr hat ihren eigenen Verwaltungsbereich: Mannschaft, Fahrzeuge,\n          Doktrin und Vorlagen sind dort frei einstellbar. Checklisten, Objektpläne und Karten-Ebenen kommen aus den eigenen Stationsdaten: einzeln ladet ihr sie im Verwaltungsbereich hoch, viele auf einmal mit den mitgelieferten Kommandozeilen-Werkzeugen. Und weil der\n          ganze Code auf <a href=\"https://github.com/feuerwehr-oberwil/kp-front\" target=\"_blank\" rel=\"noopener\">GitHub <svg class=\"ico\" style=\"width:13px;height:13px;vertical-align:-2px\"><use href=\"#i-gh\"/></svg></a>\n          steht, lässt sich alles Übrige bauen – selbst oder in Auftrag."
       },
       {
         "q": "Funktioniert KP Front nur in der Schweiz?",

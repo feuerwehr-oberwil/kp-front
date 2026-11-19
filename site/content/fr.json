@@ -133,7 +133,7 @@
     "cards": [
       {
         "h3": "Gratuit",
-        "p": "AGPL-3.0 : pas de licence, pas d’abonnement, pas de coût par appareil. Il reste vos propres coûts d’exploitation et d’infrastructure."
+        "p": "AGPL-3.0 : pas de frais de licence, pas d’abonnement, pas de coût par appareil. Il reste vos propres coûts d’exploitation et d’infrastructure."
       },
       {
         "h3": "Chez vous",
@@ -271,7 +271,7 @@
       },
       {
         "q": "Peut-on l’adapter à nos procédures ?",
-        "a": "Oui. Chaque corps a son propre espace d’administration : effectif, véhicules, doctrine\n          et modèles y sont librement réglables. Checklists, plans d’objet et couches\n          cartographiques proviennent de vos propres données de corps et se chargent avec les\n          outils en ligne de commande livrés. Et comme tout le code est sur\n          <a href=\"https://github.com/feuerwehr-oberwil/kp-front\" target=\"_blank\" rel=\"noopener\">GitHub <svg class=\"ico\" style=\"width:13px;height:13px;vertical-align:-2px\"><use href=\"#i-gh\"/></svg></a>,\n          tout le reste peut être construit – par vous-mêmes ou sur mandat."
+        "a": "Oui. Chaque corps a son propre espace d’administration : effectif, véhicules, doctrine\n          et modèles y sont librement réglables. Checklists, plans d’objet et couches cartographiques proviennent de vos propres données de corps : un par un, vous les téléversez dans l’espace d’administration ; en nombre, avec les outils en ligne de commande livrés. Et comme tout le code est sur\n          <a href=\"https://github.com/feuerwehr-oberwil/kp-front\" target=\"_blank\" rel=\"noopener\">GitHub <svg class=\"ico\" style=\"width:13px;height:13px;vertical-align:-2px\"><use href=\"#i-gh\"/></svg></a>,\n          tout le reste peut être construit – par vous-mêmes ou sur mandat."
       },
       {
         "q": "KP Front ne fonctionne-t-il qu’en Suisse ?",

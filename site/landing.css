@@ -916,7 +916,7 @@ section.close { text-align: center; }
 .close details.way { display: block; }
 .close details.way summary { list-style: none; display: flex; gap: 16px; cursor: pointer; }
 .close details.way summary::-webkit-details-marker { display: none; }
-.close details.way[open] { grid-column: 1 / -1; order: 9; }
+.close details.way[open] { grid-column: 1 / -1; }
 .close details.way form { margin-top: 6px; padding-left: 58px; max-width: 640px; }
 /* the form's own states: the sent button goes (`.btn` would otherwise beat `hidden`), and the
    fallback address in an error may break anywhere rather than widen a 320 px page */
@@ -935,7 +935,6 @@ section.close { text-align: center; }
   .chap .dev-ph { max-width: 260px; }
   .own { grid-template-columns: 1fr 1fr; }
   .close .ways { grid-template-columns: 1fr; }
-  .close details.way[open] { order: 0; }
   .close details.way form { padding-left: 0; }
   .split { grid-template-columns: 1fr; gap: 20px; }
 }
