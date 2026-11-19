@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { barStorey, floorPackOf, frameAspect, joinShifts, packFloorNames, packStoreys, sheetDrawings, sheetFloorsOf, storeyMove, trimmedPackFrame, withDrawingStorey } from './floorPackBinding'
+import { barStorey, boardPagesOf, floorPackOf, frameAspect, joinShifts, packFloorNames, packStoreys, sheetDrawings, sheetFloorsOf, stitchedAspect, storeyMove, trimmedPackFrame, withDrawingStorey } from './floorPackBinding'
 import type { BoardAnno } from '../types'
-import { inheritPlanBinding } from './incidentPlanBindings'
-import type { GeorefPair } from './georef'
+import { incidentGeorefForPlan, incidentGeorefKey, inheritPlanBinding, noteBoardPages, overridePlanBinding, registerIncidentPlanBindings } from './incidentPlanBindings'
+import { fitSimilarity, type GeorefPair } from './georef'
 import { applyDocToObjects, bakeGeoBody, type PlanFit } from './tacticalObjects'
 import { projectOnto } from './planProjection'
 
@@ -326,5 +326,42 @@ describe('a storey drawing reaches the ground through its join', () => {
     // …and back: a Karte symbol of the 1. OG at that ground point lands at page 2's point
     const back = projectOnto({ id: 'k', entity: { id: 'k', kind: 'symbol', symbol: 'Feuer', layer: 'lage', coord: partner, floor: 1 } }, board)!
     expect(back.x).toBeCloseTo(0.2); expect(back.y).toBeCloseTo(0.65)
+  })
+})
+
+// The station measures the pack's fit on ONE page, so its pairs are that page's fractions; a bound
+// sheet stitches every page and reads them as fractions of the whole board (FLOORS3, 19.11.2026)
+describe('a multi-page sheet: the station\'s pairs on the board', () => {
+  const a3 = (page: number) => ({ page, widthPt: 1191, heightPt: 842 })
+  const pages = [a3(0), a3(1)]
+  // 1OG = page 1, EG = page 2 – the fit's page, so the EG is the reference drawing
+  const floors = [{ page: 0, index: 1, name: '1OG' }, { page: 1, index: 0, name: 'EG' }]
+  const bound = inheritPlanBinding(sheet, { ...approval, page: 1 }, null, false, floors)
+  noteBoardPages(sheet, boardPagesOf(pages))
+  // what lib/useGeorefFits builds the sheet's fit from: the pinned pairs at the board's shape
+  const planFit = (b: typeof bound): PlanFit => {
+    const unregister = registerIncidentPlanBindings('multi', { bindings: [b], save: () => {} })
+    try {
+      const aspect = stitchedAspect(pages)!
+      return { fit: fitSimilarity(incidentGeorefForPlan(incidentGeorefKey('multi', b.id))!.pairs, aspect)!, aspect, drawings: sheetDrawings({ floors, page: 1 }, pages) }
+    } finally { unregister() }
+  }
+  const ground = (plan: PlanFit, x: number, y: number) =>
+    bakeGeoBody({ id: 'f', sheet: { planId: 'modul6', anno: { id: 'f', kind: 'symbol', symbol: 'Feuer', x, y } } }, plan, 'lage').entity!.coord
+  const near = (a: [number, number], b: { lng: number; lat: number }) => { expect(a[0]).toBeCloseTo(b.lng, 9); expect(a[1]).toBeCloseTo(b.lat, 9) }
+
+  it('a symbol at a pair point of page 2 lands on its ground point', () => {
+    const plan = planFit(bound)
+    // page 2's (x, y) is the board's (x, 0.5 + y / 2)
+    for (const p of pairs) near(ground(plan, p.plan.x, 0.5 + p.plan.y / 2), p.lngLat)
+    // …and the 1OG on page 1 lies on the EG frame as it is (no join, whole pages)
+    near(ground(plan, pairs[0].plan.x, pairs[0].plan.y / 2), pairs[0].lngLat)
+    // …and back: a Karte symbol at that ground point comes onto page 2
+    const back = projectOnto({ id: 'k', entity: { id: 'k', kind: 'symbol', symbol: 'Feuer', layer: 'lage', coord: [pairs[1].lngLat.lng, pairs[1].lngLat.lat] } }, plan)!
+    expect(back.x).toBeCloseTo(pairs[1].plan.x); expect(back.y).toBeCloseTo(0.5 + pairs[1].plan.y / 2)
+  })
+  it('an override was set on the board and stays as it is', () => {
+    const [own] = overridePlanBinding([bound], bound.id, { pairs })
+    near(ground(planFit(own), pairs[0].plan.x, pairs[0].plan.y), pairs[0].lngLat)
   })
 })

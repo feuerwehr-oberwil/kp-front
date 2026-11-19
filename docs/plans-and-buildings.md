@@ -62,6 +62,15 @@ AGENTS.md on 2026-10-08, wording unchanged.
     bodies stay as baked rather than go back to their paper position. The drawings re-bake
     silently, like the stack. ⚠️ A fit the operator re-links by hand on such a sheet is still read
     as measured on the reference drawing.
+  - *A multi-page sheet speaks board coordinates, the station's pairs one page's* (19.11.2026). The
+    station measures an approved alignment on ONE page (`AlignmentPairing` shows `#page=N`); a
+    bound sheet stitches every page. Once the renderer has told the pages, `georefForPlan` lays the
+    approved pairs onto the fit page's place on the board (`incidentPlanBindings · boardGeoref`,
+    the layout per revision from `noteBoardPages`), and the fit is solved at the board's shape
+    (`floorPackBinding · stitchedAspect`) – so the bake, the Karte raster, the pairing mode and the
+    sheet's own fit all read one frame. One page: the same numbers. An override and a legacy fit
+    were set ON the board and stay as they are. Only floor-pack sheets tell their pages today; a
+    plain multi-page sheet with a page-0 approval still reads them as board coordinates.
     *Not done:* a Trupp docked to a symbol on the Karte is drawn beside its host in screen px
     (`mapView · teamDockAnchor`); the sheet has no docking and projects its stored point, through no
     drawing (it has no storey).

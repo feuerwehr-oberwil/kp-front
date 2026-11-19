@@ -7,7 +7,7 @@ import { bakeAll, type PlanFit } from './tacticalObjects'
 import type { GeorefPair } from './georef'
 import type { PlanScales } from './workspace'
 import type { IncidentPlanBinding } from './incidentPlanBindings'
-import { incidentBindingApproved } from './incidentPlanBindings'
+import { incidentBindingApproved, noteBoardPages } from './incidentPlanBindings'
 import { liveOverlay, photoOverlay } from './planProjection'
 import {
   fitChange, fitChangeRow, fitChangeUndoLabel, fitSignature, georefPlans, handLinkRow, movedOnSheets,
@@ -17,7 +17,7 @@ import { georefForPlan, getStationPlanScales, loadStationPlanScales, stationPlan
 import { setGeorefLinkedHandler, useGeorefStorage } from './georefMode'
 import { planPreviewUrl, regionInkBox } from './pdfRaster'
 import { stackGroundFit } from './stackFit'
-import { floorPackOf, packBuildingDoc, PACK_TRIM_MS, sheetDrawings, sheetFloorsOf, trimmedPackFrame } from './floorPackBinding'
+import { boardPagesOf, floorPackOf, packBuildingDoc, PACK_TRIM_MS, sheetBindingOf, sheetDrawings, sheetFloorsOf, stitchedAspect, trimmedPackFrame } from './floorPackBinding'
 import type { SheetDrawing } from './floorPackDrawings'
 import type { PageSize } from './planTiles'
 import { buildingPackBinding } from './buildingPackBinding'
@@ -77,7 +77,8 @@ interface Args {
  * which matters — these effects run after the store's and the hydrate's, and the re-bake must see
  * the fits map the store's writers read. The one change is `log` → `histSide.current.log`, for the
  * declaration order (see Args · histSide), and the step-label ref's local name (`…Ref`, as the
- * hooks linter reads refs by name). No memo or dependency list changed.
+ * hooks linter reads refs by name). No memo or dependency list changed then;
+ * since 19.11.2026 the sheet pages sit above the fits, which `linkedPlans` solves through them.
  */
 export function useGeorefFits({
   planDocs, planScale, building, setBuilding, planBindings, activeObjectId, board, objects, rebake,
@@ -95,14 +96,27 @@ export function useGeorefFits({
   // new object on every write, so its identity changes exactly when a reference does (and once
   // more when the boot fetch lands). Read during render — it is a synchronous accessor.
   const stationScales = getStationPlanScales()
+  // The pages each floor-pack sheet's renderer loaded (components/PdfViewport · onPages, told
+  // through `onSheetPages`), kept per sheet URL for the session. Two readers: the storey drawings
+  // below, and the sheet's fit – a sheet that stitches several pages has its station pairs laid
+  // onto the fit page's place on the board (incidentPlanBindings · noteBoardPages, read back by
+  // `georefForPlan`) and is solved at the board's shape (floorPackBinding · stitchedAspect).
+  const [sheetPages, setSheetPages] = useState<ReadonlyMap<string, readonly PageSize[]>>(() => new Map())
+  const onSheetPages = useCallback((url: string, pages: readonly PageSize[]) => {
+    const binding = sheetBindingOf(planBindings, url)
+    if (binding) noteBoardPages(binding, boardPagesOf(pages))
+    setSheetPages((m) => JSON.stringify(m.get(url)) === JSON.stringify(pages) ? m : new Map(m).set(url, pages))
+  }, [planBindings])
+  const aspectOf = useCallback((p: PlanDocument) => planAspect(p, stationScales, planScale[p.id], stitchedAspect(sheetPages.get(p.imageUrl))),
+    [stationScales, planScale, sheetPages])
   // Every plan of this object that carries a usable fit, solved once per plan/pairs change. The
   // aspect each fit is taken at is recovered from the plan's calibration — see georefTwins ·
   // planAspect for why that is the right source and what happens when there is none.
   const linkedPlans = useMemo(
     // …plus whether the station APPROVED each fit, which is what lets an approved automatic
     // alignment's Ebenen row read «Verknüpft» instead of «ungemessen» (18.09.2026)
-    () => georefPlans(planDocs, georefForPlan, (p) => planAspect(p, stationScales, planScale[p.id]), incidentBindingApproved),
-    [planDocs, planScale, stationScales],
+    () => georefPlans(planDocs, georefForPlan, aspectOf, incidentBindingApproved),
+    [planDocs, aspectOf],
   )
   // …the same fits, keyed for the unified-object bake (the store's writers read this through
   // `getFits` — see the note there). aspect = widthM / scaleMPerU inverts planGroundWidthM.
@@ -196,9 +210,6 @@ export function useGeorefFits({
   // drawings: the fit is measured on the reference drawing, and a symbol in any other drawing
   // reaches the ground through that drawing's join shift (floorPackDrawings · onReference).
   // `null` = a floor pack whose pages are not known yet.
-  const [sheetPages, setSheetPages] = useState<ReadonlyMap<string, readonly PageSize[]>>(() => new Map())
-  const onSheetPages = useCallback((url: string, pages: readonly PageSize[]) => setSheetPages((m) =>
-    JSON.stringify(m.get(url)) === JSON.stringify(pages) ? m : new Map(m).set(url, pages)), [])
   const drawingsByPlan = useMemo(() => new Map(planDocs.flatMap((p): [string, SheetDrawing[] | null][] => {
     const pack = sheetFloorsOf(planBindings, p.imageUrl ?? '')
     if (!pack) return []
@@ -329,7 +340,7 @@ export function useGeorefFits({
       const row = handLinkRow(georefKey, pairs, {
         plans: planDocs,
         known: knownSheets.current,
-        aspectOf: (p) => planAspect(p, getStationPlanScales(), planScale[p.id]),
+        aspectOf,
         objects,
         bake: (all, fits) => bakeAll(all, fits, appConfig.defaults.operationalLayerId),
       })

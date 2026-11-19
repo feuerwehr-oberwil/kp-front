@@ -1,6 +1,7 @@
 // Rules for this area that span modules: docs/plans-and-buildings.md · «Automatic alignments and their approval».
 
 import type { PlanFloor } from './api/reference'
+import type { BoardBox } from './floorPackDrawings'
 import type { Georef, GeorefPair } from './georef'
 import type { Saved } from './workspace'
 import { jsonEqual } from './jsonEqual'
@@ -169,9 +170,40 @@ function findBinding(key: string) {
     return binding ? { binding, session } : undefined
   }
 }
+/**
+ * Where each page of a pinned revision lies on the board that shows it stitched (lib/planTiles ·
+ * sheetLayout, page numbers 0-based), by revision (dataset + version). The sheet's renderer tells
+ * it once it has loaded the pages (lib/useGeorefFits · onSheetPages). The layout belongs to the
+ * bytes, not to an Einsatz, so one map serves all.
+ */
+const boardPages = new Map<string, readonly BoardPage[]>()
+export interface BoardPage extends BoardBox { page: number }
+type Revision = Pick<IncidentPlanBinding, 'datasetId' | 'planVersion'>
+const revisionKey = ({ datasetId, planVersion }: Revision) => `${datasetId}@${planVersion}`
+export const noteBoardPages = (revision: Revision, pages: readonly BoardPage[]): void => { boardPages.set(revisionKey(revision), pages) }
+
+/**
+ * The pairs a bound sheet's fit is solved from, in that sheet's BOARD coordinates.
+ *
+ * The station measures an approved alignment on ONE page (admin · AlignmentPairing shows
+ * `#page=N`), so its pairs are fractions of that page. A bound sheet shows every page stitched
+ * top-down, and everything on it – ink, the pairing mode, the bake – speaks fractions of the
+ * whole board. On a multi-page sheet the two differ, and every symbol on it stood off on the
+ * Karte (FLOORS3, 19.11.2026: Langegasse's Modul 6 has 29 pages). So once the renderer has told
+ * where the fit page lies, the approved pairs are laid onto it. One page: the same numbers. An
+ * override, and a legacy fit, were set ON the board and stay as they are.
+ */
+export function boardGeoref(binding: IncidentPlanBinding): Georef {
+  const georef = effectiveBindingGeoref(binding)
+  if (binding.override || binding.source !== 'approved') return georef
+  const box = boardPages.get(revisionKey(binding))?.find((p) => p.page === binding.page)
+  if (!box) return georef
+  return { pairs: georef.pairs.map((pair) => ({ ...pair, plan: { x: box.left + pair.plan.x * box.width, y: box.top + pair.plan.y * box.height } })) }
+}
+
 export function incidentGeorefForPlan(key: string): Georef | null {
   const found = findBinding(key)
-  return found ? effectiveBindingGeoref(found.binding) : null
+  return found ? boardGeoref(found.binding) : null
 }
 /** The sheet lies on the map because the station reviewed and approved its alignment — and
  *  nobody on this incident has overridden it since. The Passung then names that provenance. */

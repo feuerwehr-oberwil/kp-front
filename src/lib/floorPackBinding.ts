@@ -1,6 +1,6 @@
 import type { PlanFloor } from './api/reference'
 import { floorKey, joinKey, referenceUrl } from './api/reference'
-import { effectiveBindingGeoref, type IncidentPlanBinding } from './incidentPlanBindings'
+import { effectiveBindingGeoref, type BoardPage, type IncidentPlanBinding } from './incidentPlanBindings'
 import { fitSimilarity, type GeorefFit } from './georef'
 import { drawingAt, UNIT_BOX, type BoardBox, type SheetDrawing } from './floorPackDrawings'
 import { withPdfPage } from './whiteboard'
@@ -215,10 +215,28 @@ export type SheetPack = Pick<IncidentPlanBinding, 'page'> & { floors: readonly P
  *  after an object switch while the Gebäude stays on the old one, has floors of its own (Sol
  *  review S1, 19.11.2026). Undefined for every sheet that is not a floor pack. */
 export function sheetFloorsOf(bindings: readonly IncidentPlanBinding[], imageUrl: string): SheetPack | undefined {
-  const url = imageUrl.replace(/#.*$/, '')
-  const b = url ? bindings.find((x) => x.floors?.length && referenceUrl(x.datasetId, x.planVersion) === url) : undefined
+  const b = sheetBindingOf(bindings.filter((x) => x.floors?.length), imageUrl)
   return b?.floors ? { floors: b.floors, page: b.page } : undefined
 }
+
+/** The binding a sheet pinned to `imageUrl` shows (lib/useObjectPlans · pin: `referenceUrl` of its
+ *  revision; a `#page=` is ignored). */
+export function sheetBindingOf(bindings: readonly IncidentPlanBinding[], imageUrl: string): IncidentPlanBinding | undefined {
+  const url = imageUrl.replace(/#.*$/, '')
+  return url ? bindings.find((x) => referenceUrl(x.datasetId, x.planVersion) === url) : undefined
+}
+
+/** Where the pages a sheet shows lie on its board (`sheetLayout`, the renderer's own layout) –
+ *  what the storey drawings are laid by, and what the station's one-page pairs are laid onto
+ *  (lib/incidentPlanBindings · noteBoardPages / boardGeoref). */
+export const boardPagesOf = (pages: readonly PageSize[]): BoardPage[] =>
+  sheetLayout(pages).boxes.map(({ page, left, top, width, height }) => ({ page: page.page, left, top, width, height }))
+
+/** The board's width / height (`fitSimilarity`'s plan aspect) when it stitches several pages, so a
+ *  fit of its board pairs is solved at the board's shape, not at the one page's the binding froze
+ *  (`georefAspect`). Undefined for one page: the binding's own aspect stands there, untouched. */
+export const stitchedAspect = (pages: readonly PageSize[] | undefined): number | undefined =>
+  pages && pages.length > 1 ? 1 / sheetLayout(pages).aspect : undefined
 
 /** The storey drawings the board shows, laid onto it the way the board lays its pages: `pages` are
  *  the pages the sheet's URL shows, in order, as the renderer loaded them (components/PdfViewport ·
@@ -230,13 +248,10 @@ export function sheetFloorsOf(bindings: readonly IncidentPlanBinding[], imageUrl
 export function sheetDrawings(pack: SheetPack | undefined, pages: readonly PageSize[] | null): SheetDrawing[] {
   if (!pack?.floors.length || !pages?.length) return []
   const { floors } = pack
-  const { boxes } = sheetLayout(pages)
+  const boxes = boardPagesOf(pages)
   const reference = packReference(floors, pack.page)
   const shifts = joinShifts(floors, reference)
-  const boxOf = (page: number): BoardBox | undefined => {
-    const b = boxes.find((x) => x.page.page === page)
-    return b && { left: b.left, top: b.top, width: b.width, height: b.height }
-  }
+  const boxOf = (page: number): BoardBox | undefined => boxes.find((x) => x.page === page)
   const ref = boxOf(reference.page) ?? UNIT_BOX
   // explicit clips first: `drawingAt` takes the first hit and the floors come in storey order, so
   // an EG whole page would mask a 1. OG region drawn on that same page (Sol review round 2, S2)
