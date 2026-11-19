@@ -7,7 +7,7 @@
 // docs/sync-and-offline.md.
 
 import type { AppMenuAlarms, FoldedMenuRow } from './components/panels/AppMenuRows'
-import { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type MutableRefObject, type ReactNode } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type MutableRefObject, type ReactNode } from 'react'
 import type { MapRef } from 'react-map-gl/maplibre'
 import './app.css'
 import { IconSprite } from './lib/icons'
@@ -37,7 +37,7 @@ import { clearAllDrafts } from './lib/draftKeep'
 import { newRowId } from './lib/ids'
 import { atemschutzDoctrine, getDeploymentConfig, deploymentDefaultCenter, isDemoMode } from './lib/deploymentConfig'
 import { countSurface } from './lib/visitBeacon'
-import { fillTemplate, formatTime } from './lib/format'
+import { fillTemplate, formatSymbolName, formatTime } from './lib/format'
 import { addSignature, shortChecksum, type ReportSignature } from './lib/reportSignature'
 import { drawingExtent } from './lib/geo'
 import { isPresent } from './lib/attendanceIntervals'
@@ -188,13 +188,14 @@ import { useRecordSlices } from './workspace/useRecordSlices'
 import { useRosterRoles } from './workspace/useRosterRoles'
 import { useMediaOutbox } from './workspace/useMediaOutbox'
 import { useLifecycleElsewhere } from './workspace/useLifecycleElsewhere'
-import { PresentationContext, usePresentation } from './workspace/usePresentation'
+import { usePresentation } from './workspace/usePresentation'
 import { isFollower } from './lib/presentation'
 import { MapRings, PresentationPill } from './components/Presentation'
-import { startTutorial, useTutorialSession } from './lib/tutorials/session'
-import { loadProgress as loadTutorialProgress, resumeFor } from './lib/tutorials/progress'
-import { tutorialEvent } from './lib/tutorials/bus'
-import { TutorialRunner } from './components/tutorial/lazy'
+import { isPracticeIncident } from './lib/practice/practiceMode'
+import type { SolveApi } from './lib/ueben/model'
+
+// «Üben»'s task card (components/ueben/UebenRunner): its own chunk, loaded on the practice Einsatz only
+const UebenRunner = lazy(() => import('./components/ueben/UebenRunner'))
 
 /** How long an edit has to sit still before it earns a Verlauf row. Long enough that a sentence
  *  being typed is ONE edit, short enough that reading the Verlauf a moment later already shows
@@ -250,8 +251,6 @@ interface WorkspaceProps {
   onOpenObjectVisits?: (objectId?: string | null) => void
   /** opens «Karte & Objekte» over this Einsatz (App · enterKarte); undefined = a link session */
   onOpenKarte?: () => void
-  /** opens App's «Üben» sheet over this Einsatz (landingSheet 'ueben'); undefined = a link session */
-  onOpenUeben?: () => void
   /** another surface («Karte & Objekte», the Objektbesuche) is in front of this Einsatz: it stays
    *  MOUNTED — its state, sync and live poll, and above all its Atemschutz alarm — but renders
    *  only the headless hosts and the alarm rows (see the `covered` return below) */
@@ -300,7 +299,7 @@ interface WorkspaceProps {
 
 export function IncidentWorkspace({
   incidentMeta, incidents, workspace, sync, forceReadOnly, tabLockLost, onTakeOverTab, onCompleteRapport, abschlussRef,
-  onSwitchIncident, onOpenHistory, onOpenObjectVisits, onOpenKarte, onOpenUeben, onOpenDivera, menuAlarms, menuFolded, onReactivateActive, onBackFromArchive,
+  onSwitchIncident, onOpenHistory, onOpenObjectVisits, onOpenKarte, onOpenDivera, menuAlarms, menuFolded, onReactivateActive, onBackFromArchive,
   covered = false, onUncover, needsReview, onReviewDone, reviewedLocallyAt, onEditMeta, lifecycleElsewhere, openCover, onOpenCoverDone,
 }: WorkspaceProps) {
   const { user, logout, asLink, isEl, linkRefused, roleReadOnly, isEditor, linkScoped } = useSessionRole(incidentMeta)
@@ -738,8 +737,6 @@ export function IncidentWorkspace({
     const r = dir === 'undo' ? undoHist.undo() : undoHist.redo()
     if (r.status === 'empty') return
     if (r.status === 'lost') { toast(appConfig.copy.undoLost, { icon: 'warn' }); return }
-    // a ↶ leaves no state a tutorial step could tell from «never placed» – it says so instead
-    tutorialEvent(dir)
     if (anchor) flashUndoCaption(anchor, fillTemplate(dir === 'undo' ? C_HIST.undoNamed : C_HIST.redoNamed, { action: undoCaption(r.entry) }))
   }
   /** A merge dropped ↶'s own step (useWorkspaceBlob · onTopDropped): the operator's next ↶ — a
@@ -866,8 +863,10 @@ export function IncidentWorkspace({
   const { viewsOpen, setViewsOpen, paletteOpen, setPaletteOpen, settingsOpen, setSettingsOpen, pickerOpen, setPickerOpen, helpOpen, setHelpOpen, installGuideOpen, setInstallGuideOpen, offlineReadyOpen, setOfflineReadyOpen, shareLink, setShareLink } = useSheets()
   /** Who may hand a link out at all — an editor on a live view, and never a link session itself
    *  (a link may not mint further links). Says nothing about WHICH link: after the Abschluss only
-   *  the read-only link is still a thing, and that is `shareDoors`' business (lib/viewLink). */
-  const canShareLink = canEditIncident && !readOnly && !linkScoped
+   *  the read-only link is still a thing, and that is `shareDoors`' business (lib/viewLink).
+   *  Never on the practice Einsatz («Üben»): a link names an Einsatz the server has never seen. */
+  const practice = isPracticeIncident(incidentMeta.id)
+  const canShareLink = canEditIncident && !readOnly && !linkScoped && !practice
   /** …and the ONE link that DIES with the Abschluss — the Truppüberwacher-Link (its session
    *  404s). A door straight to it, bypassing the sheet's own tabs, has to close when the Einsatz
    *  does, or it offers an address that never worked. Same guard the «Einsatz abschliessen» row
@@ -2389,6 +2388,18 @@ export function IncidentWorkspace({
     endDrag, flyToMapVisible, setVehicleOverrides, trupps, linkTruppLine, patchEntity, objectsRef, objects,
     setPlanFocus, focusEntity, editNoteId, user, stepLabelRef: stepLabel,
   })
+  /** «Üben»'s «Lösung» (lib/ueben · SolveApi): a placement is addSymbol's four steps – one undo
+   *  step, the layer shown, the «… platziert» Verlauf row and the `entity.add` event */
+  const uebenApi: SolveApi = {
+    addEntity: (e) => {
+      commit((d) => ({ ...d, entities: [...d.entities, e] }))
+      revealLayer(e.layer)
+      log('hex', fillTemplate(appConfig.copy.log.symbolPlaced, { name: e.label || formatSymbolName(e.symbol ?? '') }), 'symbol', undefined, e.id)
+      emit('entity.add', { id: e.id, symbol: e.symbol, entity: e })
+    },
+    patchEntity,
+    addLine: (coords, attachments) => { createLine(coords, attachments, { select: false }) },
+  }
   const {
     deleteGroup, deleteEntity, placed, goToModule, goToTrupp, viewsApi, toggleViews, selected,
     undockTeam, setEntityDone, commitEntityFields, focusDrawing, noteEntity, pick, pickShape,
@@ -2996,31 +3007,6 @@ export function IncidentWorkspace({
     />
   )
 
-  /* «Üben» – the tutorial runner (components/tutorial/TutorialRunner, its own chunk): binds a
-   * running tutorial to this Einsatz, watches the workspace, moves the steps. Mounted only while a
-   * session exists, never in a link session; in the full layout with its pill, bubble and done
-   * card, while covered without them (a run started over «Karte & Objekte» still binds there).
-   * The phone's FAB yields to the done card, so the runner says when that card stands. */
-  const tutorialSession = useTutorialSession()
-  const [tutorialEndCard, setTutorialEndCard] = useState(false)
-  // A Lern-Übung opened again without its run – a new tab, the PWA relaunched, another device –
-  // picks it up (lib/tutorials/progress · resumeFor; owner, 08.11.2026), in front only: nothing
-  // starts behind «Karte & Objekte». Safe to re-ask whenever the run goes: a pause, a finished or
-  // ended run leaves progress that `resumeFor` answers with null.
-  useEffect(() => {
-    if (tutorialSession || linkScoped || roleReadOnly || covered) return
-    const r = resumeFor(loadTutorialProgress(), incidentMeta)
-    if (r) startTutorial(r.id, { step: r.step, incidentId: incidentMeta.id })
-  }, [tutorialSession, linkScoped, roleReadOnly, covered, incidentMeta])
-  const tutorialRunner = (layer: boolean) => tutorialSession && !linkScoped && (
-    <Suspense fallback={null}>
-      <TutorialRunner layer={layer} onEndCard={layer ? setTutorialEndCard : undefined} enabled
-        incident={{ id: incidentMeta.id, title: incidentMeta.title, isExercise: incidentMeta.is_exercise }}
-        entities={doc.entities} drawings={doc.drawings} trupps={trupps} journalRows={timeline.length}
-        present={presentIds.size} mode={mode} tool={tool} palette={paletteOpen} phone={isPhone} setMode={setMode} />
-    </Suspense>
-  )
-
   /* ── Covered: another surface is in front of this Einsatz ───────────────────────────────
    *
    * «Karte & Objekte» or the Objektbesuche opened over an open Einsatz (App · screen). The
@@ -3065,7 +3051,6 @@ export function IncidentWorkspace({
             onDeploySafety={(id) => setTruppStatus(id, 'aktiv')}
           />
         )}
-        {tutorialRunner(false)}
       </>
     )
   }
@@ -3246,7 +3231,7 @@ export function IncidentWorkspace({
         setPanel, setTruppFocus, mapUI, replayActive, gpsStale, gpsAgeMs, share, onShareChangeName,
         onBackFromArchive, onReactivateActive, isPhone, phoneTools, planFit, incidents, syncStatus, journal,
         auditDelivery, closedRefusedUnexported, baseSyncStatus, lastSyncedAt, user, setSettingsOpen,
-        onSwitchIncident, onOpenHistory, onOpenObjectVisits, onOpenKarte, onOpenUeben, activeObjectId, canEditMeta, onEditMeta,
+        onSwitchIncident, onOpenHistory, onOpenObjectVisits, onOpenKarte, activeObjectId, canEditMeta, onEditMeta,
         onOpenDivera, menuAlarms, menuFolded, confirmAndComplete, abschlussMissing, canShareLink, setShareLink,
         setHelpOpen, setInstallGuideOpen, syncNow, media, logout, settingsOpen,
         helpOpen, installGuideOpen, offlineReadyOpen, shareLink,
@@ -3453,7 +3438,6 @@ export function IncidentWorkspace({
           }}
         />
       )}
-      <PresentationContext.Provider value={canShareLink ? presentation : null}>
       <WorkspaceSheets {...{
         helpOpen, setHelpOpen, shareLink, incidentMeta, setShareLink, setAtemschutzLinkOn, installGuideOpen,
         setInstallGuideOpen, offlineReadyOpen, setOfflineReadyOpen, offlineProbeUrls, sym, backendPlans,
@@ -3462,9 +3446,8 @@ export function IncidentWorkspace({
         setSettingsOpen, symbolScale, setSymbolScale, symbolCaptions, setSymbolCaptions, railLabels,
         setRailLabels, keepScreenOn,
         setKeepScreenOn, linkScoped, setFeedbackParent, setFeedbackOpen, share, setShareParent, setSharePick,
-        feedbackParent, canWriteRecord, photoPosition, setPhotoPosition, role: user?.role,
+        feedbackParent, canWriteRecord, photoPosition, setPhotoPosition,
       }} />
-      </PresentationContext.Provider>
       <PresentationPill p={presentation} overVerlauf={isPhone && journalOpen} />
       <MapRings mapRef={mapRef} rings={presentation.mapRings} strokes={presentation.mapStrokes} presenter={presentation.state?.presenter?.client ?? null} onUnmark={presentation.unmark} />
 
@@ -3480,8 +3463,7 @@ export function IncidentWorkspace({
           that says a voice memo is being taken and the only way to stop it, so an open panel or
           the composer does not unmount it, and the CSS that yields it to a tool's dock, the armed
           pill or a detail sheet lets `.rec` stay (15-mobile · «while a tool-option dock …»). */}
-      {/* …and it yields to the «Üben» done card, which stands where it would (never while recording) */}
-      {isPhone && !readOnly && !linkScoped && (voice.recording || (!composerOpen && !panel && !tutorialEndCard)) && (
+      {isPhone && !readOnly && !linkScoped && (voice.recording || (!composerOpen && !panel)) && (
         <FabEntry
           recording={voice.recording}
           recStartedAt={voice.recStartedAt}
@@ -3506,16 +3488,27 @@ export function IncidentWorkspace({
           className="file-picker" tabIndex={-1} onChange={onQuickPhotoPicked} />
       )}
 
+      {/* «Üben»: the drill's card on the practice Einsatz (lib/practice), and nowhere else. «Lösung»
+          writes through the same writers a hand uses, so ↶ takes it back step by step. */}
+      {practice && !replayActive && (
+        <Suspense fallback={null}>
+          <UebenRunner
+            doc={doc}
+            ui={{ phone: isPhone, mode, paletteOpen, tool, pending, selectedId }}
+            detailOpen={!!selectedId || !!selectedDrawingId}
+            mapRef={mapRef}
+            commit={commit}
+            api={uebenApi}
+          />
+        </Suspense>
+      )}
+
       {/* «Karte verknüpfen» runs ACROSS surfaces (Plan ⇄ Karte), so its instruction and action
           bars belong to the shell rather than to either one — on a phone the Plan is unmounted
           for the map half of every pair. Renders nothing while the mode is off. */}
       <GeorefModeBars planLabel={planDocs.find((p) => p.id === georefMode.planId)?.code} />
       {/* «Ziel für den Trupp» – the prompt and the way back while the form's Ziel is picked on a surface */}
       {zielPick === 'picking' && (mode === 'map' || mode === 'plans') && <ZielPickBar />}
-
-      {/* «Üben»: the pill, the Sprechblase, the step list, the done card – over the map chrome,
-          under the Meldeleiste (components/tutorial/TutorialLayer) */}
-      {tutorialRunner(true)}
     </div>
   )
 }

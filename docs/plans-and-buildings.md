@@ -31,6 +31,32 @@ AGENTS.md on 2026-10-08, wording unchanged.
   `grundriss · shiftStoreys`): every storey it is on shifts by the same step, a symbol's Von/Bis
   with it, the target tile lights up, one ↶. A docked line, a turn, or a step that would put any
   vertex off the stack keeps it on its storeys; a single vertex still changes storey by its own grip.
+  - *The pack's own sheet* (Modul 6, or any module whose binding carries `floors`) shows the same
+    drawings side by side on one page, or one per page. A symbol placed or moved INTO one of them takes its storey
+    – what a storey tile does on the stack (owner, 18.11.2026, `lib/floorPackBinding ·
+    withDrawingStorey`): it writes the sheet's badge `storey` (what Von/Bis shows there), or shifts
+    a Von/Bis span – two DISTINCT ends – whole by the step between the two drawings. Von alone, Bis
+    alone or Von = Bis is one storey: it becomes the drawing's `storey` and the ends are cleared.
+    Inside the drawing it came from and outside every drawing it keeps its storey, so one set by
+    hand stays; a drawing is (storey, part), so wing to wing of one storey takes the storey too.
+    Placing, the chip drag, the bar's ✥ and Cmd/Ctrl+D's nudge do it (a ⟳ turn never does); its
+    `board.move` carries the storey for the replay, a cleared field as `null` (`storeyMove`).
+    The drawings are the floors of THIS sheet's own pinned binding (`sheetFloorsOf`), never the
+    Gebäude's pack, laid onto the board with the renderer's page layout (`planTiles · sheetLayout`)
+    and the pages of the renderer's own successful load (`PdfViewport · onPages`, so «Erneut laden»
+    brings them back too; the board keeps them on every sheet, so a binding that arrives after the
+    load still finds them): a sheet without `#page=` shows every page stitched top-down. An explicit
+    clip wins over a whole-page drawing on the same page. Such a symbol stays on its
+    sheet: the Gebäude stack does not show another sheet's ink, and its Karte body is placed through
+    the pack's ONE fit, which is measured on the reference drawing – a symbol in another drawing
+    lands where that drawing's paper position puts it. A symbol the Gebäude OWNS (lent to the sheet)
+    and dragged into another drawing stays the Gebäude's: the new storey is written as the stack's
+    tile `floor`, Von/Bis cleared, and a shifted span as its new ends. A storey the stack has no
+    tile for – for a span, either end – keeps the storey or span the drag STARTED with, like a
+    drop outside every drawing, so the result depends only on where the drag starts and ends
+    (1 → 2 → 3 without a tile ends on 1, not on 2); it never hands the symbol to this sheet, because the selection bar writes every frame
+    and a drag only passing over such a drawing would lose it (`tacticalObjects ·
+    applyBoardToObjects`).
   - *A storey's acts live in its LABEL* (29.09.2026). The label shows the word only («4. OG»,
     «EG», a custom name); the signed chip comes back only when a custom name hides the order. A
     tap opens a Menu «Ausblenden · Geschoss entfernen» — Ausblenden is a way of looking

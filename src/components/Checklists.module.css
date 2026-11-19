@@ -331,11 +331,11 @@ ol.cl-items > .cl-item { padding: var(--sp-3); }
      the page as flat sections under the Rapport's eyebrow heads (17-rapport.css ·
      .report-pre-section h3), a hairline between them. (Beside the rail there is no document card
      either since review round 5: the pane is the white surface – .cl-main.) */
-  /* (48px, under the 60px page heads: it carries no tile, so it does not pay for a tile's row)
-     …and, as every page head on a phone, no band: no fill, no hairline (sweep 30.10.2026 #12,
-     Surface.module.css · the phone block) */
-  .cl-rail-toggle { padding: 12px var(--head-pad-x); font: var(--head-title); color: var(--ink);
-    background: none; border-bottom: 0; }
+  /* the page head's height, 60 (`--tap` + `--head-pad-y` twice; Sol review PR #702 – it was 48, the
+     one head on a phone that stood shorter than the others), and, as every page head on a phone, no
+     band: no fill, no hairline (sweep 30.10.2026 #12, Surface.module.css · the phone block) */
+  .cl-rail-toggle { min-height: calc(var(--tap) + 2 * var(--head-pad-y)); padding: var(--head-pad-y) var(--head-pad-x);
+    font: var(--head-title); color: var(--ink); background: none; border-bottom: 0; }
   .cl-ref { flex-direction: column; }
   /* the title is the chooser's, the category is the chip beside it — nothing to say twice */
   .cl-ref-doc-head { display: none; }

@@ -20,7 +20,7 @@ import { FilterStrip } from './FilterStrip'
 import { Menu, Overlay, Popover } from '../lib/overlays'
 import { NotfallBanner, NotfallPageHead, NotfallPageSafety, NotfallStrip, type SafetyActProps } from './AtemschutzNotfall'
 import { DoubleAssignmentBanner } from './DoubleAssignmentBanner'
-import { alarmBarFor, deriveTruppLive, safetyCandidates, safetyInside, safetyReady, truppInNotfall, earlyEntryCorrection, truppEditPatch, truppFieldGroupsChanged, truppLogName, type TruppFieldGroup, fmtClock, isAtemschutzTrupp, truppAlarm, truppFieldsOf, truppHeadName, truppInField, truppStillDeployed, truppTransferState, type TruppAlarm, type TruppLive } from '../lib/atemschutz'
+import { alarmBarFor, deriveTruppLive, safetyCandidates, safetyInside, safetyReady, truppInNotfall, earlyEntryCorrection, truppEditPatch, truppFieldGroupsChanged, truppLogName, type TruppFieldGroup, fmtClock, isAtemschutzTrupp, truppAlarm, truppFieldsOf, truppHeadName, truppInField, truppStillDeployed, truppGroupTransfer, truppTransferState, type TruppAlarm, type TruppLive, type TruppTransferState } from '../lib/atemschutz'
 import { foreignContactAgo } from '../lib/contactEcho'
 import { serverNow, serverNowIso } from '../lib/serverClock'
 import { isPresent } from '../lib/attendanceIntervals'
@@ -38,13 +38,11 @@ import type { SyncStatus } from '../lib/incidents'
 import { CLOCK_SKEW_WARN_MIN } from '../lib/syncAlert'
 import { truppOrderKey } from '../lib/useTruppActions'
 import s from './Atemschutz.module.css'
-import c from './SurfaceControls.module.css'
 import { AuftragSheet, KanalSheet, PressureSheet, TruppSheet } from './TruppSheets'
 import { ClockVal, RowEnter, TruppCard, TruppRow } from './TruppCard'
 import { tabState, tierMark } from './truppCardText'
 import { notfallStrips } from '../lib/notfall'
 import { TruppForm, type FormMode, type TruppSubmitExtra } from './TruppForm'
-import { tut } from '../lib/tutorials/anchors'
 import { beginZielPick, endZielPick, parkedAuftragSheet, parkedTruppForm, type AuftragDraft, type TruppFormOpen } from '../lib/zielPick'
 import { refuse } from '../lib/meldungenRefusal'
 
@@ -84,7 +82,7 @@ const FROZEN_ALARM: TruppAlarm = { sev: 0, reason: null, line: null }
  *  out — the quiet line's time, then the tiles fold TOGETHER, each to its glyph OVER its word
  *  (owner pick 24a, 17.11.2026 – they folded one at a time to bare glyphs on a tablet, the bell
  *  last; the handover keeps its short «Teilen» (rare-user WORDS: «Trupps teilen»), the ⚠ its count
- *  beside it; «Reihenfolge» is not on it since pick 26 – it stands in the list row under the head).
+ *  beside it; «Reihenfolge» is back on it since pick 2A, 18.11.2026 – every action in the head).
  *  «+ Trupp anmelden» folds WITH them, to + over «Trupp», the same tile told apart only by its
  *  primary fill (round 18.11.2026 #5, owner: «Stack too. Primary difference should be color.» – it
  *  folded a rank later and stood «+ Trupp anmelden» beside the stacked tiles while the title read
@@ -152,7 +150,7 @@ export function AtemschutzView({
    *  Trupp» warning's own fix (useTruppActions · transferOutOfTrupp). `toName` is the
    *  Gruppenführer of the Trupp being formed here, so the row it writes can say where they went.
    *  Absent ⇒ the warning keeps the plain sentence it has always had. */
-  transferOutOfTrupp?: (fromId: string, personId: string, toName?: string) => boolean
+  transferOutOfTrupp?: (fromId: string, personIds: readonly string[], toName?: string) => boolean
   /** «Bleibt in Trupp …» on the double-assignment band (DoubleAssignmentBanner, audit F05):
    *  takes the person out of every other active Trupp (useTruppActions · keepInOneTrupp).
    *  Absent ⇒ the band names the conflict without offering the choice. */
@@ -314,15 +312,51 @@ export function AtemschutzView({
     const roster = new Map(personnel.map((p) => [p.id, p]))
     return (t: Trupp) => truppCrewSlots(t, byName, roster)
   }, [personnel])
+  // ALL Trupps, the same source as the form's `assignedIds` below – a conflict the save guard
+  // finds must have a card the move can take the person out of, on the Link board too
   const truppOfPerson = useMemo(() => {
     const by = new Map<string, Trupp>()
-    for (const t of trupps) {
+    for (const t of allTrupps) {
       if (t.status === 'raus' || t.id === form?.trupp?.id) continue
       if (t.leaderPersonId) by.set(t.leaderPersonId, t)
       for (const id of t.memberPersonIds ?? []) by.set(id, t)
     }
     return by
-  }, [trupps, form?.trupp?.id])
+  }, [allTrupps, form?.trupp?.id])
+  /** the Trupp a person would be moved OUT of – never `skip`, the Trupp the sheet is editing: a
+   *  person recorded in both must not be taken out of the one receiving them, and the index above
+   *  keeps ONE holder per person, so with a `skip` the board is searched instead (Sol review 19.11.) */
+  const sourceOf = (personId: string, skip?: string) => skip
+    ? allTrupps.find((t) => t.id !== skip && t.status !== 'raus' && !t.removedAt
+      && (t.leaderPersonId === personId || (t.memberPersonIds ?? []).includes(personId)))
+    : truppOfPerson.get(personId)
+  const transferStateFor = (personId: string, skip?: string) => {
+    const from = sourceOf(personId, skip)
+    return truppTransferState(from, personId, from && crewSlotsOf(from))
+  }
+  /** …and for the tag scan's question: per person, whether they can go TOGETHER with the others
+   *  of their old Trupp – the very check the move makes (lib/atemschutz · truppGroupTransfer) */
+  const groupTransferStateFor = (personIds: readonly string[], skip?: string): ReadonlyMap<string, TruppTransferState> => {
+    const out = new Map<string, TruppTransferState>()
+    for (const [from, ids] of bySource(personIds, skip)) {
+      const state = truppGroupTransfer(from, ids, crewSlotsOf).state
+      for (const id of ids) out.set(id, state)
+    }
+    return out
+  }
+  const bySource = (personIds: readonly string[], skip?: string) => {
+    const groups = new Map<Trupp, string[]>()
+    for (const id of personIds) {
+      const from = sourceOf(id, skip)
+      if (from) groups.set(from, [...(groups.get(from) ?? []), id])
+    }
+    return groups
+  }
+  /** «In diesen Trupp verschieben» for one person, or the tag scan's batch: grouped by the Trupp
+   *  they come out of, so two of one crew are ONE move (useTruppActions · transferOutOfTrupp) */
+  const movePeople = (personIds: readonly string[], toName: string, skip?: string) => {
+    for (const [from, ids] of bySource(personIds, skip)) transferOutOfTrupp?.(from.id, ids, toName)
+  }
   /**
    * «zeig mir den» from THIS surface — the header's überfällig badge. The `focus` prop covers
    * the jump in from somewhere else (a locked Anwesenheit row); this is the same mark set from
@@ -1332,11 +1366,25 @@ export function AtemschutzView({
     </div>
   )
 
+  // «Entfernte Trupps» – its own menu, and the same rows in the head's «Mehr» (below)
+  const restoreItems = [
+    { kind: 'head' as const, label: az.restoreMenu },
+    ...removedTrupps.map((t) => ({
+      label: fillTemplate(az.restoreItem, { name: t.name }),
+      onClick: () => restoreTrupp(t),
+    })),
+  ]
+  // what the head's «⋯ Mehr» holds once its rare tiles have stepped into it (lib/pageHeadFit)
+  const moreItems = [
+    ...(onShareLink ? [{ label: shareLabel, onClick: onShareLink }] : []),
+    ...(canEdit && removedTrupps.length > 0 ? [...(onShareLink ? [{ kind: 'sep' as const }] : []), ...restoreItems] : []),
+  ]
+
   // ONE ROW (lib/pageHeadFit): the head folds words — the quiet line's time, the tiles' words,
   // «Trupp anmelden» → «Trupp» — until it fits, re-measured whenever what it carries changes
   const headRef = useRef<HTMLElement>(null)
   usePageHeadFit(headRef, [
-    focusMode, overdueCount > 0 && overdueCount, removedTrupps.length > 0, muted, audioBlocked,
+    focusMode, overdueCount > 0 && overdueCount, removedTrupps.length > 0, orderOffered, muted, audioBlocked,
     shareLinkActive, syncStatus, lastSyncedAt, skewLoud, canEdit,
   ].join('|'))
 
@@ -1481,7 +1529,7 @@ export function AtemschutzView({
           )}
         </div>
         {/* ⚠️ ONE group, not four siblings. `.head` used to wrap, and as direct children the badge,
-            the sort menu (in the list row since pick 26), the mute toggle and «Trupp anlegen» wrapped INDIVIDUALLY — on a phone the
+            the sort menu, the mute toggle and «Trupp anlegen» wrapped INDIVIDUALLY — on a phone the
             filter stayed up beside the title while the other two dropped to a second row. Grouped,
             they stand as one block at the right end of the one row, and on the ladder's last step
             (lib/pageHeadFit) they move to the second row together. */}
@@ -1513,9 +1561,9 @@ export function AtemschutzView({
             seconds; miss it — gloves, 3am, a second Trupp overdue — and the card was unreachable,
             even though the record itself keeps it (types · Trupp.removedAt). Shown only while there
             IS something to bring back, so an ordinary board never carries it.
-            ⚠️ Beside the badge (05.09.): it sat after the sort until then, and the one that undoes
-            something belongs nearer the badge than the one that only changes how the board is
-            looked at – which has left the head for the list row since pick 26.
+            ⚠️ BEFORE the sort menu (05.09.): the two sat the other way round, and the one that
+            undoes something belongs nearer the badge than the one that only changes how the board
+            is looked at.
             ⚠️ #archive, not #undo (08.09.2026). This header carries a REAL ↶ ↷ pair now, and two
             undo arrows in one row meaning two different things is the kind of guess nobody should
             be making at 3am. Archive is also the truer word: these cards were taken off the board
@@ -1523,19 +1571,13 @@ export function AtemschutzView({
         {canEdit && removedTrupps.length > 0 && (
           <Menu
             trigger={
-              <button type="button" className={s.orderBtn} data-fold={HEAD_FOLD.tiles} aria-label={az.restoreMenu} title={az.restoreMenu}>
+              <button type="button" className={s.orderBtn} data-fold={HEAD_FOLD.tiles} data-more aria-label={az.restoreMenu} title={az.restoreMenu}>
                 <Icon id="archive" /><span className="fold-long">{az.restoreMenu}</span>
               </button>
             }
             popupClassName="rp-print-menu"
             itemClassName={() => 'rp-print-menu-item'}
-            items={[
-              { kind: 'head' as const, label: az.restoreMenu },
-              ...removedTrupps.map((t) => ({
-                label: fillTemplate(az.restoreItem, { name: t.name }),
-                onClick: () => restoreTrupp(t),
-              })),
-            ]}
+            items={restoreItems}
           />
         )}
         {/* ⚠️ The handed-over Tafel has no TopBar at all (IncidentWorkspace · «Tafel pur»), so the
@@ -1559,56 +1601,22 @@ export function AtemschutzView({
             </button>
           </>
         )}
-        {/* «Trupps teilen»: the QR, beside the bell, because the realistic handover in an
-            Einsatz is «Handy scannen lassen» and the FU is standing on THIS page when they
-            decide to. Green while a link is live. Folded it keeps a WORD («Teilen», hill climb
-            r8, 04.11.2026: the bare QR glyph did not say «hand over» on the phone head) – glyph + word
-            in the tiles' type since r26 (Atemschutz.module · .shareBtn); only the second rank, the
-            ladder's last word, leaves the glyph alone. */}
-        {onShareLink && (
-          <button
-            type="button"
-            className={cx(s.shareBtn, shareLinkActive && s.shareOn)} data-fold={HEAD_FOLD.tiles}
-            onClick={onShareLink}
-            aria-label={shareLabel} title={shareLabel}
-          >
-            <Icon id="qr" /><span className="fold-long">{az.shareLink}</span><span className="fold-short">{az.shareLinkShort}</span>
-          </button>
-        )}
-        {/* ⚠️ Stays HERE even on the lite/phone focus board (maintainer correction, 03.09.): an
-            earlier pass moved it down beside the strip, but the review put it back — top row,
-            right side, beside the shrunk «Gespeichert» check. Only the chip strip and the
-            compact «+» actually belong in the bottom rail. */}
-        {bellButton}
-        {/* in focus mode «+ Trupp» lives in the rail beside the strip — not a second one up here */}
-        {canEdit && !focusMode && (
-          <button className={s.newBtn} data-fold={HEAD_FOLD.tiles} onClick={() => openForm('create')} aria-label={az.newTrupp} title={az.newTrupp} {...tut('trupps.new')}>
-            {/* the full word where it fits; folded with the tiles, + over the short word — never a
-                bare «+» (every button on the ASÜ board has a word) */}
-            <Icon id="plus-bold" /><span className="fold-long">{az.newTrupp}</span><span className="fold-short">{az.newTruppShort}</span>
-          </button>
-        )}
-        </div>
-      </header>
-      {/* ── the board's list row: «Reihenfolge» (owner pick 26, 17.11.2026) ──
-          The order is a question about the LIST, not an act on the board, so it left the head – which
-          keeps what acts on the whole board (Alarme · Abgeben · Alarmton · + Trupp anmelden) – for
-          the row every list has under its head (SurfaceControls, like the Verlauf's «Art»): the
-          framed tile, ↑↓ `#sort` (HEADS.1: it wore the funnel, and a lit funnel on the board that
-          exists to show overdue Trupps reads «some are hidden»), worded beside the glyph.
-          ⚠️ A MENU, not a segmented control: four options laid out in full needed ~380px, and a way
-          of LOOKING at the board is not worth a permanent strip of the screen that shows overdue
-          Trupps; the current choice shows as the radio's tick when it is opened. Not on the phone
-          board: its arrangement is fixed (see `phoneMode`). */}
-      {orderOffered && (
-        <div className={cx(c.controls, s.listRow)}>
+        {/* «Reihenfolge», beside «Trupps teilen» (round 18.11.2026 evening, owner pick 2A «Acts up»:
+            every action of a page stands in its head; it had left for a list row of its own under
+            the head on 17.11., pick 26, a row that held nothing else). ↑↓ `#sort` (HEADS.1: it wore
+            the funnel, and a lit funnel on the board that exists to show overdue Trupps reads «some
+            are hidden»); the order it is set to stands in the strip under the head (`sortStrip`).
+            ⚠️ A MENU, not a segmented control: four options laid out in full needed ~380px, and a
+            way of LOOKING at the board is not worth a permanent strip of the screen that shows
+            overdue Trupps; the current choice shows as the radio's tick when it is opened. Not on
+            the phone board: its arrangement is fixed (see `phoneMode`). */}
+        {orderOffered && (
           <Menu
             trigger={
-              <button type="button" className={c.iconBtn} aria-label={az.orderLabel} title={az.orderLabel}>
-                <Icon id="sort" /><span className={c.word} aria-hidden="true">{az.orderLabel}</span>
+              <button type="button" className={s.orderBtn} data-fold={HEAD_FOLD.tiles} aria-label={az.orderLabel} title={az.orderLabel}>
+                <Icon id="sort" /><span className="fold-long">{az.orderLabel}</span>
               </button>
             }
-            align="start"
             popupClassName="rp-print-menu"
             itemClassName={() => 'rp-print-menu-item'}
             items={[
@@ -1621,9 +1629,55 @@ export function AtemschutzView({
               },
             ]}
           />
+        )}
+        {/* «Trupps teilen»: the QR, beside the bell, because the realistic handover in an
+            Einsatz is «Handy scannen lassen» and the FU is standing on THIS page when they
+            decide to. Green while a link is live. Folded it keeps a WORD («Teilen», hill climb
+            r8, 04.11.2026: the bare QR glyph did not say «hand over» on the phone head) – glyph + word
+            in the tiles' type since r26 (Atemschutz.module · .shareBtn); only the second rank, the
+            ladder's last word, leaves the glyph alone. */}
+        {onShareLink && (
+          <button
+            type="button"
+            className={cx(s.shareBtn, shareLinkActive && s.shareOn)} data-fold={HEAD_FOLD.tiles} data-more
+            onClick={onShareLink}
+            aria-label={shareLabel} title={shareLabel}
+          >
+            <Icon id="qr" /><span className="fold-long">{az.shareLink}</span><span className="fold-short">{az.shareLinkShort}</span>
+          </button>
+        )}
+        {/* «⋯ Mehr»: where even the closed-up row cannot fit (a phone with an alarm, a removed Trupp
+            and a blocked tone – Sol review, PR #702: the head wrapped to 164px), «Entfernte Trupps»
+            and «Teilen» step into this menu instead of a second row (lib/pageHeadFit · `data-fit-more`).
+            The ⚠, the bell and «+ Trupp» never do: the alarm, its sound and the primary stay up. */}
+        {!focusMode && moreItems.length > 0 && (
+          <Menu
+            trigger={
+              <button type="button" className={s.orderBtn} data-fold={HEAD_FOLD.tiles} data-more-tile aria-label={az.headMoreWord} title={az.headMoreWord}>
+                <Icon id="more" /><span className="fold-long">{az.headMoreWord}</span>
+              </button>
+            }
+            popupClassName="rp-print-menu"
+            itemClassName={() => 'rp-print-menu-item'}
+            items={moreItems}
+          />
+        )}
+        {/* ⚠️ Stays HERE even on the lite/phone focus board (maintainer correction, 03.09.): an
+            earlier pass moved it down beside the strip, but the review put it back — top row,
+            right side, beside the shrunk «Gespeichert» check. Only the chip strip and the
+            compact «+» actually belong in the bottom rail. */}
+        {bellButton}
+        {/* in focus mode «+ Trupp» lives in the rail beside the strip — not a second one up here */}
+        {canEdit && !focusMode && (
+          <button className={s.newBtn} data-fold={HEAD_FOLD.tiles} onClick={() => openForm('create')} aria-label={az.newTrupp} title={az.newTrupp}>
+            {/* the full word where it fits; folded with the tiles, + over the short word — never a
+                bare «+» (every button on the ASÜ board has a word) */}
+            <Icon id="plus-bold" /><span className="fold-long">{az.newTrupp}</span><span className="fold-short">{az.newTruppShort}</span>
+          </button>
+        )}
         </div>
-      )}
-      {/* a re-sorted board SAYS so, under its list row, with the way back to the hand-set order
+      </header>
+      {/* a re-sorted board SAYS so, under the head, with the way back to the hand-set order
           (button sweep HEADS.3, 17.11.2026): «Reihenfolge» looked the same set to «Wie gesetzt» as
           to «Name» – the strip every narrowed list wears (components/FilterStrip) */}
       {orderOffered && order !== 'manuell' && (
@@ -1889,17 +1943,18 @@ export function AtemschutzView({
              Auftrag on the old card hit `assignedConflict`, Speichern went dead, and the
              correction was lost. `redeploy` is not this case and keeps the check: that Trupp is
              going back IN. (`assignedPersonIds` already ignores every OTHER raus Trupp, so a
-             finished crew never blocks a live form either.) */
+             finished crew never blocks a live form either.)
+             ⚠️ ALL Trupps, not the board's `trupps`: the Atemschutz-Link board shows only the
+             Atemschutz ones (`lite`), and somebody in a Trupp without PA is still in a Trupp –
+             the picker and the tag scan offered them (Sol review 19.11.2026). */
           assignedIds={form.mode === 'edit' && form.trupp?.status === 'raus' ? NO_ASSIGNED
-            : assignedPersonIds(trupps.filter((t) => t.id !== form.trupp?.id))}
+            : assignedPersonIds(allTrupps.filter((t) => t.id !== form.trupp?.id))}
           /* …and the way OUT of that conflict, in one tap (11.09.). Both halves read the same
              `truppOfPerson` index, so the state the warning shows and the Trupp the move writes
              to can never be two different cards. */
-          transferState={(personId) => { const from = truppOfPerson.get(personId); return truppTransferState(from, personId, from && crewSlotsOf(from)) }}
-          onTransfer={transferOutOfTrupp && ((personId, toName) => {
-            const from = truppOfPerson.get(personId)
-            if (from) transferOutOfTrupp(from.id, personId, toName)
-          })}
+          transferState={(personId) => transferStateFor(personId)}
+          groupTransferState={(personIds) => groupTransferStateFor(personIds)}
+          onTransfer={transferOutOfTrupp && ((personIds, toName) => movePeople(personIds, toName))}
           leitungOptions={leitungOptions(form.trupp?.id)}
           lite={!!lite}
           // ⚠️ EVERY phone, not only the handed-over one (03.09.). `compact` is `useIsPhone`, so a
@@ -1963,12 +2018,10 @@ export function AtemschutzView({
              answers the form gets (see TruppForm's props below); a Trupp that has come OUT binds
              nobody, for the reason given there */
           : <TruppSheet t={t} personnel={personnel} legacyRoster={roster} presentIds={presentIds} stationIds={stationIds} rolesById={rolesById}
-              assignedIds={t.status === 'raus' ? NO_ASSIGNED : assignedPersonIds(trupps.filter((x) => x.id !== t.id))}
-              transferState={(personId) => { const from = truppOfPerson.get(personId); return truppTransferState(from, personId, from && crewSlotsOf(from)) }}
-              onTransfer={transferOutOfTrupp && ((personId, toName) => {
-                const from = truppOfPerson.get(personId)
-                if (from) transferOutOfTrupp(from.id, personId, toName)
-              })}
+              assignedIds={t.status === 'raus' ? NO_ASSIGNED : assignedPersonIds(allTrupps.filter((x) => x.id !== t.id))}
+              transferState={(personId) => transferStateFor(personId, t.id)}
+              groupTransferState={(personIds) => groupTransferStateFor(personIds, t.id)}
+              onTransfer={transferOutOfTrupp && ((personIds, toName) => movePeople(personIds, toName, t.id))}
               onAddGuest={onAddGuest} onSave={save} onClose={close} />
       })()}
 

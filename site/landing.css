@@ -572,6 +572,32 @@ section[id] { scroll-margin-top: 76px; } /* anchor targets clear the sticky head
 .setup-foot strong { color: var(--ink-dim); font-weight: 600; }
 .setup-foot a { color: var(--ink-dim); }
 
+/* ---------- Selbst betreiben (KP Rück) ---------- */
+/* Drei Wege nebeneinander, gleich gewichtet: keiner ist «der richtige». Die Zeile
+   über dem Titel sagt, wofür der Weg steht. Unter #betrieb, weil `.way` auch die
+   Kontaktkarten heisst – ungescoped legte dieser Block sie auf den Kopf (19.11.2026). */
+#betrieb .ways { margin-top: 36px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+#betrieb .way {
+  display: flex; flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-surface);
+  padding: 20px 22px;
+}
+.way-tag {
+  font-family: var(--mono); font-size: 11.5px; font-weight: 600;
+  letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint);
+}
+#betrieb .way h3 { font-size: 1.08rem; font-weight: 700; letter-spacing: -.015em; margin-top: 8px; }
+#betrieb .way p:not(.way-tag) { font-size: .93rem; color: var(--ink-dim); margin-top: 8px; }
+#betrieb .way a {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin-top: auto; padding-top: 16px;
+  font-size: .9rem; font-weight: 600; color: var(--ink);
+}
+#betrieb .way a .ico { width: 14px; height: 14px; }
+.ways-note { margin-top: 18px; }
+
 /* ---------- contact ---------- */
 .contact-grid { margin-top: 40px; display: grid; grid-template-columns: 5fr 7fr; gap: 44px; align-items: start; }
 .contact-side h2 {
@@ -786,6 +812,7 @@ dialog.lb::backdrop { background: rgba(12, 14, 17, .9); }
   .pillars-grid { grid-template-columns: 1fr; }
   .stages { grid-template-columns: 1fr; gap: 22px; }
   .contact-grid { grid-template-columns: 1fr; gap: 28px; }
+  #betrieb .ways { grid-template-columns: 1fr; gap: 14px; }
   .fit-split { grid-template-columns: 1fr; gap: 24px; }
   .entry { grid-template-columns: 52px 16px 1fr; gap: 0 12px; }
   .sibling-grid { grid-template-columns: 1fr; gap: 34px; }
@@ -818,4 +845,137 @@ dialog.lb::backdrop { background: rgba(12, 14, 17, .9); }
     content: '→'; position: absolute; left: 0; top: 0;
     color: var(--red); font-weight: 700;
   }
+}
+
+/* ---------- device pictures (KP Front since 19.11.2026) ---------- */
+/* The app as it really looks: the screenshot with the screen's own corner radius and a thin
+   outline – no drawn bezel, no status bar. The radius is a share of the device's width (cqw),
+   taken from the real screens, so the shape holds at every size: iPhone 14 corner 47.3 pt of
+   390 (12.1 %), iPad Air 18 pt of 1180 (1.5 %). The safe-area gap is trimmed in the file
+   (capture.mjs), never here. */
+.dev { display: block; width: 100%; container-type: inline-size; }
+.dev picture { display: block; overflow: hidden; outline: 1.5px solid color-mix(in srgb, var(--ink) 55%, transparent); outline-offset: -.75px;
+  box-shadow: 0 30px 60px -24px rgba(20, 23, 27, .35), 0 2px 6px rgba(20, 23, 27, .08); }
+.dev img { display: block; width: 100%; height: auto; }
+.dev-ph picture { border-radius: 12.1cqw; }
+.dev-tab picture { border-radius: 1.5cqw; }
+.narrow-only { display: none; }
+
+/* Hero: centred, the pair below. The tablet carries the height; the phone hangs off its right
+   edge, starting below the tablet's top – so it never covers the lines above the picture. */
+.hero-center { text-align: center; }
+.hero-center h1, .hero-center .lede { margin-left: auto; margin-right: auto; }
+.hero-center .eyebrow, .hero-center .cta-row { justify-content: center; }
+.hero-center .cta-note { display: block; margin-top: 14px; }
+.duo { position: relative; max-width: 1040px; margin: 48px auto 0; padding: 0 11% 14% 0; text-align: left; }
+.duo .dev-ph { position: absolute; right: 0; top: 33%; width: 24%; }
+/* the origin line closes the hero, under the picture */
+.hero-center .fit-note { margin: 56px auto 0; }
+
+/* Chapters: what it replaces (struck through), what it becomes, the picture beside it. */
+.chap-note { padding-top: 40px; color: var(--ink-faint); font-size: .86rem; }
+section.chap {
+  display: grid; grid-template-columns: 1fr 1.15fr; gap: 64px; align-items: center;
+  padding-top: 84px; padding-bottom: 84px; border-top: 1px solid var(--line-soft);
+}
+#einsatz > section.chap:first-of-type { border-top: 0; }
+section.chap:nth-of-type(even) .chap-txt { order: 2; }
+.chap:not(:has(.dev-tab)) { grid-template-columns: 1.2fr .8fr; }
+.chap .dev-ph { max-width: 310px; margin: 0 auto; }
+.chap-was {
+  font-family: var(--mono); font-size: 12.5px; color: var(--ink-faint);
+  text-decoration: line-through; text-decoration-color: var(--red);
+}
+.chap h2 {
+  font-size: clamp(1.7rem, 3.4vw, 2.5rem); font-weight: 750; letter-spacing: -.025em; line-height: 1.08;
+  text-wrap: balance; margin-top: 10px;
+}
+.chap-txt > p:not(.chap-was) { color: var(--ink-dim); font-size: 1.04rem; margin-top: 14px; }
+.checks { list-style: none; margin: 20px 0 0; padding: 0; display: grid; gap: 9px; }
+.checks li { position: relative; padding-left: 26px; font-size: .95rem; }
+.checks li::before {
+  content: ''; position: absolute; left: 2px; top: .42em; width: 12px; height: 6px;
+  border-left: 2px solid var(--red); border-bottom: 2px solid var(--red); transform: rotate(-45deg);
+}
+
+/* Betrieb: three short answers to «what does it cost, where does it run, are we bound?». */
+.own { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 28px; }
+.own-card {
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-surface);
+  padding: 20px 22px;
+}
+.own-card h3 { font-size: 1.05rem; font-weight: 700; letter-spacing: -.01em; }
+.own-card p { color: var(--ink-dim); font-size: .93rem; margin-top: 8px; }
+.own-link { margin-top: 18px; font-size: .95rem; }
+.own-link a { color: var(--ink); font-weight: 600; }
+
+/* Features and FAQ: heading left, native <details> right. */
+.split { display: grid; grid-template-columns: 1fr 1.35fr; gap: 56px; align-items: start; }
+.acc { border-top: 1px solid var(--line); }
+.acc details { border-bottom: 1px solid var(--line); }
+.acc summary {
+  list-style: none; cursor: pointer; display: flex; align-items: baseline; gap: 14px;
+  padding: 18px 0; font-weight: 650; font-size: 1.06rem;
+}
+.acc summary::-webkit-details-marker { display: none; }
+.acc summary::after { content: '+'; margin-left: auto; font: 400 24px/1 var(--mono); color: var(--red); }
+.acc details[open] summary::after { content: '–'; }
+.acc .peek { display: block; font-weight: 400; font-size: .88rem; color: var(--ink-faint); margin-top: 4px; }
+.acc details > p, .acc details > ul { padding: 0 0 22px; color: var(--ink-dim); font-size: .97rem; max-width: 68ch; }
+.acc .flist { margin: 0; padding-left: 18px; display: grid; gap: 8px; }
+
+/* KP Rück: one line, not a section. */
+.sib {
+  display: flex; gap: 20px; align-items: center; justify-content: space-between;
+  background: var(--sibling-bg); border-radius: var(--r-surface); padding: 22px 26px;
+}
+.sib p { color: var(--ink-dim); font-size: .97rem; max-width: 70ch; }
+.sib p a { color: var(--ink-dim); }
+
+/* Closing: try it, then the three ways to reach us – the form opens inside its card. */
+section.close { text-align: center; }
+.close .eyebrow, .close .cta-row { justify-content: center; }
+.close h2 { font-size: clamp(1.9rem, 4vw, 3rem); font-weight: 800; letter-spacing: -.03em; margin-top: 14px; }
+.close-p { color: var(--ink-dim); max-width: 56ch; margin: 14px auto 0; }
+.close .demo-note { margin: 18px auto 0; }
+.close .ways { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 40px; text-align: left; align-items: start; }
+.close .way { box-shadow: none; padding: 18px 20px; }
+.close details.way { display: block; }
+.close details.way summary { list-style: none; display: flex; gap: 16px; cursor: pointer; }
+.close details.way summary::-webkit-details-marker { display: none; }
+.close details.way[open] { grid-column: 1 / -1; }
+.close details.way form { margin-top: 6px; padding-left: 58px; max-width: 640px; }
+/* the form's own states: the sent button goes (`.btn` would otherwise beat `hidden`), and the
+   fallback address in an error may break anywhere rather than widen a 320 px page */
+.close .f-send[hidden] { display: none; }
+.close .f-note { overflow-wrap: anywhere; }
+.close-alt { margin-top: 26px; font-size: .93rem; color: var(--ink-faint); }
+.close-alt a { color: var(--ink-dim); }
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Like the old frame: the hero picture only moves, it never fades – it is the LCP element. */
+  .hero .duo { animation: rise-frame .9s cubic-bezier(.22, 1, .36, 1) .32s backwards; }
+}
+@media (max-width: 860px) {
+  section.chap, .chap:not(:has(.dev-tab)) { grid-template-columns: 1fr; gap: 28px; padding-top: 56px; padding-bottom: 56px; }
+  section.chap:nth-of-type(even) .chap-txt { order: 0; }
+  .chap .dev-ph { max-width: 260px; }
+  .own { grid-template-columns: 1fr 1fr; }
+  .close .ways { grid-template-columns: 1fr; }
+  .close details.way form { padding-left: 0; }
+  .split { grid-template-columns: 1fr; gap: 20px; }
+}
+@media (max-width: 700px) {
+  /* On a phone the phone is the picture: the iPad becomes the backdrop, top-left, and in the
+     chapters the iPad picture gives way to the phone one. */
+  .duo { padding: 0; margin-top: 32px; display: flow-root; }
+  .duo .dev-tab { position: absolute; left: 0; top: 0; width: 74%; }
+  .duo .dev-ph { position: relative; top: auto; width: 42%; margin: 16% 0 0 auto; }
+  .hero-center .fit-note { margin-top: 32px; }
+  /* the eyebrow wraps here, and its dash would stay behind at the left edge of a centred line */
+  .hero-center .eyebrow::before { display: none; }
+  .wide-only { display: none; }
+  .narrow-only { display: block; }
+  .sib { flex-direction: column; align-items: flex-start; }
+  .own { grid-template-columns: 1fr; }
 }

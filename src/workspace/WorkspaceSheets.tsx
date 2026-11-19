@@ -6,8 +6,6 @@
 
 import type { Dispatch, SetStateAction } from 'react'
 import { HelpOverlay } from '../components/HelpOverlay'
-import { offeredTutorials } from '../lib/tutorials/offer'
-import type { AuthUser } from '../lib/auth'
 import { InstallGuide } from '../components/InstallGuide'
 import { ShareIncidentSheet, OfflineReadiness, SettingsSheet, FeedbackSheet } from '../components/panels'
 import { isDemoMode } from '../lib/deploymentConfig'
@@ -60,8 +58,6 @@ export interface WorkspaceSheetsProps {
   keepScreenOn: boolean
   setKeepScreenOn: Dispatch<SetStateAction<boolean>>
   linkScoped: boolean
-  /** the session's role – which tutorials the Hilfe's «Ausprobieren» may start */
-  role: AuthUser['role'] | undefined
   setFeedbackParent: Dispatch<SetStateAction<'settings' | null>>
   setFeedbackOpen: Dispatch<SetStateAction<boolean>>
   share: ReturnType<typeof useShareMyPosition>
@@ -82,12 +78,12 @@ export function WorkspaceSheets({
   reloadPersonnel, cancelOffline, offlineProgress, settingsOpen, feedbackOpen, sharePick, shareParent,
   setSettingsOpen, symbolScale, setSymbolScale, symbolCaptions, setSymbolCaptions, railLabels,
   setRailLabels, keepScreenOn,
-  setKeepScreenOn, linkScoped, role, setFeedbackParent, setFeedbackOpen, share, setShareParent, setSharePick,
+  setKeepScreenOn, linkScoped, setFeedbackParent, setFeedbackOpen, share, setShareParent, setSharePick,
   feedbackParent, canWriteRecord, photoPosition, setPhotoPosition,
 }: WorkspaceSheetsProps) {
   return (
     <>
-      {helpOpen && <HelpOverlay tutorials={offeredTutorials({ role, linkScoped })} onClose={() => setHelpOpen(false)} />}
+      {helpOpen && <HelpOverlay onClose={() => setHelpOpen(false)} />}
       {/* ONE sheet for every «Teilen» door — its own tabs are the chooser (03.09.). `archived`
           drops the Atemschutz tab, which dies with the Einsatz. */}
       {shareLink && (

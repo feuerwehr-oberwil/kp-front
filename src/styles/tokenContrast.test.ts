@@ -89,6 +89,22 @@ const grounds = (t: Theme) => ({
 
 const round = (n: number) => Math.round(n * 100) / 100
 
+const RAIL = readFileSync('src/styles/04b-rail.css', 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
+
+/** the text colour 04b-rail.css gives the rule whose selector is exactly `selector` – a token, or
+ *  a token mixed into transparent (`color-mix(in srgb, var(--t) N%, transparent)`) */
+function railKey(theme: Theme, selector: string): Rgba {
+  const rule = [...RAIL.matchAll(/([^{}]+)\{([^{}]*)\}/g)].find(([, sel]) => sel.trim() === selector)
+  const value = rule && /(?:^|[;\s])color\s*:\s*([^;]+);/.exec(rule[2])?.[1].trim()
+  if (!value) throw new Error(`04b-rail.css: no colour for ${selector}`)
+  const token = /^var\((--[\w-]+)\)$/.exec(value)
+  if (token) return colour(theme, token[1])
+  const mix = /^color-mix\(in srgb, var\((--[\w-]+)\) (\d+)%, transparent\)$/.exec(value)
+  if (!mix) throw new Error(`04b-rail.css: cannot read «${value}» (${selector})`)
+  const [r, g, b, a] = colour(theme, mix[1])
+  return [r, g, b, a * Number(mix[2]) / 100]
+}
+
 describe('token contrast (WCAG AA)', () => {
   it('measures what it says', () => {
     expect(round(contrast([0, 0, 0, 1], [255, 255, 255, 1]))).toBe(21)
@@ -162,6 +178,35 @@ describe('token contrast (WCAG AA)', () => {
             if (c < 4.5) low.push(`--${hue}-strong on ${name}: ${round(c)}`)
           }
         }
+        expect(low).toEqual([])
+      })
+
+      // the rails' shortcut letter (04b-rail · .rail-key) in the tile's corner, on every state of
+      // the tile under it: white on the view bar's light-blue «Ebenen» wash was unreadable (owner
+      // shot 18.11.2026, «B»). The letter's colour per tile is READ from 04b-rail.css (`railKey`),
+      // so a rule that goes back to the ink tile's white fails here. --press and --sel-wash are
+      // color-mix() tokens, laid on by hand. A DISABLED tile is not held here: its letter wears the
+      // glyph's --ink and the button's --disabled opacity dims both alike (2.75:1 by day, like the
+      // glyph – WCAG 1.4.11 exempts an inactive control).
+      it('the rail\'s corner letter reads on every tile state', () => {
+        const glass = grounds(theme).glass
+        const hover = over(colour(theme, '--hover'), glass)
+        const press = (bg: Rgba) => over(colour(theme, '--ink'), bg, 0.09)
+        const wash = over(colour(theme, '--blue'), glass, 0.14)
+        const resting = railKey(theme, '.rail-key')
+        const inkTile = railKey(theme, ':is(.nav-item, .vrail-tool).on .rail-key')
+        const washTile = railKey(theme, '.vrail-nbtn.on .rail-key')
+        const states: [state: string, letter: Rgba, tile: Rgba][] = [
+          ['resting', resting, glass],
+          ['hovered', resting, hover],
+          ['pressed', resting, press(hover)],
+          ['ink tile', inkTile, colour(theme, '--here-fill')],
+          ['ink tile hovered', inkTile, colour(theme, '--here-fill-hover')],
+          ['wash tile', washTile, wash],
+          ['wash tile pressed', washTile, press(wash)],
+        ]
+        const low = states.map(([state, fg, bg]) => [state, contrast(over(fg, bg), bg)] as const)
+          .filter(([, c]) => c < 3).map(([state, c]) => `${state}: ${round(c)}`)
         expect(low).toEqual([])
       })
 

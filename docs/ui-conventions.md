@@ -221,7 +221,9 @@ while the head's subtitle says when («Schadenlage · erledigt 10:57»).
   time, and a folded tile is never a bare glyph, on any device (13-incident · «fold», 10-journal ·
   «the fold»). The primary folds with them, «+» over «Trupp», the same tile told apart only by its fill
   (round 18.11.2026 #5, owner: «Stack too. Primary difference should be color.»); where even the folded
-  row cannot fit, a tile takes a short word (a `…Short` key), then the head's second row. A phone
+  row cannot fit, a tile takes a short word (a `…Short` key), then a head's rare tiles step into its
+  «⋯ Mehr» (`data-more` / `data-more-tile`, lib/pageHeadFit – the Trupps head's «Entfernte Trupps» and
+  «Teilen»; the alarm, the bell and the primary stay up), then the head's second row. A phone
   wears the folded tiles where its CSS says so (the top bar's `data-tiles`). Exempt: the sheet ✕,
   a field's clear, a list row's chevron and a quiet row-end bin (below).
 - **A print or download that waits on something shows `ShellLoader` in its button** (28.10.2026,
@@ -259,12 +261,6 @@ while the head's subtitle says when («Schadenlage · erledigt 10:57»).
   `.ip-sheet.ui-dialog` (13-incident.css). Every `Menu` and `Popover` is modal (an invisible
   backdrop, no scrim); a `Menu` that keeps a composer field's caret (`keepFocusRef`) is the one
   non-modal kind.
-  ONE `Popover` is persistent (05.11.2026): the «Üben» Sprechblase (`components/tutorial`)
-  stands on its control while the learner works around it – controlled and never closed by an
-  outside press or the native back, not modal, `takeFocus={false}` and `guard={false}` (it is no
-  transient layer, so it must not hold the popoverGuard warm and leave every Sheet deaf to its
-  backdrop). It sits on `--z-tutorial`, under the Meldeleiste; only on a control inside a modal
-  does it rise over it.
 - **The way out of a layer is ONE rule** (duck sweep 17.11.2026, owner calls 2 + 3;
   `lib/overlays/layer`): **a tap beside a menu, popover or card only closes it** – the whole
   gesture is swallowed, it never places, selects, deselects or pans what lies under it, on every
@@ -726,11 +722,13 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     tone, not the primary, and stays. The Trupp marker's action bar (`.wb-pill-acts`) is all
     neutral wash (29.09.2026): no green «Zum Trupp», no blue «Position markieren». A door to a page
     wears that page's nav glyph («Zum Trupp» = the Trupps stopwatch, never ⚠); the join
-    («Atemschutz-Trupp») wears `link`. Three buttons (rare-user round 2, owner pick M12 A,
+    («Atemschutz-Trupp») wears `link`. Three buttons, four while the marker hangs on something (rare-user round 2, owner pick M12 A,
     17.11.2026): ONE Trupp button that changes – «Zum Trupp» on a linked marker, «Trupp» (the join;
     the bar's short word for «Atemschutz-Trupp») on a loose one, never both – then «Markieren» (the
-    bar's short word for «Position markieren»; full words as title / label), then «Mehr». «Mehr» rows carry glyph + full word:
-    Lösen · Atemschutz-Trupp (re-point, linked only; the row swaps the menu to the join list) ·
+    bar's short word for «Position markieren»; full words as title / label), then «Lösen» while the
+    marker hangs on a Leitung, a symbol or both – one tile cuts every bond (round 18.11.2026 evening,
+    owner: «always show the unjoin button» – in sight, never in «Mehr»; on the card it cut the name), then «Mehr». «Mehr» rows carry glyph + full word:
+    Atemschutz-Trupp (re-point, linked only; the row swaps the menu to the join list) ·
     Bearbeiten (rename, loose only) · Spuren (✓ while shown) · the original (mirrors) · the delete
     rows, last (the marker alone plain, the Spur rows danger). «Mehr» is drawn only with a row.
     Same on phone and tablet, one row at 390 px. «Beschriftung» only changes the look: on, every
@@ -928,9 +926,16 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     and filters sit in its LIST ROW under the head, never in the head** (owner pick 25 B,
     17.11.2026): the field always in view and taking the slack, the filter tiles after it – the
     Anwesenheit's, the Mittel's and the Verlauf's row (a lens and an ⓘ «Legende» in the Verlauf's
-    head cut its title to «V…»). An ORDER is the list's question too: the Trupps «Reihenfolge» stands
-    in the board's list row, its «Sortiert:» strip under it, and the head keeps what acts on the whole
-    board – Alarme · Abgeben · Alarmton · + Trupp anmelden (owner pick 26, 17.11.2026). A key that explains a list's discs is not a head button either: it
+    head cut its title to «V…»). **Acts up** (owner pick 2A, 18.11.2026 evening; it replaces pick
+    26): every ACTION of a page stands in its head, at the right – «+ Anderes Material» in the
+    Material head, «Reihenfolge» beside «Trupps teilen» in the Trupps head (its «Sortiert:» strip
+    under the head). The row under the head holds the search and its filters ONLY, and exists only
+    where there is a search; view tabs (Anwesenheit · Zeitplan · Schichten) are no actions and stay
+    in the head. One size each, on every page head: the side inset `--head-pad-x` = the page
+    grid's `--page-x` (16, on a phone too – one token, `--head-pad-x`), the head 68 / 60 tall with or without its quiet line,
+    every tile and the view switch's track `--tap` (its options 38 inside the track, the one
+    segmented spec), the list row 68 / 60. The Checkliste runner's head is the reader's own head in
+    its white pane (pick 20.10.2026), no band, and keeps its 56. A key that explains a list's discs is not a head button either: it
     ends the filter menu whose rows wear those discs (the Verlauf's ring key, a Menu `note`). The WORD is the FACET («Kategorie», «Art»,
     «Reihenfolge»), never the act «Filtern»; a menu's head is the trigger's full name («Nach
     Kategorie filtern»), a menu of groups heads each group instead (HEADS.6). The Anwesenheit's
@@ -1035,7 +1040,9 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
   - *Colour of a mention is not a state* (29.09.2026, owner pick A): every recognised word in the
     Verlauf – vehicle, partner, Trupp, person, material, group – is **medium (500) `--ink`**
     (`.jr-link`; bold until 05.11.2026, owner pick A5), prose regular, and in the composer one
-    blue wash / one blue suggestion tint (`.jc-text-marks mark`, `.jc-phrase-link`). Red and amber
+    blue wash on the marked name in the field (`.jc-text-marks mark`). The composer's suggestion
+    chips are ONE borderless ink wash, name or phrase or «EL →» alike (owner pick 6B, 18.11.2026:
+    words to insert = wash, a choice = a `.useg` track, an act = a framed plate). Red and amber
     are for alarms and warnings only; a routine «Ausrücken TLF» in the station red read as the
     loudest row on a page that carries real Atemschutz alarms. The composer's phrase chips wear
     the one corner (`--r-sm`), never a pill.

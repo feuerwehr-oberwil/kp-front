@@ -95,6 +95,24 @@ describe('the page head ladder (lib/pageHeadFit)', () => {
     expect(fitPageHead(h, () => true)).toBe(2)
     expect(h.hasAttribute('data-fit-wrap')).toBe(true)
   })
+
+  // Sol review, PR #702: the 390px Trupps head with every tile wrapped to 164px
+  it('a head with a «Mehr» tile moves its rare tiles into it after closing up, before the second row', () => {
+    const h = head(TRUPPS.replace('<button data-fold="3">', '<button data-fold="3" data-more>')
+      .replace(/<\/div>\s*$/, '<button data-fold="6" data-more-tile>⋯<span class="fold-long">Mehr</span></button></div>'))
+    const last = foldRanks([1, 8, 5, 2, 3, 6, 7]).length
+    let tries = 0
+    // closing up is not enough, the «Mehr» step is
+    expect(fitPageHead(h, () => ++tries <= last + 2)).toBe(last + 2)
+    expect(h.hasAttribute('data-fit-more')).toBe(true)
+    expect(h.hasAttribute('data-fit-tight')).toBe(true)   // the tiles stay closed up
+    expect(h.hasAttribute('data-fit-wrap')).toBe(false)
+    // never enough: the second row, with every tile back out of «Mehr» and opened up
+    expect(fitPageHead(h, () => true)).toBe(last + 3)
+    expect(h.hasAttribute('data-fit-more')).toBe(false)
+    expect(h.hasAttribute('data-fit-tight')).toBe(false)
+    expect(h.hasAttribute('data-fit-wrap')).toBe(true)
+  })
 })
 
 describe('the shared ladder (lib/useHeadFit · climbLadder)', () => {

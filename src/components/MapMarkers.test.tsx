@@ -7,7 +7,7 @@
  * marker's square long-side pad, and the box left for the pad is the shape's own, per axis.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, renderHook, screen } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { appConfig } from '../config/appConfig'
 import type { Entity, LngLat } from '../types'
@@ -24,6 +24,8 @@ vi.mock('react-map-gl/maplibre', () => ({
 import { MapMarkers } from './MapMarkers'
 import { DOCK_SLOT_STEP_PX } from '../lib/docking'
 import { TEAM_DOT_PX } from '../lib/mapView'
+import { useTeamMarkerActions } from '../lib/useTeamMarkerActions'
+import type { Doc } from '../lib/workspace'
 
 afterEach(cleanup)
 
@@ -215,10 +217,7 @@ describe('a Trupp marker that is joined, loose, or docked', () => {
 
   // «Lösen» is a row of the bar's «Mehr» since rare-user round 2 (M12, 17.11.2026)
   it('offers one «Lösen» on a joined pill – and nothing to break when loose', () => {
-    const lösen = () => {
-      fireEvent.click(screen.getByRole('button', { name: appConfig.copy.whiteboard.barMore }))
-      return screen.queryAllByRole('menuitem', { name: appConfig.copy.contextPanel.dockedRelease })
-    }
+    const lösen = () => screen.queryAllByRole('button', { name: appConfig.copy.contextPanel.dockedRelease })
     const joined = showTeam([team()], 'e1', badge() as never)
     expect(lösen()).toHaveLength(1)
     joined.unmount()
@@ -308,5 +307,48 @@ describe('a double tap on a Trupp marker', () => {
     const marker = container.querySelector('.marker')!
     tap(marker); tap(marker)
     expect(container.querySelector('.wb-resource-pill input')).toBeNull()
+  })
+})
+
+/**
+ * Round 18.11.2026 evening, point 5 («completely wrong marker placement»): the flag on a DOCKED
+ * Trupp stamped its STORED point – the drop point, up to one dock radius off – while the marker is
+ * drawn beside its host (lib/mapView · teamDockAnchor). The time chip landed far from the Trupp.
+ * The chain is the real one: the bar's flag → MapMarkers · onTeamMark → useTeamMarkerActions ·
+ * markTeamPosition → the trail dot MapMarkers draws back.
+ */
+describe('«Position markieren» on a docked Trupp', () => {
+  // a flat 1° = 1000 px projection, so a screen offset reads back as a coordinate
+  const project = (c: LngLat) => ({ x: c[0] * 1000, y: -c[1] * 1000 })
+  const unproject = (p: { x: number; y: number }): LngLat => [p.x / 1000, -p.y / 1000]
+  const host = { id: 'h1', kind: 'symbol', layer: 'lage', coord: [7.61, 47.51], symbol: 'Feuer', label: 'Rauch' } as Entity
+  const team = { id: 'e1', kind: 'team', layer: 'lage', coord: [7.5, 47.6], label: 'Koller Sandro', dockedTo: 'h1', trail: [] } as Entity
+
+  it('stamps the point where the marker is DRAWN, not its stored drop point', () => {
+    let doc = { entities: [host, team] } as unknown as Doc
+    const { result } = renderHook(() => useTeamMarkerActions({
+      entities: doc.entities, commit: (f) => { doc = f(doc) }, log: () => {}, emit: () => {},
+      setSelectedId: () => {}, setSelectedDrawingId: () => {},
+    }))
+    const draw = (selectedId: string | null) => render(
+      <MapMarkers entities={doc.entities} byName={{}} isVisible={() => true} selectedId={selectedId}
+        zoom={18} draggable project={project} unproject={unproject} setDragPan={() => {}}
+        onSelect={() => {}} onMarkerDragStart={() => {}} onMarkerMove={() => {}} onMarkerDragEnd={() => {}}
+        onDelete={() => {}} onShapeTransform={() => {}} trupps={[]} onTeamMark={result.current.markTeamPosition} />,
+    )
+    const first = draw('e1')
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.whiteboard.markPosition }))
+    first.unmount()
+    // where the resting marker's dot is drawn: its Marker's point + its offset (dot centre)
+    const { container } = draw(null)
+    const dotMarker = container.querySelector('.team-dot')!.closest('[data-testid="marker"]')!
+    const [lng, lat] = dotMarker.getAttribute('data-at')!.split(',').map(Number)
+    const [ox, oy] = dotMarker.getAttribute('data-offset')!.split(',').map(Number)
+    const base = project([lng, lat])
+    const drawn = unproject({ x: base.x + ox + TEAM_DOT_PX / 2, y: base.y + oy })
+    const crumb = container.querySelector('.map-trail-dot')!.closest('[data-testid="marker"]')!
+    const [cx, cy] = crumb.getAttribute('data-at')!.split(',').map(Number)
+    expect(cx).toBeCloseTo(drawn[0], 6)
+    expect(cy).toBeCloseTo(drawn[1], 6)
   })
 })

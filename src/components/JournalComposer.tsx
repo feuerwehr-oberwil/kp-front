@@ -3,6 +3,7 @@ import { Button } from './Button'
 import { Chip } from './Chip'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { pointAtField } from '../lib/pointAtField'
+import { scrollBehavior } from '../lib/reducedMotion'
 import { useIsPhone } from '../lib/useIsPhone'
 import { Icon } from '../lib/icons'
 import { Menu, Overlay } from '../lib/overlays'
@@ -35,8 +36,6 @@ import { TimeField } from './TimeField'
 import { WheelPopover, type WheelValue } from './WheelPicker'
 import { dayRange } from '../lib/zeitplanFormat'
 import { keyboardMargin, useKeyboardInset } from '../lib/useKeyboardInset'
-import { nextCompact } from '../lib/composerFit'
-import { tut } from '../lib/tutorials/anchors'
 
 // `C` (appConfig.copy.journal) is read at the top of each component below rather than captured
 // here at module-load, so the locale resolved at boot (config/copy) applies.
@@ -50,6 +49,8 @@ const REMIND_DAYS = 7
  *  going out, «EL ← Sanität» is a message coming in, and rewriting the second as the first means
  *  reversing the sentence you just heard. */
 const ARROW = '→'
+/** the tap area every control keeps (docs/ui-conventions.md · touch targets) */
+const HIT_PX = 44
 
 export interface JournalDraft {
   text: string
@@ -410,6 +411,30 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
    *  next pick, a removal, or the next save attempt. */
   const [attachWarn, setAttachWarn] = useState<{ text: string; skip?: boolean } | null>(null)
   const sayAttach = (text: string, skip?: boolean) => setAttachWarn({ text, skip })
+  // ⚠️ …and the line has to be SEEN. It sits under the row, and on a phone with the keyboard up
+  // that is below the visible part of `.jc-body`: a refused «Erfassen» (offline, a Beilage
+  // staged) then looked like a save that did nothing, with «Ohne Datei erfassen» out of sight
+  // (Sol review, PR #704). Each new warning scrolls the scroller just far enough to show it –
+  // the scroller alone, never `scrollIntoView`, which on iOS pans the page under a fixed sheet.
+  // Taller than the room (95px in 71 at 390×250), the action wins: as much of the reason from its
+  // top as still leaves «Ohne Datei erfassen» whole.
+  const attachWarnRef = useRef<HTMLParagraphElement>(null)
+  useEffect(() => {
+    const el = attachWarnRef.current
+    const box = el?.closest<HTMLElement>('.jc-body')
+    if (!el || !box) return
+    const r = el.getBoundingClientRect(), b = box.getBoundingClientRect()
+    if (!r.height || !b.height) return // not laid out (hidden, or a test DOM): nothing to show
+    // the action's TAP area, not its face: `.form-warn-act` is 36px with a 44px hit centred on it
+    // (13-incident.css), and a face flush with the scroller's edge left 4px of the hit clipped
+    // (Sol review round 2, PR #704)
+    const act = el.querySelector('.form-warn-act')?.getBoundingClientRect()
+    const actEnd = act ? act.bottom + Math.max(0, (HIT_PX - act.height) / 2) : r.bottom
+    const end = Math.max(r.bottom, actEnd)
+    const by = end - r.top > b.height ? Math.max(r.top - b.top, actEnd - b.bottom)
+      : end > b.bottom ? end - b.bottom : r.top < b.top ? r.top - b.top : 0
+    if (by) box.scrollBy({ top: by, behavior: scrollBehavior() })
+  }, [attachWarn])
   // closing the composer mid-upload means "cancel": the upload may finish server-side (the
   // orphaned blob is harmless) but no journal row is created after unmount. The unmount also
   // revokes the imported preview URL — saves/closes must not pin up to 100 MB per import.
@@ -454,6 +479,33 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
   // stop any in-flight recording + release the stream when the composer unmounts
   useEffect(() => () => { try { recRef.current?.rec.stop() } catch { /* already stopped */ } }, [])
 
+  // ⚠️ «Anhang» and the stop control REPLACE each other (see the row below), and a focused
+  // control that leaves takes the focus with it: started from the menu by keyboard, the focus
+  // fell to the field (WebKit); stopped with Enter, to the page (Sol review, PR #704). When the
+  // focus is ON the control being replaced, it moves to the one taking its place. `handFocus` is
+  // state for the «Aufnehmen» row (`keepsFocus`: the menu must not take it back to a trigger that
+  // is about to go) and a ref for the effect. A tap on a phone leaves the caret in the field
+  // (neither control takes the focus there), so nothing moves for it.
+  const [handFocus, setHandFocus] = useState(false)
+  const handFocusRef = useRef(false)
+  const attachBtnRef = useRef<HTMLButtonElement>(null)
+  const stopBtnRef = useRef<HTMLButtonElement>(null)
+  const markHandFocus = (on: boolean) => { handFocusRef.current = on; setHandFocus(on) }
+  /** The focus has nowhere of its own: the page, the closing «Anhang» menu (only that one – focus in
+   *  the clock menu is the user's, CodeRabbit on #704), or one of the two controls. A
+   *  caret the user put elsewhere while the microphone prompt was open stays where it is (Sol
+   *  review round 2, PR #704: Stop took the focus back from the field when access resolved). */
+  const focusIsAdrift = () => {
+    const a = document.activeElement
+    return !a || a === document.body || a === attachBtnRef.current || a === stopBtnRef.current || !!a.closest('.jc-attach-menu')
+  }
+  useEffect(() => {
+    if (!handFocusRef.current) return
+    handFocusRef.current = false; setHandFocus(false)
+    if (!focusIsAdrift()) return
+    ;(recording ? stopBtnRef : attachBtnRef).current?.focus()
+  }, [recording])
+
   // ⚠️ Caret at the END of a restored draft — driven by the FOCUS EVENT, not by a frame counted
   // from mount. A focused textarea puts the caret at position 0, so re-opening a half-written
   // entry landed the cursor in front of it and the next word went to the start of the sentence.
@@ -484,7 +536,11 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
         setRecording(false); setElapsed(0)
       }
       recRef.current = { rec, startedAt }; setRecording(true); rec.start()
-    } catch (e) { toast(micFailedText(e), { icon: 'mic', tone: 'warn' }) }
+    } catch (e) {
+      // no recording, so nothing took «Anhang»'s place – its focus goes back to it
+      if (handFocusRef.current) { markHandFocus(false); if (focusIsAdrift()) attachBtnRef.current?.focus() }
+      toast(micFailedText(e), { icon: 'mic', tone: 'warn' })
+    }
   }
 
   const discardClip = () => { clipAudio.current?.pause(); setClipPlaying(false); if (clip) URL.revokeObjectURL(clip.url); setClip(null) }
@@ -736,62 +792,11 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
     const r = dueWrapRef.current?.getBoundingClientRect()
     if (r) setExact((e) => (e ? { ...e, anchor: r } : e))
   }, [kbInset, pickerOpen])
-  // …and which rung of the degradation ladder the sheet stands on (see lib/composerFit): with
-  // the keyboard up this card is regularly taller than what is left of the screen, and it used to
-  // answer that by scrolling — which, with the field focused, scrolled the CARET into view and
-  // pushed the head, the field and the whole predictive band off the top edge.
-  // ⚠️ Measured against BOTH the card's own cap and the screen: a cap that is itself too big —
-  // which is what the `pointer: fine` card had (see 10-journal.css) — hides the overflow from the
-  // first limit but not from the second. The element measured is the popup itself — `cardRef` is
-  // filled by the `setCard` callback ref handed to `<Overlay popupRef>` below, so it is the box
-  // that carries the cap, with no boxless wrapper to climb out of; its `.jc-body` does the scrolling.
+  // The card itself — `setCard` below fills it from `<Overlay popupRef>`, and the paste listener
+  // hangs off it. (It also fed a measured «compact» rung until 19.11.2026: the one-row layout is
+  // the normal one now, so there is nothing left to switch, and when the room runs out `.jc-body`
+  // scrolls under a head that stays – 10-journal.css.)
   const cardRef = useRef<HTMLDivElement | null>(null)
-  const [compact, setCompact] = useState(false)
-  const frameRef = useRef(0)
-  const remeasure = useCallback(() => {
-    // coalesced into one frame: a burst of resize events — or a render per keystroke — costs
-    // ONE layout read, taken right before the paint that needs it anyway
-    if (frameRef.current) return
-    frameRef.current = requestAnimationFrame(() => {
-      frameRef.current = 0
-      const card = cardRef.current
-      if (!card) return
-      // ⚠️ `visualViewport.height`, not `innerHeight`: it is the screen MINUS the keyboard, which
-      // is the only number that says how much room the sheet actually has. `innerHeight` does not
-      // move for a keyboard on iOS at all (see useKeyboardInset).
-      const screen = window.visualViewport?.height ?? window.innerHeight
-      // …and the card's USED cap, not the height it happens to have right now: «would the full
-      // layout fit» has to answer the same from either rung, or the sheet flips between them.
-      const cap = parseFloat(getComputedStyle(card).maxHeight)
-      // what the whole sheet needs: the card's used height plus what its one scroller hides
-      // (`.jc-body`, since 15.11.2026 — the frame itself no longer scrolls)
-      const body = card.querySelector<HTMLElement>('.jc-body')
-      const hidden = body ? body.scrollHeight - body.clientHeight : card.scrollHeight - card.clientHeight
-      setCompact((cur) => nextCompact(cur, {
-        needed: card.clientHeight + hidden, cap: Number.isNaN(cap) ? Infinity : cap, screen,
-      }))
-    })
-  }, [])
-  // after every render — a photo, a memo, a longer sentence all change what has to fit
-  useEffect(remeasure)
-  // …and whenever the ROOM changes rather than the content: the keyboard opening is a
-  // visualViewport resize, a rotation is a window one
-  useEffect(() => {
-    const vv = window.visualViewport
-    vv?.addEventListener('resize', remeasure)
-    window.addEventListener('resize', remeasure)
-    return () => {
-      // ⚠️ …and CLEAR it, not just cancel it. The id doubles as «a measure is already pending»,
-      // so a cancelled one left behind latched the guard shut: every later call returned early
-      // and the ladder never measured again. React's StrictMode mounts, cleans up and mounts
-      // again — which is exactly this sequence, on every dev boot, in the app rather than in a
-      // test. The rungs were dead in the real app while every unit test passed.
-      if (frameRef.current) cancelAnimationFrame(frameRef.current)
-      frameRef.current = 0
-      vv?.removeEventListener('resize', remeasure)
-      window.removeEventListener('resize', remeasure)
-    }
-  }, [remeasure])
   // ── paste (a copied Voice Memo or photo) ──────────────────────────────────────────────────
   // ⚠️ A NATIVE listener on the card, where React's `onPaste` used to sit on a `display: contents`
   // wrapper around the whole sheet. That wrapper is gone: an element with no box between a flex
@@ -807,15 +812,13 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
   // portal, so the element is NOT there on the first commit: an effect with `[]` runs once, finds
   // null and attaches nothing — which is precisely how the paste handler was lost for a while
   // (the sheet took a pasted photo everywhere except where it was pasted). This fires the moment
-  // the element exists, and again when it goes; measuring is kicked off from the same place, so
-  // the ladder does not have to wait for a second render to see the card either.
+  // the element exists, and again when it goes.
   const setCard = useCallback((el: HTMLDivElement | null) => {
     cardRef.current?.removeEventListener('paste', onPasteEvent)
     cardRef.current = el
     if (!el) return
     el.addEventListener('paste', onPasteEvent)
-    remeasure()
-  }, [onPasteEvent, remeasure])
+  }, [onPasteEvent])
   return (
     // <Overlay> (Base UI) owns focus-trap + scroll-lock + backdrop-close; its pointerdown-based
     // outside-press already ignores the opening tap, so the old Android `armed` delay is gone.
@@ -826,11 +829,9 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
     // `--jc-kb` carries the measured keyboard height into CSS as well as the phone sheet's
     // marginBottom: on a TABLET the card is top-anchored, so a bottom margin does nothing —
     // the height has to be capped against the keyboard instead (see 10-journal.css).
-    // `is-kb` is the same fact as a class: on a PHONE it collapses the four media buttons to
-    // icons so the whole sheet still fits in what the keyboard leaves (see 15-mobile.css).
-    // `is-compact` is the rung below that and asks a different question — not «is a keyboard up»
-    // but «does the card still fit», measured (see lib/composerFit · 10-journal.css).
-    <Overlay open onClose={onClose} className={`journal-composer ${kbInset > 0 ? 'is-kb' : ''}${compact ? ' is-compact' : ''}`} backdropClassName="modal-backdrop"
+    // `is-kb` is the same fact as a class: on a PHONE it shortens the field so the whole sheet
+    // still fits in what the keyboard leaves (see 15-mobile.css).
+    <Overlay open onClose={onClose} className={`journal-composer${kbInset > 0 ? ' is-kb' : ''}`} backdropClassName="modal-backdrop"
       ariaLabel={C.composerTitle} initialFocus={textRef} grab
       // the lift is the keyboard LESS iOS's pan (keyboardMargin · --vv-foot, 30.09.2026), the cap
       // (--jc-kb) the whole keyboard — so the sheet stands on the keys and never outgrows the band
@@ -898,7 +899,6 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
             // already has the caret, and is what every other way of opening the sheet relies on.
             ref={attachText}
             className="jc-text"
-            {...tut('verlauf.composer')}
             value={text}
             onChange={(e) => {
               const v = stripUnprintable(e.target.value)
@@ -961,56 +961,53 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
             </div>
           )}
 
-          {/* ── Who said it, what kind of statement it is, and whether it has to come back ──
-              All of it lives BELOW the text and above the media, in one quiet strip: the sentence is
-              still what this surface is for, and none of these may look like a field that has to be
-              filled in before it will accept one. */}
-          {/* ⚠️ ONE wrapper around the Art strip and the media strip, and that is what it is for:
-              rung 2 of the ladder lays the two out side by side on a single line (see
-              10-journal.css · .jc-controls). Stacked, it is the sheet's own 8px column and changes
-              nothing. */}
+          {/* ── what kind of statement it is, whether it has to come back, and what it carries ──
+              ONE row under the text (owner pick B «One row», 19.11.2026): the Art track, the ⏱ | □
+              track, and ONE «Anhang» button for mic · upload · camera. The media row it replaced
+              (Aufnehmen · Datei · Foto) is gone – that was 52px of sheet on the surface that fights
+              the keyboard for every row it has, and the compact rung had already shown the clip
+              works. None of it may look like a field that has to be filled in before the sentence
+              is accepted.
+              ⚠️ One look per ROLE (owner pick 6B, 18.11.2026): a CHOICE is a track (`.useg`, the
+              Segmented look – not <Segmented> itself: its options cannot carry the keep-the-caret
+              mousedown, a word-or-letter label with the word as the name, or a Menu trigger), an
+              ACT is a framed plate (`.jc-rec`), and «Erfassen» is the one primary. */}
           <div className="jc-controls">
-            <div className="jc-meta">
-              {/* Art — quiet by design: three small chips, one of three, «Info» preselected
-                  (29.09.2026). «Info» is the ordinary case and prints no marker at all
-                  (lib/journalEntry); a tap on the lit chip leaves it lit — «Info» is the way back.
-                  ⚠️ No «ART» eyebrow above them. Info · Auftrag · Sofortmassnahme say what they
-                  are; a heading that only repeated it cost a row on the one surface fighting the
-                  keyboard for every row it has. The group keeps the word as its accessible name,
-                  so a screen reader still hears it. */}
-              <div className="jc-meta-row" role="group" aria-label={C.typeLabel}>
+            <div className="jc-row">
+              {/* Art — one of three, «Info» preselected (29.09.2026). «Info» is the ordinary case and
+                  prints no marker at all (lib/journalEntry); a tap on the lit one leaves it lit —
+                  «Info» is the way back. No «ART» eyebrow: the three words say what they are, and
+                  the group keeps the word as its accessible name. */}
+              <div className="useg jc-track jc-art" role="group" aria-label={C.typeLabel}>
                 {(['info', 'auftrag', 'sofort'] as const).map((t) => (
                   <button
                     key={t}
                     type="button"
                     onMouseDown={(e) => { if (phone && document.activeElement === textRef.current) e.preventDefault() }}
-                    className={`jc-chip jc-type-${t}${entryType === t ? ' on' : ''}`}
+                    className={`useg-btn jc-chip jc-type-${t}${entryType === t ? ' on' : ''}`}
                     aria-pressed={entryType === t}
-                    // ⚠️ The WORD is the accessible name on both rungs of the ladder — the compact
-                    // row shows the initial alone, and «I» is not something anybody can be asked to
-                    // tap. The plain label, never the hyphenated one: a soft hyphen has no business
-                    // in what a screen reader reads out or a tooltip shows.
+                    // ⚠️ The WORD is the accessible name on every screen — the phone shows the
+                    // initial alone, and «I» is not something anybody can be asked to tap.
                     title={C.entryTypes[t]}
                     aria-label={C.entryTypes[t]}
                     onClick={() => pickEntryType(t)}
                   >
-                    {/* ⚠️ …the label with its break points written in (copy · entryTypesWrap), never
-                        the plain one. This chip is the narrowest control on the sheet; the word that
-                        has to wrap in it is a doctrine word, and where it breaks is not the browser's
-                        guess to make. What gets WRITTEN is still `entryTypes` (lib/journalEntry). */}
-                    <span className="jc-chip-word">{C.entryTypesWrap[t] ?? C.entryTypes[t]}</span>
-                    {/* …and the single letter that stands for the word once there is no room for it
-                        (see 10-journal.css · .is-compact). Taken off the LOCALE's own label, so it is
-                        «I · A · S» in German and whatever the other three read in theirs. Back in
-                        the compact row since round 2 of the rare-user round (owner, 17.11.2026: a
-                        crew that uses it knows the letters; the two-line «Sofort-massnahme» was not
-                        better) */}
+                    {/* the word on a tablet or desktop (the 560px card holds «Sofortmassnahme» on one
+                        line beside ⏱ □ and the clip) … */}
+                    <span className="jc-chip-word">{C.entryTypes[t]}</span>
+                    {/* …and the single letter on a phone (owner, 19.11.2026: «on mobile … just with
+                        I/A/S»; 15-mobile.css). Taken off the LOCALE's own label, so it is «I · A · S»
+                        in German and whatever the other three read in theirs. The selected tone
+                        (blue Info, amber Auftrag, red Sofort) and the name carry the rest. */}
                     <span className="jc-chip-letter" aria-hidden>{C.entryTypes[t].charAt(0)}</span>
                   </button>
                 ))}
+              </div>
+              {/* ⏱ | □ — a second track, because it answers a DIFFERENT question than the Art:
+                  not what kind of statement this is, but whether and when it comes back. */}
+              <div className="useg jc-track jc-when">
                 {/* ── … and whether anything has to come back to it ──
-                    Separated from the three by a rule, because it answers a DIFFERENT question.
-                    The chips say what kind of statement this is; the ring says whether it stays
+                    The Art says what kind of statement this is; the ring says whether it stays
                     open. Folding it in as a fourth chip would pretend the four are alternatives —
                     and then «Auftrag» and «Pendenz» would both be true of the same sentence.
                     ⚠️ The ring, not a word: it is the same ring that appears on the Verlauf row and
@@ -1064,7 +1061,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
                     <button
                       type="button"
                       onMouseDown={(e) => { if (phone && document.activeElement === textRef.current) e.preventDefault() }}
-                      className="jc-due-btn"
+                      className="useg-btn jc-due-btn"
                       data-on={dueAt ? '1' : undefined}
                       title={dueAt ? fillTemplate(C.dueSetTitle, { t: formatTime(new Date(dueAt)) }) : C.dueHead}
                       aria-label={dueAt ? fillTemplate(C.dueSetTitle, { t: formatTime(new Date(dueAt)) }) : C.dueHead}
@@ -1146,7 +1143,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
                     <button
                       type="button"
                       onMouseDown={(e) => { if (phone && document.activeElement === textRef.current) e.preventDefault() }}
-                      className="jc-open"
+                      className="useg-btn jc-open"
                       data-state={noteOn ? 1 : openState}
                       title={noteOn ? C.linkPendenzTitle : C.openStates[openState]}
                       aria-label={noteOn ? C.linkPendenzTitle : C.openStates[openState]}
@@ -1160,75 +1157,63 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
                 />
                 </span>
               </div>
+              {/* the one ACT in the row: the paper-clip and its menu (owner pick M9 · A, 17.11.2026,
+                  the normal layout since pick B, 19.11.2026). The rows carry glyph + word.
+                  ⚠️ NOT while recording: then the lit mic (stop square + seconds) stands here instead
+                  – the one way to end a recording never hides behind a menu. A red button with a
+                  square and a clock reads as «tap to stop» without a word, as the TopBar's does. */}
+              {recording
+                ? (
+                  <button
+                    ref={stopBtnRef}
+                    type="button"
+                    // the caret and the keyboard stay, as on «Anhang» whose place it took
+                    onMouseDown={(e) => { if (phone && document.activeElement === textRef.current) e.preventDefault() }}
+                    onClick={(e) => { markHandFocus(document.activeElement === e.currentTarget); void toggleRecord() }}
+                    className="jc-rec on" title={C.recordStop} aria-label={C.recordStop}
+                  >
+                    <span className="tb-stop" /><span className="jc-rec-time">{elapsed}s</span>
+                  </button>
+                )
+                : (
+                  <Menu
+                    keepFocusRef={phone ? textRef : undefined}
+                    onOpenChange={(open) => { if (open) markHandFocus(document.activeElement === attachBtnRef.current) }}
+                    side="top"
+                    align="end"
+                    popupClassName="rp-print-menu jc-pendenz-menu jc-attach-menu"
+                    itemClassName={() => 'rp-print-menu-item'}
+                    items={[
+                      { label: dueRow(<Icon id="mic" />, C.record, false), onClick: toggleRecord, keepsFocus: handFocus },
+                      // ONE picker for everything that already exists as a file — a picture from the
+                      // gallery, an externally recorded memo, the PDF the Eigentümer just sent. What
+                      // was picked decides where it lands (lib/audioImport · classifyPick).
+                      { label: dueRow(<Icon id="upload" />, C.attachUpload, false), onClick: () => attachRef.current?.click() },
+                      { label: dueRow(<Icon id="cam" />, C.photo, false), onClick: () => fileRef.current?.click() },
+                    ]}
+                    trigger={(
+                      <button
+                        ref={attachBtnRef}
+                        type="button"
+                        // the caret and the keyboard stay, as on the clock and the ring beside it
+                        onMouseDown={(e) => { if (phone && document.activeElement === textRef.current) e.preventDefault() }}
+                        className="jc-rec jc-attach" title={C.attachMenu} aria-label={C.attachMenu}
+                      ><Icon id="attach" /></button>
+                    )}
+                  />
+                )}
             </div>
-
-            {/* media: record a voice memo or attach a photo — on EVERY entry now, including one that
-                carries a due time. An Erinnerung used to be text-only, which is why «Foto vom
-                Zähler, in 10 min nachschauen» had to be two rows. */}
-            <div className="jc-audio">
-              {/* recording shows the stop square + the running time, NOT «Aufnahme stoppen · 22s»:
-                  this button is one of three in a fixed 1fr grid and that label never fitted, so it
-                  ran out past the red rounded corner. It is also what the TopBar and the FAB already
-                  turn into while recording — a red pulsing button with a square and a clock reads as
-                  «tap to stop» without spending a third of the row saying so. */}
-              {/* ⚠️ Every label in this row sits in its own <span class="jc-lbl">. On a phone with
-                  the keyboard up the row shrinks to four icons (see 15-mobile.css · .is-kb), and a
-                  bare text node cannot be hidden by CSS. The `title` carries the word for anyone
-                  hovering, and the labels come straight back the moment the keyboard closes. */}
-              <button className={`jc-rec ${recording ? 'on' : ''}`} onClick={toggleRecord} title={recording ? C.recordStop : C.record} aria-label={recording ? C.recordStop : C.record}>
-                {recording
-                  ? <><span className="tb-stop" /><span className="jc-rec-time">{elapsed}s</span></>
-                  : <><Icon id="mic" /><span className="jc-lbl">{C.record}</span></>}
-              </button>
-              {/* ONE upload button for everything that already exists as a file — a picture from
-                  the gallery, an externally recorded memo, the PDF the Eigentümer just sent. It
-                  used to accept audio only, so the commonest Beilage of all had no way in at all.
-                  What was picked decides where it lands (lib/audioImport · classifyPick).
-                  The media buttons share one row at a third of the width each — not even a desktop
-                  third fits «Datei hochladen», so the short form labels the button and the full one
-                  stays as its tooltip. The upload arrow carries the rest. */}
-              <button className="jc-rec" onClick={() => attachRef.current?.click()} title={C.attachUpload} aria-label={C.attachUpload}>
-                <Icon id="upload" /><span className="jc-lbl">{C.attachUploadShort}</span>
-              </button>
-              <button className="jc-rec" onClick={() => fileRef.current?.click()} title={C.photo} aria-label={C.photo}><Icon id="cam" /><span className="jc-lbl">{C.photo}</span></button>
-              {/* ── rung 2 folds the three into ONE paper-clip (owner pick M9 · A, 17.11.2026) ──
-                  «I · A · S» beside three bare media glyphs was eight marks to decode; now it is
-                  the letters, the clock, the ring and the clip. The menu rows carry glyph + word.
-                  ⚠️ Not while recording: the lit mic (stop + seconds) stays in the row – the one
-                  way to end a recording cannot hide behind a menu. 10-journal.css · .is-compact */}
-              {compact && !recording && (
-                <Menu
-                  keepFocusRef={phone ? textRef : undefined}
-                  side="top"
-                  align="end"
-                  popupClassName="rp-print-menu jc-pendenz-menu"
-                  itemClassName={() => 'rp-print-menu-item'}
-                  items={[
-                    { label: dueRow(<Icon id="mic" />, C.record, false), onClick: toggleRecord },
-                    { label: dueRow(<Icon id="upload" />, C.attachUpload, false), onClick: () => attachRef.current?.click() },
-                    { label: dueRow(<Icon id="cam" />, C.photo, false), onClick: () => fileRef.current?.click() },
-                  ]}
-                  trigger={(
-                    <button
-                      type="button"
-                      // the caret and the keyboard stay, as on the clock and the ring beside it
-                      onMouseDown={(e) => { if (phone && document.activeElement === textRef.current) e.preventDefault() }}
-                      className="jc-rec jc-attach" title={C.attachMenu} aria-label={C.attachMenu}
-                    ><Icon id="attach" /></button>
-                  )}
-                />
-              )}
-              {clip && (
-                <span className="jc-clip">
-                  <button className={`tl-play ${clipPlaying ? 'playing' : ''}`} title={clipPlaying ? C.recordStop : appConfig.copy.play} aria-label={clipPlaying ? C.recordStop : appConfig.copy.play} onClick={toggleClip}><Icon id={clipPlaying ? 'pause' : 'play'} /></button>
-                  <span className="jc-clip-name">
-                    <strong>{C.audioClipLabel}</strong>
-                    <em>{clip.secs}s</em>
-                  </span>
-                  <button className="jc-clip-x" title={C.discardAudio} aria-label={C.discardAudio} onClick={discardClip}><Icon id="close" /></button>
+            {/* a recorded clip: its readout on a line of its own under the row */}
+            {clip && (
+              <span className="jc-clip">
+                <button className={`tl-play ${clipPlaying ? 'playing' : ''}`} title={clipPlaying ? C.recordStop : appConfig.copy.play} aria-label={clipPlaying ? C.recordStop : appConfig.copy.play} onClick={toggleClip}><Icon id={clipPlaying ? 'pause' : 'play'} /></button>
+                <span className="jc-clip-name">
+                  <strong>{C.audioClipLabel}</strong>
+                  <em>{clip.secs}s</em>
                 </span>
-              )}
-            </div>
+                <button className="jc-clip-x" title={C.discardAudio} aria-label={C.discardAudio} onClick={discardClip}><Icon id="close" /></button>
+              </span>
+            )}
           </div>
 
           {/* ⚠️ `.file-picker`, never `hidden`: Safari opens a file chooser only for an input it
@@ -1241,7 +1226,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
             className="file-picker" tabIndex={-1} onChange={onAttachPicked} />
           {/* THE form warning at the attach row (see `attachWarn`): what did not attach, and why */}
           {attachWarn && (
-            <p className="form-warn form-warn-amber form-warn-compact jc-attach-warn" role="status">
+            <p ref={attachWarnRef} className="form-warn form-warn-amber form-warn-compact jc-attach-warn" role="status">
               <Icon id="warn" /><span className="form-warn-text">{attachWarn.text}</span>
               {attachWarn.skip && (
                 <button type="button" className="form-warn-act" onClick={() => fileWithoutRef.current()}>{C.attachOfflineSkip}</button>
@@ -1303,9 +1288,8 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
           )}
 
         </div>
-        {/* the send, alone. The pin moved up into the media row (see .jc-audio) — it describes
-            the entry, not the act of saving it, and «Erfassen» is the one thing on this sheet
-            that must never share a row with anything else. It stands BELOW the scroller, pinned
+        {/* the send, alone: «Erfassen» is the one thing on this sheet that must never share a row
+            with anything else (a 3am mis-tap beside it sends instead of attaching). It stands BELOW the scroller, pinned
             like every sheet's footer: on a short screen the rows scroll, the send never does. */}
         <div className="jc-foot">
           {/* `aria-disabled` while it waits on input (ui-conventions · F2, duck sweep ELEM.4): the tap

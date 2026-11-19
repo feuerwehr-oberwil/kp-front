@@ -122,6 +122,9 @@ describe('the mini sheets', () => {
     // every chip is a button; the ⋯ is NOT a chip — it ends the foot line (29.09.2026, owner pick B)
     expect(chips.every((c) => c.tagName === 'BUTTON')).toBe(true)
     expect(card.querySelector(`.${s.vfootRow}`)!.lastElementChild!.getAttribute('aria-label')).toBe(az.cardMenu)
+    // …named with its visible word first (label in name: «Mehr» → «Mehr Aktionen», Sol review PR #702)
+    const more = card.querySelector(`.${s.vfootRow}`)!.lastElementChild!
+    expect(more.getAttribute('aria-label')!.startsWith(more.textContent!)).toBe(true)
     // no colour, no labels: the Kennzeile's sentence classes are not in the strip
     expect(card.querySelector(`.${s.kenn}`)).toBeNull()
     // the Kanal chip opens the pad, the Auftrag chip the Auftrag sheet

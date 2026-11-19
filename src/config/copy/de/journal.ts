@@ -53,8 +53,6 @@ export const journalCopy = {
     // ONE upload button for everything that is picked rather than captured: Bild, Aufnahme,
     // Dokument. What was picked decides where it lands (lib/audioImport · classifyPick).
     attachUpload: 'Datei anhängen',
-    // short form for the phone row, where the three media buttons get a third of the width each
-    attachUploadShort: 'Datei',
     attachLabel: 'Datei',
     attachDiscard: 'Datei entfernen',
     attachOpen: 'Datei herunterladen',
@@ -227,11 +225,6 @@ export const journalCopy = {
     // different things. «Sofortmassnahme» is a doctrine word — abbreviating it is what made the
     // chip read as a hurry rather than as a kind of entry.
     entryTypes: { info: 'Info', auftrag: 'Auftrag', sofort: 'Sofortmassnahme' } as Record<string, string>,
-    // ⚠️ The SAME words, with the break points written in (soft hyphens, U+00AD). Display only:
-    // the chip is the narrowest control on the sheet and the long one has to wrap there, and
-    // «Sofortm-assn-ahme» is what an engine without a German dictionary makes of it. The record
-    // keeps `entryTypes` — an invisible character has no business in the row's own text.
-    entryTypesWrap: { info: 'Info', auftrag: 'Auftrag', sofort: 'Sofort­massnahme' } as Record<string, string>,
     send: 'Erfassen',
     saved: 'Eintrag erfasst',
     // audio-note transcript editing (Verlauf row)

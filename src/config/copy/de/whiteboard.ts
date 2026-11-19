@@ -208,12 +208,11 @@ export const whiteboardCopy = {
       // Die zwei Blattecken-Paare sind synthetisch: die Flächen sprechen die HERKUNFT aus,
       // statt Punkte zu zählen, die niemand gesetzt hat («2 Paare» wirkte wie erfunden).
       lampAutoHead: 'Automatisch ausgerichtet',
-      // die Station hat den automatischen Vorschlag geprüft und freigegeben (Admin › Objektpläne)
+      // die Station hat den automatischen Vorschlag geprüft und freigegeben (Admin › Objektpläne).
+      // Eine freigegebene Passung gilt als VERKNÜPFT (18.09.2026): kein «ungemessen», kein
+      // Warnton, kein ⌀ (aus zwei synthetischen Paaren gibt es keinen). Nur diese eine Zeile –
+      // ein Satz darunter sagte dasselbe nochmals (Owner 18.11.2026, «duplicate»).
       lampApprovedHead: 'Von der Station freigegeben',
-      // …und eine freigegebene Passung gilt als VERKNÜPFT (18.09.2026): kein «ungemessen»,
-      // kein Warnton. Ein ⌀ steht trotzdem nicht da – aus zwei synthetischen Paaren gibt es
-      // keinen zu berechnen; der Satz sagt stattdessen, wer für die Passung geradesteht.
-      lampApprovedBody: 'Die Station hat diese Verknüpfung geprüft und freigegeben.',
       chipAuto: 'ungemessen',
       warnAuto: 'Punkte setzen, um die Genauigkeit zu messen – bisher ist sie nur von Auge geprüft.',
       autoAddPoints: 'Punkte setzen',

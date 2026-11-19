@@ -7,7 +7,7 @@
 // What it renders, top to bottom: the «Einsätze» group (the running ones as rows, the alarms
 // waiting to be opened, a hidden «Alarm aktualisiert» – `FoldedRow` –,
 // «Einsatz verlassen», «Alle Einsätze», «Einsatz eröffnen»),
-// the «App» group (Objektbesuche, «Dieses Gerät», Üben, Hilfe, Installieren), who is signed in with
+// the «App» group (Objektbesuche, «Dieses Gerät», Hilfe, Üben, Installieren), who is signed in with
 // «Abmelden» – or «Anmelden» for a view-link guest without a login –, the build label and a
 // waiting update. Every row is drawn only when its handler is
 // handed in — a door the session cannot go through is not drawn (docs/roles-and-access.md) — and
@@ -75,7 +75,7 @@ const ActLabel = ({ children }: { children: ReactNode }) => <span className="ip-
 
 export function AppMenuRows({
   activeId, incidents, isEditor, user, opening = null, alarms, listNote = null, onSwitch, onLeave, onHistory, onCreate,
-  onObjectVisits, onDevice, onUeben, onHelp, onInstall, onLogout, onLogin, folded = [],
+  onObjectVisits, onDevice, onHelp, onUeben, onInstall, onLogout, onLogin, folded = [],
 }: {
   /** the Einsatz the menu's card names (IncidentSwitcher); null on home's sheet, which has no card
    *  — so the Einsatz a «Karte & Objekte» covers is listed there as a row, the way back into it */
@@ -104,9 +104,9 @@ export function AppMenuRows({
    *  Einsatz menu used to say «Einstellungen» + «Offline-Bereitschaft», home «Einstellungen» +
    *  «Auf diesem Gerät». */
   onDevice?: () => void
-  /** «Üben» – the tutorials sheet (App · landingSheet 'ueben'); absent for a link session */
-  onUeben?: () => void
   onHelp: () => void
+  /** «Üben» – opens the drills' sheet (lib/ueben); absent for a link session */
+  onUeben?: () => void
   onInstall?: () => void
   onLogout?: () => void
   /** «Anmelden» in the identity row's button slot – a view-link guest whose browser holds no
@@ -239,9 +239,8 @@ export function AppMenuRows({
         </button>
       )}
       {onDevice && <button type="button" className="ip-menu-act" onClick={onDevice}><Icon id="gear" /><ActLabel>{appConfig.copy.settings.sheetTitle}</ActLabel></button>}
-      {/* «Üben» right above the Hilfe it practises (owner, 05.11.2026: one row, both menus) */}
-      {onUeben && <button type="button" className="ip-menu-act" onClick={onUeben}><Icon id="play" /><ActLabel>{appConfig.copy.tutorials.menu}</ActLabel></button>}
       <button type="button" className="ip-menu-act" onClick={onHelp}><Icon id="info" /><ActLabel>{appConfig.copy.help.menu}</ActLabel></button>
+      {onUeben && <button type="button" className="ip-menu-act" onClick={onUeben}><Icon id="target" /><ActLabel>{appConfig.copy.ueben.menu}</ActLabel></button>}
       {onInstall && <button type="button" className="ip-menu-act" onClick={onInstall}><Icon id="share-ios" /><ActLabel>{appConfig.copy.install.menu}</ActLabel></button>}
       {/* ONE hairline in this menu, above the identity row (22.09.2026): the small-caps label
           heads «App» on its own, but the row under the actions is not an action — it is who

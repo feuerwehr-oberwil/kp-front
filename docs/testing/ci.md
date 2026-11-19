@@ -52,6 +52,26 @@ test fixtures own worker cleanup. Development data is never the test target.
 Local PostgreSQL containers (development, performance and visual checks) publish their ports
 on `127.0.0.1` only. Their public test credentials must not expose a database to the LAN.
 
+### Several agents on one machine
+
+- Run every heavy recipe through `just gate <recipe> [args]` (for example `just gate ci`). It
+  holds `/tmp/kp-front-heavy.lock`, so only one heavy job runs at a time, and waits up to 9 min
+  for it.
+- `gate` retries a recipe (up to 3 attempts) only when it segfaulted: exit 139, or a failure whose
+  output shows a segfault (`pnpm exec` reports a crashed node as exit 1). Every other failure is
+  a real result: read the log tail it prints and fix the cause.
+- Run `gate` in the foreground. A gate in the background makes you poll its log.
+- Build once per change. When `just ci` selects the frontend gate, it already type-checks and
+  builds, so do not run `just check` or `just build` before it. For frontend validation on a
+  backend-only branch, run `just gate ci-frontend`.
+- For a throwaway stack or shots after a later edit, `just build-stack` builds without the
+  type-check. Then `VISUAL_SKIP_BUILD=1 just gate visual` reuses that `dist/`; drop the variable
+  when `dist/` is older than the source.
+- Before/after screenshots for a review: CI's «Visual» job shoots the states in
+  `e2e/screens.visual.ts` on every PR, so add a state there instead of shooting by hand. For an
+  existing state the committed baseline is the «before». A new state has no baseline: shoot it
+  once on the base revision if the review needs a pair.
+
 ## Mutation testing
 
 `pnpm test:mutation` runs Stryker against eleven critical frontend modules and their dedicated

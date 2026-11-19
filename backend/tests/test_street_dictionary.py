@@ -4,6 +4,8 @@ Pure tests for the edit-distance rules, plus one test of the search retry with t
 mocked — no network.
 """
 
+import time
+
 from app import geocode
 from app.street_dictionary import correct_query, correct_street, fold, split_street, within_one_edit
 
@@ -57,6 +59,14 @@ def test_the_street_is_everything_before_the_house_number():
     assert split_street("im wasen 3a, 4104 Oberwil") == ("im wasen", " 3a, 4104 Oberwil")
     assert split_street("haupstrasse, 4104") == ("haupstrasse", ", 4104")
     assert split_street("haupstrasse") == ("haupstrasse", "")
+
+
+def test_a_long_run_of_spaces_splits_in_linear_time():
+    # CodeQL py/polynomial-redos: `\s+\d` restarted inside every space of a run — 16 KB of
+    # spaces took 1.4 s on 19.11.2026 (the autocomplete query has no length cap).
+    start = time.perf_counter()
+    assert split_street("a" + " " * 16384 + "a") == ("a" + " " * 16384 + "a", "")
+    assert time.perf_counter() - start < 0.2
 
 
 def test_the_query_keeps_its_remainder():

@@ -150,6 +150,41 @@ export const atemschutzCopy = {
      * Liste erscheint erst beim Tippen. Auf Tablet/Desktop bleibt alles, wie es war. Eine leere
      * Chip-Zeile zeigt nichts (09.09.) – die Suche direkt darunter ist bereits die Antwort. */
     teamSearchMore: 'Weitere Person suchen …',
+    /* ── «Scan» (19.11.2026, owner: Atemschutz-Tags statt Namen tippen) ─────────────────────
+     * Der Knopf am Ende von «Person suchen» öffnet die Kamera (components/TagScan); jeder Tag
+     * im Bild kommt als Person in den Trupp. Kurz, weil er im Suchfeld steht – der volle Name
+     * steht im Titel der Kamera und im Tooltip. */
+    scanButton: 'Scan',
+    scanTitle: 'Tags scannen',
+    scanBack: 'Zurück zum Formular',
+    scanHint: 'Tags nebeneinander, ~25 cm darüber halten',
+    scanStarting: 'Kamera startet …',
+    // iOS fragt pro App einmal; wer «Nicht erlauben» tippte, muss es in den Einstellungen ändern.
+    // Der zweite Satz ist der Weg, der IMMER geht.
+    scanDenied: 'Kein Zugriff auf die Kamera. In den Einstellungen erlauben – oder Namen tippen.',
+    scanNoCamera: 'Kamera nicht verfügbar – Namen tippen.',
+    scanTorch: 'Licht',
+    scanTake: 'Übernehmen · {n}',
+    scanTakeNone: 'Noch kein Tag erkannt',
+    // …and once tags WERE read, but every one is taken or unknown: «noch kein Tag» would be untrue
+    scanTakeNobody: 'Niemand zum Übernehmen',
+    scanDrop: '{name} nicht übernehmen',
+    scanTaken: 'schon in einem Trupp',
+    // Die EINE Frage, wenn beim «Übernehmen» jemand schon in einem anderen aktiven Trupp ist
+    // (Owner, Sign-off-Runde 2): verschieben und alle übernehmen · nur die Freien · zurück zum
+    // Scan (ein Tag lag versehentlich im Bild). Wer in einem Trupp ist, der noch drin ist, wird nie
+    // stillschweigend verschoben – er kommt mit, und das Formular zeigt seine Konfliktzeile.
+    scanAskTitle: 'Schon in einem Trupp',
+    scanAskMessage: 'Diese Personen sind bereits in einem anderen aktiven Trupp:',
+    scanAskMove: '{name} – wird aus dem anderen Trupp genommen',
+    scanAskDeployed: '{name} – Trupp im Einsatz, dort korrigieren',
+    scanAskStays: '{name} – bleibt auch im anderen Trupp, dort korrigieren',
+    scanAskConfirmMove: 'Verschieben und übernehmen',
+    scanAskConfirmAnyway: 'Trotzdem übernehmen',
+    scanAskFreeOnly: 'Nur freie übernehmen ({n})',
+    scanAskBack: 'Zurück zum Scan',
+    scanUnknown: 'Tag unbekannt',
+    scanFound: '{n} erkannt',
     // Das EINE, was unter der Chip-Zeile noch steht (09.09., Feldtest: die alte Zeile war
     // «blabla») – dass ein Tipp auf den Namen ihn zum Gruppenführer macht. Erst ab zwei Personen
     // gezeigt (TruppTeam): bei 0 oder 1 sagt «wer führt» nichts.
@@ -335,8 +370,9 @@ export const atemschutzCopy = {
     edit: 'Bearbeiten',
     // per-Trupp contact/pressure log (expandable on the card)
     verlauf: 'Verlauf',
-    // the ⋯ on the card: Bearbeiten · Platzieren · Leitung · Sortierung · Entfernen, as words
-    cardMenu: 'Weitere Aktionen',
+    // the name of the card's «⋯ Mehr» (Bearbeiten · Platzieren · Leitung · Sortierung · Entfernen):
+    // it STARTS with the chip's word, `cardMenuWord`, so «Mehr» said aloud finds it (Sol review, PR #702)
+    cardMenu: 'Mehr Aktionen',
     // ⚠️ Die Unterzeile eines Trupps, der NIE im Einsatz war (truppNeverDeployed): keine laufende
     // Uhr, sondern die Uhrzeit der Anmeldung. Bis 04.09. stand über ihm «Draussen seit» und eine
     // tickende, fette Uhr – ein Sicherungstrupp, der nie unter Atemschutz war, las sich damit wie
@@ -945,6 +981,8 @@ export const atemschutzCopy = {
     // Wiederöffnen neu – die geschlossene Zeit zählt nicht als Zeit ohne Kontakt (r3, F4).
     logClockRestart: 'Trupp {name}: Kontaktuhr neu gestartet – Einsatz wieder geöffnet',
     cardMenuWord: 'Mehr',
+    // the Trupps head's «⋯ Mehr», where its rare tiles go on a crowded head (lib/pageHeadFit)
+    headMoreWord: 'Mehr',
     // Leitung-Picker (TruppSheets): eine Leitung, die auf einem Plan liegt – «Ltg 3 · Plan · M. Stich»
     // (rare-user F13, 17.11.2026; vorher ein fest codiertes « · P»)
     lineOnPlan: 'Plan',

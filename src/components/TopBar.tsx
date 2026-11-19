@@ -15,7 +15,6 @@ import { useLiveBearing } from '../lib/liveBearing'
 import { HoldChargeRing, HoldTargets } from './HoldTargets'
 import { useHeadFit } from '../lib/useHeadFit'
 import { parseWeatherTime } from '../lib/weatherTime'
-import { tut } from '../lib/tutorials/anchors'
 
 /* ── Weather helpers ───────────────────────────────────────────────────────────────────────────
  * The wind/condition maths, kept beside its only reader. It used to live in a `WindBadge`
@@ -247,8 +246,8 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
                 them is a quiet .tb-act too and comes and goes with the surface.
                 …each with its word (button sweep audit, owner pick 24a, 17.11.2026): a bare ↶ ↷
                 beside «Verlauf» and «Eintrag» was the one wordless pair in a worded row. */}
-            <button className="tb-act quiet tb-act-history" title={undoWord} aria-label={undoWord} disabled={!canUndo} onClick={onUndo} {...tut('top.undo')}><Icon id="undo" /><span>{appConfig.copy.undo}</span></button>
-            <button className="tb-act quiet tb-act-history tb-act-redo" title={redoWord} aria-label={redoWord} disabled={!canRedo} onClick={onRedo} {...tut('top.redo')}><Icon id="redo" /><span>{appConfig.copy.redo}</span></button>
+            <button className="tb-act quiet tb-act-history" title={undoWord} aria-label={undoWord} disabled={!canUndo} onClick={onUndo}><Icon id="undo" /><span>{appConfig.copy.undo}</span></button>
+            <button className="tb-act quiet tb-act-history tb-act-redo" title={redoWord} aria-label={redoWord} disabled={!canRedo} onClick={onRedo}><Icon id="redo" /><span>{appConfig.copy.redo}</span></button>
           </span>
         )}
         {/* ⚠️ `has-rem` tints the BUTTON, not just its corner. The count badge alone is 17px of amber
@@ -256,7 +255,7 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
             chip, which is painted after it and simply covered it up. What «12 offen» has to do is
             be noticed from across a Schadenplatz, so the control it belongs to carries the colour
             and the number rides along (see .tb-act.has-rem). */}
-        <button className={`tb-act ${journalOpen ? 'on' : ''} ${reminderCount > 0 ? 'has-rem' : ''}`} aria-expanded={journalOpen} onClick={onToggleJournal} {...tut('top.verlauf')}
+        <button className={`tb-act ${journalOpen ? 'on' : ''} ${reminderCount > 0 ? 'has-rem' : ''}`} aria-expanded={journalOpen} onClick={onToggleJournal}
           aria-label={journalDoor} title={keyTitle(journalDoor, PANEL_KEY.journal)}>
           <Icon id="verlauf" /><span>{appConfig.copy.journal.open}</span>{keyHint(PANEL_KEY.journal)}
           {reminderCount > 0 && <span className="tb-rem-count" aria-label={appConfig.copy.journal.openCount.replace('{n}', String(reminderCount))}>{reminderCount}</span>}

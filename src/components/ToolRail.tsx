@@ -7,7 +7,6 @@ import { useRail } from '../lib/useRail'
 import { useIsPhone } from '../lib/useIsPhone'
 import { addFace, barTools } from '../lib/toolFold'
 import { railToolKey } from '../lib/hotkeys'
-import { tut, toolAnchor } from '../lib/tutorials/anchors'
 
 export interface ToolDef {
   id: string
@@ -132,8 +131,9 @@ export function ToolRail({ primary, tools, active, open = false, onPick, toolRef
         title={shown.label}
         aria-label={shown.label}
         aria-pressed={on}
+        // the tool's id – the anchor «Üben»'s «Zeigen» rings (lib/ueben), not an e2e hook
+        data-tool={t.id}
         onClick={() => onPick(target)}
-        {...toolAnchor('tool', t.id)}
       >
         <span className="vrail-glyph"><Icon id={shown.icon} /></span><span className="vrail-label">{alt?.label ?? t.short ?? t.label}</span>
         {keyHint(shown.id)}
@@ -181,8 +181,8 @@ export function ToolRail({ primary, tools, active, open = false, onPick, toolRef
                 aria-label={label}
                 aria-pressed={on}
                 aria-haspopup={phone ? 'dialog' : undefined}
+                data-tool={primary.id}
                 onClick={() => onPick(primary.id)}
-                {...tut('tool.add')}
               >
                 <span className="vrail-glyph"><Icon id={face?.icon ?? primary.icon} /></span><span className="vrail-label">{face?.short ?? label}</span>
                 {keyHint(primary.id)}

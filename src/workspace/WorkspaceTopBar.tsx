@@ -1,8 +1,8 @@
 // The workspace's TopBar: Einsatz title and mode chip, sync/clock state, ↶ ↷, the Einsatz-Menü
 // and the per-surface actions. Split out of IncidentWorkspace (E1, 09.10.2026) verbatim; the
 // menu's doors (switch, archive, share, settings, …) stay the workspace's and come in as props.
-// The one sheet it owns itself is the menu's «Präsentieren» (F15, 17.11.2026): the share sheet's
-// «Präsentieren» card alone, so the menu suspends under it like under any sheet it opened.
+// The menu's «Präsentieren» (F15, 17.11.2026) starts the Präsentationsmodus itself – the one
+// door to it since «Einsatz teilen» lost its card (owner, 18.11.2026).
 
 import type { Dispatch, SetStateAction, MouseEvent as ReactMouseEvent, RefObject } from 'react'
 import { IncidentSwitcher, type AppMenuAlarms, type FoldedMenuRow } from '../components/panels'
@@ -31,6 +31,7 @@ import type { ReportMeta } from '../lib/workspace'
 import type { Incident, WeatherData, LngLat, ReactivateResult } from '../types'
 import type { WorkspaceMode } from './types'
 import type { ViewOnlyReason } from './access'
+import { openUebenSheet } from '../lib/ueben/session'
 
 export interface WorkspaceTopBarProps {
   incidentView: Incident
@@ -90,8 +91,6 @@ export interface WorkspaceTopBarProps {
   onOpenHistory: () => void
   onOpenObjectVisits: ((objectId?: string | null) => void) | undefined
   onOpenKarte: (() => void) | undefined
-  /** «Üben» – App's tutorials sheet (landingSheet 'ueben'); undefined = a link session */
-  onOpenUeben: (() => void) | undefined
   activeObjectId: string | undefined
   canEditMeta: boolean
   onEditMeta: () => void
@@ -131,7 +130,7 @@ export function WorkspaceTopBar({
   setPanel, setTruppFocus, mapUI, replayActive, gpsStale, gpsAgeMs, share, onShareChangeName,
   onBackFromArchive, onReactivateActive, isPhone, phoneTools, planFit, incidents, syncStatus, journal,
   auditDelivery, closedRefusedUnexported, baseSyncStatus, lastSyncedAt, user, setSettingsOpen,
-  onSwitchIncident, onOpenHistory, onOpenObjectVisits, onOpenKarte, onOpenUeben, activeObjectId, canEditMeta, onEditMeta,
+  onSwitchIncident, onOpenHistory, onOpenObjectVisits, onOpenKarte, activeObjectId, canEditMeta, onEditMeta,
   onOpenDivera, menuAlarms, menuFolded, confirmAndComplete, abschlussMissing, canShareLink, setShareLink,
   setHelpOpen, setInstallGuideOpen, syncNow, media, logout, settingsOpen,
   helpOpen, installGuideOpen, offlineReadyOpen, shareLink,
@@ -266,13 +265,12 @@ export function WorkspaceTopBar({
             // handed to somebody. Same gate as every minting door (`canShareLink`): editors,
             // never a viewer, a read-only surface or a link session.
             onShare={canShareLink ? () => setShareLink('view') : undefined}
-            onUeben={linkScoped ? undefined : onOpenUeben}
-            // «Präsentieren» (F15) STARTS the presentation at once (owner pick 29, 17.11.2026) – the
-            // same call as the share sheet card's start button; the presentation's own stop is the
-            // way out. The card's gate (`canShareLink`), and only while this device can start one
-            // and is not already presenting.
+            // «Präsentieren» (F15) STARTS the presentation at once (owner pick 29, 17.11.2026); the
+            // presentation's own stop is the way out. Editors only (`canShareLink`), and only while
+            // this device can start one and is not already presenting.
             onPresent={canShareLink && presentation.canStart && presentation.follow.kind !== 'presenting' ? () => void presentation.start() : undefined}
             onHelp={() => setHelpOpen(true)}
+            onUeben={linkScoped ? undefined : openUebenSheet}
             onInstall={isStandalone() || !installOffered(getInstallPlatform()) ? undefined : () => setInstallGuideOpen(true)}
             onSyncNow={syncNow}
             // ⚠️ No «Abmelden» for a link session (02.09.): a link is the literal page and owns

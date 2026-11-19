@@ -272,36 +272,6 @@ class IncidentFull(IncidentMeta):
     map_workspace_json: dict[str, Any] | None = None
 
 
-#: The tutorials that run on a seeded «Lernen · <Modul>» Übung (src/lib/tutorials/catalogue ·
-#: `sandbox: 'uebung'`; their titles: tutorial_seed · TUTORIAL_TITLES). T1 makes its own Übung
-#: through the intake, the peace-time tutorials need none.
-LernTutorial = Literal[
-    "lageZeichnen",
-    "planGebaeude",
-    "tafel",
-    "checkliste",
-    "trupps",
-    "notfall",
-    "anwesenheit",
-    "material",
-    "verlauf",
-    "rapport",
-    "wiedergabe",
-]
-
-
-class LernUebungIn(BaseModel):
-    """`POST /api/incidents/lernen` — only the tutorial's id; the server owns title and scene."""
-
-    model_config = ConfigDict(extra="forbid")
-    tutorial: LernTutorial
-
-
-class LernUebungOut(IncidentFull):
-    #: an open Lern-Übung was reused (and renamed) instead of a new one being created
-    reused: bool
-
-
 class WorkspaceOut(BaseModel):
     workspace: dict[str, Any] | None = None
     workspace_rev: int
@@ -342,10 +312,15 @@ _NUMERIC_DRAWING_KEYS = frozenset(
 # a `<![CDATA[ … ]]>` survives an XML round-trip and the HTML sink then re-parses its body as live
 # markup (`<title><text><![CDATA[><img onerror=…>]]>`). The client's HTML-context DOMParser is the
 # authoritative gate; stripping them here keeps the stored blob and the server raster path clean.
-_CDATA_RE = re.compile(r"<!\[CDATA\[.*?\]\]>", re.DOTALL | re.IGNORECASE)
-_COMMENT_RE = re.compile(r"<!--.*?-->", re.DOTALL)
+# ⚠️ Each closer has a `|\Z` twin: an UNTERMINATED comment, section or tag runs to the end, as an
+# HTML parser reads it at end-of-file. Without it the match failed after scanning the whole tail,
+# and `sub` rescanned that tail from every opener — quadratic (CodeQL py/polynomial-redos: 128 KB
+# of `<!--` took 16 s). Now every attempt that starts at an opener succeeds and consumes what it
+# scanned, so each pass is linear.
+_CDATA_RE = re.compile(r"<!\[CDATA\[.*?(?:\]\]>|\Z)", re.DOTALL | re.IGNORECASE)
+_COMMENT_RE = re.compile(r"<!--.*?(?:-->|\Z)", re.DOTALL)
 _SCRIPTISH_TAG_RE = re.compile(
-    r"</?\s*(?:script|foreignobject|title|desc|metadata|style|animate\w*|set)\b[^>]*>", re.IGNORECASE
+    r"</?\s*(?:script|foreignobject|title|desc|metadata|style|animate\w*|set)\b[^>]*(?:>|\Z)", re.IGNORECASE
 )
 # ⚠️ Keyed on whitespace OR a slash before `on…`: `<img/onerror=…>` is a valid HTML start tag whose
 # `/` separates attributes, so a whitespace-only anchor (the round-1/2 regex) missed it — the exact
@@ -362,8 +337,10 @@ def _scrub_svg(markup: str) -> str:
     behaviour-carrying / integration tags (`script`, `foreignObject`, `title`, `desc`, `metadata`,
     `style`, `animate*`, `set`), the `on*=` event handlers (whitespace- OR slash-separated), the
     `javascript:` scheme, and any `href`/`xlink:href` that is not a `#fragment` or a `data:image/…`
-    raster. The client's HTML-context DOMParser sanitiser is what actually decides what renders;
-    this only has to make sure nothing dangerous is persisted or handed to the raster path.
+    raster. An unterminated comment, CDATA section or such tag is dropped to the end of the string,
+    as an HTML parser reads it at end-of-file; every pass is linear in the length. The client's
+    HTML-context DOMParser sanitiser is what actually decides what renders; this only has to make
+    sure nothing dangerous is persisted or handed to the raster path.
     """
 
     def _href(m: re.Match[str]) -> str:

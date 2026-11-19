@@ -781,6 +781,30 @@ describe('Gebäude objects edited through another module', () => {
     expect(result.current.canUndo).toBe(false)
   })
 
+  describe('a streamed drag through a tiled storey drawing onto an untiled one (Sol review round 5)', () => {
+    // tiles 0–2; the sheet's storey drawings hand back storey 3 too (floorPackBinding ·
+    // withDrawingStorey) – one frame per call, as the bar and the chip drag stream them
+    const fits = new Map([['gebaeude', { ...PLAN, stack: { floors: [0, 1, 2] } }], ['modul2', PLAN]])
+    const drag = (start: BoardAnno, frames: Partial<BoardAnno>[]) => {
+      const { result } = store([bakeGeoBody({ id: 's', sheet: { planId: 'gebaeude', anno: start } }, fits.get('gebaeude')!, 'taktisch')], fits)
+      act(() => {
+        result.current.beginSheetStep()
+        frames.forEach((f, i) => result.current.setBoard(b => ({ ...b, modul2: b.modul2.map(({ floorFrom: _f, floorTo: _t, ...a }) => ({ ...a, x: 0.6 + i / 10, ...f })) })))
+        result.current.endSheetStep()
+      })
+      return result.current
+    }
+    it('1 → 2 → 3 ends on storey 1, where it started – not on 2, which it only passed', () => {
+      const end = drag(anno('s', { symbol: 'VKF Feuer', floor: 1 }), [{ storey: 2 }, { storey: 3 }])
+      expect(end.objects[0].sheet).toMatchObject({ planId: 'gebaeude', anno: { floor: 1 } })
+      expect(end.board.gebaeude[0]).toMatchObject({ floor: 1, x: 0.7 })
+    })
+    it('a span 0–1 shifted to 1–2, then to 3–4, ends on 0–1', () => {
+      const end = drag(anno('s', { symbol: 'VKF Feuer', floor: 0, floorFrom: 0, floorTo: 1 }), [{ floorFrom: 1, floorTo: 2 }, { floorFrom: 3, floorTo: 4 }])
+      expect(end.objects[0].sheet).toMatchObject({ planId: 'gebaeude', anno: { floor: 0, floorFrom: 0, floorTo: 1 } })
+    })
+  })
+
   it('writes through, survives rebake, and undoes the whole foreign edit once', () => {
     const fits = new Map([['gebaeude', { ...PLAN, stack: { floors: [0, 1, 2] } }], ['modul2', PLAN]])
     const { result } = store([], fits)

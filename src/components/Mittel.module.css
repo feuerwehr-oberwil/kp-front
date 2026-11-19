@@ -246,7 +246,7 @@
 /* ⚠️ the strip's one action is THE primary (28.09.2026) — blue now means «chosen» (--sel).
    <Button primary> and <IconButton> since 08.10.2026 (design-system stage 2): 44px, the floor;
    the ✕ overhangs the strip's padding so the strip does not grow by the whole difference.
-   (The phone's 14px inset is `--head-pad-x` there, so the margin above serves both.) */
+   (The inset is `--head-pad-x` on every width, so the margin above serves the phone too.) */
 .recTake { flex: none; }
 .recHide { margin: calc(-1 * var(--sp-1)); color: var(--ink-faint); }
 @media (hover: hover) { .recHide:hover { color: var(--ink); } }

@@ -136,7 +136,6 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
       addThird: 'Poser un troisième point',
       lampAutoHead: 'Aligné automatiquement',
       lampApprovedHead: 'Validé par la station',
-      lampApprovedBody: 'La station a vérifié et validé ce lien.',
       chipAuto: 'non mesuré',
       warnAuto: 'Placer des points pour mesurer la précision – jusqu’ici, elle n’a été vérifiée qu’à l’œil.',
       autoAddPoints: 'Placer des points',

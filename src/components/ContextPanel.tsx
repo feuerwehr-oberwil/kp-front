@@ -1035,7 +1035,7 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
           {labelled && (readOnly ? (
             <div className="field"><span>{C.labelField}</span><b className="kv-val-ro">{title || '–'}</b></div>
           ) : (
-            <label className="field">
+            <label className="field" data-field="label">
               <span>{C.labelField}</span>
               <Combo
                 value={title} options={titleOptions ?? []} placeholder={C.titlePlaceholder}

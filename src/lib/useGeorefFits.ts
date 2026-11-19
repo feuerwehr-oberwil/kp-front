@@ -17,7 +17,7 @@ import { georefForPlan, getStationPlanScales, loadStationPlanScales, stationPlan
 import { setGeorefLinkedHandler, useGeorefStorage } from './georefMode'
 import { planPreviewUrl, regionInkBox } from './pdfRaster'
 import { stackGroundFit } from './stackFit'
-import { floorPackOf, packBuildingDoc, PACK_TRIM_MS, trimmedPackFrame } from './floorPackBinding'
+import { floorPackOf, packBuildingDoc, PACK_TRIM_MS, sheetFloorsOf, trimmedPackFrame } from './floorPackBinding'
 import { buildingPackBinding } from './buildingPackBinding'
 import { tileAspectOf } from './whiteboard'
 import { fillTemplate } from './format'
@@ -343,6 +343,10 @@ export function useGeorefFits({
   // which is solved at the aspect it has actually measured (lib/planProjection · liveOverlay,
   // drawn by components/PlanLiveLayer).
   const activeLinkedPlan = linkedPlans.find((p) => p.id === activePlanId) ?? null
+  // the open sheet's OWN floor pack, when it shows one (Modul 6 with its storeys side by side): a
+  // symbol placed or moved into a storey drawing takes its storey (lib/floorPackBinding ·
+  // sheetFloorsOf, withDrawingStorey) – from this sheet's pinned binding, never the Gebäude's pack
+  const sheetFloors = sheetFloorsOf(planBindings, planDocs.find((p) => p.id === activePlanId)?.imageUrl ?? '')
   /**
    * The live feed this sheet draws — vehicles and shared responder positions, projected and
    * clipped against the plan's own fit (lib/planProjection · liveOverlay).
@@ -376,5 +380,5 @@ export function useGeorefFits({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [replayActive, activeLinkedPlan, liveVehicles, livePeople.people, isVisible, fitsVersion, mapEntities])
 
-  return { linkedPlans, floorPack, georefPlanRasters, activeLinkedPlan, planLive, planPhotos }
+  return { linkedPlans, floorPack, sheetFloors, georefPlanRasters, activeLinkedPlan, planLive, planPhotos }
 }

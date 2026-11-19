@@ -39,9 +39,9 @@ export type HomeActions = {
   onCreate: () => void
   onObjectVisits?: () => void
   onSettings: () => void
-  /** «Üben» (the tutorials sheet); absent where this session may start none */
-  onUeben?: () => void
   onHelp: () => void
+  /** «Üben» – the drills on the practice Einsatz (lib/ueben); absent for a link session */
+  onUeben?: () => void
   onInstall?: () => void
   onLogout: () => void
 }
@@ -50,7 +50,7 @@ export type HomeActions = {
  *  (no «Kein offener Einsatz» dead-end), with manual create always on. */
 export function LauncherBody({
   trouble, onTrouble, onTroubleDismiss, linkScoped, isEditor, user, incidents, listNote, opening, alarms, taking, onTake,
-  onOpenIncident, onHistory, onCreate, onObjectVisits, onSettings, onHelp, onInstall, onLogout,
+  onOpenIncident, onHistory, onCreate, onObjectVisits, onSettings, onHelp, onUeben, onInstall, onLogout,
 }: HomeActions) {
   const openIncidents = incidents.filter((i) => !i.is_archived)
   // the Alarmquelle's own name, or null where this station has none (deploymentConfig)
@@ -160,6 +160,7 @@ export function LauncherBody({
         <div className="ip-emptyapp-utils">
           <button className="ip-foot-util" onClick={() => onSettings()}><Icon id="gear" />{appConfig.copy.settings.sheetTitle}</button>
           <button className="ip-foot-util" onClick={() => onHelp()}><Icon id="info" />{appConfig.copy.help.menu}</button>
+          {onUeben && <button className="ip-foot-util" onClick={() => onUeben()}><Icon id="target" />{appConfig.copy.ueben.menu}</button>}
           {onInstall && (
             <button className="ip-foot-util" onClick={() => onInstall()}><Icon id="share-ios" />{appConfig.copy.install.menu}</button>
           )}
@@ -177,7 +178,7 @@ export function LauncherBody({
  *  session (appScreen gives it no viewer), so every account door is drawn here. */
 export function HomeMenu({
   close, onDevice, trouble, onTrouble, onTroubleDismiss, linkScoped, isEditor, user, incidents, listNote, activeId, opening,
-  alarms, taking, onTake, onOpenIncident, onHistory, onCreate, onObjectVisits, onUeben, onHelp,
+  alarms, taking, onTake, onOpenIncident, onHistory, onCreate, onObjectVisits, onHelp, onUeben,
   onInstall, onLogout,
 }: HomeActions & { close: () => void; onDevice: () => void }) {
   return (
@@ -199,8 +200,8 @@ export function HomeMenu({
         onCreate={() => { close(); onCreate() }}
         onObjectVisits={onObjectVisits ? () => { close(); onObjectVisits() } : undefined}
         onDevice={onDevice}
-        onUeben={onUeben ? () => { close(); onUeben() } : undefined}
         onHelp={() => { close(); onHelp() }}
+        onUeben={onUeben ? () => { close(); onUeben() } : undefined}
         onInstall={onInstall ? () => { close(); onInstall() } : undefined}
         onLogout={() => { close(); onLogout() }}
       />

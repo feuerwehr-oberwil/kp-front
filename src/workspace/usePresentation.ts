@@ -20,10 +20,10 @@
 //   nothing is queued – a pointer from a minute ago means nothing.
 //
 // `IncidentWorkspace` calls this once and hands the result to the pill (PresentationPill), the
-// map's marks (MapRings), the Plan (`board`, via PlansSurface → Whiteboard) and the «Einsatz
-// teilen» sheet (PresentationContext → ShareIncident's «Präsentieren» card).
+// map's marks (MapRings) and the Plan (`board`, via PlansSurface → Whiteboard). The Einsatz card's
+// «Präsentieren» act (WorkspaceTopBar) starts it.
 
-import { createContext, useCallback, useEffect, useMemo, useReducer, useRef, useState, type RefObject } from 'react'
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type RefObject } from 'react'
 import type { MapRef } from 'react-map-gl/maplibre'
 import { appConfig } from '../config/appConfig'
 import { ApiError } from '../lib/api'
@@ -665,6 +665,3 @@ export function usePresentation({
 }
 
 export type Presentation = ReturnType<typeof usePresentation>
-
-/** For the «Einsatz teilen» sheet's «Präsentieren» card (ShareIncident). Null outside an Einsatz. */
-export const PresentationContext = createContext<Presentation | null>(null)

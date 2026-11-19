@@ -6,6 +6,7 @@ import { formatTime } from '../lib/format'
 import { serverNow } from '../lib/serverClock'
 import { applyRouting, nearestFreeEndpoint, objectAttachment, type AttachableLine } from '../lib/lineAttachments'
 import { normalizeStackEdit } from '../lib/stackFloors'
+import { storeyMove, withDrawingStorey, type SheetDrawing } from '../lib/floorPackBinding'
 import { DOOR_SNAP_PX, isDoor, nearestWall, seatDoor } from '../lib/grundriss'
 import { fanOffsets, type PilePoint } from '../lib/labelPass'
 import { useLayer } from '../lib/overlays/layer'
@@ -25,6 +26,9 @@ interface Args {
   toNorm: (clientX: number, clientY: number) => [number, number] | null
   /** floor-stack document: the chip drags freely across storeys */
   stack: boolean
+  /** a plain sheet's storey drawings (Modul 6 with its storeys side by side): a symbol landing in
+   *  one takes its storey (lib/floorPackBinding · withDrawingStorey); empty elsewhere */
+  drawings: readonly SheetDrawing[]
   floorAt: (y: number) => number
   localY: (y: number, floor: number) => number
   mapY: (floor: number | undefined, ly: number) => number
@@ -77,7 +81,7 @@ interface Args {
  * happens to be on top. Three Trupps at the stair door no longer hand out the wrong card.
  */
 export function useWbChipDrag({
-  tool, readOnly, annos, selId, editId, setSelId, setSelIds, setNotePanelId, toNorm, stack, floorAt, localY, mapY, sW, sH, tileAR,
+  tool, readOnly, annos, selId, editId, setSelId, setSelIds, setNotePanelId, toNorm, stack, drawings, floorAt, localY, mapY, sW, sH, tileAR,
   attachmentLines, pushPast, set, emit, activeId, onLinkLineTrupp, panFrom, stopPan, scale, pileUnder,
 }: Args) {
   const chipDrag = useRef<{
@@ -88,6 +92,8 @@ export function useWbChipDrag({
     live: boolean
     /** where the finger has put it so far */
     last: BoardPoint | null
+    /** the chip as the press found it – a storey drawing's storey is worked out from it */
+    orig: BoardAnno | null
   } | null>(null)
   const hold = useHoldToDrag()
 
@@ -143,7 +149,7 @@ export function useWbChipDrag({
     const node = e.currentTarget instanceof HTMLElement ? e.currentTarget : null
     const live = stack || annos.some((line) => [line.startAttachment, line.endAttachment].some((rel) => rel?.target.kind === 'object' && rel.target.id === id))
     const grab = (sx: number, sy: number) => {
-      chipDrag.current = { id, moved: false, sx, sy, floorOffset: (shownFloor ?? 0) - (annos.find((a) => a.id === id)?.floor ?? 0), node, live, last: null }
+      chipDrag.current = { id, moved: false, sx, sy, floorOffset: (shownFloor ?? 0) - (annos.find((a) => a.id === id)?.floor ?? 0), node, live, last: null, orig: annos.find((a) => a.id === id) ?? null }
     }
     // view-only (viewer / replay / EL view): a tap still SELECTS — so the read-only detail panel
     // can open, parity with the Lage map — but nothing ever drags.
@@ -174,7 +180,7 @@ export function useWbChipDrag({
       let moved: BoardAnno = { ...anno, x: point[0], y: point[1], ...(stack ? { floor: f - d.floorOffset } : {}) }
       // a Durchgang dropped near a Wand sits on it again, turned along it; elsewhere it stands free
       if (stack && isDoor(anno) && sW) moved = seatDoor(moved, nearestWall(annos, moved.floor ?? 0, point[0], point[1], tileAR, DOOR_SNAP_PX / sW))
-      return stack ? normalizeStackEdit(anno, moved) : moved
+      return stack ? normalizeStackEdit(anno, moved) : withDrawingStorey(d.orig, moved, drawings)
     }
     if (anno.kind !== 'draw' || !anno.pts?.length) return anno
     let next = anno
@@ -226,7 +232,7 @@ export function useWbChipDrag({
     if (join) next = next.map((x) => (x.id === join.lineId ? { ...x, ...join.out } : x))
     set(next)
     // record the relocation in the audit trail (the drag itself was silent patches)
-    if (a) emit('board.move', { id: d.id, x: a.x, y: a.y, floor: a.floor, ...(stack && a.kind === 'symbol' ? { floorFrom: a.floorFrom, floorTo: a.floorTo } : {}), planId: activeId })
+    if (a) emit('board.move', { id: d.id, x: a.x, y: a.y, floor: a.floor, ...(a.kind === 'symbol' ? storeyMove(a, stack, drawings) : {}), planId: activeId })
     // …and a Durchgang's seat, which a position does not carry (its turn, the Wand it sits on)
     if (a && stack && isDoor(a)) emit('board.edit', { id: d.id, patch: { rotation: a.rotation, onWall: a.onWall ?? null }, planId: activeId })
     next.filter((line) => [line.startAttachment, line.endAttachment].some((rel) => rel?.target.kind === 'object' && rel.target.id === d.id && rel.routing === 'trace'))

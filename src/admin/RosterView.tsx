@@ -23,6 +23,8 @@ import { loadDeploymentConfig, providerLabel } from '../lib/deploymentConfig'
 import { activeRanks, rankAbbr, rankDisplay, rankLabel } from '../lib/rank'
 import { Icon } from '../lib/icons'
 import { Sheet } from '../lib/overlays'
+import type { TagFormat } from './tagPrint'
+import { tagsCsv } from '../lib/tagCode'
 import {
   ActionMenu, Card, EmptyState, Field, Select, SettingRow, SettingsSheet, standardNote, StatusBadge,
   type SelectOption,
@@ -641,6 +643,80 @@ function AutoSyncCard({ provider }: { provider: string | null | undefined }) {
   )
 }
 
+const TAG_FORMAT_OPTIONS: { value: TagFormat; label: () => string }[] = [
+  { value: 'single', label: () => appConfig.copy.admin.roster.tagsFormatSingle },
+  { value: 'a4', label: () => appConfig.copy.admin.roster.tagsFormatA4 },
+  { value: 'tape36', label: () => appConfig.copy.admin.roster.tagsFormatTape36 },
+  { value: 'tape24', label: () => appConfig.copy.admin.roster.tagsFormatTape24 },
+]
+
+/**
+ * «Tags drucken»: the Atemschutz tags of EVERY active person (owner pick 4B, 19.11.2026) as one
+ * PDF in the chosen format (tagPrint). Everyone, not a ticked selection: the roster has no
+ * Atemschutz flag, and a tag printed too many costs a piece of plastic, not a wrong record.
+ */
+function TagPrintSheet({ people, onClose }: { people: RosterPerson[]; onClose: () => void }) {
+  const C = appConfig.copy.admin.roster
+  const Cc = appConfig.copy.admin.common2
+  const [format, setFormat] = useState<TagFormat>('single')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+  const active = people.filter((p) => p.is_active)
+  const downloadCsv = () => {
+    const csv = tagsCsv(active.map((p) => ({ id: p.id, name: p.display_name, rank: p.rank ? rankAbbr(p.rank) || rankDisplay(p.rank) : '' })))
+    downloadBlob(new Blob([csv], { type: 'text/csv;charset=utf-8' }), 'atemschutz-tags.csv')
+  }
+  const create = async () => {
+    setBusy(true)
+    setErr(null)
+    try {
+      const { downloadTags } = await import('./tagPrint')
+      await downloadTags(active.map((p) => ({ id: p.id, name: p.display_name, rank: p.rank })), format)
+      onClose()
+    } catch {
+      setErr(C.tagsFailed)
+      setBusy(false)
+    }
+  }
+  return (
+    <Sheet
+      open
+      onClose={onClose}
+      fit
+      title={C.tagsTitle}
+      footer={
+        <>
+          <button type="button" className="ip-btn" onClick={onClose} disabled={busy}>{Cc.cancel}</button>
+          <button type="button" className="ip-btn primary" onClick={() => void create()} disabled={busy || !active.length}>
+            {busy ? <LoadingStatus>{fillTemplate(C.tagsCreate, { n: active.length })}</LoadingStatus> : fillTemplate(C.tagsCreate, { n: active.length })}
+          </button>
+        </>
+      }
+    >
+      <p className="ip-hint">{C.tagsCaption}</p>
+      {active.length
+        ? (
+          <Field label={C.tagsFormat}>
+            <Select
+              value={format}
+              ariaLabel={C.tagsFormat}
+              onChange={(v) => { const pick = TAG_FORMAT_OPTIONS.find((o) => o.value === v); if (pick) setFormat(pick.value) }}
+              options={TAG_FORMAT_OPTIONS.map((o) => ({ value: o.value, label: o.label() }))}
+            />
+          </Field>
+        )
+        : <EmptyState message={C.tagsNone} />}
+      {/* the format, said out loud, for whoever makes their own tags (owner, sign-off round
+          19.11.2026) – and the text of every active person's code to make them from */}
+      <p className="ip-hint">{C.tagsOwnCodes}</p>
+      {active.length > 0 && (
+        <button type="button" className="btn adm-int-btn" onClick={downloadCsv}>{C.tagsCsv}</button>
+      )}
+      {err && <EmptyState tone="err" message={err} />}
+    </Sheet>
+  )
+}
+
 export function RosterView() {
   const tableRef = useCellLabels()
   const [state, setState] = useState<Async>({ kind: 'loading' })
@@ -652,6 +728,7 @@ export function RosterView() {
   const [personnelProvider, setPersonnelProvider] = useState<string | null | undefined>(undefined)
   const [syncOpen, setSyncOpen] = useState(false)
   const [addOpen, setAddOpen] = useState(false)
+  const [tagsOpen, setTagsOpen] = useState(false)
   const [query, setQuery] = useState('')
 
   const load = useCallback(async () => {
@@ -742,6 +819,9 @@ export function RosterView() {
               />
               <span>{C.showInactive}</span>
             </label>
+            <button type="button" className="btn adm-int-btn" onClick={() => setTagsOpen(true)} disabled={state.kind !== 'ok'}>
+              {C.tagsPrint}
+            </button>
             <button type="button" className="btn adm-int-btn" onClick={() => setAddOpen(true)}>
               {C.addPerson}
             </button>
@@ -858,6 +938,7 @@ export function RosterView() {
           onSynced={() => void load()}
         />
       )}
+      {tagsOpen && state.kind === 'ok' && <TagPrintSheet people={state.data} onClose={() => setTagsOpen(false)} />}
     </div>
   )
 }

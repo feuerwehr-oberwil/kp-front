@@ -38,7 +38,7 @@ from .config import settings
 from .credentials import get as credential
 from .database import dialect_insert
 from .divera_responses import cached_catalogue, classify_answers, ensure_catalogue, parse_responses_by_alarm, resolvable
-from .models import INCIDENT_ACTIVE_STATUSES, LERN_UEBUNG_SOURCE, DiveraEmergency, Incident
+from .models import INCIDENT_ACTIVE_STATUSES, DiveraEmergency, Incident
 from .push import notify_new_alarm
 from .schemas import DiveraWebhookPayload
 
@@ -355,8 +355,7 @@ async def running_real_incident(db: AsyncSession) -> Incident | None:
     The split-dispatch guard of both auto-open paths (`maybe_auto_open`, the Einsatz-Link's
     `alarms.open_pooled_alarm`) hangs off this. Running is `Incident.is_open` (status offen /
     in_arbeit, not archived): a closed Einsatz whose Rapport is still being written is no
-    re-dispatch target. An Übung never is — a real alarm during a drill is a real Einsatz – and
-    neither is a Lern-Übung (a tutorial, `models · LERN_UEBUNG_SOURCE`).
+    re-dispatch target. An Übung never is — a real alarm during a drill is a real Einsatz.
     """
     return (
         await db.execute(
@@ -365,7 +364,6 @@ async def running_real_incident(db: AsyncSession) -> Incident | None:
                 Incident.is_archived.is_(False),
                 Incident.status.in_(INCIDENT_ACTIVE_STATUSES),
                 Incident.is_exercise.is_(False),
-                Incident.source != LERN_UEBUNG_SOURCE,
                 Incident.started_at > datetime.now(UTC) - SPLIT_DISPATCH_WINDOW,
             )
             .order_by(Incident.started_at.desc())

@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection, AsyncSession
 
 from .config import settings
 from .database import async_session_maker, engine, execute_dml
-from .models import INCIDENT_ACTIVE_STATUSES, LERN_UEBUNG_SOURCE
+from .models import INCIDENT_ACTIVE_STATUSES
 
 logger = logging.getLogger(__name__)
 
@@ -484,8 +484,6 @@ async def _vehicle_samples_sweep() -> None:
                         select(Incident.id).where(
                             Incident.is_archived.is_(False),
                             Incident.status.in_(INCIDENT_ACTIVE_STATUSES),
-                            # no track in a tutorial (models · LERN_UEBUNG_SOURCE)
-                            Incident.source != LERN_UEBUNG_SOURCE,
                         )
                     )
                 ).scalars()

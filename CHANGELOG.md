@@ -21,16 +21,19 @@ was tagged.
 **Why still 0.x?** Because exactly one fire station runs this in production, and a 1.0 claims
 more than that. It becomes **1.0 when a second station is running it in the field** – not when
 the feature list feels complete. Until then, read 0.x as *"not yet proven anywhere but
-Oberwil"*, **not** as *"we may break things without warning"*: the table above holds today and
-will keep holding.
+Oberwil"*, **not** as *"we may break things without warning"*. One difference to the table: in
+0.x a change that needs operator action bumps MINOR, not MAJOR, and leads the Upgrade notes
+(0.12.0 did the same with the print relay).
 
 `0.1.0` is the initial public release: the git history was squashed for the open-source launch,
 so this file – not the log – is the record of what shipped up to that point.
 
 ## [Unreleased]
 
-Since 0.12.0 (2026-10-13), drawing on the station's own use, KP Front now
-has a home outside an Einsatz – «Karte & Objekte» – and the Einsatz gains gas readings
+## [0.13.0] – 2026-11-19
+
+Work from 2026-10-13 to 2026-11-19, most of it from the station's own use. KP Front now has a
+home outside an Einsatz – «Karte & Objekte» – and the Einsatz gains gas readings
 (Messpunkte), a Wassertransport calculation, a Präsentationsmodus, wall sketches on the Gebäude and
 a signature on the screen. Roles and the PIN login were audited and tightened, and the installed
 app starts faster on a phone.
@@ -39,7 +42,12 @@ app starts faster on a phone.
 
 **Before updating, check your Microsoft login allow-list.** Stations that use sign-in names
 must replace them with object IDs to keep Microsoft login available. PIN login continues to
-work. The database changes run automatically during the usual Compose update.
+work. The database changes run automatically during the usual Compose update. Take a backup
+first (`scripts/backup.sh`, docs/DEPLOYMENT.md §6) and note the version you run: going back to
+0.12.0 needs that backup.
+
+- **Synced objects before 11.09.2026 and never ran the one-off object repairs?** Run them on
+  0.12.0 before updating – 0.13.0 no longer has them (see Removed).
 
 - **«Mit Microsoft anmelden»: the allow-list takes object ids only.** `ENTRA_LOGIN_ACCOUNTS` no
   longer accepts a sign-in name (`anna.muster@…=amuster`): a name can be renamed and handed to
@@ -54,8 +62,13 @@ work. The database changes run automatically during the usual Compose update.
   They also recreate `print_jobs` and remove the never-used
   `incident_notes` table and `reference_datasets.fetch_interval`, and the telemetry forwarder's
   `telemetry_outbox` table with `deployment_config.telemetry_consent` / `.telemetry_install_id`.
-  The downgrades recreate what was dropped, empty.
+  The downgrades recreate what was dropped, empty. To go back to 0.12.0, follow
+  [the schema rollback procedure](docs/DEPLOYMENT.md#rolling-back-across-a-schema-upgrade): the
+  0.12.0 image refuses to start on the migrated database, so pinning its tag alone is not enough.
 - **Defaults that changed** – nothing to do unless you disagree:
+  - A **closed Einsatz is read-only**, its Rapport included; a correction needs «Wieder öffnen».
+    0.12.0 still took Rapport changes after the close as Nachträge. Signing and printing still
+    work on a closed Einsatz.
   - A device stays signed in for **90 days** instead of 7 (`refresh_token_expire_days`), so an
     alarm weeks after the last one opens into a live session. A PIN reset or a role change still
     ends the account's sessions at once.
@@ -93,10 +106,10 @@ work. The database changes run automatically during the usual Compose update.
   sends an object's coordinate or the area, never an Einsatz. An empty value switches a source
   off. The devices load street names as vector tiles from CARTO (`tiles-a…d.basemaps.cartocdn.com`),
   the provider the base map already comes from. A host with an outbound allowlist adds these.
-- **`docker-compose.yml` changed.** It passes `PRINT_AGENT_SECRET` and the two `FOOTPRINT_*`
-  settings into the app and no longer names the telemetry pair. An older file keeps working; take
-  the new one to use the print relay. `UNDERGROUND_WFS` and `HOUSES_WFS` are not passed through
-  yet: to switch those two off, add them under the app's `environment:`.
+- **`docker-compose.yml` changed.** It passes `PRINT_AGENT_SECRET`, the two `FOOTPRINT_*`
+  settings, `UNDERGROUND_WFS` and `HOUSES_WFS` into the app and no longer names the telemetry
+  pair. An older file keeps working; take the new one to use the print relay or to switch a
+  building source off from `.env`.
 - **A device on an older build updates first.** The server refuses a save from a build older
   than the one that last wrote the Einsatz (409 `workspace_older_build`), because an old build
   could drop entries it does not know. Such a device reloads into the new build by itself and is
@@ -111,13 +124,25 @@ work. The database changes run automatically during the usual Compose update.
   `sharepoint.sources` to the admin only. Gone: `/api/diag/telemetry*` and
   `POST /api/georef/suggest`. A sixth waiting print job for one Einsatz is refused (429). New and
   public: `POST /api/diag/boot` (one launch-timing log line per app start, nothing stored).
+  `PUT /api/integrations/visit-lists/{ref}` takes an optional `scheduledOn`.
+
+### Known issues
+
+- **Floor packs (Modul 6): a symbol in a storey drawing other than the reference one lands off
+  its building on the Karte.** On the Plan it takes that drawing's storey and stands right; the Karte
+  places every drawing through the one fit measured on the reference drawing. A fix is in
+  progress, not in this release.
+- **The lock on a closed Einsatz is in the app only.** The server still accepts writes to the
+  record (Rapport, Anwesenheit, Mittel) of a closed Einsatz; only the app's forms refuse them.
 
 ### Added
 
 - **Einsatz-Ablage.** Stations can enable SharePoint filing for closed, real Einsätze. A late
   photo or revised Rapport goes to the folder chosen at first filing. Material captured after
   reopening waits for the next close. Setup and delivery status are in
-  [the filing guide](docs/incident-archive.md).
+  [the filing guide](docs/incident-archive.md). A delivery with nothing to file says «keine
+  Dateien zum Ablegen» instead of an error, and an operator can recover a Rapport that was only
+  ever printed with `admin_incident_archive recover-report` (same guide).
 
 - **«Alarm aktualisiert»: a follow-up from the Leitstelle reaches the open Einsatz.** When Divera
   sends the Einsatz's own alarm again with a new address, title or Meldung, a red row in the
@@ -166,10 +191,10 @@ work. The database changes run automatically during the usual Compose update.
   hose (55, 75, 2× 75, 110), flow, source and inlet pressure in; a pressure curve and the pumps
   out, placed where the inlet pressure reaches 2 bar. Pumps can be dragged, the direction
   reversed, and the Leitung draws its pumps on the map and on paper. A pump below 2 bar inlet
-  pressure writes a Verlauf row. Height profiles answer offline once seen. A Linie can be a
-  40 mm Schlauch; the station sets the default hose for a Linie and for a Wassertransport in
-  /admin › Doktrin.
-- **Präsentationsmodus.** «Präsentieren» in «Einsatz teilen» makes every joined device – also
+  pressure writes a Verlauf row. Height profiles answer offline once seen. A Leitung's Schlauch
+  can be 40 mm too and stays empty until picked, unless the station sets a default in /admin ›
+  Doktrin (a Wassertransport starts on 75 mm).
+- **Präsentationsmodus.** «Präsentieren» on the Einsatz card makes every joined device – also
   one on a read-only Einsatz link – show what the presenter shows, until its user pans away
   («Wieder folgen»). With «Zeigen», anyone joined marks a spot or draws a line under their name;
   marks stand until removed. Nothing of it is stored except «Präsentation gestartet / beendet»
@@ -190,15 +215,26 @@ work. The database changes run automatically during the usual Compose update.
 - **«Herkunft» on vehicles.** Every vehicle symbol and live GPS vehicle can name where it comes
   from (a station list in /admin › Fahrzeuge & Symbole, or typed); it shows under the name on
   the map and in the Rapport legend.
-- **Rapport: sign on the screen.** Once the Einsatz is closed, «Unterschriften» lets
-  Einsatzleiter and Kommandant sign with a finger. A signed Rapport is locked; «Ändern» voids
-  the signatures, and a change from another device marks them «ungültig». The PDF prints the
-  signature with «Am Bildschirm unterschrieben … · Prüfsumme …». It is a simple electronic
-  signature with the standing of a pen stroke, not a qualified one (docs/rapport.md).
+- **Rapport: sign on the screen.** «Unterschriften» lets Einsatzleiter and Kommandant sign with
+  a finger, while the Einsatz runs or after the close (editor and `el`). A signature holds while
+  the signed part – Haupt-Rapport, Personal, Material, not the Beilagen – is unchanged; any change
+  to it, on any device, marks the signature «ungültig» and a tap signs anew. An empty Einsatzende
+  is part of what is signed, and the close fills it with «jetzt»: that voids a signature made
+  before. The signing sheet then says «Einsatzende fehlt» with «Jetzt eintragen». The PDF prints
+  the signature with «Am Bildschirm unterschrieben … · Prüfsumme …». It is a simple electronic
+  signature with the standing of a pen stroke, not a qualified one (docs/rapport.md). *Fill in
+  the Einsatzende before you sign an open Rapport.*
 - **Rapport: a guide to the end.** A tap on «n offen» walks through the open points one by one;
-  when all is recorded a band offers the PDF, then «Einsatz abschliessen» and «Beilagen
-  herunterladen (ZIP)». The print menu has one tick per kind of Tafel page, and the file is named
-  after date, time, title and address.
+  each row opens its field and nothing else. When all is recorded a band offers the PDF; once a
+  PDF or a print exists, the head shows a green «Einsatz abschliessen». Closing without one lists
+  «Rapport noch nicht erstellt» as an open point. The ZIP of the Beilagen is in the PDF menu, the
+  print menu has one tick per kind of Tafel page, and the file is named after date, time, title
+  and address.
+- **The Einsatzleiter finishes on a phone.** The `el` role closes and reopens an Einsatz and
+  marks its Rapport done; the phone tile reads «Rapport» and opens it.
+- **«Person» on a Leitung.** A Leitung can carry a person from the Personal or a typed guest,
+  without a Trupp. The name shows on the line's end tag, on paper and in the Verlauf; it is no
+  Atemschutz record and nothing times it.
 - **«Alarm auf diesem Gerät».** One place says whether this device will actually ring, with a
   one-tap fix per row and «Testalarm senden». In the installed app, a card on the home screen
   appears when something is missing.
@@ -225,6 +261,8 @@ work. The database changes run automatically during the usual Compose update.
 
 ### Changed
 
+- **A symbol placed in a floor-pack storey drawing takes that drawing's storey** (Modul 6 and
+  every plan sheet with station-set storeys), as on the Gebäude; a Von/Bis span moves whole.
 - **Start-up on a phone.** The installed app opens on the config, session and Einsatz list it
   already holds and checks them behind the picture; iPhones show the splash instead of a black
   screen while iOS starts the app; map and plan tiles moved from the browser's Cache Storage to
@@ -235,12 +273,40 @@ work. The database changes run automatically during the usual Compose update.
   whole Einsatz (about a seventh on a large one), and a device no longer downloads its own save
   again.
 - **The Einsatz view's look.** Sheets, menus and popovers share one look, rails and cards were
-  tidied, and the editor sheets have one label column with 44 px controls. Behaviour is
-  unchanged.
+  tidied, and the editor sheets have one label column with 44 px controls. Colour says one
+  thing (amber only for open points, a hatched tag for «Übung»), every page has its actions in
+  its head, motion is cut to what hides loading (no selection bounce, one pulsing Atemschutz
+  alarm), phone sheets and toasts follow the finger, long names and titles stay inside their
+  cards, and no form field is under 16 px on a touch screen (text typed straight onto the Plan
+  keeps the drawing's own size).
 - **Roles read out instead of offering dead buttons.** A viewer, an `el`, the Führungsansicht
   and link sessions see values where they cannot write: no handles on the Lage, no «Jetzt» on
   the Rapport, no composer in the Verlauf. Only editor and `el` devices sound a due
-  Wiedervorlage.
+  Wiedervorlage. The `el` role may now close and reopen an Einsatz (see Added).
+- **Trupps on the map.** A selected Trupp's card and bar dock at the foot of the screen on every
+  size; the bar has one «Lösen» for a Trupp bound to a Leitung or a symbol. A Trupp's dot and
+  name are one mark, a docked Trupp hangs on its symbol by a tether, and on the Karte below
+  zoom 17 a Trupp is a dot unless it is selected or in alarm. The Ziel in the Trupp form and the
+  Auftrag sheet can be picked on the Karte or the Plan, and a dragged Trupp waits a second before
+  it docks.
+- **Rapport times are date + time.** Every time field – Zeiten, Ausgerückt, Einsatzende,
+  Rückmeldung ELZ, Anwesenheit, the QR-Erfassung and the Alarmzeit – reads «12.11. 11:26», and
+  the picker always shows the day, so a time after midnight is no longer put on the wrong day.
+  «Jetzt» takes the server's clock, not the device's. The PDF is unchanged.
+- **«Neuer Eintrag» in one row:** the Art, ⏱ / □ and one «Anhang» menu (Aufnehmen, Datei
+  anhängen, Foto) above «Erfassen».
+- **Deleting on the Lage and the Plan.** What ↶ can bring back is deleted at once, without a
+  confirm; a symbol with Leitungen asks «Nur Symbol» or «Mit Leitungen». A confirm stays where
+  nothing brings it back (Einsatz löschen, Link widerrufen, Abschluss).
+- **/admin is grouped into seven areas** with a link per page (`/admin/<area>/<page>`, Back and
+  Forward work, old links redirect). «Personal» and «Mitglieder & Zugriff» list first and have a
+  name search.
+- **«Personal» is the roster** in every text, and importing it is an «Abgleich»; «Mannschaft»
+  stays the crew of a Trupp and the Dienstgrad class. A Stationsdaten workbook whose tab is still
+  named «Mannschaft» is read as «Personal», with a warning in the preview. In the Zeitplan,
+  filled green means here and a hollow outline means eingeteilt, as in KP Rück.
+- **Objektbesuche: a list closes after its day.** A visit list past its `closesAt` leaves the
+  overview, done or not; reached by link it says «Abgelaufen – keine neuen Besuche».
 - **Touch.** A one-finger zoom (double tap, tap-and-drag) works unless the armed tool needs the
   gesture; ✓ finishes a line or area, never a double tap. A long press on the free map sets a
   point. Sheets close on a pull-down from the top, and the armed tool shows as a pill with ⓘ and
@@ -254,7 +320,8 @@ work. The database changes run automatically during the usual Compose update.
   the Plan opens object, Karte fit and Massstab, and the PDF reader gets a page strip and a share
   button.
 - **Einsatz eröffnen / Einsatzdaten bearbeiten** is one flat list of fields; text typed there
-  survives a stray tap outside.
+  survives a stray tap outside. The address field searches objects and addresses in one list
+  («Aus Plänen» is gone) and says «Noch kein Standort» while there is no coordinate.
 - **Browser floor raised to Safari/iPadOS 15.4, Chrome/Edge 98, Firefox 94** (`build.target`).
   That is what the app already needed (`structuredClone`, unpolyfilled) and covers MapLibre 6.
   iPadOS 15.4+ covers every iPad that ever ran iPadOS 15, including the iPad Air 2 / mini 4 on
@@ -283,6 +350,10 @@ work. The database changes run automatically during the usual Compose update.
   no longer carries an install id.
 - **Automatic plan alignment suggestions** (`POST /api/georef/suggest`) – unused; plans are
   fitted by point pairs or `§GEO` markers as before.
+- **The Rapport's «Fahrzeuge GPS · live» table** (new in 0.12.0). The «vor Ort … · zurück … ·
+  n Fahrten» line, the PDF and the Auswertung keep the GPS times.
+- **The Geoportal / GeoView buttons** on the Gebäude-Info, with `map.externalLinks`. A stored
+  config that still has the key loads; the next save drops it.
 - **Small things:** «+ Feld» and «Auf … zeigen» on a symbol's card (existing free fields still
   show and edit), «Stärke» on a line, and the symbol dock beside the palette.
 - **The one-off object repairs** `admin_objects_repair merge-duplicates`, `repair-sharepoint-keys`
@@ -300,8 +371,23 @@ work. The database changes run automatically during the usual Compose update.
   Atemschutz monitoring active. When the list cannot read another Einsatz's crews, it offers
   a fresh check before an explicit close. Rapport completion and Einsatzende are saved together.
 - **Offline recovery and media.** A failed storage read preserves parked edits for a later
-  attempt by their author. Transcription status refreshes while the job runs, and a full
-  browser cache still allows online attachments to open.
+  attempt by their author, also across a handover of a shared tablet. Transcription status
+  refreshes while the job runs, and a full browser cache still allows online attachments to
+  open.
+- **A real alarm is no longer held back by an Übung or a closed Einsatz.** Divera's auto-open
+  and the Einsatz-Link kept a new alarm in the pool while any unarchived Einsatz from the last
+  4 hours existed – a running Übung, or a closed Einsatz with its Rapport still open – and the
+  link could send responders to the closed one. Only a running real Einsatz holds it now.
+- **Alarm categories follow the Einsatzart**, not a street name in the title: «Verunreinigung»
+  is Ölwehr; «Wasserschaden», «Türöffnung», «Hilfeleistung» and animal rescues are Technische
+  Hilfeleistung (FKS statistics rules).
+- **The Einsatzobjekt is found on any part of the dispatch address** («Oberwil (BL),
+  Mühlemattstrasse 22, …»), and only within 1 km of the Einsatz.
+- **«Position markieren» on a docked Trupp** stamps where the Trupp is drawn, not up to a dock's
+  width away.
+- **A plan keeps its Karte symbols after a cold start** (#709). When the station's plan fits had
+  not loaded yet, a plan could stay without its Georeferenz for the whole Einsatz; it now waits
+  for them and binds once they arrive.
 
 - **The radar layer works again.** MeteoSwiss renamed its radar files on 2026-10-13 and 0.12.0
   found none afterwards. The file names are now read from the provider's own index, and a daily
@@ -319,7 +405,7 @@ work. The database changes run automatically during the usual Compose update.
   an answer given in the print dialog reaches that PDF.
 - **iPhone, installed app.** Sheets with a text field stay on the keyboard in an Einsatz;
   «Gebäudeumrisse werden geladen» can no longer hang; the snail no longer plays twice after an
-  update.
+  update; the app icon's badge clears when the app is opened.
 - **Day mode on Samsung and other Chromium tablets** is no longer darkened by the browser.
 - **«Eintrag erfasst» no longer stacks** over «Erfassen» when Meldungen follow quickly.
 - **A value typed in a symbol's field is kept** when a tap on the map closes its card.
@@ -360,7 +446,9 @@ work. The database changes run automatically during the usual Compose update.
   request for every link kind and no longer list the station's objects. A viewer's Rapport PDF
   reaches only that Einsatz's media. A capture-poster entry cannot patch a row from another
   channel. Another device's shared position cannot be taken over while it is held. `/api/config`
-  shows webhook targets and SharePoint sources to the admin only.
+  shows webhook targets and SharePoint sources to the admin only. One right was widened on
+  purpose: the `el` role may close and reopen an Einsatz and mark its Rapport done
+  (`EL_LIFECYCLE_FIELDS`); its status, creating and deleting stay the editor's.
 - **«Mit Microsoft anmelden» matches the Entra object id only** (see Upgrade notes).
 - **Request hardening.** A compressed request body must be exactly one gzip member (else 400 /
   415), secrets with non-ASCII characters are refused cleanly (401, not 500), and Einsatz
@@ -371,7 +459,13 @@ work. The database changes run automatically during the usual Compose update.
 - **DOMPurify 3.4.17 or later** (GHSA-cg2g-xh64-v4q7, GHSA-mrv2-3pqr-j5jr), and jsPDF's optional
   HTML libraries (html2canvas, canvg, DOMPurify) no longer ship in the app at all.
 - **Build tooling:** vitest 4.1.12, glob 14.0.3, undici, zod, fast-uri and serialize-javascript
-  at patched versions; one dated exception for minimatch (dev only, until 2026-12-31).
+  at patched versions. Two dated audit exceptions, both for development tooling only and both
+  until 2026-12-31: minimatch (GHSA-g3hv-75wg-m249) and picomatch (GHSA-fc5q-39xc-vjpf, no
+  patched release yet). The audit fails if picomatch reaches a production dependency.
+- **No more slow regexes on hostile text** (#706). An editor could send an SVG glyph full of
+  unclosed `<!--` in a workspace save and keep the server busy for seconds per save; a very long
+  address in the search box did the same. The SVG scrub and the address parsers are now linear,
+  and an unclosed comment, CDATA section or `<script` in a glyph is dropped to its end.
 
 ## [0.12.0] – 2026-10-13
 
@@ -4804,7 +4898,8 @@ toolchain on the VPS. Everything else here has been running in production since 
 - A render error on the login screen, landing list, or admin surface now shows the recoverable
   error card instead of a white screen (root-level error boundary + guarded boot init).
 
-[Unreleased]: https://github.com/feuerwehr-oberwil/kp-front/compare/v0.12.0...HEAD
+[Unreleased]: https://github.com/feuerwehr-oberwil/kp-front/compare/v0.13.0...HEAD
+[0.13.0]: https://github.com/feuerwehr-oberwil/kp-front/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/feuerwehr-oberwil/kp-front/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/feuerwehr-oberwil/kp-front/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/feuerwehr-oberwil/kp-front/compare/v0.9.0...v0.10.0

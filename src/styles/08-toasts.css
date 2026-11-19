@@ -1000,17 +1000,6 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
   color: var(--on-accent-ink); font-size: var(--fs-1); font-weight: var(--fw-bold); white-space: nowrap; box-shadow: var(--e1); }
 .present-arrow[data-side='left'] .present-arrow-name { left: auto; right: 22px; }
 
-/* «Präsentieren» in «Einsatz teilen», under the read link (ShareIncident · PresentCard): one
-   title row – glyph · title · button – and the text under it across the card (owner pick 6B) */
-.present-card { display: flex; flex-direction: column; gap: var(--sp-2); width: 100%; padding: var(--sp-3) var(--sp-4);
-  border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface); }
-.present-card-head { display: flex; align-items: center; gap: var(--sp-3); }
-.present-card-glyph { flex: none; color: var(--present); }
-.present-card-glyph .i { width: 22px; height: 22px; }
-.present-card-title { flex: 1; min-width: 0; color: var(--ink); font-size: var(--fs-3); font-weight: var(--fw-bold); }
-.present-card-text { margin: 0; font-size: var(--fs-2); line-height: var(--lh-2); color: var(--ink-dim); }
-.present-card .ip-btn { flex: none; }
-
 /* a phone, on every surface: on the floating baseline (the bars', --float-bottom) – never over
    the nav bar of a module surface – and over the Eintrag-FAB's row. The
    name card takes the row's width (`data-asking`), the field the part «Folgen» leaves – «Vorname

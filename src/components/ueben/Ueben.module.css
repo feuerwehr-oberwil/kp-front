@@ -1,0 +1,100 @@
+/* «Üben»: the task card, «Zeigen»'s dim + ring + words, the ghost hand (UebenRunner) and the
+   sheet's own bits (UebenSheet). The card is the floating family's glass (--glass, --r-surface,
+   --e3); the drill's voice is the violet --ueben (01-tokens), never an ink or a state colour. */
+
+/* ── the card ──────────────────────────────────────────────────────────────────────────────── */
+/* TABLET: bottom-left, beside the nav rail, on the line above the floating row (owner's tablet
+   mock, round 2026-11-19-ueben-drills) */
+.card { position: fixed; z-index: var(--z-ueben); left: calc(var(--rail-w) + 28px); bottom: calc(16px + var(--line-h) + var(--float-gap));
+  width: min(380px, calc(100vw - var(--rail-w) - 56px)); box-sizing: border-box; padding: 14px 16px 12px;
+  display: flex; flex-direction: column; gap: 6px;
+  background: var(--glass); border: 1px solid var(--glass-edge); border-radius: var(--r-surface); box-shadow: var(--e3);
+  color: var(--ink); font-family: var(--body); }
+.card[hidden] { display: none; }
+/* PHONE: full width above the floating row over the tool bar – or over the tool's dock and its
+   message lane while a tool is out (lib/floatRow · --stack-lane) */
+@media (--phone) {
+  .card { left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right)); width: auto;
+    bottom: calc(var(--dock-bottom) + var(--line-h) + var(--float-gap)); padding: 12px 14px 10px; }
+  :global(:root[data-stack-lane]) .card { bottom: max(calc(var(--dock-bottom) + var(--line-h) + var(--float-gap)), var(--stack-lane)); }
+}
+/* «Zeigen» 1: the card stays readable over its own dim */
+.lifted { z-index: var(--z-ueben-hint-card); }
+/* folded to one line under the top bar: «Zeigen» 2 (the hand needs the map), or a phone's
+   detail sheet that needs the bottom */
+.folded { flex-direction: row; align-items: center; gap: 8px; padding: 8px 8px 8px 14px; top: 84px; bottom: auto; }
+@media (--phone) { .folded { top: var(--under-bar); bottom: auto; } }
+.foldText { font-size: var(--fs-2); font-weight: var(--fw-bold); line-height: var(--lh-2); }
+
+.kicker { font: var(--fw-heavy) var(--fs-micro) var(--body); letter-spacing: .06em; text-transform: uppercase; color: var(--ueben); }
+.title { font-size: var(--fs-3); font-weight: var(--fw-bold); line-height: var(--lh-3); }
+.task { margin: 0; font-size: var(--fs-2); line-height: var(--lh-2); color: var(--ink-dim); }
+.row { display: flex; gap: 8px; align-items: flex-start; }
+.grow { flex: 1 1 auto; min-width: 0; }
+
+/* the goals: ○ open · ✓ done (struck, quiet) · ! wrong with its reason under it */
+.goals { list-style: none; margin: 2px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.goal { display: flex; gap: 10px; align-items: flex-start; font-size: var(--fs-2); line-height: var(--lh-2); }
+.goal .grow { display: flex; flex-direction: column; }
+.dot { flex: none; width: 20px; height: 20px; margin-top: 1px; box-sizing: border-box; border-radius: var(--r-pill);
+  border: 2px solid var(--ink-faint); display: grid; place-items: center; font: var(--fw-heavy) 12px/1 var(--body); }
+.dot :global(.i) { width: 13px; height: 13px; stroke-width: 3; }
+.goal[data-state='ok'] .dot { background: var(--green); border-color: var(--green); color: var(--on-accent-ink); }
+.goal[data-state='wrong'] .dot { background: var(--red-fill); border-color: var(--red-fill); color: var(--on-accent-ink); }
+.goalDone { color: var(--ink-faint); text-decoration: line-through; }
+.goalWrong { font-weight: var(--fw-bold); }
+.reason { color: var(--red-strong); font-size: var(--fs-1); line-height: var(--lh-1); }
+.note { color: var(--ink-faint); font-size: var(--fs-1); line-height: var(--lh-1); }
+
+.actions { display: flex; gap: 8px; align-items: center; margin-top: 6px; }
+.go { min-height: var(--tap); }
+.card :global(.ip-btn.primary).go { background: var(--ueben); border-color: var(--ueben); color: var(--on-ueben); }
+.more { width: var(--tap); min-height: var(--tap); padding: 0; justify-content: center; }
+
+.doneHead { display: flex; gap: 10px; align-items: center; }
+.doneMark { flex: none; width: 28px; height: 28px; border-radius: var(--r-pill); background: var(--green); color: var(--on-accent-ink); display: grid; place-items: center; }
+.doneMark :global(.i) { width: 16px; height: 16px; stroke-width: 3; }
+
+/* ── «Zeigen» ──────────────────────────────────────────────────────────────────────────────── */
+/* click-through all of it: the operator taps the REAL control under the ring */
+.hint { position: fixed; inset: 0; z-index: var(--z-ueben-hint); pointer-events: none; }
+/* the dim is the ring's own shadow – one element, the hole is where the control is */
+.ring { position: fixed; box-sizing: border-box; border-radius: var(--r-sm); border: 3px solid var(--ueben);
+  box-shadow: 0 0 0 9999px rgba(8, 12, 20, .5); animation: ringPulse 1.4s ease-in-out infinite; }
+@keyframes ringPulse {
+  0%, 100% { outline: 0 solid var(--ueben-45); outline-offset: 0; }
+  50% { outline: 8px solid var(--ueben-12); outline-offset: 2px; }
+}
+.bubble { position: fixed; max-width: 280px; padding: 8px 12px; border-radius: var(--r-xs);
+  background: var(--ueben); color: var(--on-ueben); font: var(--fw-bold) var(--fs-2)/var(--lh-2) var(--body); box-shadow: var(--e3); }
+
+/* «Zeigen» 2: the hand walks from --hx0/--hy0 to --hx1/--hy1 and back to the start, a loop */
+.trail { position: fixed; inset: 0; overflow: visible; }
+.trail line { stroke: var(--ueben); stroke-width: 3; stroke-dasharray: 2 8; stroke-linecap: round; opacity: .85; }
+.hand { position: fixed; left: 0; top: 0; width: 44px; height: 44px; color: var(--ueben);
+  transform: translate(var(--hx0), var(--hy0)); animation: handDrag 2.4s ease-in-out infinite; }
+.hand :global(.i) { position: absolute; left: 2px; top: 8px; width: 40px; height: 40px; fill: var(--surface); stroke-width: 1.6; }
+.touch { position: absolute; left: -14px; top: -14px; width: 28px; height: 28px; border-radius: var(--r-pill);
+  background: var(--ueben-45); border: 2px solid var(--ueben); }
+@keyframes handDrag {
+  0%, 12% { transform: translate(var(--hx0), var(--hy0)); }
+  70%, 82% { transform: translate(var(--hx1), var(--hy1)); }
+  100% { transform: translate(var(--hx0), var(--hy0)); }
+}
+.handTap { animation: handTap 1.4s ease-in-out infinite; }
+@keyframes handTap {
+  0%, 100% { transform: translate(var(--hx0), var(--hy0)) scale(1); }
+  45% { transform: translate(var(--hx0), var(--hy0)) scale(.86); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ring, .hand, .handTap { animation: none; }
+  .hand { transform: translate(var(--hx1), var(--hy1)); }
+}
+
+/* ── the sheet ─────────────────────────────────────────────────────────────────────────────── */
+.lead { margin: 0 0 12px; color: var(--ink-dim); font-size: var(--fs-2); line-height: var(--lh-2); }
+.nextCard { margin-bottom: 16px; padding: 14px 16px; border-radius: var(--r-surface); background: var(--ueben-12);
+  display: flex; flex-direction: column; gap: 6px; }
+.nextCard :global(.ip-btn.primary) { align-self: flex-start; background: var(--ueben); border-color: var(--ueben); color: var(--on-ueben); }
+.soon { color: var(--ink-faint); font-size: var(--fs-1); }
+.check { color: var(--green); }

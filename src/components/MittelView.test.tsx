@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { useState } from 'react'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import type { DeploymentConfig } from '../lib/deploymentConfig'
@@ -378,5 +378,21 @@ describe('removing a hand-added line', () => {
     expect(onSave).toHaveBeenCalledTimes(1)
     expect(onSave.mock.lastCall?.[0]).toMatchObject({ label: 'Kanister', deleted: true })
     expect(document.querySelector('.toast')).toBeNull()
+  })
+})
+
+// Sol review, PR #702: «+ Anderes Material» unmounted while its sheet was open, so Enter → Escape
+// left the focus on <body>. It stays mounted, and the sheet hands the focus back to it.
+describe('«+ Anderes Material» in the head', () => {
+  it('gets the focus back when its sheet closes', async () => {
+    cfg.current = { mittel: { catalogue: [tauchpumpe], sources } }
+    mount()
+    const trigger = screen.getByRole('button', { name: M.customMaterial })
+    trigger.focus()
+    fireEvent.click(trigger)
+    expect(screen.getByText(M.composerTitle)).toBeTruthy()
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' })
+    await waitFor(() => expect(screen.queryByText(M.composerTitle)).toBeNull())
+    await waitFor(() => expect(document.activeElement).toBe(trigger))
   })
 })

@@ -157,7 +157,7 @@ describe('the contact times (the head of the Verlauf)', () => {
     })
 
     // owner pick C18 (05.11.2026): an OUT card words its finished values; round 2b (13.11.2026): a
-    // crew inside says the same «drin», and its Schätzung word is the one that may drop
+    // crew inside says the same «drin»; the Schätzung keeps its word on every width (pick 4C, 18.11.2026)
     it('words an out card\'s foot «drin … · raus mit … bar», and an inside one «drin … · Schätzung ≈ …»', () => {
       mount({ trupps: [{ ...aktivTrupp(), status: 'raus', exitTime: iso(5 * 60_000) }] })
       const words = [...document.querySelectorAll(`.${s.metaLine} i`)].map((i) => i.textContent)
@@ -167,7 +167,6 @@ describe('the contact times (the head of the Verlauf)', () => {
       mount()
       const inside = [...document.querySelectorAll(`.${s.metaLine} i`)]
       expect(inside.map((i) => i.textContent)).toEqual([az.footInside, az.estimatedShort])
-      expect(inside.map((i) => i.classList.contains(s.metaDrop))).toEqual([false, true])
     })
   })
 })

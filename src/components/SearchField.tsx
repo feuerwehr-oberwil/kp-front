@@ -23,6 +23,9 @@ import { cx } from '../lib/cx'
  * Two ✕ a thumb apart, one emptying and one closing, is a coin toss at 3am; there the close is the
  * one, and Escape closes too. A prop, not CSS hiding, so the button is not in the tab order either.
  *
+ * `trailing` (19.11.2026): one control at the pill's far end, after the ✕ – the Trupp form's «Scan»
+ * (TruppTeam). A DOOR beside the query, not a second search: it never takes the field's focus.
+ *
  * `variant="head"`: the ONE documented modifier — a card whose whole head IS the search
  * (TruppFinder): no pill of its own (the card is the surface), the query 18/700 because it is
  * what the overlay is for.
@@ -48,8 +51,10 @@ export const SearchField = forwardRef<HTMLInputElement, {
   icon?: string
   /** no inner ✕ — the caller's own close ✕ beside the field ends the search (see above) */
   noClear?: boolean
+  /** one control at the pill's end (see above) */
+  trailing?: ReactNode
 } & Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'className'>>(
-  function SearchField({ value, onChange, clearLabel, onClear, count, className, variant, icon = 'search', noClear = false, ...rest }, ref) {
+  function SearchField({ value, onChange, clearLabel, onClear, count, className, variant, icon = 'search', noClear = false, trailing, ...rest }, ref) {
     const label = clearLabel ?? appConfig.copy.clearSearch
     return (
       <label className={cx('ui-search', variant === 'head' && 'ui-search-head', className)}>
@@ -74,6 +79,7 @@ export const SearchField = forwardRef<HTMLInputElement, {
             onClick={() => (onClear ? onClear() : onChange(''))}
           ><Icon id="close" /></button>
         )}
+        {trailing}
       </label>
     )
   },

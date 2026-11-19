@@ -512,7 +512,7 @@ function applyEvent(ws: Saved, e: ReplayEvent): void {
       // showed it at its last snapshotted place and jumped.
       //
       // Its payload is a POSITION rather than a patch (that is what «move» means on both surfaces:
-      // entity.move carries `coord`, this carries the sheet's own x/y/floor, or `pts` for a stroke,
+      // entity.move carries `coord`, this carries the sheet's own x/y/floor (and a symbol's storey), or `pts` for a stroke,
       // whose position IS its points). Anything else in it is ignored, and a payload with no
       // position at all folds to nothing — the same answer every too-thin payload gets.
       const planId = typeof p.planId === 'string' ? p.planId : null
@@ -522,9 +522,20 @@ function applyEvent(ws: Saved, e: ReplayEvent): void {
       if (typeof p.floor === 'number') patch.floor = p.floor
       if (typeof p.floorFrom === 'number') patch.floorFrom = p.floorFrom
       if (typeof p.floorTo === 'number') patch.floorTo = p.floorTo
+      // a plain sheet's storey badge, which a move into a storey drawing sets (Modul 6,
+      // lib/floorPackBinding · withDrawingStorey)
+      if (typeof p.storey === 'number') patch.storey = p.storey
       if (Array.isArray(p.pts)) patch.pts = p.pts as BoardAnno['pts']
-      if (planId && id && Object.keys(patch).length) {
-        ws.board = { ...(ws.board ?? {}), [planId]: (ws.board?.[planId] ?? []).map((a) => a.id === id ? gated(isBoardAnno, a, patch) : a) }
+      // …and the storey fields such a move CLEARED, as null: a single-storey Von/Bis that the
+      // drawing replaced with its `storey` (lib/floorPackBinding · storeyMove)
+      const cleared = (['storey', 'floorFrom', 'floorTo'] as const).filter((k) => p[k] === null)
+      const fold = (a: BoardAnno) => {
+        const cur = { ...a }
+        for (const k of cleared) delete cur[k]
+        return gated(isBoardAnno, cur, patch)
+      }
+      if (planId && id && (Object.keys(patch).length || cleared.length)) {
+        ws.board = { ...(ws.board ?? {}), [planId]: (ws.board?.[planId] ?? []).map((a) => a.id === id ? fold(a) : a) }
       }
       break
     }

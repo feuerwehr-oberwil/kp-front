@@ -74,11 +74,14 @@ export function useTeamMarkerActions({ entities, commit, log, emit, setSelectedI
   // Team-marker trail ops on the Lage map — mirrors the plan board's markPosition/clearTrail.
   // Marking is the ONLY way a position is recorded (moving a marker never breadcrumbs), so the
   // rule stays unambiguous: a dot exists exactly where someone chose to log one.
-  const markTeamPosition = (id: string) => {
+  // `at`: where the marker is DRAWN, when that is not its own point – a docked Trupp stands beside
+  // its host (lib/mapView · teamDockAnchor) while its coordinate is still the drop point, up to one
+  // dock radius off (round 18.11.2026 evening: the time chip landed far from the Trupp).
+  const markTeamPosition = (id: string, at?: LngLat) => {
     const e = entities.find((x) => x.id === id)
     if (!e || e.kind !== 'team') return
     const now = formatTime(new Date(serverNow()))
-    commit((d) => ({ ...d, entities: d.entities.map((x) => (x.id === id ? { ...x, t: now, trail: [...(x.trail ?? []), { coord: x.coord, t: now }] } : x)) }))
+    commit((d) => ({ ...d, entities: d.entities.map((x) => (x.id === id ? { ...x, t: now, trail: [...(x.trail ?? []), { coord: at ?? x.coord, t: now }] } : x)) }))
     log('flag', fillTemplate(appConfig.copy.whiteboard.positionMarked, { name: e.label ?? '' }), 'team', undefined, id)
     // no toast (20.09.2026): the dot lands under the finger and the Verlauf has the row
     emit('entity.edit', { id, patch: { trail: 'mark' } })

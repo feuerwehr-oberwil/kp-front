@@ -127,76 +127,39 @@
 </div>
 {{/notice}}
 <main>
-  <section class="hero wrap">
+  <!--@template
+    The hero is a centred headline over the app as it really looks: the iPad with the Karte and
+    the iPhone with the Trupps in front of it. Device pictures come from capture.mjs (real
+    screen sizes, safe-area gap trimmed in the file) – shots/<device>/<name>.webp with the night
+    twin under shots/dark/. Their pixel sizes are fixed per device: 1600×1090 and 780×1592.
+    The iPad picture is the LCP element: eager and `fetchpriority="high"`.
+  -->
+  <section class="hero hero-center wrap">
     <p class="eyebrow">{{hero.eyebrow}}</p>
     <h1>{{hero.h1}}</h1>
     <p class="lede">{{hero.lede}}</p>
     <div class="cta-row">
       <a class="btn btn-primary" href="https://demo.kp-front.ch" target="_blank" rel="noopener"><svg class="ico"><use href="#i-play"/></svg>{{hero.cta}}</a>
-      <a class="btn btn-ghost" href="https://github.com/feuerwehr-oberwil/kp-front/blob/main/docs/SETUP.md" target="_blank" rel="noopener">{{hero.ctaSelf}}</a>
-      <span class="cta-note">{{hero.ctaNote}}</span>
+      <a class="btn btn-ghost" href="#betrieb">{{hero.ctaSelf}}</a>
     </div>
-    <!--@template
-      The shared-demo notice sits right under «Demo öffnen»: every visitor works in the same
-      demo. Small print on purpose (.fit-note), not a banner – and no rule of its own, so
-      landing.css stays identical to kp-rueck's.
-    -->
-    <p class="fit-note demo-note" role="note">{{hero.demoNote}}</p>
-    <figure class="frame">
-      <div class="frame-bar" aria-hidden="true">
-        <span class="dot live"></span><span class="dot"></span><span class="dot"></span>
-        <span class="addr">{{hero.frameAddr}}</span>
+    <p class="cta-note">{{hero.ctaNote}}</p>
+    <div class="duo">
+      <div class="dev dev-tab">
+        <picture>
+          <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="{{base}}shots/dark/tablet/{{hero.img.tablet}}">
+          <script>document.currentScript.previousElementSibling.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';</script>
+          <img src="{{base}}shots/tablet/{{hero.img.tablet}}" alt="{{hero.alt.tablet}}" width="1600" height="1090" fetchpriority="high">
+        </picture>
       </div>
-      <!--@template
-        Das Hero-Bild ist das LCP-Element: `fetchpriority="high"` zieht es vor Schriften und
-        Stylesheet in der Warteschlange nach vorn. Breiter als 992 px wird es nie gezeigt
-        (.wrap = 1040 px minus 2×24 px Innenabstand) – die kleine Fassung reicht damit für
-        jedes 1x-Display und jedes Telefon, die grosse bleibt für 2x-Bildschirme.
-      -->
-      <picture>
-        <source data-theme-dark media="(prefers-color-scheme: dark)"
-                srcset="{{base}}shots/dark/{{hero.frameFileSmall}} 992w, {{base}}shots/dark/{{hero.frameFile}} {{hero.frameW}}w"
-                sizes="(min-width: 1040px) 992px, calc(100vw - 48px)">
-        <script>document.currentScript.previousElementSibling.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';</script>
-        <img src="{{base}}shots/{{hero.frameFile}}"
-           srcset="{{base}}shots/{{hero.frameFileSmall}} 992w, {{base}}shots/{{hero.frameFile}} {{hero.frameW}}w"
-           sizes="(min-width: 1040px) 992px, calc(100vw - 48px)"
-           alt="{{hero.frameAlt}}" width="{{hero.frameW}}" height="{{hero.frameH}}" fetchpriority="high">
-      </picture>
-    </figure>
-  </section>
-
-  <section class="fit">
-    <div class="wrap fit-split">
-      <div>
-        <div class="fit-row">
-          <p class="fit-k">{{fit.whoLabel}}</p>
-          <ul class="fit-v">
-            {{#fit.who}}
-            <li>{{.}}</li>
-            {{/fit.who}}
-          </ul>
-        </div>
-        <div class="fit-row">
-          <p class="fit-k">{{fit.whatLabel}}</p>
-          <ul class="fit-v">
-            {{#fit.what}}
-            <li>{{.}}</li>
-            {{/fit.what}}
-          </ul>
-        </div>
-        <p class="fit-note">{{fit.note}}</p>
-      </div>
-      <div class="fit-panel">
-        <h2>{{fit.own.h2}}</h2>
-        <p>{{fit.own.p}}</p>
-        <ul>
-          {{#fit.own.items}}
-          <li>{{.}}</li>
-          {{/fit.own.items}}
-        </ul>
+      <div class="dev dev-ph">
+        <picture>
+          <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="{{base}}shots/dark/phone/{{hero.img.phone}}">
+          <script>document.currentScript.previousElementSibling.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';</script>
+          <img src="{{base}}shots/phone/{{hero.img.phone}}" alt="{{hero.alt.phone}}" width="780" height="1592">
+        </picture>
       </div>
     </div>
+    <p class="fit-note">{{fit.note}}</p>
   </section>
 
   <section class="tenet">
@@ -207,195 +170,179 @@
     </div>
   </section>
 
-  <section class="wrap" id="einsatz">
-    <div class="sec-head">
-      <p class="eyebrow">{{incident.eyebrow}}</p>
-      <h2>{{incident.h2}}</h2>
-      <p>{{incident.lede}}</p>
-    </div>
-    <div class="verlauf-list">
-      {{#incident.entries}}
-      <article class="entry">
-        <div class="time">{{time}}</div><div class="rail" aria-hidden="true"></div>
-        <div class="body">
-          <p class="tag">{{tag}}</p>
-          <h3>{{h3}}</h3>
-          <p>{{p}}</p>
-        </div>
-      </article>
-      {{/incident.entries}}
-    </div>
-  </section>
-
-  <section class="wrap">
-    <div class="sec-head">
-      <p class="eyebrow">{{shots.eyebrow}}</p>
-      <h2>{{shots.h2}}</h2>
-      <p>{{shots.lede}}</p>
-      {{#shots.note}}
-      <p class="sec-note">{{shots.note}}</p>
-      {{/shots.note}}
-    </div>
-    <div class="shots-grid">
-      {{#shots.items}}
-      <figure class="shot">
-        <button class="shot-zoom" type="button" aria-label="{{lightbox.zoom}}: {{title}}">
-          <picture>
-            <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="{{base}}shots/dark/{{file}}">
-            <img src="{{base}}shots/{{file}}" alt="{{alt}}" width="{{w}}" height="{{h}}" loading="lazy" decoding="async">
-          </picture>
-        </button>
-        <figcaption>
-          <div class="cap-t">{{title}}</div>
-          <div class="cap-s">{{sub}}</div>
-        </figcaption>
-      </figure>
-      {{/shots.items}}
-    </div>
-  </section>
-
-  <section class="wrap" id="aenderung">
-    <div class="sec-head">
-      <p class="eyebrow">{{change.eyebrow}}</p>
-      <h2>{{change.h2}}</h2>
-      <p>{{change.lede}}</p>
-    </div>
-    <div class="change-wrap">
-      <table class="change">
-        <thead>
-          <tr><th scope="col">{{change.headToday}}</th><th scope="col">{{change.headWith}}</th></tr>
-        </thead>
-        <tbody>
-          {{#change.rows}}
-          <tr><td>{{today}}</td><td>{{with}}</td></tr>
-          {{/change.rows}}
-        </tbody>
-      </table>
-    </div>
-  </section>
-
-  <section class="wrap" id="funktionen">
-    <div class="sec-head">
-      <p class="eyebrow">{{features.eyebrow}}</p>
-      <h2>{{features.h2}}</h2>
-      <p>{{features.lede}}</p>
-    </div>
-    <div class="feature-cols">
-      {{#features.groups}}
-      <div class="fgroup">
-        <h3>{{h3}}</h3>
-        <ul class="flist">
-          {{#items}}
+  <!--@template
+    The chapters say each thing once: what it replaces (struck through), what it becomes, then the
+    picture. A chapter with `img.tablet` shows the iPad picture on wide screens and its phone
+    picture on narrow ones; without one it shows the phone everywhere. The hidden picture is
+    `loading="lazy"` and display:none, so a phone never downloads the iPad picture.
+  -->
+  <div id="einsatz">
+    {{#chapters.note}}
+    <p class="wrap chap-note">{{chapters.note}}</p>
+    {{/chapters.note}}
+    {{#chapters.items}}
+    <section class="wrap chap">
+      <div class="chap-txt">
+        <p class="chap-was">{{was}}</p>
+        <h2>{{h2}}</h2>
+        <p>{{p}}</p>
+        <ul class="checks">
+          {{#li}}
           <li>{{.}}</li>
-          {{/items}}
+          {{/li}}
         </ul>
       </div>
-      {{/features.groups}}
+      <div class="chap-img">
+        {{#img.tablet}}
+        <div class="dev dev-tab wide-only">
+          <picture>
+          <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="{{base}}shots/dark/tablet/{{img.tablet}}">
+          <script>document.currentScript.previousElementSibling.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';</script>
+          <img src="{{base}}shots/tablet/{{img.tablet}}" alt="{{alt}}" width="1600" height="1090" loading="lazy" decoding="async">
+        </picture>
+        </div>
+        {{/img.tablet}}
+        <div class="dev dev-ph{{#img.tablet}} narrow-only{{/img.tablet}}">
+          <picture>
+          <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="{{base}}shots/dark/phone/{{img.phone}}">
+          <script>document.currentScript.previousElementSibling.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';</script>
+          <img src="{{base}}shots/phone/{{img.phone}}" alt="{{alt}}" width="780" height="1592" loading="lazy" decoding="async">
+        </picture>
+        </div>
+      </div>
+    </section>
+    {{/chapters.items}}
+  </div>
+
+  <section class="wrap" id="betrieb">
+    <div class="sec-head">
+      <p class="eyebrow">{{betrieb.eyebrow}}</p>
+      <h2>{{fit.own.h2}}</h2>
+      <p>{{betrieb.p}}</p>
     </div>
+    <div class="own">
+      {{#betrieb.cards}}
+      <div class="own-card">
+        <h3>{{h3}}</h3>
+        <p>{{p}}</p>
+      </div>
+      {{/betrieb.cards}}
+    </div>
+    <p class="own-link"><a href="https://github.com/feuerwehr-oberwil/kp-front/blob/main/docs/SETUP.md" target="_blank" rel="noopener">{{betrieb.link}} →</a></p>
   </section>
 
-  <!--@template Die Karte rechts ist für die Feuerwehr, die BEIDE betreibt: sie beantwortet
-       «was müssen wir doppelt einrichten?» mit «das hier nicht». Die Anleitung dazu liegt
-       einmal, in kp-rueck – nicht kopieren, sonst läuft sie auseinander. Adressen stehen hier
-       im Markup und nicht im Text; {{sister}} ist kp-rueck.ch in der Sprache dieser Seite
-       (config.json `sister`, build.mjs `sisterOf`). -->
-  <section class="sibling">
-    <div class="wrap">
-      <div class="sibling-grid">
-        <div class="sibling-txt">
-          <p class="eyebrow">{{sibling.eyebrow}}</p>
-          <h2>{{sibling.h2}}</h2>
-          <p>{{sibling.p}}</p>
-          <a class="btn btn-ghost" href="{{sister}}">{{sibling.cta}}<svg class="ico" style="width:14px;height:14px"><use href="#i-arrow"/></svg></a>
-        </div>
-
-        <div class="setup-card">
-          <h3>{{sibling.setup.h3}}</h3>
-          <dl>
-            {{#sibling.setup.rows}}
-            <div class="setup-row">
-              <dt>{{dt}}</dt>
-              <dd>{{dd}}</dd>
-            </div>
-            {{/sibling.setup.rows}}
-          </dl>
-          <p class="setup-foot">{{sibling.setup.foot}}
-            <a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/RUNNING-BOTH.md" target="_blank" rel="noopener">{{sibling.setup.link}} →</a></p>
-        </div>
+  <!--@template
+    Features and FAQ are native <details>: the whole text stays in the page (search engines,
+    the FAQPage in build.mjs, the browser's find), but each costs one line until opened.
+  -->
+  <section class="wrap" id="funktionen">
+    <div class="split">
+      <div class="sec-head">
+        <p class="eyebrow">{{features.eyebrow}}</p>
+        <h2>{{features.h2}}</h2>
+        <p>{{features.lede}}</p>
+      </div>
+      <div class="acc">
+        {{#features.groups}}
+        <details>
+          <summary><span>{{h3}}<span class="peek">{{peek}}</span></span></summary>
+          <ul class="flist">
+            {{#items}}
+            <li>{{.}}</li>
+            {{/items}}
+          </ul>
+        </details>
+        {{/features.groups}}
       </div>
     </div>
   </section>
 
   <section class="wrap" id="fragen">
-    <div class="sec-head">
-      <p class="eyebrow">{{faq.eyebrow}}</p>
-      <h2>{{faq.h2}}</h2>
-    </div>
-    <div class="faq-list">
-      {{#faq.items}}
-      <div class="faq-item">
-        <h3>{{q}}</h3>
-        <p>{{a}}</p>
+    <div class="split">
+      <div class="sec-head">
+        <p class="eyebrow">{{faq.eyebrow}}</p>
+        <h2>{{faq.h2}}</h2>
       </div>
-      {{/faq.items}}
+      <div class="acc">
+        {{#faq.items}}
+        <details>
+          <summary><span>{{q}}</span></summary>
+          <p>{{a}}</p>
+        </details>
+        {{/faq.items}}
+      </div>
     </div>
   </section>
 
-  <section class="wrap" id="kontakt">
-    <div class="contact-grid">
-      <div class="contact-side">
-        <p class="eyebrow">{{contact.eyebrow}}</p>
-        <h2>{{contact.h2}}</h2>
-        <p>{{contact.p}}</p>
-        <p class="alt">{{contact.alt}}</p>
-      </div>
-      <div class="contact-ways">
-        <a class="way" href="https://github.com/feuerwehr-oberwil/kp-front/issues/new?template=bug_report.yml" target="_blank" rel="noopener">
-          <span class="way-ico"><svg class="ico"><use href="#i-bug"/></svg></span>
-          <span class="way-body">
-            <span class="way-t">{{contact.bug.t}}</span>
-            <span class="way-s">{{contact.bug.s}}</span>
-          </span>
-          <svg class="way-go"><use href="#i-arrow"/></svg>
-        </a>
-        <a class="way" href="https://github.com/feuerwehr-oberwil/kp-front/issues/new?template=feature_request.md" target="_blank" rel="noopener">
-          <span class="way-ico"><svg class="ico"><use href="#i-idea"/></svg></span>
-          <span class="way-body">
-            <span class="way-t">{{contact.idea.t}}</span>
-            <span class="way-s">{{contact.idea.s}}</span>
-          </span>
-          <svg class="way-go"><use href="#i-arrow"/></svg>
-        </a>
-        <form class="way way-form" action="https://api.staticforms.dev/submit" method="POST">
+  <!--@template {{sister}} is kp-rueck.ch in this page's language (config.json `sister`,
+       build.mjs `sisterOf`). The guide for running both lives once, in kp-rueck. -->
+  <div class="wrap">
+    <div class="sib">
+      <p>{{sibling.line}} <a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/RUNNING-BOTH.md" target="_blank" rel="noopener">{{sibling.link}} →</a></p>
+      <a class="btn btn-ghost" href="{{sister}}">{{sibling.cta}}<svg class="ico" style="width:14px;height:14px"><use href="#i-arrow"/></svg></a>
+    </div>
+  </div>
+
+  <section class="wrap close" id="kontakt">
+    <p class="eyebrow">{{contact.eyebrow}}</p>
+    <h2>{{contact.h2}}</h2>
+    <p class="close-p">{{contact.p}}</p>
+    <div class="cta-row">
+      <a class="btn btn-primary" href="https://demo.kp-front.ch" target="_blank" rel="noopener"><svg class="ico"><use href="#i-play"/></svg>{{hero.cta}}</a>
+      <a class="btn btn-ghost" href="#betrieb">{{hero.ctaSelf}}</a>
+    </div>
+    <!--@template The shared-demo notice sits under the closing «Demo öffnen»: every visitor
+         works in the same demo. The demo's own welcome dialog says it too. -->
+    <p class="fit-note demo-note" role="note">{{contact.demoNote}}</p>
+    <div class="ways">
+      <details class="way way-form">
+        <summary>
           <span class="way-ico"><svg class="ico"><use href="#i-mail"/></svg></span>
-          <div class="way-body">
+          <span class="way-body">
             <span class="way-t">{{contact.mail.t}}</span>
             <span class="way-s">{{contact.mail.s}}</span>
-            <input type="hidden" name="apiKey" value="sf_ed957c38761f21e20b01928a">
-            <input type="hidden" name="subject" value="KP Front – Landingpage ({{lang}})">
-            <p class="hp"><label>{{contact.form.honeypot}}
-              <input type="text" name="website" tabindex="-1" autocomplete="off"></label></p>
-            <div class="f-fields">
-              <div class="f-row">
-                <label class="f-lab" for="f-name">{{contact.form.name}}</label>
-                <input class="f-in" id="f-name" type="text" name="name" autocomplete="name" placeholder="{{contact.form.namePlaceholder}}">
-              </div>
-              <div class="f-row">
-                <label class="f-lab" for="f-mail">{{contact.form.mail}}</label>
-                <input class="f-in" id="f-mail" type="email" name="email" required autocomplete="email" placeholder="{{contact.form.mailPlaceholder}}">
-              </div>
-              <div class="f-row">
-                <label class="f-lab" for="f-msg">{{contact.form.message}}</label>
-                <textarea class="f-in" id="f-msg" name="message" rows="4" required placeholder="{{contact.form.messagePlaceholder}}"></textarea>
-              </div>
+          </span>
+        </summary>
+        <form action="https://api.staticforms.dev/submit" method="POST">
+          <input type="hidden" name="apiKey" value="sf_ed957c38761f21e20b01928a">
+          <input type="hidden" name="subject" value="KP Front – Landingpage ({{lang}})">
+          <p class="hp"><label>{{contact.form.honeypot}}
+            <input type="text" name="website" tabindex="-1" autocomplete="off"></label></p>
+          <div class="f-fields">
+            <div class="f-row">
+              <label class="f-lab" for="f-name">{{contact.form.name}}</label>
+              <input class="f-in" id="f-name" type="text" name="name" autocomplete="name" placeholder="{{contact.form.namePlaceholder}}">
             </div>
-            <button class="btn btn-primary f-send" type="submit">{{contact.form.send}}</button>
-            <p class="f-note" role="status" hidden></p>
-            <p class="contact-note">{{contact.form.privacy}} <a href="https://github.com/feuerwehr-oberwil/kp-front/blob/main/PRIVACY.md#the-project-website" target="_blank" rel="noopener">{{contact.form.privacyLink}}</a></p>
+            <div class="f-row">
+              <label class="f-lab" for="f-mail">{{contact.form.mail}}</label>
+              <input class="f-in" id="f-mail" type="email" name="email" required autocomplete="email" placeholder="{{contact.form.mailPlaceholder}}">
+            </div>
+            <div class="f-row">
+              <label class="f-lab" for="f-msg">{{contact.form.message}}</label>
+              <textarea class="f-in" id="f-msg" name="message" rows="4" required placeholder="{{contact.form.messagePlaceholder}}"></textarea>
+            </div>
           </div>
+          <button class="btn btn-primary f-send" type="submit">{{contact.form.send}}</button>
+          <p class="f-note" role="status" hidden></p>
+          <p class="contact-note">{{contact.form.privacy}} <a href="https://github.com/feuerwehr-oberwil/kp-front/blob/main/PRIVACY.md#the-project-website" target="_blank" rel="noopener">{{contact.form.privacyLink}}</a></p>
         </form>
-      </div>
+      </details>
+      <a class="way" href="https://github.com/feuerwehr-oberwil/kp-front/issues/new?template=bug_report.yml" target="_blank" rel="noopener">
+        <span class="way-ico"><svg class="ico"><use href="#i-bug"/></svg></span>
+        <span class="way-body">
+          <span class="way-t">{{contact.bug.t}}</span>
+          <span class="way-s">{{contact.bug.s}}</span>
+        </span>
+      </a>
+      <a class="way" href="https://github.com/feuerwehr-oberwil/kp-front/issues/new?template=feature_request.md" target="_blank" rel="noopener">
+        <span class="way-ico"><svg class="ico"><use href="#i-idea"/></svg></span>
+        <span class="way-body">
+          <span class="way-t">{{contact.idea.t}}</span>
+          <span class="way-s">{{contact.idea.s}}</span>
+        </span>
+      </a>
     </div>
+    <p class="close-alt">{{contact.alt}}</p>
   </section>
 </main>
 
@@ -443,7 +390,7 @@
   // Elemente erscheinen sofort (kein Nachfaden beim Reload mitten auf der Seite)
   document.documentElement.classList.add('js');
   if (!matchMedia('(prefers-reduced-motion: reduce)').matches && 'IntersectionObserver' in window) {
-    var els = document.querySelectorAll('.sec-head, .entry, .pillar, .shot, .fgroup, .faq-item, .tenet .wrap, .sibling-txt, .setup-card, .contact-side, .contact-ways');
+    var els = document.querySelectorAll('.sec-head, .chap-txt, .chap-img, .own-card, .acc, .tenet .wrap, .sib, .ways');
     var io = new IntersectionObserver(function (entries) {
       entries.forEach(function (e) {
         if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
@@ -461,7 +408,7 @@
   // Hintergrund und bleiben auf der Seite. Der Honigtopf ist für Menschen
   // unsichtbar: ist er ausgefüllt, war es ein Bot, und wir brechen still ab.
   (function () {
-    var form = document.querySelector('.way-form');
+    var form = document.querySelector('.way-form form');
     if (!form || !window.fetch || !window.FormData) return;
     var fields = form.querySelector('.f-fields');
     var note = form.querySelector('.f-note');
@@ -491,101 +438,5 @@
           note.textContent = '{{contact.form.error}}';
         });
     });
-  })();
-
-  // Both the gallery and its enlarged picture use native theme-aware sources.
-  // On a phone (landing.css, max-width 620px) a 1500 px tablet capture at viewport width is
-  // unreadable, so there the picture is shown taller than it is wide enough for: it scrolls
-  // sideways inside <picture>, a track and a hint say so, and «‹ 2 / 9 ›» sits at the bottom.
-  // A swipe changes the picture – on the picture itself only from the edge it is scrolled to,
-  // so that sliding it never flips it. Nothing here animates.
-  (function () {
-    var btns = [].slice.call(document.querySelectorAll('.shot-zoom'));
-    if (!btns.length || typeof HTMLDialogElement === 'undefined') return;
-
-    var dlg = document.createElement('dialog');
-    dlg.className = 'lb';
-    dlg.innerHTML =
-      '<button class="lb-x" type="button" aria-label="{{lightbox.close}}">×</button>' +
-      '<button class="lb-nav lb-prev" type="button" aria-label="{{lightbox.prev}}">‹</button>' +
-      '<button class="lb-nav lb-next" type="button" aria-label="{{lightbox.next}}">›</button>' +
-      '<span class="lb-count"></span>' +
-      '<figure class="lb-fig"><picture><source data-theme-dark><img alt=""></picture>' +
-      '<div class="lb-track" aria-hidden="true" hidden><i></i></div>' +
-      '<p class="lb-hint" aria-hidden="true" hidden>← {{lightbox.hint}} →</p>' +
-      '<figcaption></figcaption></figure>';
-    document.body.appendChild(dlg);
-
-    var img = dlg.querySelector('.lb-fig img');
-    var dark = dlg.querySelector('source');
-    var cap = dlg.querySelector('.lb-fig figcaption');
-    var pan = dlg.querySelector('.lb-fig picture');
-    var track = dlg.querySelector('.lb-track');
-    var thumb = track.firstChild;
-    var hint = dlg.querySelector('.lb-hint');
-    var count = dlg.querySelector('.lb-count');
-    var idx = 0;
-
-    // The track mirrors the sideways scroll; it and the hint exist only while the picture
-    // really is wider than its box (never on a desktop, where the picture is fitted).
-    var syncPan = function () {
-      var fits = pan.scrollWidth <= pan.clientWidth + 1;
-      track.hidden = hint.hidden = fits;
-      if (fits) return;
-      thumb.style.left = (pan.scrollLeft / pan.scrollWidth * 100) + '%';
-      thumb.style.width = (pan.clientWidth / pan.scrollWidth * 100) + '%';
-    };
-
-    var show = function (i) {
-      idx = (i + btns.length) % btns.length;
-      var s = btns[idx].closest('.shot');
-      var src = s.querySelector('img');
-      dark.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';
-      dark.srcset = s.querySelector('source').srcset;
-      img.src = src.src;
-      img.alt = src.alt;
-      cap.innerHTML = '<b>' + s.querySelector('.cap-t').textContent + '</b> – '
-        + s.querySelector('.cap-s').textContent;
-      count.textContent = (idx + 1) + ' / ' + btns.length;
-      pan.scrollLeft = 0;
-      syncPan();
-    };
-
-    btns.forEach(function (btn, i) {
-      btn.addEventListener('click', function () { show(i); dlg.showModal(); syncPan(); });
-    });
-    dlg.querySelector('.lb-x').addEventListener('click', function () { dlg.close(); });
-    dlg.querySelector('.lb-prev').addEventListener('click', function () { show(idx - 1); });
-    dlg.querySelector('.lb-next').addEventListener('click', function () { show(idx + 1); });
-    dlg.addEventListener('click', function (e) { if (e.target === dlg) dlg.close(); });
-    dlg.addEventListener('keydown', function (e) {
-      if (e.key === 'ArrowLeft') { e.preventDefault(); show(idx - 1); }
-      if (e.key === 'ArrowRight') { e.preventDefault(); show(idx + 1); }
-    });
-
-    pan.addEventListener('scroll', syncPan, { passive: true });
-    img.addEventListener('load', syncPan);
-    addEventListener('resize', syncPan);
-
-    var touch = null;
-    dlg.addEventListener('touchstart', function (e) {
-      if (e.touches.length !== 1) { touch = null; return; }
-      var onPicture = pan.contains(e.target);
-      touch = {
-        x: e.touches[0].clientX, y: e.touches[0].clientY,
-        prev: !onPicture || pan.scrollLeft <= 1,
-        next: !onPicture || pan.scrollLeft >= pan.scrollWidth - pan.clientWidth - 1
-      };
-    }, { passive: true });
-    dlg.addEventListener('touchend', function (e) {
-      if (!touch) return;
-      var dx = e.changedTouches[0].clientX - touch.x;
-      var dy = e.changedTouches[0].clientY - touch.y;
-      if (Math.abs(dx) > 48 && Math.abs(dx) > Math.abs(dy) * 1.5) {
-        if (dx > 0 && touch.prev) show(idx - 1);
-        if (dx < 0 && touch.next) show(idx + 1);
-      }
-      touch = null;
-    }, { passive: true });
   })();
 </script>

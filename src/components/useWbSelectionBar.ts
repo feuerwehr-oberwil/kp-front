@@ -12,6 +12,7 @@ import { useArmedTransform } from '../lib/useArmedTransform'
 import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
 import type { floorGeometry } from '../lib/whiteboard'
 import { doorsOn, shiftStoreys } from '../lib/grundriss'
+import { barStorey, storeyMove, type SheetDrawing } from '../lib/floorPackBinding'
 import type { useBoardDoc } from './useBoardDoc'
 
 type FloorGeometry = ReturnType<typeof floorGeometry>
@@ -42,6 +43,9 @@ interface Args {
   moveRigid: FloorGeometry['moveRigid']
   /** the Gebäude stack: a selection moved onto another storey tile goes to that storey */
   stack: boolean
+  /** a plain sheet's storey drawings (Modul 6 with its storeys side by side): a symbol landing in
+   *  one takes its storey (lib/floorPackBinding · withDrawingStorey); empty elsewhere */
+  drawings: readonly SheetDrawing[]
   floorAt: FloorGeometry['floorAt']
   floorsTTB: readonly number[]
   /** the storey tile the move would drop onto (highlighted), null = its own */
@@ -61,7 +65,7 @@ interface Args {
 /** The Plan's selection-bar transform; see the file header. */
 export function useWbSelectionBar({
   tool, readOnly, georefArmed, annos, selIds, editDraw, selShape, setSelId, setSelIds, setNotePanelId, setEditId, setAnnoTap,
-  sW, sH, mapY, localY, boardPts, moveRigid, stack, floorAt, floorsTTB, setDropFloor, snapMove, pushPast, set, emit, activeId, boardRef, canvasRef, onStepEnd,
+  sW, sH, mapY, localY, boardPts, moveRigid, stack, drawings, floorAt, floorsTTB, setDropFloor, snapMove, pushPast, set, emit, activeId, boardRef, canvasRef, onStepEnd,
 }: Args) {
   // The selection bar's drag origin: the original board-space geometry and bearings of every
   // selected anno, plus the centre a turn pivots about. Pan/pinch/marquee refs live in
@@ -185,7 +189,10 @@ export function useWbSelectionBar({
           ? a.pts?.[i] ?? [bpts[i][0], localY(bpts[i][1], bpts[i][2] ?? o.floor), bpts[i][2] ?? o.floor]
           : null)) }
       const [rx, ry] = turn(o.bx ?? 0, o.by ?? 0)
-      return { ...a, ...turned, ...storeyOf(src, a), x: rx + t.ndx, y: localY(ry + t.ndy - jump, o.floor) }
+      const moved = { ...a, ...turned, ...storeyOf(src, a), x: rx + t.ndx, y: localY(ry + t.ndy - jump, o.floor) }
+      // a storey drawing gives its storey on a MOVE only: a turn swings members across a drawing's
+      // edge without anybody carrying them there (lib/floorPackBinding · barStorey, Sol review S3)
+      return barStorey(o.orig, moved, drawings, stack, t.deg)
     })
     set(next)
     return next
@@ -200,7 +207,7 @@ export function useWbSelectionBar({
     written.filter((a) => barIds.includes(a.id))
       .forEach((a) => emit('board.move', a.pts
         ? { id: a.id, pts: a.pts, ...(stack ? { floor: a.floor ?? 0 } : null), planId: activeId }
-        : { id: a.id, x: a.x, y: a.y, floor: a.floor, ...(stack && a.kind === 'symbol' ? { floorFrom: a.floorFrom, floorTo: a.floorTo } : null), planId: activeId }))
+        : { id: a.id, x: a.x, y: a.y, floor: a.floor, ...(a.kind === 'symbol' ? storeyMove(a, stack, drawings) : null), planId: activeId }))
     // the Durchgänge that rode along with a moved Wand (lib/grundriss · carryDoors), as the last
     // rendered frame has them – the board funnel seats them after `written`, so it cannot say
     doorsOn(annos, barIds).forEach((d) => emit('board.edit', { id: d.id, patch: { x: d.x, y: d.y, floor: d.floor, rotation: d.rotation }, planId: activeId }))

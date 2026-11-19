@@ -31,7 +31,9 @@ _MIN_TOKEN = 4  # shorter street tokens are too ambiguous to correct
 
 # The house number is the first token that starts with a digit; the street is everything
 # before it. Anything after a comma is the operator's own locality part.
-_HOUSE_NUMBER = re.compile(r"\s+\d")
+# `(?<!\s)`: a whitespace run is tried from its first character only — `\s+\d` alone restarted
+# inside every space of a long run, quadratic (CodeQL py/polynomial-redos). Same leftmost match.
+_HOUSE_NUMBER = re.compile(r"(?<!\s)\s+\d")
 _FOLD = str.maketrans({"ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss"})
 
 

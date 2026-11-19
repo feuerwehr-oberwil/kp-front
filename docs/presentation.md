@@ -15,20 +15,17 @@ Rules that span modules live here; each module's header says what it owns.
 | `src/lib/checklistPick.ts` | the open Checkliste per Einsatz, readable and settable from outside the surface |
 | `src/workspace/usePresentation.ts` | the hook: the poll, presenting, following, pointing, drawing |
 | `src/lib/useZeigen.ts` | «Zeigen»: one-finger taps become rings, drags lines, two fingers still pan |
-| `src/components/Presentation.tsx` | the pill, the rings and lines (Karte, plan, form page), the edge arrows, the «Präsentieren» card |
+| `src/components/Presentation.tsx` | the pill, the rings and lines (Karte, plan, form page), the edge arrows |
 
 ## What the operator sees
 
-- **Start**: «Einsatz teilen» → card «Präsentieren» under the read link → «Starten»; or the
-  Einsatz card's fourth act «Präsentieren», beside «Teilen» (F15, 17.11.2026), which STARTS it at
-  once – the card's own start, no sheet asking again (owner pick 29, `WorkspaceTopBar`); the
-  pill's «Beenden» is the way out. That act stands only while this device can start one and is
-  not already presenting (`canStart`); with another presenter running it takes over, as the
-  card's «Übernehmen» does. The card
-  is one title row – glyph · «Präsentieren» · the button – with its text under it across the
-  card (owner pick 6B, 14.11.2026; phone and tablet alike). Editors only (`canShareLink`). A presentation already running is shown on the card and can be taken
-  over («Übernehmen») – the old presenter's tablet may be the one that is gone, and «Starten»
-  must never be a dead end.
+- **Start**: the Einsatz card's fourth act «Präsentieren», beside «Teilen» (F15, 17.11.2026),
+  STARTS it at once – no sheet asking again (owner pick 29, `WorkspaceTopBar`); the pill's
+  «Beenden» is the way out. That act stands only while this device can start one and is not
+  already presenting (`canStart`), and for editors only (`canShareLink`). With another presenter
+  running it takes over – the old presenter's tablet may be the one that is gone, and the start
+  must never be a dead end. «Einsatz teilen» has no «Präsentieren» card any more (owner,
+  18.11.2026: «It's in its own button now»).
 - **Presenter pill** (bottom centre): «Du präsentierst · N folgen · avatars · Zeigen · Beenden».
   On a phone (owner pick 5B, 14.11.2026 – «Du präsentier» was cut on a 390px iPhone) the own
   avatar goes and «Beenden» is a neutral TILE, the ■ over its word (a stop, not a delete – duck
@@ -202,7 +199,7 @@ needs no new infrastructure on the proxy, the service worker or the tests.
   On several workers a follower would not hear a presenter on another one; the fix then is
   Postgres `LISTEN/NOTIFY` behind the same functions.
 - **Offline or unreachable**: the device shows no presentation (no pill, no rings), queues
-  nothing, and its card says «Braucht Verbindung zum Server».
+  nothing, and the Einsatz card shows no «Präsentieren» act.
 - While a presentation runs, a third held request per tab: free over HTTP/2 (every deployment),
   3 of 6 connections over plain HTTP/1.1 (`lib/api · LONG_POLL_TIMEOUT_MS`). None otherwise.
 

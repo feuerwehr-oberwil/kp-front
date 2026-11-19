@@ -1017,8 +1017,7 @@ describe('an APPROVED automatic fit reads «verknüpft», not «ungemessen»', (
     const lamp = georefLamp(fitSimilarity(AUTO_PAIRS, AR), mode)
     expect(lamp.tone).toBe('green')
     expect(lamp.head).toBe(C.lampApprovedHead)
-    expect(lamp.body).toBe(C.lampApprovedBody)
-    expect(lamp.body).not.toContain(C.chipAuto)
+    expect(lamp.body).toBeUndefined() // one line: a body only said the head again
     release()
   })
 

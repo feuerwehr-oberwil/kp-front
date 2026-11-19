@@ -14,6 +14,11 @@ export function IconSprite() {
       <symbol id="people" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2" /><path d="M3 20c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5" /><path d="M16 5.2a3 3 0 0 1 0 5.8M21 20c0-2.6-1.6-4.5-4.2-5.1" /></symbol>
       <symbol id="mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M6 11a6 6 0 0 0 12 0M12 17v4M9 21h6" /></symbol>
       <symbol id="cam" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2" /><circle cx="12" cy="13.5" r="3.4" /><path d="M8 7l1.5-3h5L16 7" /></symbol>
+      {/* «Scan» (19.11.2026): a viewfinder's four corners around a QR's three finder squares –
+          the Atemschutz tags (components/TagScan). Not #cam: that one takes a PHOTO. */}
+      <symbol id="scan" viewBox="0 0 24 24"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3" /><rect x="8" y="8" width="3" height="3" /><rect x="13" y="8" width="3" height="3" /><rect x="8" y="13" width="3" height="3" /></symbol>
+      {/* the camera's light (TagScan · «Licht»): a torch with its beam */}
+      <symbol id="torch" viewBox="0 0 24 24"><path d="M8 3h8v4l-2 3v11h-4V10L8 7z" /><path d="M8 7h8M12 13v2" /></symbol>
       <symbol id="eye" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></symbol>
       <symbol id="eyeoff" viewBox="0 0 24 24"><path d="M3 3l18 18M10.6 6.2A9.5 9.5 0 0 1 12 6c6.5 0 10 6 10 6a16 16 0 0 1-3.3 3.8M6.4 7.7A15.7 15.7 0 0 0 2 12s3.5 6 10 6a9.4 9.4 0 0 0 3.2-.6" /></symbol>
       <symbol id="layers" viewBox="0 0 24 24"><path d="M12 3 3 8l9 5 9-5z" /><path d="M3 13l9 5 9-5" /></symbol>
@@ -95,6 +100,11 @@ export function IconSprite() {
       <symbol id="trupp-find" viewBox="0 0 24 24"><circle cx="8" cy="7.5" r="3" /><path d="M2.5 19c0-3.2 2.4-5.3 5.5-5.3 1.4 0 2.6.4 3.6 1.1" /><circle cx="16.5" cy="15.5" r="3.6" /><path d="M19.1 18.1 22 21" /></symbol>
       <symbol id="search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="M16 16l5 5" /></symbol>
       <symbol id="close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18" /></symbol>
+      {/* «Üben» (19.11.2026): a target with its centre hit – the drills (lib/ueben). Not #circle,
+          which is the Absperrkreis tool: that one has one ring. */}
+      <symbol id="target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="5" /><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none" /></symbol>
+      {/* the ghost hand of «Zeigen» (components/ueben): a pointing finger */}
+      <symbol id="hand" viewBox="0 0 24 24"><path d="M9 11V4.5a1.5 1.5 0 0 1 3 0V10m0-1.5a1.5 1.5 0 0 1 3 0V11m0-1a1.5 1.5 0 0 1 3 0v4.5c0 3.6-2.4 6.5-6 6.5h-.6a6 6 0 0 1-4.9-2.6L4.3 14.6a1.5 1.5 0 0 1 2.4-1.8L9 15" /></symbol>
       <symbol id="info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M12 11v5.5" /><circle cx="12" cy="7.7" r=".5" /></symbol>
       <symbol id="mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3.5 7 8.5 6.5L20.5 7" /></symbol>
       <symbol id="copy" viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2" /><path d="M15 5H5a2 2 0 0 0-2 2v10" /></symbol>
@@ -144,9 +154,6 @@ export function IconSprite() {
       {/* who LEADS — the Gruppenführer crown in the Trupp picker. Outline while it is an offer,
           filled by the caller (.teamCrownOn) once it is the state, so the leader reads as a
           fact rather than as one more button that could still be pressed. */}
-      {/* «Üben» (05.11.2026): a mortarboard – the tutorial pill and the «Üben» rows. Not #checklist
-          or #star: the first is a surface, the second a favourite. */}
-      <symbol id="learn" viewBox="0 0 24 24"><path d="M12 4.5 22 9.5l-10 5-10-5z" stroke-linejoin="round" /><path d="M6 11.5v5c3 2.5 9 2.5 12 0v-5M22 9.5v5" stroke-linecap="round" /></symbol>
       <symbol id="star" viewBox="0 0 24 24"><path d="m12 3.8 2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z" stroke-linejoin="round" /></symbol>
       {/* Checklisten (rail, Karte, visits, admin): ONE clipboard with two ticks – #clipboard's
           shape, 2 units wider so the ticks have room (hill climb r17, Opus 11: the old stacked sheets

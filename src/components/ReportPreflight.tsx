@@ -203,7 +203,7 @@ function ClosedStrip({ onReopen }: { onReopen?: () => Promise<ReactivateResult> 
 
 export function ReportPreflight({
   incident, reportMeta, personnel = [], presentIds = NO_IDS, onRolePicked, onAddGuest, events, annotatedPlanCount, truppCount, attendanceCount, mittelCount, mittel = [], mapContentCount = 1, pendingMediaCount = 0, attendance = {}, trupps = [], contactIntervalMin, contactGraceSec, checklists, plans = [], scene, board, building, captureUsage, canEdit: canEditIn = true, canShare = canEditIn, attachments = [], onAddAttachments, onCaptionAttachment, onRemoveAttachment, onSaveMeta, onEditDispatch, onOpenAnwesenheit, onOpenMittel, onResolveConflict, onComplete, onFixTranscripts,
-  closed = false, onReopen, reportSignatures = NO_SIGNATURES, onSign,
+  closed = false, onReopen, reportSignatures = NO_SIGNATURES, onSign, noOutput = false,
 }: {
   incident: IncidentMeta
   reportMeta: ReportMeta
@@ -281,6 +281,9 @@ export function ReportPreflight({
    *  section fetched both links on mount and logged two 403s for every el (3am test, 25.09.2026).
    *  Defaults to `canEdit` for callers that never distinguished the two. */
   canShare?: boolean
+  /** no PDF, no print and no «bereit» band – the practice Einsatz («Üben»), which the server that
+   *  renders and prints has never seen */
+  noOutput?: boolean
   /** Stunden editor: correct one person's von–bis; omit to render the table read-only */
   /** open the Einsatzdaten panel to correct the dispatch facts; omit to hide the link
    *  (e.g. viewers / read-only) */
@@ -1406,7 +1409,7 @@ export function ReportPreflight({
                 <span className="rp-btn-short fold-short" aria-hidden="true">{A.completeShort}</span>
               </button>
             )}
-            {printStatus?.available && (
+            {printStatus?.available && !noOutput && (
               <button className={`ip-btn head-tile print-send${printStatus.online ? '' : ' offline'}`} disabled={printBusy}
                 data-fold={RP_FOLD.tiles}
                 onClick={() => void startOutput('print')} aria-label={printBusy ? R.sending : printStatus.online ? R.send : `${R.send} · ${R.offline}`}
@@ -1436,7 +1439,7 @@ export function ReportPreflight({
                 ⚠️ One FRAMED tile, not a filled one (27.09.2026, slim sweep · mockup 2): on the
                 phone it reads «PDF ▾» — the word, not a doc glyph whose meaning you had to know
                 (`.rp-btn-short`); the tablet keeps its full label. Same two doors as before. */}
-            <span className="rp-split">
+            {!noOutput && <span className="rp-split">
               <button className="ip-btn head-tile rp-split-main" data-fold={RP_FOLD.tiles} disabled={pdfBusy} onClick={() => void startOutput('pdf')}
                 aria-busy={pdfBusy || undefined} aria-label={pdfBusy ? P.pdfBusy : P.pdfFull} title={pdfBusy ? P.pdfBusy : P.pdfFull}>
                 {/* the glyph stays when the word shortens (pick 24a): folded, the doc OVER «PDF» */}
@@ -1519,7 +1522,7 @@ export function ReportPreflight({
                   },
                 ]}
               />
-            </span>
+            </span>}
           </div>
         </header>
         {/* #14 · #15: one strip under the head, one size (owner: the band «a bit smaller, same as
@@ -1533,7 +1536,7 @@ export function ReportPreflight({
           <RpStrip lead={missing.length === 1 ? P.guideLast : P.guideNext} count={fillTemplate(P.guideLeft, { n: missing.length })}
             title={A.steps[guideNext]} onGo={() => guideTo(guideNext)} onHide={() => setGuideAt(null)} hideLabel={P.guideHide} />
         )}
-        {showReadyBand && (
+        {showReadyBand && !noOutput && (
           // busy = loader + word (duck sweep FEEDBACK.12), like every busy button in an open sheet
           <RpStrip done lead={P.bandReady} title={pdfBusy ? P.pdfBusy : P.bandPdf} busy={pdfBusy}
             icon={pdfBusy ? <ShellLoader /> : <Icon id="doc" />} onGo={() => void startOutput()} />

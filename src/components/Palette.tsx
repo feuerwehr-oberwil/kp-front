@@ -12,7 +12,6 @@ import { FORMEN_ORDER, SHAPE_DEFS, ShapeGlyph } from '../lib/shapes'
 import { sanitizeSvg } from '../lib/sanitizeSvg'
 import { bareBlack } from '../lib/glyphTile'
 import { useIsPhone } from '../lib/useIsPhone'
-import { tut, toolAnchor } from '../lib/tutorials/anchors'
 import { addTools } from '../lib/toolFold'
 import { Overlay } from '../lib/overlays'
 
@@ -52,7 +51,8 @@ interface PaletteTool { id: string; icon: string; label: string; sep?: boolean; 
 /** a tool in the sheet: the same cell a symbol gets, wearing the glyph its rail tile wears */
 function ToolCell({ tool, onPick }: { tool: PaletteTool; onPick: (id: string) => void }) {
   return (
-    <button className="sym-cell sym-cell-tool" title={tool.label} onClick={() => onPick(tool.id)} draggable={false} {...toolAnchor('add', tool.id)}>
+    // `data-tool` / `data-sym`: the anchors «Üben»'s «Zeigen» rings (lib/ueben)
+    <button className="sym-cell sym-cell-tool" title={tool.label} onClick={() => onPick(tool.id)} draggable={false} data-tool={tool.id}>
       <span className="sym-cell-in">
         <span className="sym-tool-glyph"><Icon id={tool.icon} /></span>
         <small>{tool.label}</small>
@@ -63,7 +63,7 @@ function ToolCell({ tool, onPick }: { tool: PaletteTool; onPick: (id: string) =>
 
 function Cell({ name, svg, onPick }: { name: string; svg: string; onPick: (n: string) => void }) {
   return (
-    <button className="sym-cell" title={name} onClick={() => onPick(name)} draggable={false}>
+    <button className="sym-cell" title={name} onClick={() => onPick(name)} draggable={false} data-sym={name}>
       {/* ⚠️ layout on the inner span, not the button — see .sym-cell-in in 07-toolrail.css */}
       <span className="sym-cell-in">
         {/* ⚠️ SEC-01 — sanitise AT THIS SINK. This glyph string can be an editor-supplied
@@ -115,7 +115,7 @@ export function Palette({ sym, onPick, onClose, onPickShape, tools, onPickTool }
             answers a question nobody asks — how many symbols the pack has changes nothing
             about the one you are looking for. */}
         <SearchField className="sym-search" value={q} onChange={setQ}
-          placeholder={appConfig.copy.symbolSearchPlaceholder} aria-label={appConfig.copy.symbolSearchPlaceholder} {...tut('add.search')} />
+          placeholder={appConfig.copy.symbolSearchPlaceholder} aria-label={appConfig.copy.symbolSearchPlaceholder} />
         <button className="sym-close" onClick={onClose} title={appConfig.copy.closeDialog} aria-label={appConfig.copy.closeDialog}><Icon id="close" /></button>
       </div>
 

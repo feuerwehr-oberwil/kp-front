@@ -152,12 +152,20 @@
    second small object on top of the glyph that has to be recognised at a glance, and at the
    corner it covered the Auswahl arrow's tip. The body face at 11px, regular, not the mono, whose narrow
    caps rendered thin at this size. On the armed ink tile it takes the tile's own text colour,
-   muted, so it recedes there as it does on the resting tiles. */
+   muted, so it recedes there as it does on the resting tiles. On the view bar's lit WASH tile
+   (`.vrail-nbtn.on`: Ebenen open – a light blue fill, not the ink one) it takes that tile's blue,
+   unmuted: the ink tile's white was white on light blue (owner shot 18.11.2026, «B»), and 70 % of
+   the blue is 2.9:1 by day – the full blue holds 4.8:1, and 4:1 pressed. Every enabled state
+   ≥ 3:1 against its tile: tokenContrast.test.ts · «the rail's corner letter». On a disabled tile
+   it is the glyph's ink, so the button's --disabled opacity dims both alike (2.75:1 by day, as
+   the glyph – the faint tier fell to 2:1 there). */
 .rail-key { display: none; position: absolute; top: 6px; left: 5px;
   font-family: var(--body); font-size: var(--fs-micro); font-weight: var(--fw-regular);
   line-height: 1; text-box: trim-both cap alphabetic;
   color: var(--ink-faint); pointer-events: none; }
-:is(.nav-item, .vrail-tool, .vrail-nbtn).on .rail-key { color: color-mix(in srgb, var(--on-here) 70%, transparent); }
+:is(.nav-item, .vrail-tool).on .rail-key { color: color-mix(in srgb, var(--on-here) 70%, transparent); }
+.vrail-nbtn.on .rail-key { color: var(--blue-strong); }
+:disabled .rail-key { color: var(--ink); }
 .rail.expanded:not(.dragging) .rail-key { top: 50%; translate: 0 -50%; left: auto; right: 10px; }
 .vrail.expanded:not(.dragging) .rail-key { right: auto; left: 10px; }
 /* …and on the view bar's buttons that have a key (ToolRail · RailKey: Ebenen B, Einpassen 0) –

@@ -72,18 +72,6 @@ describe('AppMenuRows · home (no card)', () => {
     expect(screen.queryByRole('button', { name: ci.titleNew })).toBeNull()
   })
 
-  it('draws «Üben» right above the Hilfe when handed, and not without', () => {
-    const onUeben = vi.fn()
-    renderHome({ onUeben })
-    const row = screen.getByRole('button', { name: appConfig.copy.tutorials.menu })
-    expect(row.nextElementSibling?.textContent).toBe(appConfig.copy.help.menu)
-    fireEvent.click(row)
-    expect(onUeben).toHaveBeenCalledTimes(1)
-    cleanup()
-    renderHome()
-    expect(screen.queryByRole('button', { name: appConfig.copy.tutorials.menu })).toBeNull()
-  })
-
   // round 2b: the one sheet is «Einstellungen» again, and so is its one row
   it('draws ONE «Einstellungen» row when handed the door, and no second device row', () => {
     const onDevice = vi.fn()

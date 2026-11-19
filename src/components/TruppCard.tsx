@@ -662,11 +662,12 @@ export function TruppCard({
    * Those two joining words are `quiet` (hill climb r13/r27, 05.11.2026): dim ink, regular, so the
    * values read first — never the Schätzung's word, which keeps full ink and weight (T2).
    * A crew still INSIDE names its time under air with the same quiet «drin» (round 2b, 13.11.2026:
-   * the eyebrow «UNTER ATEMSCHUTZ» wrapped the line) — «drin 10:00 min · Schätzung ≈ 263 bar», ONE
-   * line at every card width; where it cannot fit, the Schätzung's word drops first (`drop`,
-   * Atemschutz.module.css · .metaDrop). */
+   * the eyebrow «UNTER ATEMSCHUTZ» wrapped the line) — «drin 10:00 min · Schätzung ≈ 263 bar», one
+   * line where it fits. Where it does not, the line WRAPS between its items, inside the foot's own
+   * touch height; the Schätzung's word never drops (owner pick 4C, 18.11.2026 – with «⋯ Mehr» as a
+   * worded chip on the line it dropped on every 3-column board and on the phone). */
   const outWords = out && !neverDeployed
-  const sockelLine: { key: string; label: string; value: string; alarm?: boolean; labelled?: boolean; quiet?: boolean; drop?: boolean; title?: string }[] = [
+  const sockelLine: { key: string; label: string; value: string; alarm?: boolean; labelled?: boolean; quiet?: boolean; title?: string }[] = [
     ...(monitored && t.entryTime
       // a DURATION that says so — «23:39» read at 23:58 was taken for a clock time (staging r4)
       ? [{ key: 'elapsed', label: az.footInside, value: fmtDuration(live.elapsedSec), labelled: true, quiet: true }] : []),
@@ -686,7 +687,6 @@ export function TruppCard({
         // MEASURED «240 bar», an unnamed «≈ 0 bar» is exactly the mix-up this guards against — the
         // word does it now, not a dimmed grey that also made the number easy to read past
         labelled: true,
-        drop: true,
         // the Planungshilfe caveat travels with the number, exactly as it did on the old row
         title: estimate.source === 'history'
           ? az.estimatedHintHistory
@@ -740,8 +740,9 @@ export function TruppCard({
   const menu = menuItems.length > 0 && (
     <Menu
       trigger={
-        // ⋯ OVER «Mehr» (button sweep audit, owner pick 24, 17.11.2026): the one wordless control
-        // on a foot whose other half always says something («Verlauf», the times)
+        // «⋯ Mehr», glyph BESIDE word in one framed chip at the line's end (owner pick 4C, 18.11.2026;
+        // it was ⋯ over «Mehr», pick 24 – the one wordless control on a foot whose other half always
+        // says something got its word, the stack under it was «ugly»)
         <button type="button" className={s.footMore} aria-label={az.cardMenu} title={az.cardMenu}>
           <Icon id="more" /><span aria-hidden="true">{az.cardMenuWord}</span>
         </button>
@@ -926,6 +927,7 @@ export function TruppCard({
       </div>
     </>
   )
+  const footChev = <Icon id="chevron-down" className={cx('chev', s.logChev)} />
   const footZone = (
     <>
       {/* ── 6 + 7 Sockel und Verlauf, EIN Block (09.09., Maintainer-Entscheid) ────────────────
@@ -962,23 +964,24 @@ export function TruppCard({
             and «≈ 0 bar» dimmed at the card's foot was easy to read past. The word is what keeps
             it from being taken for a logged Druck — the dimming that used to do that is gone. */}
         {/* ⚠️ The ⋯ ends THIS line (29.09.2026, owner pick B): as the facts' last chip it wrapped
-            onto a row of its own on most cards, 44px of height for one glyph. Beside the Verlauf's
-            ⌄ it costs nothing, stands at the same place on every card and every board, and the
-            FAB guard (`data-az-foot` on the row, AtemschutzView · the parking effect) keeps both
+            onto a row of its own on most cards, 44px of height for one glyph. At the line's end it
+            costs nothing, stands at the same place on every card and every board – the ⌄ hugs the
+            times instead (pick 4C, 18.11.2026) – and the FAB guard (`data-az-foot` on the row, AtemschutzView · the parking effect) keeps both
             clear of the Eintrag button. */}
         <div className={s.vfootRow} data-az-foot="">
         <button type="button" className={cx(s.vrow, s.vrowTerse)} aria-expanded={logOpen} aria-label={az.verlauf}
           onClick={() => setLogOpen((o) => !o)}>
+          {/* the ⌄ rides INSIDE the last value, so a wrapped line ends in it – not the flex box,
+              which left it between the two lines (Sol review, PR #702) */}
           <span className={s.metaLine}>
-            {sockelLine.length > 0 ? sockelLine.map((it) => (
+            {sockelLine.length > 0 ? sockelLine.map((it, i) => (
               <span key={it.key} title={it.title}>
-                {it.labelled && <i className={cx(it.quiet && s.metaWordQuiet, it.drop && s.metaDrop)}>{it.label}</i>}
+                {it.labelled && <i className={it.quiet ? s.metaWordQuiet : undefined}>{it.label}</i>}
                 {/* the Einsatzzeit / «Draussen seit» past a day in the head's compact «3d 10h» — one card, one spelling */}
-                <b className={cx(it.alarm && s.metaAlarm)}><ClockVal val={it.value} /></b>
+                <b className={cx(it.alarm && s.metaAlarm)}><ClockVal val={it.value} />{i === sockelLine.length - 1 && footChev}</b>
               </span>
-            )) : <span><i>{az.verlauf}</i></span>}
+            )) : <span><i>{az.verlauf}{footChev}</i></span>}
           </span>
-          <Icon id="chevron-down" className={cx('chev', s.logChev)} />
         </button>
         {menu}
         </div>
