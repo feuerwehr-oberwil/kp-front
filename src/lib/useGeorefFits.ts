@@ -24,6 +24,8 @@ import { buildingPackBinding } from './buildingPackBinding'
 import { tileAspectOf } from './whiteboard'
 import { fillTemplate } from './format'
 
+const NO_DRAWINGS: readonly SheetDrawing[] = []
+
 interface Args {
   planDocs: PlanDocument[]
   planScale: PlanScales
@@ -96,19 +98,27 @@ export function useGeorefFits({
   // new object on every write, so its identity changes exactly when a reference does (and once
   // more when the boot fetch lands). Read during render — it is a synchronous accessor.
   const stationScales = getStationPlanScales()
-  // The pages each floor-pack sheet's renderer loaded (components/PdfViewport · onPages, told
-  // through `onSheetPages`), kept per sheet URL for the session. Two readers: the storey drawings
-  // below, and the sheet's fit – a sheet that stitches several pages has its station pairs laid
-  // onto the fit page's place on the board (incidentPlanBindings · noteBoardPages, read back by
-  // `georefForPlan`) and is solved at the board's shape (floorPackBinding · stitchedAspect).
+  // The pages each sheet's renderer loaded (components/PdfViewport · onPages, told through
+  // `onSheetPages`), kept per sheet URL for the session – for EVERY sheet, bound or not: a binding
+  // can arrive after the load without changing the URL, and the renderer does not tell twice
+  // (#701 round 3, S1). Everything below derives from (binding, pages), whichever came last.
   const [sheetPages, setSheetPages] = useState<ReadonlyMap<string, readonly PageSize[]>>(() => new Map())
   const onSheetPages = useCallback((url: string, pages: readonly PageSize[]) => {
-    const binding = sheetBindingOf(planBindings, url)
-    if (binding) noteBoardPages(binding, boardPagesOf(pages))
     setSheetPages((m) => JSON.stringify(m.get(url)) === JSON.stringify(pages) ? m : new Map(m).set(url, pages))
-  }, [planBindings])
-  const aspectOf = useCallback((p: PlanDocument) => planAspect(p, stationScales, planScale[p.id], stitchedAspect(sheetPages.get(p.imageUrl))),
-    [stationScales, planScale, sheetPages])
+  }, [])
+  // The pages of each BOUND sheet. Its fit reads them twice: the station's one-page pairs are laid
+  // onto the fit page's place on the board (incidentPlanBindings · noteBoardPages, read back by
+  // `georefForPlan`), and it is solved at the board's shape (floorPackBinding · stitchedAspect).
+  // ⚠️ `noteBoardPages` is a side table every `georefForPlan` reader shares, so it is written here,
+  // in render, before `linkedPlans` solves – idempotent (same revision → same layout).
+  const boundPages = useMemo(() => new Map([...sheetPages].flatMap(([url, pages]): [string, readonly PageSize[]][] => {
+    const binding = sheetBindingOf(planBindings, url)
+    if (!binding) return []
+    noteBoardPages(binding, boardPagesOf(pages))
+    return [[url, pages]]
+  })), [planBindings, sheetPages])
+  const aspectOf = useCallback((p: PlanDocument) => planAspect(p, stationScales, planScale[p.id], stitchedAspect(boundPages.get(p.imageUrl))),
+    [stationScales, planScale, boundPages])
   // Every plan of this object that carries a usable fit, solved once per plan/pairs change. The
   // aspect each fit is taken at is recovered from the plan's calibration — see georefTwins ·
   // planAspect for why that is the right source and what happens when there is none.
@@ -386,9 +396,9 @@ export function useGeorefFits({
   const activeLinkedPlan = linkedPlans.find((p) => p.id === activePlanId) ?? null
   // the open sheet's storey drawings, when it shows a floor pack: a symbol placed or moved into
   // one takes its storey (lib/floorPackBinding · withDrawingStorey) – the same drawings the bake
-  // uses. `onSheetPages` only for such a sheet, so no other sheet's load re-renders anything.
+  // uses. `onPages` goes to EVERY sheet: its floors (or its binding) may be known only later.
   const openDrawings = drawingsByPlan.get(activePlanId)
-  const sheetPack = useMemo(() => openDrawings === undefined ? undefined : { drawings: openDrawings ?? [], onPages: onSheetPages }, [openDrawings, onSheetPages])
+  const sheetPack = useMemo(() => ({ drawings: openDrawings ?? NO_DRAWINGS, onPages: onSheetPages }), [openDrawings, onSheetPages])
   /**
    * The live feed this sheet draws — vehicles and shared responder positions, projected and
    * clipped against the plan's own fit (lib/planProjection · liveOverlay).

@@ -333,6 +333,10 @@ export function useObjectStore(
     }
   }, [])
 
+  /** A lent object as the open plan gesture found it: the `before` its first changed frame
+   *  recorded. Empty outside a gesture – every write there flushes (applyBoardToObjects ·
+   *  `gestureStart`). */
+  const gestureStart = (id: string) => foreignPending.current.get(id)?.before
   const setBoard: SetBoard = (a, opts) => {
     const changedOwners = new Map<string, { before: TacticalObject; after: TacticalObject }>()
     let tookPlanStep = false
@@ -346,7 +350,7 @@ export function useObjectStore(
         const annos = next[planId] ?? []
         if (annos === view[planId]) continue
         const plan = getFits().get(planId)
-        const folded = bakePlan(applyBoardToObjects(out, planId, annos, plan, defaultLayer, opts?.gesture ?? true, getFits()), planId, plan, defaultLayer)
+        const folded = bakePlan(applyBoardToObjects(out, planId, annos, plan, defaultLayer, opts?.gesture ?? true, getFits(), gestureStart), planId, plan, defaultLayer)
         const foldedById = new Map(folded.map((o) => [o.id, o]))
         for (const before of out) {
           if (!before.sheet || before.sheet.planId === planId) continue

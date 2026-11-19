@@ -44,9 +44,18 @@ AGENTS.md on 2026-10-08, wording unchanged.
     The drawings are the floors of THIS sheet's own pinned binding (`sheetFloorsOf`), never the
     Gebäude's pack, laid onto the board with the renderer's page layout (`planTiles · sheetLayout`)
     and the pages of the renderer's own successful load (`PdfViewport · onPages`, so «Erneut laden»
-    brings them back too): a sheet without `#page=` shows every page stitched top-down. An explicit
+    brings them back too; the workspace keeps them for every sheet, so a binding that arrives
+    after the load still finds them): a sheet without `#page=` shows every page stitched top-down. An explicit
     clip wins over a whole-page drawing on the same page. Such a symbol stays on its
     sheet: the Gebäude stack does not show another sheet's ink.
+    A symbol the Gebäude OWNS (lent to the sheet) and dragged into another drawing stays the
+    Gebäude's: the new storey is written as the stack's tile `floor`, Von/Bis cleared, and a
+    shifted span as its new ends. A storey the stack has no tile for – for a span, either end –
+    keeps the storey or span the drag STARTED with, like a drop outside every drawing, so the
+    result depends only on where the drag starts and ends (1 → 2 → 3 without a tile ends on 1, not
+    on 2); it never hands the symbol to this sheet, because the selection bar writes every frame
+    and a drag only passing over such a drawing would lose it (`tacticalObjects ·
+    applyBoardToObjects`).
   - *Every drawing of that sheet lands on the building* (19.11.2026). The pack's ONE fit is measured
     on the reference drawing, so a sheet point reaches the ground through the drawing it is in:
     into its page's coordinates, plus that drawing's join shift (a page-coordinate thing), back onto
@@ -58,8 +67,10 @@ AGENTS.md on 2026-10-08, wording unchanged.
     anno in its drawing. A point outside every drawing is paper and goes straight through the fit.
     ONE set of drawings per sheet (`useGeorefFits · drawingsByPlan`): the open sheet's storeys and
     the Karte bake read the same, from the pages its renderer told (kept per sheet URL for the
-    session). Until a floor-pack sheet has told its pages it has NO fit in the bake, so its map
-    bodies stay as baked rather than go back to their paper position. The drawings re-bake
+    session, for EVERY sheet: a binding that arrives after the load still finds them, and the
+    drawings and the board-page fit are derived from binding + pages, whichever came last). Until
+    a floor-pack sheet has told its pages it has NO fit in the bake, so its map bodies stay as
+    baked rather than go back to their paper position. The drawings re-bake
     silently, like the stack. ⚠️ A fit the operator re-links by hand on such a sheet is still read
     as measured on the reference drawing.
   - *A multi-page sheet speaks board coordinates, the station's pairs one page's* (19.11.2026). The
@@ -69,8 +80,8 @@ AGENTS.md on 2026-10-08, wording unchanged.
     the layout per revision from `noteBoardPages`), and the fit is solved at the board's shape
     (`floorPackBinding · stitchedAspect`) – so the bake, the Karte raster, the pairing mode and the
     sheet's own fit all read one frame. One page: the same numbers. An override and a legacy fit
-    were set ON the board and stay as they are. Only floor-pack sheets tell their pages today; a
-    plain multi-page sheet with a page-0 approval still reads them as board coordinates.
+    were set ON the board and stay as they are. Every bound sheet tells its pages, floor pack or
+    not.
     *Not done:* a Trupp docked to a symbol on the Karte is drawn beside its host in screen px
     (`mapView · teamDockAnchor`); the sheet has no docking and projects its stored point, through no
     drawing (it has no storey).

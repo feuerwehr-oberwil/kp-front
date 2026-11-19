@@ -176,10 +176,11 @@ interface Props {
   /** the active object's floor pack – the PDF page each storey tile draws underneath, and the
    *  pack's shared map fit that places it (lib/floorPackBinding) */
   floorPack?: FloorPackView | null
-  /** the OPEN sheet's own floor pack, when it shows one (its pinned binding – Modul 6 with its
-   *  storeys side by side, lib/useGeorefFits · sheetPack): its storey drawings, a symbol placed or
-   *  moved into one takes its storey – the same drawings the Karte bake uses; and `onPages`, which
-   *  the renderer tells the pages it loaded (PdfViewport · onPages). Absent on every other sheet. */
+  /** the OPEN sheet's page link to the workspace (lib/useGeorefFits · sheetPack): `onPages`, which
+   *  the renderer tells the pages it loaded (PdfViewport · onPages) on every sheet; and, when the
+   *  sheet shows a floor pack (its pinned binding – Modul 6 with its storeys side by side), its
+   *  storey drawings – a symbol placed or moved into one takes its storey, the same drawings the
+   *  Karte bake uses. Empty `drawings` on every other sheet. */
   sheetPack?: { drawings: readonly SheetDrawing[]; onPages: (url: string, pages: readonly PageSize[]) => void }
   /** the picked footprints, their auto-orientation angle, and WHERE that footprint box sits on
    *  the ground — the third is what lets the workspace carry the floor stack across the change
@@ -751,7 +752,10 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // placed or moved into one takes its storey, as on the stack (lib/floorPackBinding ·
   // sheetDrawings, withDrawingStorey). Empty on every other sheet, on the stack, and until the
   // renderer's own successful load told its pages (PdfViewport · onPages) – so a sheet whose first
-  // load failed gets its drawings back with «Erneut laden» (Sol review round 2, S3).
+  // load failed gets its drawings back with «Erneut laden» (Sol review round 2, S3). The pages go
+  // to the workspace on EVERY sheet (`sheetPack.onPages`), whether its floors are known yet or
+  // not: the binding can arrive after the load without changing the URL, and the load does not
+  // tell twice (round 3, S1).
   const storeyDrawings = (!stack && sheetPack?.drawings) || NO_DRAWINGS
 
   // Leaving Linie/Fläche mid-shape never silently drops a committable draft: it asks «Speichern ·
