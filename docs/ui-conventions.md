@@ -720,11 +720,13 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     tone, not the primary, and stays. The Trupp marker's action bar (`.wb-pill-acts`) is all
     neutral wash (29.09.2026): no green «Zum Trupp», no blue «Position markieren». A door to a page
     wears that page's nav glyph («Zum Trupp» = the Trupps stopwatch, never ⚠); the join
-    («Atemschutz-Trupp») wears `link`. Three buttons (rare-user round 2, owner pick M12 A,
+    («Atemschutz-Trupp») wears `link`. Three buttons, four while the marker hangs on something (rare-user round 2, owner pick M12 A,
     17.11.2026): ONE Trupp button that changes – «Zum Trupp» on a linked marker, «Trupp» (the join;
     the bar's short word for «Atemschutz-Trupp») on a loose one, never both – then «Markieren» (the
-    bar's short word for «Position markieren»; full words as title / label), then «Mehr». «Mehr» rows carry glyph + full word:
-    Lösen · Atemschutz-Trupp (re-point, linked only; the row swaps the menu to the join list) ·
+    bar's short word for «Position markieren»; full words as title / label), then «Lösen» while the
+    marker hangs on a Leitung, a symbol or both – one tile cuts every bond (round 18.11.2026 evening,
+    owner: «always show the unjoin button» – in sight, never in «Mehr»; on the card it cut the name), then «Mehr». «Mehr» rows carry glyph + full word:
+    Atemschutz-Trupp (re-point, linked only; the row swaps the menu to the join list) ·
     Bearbeiten (rename, loose only) · Spuren (✓ while shown) · the original (mirrors) · the delete
     rows, last (the marker alone plain, the Spur rows danger). «Mehr» is drawn only with a row.
     Same on phone and tablet, one row at 390 px. «Beschriftung» only changes the look: on, every

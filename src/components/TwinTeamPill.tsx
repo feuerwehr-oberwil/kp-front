@@ -128,11 +128,11 @@ export interface TwinTeamActions {
   /** pan the OTHER surface to the original — the MIRROR's one extra door, absent on a native */
   toOriginal?: () => void
   toggleTrail?: () => void
-  /** «Lösen» on a joined marker (Karte, 15.09.): let go of the Leitung this Trupp is on. Offered
-   *  only where a `line` badge is also drawn — a surface that does not show the join does not
-   *  offer to break it. */
+  /** let go of the Leitung this Trupp is on (Karte, 15.09.). Offered only where a `line` badge is
+   *  also drawn — a surface that does not show the join does not offer to break it. */
   unlink?: () => void
-  /** let go of the symbol the marker is docked to (lib/docking) – the same «Lösen» glyph */
+  /** let go of the symbol the marker is docked to (lib/docking) – the same act as the host panel's
+   *  «Lösen» (useMapActions · undockTeam). Passed only while the marker IS docked. */
   undock?: () => void
 }
 
@@ -222,8 +222,11 @@ export function TwinTeamPill({ name, time, color, originalLabel, raus, truppId, 
   const undock = acts?.undock
   /* ── The bar (rare-user round 2, owner pick M12 A, 17.11.2026) ── the daily doors stand, the rest
      is behind «Mehr»: ONE Trupp button that changes – «Zum Trupp» on a linked marker, «Atemschutz-
-     Trupp» (join) on a loose one, never both side by side – then «Markieren», then «Mehr». «Mehr»
-     holds, as glyph + full word: Lösen · Atemschutz-Trupp (change the link, linked only) ·
+     Trupp» (join) on a loose one, never both side by side – then «Markieren», then «Lösen» while the
+     marker hangs on something (a Leitung, a symbol, or both – round 18.11.2026 evening, owner: «when
+     joined, also always show the unjoin button»; on the bar, not the card: at 390 px a framed
+     «Lösen» on the card cut the name to «Ko…»), then «Mehr». «Mehr»
+     holds, as glyph + full word: Atemschutz-Trupp (change the link, linked only) ·
      Bearbeiten (rename, loose only) · Spuren ✓ · the original (mirrors) · the delete rows, last.
      Same on phone and tablet; one row at 390 px in every state. «Beschriftung» (the rails' setting)
      only decides the LOOK: on, every button wears its word under the glyph; off, the same buttons
@@ -231,6 +234,7 @@ export function TwinTeamPill({ name, time, color, originalLabel, raus, truppId, 
   const worded = useRailLabels() === 'short'
   const barWord = (w: string) => worded ? <span className="wb-pa-word">{w}</span> : null
   const W = appConfig.copy.whiteboard
+  const releaseWord = appConfig.copy.contextPanel.dockedRelease
   const zumTrupp = truppId && showTrupp ? truppId : undefined
   const onNone = line && unlink && truppId ? unlink : undefined
   const join = pick ? { truppId, trupps, pick, create: newTrupp, onNone } : undefined
@@ -238,13 +242,10 @@ export function TwinTeamPill({ name, time, color, originalLabel, raus, truppId, 
    *  (the app's Menu has no submenus; the row keeps the menu open and swaps what it lists) */
   const [morePage, setMorePage] = useState<'rows' | 'join'>('rows')
   const lead = (icon: string) => <span className="de-menu-lead" aria-hidden><Icon id={icon} /></span>
+  // «Lösen» (15.09.): the one explicit way to part the marker from what it hangs on – its Leitung,
+  // the symbol it is docked to, or both at once. Absent while it hangs on nothing.
+  const release = onNone || undock ? () => { onNone?.(); undock?.() } : undefined
   const moreRows: MenuActionItem[] = [
-    // «Lösen» (15.09.): the one explicit way to part the marker from what it hangs on – its
-    // Leitung, the symbol it is docked to, or both at once
-    ...((line && unlink && truppId) || undock ? [{
-      label: <>{lead('unlink')}<span>{appConfig.copy.contextPanel.dockedRelease}</span></>,
-      onClick: () => { if (line && truppId) unlink?.(); undock?.() },
-    }] : []),
     // re-point a linked marker to another Trupp – on a loose marker the bar's own button does it
     ...(zumTrupp && join ? [{
       label: <>{lead('link')}<span>{appConfig.copy.atemschutz.markerLabel}</span></>,
@@ -334,6 +335,11 @@ export function TwinTeamPill({ name, time, color, originalLabel, raus, truppId, 
       {mark && (
         <button className="wb-pa" title={W.markPosition} aria-label={W.markPosition}
           onClick={mark}><Icon id="flag" />{barWord(W.markShort)}</button>
+      )}
+      {/* «Lösen» while the marker hangs on something – the glyph every bond cut wears; ↶ takes it back */}
+      {release && (
+        <button className="wb-pa" title={releaseWord} aria-label={releaseWord}
+          onClick={release}><Icon id="unlink" />{barWord(releaseWord)}</button>
       )}
       {moreRows.length > 0 && (
         <Menu
