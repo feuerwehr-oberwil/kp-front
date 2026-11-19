@@ -405,6 +405,12 @@ describe('transferOutOfTrupp — the warning’s own way out', () => {
     expect(state.trupps[0]).toMatchObject({ members: ['Frei Nina', 'Amrein Patrick'], memberPersonIds: ['p2', 'p3'] })
   })
 
+  it('refuses to rewrite a Trupp that is abgemeldet (raus) – it holds nobody any more', () => {
+    const { actions, state } = timed(standby({ status: 'raus', exitTime: '2026-07-06T10:40:00Z' }))
+    expect(actions.transferOutOfTrupp('T1', ['p2'], 'Müller Hans')).toBe(false)
+    expect(state.trupps[0].members).toEqual(['Frei Nina', 'Amrein Patrick'])
+  })
+
   it('refuses a batch that would empty the crew – nothing written', () => {
     const { actions, state } = timed(standby())
     expect(actions.transferOutOfTrupp('T1', ['p1', 'p2', 'p3'], 'Müller Hans')).toBe(false)
@@ -419,14 +425,16 @@ describe('transferOutOfTrupp — the warning’s own way out', () => {
 
   // …and the crew fields ONLY: the other Trupp's clocks and its Druckprotokoll are untouched,
   // which is the invariant that lets this be a one-tap action at all
+  // (out again – Austritt stamped – but not yet abgemeldet: a `raus` Trupp holds nobody any more,
+  // and its finished crew is never rewritten – lib/atemschutz · truppGroupTransfer)
   it('never touches the other Trupp’s clocks or readings', () => {
-    const t = standby({ status: 'raus', entryTime: '2026-07-06T10:00:00Z', exitTime: '2026-07-06T10:40:00Z',
+    const t = standby({ status: 'aktiv', entryTime: '2026-07-06T10:00:00Z', exitTime: '2026-07-06T10:40:00Z',
       lastContactTime: '2026-07-06T10:30:00Z', lowestBar: 120,
       readings: [{ t: '2026-07-06T10:00:00Z', bar: 300, kind: 'entry' }] })
     const { actions, state } = harness(t)
     expect(actions.transferOutOfTrupp('T1', ['p2'])).toBe(true)
     expect(state.trupps[0]).toMatchObject({
-      status: 'raus', entryTime: t.entryTime, exitTime: t.exitTime,
+      status: 'aktiv', entryTime: t.entryTime, exitTime: t.exitTime,
       lastContactTime: t.lastContactTime, lowestBar: 120,
     })
     // the measured log is untouched; the ONE row added is the crew as it now stands (12.09.),

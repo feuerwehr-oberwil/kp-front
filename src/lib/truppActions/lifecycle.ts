@@ -2,7 +2,7 @@ import type { Trupp, TruppFields } from '../../types'
 import { appConfig } from '../../config/appConfig'
 import { fillTemplate } from '../format'
 import { truppEquipmentLabels } from '../report'
-import { isAtemschutzTrupp, truppCrewWithout, truppInNotfall, truppLogName, truppTransferState } from '../atemschutz'
+import { isAtemschutzTrupp, truppCrewWithout, truppGroupTransfer, truppInNotfall, truppLogName } from '../atemschutz'
 // stamped in the DEPLOYMENT's time, like every Trupp timestamp (why: truppActions/clock)
 import { serverNowIso } from '../serverClock'
 import { nextTruppNo } from '../placedTrupps'
@@ -497,7 +497,7 @@ export function truppLifecycleActions(deps: LifecycleDeps) {
     const tr = (liveTrupps?.() ?? trupps).find((t) => t.id === fromId)
     // every person must be movable from the crew the ones before them leave – two of one crew in a
     // single scan must not empty it, and the second removal must build on the first
-    if (!tr || !personIds.length || !crewWithoutAll(tr, personIds, (cur, id) => truppTransferState(cur, id, slotsOf?.(cur)) === 'ready')) return false
+    if (!tr || truppGroupTransfer(tr, personIds, slotsOf).state !== 'ready') return false
     const az = appConfig.copy.atemschutz
     const to = (toName ?? '').trim()
     // …and «in Trupp Frei Nina gewechselt» on the row about Frei Nina is not an answer: that is
@@ -533,12 +533,13 @@ export function truppLifecycleActions(deps: LifecycleDeps) {
   }
 
   /** `tr`'s crew with `personIds` taken out ONE AFTER THE OTHER – each from the crew the one
-   *  before left – and the names that went; null when one cannot go (`ok`, or the crew would empty). */
-  const crewWithoutAll = (tr: Trupp, personIds: readonly string[], ok: (cur: Trupp, id: string) => boolean = () => true) => {
+   *  before left – and the names that went; null when the crew would empty. Whether they MAY go
+   *  is the caller's (transferOutOfTrupp: lib/atemschutz · truppGroupTransfer). */
+  const crewWithoutAll = (tr: Trupp, personIds: readonly string[]) => {
     let cur = tr
     const who: string[] = []
     for (const id of personIds) {
-      const crew = ok(cur, id) ? truppCrewWithout(cur, id, slotsOf?.(cur)) : null
+      const crew = truppCrewWithout(cur, id, slotsOf?.(cur))
       if (!crew) return null
       who.push(crew.who)
       cur = { ...cur, name: crew.name, members: crew.members, leaderPersonId: crew.leaderPersonId, memberPersonIds: crew.memberPersonIds }

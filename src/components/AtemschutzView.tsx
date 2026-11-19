@@ -20,7 +20,7 @@ import { FilterStrip } from './FilterStrip'
 import { Menu, Overlay, Popover } from '../lib/overlays'
 import { NotfallBanner, NotfallPageHead, NotfallPageSafety, NotfallStrip, type SafetyActProps } from './AtemschutzNotfall'
 import { DoubleAssignmentBanner } from './DoubleAssignmentBanner'
-import { alarmBarFor, deriveTruppLive, safetyCandidates, safetyInside, safetyReady, truppInNotfall, earlyEntryCorrection, truppEditPatch, truppFieldGroupsChanged, truppLogName, type TruppFieldGroup, fmtClock, isAtemschutzTrupp, truppAlarm, truppFieldsOf, truppHeadName, truppInField, truppStillDeployed, truppTransferState, type TruppAlarm, type TruppLive } from '../lib/atemschutz'
+import { alarmBarFor, deriveTruppLive, safetyCandidates, safetyInside, safetyReady, truppInNotfall, earlyEntryCorrection, truppEditPatch, truppFieldGroupsChanged, truppLogName, type TruppFieldGroup, fmtClock, isAtemschutzTrupp, truppAlarm, truppFieldsOf, truppHeadName, truppInField, truppStillDeployed, truppGroupTransfer, truppTransferState, type TruppAlarm, type TruppLive, type TruppTransferState } from '../lib/atemschutz'
 import { foreignContactAgo } from '../lib/contactEcho'
 import { serverNow, serverNowIso } from '../lib/serverClock'
 import { isPresent } from '../lib/attendanceIntervals'
@@ -324,24 +324,38 @@ export function AtemschutzView({
     return by
   }, [allTrupps, form?.trupp?.id])
   /** the Trupp a person would be moved OUT of – never `skip`, the Trupp the sheet is editing: a
-   *  person recorded in both must not be taken out of the one receiving them (Sol review 19.11.) */
-  const sourceOf = (personId: string, skip?: string) => {
-    const from = truppOfPerson.get(personId)
-    return from && from.id !== skip ? from : undefined
-  }
+   *  person recorded in both must not be taken out of the one receiving them, and the index above
+   *  keeps ONE holder per person, so with a `skip` the board is searched instead (Sol review 19.11.) */
+  const sourceOf = (personId: string, skip?: string) => skip
+    ? allTrupps.find((t) => t.id !== skip && t.status !== 'raus' && !t.removedAt
+      && (t.leaderPersonId === personId || (t.memberPersonIds ?? []).includes(personId)))
+    : truppOfPerson.get(personId)
   const transferStateFor = (personId: string, skip?: string) => {
     const from = sourceOf(personId, skip)
     return truppTransferState(from, personId, from && crewSlotsOf(from))
   }
+  /** …and for the tag scan's question: per person, whether they can go TOGETHER with the others
+   *  of their old Trupp – the very check the move makes (lib/atemschutz · truppGroupTransfer) */
+  const groupTransferStateFor = (personIds: readonly string[], skip?: string): ReadonlyMap<string, TruppTransferState> => {
+    const out = new Map<string, TruppTransferState>()
+    for (const [from, ids] of bySource(personIds, skip)) {
+      const state = truppGroupTransfer(from, ids, crewSlotsOf).state
+      for (const id of ids) out.set(id, state)
+    }
+    return out
+  }
+  const bySource = (personIds: readonly string[], skip?: string) => {
+    const groups = new Map<Trupp, string[]>()
+    for (const id of personIds) {
+      const from = sourceOf(id, skip)
+      if (from) groups.set(from, [...(groups.get(from) ?? []), id])
+    }
+    return groups
+  }
   /** «In diesen Trupp verschieben» for one person, or the tag scan's batch: grouped by the Trupp
    *  they come out of, so two of one crew are ONE move (useTruppActions · transferOutOfTrupp) */
   const movePeople = (personIds: readonly string[], toName: string, skip?: string) => {
-    const bySource = new Map<string, string[]>()
-    for (const id of personIds) {
-      const from = sourceOf(id, skip)
-      if (from) bySource.set(from.id, [...(bySource.get(from.id) ?? []), id])
-    }
-    for (const [fromId, ids] of bySource) transferOutOfTrupp?.(fromId, ids, toName)
+    for (const [from, ids] of bySource(personIds, skip)) transferOutOfTrupp?.(from.id, ids, toName)
   }
   /**
    * «zeig mir den» from THIS surface — the header's überfällig badge. The `focus` prop covers
@@ -1939,6 +1953,7 @@ export function AtemschutzView({
              `truppOfPerson` index, so the state the warning shows and the Trupp the move writes
              to can never be two different cards. */
           transferState={(personId) => transferStateFor(personId)}
+          groupTransferState={(personIds) => groupTransferStateFor(personIds)}
           onTransfer={transferOutOfTrupp && ((personIds, toName) => movePeople(personIds, toName))}
           leitungOptions={leitungOptions(form.trupp?.id)}
           lite={!!lite}
@@ -2005,6 +2020,7 @@ export function AtemschutzView({
           : <TruppSheet t={t} personnel={personnel} legacyRoster={roster} presentIds={presentIds} stationIds={stationIds} rolesById={rolesById}
               assignedIds={t.status === 'raus' ? NO_ASSIGNED : assignedPersonIds(allTrupps.filter((x) => x.id !== t.id))}
               transferState={(personId) => transferStateFor(personId, t.id)}
+              groupTransferState={(personIds) => groupTransferStateFor(personIds, t.id)}
               onTransfer={transferOutOfTrupp && ((personIds, toName) => movePeople(personIds, toName, t.id))}
               onAddGuest={onAddGuest} onSave={save} onClose={close} />
       })()}

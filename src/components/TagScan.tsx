@@ -47,14 +47,15 @@ type Phase = 'starting' | 'live' | 'denied' | 'nocam'
  *
  * ⚠️ The camera stream is stopped on every way out (unmount), or iOS keeps its green dot on.
  */
-export function TagScan({ personnel, assignedIds, chosenIds, transferState, onTake, onClose }: {
+export function TagScan({ personnel, assignedIds, chosenIds, groupTransferState, onTake, onClose }: {
   personnel: Person[]
   /** ids in another ACTIVE Trupp (TruppTeam's own) */
   assignedIds: ReadonlySet<string>
   /** ids already standing in this form */
   chosenIds: ReadonlySet<string>
-  /** whether a person in another active Trupp can be moved out of it; absent = never moved */
-  transferState?: (personId: string) => TruppTransferState
+  /** per person, whether they can leave their old Trupp together with the others of it; absent
+   *  = nobody is moved */
+  groupTransferState?: (personIds: readonly string[]) => ReadonlyMap<string, TruppTransferState>
   /** who goes into the crew, and which of them the caller moves out of their old Trupp first */
   onTake: (people: Person[], move: string[]) => void
   onClose: () => void
@@ -161,12 +162,15 @@ export function TagScan({ personnel, assignedIds, chosenIds, transferState, onTa
   const take = async () => {
     if (!adds.length) return
     if (!taken.length) { onTake(adds, []); return }
-    const movable = taken.filter((p) => transferState?.(p.id) === 'ready')
+    // asked for the whole group: two of one crew may each go alone and not together
+    const states = groupTransferState?.(taken.map((p) => p.id))
+    const stateOf = (p: Person) => states?.get(p.id) ?? 'blocked'
+    const movable = taken.filter((p) => stateOf(p) === 'ready')
     const ask = {
       title: az.scanAskTitle,
       message: az.scanAskMessage,
-      items: taken.map((p) => fillTemplate(transferState?.(p.id) === 'ready' ? az.scanAskMove
-        : transferState?.(p.id) === 'deployed' ? az.scanAskDeployed : az.scanAskStays, { name: p.displayName })),
+      items: taken.map((p) => fillTemplate(stateOf(p) === 'ready' ? az.scanAskMove
+        : stateOf(p) === 'deployed' ? az.scanAskDeployed : az.scanAskStays, { name: p.displayName })),
       confirmLabel: movable.length ? az.scanAskConfirmMove : az.scanAskConfirmAnyway,
       cancelLabel: az.scanAskBack,
     }

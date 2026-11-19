@@ -498,7 +498,7 @@ export function TeamConflictRow({ conflict, toName, onPoint, onTransfer, classNa
  * teamConflict); the Gäste typed here reach the Anwesenheit at the save, as the form's do. Only an
  * Atemschutz-Trupp is asked its Ausrüstung — a work squad takes no Retthaube in.
  */
-export function TruppSheet({ t, personnel, legacyRoster, presentIds, stationIds, assignedIds, rolesById, transferState, onTransfer, onAddGuest, onSave, onClose }: {
+export function TruppSheet({ t, personnel, legacyRoster, presentIds, stationIds, assignedIds, rolesById, transferState, groupTransferState, onTransfer, onAddGuest, onSave, onClose }: {
   t: Trupp
   personnel: Person[]
   legacyRoster: string[]
@@ -508,6 +508,9 @@ export function TruppSheet({ t, personnel, legacyRoster, presentIds, stationIds,
   assignedIds: Set<string>
   rolesById: Map<string, string>
   transferState?: (personId: string) => TruppTransferState
+  /** whether people can leave their old Trupps TOGETHER (lib/atemschutz · truppGroupTransfer) –
+   *  the tag scan's question (TruppTeam → TagScan) */
+  groupTransferState?: (personIds: readonly string[]) => ReadonlyMap<string, TruppTransferState>
   onTransfer?: (personIds: readonly string[], toName: string) => void
   onAddGuest?: (name: string) => string | undefined
   onSave: (f: TruppFields) => Promise<boolean> | boolean
@@ -552,7 +555,7 @@ export function TruppSheet({ t, personnel, legacyRoster, presentIds, stationIds,
       <div ref={teamRef} className={s.field}>
         <TruppTeam value={team} onChange={setTeam} phone
           personnel={personnel} legacyRoster={legacyRoster} presentIds={presentIds} stationIds={stationIds}
-          assignedIds={assignedIds} rolesById={rolesById} transferState={transferState} onTransfer={onTransfer} />
+          assignedIds={assignedIds} rolesById={rolesById} groupTransferState={groupTransferState} onTransfer={onTransfer} />
       </div>
       {conflict && <TeamConflictRow conflict={conflict} toName={team[0]?.name.trim() ?? ''} onTransfer={onTransfer}
         onPoint={() => teamRef.current?.scrollIntoView?.({ block: 'center' })} />}

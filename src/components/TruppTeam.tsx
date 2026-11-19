@@ -45,11 +45,12 @@ const PHONE_HITS = 4
  */
 export function TruppTeam({
   value, onChange, personnel, legacyRoster, presentIds, stationIds, assignedIds, rolesById,
-  transferState, onTransfer, phone = false, wanted = false, searchInputRef,
+  groupTransferState, onTransfer, phone = false, wanted = false, searchInputRef,
 }: {
-  /** whether somebody in another active Trupp can be moved out of it (lib/atemschutz), and the
-   *  move itself – the form's own «In diesen Trupp verschieben», handed to the tag scan's question */
-  transferState?: (personId: string) => TruppTransferState
+  /** whether people in other active Trupps can be moved out TOGETHER (lib/atemschutz ·
+   *  truppGroupTransfer), and the move itself – the form's own «In diesen Trupp verschieben» –
+   *  both handed to the tag scan's question */
+  groupTransferState?: (personIds: readonly string[]) => ReadonlyMap<string, TruppTransferState>
   onTransfer?: (personIds: readonly string[], toName: string) => void
   /** this form is here to NAME a Trupp and has nobody in it yet («Trupp anmelden»): the search
    *  wears the ring until the first person stands in the list – who is going in matters more than
@@ -250,8 +251,10 @@ export function TruppTeam({
   const takeScanned = (people: Person[], move: string[]) => {
     setScanning(false)
     // out of the old Trupp FIRST – the same move as the form's conflict row, one Verlauf row and
-    // one undo step per Trupp they come out of – so the crew lands without a conflict to answer
-    if (move.length) onTransfer?.(move, value[0]?.name.trim() ?? '')
+    // one undo step per Trupp they come out of – so the crew lands without a conflict to answer.
+    // No target name in that row: the rank rule may crown a scanned person on this very add, so
+    // whoever leads the draft now may not be the Trupp they went to (Sol review 19.11.2026).
+    if (move.length) onTransfer?.(move, '')
     onChange([...value, ...people.map((p) => ({ name: p.displayName, personId: p.id }))], 'add')
   }
 
@@ -369,7 +372,7 @@ export function TruppTeam({
       {scanning && (
         <TagScan
           personnel={personnel} assignedIds={assignedIds} chosenIds={inCrew}
-          transferState={onTransfer ? transferState : undefined}
+          groupTransferState={onTransfer ? groupTransferState : undefined}
           onTake={takeScanned} onClose={() => setScanning(false)}
         />
       )}

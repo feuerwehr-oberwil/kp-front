@@ -268,6 +268,30 @@ export function truppTransferState(from: Trupp | undefined, personId: string, sl
 }
 
 /**
+ * `truppTransferState` for SEVERAL people leaving one Trupp together – the tag scan's
+ * «Verschieben und übernehmen» (components/TagScan) and the move behind it (useTruppActions ·
+ * transferOutOfTrupp), so the question promises exactly what the move will do (Sol review
+ * 19.11.2026). Each is taken out of the crew the one before left: two who could each go alone
+ * may not go together when they are all there is (`blocked`). The source must still be on the
+ * board and not out – a Trupp that came out or was deleted while the question was open holds
+ * nobody any more, and its finished crew is never rewritten. `crew`/`who` is the checked result.
+ */
+export function truppGroupTransfer(from: Trupp | undefined, personIds: readonly string[], slotsOf?: (t: Trupp) => readonly CrewSlot[] | undefined):
+  { state: 'ready'; crew: Trupp; who: string[] } | { state: 'deployed' | 'blocked' } {
+  if (!from || from.status === 'raus' || from.removedAt || !personIds.length) return { state: 'blocked' }
+  if (truppStillDeployed(from)) return { state: 'deployed' }
+  let crew = from
+  const who: string[] = []
+  for (const id of personIds) {
+    const left = truppCrewWithout(crew, id, slotsOf?.(crew))
+    if (!left) return { state: 'blocked' }
+    who.push(left.who)
+    crew = { ...crew, name: left.name, members: left.members, leaderPersonId: left.leaderPersonId, memberPersonIds: left.memberPersonIds }
+  }
+  return { state: 'ready', crew, who }
+}
+
+/**
  * Registered at the Tafel and still standing there — angemeldet, never eingerückt.
  *
  * The one state where putting the Trupp's symbol somewhere and its record disagree: the picture

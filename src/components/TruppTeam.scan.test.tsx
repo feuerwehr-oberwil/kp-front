@@ -46,12 +46,13 @@ describe('TruppTeam · Scan', () => {
       <TruppTeam
         value={[{ name: 'Meier Anna', personId: 'p1' }]} onChange={() => calls.push('change')}
         personnel={personnel} legacyRoster={[]} presentIds={new Set()} assignedIds={new Set()} phone
-        transferState={() => 'ready'} onTransfer={onTransfer}
+        onTransfer={onTransfer}
       />,
     )
     fireEvent.click(screen.getByRole('button', { name: appConfig.copy.atemschutz.scanTitle }))
     fireEvent.click(screen.getByText('take-stub'))
-    expect(calls).toEqual(['move p3 to Meier Anna', 'change'])
+    // no target name: the rank rule may still crown a scanned person on this add
+    expect(calls).toEqual(['move p3 to ', 'change'])
   })
 
   it('tells the camera about a crew member typed by name, so their tag cannot add them twice', () => {
