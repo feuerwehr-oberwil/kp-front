@@ -81,7 +81,8 @@ test('composer one row: I · A · S, ⏱ □ and the clip on one line, each a 44
       const span = (from: number, to: number, at: (v: number) => Element | null) => {
         const hits: number[] = []
         for (let v = from; v <= to; v += 0.25) if (el.contains(at(v))) hits.push(v)
-        return hits.length ? hits[hits.length - 1] - hits[0] : 0
+        // each sample stands for 0.25px, so the span is last − first + one step (CodeRabbit on #704)
+        return hits.length ? hits[hits.length - 1] - hits[0] + 0.25 : 0
       }
       const w = span(r.left - 8, r.right + 8, (x) => document.elementFromPoint(x, r.top + r.height / 2))
       const h = span(r.top - 8, r.bottom + 8, (y) => document.elementFromPoint(r.left + r.width / 2, y))

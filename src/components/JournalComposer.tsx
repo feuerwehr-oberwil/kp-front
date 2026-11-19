@@ -491,12 +491,13 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
   const attachBtnRef = useRef<HTMLButtonElement>(null)
   const stopBtnRef = useRef<HTMLButtonElement>(null)
   const markHandFocus = (on: boolean) => { handFocusRef.current = on; setHandFocus(on) }
-  /** The focus has nowhere of its own: the page, the closing menu, or one of the two controls. A
+  /** The focus has nowhere of its own: the page, the closing «Anhang» menu (only that one – focus in
+   *  the clock menu is the user's, CodeRabbit on #704), or one of the two controls. A
    *  caret the user put elsewhere while the microphone prompt was open stays where it is (Sol
    *  review round 2, PR #704: Stop took the focus back from the field when access resolved). */
   const focusIsAdrift = () => {
     const a = document.activeElement
-    return !a || a === document.body || a === attachBtnRef.current || a === stopBtnRef.current || !!a.closest('[role="menu"]')
+    return !a || a === document.body || a === attachBtnRef.current || a === stopBtnRef.current || !!a.closest('.jc-attach-menu')
   }
   useEffect(() => {
     if (!handFocusRef.current) return
@@ -1180,7 +1181,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
                     onOpenChange={(open) => { if (open) markHandFocus(document.activeElement === attachBtnRef.current) }}
                     side="top"
                     align="end"
-                    popupClassName="rp-print-menu jc-pendenz-menu"
+                    popupClassName="rp-print-menu jc-pendenz-menu jc-attach-menu"
                     itemClassName={() => 'rp-print-menu-item'}
                     items={[
                       { label: dueRow(<Icon id="mic" />, C.record, false), onClick: toggleRecord, keepsFocus: handFocus },

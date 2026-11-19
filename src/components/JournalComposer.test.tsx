@@ -678,6 +678,27 @@ describe('JournalComposer · the one row under the field', () => {
     expect(document.activeElement).toBe(field)
   })
 
+  // …and the same for focus in ANOTHER menu (the clock's) – only the closing «Anhang» menu counts
+  // as «nowhere of its own» (CodeRabbit on #704)
+  it('leaves focus in another menu where it is when microphone access resolves', async () => {
+    fakeMic()
+    let grant: (s: MediaStream) => void = () => {}
+    vi.stubGlobal('navigator', { ...navigator, mediaDevices: { getUserMedia: vi.fn(() => new Promise<MediaStream>((r) => { grant = r })) } })
+    setup()
+    const attach = screen.getByRole('button', { name: C.attachMenu })
+    attach.focus()
+    fireEvent.click(attach)
+    fireEvent.click(await screen.findByRole('menuitem', { name: C.record }))
+    const other = document.body.appendChild(document.createElement('div'))
+    other.setAttribute('role', 'menu')
+    const row = other.appendChild(document.createElement('button'))
+    row.focus()
+    grant({ getTracks: () => [{ stop: () => {} }] } as unknown as MediaStream)
+    await screen.findByRole('button', { name: C.recordStop })
+    expect(document.activeElement).toBe(row)
+    other.remove()
+  })
+
   // ⚠️ The rows have to BE the frame's children. They sat inside a `display: contents` wrapper —
   // an element the layout does not give a box, so `.journal-composer > * { flex: none }` addressed
   // the wrapper and nothing else: the predictive band was flex-squeezed to 0 in the real app for
