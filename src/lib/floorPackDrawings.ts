@@ -7,26 +7,20 @@ import type { PlanPt } from './georef'
  * through a drawing without pulling the pack code in with it.
  */
 
-/** A page's place on the board, as fractions of it (planTiles · PageBox without the page) */
-export interface BoardBox { left: number; top: number; width: number; height: number }
-export const UNIT_BOX: BoardBox = { left: 0, top: 0, width: 1, height: 1 }
-
 /** One storey drawing on a plain sheet that shows a floor pack's pages – Modul 6 with its storeys
  *  drawn side by side, or one storey per page: which drawing it is (storey + part, as `floorKey`),
- *  its rectangle in the BOARD's normalized coordinates, and its join shift onto the reference
- *  drawing with the two page boxes that shift is measured between. */
+ *  its rectangle in the BOARD's normalized coordinates, and – on a ONE-page sheet only – its join
+ *  shift onto the reference drawing. */
 export interface SheetDrawing {
   storey: number
   part: number
   clip: [number, number, number, number]
-  /** `FloorPackTile.shift`, in PAGE coordinates: a point p of this drawing's page is the building
-   *  point p + shift of the reference drawing's page – the one the pack's map fit is measured on */
-  shift: [number, number]
-  /** this drawing's page on the board */
-  page: BoardBox
-  /** the reference drawing's page on the board; the whole board when the sheet does not show
-   *  that page (a `#page=N` sheet: the board IS one page, the fit's page frame) */
-  ref: BoardBox
+  /** `FloorPackTile.shift`: a point p of this drawing is the building point p + shift of the
+   *  reference drawing – the one the pack's map fit is measured on. Only when the sheet shows ONE
+   *  page (board = page). A stitched multi-page sheet has none: its pairs and its pages do not
+   *  speak one frame yet, so its drawings give a storey on the sheet and nothing to the Karte
+   *  (follow-up, docs/plans-and-buildings.md). */
+  shift?: [number, number]
 }
 
 /** the drawing at (x, y), or null outside every drawing */
@@ -36,36 +30,41 @@ export const drawingAt = (drawings: readonly SheetDrawing[], x: number, y: numbe
 /**
  * The pack's ONE map fit is measured on the reference drawing, so on a sheet with storey drawings
  * every point reaches the ground through the drawing it is in (owner, 19.11.2026: a «F» in the 2OG
- * drawing stood in the street): `onReference` lays a board point onto the reference drawing – into
- * its page's coordinates, plus the drawing's join shift (a page-coordinate thing), back onto the
- * board where the reference page lies – the same building point; `offReference` puts a
- * reference point back into drawing `d`. A point outside every drawing is paper, not building,
- * and stays as it is; so does every point of a sheet without drawings. Used by the bake and the
+ * drawing stood in the street): `onReference` lays a board point onto the reference drawing (plus
+ * that drawing's join shift) – the same building point; `offReference` puts a reference point back
+ * into drawing `d`'s frame. A point outside every drawing is paper, not building, and stays as it
+ * is; so does every point of a sheet without (shifted) drawings. Used by the bake and the
  * projection (tacticalObjects · bakeGeoBody / annoAfterMapEdit, planProjection · projectOnto)
- * through `PlanFit.drawings`.
+ * through `PlanFit.drawings` – the way back always through `inFrame`.
  */
 export function onReference(drawings: readonly SheetDrawing[] | undefined, p: PlanPt): PlanPt {
-  const d = drawings?.length ? drawingAt(drawings, p.x, p.y) : null
-  if (!d) return p
-  const { page, ref, shift } = d
-  return {
-    x: ref.left + ((p.x - page.left) / page.width + shift[0]) * ref.width,
-    y: ref.top + ((p.y - page.top) / page.height + shift[1]) * ref.height,
-  }
+  const [dx, dy] = shiftOf(drawings?.length ? drawingAt(drawings, p.x, p.y) : null)
+  return { x: p.x + dx, y: p.y + dy }
 }
 export function offReference(q: PlanPt, d: SheetDrawing | null | undefined): PlanPt {
-  if (!d) return q
-  const { page, ref, shift } = d
-  return {
-    x: page.left + ((q.x - ref.left) / ref.width - shift[0]) * page.width,
-    y: page.top + ((q.y - ref.top) / ref.height - shift[1]) * page.height,
-  }
+  const [dx, dy] = shiftOf(d)
+  return { x: q.x - dx, y: q.y - dy }
+}
+const shiftOf = (d: SheetDrawing | null | undefined): readonly [number, number] => d?.shift ?? [0, 0]
+
+/**
+ * Reference point `q` said in drawing `d`'s frame (`undefined` = the reference frame itself: the
+ * reference drawing, or paper) – but only if the bake reads that sheet point back in the SAME
+ * frame, so `onReference` returns `q` (Sol review #703, S3). Otherwise `null`: the point lands in
+ * another drawing (an adjacent one, or one nested in a whole-page drawing) and would bake back
+ * somewhere else. Same frame = same shift, so the reference drawing and paper are one frame.
+ */
+export function inFrame(drawings: readonly SheetDrawing[], q: PlanPt, d: SheetDrawing | null | undefined): PlanPt | null {
+  const p = offReference(q, d)
+  const [ax, ay] = shiftOf(drawingAt(drawings, p.x, p.y))
+  const [bx, by] = shiftOf(d)
+  return ax === bx && ay === by ? p : null
 }
 
 /** The drawing a ground point of storey `storey` lands in on such a sheet: that storey's drawing –
- *  of a storey drawn as wings, the one whose rectangle holds the point, else the first. Without a
+ *  of a storey drawn as wings, the one that holds the point (`inFrame`), else the first. Without a
  *  storey, or one the sheet has no drawing for: none – the reference drawing's frame as it is. */
-export function storeyDrawing(drawings: readonly SheetDrawing[] | undefined, storey: number | null | undefined, q: PlanPt): SheetDrawing | undefined {
-  const own = storey == null ? [] : (drawings ?? []).filter((d) => d.storey === storey)
-  return own.find((d) => { const p = offReference(q, d); return drawingAt([d], p.x, p.y) }) ?? own[0]
+export function storeyDrawing(drawings: readonly SheetDrawing[], storey: number | null | undefined, q: PlanPt): SheetDrawing | undefined {
+  const own = storey == null ? [] : drawings.filter((d) => d.storey === storey)
+  return own.find((d) => inFrame(drawings, q, d)) ?? own[0]
 }

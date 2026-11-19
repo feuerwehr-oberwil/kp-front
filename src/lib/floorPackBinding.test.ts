@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { barStorey, boardPagesOf, floorPackOf, frameAspect, joinShifts, packFloorNames, packStoreys, sheetDrawings, sheetFloorsOf, stitchedAspect, storeyMove, trimmedPackFrame, withDrawingStorey } from './floorPackBinding'
+import { barStorey, floorPackOf, frameAspect, joinShifts, packFloorNames, packStoreys, sheetDrawings, sheetFloorsOf, storeyMove, trimmedPackFrame, withDrawingStorey } from './floorPackBinding'
 import type { BoardAnno } from '../types'
-import { incidentGeorefForPlan, incidentGeorefKey, inheritPlanBinding, noteBoardPages, overridePlanBinding, registerIncidentPlanBindings } from './incidentPlanBindings'
-import { fitSimilarity, type GeorefPair } from './georef'
+import { inheritPlanBinding } from './incidentPlanBindings'
+import type { GeorefPair } from './georef'
 import { applyDocToObjects, bakeGeoBody, type PlanFit } from './tacticalObjects'
 import { projectOnto } from './planProjection'
 
@@ -310,58 +310,69 @@ describe('a storey drawing reaches the ground through its join', () => {
     const [out] = applyDocToObjects([o], { entities: [moved], drawings: [] }, new Map([['modul6', plan]]), false)
     expect(out.sheet!.anno.x).toBeCloseTo(0.11); expect(out.sheet!.anno.y).toBeCloseTo(0.61)
   })
-  // the join shift is in PAGE coordinates; a sheet without `#page=` stitches every page top-down
-  it('a stitched two-page sheet: a symbol in page 2\'s drawing reaches the ground at its join partner', () => {
-    // EG = page 1 whole (the fit's page), 1OG = left half of page 2: its (0.2, 0.3) = EG (0.6, 0.4)
+  // Lead decision #703 (19.11.2026): the join shifts reach the Karte only on a ONE-page sheet. A
+  // stitched sheet's station pairs and board do not share a frame yet (Sol S2/S5 – the follow-up).
+  it('a stitched two-page sheet: its drawings give the storey, but carry no shift to the Karte', () => {
     const perPage = [
       { page: 0, index: 0, name: 'EG' },
       { page: 1, index: 1, name: '1OG', clip: c(0, 0, 0.5, 1), join: { to: 0, at: [0.2, 0.3] as [number, number], there: [0.6, 0.4] as [number, number] } },
     ]
-    const board: PlanFit = { fit: pack.fit!, aspect: 0.707, drawings: sheetDrawings({ floors: perPage, page: 0 }, [a3(0), a3(1)]) }
-    const bake = (x: number, y: number) =>
-      bakeGeoBody({ id: 'f', sheet: { planId: 'modul6', anno: { id: 'f', kind: 'symbol', symbol: 'Feuer', x, y } } }, board, 'lage').entity!.coord
-    // page 2's (0.2, 0.3) is the board's (0.2, 0.65); page 1's (0.6, 0.4) is the board's (0.6, 0.2)
-    const partner = bake(0.6, 0.2)
-    near(bake(0.2, 0.65), partner)
-    // …and back: a Karte symbol of the 1. OG at that ground point lands at page 2's point
-    const back = projectOnto({ id: 'k', entity: { id: 'k', kind: 'symbol', symbol: 'Feuer', layer: 'lage', coord: partner, floor: 1 } }, board)!
-    expect(back.x).toBeCloseTo(0.2); expect(back.y).toBeCloseTo(0.65)
+    const stitched = sheetDrawings({ floors: perPage, page: 0 }, [a3(0), a3(1)])
+    expect(withDrawingStorey(null, { id: 'f', kind: 'symbol', symbol: 'Feuer', x: 0.2, y: 0.65 }, stitched)).toMatchObject({ storey: 1 })
+    expect(stitched.some((d) => 'shift' in d)).toBe(false)
+    // …so even handed to the bake, a point goes straight through the fit, as before #703
+    const board: PlanFit = { fit: pack.fit!, aspect: 0.707, drawings: stitched }
+    const off = pack.fit!.toMap({ x: 0.2, y: 0.65 })
+    near(bakeGeoBody({ id: 'f', sheet: { planId: 'modul6', anno: { id: 'f', kind: 'symbol', symbol: 'Feuer', x: 0.2, y: 0.65 } } }, board, 'lage').entity!.coord, [off.lng, off.lat])
   })
-})
 
-// The station measures the pack's fit on ONE page, so its pairs are that page's fractions; a bound
-// sheet stitches every page and reads them as fractions of the whole board (FLOORS3, 19.11.2026)
-describe('a multi-page sheet: the station\'s pairs on the board', () => {
-  const a3 = (page: number) => ({ page, widthPt: 1191, heightPt: 842 })
-  const pages = [a3(0), a3(1)]
-  // 1OG = page 1, EG = page 2 – the fit's page, so the EG is the reference drawing
-  const floors = [{ page: 0, index: 1, name: '1OG' }, { page: 1, index: 0, name: 'EG' }]
-  const bound = inheritPlanBinding(sheet, { ...approval, page: 1 }, null, false, floors)
-  noteBoardPages(sheet, boardPagesOf(pages))
-  // what lib/useGeorefFits builds the sheet's fit from: the pinned pairs at the board's shape
-  const planFit = (b: typeof bound): PlanFit => {
-    const unregister = registerIncidentPlanBindings('multi', { bindings: [b], save: () => {} })
-    try {
-      const aspect = stitchedAspect(pages)!
-      return { fit: fitSimilarity(incidentGeorefForPlan(incidentGeorefKey('multi', b.id))!.pairs, aspect)!, aspect, drawings: sheetDrawings({ floors, page: 1 }, pages) }
-    } finally { unregister() }
-  }
-  const ground = (plan: PlanFit, x: number, y: number) =>
-    bakeGeoBody({ id: 'f', sheet: { planId: 'modul6', anno: { id: 'f', kind: 'symbol', symbol: 'Feuer', x, y } } }, plan, 'lage').entity!.coord
-  const near = (a: [number, number], b: { lng: number; lat: number }) => { expect(a[0]).toBeCloseTo(b.lng, 9); expect(a[1]).toBeCloseTo(b.lat, 9) }
-
-  it('a symbol at a pair point of page 2 lands on its ground point', () => {
-    const plan = planFit(bound)
-    // page 2's (x, y) is the board's (x, 0.5 + y / 2)
-    for (const p of pairs) near(ground(plan, p.plan.x, 0.5 + p.plan.y / 2), p.lngLat)
-    // …and the 1OG on page 1 lies on the EG frame as it is (no join, whole pages)
-    near(ground(plan, pairs[0].plan.x, pairs[0].plan.y / 2), pairs[0].lngLat)
-    // …and back: a Karte symbol at that ground point comes onto page 2
-    const back = projectOnto({ id: 'k', entity: { id: 'k', kind: 'symbol', symbol: 'Feuer', layer: 'lage', coord: [pairs[1].lngLat.lng, pairs[1].lngLat.lat] } }, plan)!
-    expect(back.x).toBeCloseTo(pairs[1].plan.x); expect(back.y).toBeCloseTo(0.5 + pairs[1].plan.y / 2)
+  // Sol review #703 S3: the way back may only give a point the bake reads in the SAME drawing.
+  // 2OG shift = (0.52, −0.48), 3OG = (0.52, 0.02), 1UG (unjoined, by its corner) = (0, −0.5).
+  const karte = (coord: [number, number], floor?: number) => projectOnto({ id: 'k', entity: { id: 'k', kind: 'symbol', symbol: 'Feuer', layer: 'lage', coord, floor } }, plan)
+  const refGround = (x: number, y: number): [number, number] => { const g = pack.fit!.toMap({ x, y }); return [g.lng, g.lat] }
+  it('S3: a 2OG Karte symbol off the 2OG drawing comes back at its ground point, never in the 3OG drawing', () => {
+    // EG-frame (0.6, 0.01) in the 2OG's frame is (0.08, 0.49): inside the 3OG drawing next to it.
+    // The reference frame holds it: the EG drawing, at its ground point
+    const back = karte(refGround(0.6, 0.01), 2)!
+    expect(back.x).toBeCloseTo(0.6); expect(back.y).toBeCloseTo(0.01)
+    near(ground(back.x!, back.y!, { storey: 2 }), refGround(0.6, 0.01))
+    // …inside its drawing it is still the 2OG's point
+    expect(karte(refGround(0.62, 0.12), 2)!.y).toBeCloseTo(0.6)
   })
-  it('an override was set on the board and stays as it is', () => {
-    const [own] = overridePlanBinding([bound], bound.id, { pairs })
-    near(ground(planFit(own), pairs[0].plan.x, pairs[0].plan.y), pairs[0].lngLat)
+  it('S3: a Karte point the paper shows inside ANOTHER drawing is not drawn on the sheet', () => {
+    // EG-frame (0.3, 0.3) is the reference drawing's frame, but on this sheet the 3OG drawing
+    // lies there, so the point would bake back 0.52 to the right
+    expect(karte(refGround(0.3, 0.3))).toBeNull()
+    expect(karte(refGround(0.3, 0.3), 2)).toBeNull()
+  })
+  it('S3: a machine move across its drawing\'s edge keeps the anno in its drawing, at its last point there', () => {
+    const o = bakeGeoBody({ id: 'f', sheet: { planId: 'modul6', anno: { id: 'f', kind: 'symbol', symbol: 'Feuer', x: 0.45, y: 0.55, storey: 2 } } }, plan, 'lage')
+    // 2OG-frame (0.55, 0.55) is inside the 1UG drawing: EG-frame (1.07, 0.07)
+    const [out] = applyDocToObjects([o], { entities: [{ ...o.entity!, coord: refGround(1.07, 0.07) }], drawings: [] }, new Map([['modul6', plan]]), false)
+    expect(out.sheet!.anno).toMatchObject({ x: 0.45, y: 0.55 })
+  })
+
+  // Sol review #703 S4: a Leitung from the EG into the 2OG, re-routed by a machine
+  it('S4: a re-routed Leitung keeps each unchanged vertex in its drawing; a new sample takes the end it extends', () => {
+    const line = bakeGeoBody({ id: 'l', sheet: { planId: 'modul6', anno: { id: 'l', kind: 'draw', pts: [[0.7, 0.3], [0.2, 0.7]] } } }, plan, 'lage')
+    const [g0, g1] = line.drawing!.coords
+    // one sample prepended at the EG end, one appended at the 2OG end
+    const coords = [ground(0.75, 0.35), g0, g1, ground(0.25, 0.75, { storey: 2 })]
+    const [out] = applyDocToObjects([line], { entities: [], drawings: [{ ...line.drawing!, coords }] }, new Map([['modul6', plan]]), false)
+    const pts = out.sheet!.anno.pts!
+    for (const [p, [x, y]] of pts.map((p, i) => [p, [[0.75, 0.35], [0.7, 0.3], [0.2, 0.7], [0.25, 0.75]][i]] as const)) {
+      expect(p[0]).toBeCloseTo(x); expect(p[1]).toBeCloseTo(y)
+    }
+  })
+  it('S4: a Trupp\'s breadcrumbs keep their own drawings; a new one continues the chip\'s', () => {
+    const anno: BoardAnno = { id: 't', kind: 'resource', text: 'AS 1', x: 0.2, y: 0.7, trail: [{ x: 0.7, y: 0.3, t: 't1' }, { x: 0.15, y: 0.65, t: 't2' }] }
+    const chip = bakeGeoBody({ id: 't', sheet: { planId: 'modul6', anno } }, plan, 'lage')
+    const e = chip.entity!
+    const moved = { ...e, coord: ground(0.22, 0.72), trail: [...e.trail!, { coord: e.coord, t: 't3' }] }
+    const [out] = applyDocToObjects([chip], { entities: [moved], drawings: [] }, new Map([['modul6', plan]]), false)
+    const got = out.sheet!.anno
+    expect(got.x).toBeCloseTo(0.22); expect(got.y).toBeCloseTo(0.72)
+    const want = [[0.7, 0.3], [0.15, 0.65], [0.2, 0.7]]
+    got.trail!.forEach((p, i) => { expect(p.x).toBeCloseTo(want[i][0]); expect(p.y).toBeCloseTo(want[i][1]) })
   })
 })

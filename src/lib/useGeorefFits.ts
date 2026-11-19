@@ -7,7 +7,7 @@ import { bakeAll, type PlanFit } from './tacticalObjects'
 import type { GeorefPair } from './georef'
 import type { PlanScales } from './workspace'
 import type { IncidentPlanBinding } from './incidentPlanBindings'
-import { incidentBindingApproved, noteBoardPages } from './incidentPlanBindings'
+import { incidentBindingApproved } from './incidentPlanBindings'
 import { liveOverlay, photoOverlay } from './planProjection'
 import {
   fitChange, fitChangeRow, fitChangeUndoLabel, fitSignature, georefPlans, handLinkRow, movedOnSheets,
@@ -17,7 +17,7 @@ import { georefForPlan, getStationPlanScales, loadStationPlanScales, stationPlan
 import { setGeorefLinkedHandler, useGeorefStorage } from './georefMode'
 import { planPreviewUrl, regionInkBox } from './pdfRaster'
 import { stackGroundFit } from './stackFit'
-import { boardPagesOf, floorPackOf, packBuildingDoc, PACK_TRIM_MS, sheetBindingOf, sheetDrawings, sheetFloorsOf, stitchedAspect, trimmedPackFrame } from './floorPackBinding'
+import { floorPackOf, packBuildingDoc, PACK_TRIM_MS, sheetDrawings, sheetFloorsOf, trimmedPackFrame } from './floorPackBinding'
 import type { SheetDrawing } from './floorPackDrawings'
 import type { PageSize } from './planTiles'
 import { buildingPackBinding } from './buildingPackBinding'
@@ -25,6 +25,9 @@ import { tileAspectOf } from './whiteboard'
 import { fillTemplate } from './format'
 
 const NO_DRAWINGS: readonly SheetDrawing[] = []
+/** the drawings the Karte reaches the building through: a one-page sheet's, which carry their
+ *  join shifts (floorPackBinding · sheetDrawings) */
+const karteDrawings = (d: readonly SheetDrawing[] | null | undefined) => (d?.some((x) => x.shift) ? d : undefined)
 
 interface Args {
   planDocs: PlanDocument[]
@@ -79,8 +82,7 @@ interface Args {
  * which matters — these effects run after the store's and the hydrate's, and the re-bake must see
  * the fits map the store's writers read. The one change is `log` → `histSide.current.log`, for the
  * declaration order (see Args · histSide), and the step-label ref's local name (`…Ref`, as the
- * hooks linter reads refs by name). No memo or dependency list changed then;
- * since 19.11.2026 the sheet pages sit above the fits, which `linkedPlans` solves through them.
+ * hooks linter reads refs by name). No memo or dependency list changed.
  */
 export function useGeorefFits({
   planDocs, planScale, building, setBuilding, planBindings, activeObjectId, board, objects, rebake,
@@ -98,35 +100,14 @@ export function useGeorefFits({
   // new object on every write, so its identity changes exactly when a reference does (and once
   // more when the boot fetch lands). Read during render — it is a synchronous accessor.
   const stationScales = getStationPlanScales()
-  // The pages each sheet's renderer loaded (components/PdfViewport · onPages, told through
-  // `onSheetPages`), kept per sheet URL for the session – for EVERY sheet, bound or not: a binding
-  // can arrive after the load without changing the URL, and the renderer does not tell twice
-  // (#701 round 3, S1). Everything below derives from (binding, pages), whichever came last.
-  const [sheetPages, setSheetPages] = useState<ReadonlyMap<string, readonly PageSize[]>>(() => new Map())
-  const onSheetPages = useCallback((url: string, pages: readonly PageSize[]) => {
-    setSheetPages((m) => JSON.stringify(m.get(url)) === JSON.stringify(pages) ? m : new Map(m).set(url, pages))
-  }, [])
-  // The pages of each BOUND sheet. Its fit reads them twice: the station's one-page pairs are laid
-  // onto the fit page's place on the board (incidentPlanBindings · noteBoardPages, read back by
-  // `georefForPlan`), and it is solved at the board's shape (floorPackBinding · stitchedAspect).
-  // ⚠️ `noteBoardPages` is a side table every `georefForPlan` reader shares, so it is written here,
-  // in render, before `linkedPlans` solves – idempotent (same revision → same layout).
-  const boundPages = useMemo(() => new Map([...sheetPages].flatMap(([url, pages]): [string, readonly PageSize[]][] => {
-    const binding = sheetBindingOf(planBindings, url)
-    if (!binding) return []
-    noteBoardPages(binding, boardPagesOf(pages))
-    return [[url, pages]]
-  })), [planBindings, sheetPages])
-  const aspectOf = useCallback((p: PlanDocument) => planAspect(p, stationScales, planScale[p.id], stitchedAspect(boundPages.get(p.imageUrl))),
-    [stationScales, planScale, boundPages])
   // Every plan of this object that carries a usable fit, solved once per plan/pairs change. The
   // aspect each fit is taken at is recovered from the plan's calibration — see georefTwins ·
   // planAspect for why that is the right source and what happens when there is none.
   const linkedPlans = useMemo(
     // …plus whether the station APPROVED each fit, which is what lets an approved automatic
     // alignment's Ebenen row read «Verknüpft» instead of «ungemessen» (18.09.2026)
-    () => georefPlans(planDocs, georefForPlan, aspectOf, incidentBindingApproved),
-    [planDocs, aspectOf],
+    () => georefPlans(planDocs, georefForPlan, (p) => planAspect(p, stationScales, planScale[p.id]), incidentBindingApproved),
+    [planDocs, planScale, stationScales],
   )
   // …the same fits, keyed for the unified-object bake (the store's writers read this through
   // `getFits` — see the note there). aspect = widthM / scaleMPerU inverts planGroundWidthM.
@@ -213,27 +194,36 @@ export function useGeorefFits({
     return () => { alive = false; clearTimeout(fallback) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [building, floorPack, packBinding, canWriteBlob, board.gebaeude?.length])
+  // The pages each sheet's renderer loaded (components/PdfViewport · onPages, told through
+  // `onSheetPages`), kept per sheet URL for the session – for EVERY sheet, bound or not: a binding
+  // (or its floors) can arrive after the load without changing the URL, and the renderer does not
+  // tell twice (#701 round 3, S1). The drawings below derive from (binding, pages), in render.
+  const [sheetPages, setSheetPages] = useState<ReadonlyMap<string, readonly PageSize[]>>(() => new Map())
+  const onSheetPages = useCallback((url: string, pages: readonly PageSize[]) => {
+    setSheetPages((m) => JSON.stringify(m.get(url)) === JSON.stringify(pages) ? m : new Map(m).set(url, pages))
+  }, [])
   // A sheet that shows a floor pack (Modul 6, lib/floorPackBinding · sheetFloorsOf – its OWN
   // pinned binding) carries its storey drawings, laid onto the board by the pages its renderer
-  // loaded (components/PdfViewport · onPages, told through `onSheetPages`; kept per sheet URL for
-  // the session). ONE map for the open sheet's storeys and for the bake, so both use the same
-  // drawings: the fit is measured on the reference drawing, and a symbol in any other drawing
-  // reaches the ground through that drawing's join shift (floorPackDrawings · onReference).
-  // `null` = a floor pack whose pages are not known yet.
+  // loaded. ONE map for the open sheet's storeys and for the bake, so both use the same drawings.
+  // On a ONE-page sheet they carry their join shifts: the fit is measured on the reference drawing,
+  // and a symbol in any other drawing reaches the ground through its shift (floorPackDrawings ·
+  // onReference). A stitched multi-page sheet's drawings give a storey on the sheet only.
+  // `null` = a floor pack whose pages are not known yet and that may be one page (all its floors
+  // on one page); floors on several pages are a stitched sheet whatever the PDF says.
   const drawingsByPlan = useMemo(() => new Map(planDocs.flatMap((p): [string, SheetDrawing[] | null][] => {
     const pack = sheetFloorsOf(planBindings, p.imageUrl ?? '')
     if (!pack) return []
     const pages = sheetPages.get(p.imageUrl)
-    return [[p.id, pages ? sheetDrawings(pack, pages) : null]]
+    return [[p.id, pages ? sheetDrawings(pack, pages) : new Set(pack.floors.map((f) => f.page)).size > 1 ? [] : null]]
   })), [planDocs, planBindings, sheetPages])
   const fitsMap = useMemo(() => {
-    // ⚠️ A floor-pack sheet whose pages are not known yet has NO fit here: baked without its
-    // drawings, every storey symbol would go back to where its paper position puts it (the
-    // street, owner shot 19.11.2026). Its map bodies stay as baked until the sheet has rendered.
+    // ⚠️ A floor-pack sheet whose pages are not known yet (and may be one page) has NO fit here:
+    // baked without its drawings, every storey symbol would go back to where its paper position
+    // puts it (the street, owner shot 19.11.2026). Its map bodies stay as baked until it renders.
     const m = new Map<string, PlanFit>(linkedPlans.flatMap((p): [string, PlanFit][] => {
-      const drawings = drawingsByPlan.get(p.id)
-      if (drawings === null) return []
-      return [[p.id, { fit: p.fit, aspect: p.widthM / p.fit.scaleMPerU, ...(drawings?.length ? { drawings } : {}) }]]
+      if (drawingsByPlan.get(p.id) === null) return []
+      const drawings = karteDrawings(drawingsByPlan.get(p.id))
+      return [[p.id, { fit: p.fit, aspect: p.widthM / p.fit.scaleMPerU, ...(drawings ? { drawings } : {}) }]]
     }))
     if (stackFit && building) m.set(gebaeudeDoc.id, { fit: stackFit, aspect: 1 / tileAspectOf(building), stack: { floors: building.floors } }) // aspect = width / height, like every sheet's
     return m
@@ -242,7 +232,7 @@ export function useGeorefFits({
   // …and the drawings re-bake the same silent way the stack does: they come from the frozen
   // binding, not from a reference somebody corrected, so they stay out of the Verlauf. An Einsatz
   // baked before 19.11.2026 gets its storey-drawing symbols back onto the building here.
-  const linkedDrawings = linkedPlans.flatMap((p) => { const d = drawingsByPlan.get(p.id); return d?.length ? [[p.id, d] as const] : [] })
+  const linkedDrawings = linkedPlans.flatMap((p) => { const d = karteDrawings(drawingsByPlan.get(p.id)); return d ? [[p.id, d] as const] : [] })
   const drawingsSig = linkedDrawings.length ? JSON.stringify(linkedDrawings) : ''
   useEffect(() => {
     planFitsRef.current = fitsMap
@@ -350,7 +340,7 @@ export function useGeorefFits({
       const row = handLinkRow(georefKey, pairs, {
         plans: planDocs,
         known: knownSheets.current,
-        aspectOf,
+        aspectOf: (p) => planAspect(p, getStationPlanScales(), planScale[p.id]),
         objects,
         bake: (all, fits) => bakeAll(all, fits, appConfig.defaults.operationalLayerId),
       })

@@ -56,32 +56,38 @@ AGENTS.md on 2026-10-08, wording unchanged.
     on 2); it never hands the symbol to this sheet, because the selection bar writes every frame
     and a drag only passing over such a drawing would lose it (`tacticalObjects ·
     applyBoardToObjects`).
-  - *Every drawing of that sheet lands on the building* (19.11.2026). The pack's ONE fit is measured
-    on the reference drawing, so a sheet point reaches the ground through the drawing it is in:
-    into its page's coordinates, plus that drawing's join shift (a page-coordinate thing), back onto
-    the board where the reference page lies – the same `joinShifts` the stack and the station
-    editor use (from `packReference`), so an unjoined drawing sits by its rectangle's corner exactly
-    as its stack tile shows it (`lib/floorPackDrawings · onReference`, carried as `PlanFit.drawings`).
+  - *Every drawing of a ONE-page floor-pack sheet lands on the building* (19.11.2026; 35 of FWO's
+    41 Modul 6). The pack's ONE fit is measured on the reference drawing, so a sheet point reaches
+    the ground through the drawing it is in: plus that drawing's join shift – the same `joinShifts`
+    the stack and the station editor use (from `packReference`), so an unjoined drawing sits by its
+    rectangle's corner exactly as its stack tile shows it (`lib/floorPackDrawings · onReference`,
+    carried as `PlanFit.drawings`). A point outside every drawing is paper and goes straight through
+    the fit.
     Back from the Karte, an object lands in the drawing of ITS storey (badge, else Von; a line's end
-    tag), else in the reference drawing (`offReference`, `storeyDrawing`); a machine move keeps an
-    anno in its drawing. A point outside every drawing is paper and goes straight through the fit.
+    tag), else in the reference drawing (`storeyDrawing`) – and only at a point the bake reads back
+    in that same drawing (`inFrame`): ONE frame for all of its points (a Trupp's breadcrumbs, a
+    line's vertices); if its storey's drawing cannot hold them, the reference frame; if neither, it
+    is not drawn on that sheet, like an object off its paper (a point next to the building that the
+    paper shows inside ANOTHER drawing would bake back there). A machine move keeps an anno in its
+    drawing; a point that drawing cannot hold leaves the anno where it was (no GPS jitter at a wall
+    swaps the drawing). A re-routed Leitung keeps each unchanged vertex's drawing (matched by its
+    ground point, not its index); a new routing sample takes the drawing of the vertex it extends.
+    A Trupp's old breadcrumbs keep theirs; a new one continues the chip's.
     ONE set of drawings per sheet (`useGeorefFits · drawingsByPlan`): the open sheet's storeys and
     the Karte bake read the same, from the pages its renderer told (kept per sheet URL for the
-    session, for EVERY sheet: a binding that arrives after the load still finds them, and the
-    drawings and the board-page fit are derived from binding + pages, whichever came last). Until
-    a floor-pack sheet has told its pages it has NO fit in the bake, so its map bodies stay as
-    baked rather than go back to their paper position. The drawings re-bake
-    silently, like the stack. ⚠️ A fit the operator re-links by hand on such a sheet is still read
-    as measured on the reference drawing.
-  - *A multi-page sheet speaks board coordinates, the station's pairs one page's* (19.11.2026). The
-    station measures an approved alignment on ONE page (`AlignmentPairing` shows `#page=N`); a
-    bound sheet stitches every page. Once the renderer has told the pages, `georefForPlan` lays the
-    approved pairs onto the fit page's place on the board (`incidentPlanBindings · boardGeoref`,
-    the layout per revision from `noteBoardPages`), and the fit is solved at the board's shape
-    (`floorPackBinding · stitchedAspect`) – so the bake, the Karte raster, the pairing mode and the
-    sheet's own fit all read one frame. One page: the same numbers. An override and a legacy fit
-    were set ON the board and stay as they are. Every bound sheet tells its pages, floor pack or
-    not.
+    session, for EVERY sheet: a binding or its floors that arrive after the load still find them).
+    Until a floor-pack sheet that may be one page (all its floors on one page) has told its pages it
+    has NO fit in the bake, so its map bodies stay as baked rather than go back to their paper
+    position. The drawings re-bake silently, like the stack. ⚠️ A fit the operator re-links by hand
+    on such a sheet is still read as measured on the reference drawing.
+  - *Follow-up: multi-page floor packs* (Bottmingerstrasse 72a, Föhrenstrasse 17, Langegasse 97a).
+    A stitched sheet's drawings give a storey on the sheet (#701) but carry no join shift, so its
+    bake and fit are as before 19.11.2026 – storey symbols there still land where the paper puts
+    them. The station measures an approved alignment on ONE page (`AlignmentPairing` shows
+    `#page=N`), the bound sheet stitches every page, so the pairs and the board speak two frames.
+    Requirements from Sol's review of #703: the pairs must never move onto the board inside a
+    running Einsatz in a way that re-bakes symbols to wrong ground positions (S2), and a valid
+    station fit on a long stitched sheet must not be rejected by the board's shape (S5).
     *Not done:* a Trupp docked to a symbol on the Karte is drawn beside its host in screen px
     (`mapView · teamDockAnchor`); the sheet has no docking and projects its stored point, through no
     drawing (it has no storey).
