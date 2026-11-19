@@ -101,6 +101,23 @@ const selectFeuer = async (page) => {
   await page.waitForTimeout(1500)
 }
 
+// The Einsatz camera fits the whole incident, so at load the Schloss is small in the frame.
+// Three wheel notches around the fire (≈2.3×) make the scene readable and keep the street and
+// the hose line in view; the same on both devices, so the hero pair shows one picture twice.
+const zoomToScene = async (page) => {
+  const c = await page.evaluate(() => {
+    const marker = [...document.querySelectorAll('.marker')].find((el) => el.querySelector('.sym-spread'))
+    const r = marker.getBoundingClientRect()
+    return { x: r.x + r.width / 2, y: r.y + r.height / 2 }
+  })
+  for (let i = 0; i < 3; i++) {
+    await page.mouse.move(c.x, c.y)
+    await page.mouse.wheel(0, -240)
+    await page.waitForTimeout(500)
+  }
+  await page.waitForTimeout(2500) // tiles for the new zoom
+}
+
 // The app remembers the last view across loads, so every shot navigates first – the map shots
 // too. The iPad's rail buttons carry plain names (exact match: «Gebäude» must not hit the
 // «Gebäude-Info» pill); the phone's bottom bar names carry a status («Pläne · Modul 1»,
@@ -128,9 +145,10 @@ const openVerlauf = async (page) => {
  *  Trupps go overdue ~10 min after a reset. */
 const deviceShots = [
   { device: 'phone', name: 'trupps', prep: navTo('Trupps') },
-  { device: 'tablet', name: 'karte', prep: navTo('Karte') },
-  { device: 'tablet', name: 'feuer', prep: then(navTo('Karte'), selectFeuer) },
-  { device: 'phone', name: 'feuer', prep: then(navTo('Karte'), selectFeuer) },
+  { device: 'tablet', name: 'karte', prep: then(navTo('Karte'), zoomToScene) },
+  { device: 'phone', name: 'karte', prep: then(navTo('Karte'), zoomToScene) },
+  { device: 'tablet', name: 'feuer', prep: then(navTo('Karte'), zoomToScene, selectFeuer) },
+  { device: 'phone', name: 'feuer', prep: then(navTo('Karte'), zoomToScene, selectFeuer) },
   { device: 'tablet', name: 'gebaeude', prep: navTo('Gebäude') },
   { device: 'phone', name: 'plan', prep: openPlan },
   { device: 'phone', name: 'verlauf', prep: openVerlauf },

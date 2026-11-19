@@ -52,11 +52,11 @@
     "ctaNote": "Ohne Login – in der Demo brennt es gerade in Musterdorf",
     "img": {
       "tablet": "karte.webp",
-      "phone": "trupps.webp"
+      "phone": "karte.webp"
     },
     "alt": {
       "tablet": "KP Front auf dem Tablet: Lagekarte mit taktischen Zeichen, Schlauchleitung und Werkzeugleisten",
-      "phone": "KP Front auf dem Handy: Trupps mit Druck und laufender Kontaktuhr"
+      "phone": "KP Front auf dem Handy: dieselbe Lagekarte mit Werkzeug- und Navigationsleiste"
     }
   },
   "fit": {
