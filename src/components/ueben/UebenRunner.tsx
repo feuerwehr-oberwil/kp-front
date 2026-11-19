@@ -9,7 +9,7 @@
 // no drill on the card it is the practice Einsatz's own small card: «Übung wählen» and the two ways
 // out («Neu beginnen», «Übung verlassen») – what the spike's pill said.
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import type { MapRef } from 'react-map-gl/maplibre'
 import { appConfig } from '../../config/appConfig'
@@ -358,20 +358,32 @@ export default function UebenRunner({ doc, ui, detailOpen, mapRef, api, commit }
   )
 }
 
+/** Where the words stand by the ring (fixed px): beside it, vertically centred, when one side has
+ *  room for a short bubble; otherwise above it, or under it near the top of the screen. */
+function bubblePlace(ring: Rect, pad: number): CSSProperties {
+  const gap = pad + 10, edge = 12, need = 180, maxW = 280
+  const right = window.innerWidth - (ring.x + ring.w + gap) - edge
+  const left = ring.x - gap - edge
+  const midY = ring.y + ring.h / 2
+  const side = { top: midY, transform: 'translateY(-50%)' }
+  if (right >= need) return { ...side, left: ring.x + ring.w + gap, maxWidth: Math.min(maxW, right) }
+  if (left >= need) return { ...side, right: window.innerWidth - ring.x + gap, maxWidth: Math.min(maxW, left) }
+  const x = { left: Math.min(Math.max(edge, ring.x + ring.w / 2 - maxW / 2), window.innerWidth - maxW - edge) }
+  return ring.y < 140 ? { ...x, top: ring.y + ring.h + gap } : { ...x, bottom: window.innerHeight - ring.y + gap }
+}
+
 /** «Zeigen» 1: the dim with the ring cut out of it and the path in words · 2: the ghost hand. */
 function HintLayer({ ring, words, hand, tap }: { ring: Rect | null; words: string; hand: { a: { x: number; y: number }; b: { x: number; y: number } } | null; tap: boolean }) {
   const pad = 6
-  // the words above the ring, or under it when the ring sits high up
-  const below = ring ? ring.y < 140 : false
+  // the words BESIDE the ring where a side has room – in a grid (the palette) above or below would
+  // lie on the section heading or the next row – else above it, or under it when it sits high up
+  const place = ring ? bubblePlace(ring, pad) : null
   return (
     <div className={s.hint} aria-live="polite">
       {ring && (
         <>
           <div className={s.ring} style={{ left: ring.x - pad, top: ring.y - pad, width: ring.w + 2 * pad, height: ring.h + 2 * pad }} />
-          <div className={s.bubble} style={{
-            left: Math.min(Math.max(12, ring.x + ring.w / 2 - 140), window.innerWidth - 292),
-            ...(below ? { top: ring.y + ring.h + pad + 10 } : { bottom: window.innerHeight - ring.y + pad + 10 }),
-          }}>{words}</div>
+          <div className={s.bubble} style={place ?? undefined}>{words}</div>
         </>
       )}
       {hand && (
@@ -382,7 +394,7 @@ function HintLayer({ ring, words, hand, tap }: { ring: Rect | null; words: strin
             </svg>
           )}
           <div className={`${s.hand}${tap ? ` ${s.handTap}` : ''}`} aria-hidden
-            style={{ '--hx0': `${hand.a.x}px`, '--hy0': `${hand.a.y}px`, '--hx1': `${hand.b.x}px`, '--hy1': `${hand.b.y}px` } as React.CSSProperties}>
+            style={{ '--hx0': `${hand.a.x}px`, '--hy0': `${hand.a.y}px`, '--hx1': `${hand.b.x}px`, '--hy1': `${hand.b.y}px` } as CSSProperties}>
             <span className={s.touch} />
             <Icon id="hand" />
           </div>
