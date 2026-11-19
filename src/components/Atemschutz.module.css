@@ -348,6 +348,12 @@
 .vfootRow { display: flex; align-items: center; }
 .vfootRow > .vrow { flex: 1 1 auto; min-width: 0; }
 .vfootRow[data-az-fab-foot] { padding-right: var(--fab-safe, 0px); }
+/* …and under that guard the row is 68px narrower, so «Schätzung ≈ 270 bar ⌄» (167px) broke between
+   its word and its value: three lines, the foot 44 → 51 (Sol review 2, PR #702; 360 / 375). The
+   guard already keeps the FAB's column, so the chip drops its own edge margin and closes up to
+   8px inside, and the line ends 4px before it: two lines, in the 44px row. */
+.vfootRow[data-az-fab-foot] > .vrow { padding-right: var(--sp-1); }
+.vfootRow[data-az-fab-foot] > .footMore { margin-right: 0; padding: 0 var(--sp-2); }
 /* the card's «⋯ Mehr» — ONE framed chip at the foot line's end, the glyph BESIDE the word (owner
    pick 4C, round 18.11.2026 evening; owner on the glyph-over-word tile of pick 24: «ugly»). 36px
    on touch (the touch grid draws its foot 36 and owns 44 with the pad under the card, below), the
@@ -359,6 +365,13 @@
 @media (hover: hover) { .footMore:hover { border-color: var(--ink-faint); } }
 .footMore:active { background-image: linear-gradient(var(--press), var(--press)); }
 .footMore :global(.i) { width: 16px; height: 16px; flex: none; }
+/* the 36px face owns its 44px row's full height, in every state – the phone list, an opened Verlauf
+   on the grid (Sol review 2, PR #702: only the grid's collapsed foot had its pad, below). 5px over
+   and under the face's 34px padding box = the 44 tap. Touch only: a mouse foot is 28 (below). */
+@media (pointer: coarse) {
+  .footMore { position: relative; }
+  .footMore::before { content: ''; position: absolute; inset: calc((var(--tap) - 34px) / -2) -1px; }
+}
 /* the expanded per-Trupp contact/pressure log, inside the footer */
 /* ⚠️ The seam under the look-up panel is this border (09.09., ex-`.readHead`): without it the
    first reading butts straight against «Schätzung …» and the two read as one list. `:first-child`
