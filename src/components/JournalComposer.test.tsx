@@ -589,9 +589,8 @@ describe('JournalComposer · the one row under the field', () => {
     expect(screen.getByRole('button', { name: 'Sofortmassnahme' })).toBeTruthy()
   })
 
-  // ⚠️ The one way to stop a recording must never sit behind a menu: while it runs, the lit stop
-  // control stands where the clip was, and the clip comes back once it is stopped.
-  it('puts the stop control in the clip\'s place while recording', async () => {
+  /** a microphone that records at once and stops on `stop()`; returns the track's stop spy */
+  const fakeMic = () => {
     const stopTrack = vi.fn()
     vi.stubGlobal('navigator', { ...navigator, mediaDevices: { getUserMedia: vi.fn(async () => ({ getTracks: () => [{ stop: stopTrack }] })) } })
     class FakeRecorder {
@@ -602,6 +601,13 @@ describe('JournalComposer · the one row under the field', () => {
       stop() { this.onstop?.() }
     }
     vi.stubGlobal('MediaRecorder', FakeRecorder)
+    return stopTrack
+  }
+
+  // ⚠️ The one way to stop a recording must never sit behind a menu: while it runs, the lit stop
+  // control stands where the clip was, and the clip comes back once it is stopped.
+  it('puts the stop control in the clip\'s place while recording', async () => {
+    const stopTrack = fakeMic()
     const createObjectURL = URL.createObjectURL
     URL.createObjectURL = vi.fn(() => 'blob:clip')
     try {
@@ -615,6 +621,39 @@ describe('JournalComposer · the one row under the field', () => {
       expect(screen.queryByRole('button', { name: C.recordStop })).toBeNull()
       expect(stopTrack).toHaveBeenCalled()
       expect(screen.getByRole('button', { name: C.discardAudio })).toBeTruthy()
+    } finally {
+      URL.createObjectURL = createObjectURL
+    }
+  })
+
+  // Sol review, PR #704: «Anhang» and the stop control replace each other, and the focus went with
+  // the one that left – to the field (WebKit) when started from the menu, to the page when stopped
+  // with Enter. Focus ON the leaving control moves to the one in its place; a caret elsewhere stays.
+  it('hands the focus between «Anhang» and the stop control when one replaces the other', async () => {
+    fakeMic()
+    const createObjectURL = URL.createObjectURL
+    URL.createObjectURL = vi.fn(() => 'blob:clip')
+    try {
+      setup()
+      const attach = screen.getByRole('button', { name: C.attachMenu })
+      attach.focus()
+      fireEvent.click(attach)
+      fireEvent.click(await screen.findByRole('menuitem', { name: C.record }))
+      const stop = await screen.findByRole('button', { name: C.recordStop })
+      await waitFor(() => expect(document.activeElement).toBe(stop))
+      fireEvent.click(stop)
+      await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: C.attachMenu })))
+
+      // …and a caret put in the field meanwhile is left where it is: the stop control did not hold it
+      fireEvent.click(screen.getByRole('button', { name: C.attachMenu }))
+      fireEvent.click(await screen.findByRole('menuitem', { name: C.record }))
+      const field = screen.getByRole('textbox')
+      const stop2 = await screen.findByRole('button', { name: C.recordStop })
+      await waitFor(() => expect(document.activeElement).toBe(stop2))
+      field.focus()
+      fireEvent.click(stop2)
+      await waitFor(() => expect(screen.getByRole('button', { name: C.attachMenu })).toBeTruthy())
+      expect(document.activeElement).toBe(field)
     } finally {
       URL.createObjectURL = createObjectURL
     }

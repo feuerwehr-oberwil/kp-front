@@ -3,6 +3,7 @@ import { Button } from './Button'
 import { Chip } from './Chip'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { pointAtField } from '../lib/pointAtField'
+import { scrollBehavior } from '../lib/reducedMotion'
 import { useIsPhone } from '../lib/useIsPhone'
 import { Icon } from '../lib/icons'
 import { Menu, Overlay } from '../lib/overlays'
@@ -408,6 +409,24 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
    *  next pick, a removal, or the next save attempt. */
   const [attachWarn, setAttachWarn] = useState<{ text: string; skip?: boolean } | null>(null)
   const sayAttach = (text: string, skip?: boolean) => setAttachWarn({ text, skip })
+  // ⚠️ …and the line has to be SEEN. It sits under the row, and on a phone with the keyboard up
+  // that is below the visible part of `.jc-body`: a refused «Erfassen» (offline, a Beilage
+  // staged) then looked like a save that did nothing, with «Ohne Datei erfassen» out of sight
+  // (Sol review, PR #704). Each new warning scrolls the scroller just far enough to show it –
+  // the scroller alone, never `scrollIntoView`, which on iOS pans the page under a fixed sheet.
+  // Taller than the room (95px in 71 at 390×250), the action wins: as much of the reason from its
+  // top as still leaves «Ohne Datei erfassen» whole.
+  const attachWarnRef = useRef<HTMLParagraphElement>(null)
+  useEffect(() => {
+    const el = attachWarnRef.current
+    const box = el?.closest<HTMLElement>('.jc-body')
+    if (!el || !box) return
+    const r = el.getBoundingClientRect(), b = box.getBoundingClientRect()
+    const actEnd = (el.querySelector('.form-warn-act') ?? el).getBoundingClientRect().bottom
+    const by = r.height > b.height ? Math.max(r.top - b.top, actEnd - b.bottom)
+      : r.bottom > b.bottom ? r.bottom - b.bottom : r.top < b.top ? r.top - b.top : 0
+    if (by) box.scrollBy({ top: by, behavior: scrollBehavior() })
+  }, [attachWarn])
   // closing the composer mid-upload means "cancel": the upload may finish server-side (the
   // orphaned blob is harmless) but no journal row is created after unmount. The unmount also
   // revokes the imported preview URL — saves/closes must not pin up to 100 MB per import.
@@ -452,6 +471,24 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
   // stop any in-flight recording + release the stream when the composer unmounts
   useEffect(() => () => { try { recRef.current?.rec.stop() } catch { /* already stopped */ } }, [])
 
+  // ⚠️ «Anhang» and the stop control REPLACE each other (see the row below), and a focused
+  // control that leaves takes the focus with it: started from the menu by keyboard, the focus
+  // fell to the field (WebKit); stopped with Enter, to the page (Sol review, PR #704). When the
+  // focus is ON the control being replaced, it moves to the one taking its place. `handFocus` is
+  // state for the «Aufnehmen» row (`keepsFocus`: the menu must not take it back to a trigger that
+  // is about to go) and a ref for the effect. A tap on a phone leaves the caret in the field
+  // (neither control takes the focus there), so nothing moves for it.
+  const [handFocus, setHandFocus] = useState(false)
+  const handFocusRef = useRef(false)
+  const attachBtnRef = useRef<HTMLButtonElement>(null)
+  const stopBtnRef = useRef<HTMLButtonElement>(null)
+  const markHandFocus = (on: boolean) => { handFocusRef.current = on; setHandFocus(on) }
+  useEffect(() => {
+    if (!handFocusRef.current) return
+    handFocusRef.current = false; setHandFocus(false)
+    ;(recording ? stopBtnRef : attachBtnRef).current?.focus()
+  }, [recording])
+
   // ⚠️ Caret at the END of a restored draft — driven by the FOCUS EVENT, not by a frame counted
   // from mount. A focused textarea puts the caret at position 0, so re-opening a half-written
   // entry landed the cursor in front of it and the next word went to the start of the sentence.
@@ -482,7 +519,11 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
         setRecording(false); setElapsed(0)
       }
       recRef.current = { rec, startedAt }; setRecording(true); rec.start()
-    } catch (e) { toast(micFailedText(e), { icon: 'mic', tone: 'warn' }) }
+    } catch (e) {
+      // no recording, so nothing took «Anhang»'s place – its focus goes back to it
+      if (handFocusRef.current) { markHandFocus(false); attachBtnRef.current?.focus() }
+      toast(micFailedText(e), { icon: 'mic', tone: 'warn' })
+    }
   }
 
   const discardClip = () => { clipAudio.current?.pause(); setClipPlaying(false); if (clip) URL.revokeObjectURL(clip.url); setClip(null) }
@@ -1106,19 +1147,27 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
                   square and a clock reads as «tap to stop» without a word, as the TopBar's does. */}
               {recording
                 ? (
-                  <button className="jc-rec on" onClick={toggleRecord} title={C.recordStop} aria-label={C.recordStop}>
+                  <button
+                    ref={stopBtnRef}
+                    type="button"
+                    // the caret and the keyboard stay, as on «Anhang» whose place it took
+                    onMouseDown={(e) => { if (phone && document.activeElement === textRef.current) e.preventDefault() }}
+                    onClick={(e) => { markHandFocus(document.activeElement === e.currentTarget); void toggleRecord() }}
+                    className="jc-rec on" title={C.recordStop} aria-label={C.recordStop}
+                  >
                     <span className="tb-stop" /><span className="jc-rec-time">{elapsed}s</span>
                   </button>
                 )
                 : (
                   <Menu
                     keepFocusRef={phone ? textRef : undefined}
+                    onOpenChange={(open) => { if (open) markHandFocus(document.activeElement === attachBtnRef.current) }}
                     side="top"
                     align="end"
                     popupClassName="rp-print-menu jc-pendenz-menu"
                     itemClassName={() => 'rp-print-menu-item'}
                     items={[
-                      { label: dueRow(<Icon id="mic" />, C.record, false), onClick: toggleRecord },
+                      { label: dueRow(<Icon id="mic" />, C.record, false), onClick: toggleRecord, keepsFocus: handFocus },
                       // ONE picker for everything that already exists as a file — a picture from the
                       // gallery, an externally recorded memo, the PDF the Eigentümer just sent. What
                       // was picked decides where it lands (lib/audioImport · classifyPick).
@@ -1127,6 +1176,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
                     ]}
                     trigger={(
                       <button
+                        ref={attachBtnRef}
                         type="button"
                         // the caret and the keyboard stay, as on the clock and the ring beside it
                         onMouseDown={(e) => { if (phone && document.activeElement === textRef.current) e.preventDefault() }}
@@ -1159,7 +1209,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
             className="file-picker" tabIndex={-1} onChange={onAttachPicked} />
           {/* THE form warning at the attach row (see `attachWarn`): what did not attach, and why */}
           {attachWarn && (
-            <p className="form-warn form-warn-amber form-warn-compact jc-attach-warn" role="status">
+            <p ref={attachWarnRef} className="form-warn form-warn-amber form-warn-compact jc-attach-warn" role="status">
               <Icon id="warn" /><span className="form-warn-text">{attachWarn.text}</span>
               {attachWarn.skip && (
                 <button type="button" className="form-warn-act" onClick={() => fileWithoutRef.current()}>{C.attachOfflineSkip}</button>

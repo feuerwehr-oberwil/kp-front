@@ -734,7 +734,8 @@
 /* the clip: a square plate, the row's height */
 .jc-row > .jc-rec { flex: none; width: var(--tap); height: auto; min-height: var(--tap); padding: 0; }
 .jc-row > .jc-rec .i { width: 19px; height: 19px; }
-/* …and a running recording in its place: the stop square + the seconds need a little more */
+/* …and a running recording in its place: the stop square + the seconds need a little more
+   (not on a phone – there they stack inside the clip's square, 15-mobile.css) */
 .jc-row > .jc-rec.on { width: auto; padding: 0 var(--sp-3); }
 /* the two halves of the Art option: the word by default, the letter on a phone (15-mobile.css) */
 .jc-chip-word { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
