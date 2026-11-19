@@ -46,13 +46,14 @@
   "hero": {
     "eyebrow": "Open source&nbsp;· free&nbsp;· Switzerland",
     "h1": "Digital incident command for the fire brigade.",
-    "lede": "KP Front is the digital command post at the scene:\n      <strong>map, plans, teams, log and report</strong> in one app.",
+    "lede": "KP Front is the digital command post at the scene:\n      <strong>map, plans, teams, log and report</strong> in one app – on tablet, laptop and phone.",
     "cta": "Open the demo",
     "ctaSelf": "Run it yourself",
     "ctaNote": "No login – in the demo, Musterdorf is on fire right now (interface in German)",
-    "demoNote": "<strong>Public demo:</strong> don’t enter real incident, personal, location or organisation data. All visitors share the same demo. Whatever you enter stays saved until the next automatic reset.",
-    "frameAddr": "KARTE · ZIMMERBRAND · 2611624 / 1263070",
-    "frameAlt": "Map view: tactical symbols to Swiss FKS conventions, sectors and hose lines"
+    "alt": {
+      "tablet": "KP Front on a tablet: situation map with tactical symbols, hose line and toolbars",
+      "phone": "KP Front on a phone: teams with cylinder pressure and running contact clock"
+    }
   },
   "fit": {
     "whoLabel": "For whom",
@@ -73,13 +74,7 @@
     ],
     "note": "Grown out of the real operational work of\n        <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">Feuerwehr Oberwil BL</a>\n        – proven there, and developed further with every incident.",
     "own": {
-      "h2": "Your data stays with you.",
-      "p": "KP Front is open source and runs on a machine in your own station or in your own cloud. Incident data, plans, crews and reports stay under your control.",
-      "items": [
-        "No licence fees",
-        "No vendor lock-in",
-        "Run it yourself and adapt it to your needs"
-      ]
+      "h2": "Your data stays with you."
     }
   },
   "tenet": {
@@ -87,146 +82,84 @@
     "quote": "«Usable at <em>3am</em> – after six months without practice»",
     "expl": "In a militia fire brigade nobody sits at the screen every day. So the app has to be\n        built for someone half asleep to get right:\n        <strong>everything that matters visible at once, sensible defaults instead of settings, and\n        every action can be undone.</strong>"
   },
-  "incident": {
-    "eyebrow": "From the call to the report",
-    "h2": "One incident, one app.",
-    "lede": "This is what a night with KP Front looks like – the map, the teams and the\n        documentation stay consistent and traceable for everyone involved.",
-    "entries": [
-      {
-        "time": "03:01",
-        "tag": "Call",
-        "h3": "The call comes in.",
-        "p": "Take over an alert from your paging system (e.&nbsp;g. Divera or FireHub) with one tap – or start\n            by hand from an address, a building or the map. The location and the building data are\n            there before the first appliance rolls."
-      },
-      {
-        "time": "03:07",
-        "tag": "Situation",
-        "h3": "The first situation picture is up.",
-        "p": "FKS tactical symbols, sectors, hose lines and notes on the digital situation map.\n            Hydrants, utility lines and vehicle positions sit underneath as layers."
-      },
-      {
-        "time": "03:12",
-        "tag": "Teams",
-        "h3": "Team 1 goes in.",
-        "p": "Cylinder pressure, turnaround time and contact clock run per team. The app speaks up\n            before it gets tight – even when nobody happens to be watching the clock.\n            KP Front issues relevant warnings directly in the app, visually and audibly. When several synchronised\n            devices are in use, the warning states are aligned over the existing network connection. Audible\n            warnings can be switched off if needed."
-      },
-      {
-        "time": "03:18",
-        "tag": "Plan",
-        "h3": "The building plan becomes a whiteboard.",
-        "p": "Open the pre-incident plan, draw on it, place teams, measure to scale –\n            with the same tools as on the map."
-      },
-      {
-        "time": "03:40",
-        "tag": "Log",
-        "h3": "Everything is in the log.",
-        "p": "Type it, or simply speak it – when a transcription service is configured, voice\n            memos can be turned into text; otherwise they stay as audio in the log. The log is\n            only ever added to, never rewritten – corrections use new entries, not an eraser."
-      },
-      {
-        "time": "04:30",
-        "tag": "Shift plan",
-        "h3": "Relief is planned, not guessed.",
-        "p": "If it turns into a long night, the shift plan holds, per person, from when to when\n            they are available and when they are rostered. The coverage line shows where there\n            are too few people – before the gap is there. Attendance is untouched by it:\n            planning happens here, ticking off happens there."
-      },
-      {
-        "time": "05:55",
-        "tag": "Report",
-        "h3": "By the time you head back, the report is nearly done.",
-        "p": "Situation, crew, material and log flow straight into the incident report.\n            Nobody has to reconstruct the night from memory afterwards."
-      },
-      {
-        "time": "Afterwards",
-        "tag": "Replay",
-        "h3": "The night runs once more.",
-        "p": "For the debrief, the replay plays the whole incident back: situation, teams and log\n            exactly as they stood at any given minute. It skips the long waits – four hours\n            become a few minutes."
-      }
-    ]
-  },
-  "shots": {
-    "eyebrow": "From the demo",
-    "h2": "This is what it looks like.",
-    "lede": "Every image is taken from the public demo. Click «Open the demo» and you are\n        standing in the same incident.",
+  "chapters": {
     "note": "The screenshots are in German: the public demo is, and they come from it – staged images would be a claim rather than evidence.",
     "items": [
       {
-        "alt": "Plan view: building plan as a whiteboard with drawing, symbols and scale",
-        "title": "Plan",
-        "sub": "Building and pre-incident plans with tactical symbols, markings and measuring to scale"
+        "was": "Situation map on paper",
+        "h2": "A situation picture on every device.",
+        "p": "FKS tactical symbols, sectors, hose lines and notes on swisstopo maps. Hydrants, utility lines and vehicle positions sit underneath as layers. Take over the alert from Divera or FireHub with one tap.",
+        "li": [
+          "Tactical symbols to FKS conventions – with floor, spread and notes",
+          "Water relay: pressure along the hose line and where the pumps go",
+          "Building info and immediate measures for the property"
+        ],
+        "alt": "Situation map with the fire symbol selected: floor, spread and notes in the detail panel"
       },
       {
-        "alt": "Teams view: SCBA teams with cylinder pressure and a running contact clock",
-        "title": "Teams",
-        "sub": "Monitoring of the teams in action – times, pressures and check-ins, with or without breathing apparatus"
+        "was": "SCBA board and stopwatch",
+        "h2": "Monitoring that speaks up by itself.",
+        "p": "Cylinder pressure, turnaround time and contact clock run per team. The app speaks up before it gets tight – even when nobody happens to be watching the clock. On the phone as on the tablet.",
+        "li": [
+          "Contact clock and turnaround time per team",
+          "SCBA emergency on top at once, on every device",
+          "Teams with or without breathing apparatus, with their task"
+        ],
+        "alt": "Teams on a phone: cylinder pressure and running contact clock per team"
       },
       {
-        "alt": "Building view: stack of floors with team assignment",
-        "title": "Building",
-        "sub": "The floors stacked up – which team is working on which storey"
+        "was": "Building plan in a folder",
+        "h2": "A plan you can draw on.",
+        "p": "Open the pre-incident plan, draw on it, place teams, measure to scale – with the same tools as on the map. The floor stack shows which team works on which storey.",
+        "li": [
+          "Building and pre-incident plans of your own brigade",
+          "Floor stack with the teams per storey",
+          "Measuring points with gas readings per room"
+        ],
+        "alt": "Floor stack with the teams per storey; on the phone, the building plan"
       },
       {
-        "alt": "Log: chronological entries next to the map",
-        "title": "Log",
-        "sub": "Running documentation of everything that matters – voice memos can become text with a configured transcription service"
+        "was": "Scraps of paper and memory",
+        "h2": "A log that keeps up.",
+        "p": "Type it or speak it. The log is only ever added to, never rewritten – corrections use new entries, not an eraser. Open tasks remind you by themselves.",
+        "li": [
+          "Voice memos – as text with a transcription service",
+          "Open tasks with reminders",
+          "Capture sheet by QR code for everyone who contributes"
+        ],
+        "alt": "Log on a phone: timed entries and one open task"
       },
       {
-        "alt": "Attendance: crew list with arrival times",
-        "title": "Attendance",
-        "sub": "Who has turned out and since when – the basis for the crew list and the report"
-      },
-      {
-        "alt": "Shift plan: shift grid with one row per person, planned and actual bars, and the coverage line below",
-        "title": "Shift plan",
-        "sub": "Plan shifts on long incidents – available, rostered, actually there, and where coverage breaks down"
-      },
-      {
-        "alt": "Checklist: command support tasks with progress",
-        "title": "Checklists",
-        "sub": "Your own command checklists, with direct jumps to plan, log and tools"
-      },
-      {
-        "alt": "Material view: what was used, by source",
-        "title": "Material",
-        "sub": "Record what was used and what was consumed during the incident, instead of estimating afterwards"
-      },
-      {
-        "alt": "Incident report before printing: attendance and material already carried over, with the sections of the PDF to tick below",
-        "title": "Report",
-        "sub": "Nearly done when you head back – check it, add to it, export as PDF and print"
+        "was": "Report the day after",
+        "h2": "The report as you head back.",
+        "p": "Situation, crew, material and log flow straight into the report: check it, complete it, print it as a PDF. For the debrief, the replay runs the whole night once more.",
+        "li": [
+          "Incident report as a finished PDF",
+          "The final check shows what is still missing",
+          "Replay: the incident minute by minute"
+        ],
+        "alt": "Incident report: incident data already filled in, summary and incident commander to complete"
       }
     ]
   },
-  "change": {
-    "eyebrow": "Switching over",
-    "h2": "What changes.",
-    "lede": "None of this is broken today – the paper situation map has worked for decades.\n        KP Front steps into the same places, only without the copying out.",
-    "headToday": "Today",
-    "headWith": "With KP Front",
-    "rows": [
+  "betrieb": {
+    "eyebrow": "Running it",
+    "p": "KP Front is open source. Every fire brigade runs its own installation – there is no central server, and nothing is sent to us automatically.",
+    "cards": [
       {
-        "today": "Situation map on paper",
-        "with": "Situation picture on every device"
+        "h3": "Free",
+        "p": "AGPL-3.0: no licence, no subscription, no cost per device. What remains is your own cost for running it."
       },
       {
-        "today": "SCBA board and stopwatch",
-        "with": "Monitoring that speaks up by itself"
+        "h3": "On your premises",
+        "p": "On a mini PC in the station, your own server or a cloud provider of your choice. Works offline as an installable app."
       },
       {
-        "today": "Scraps of paper and memory",
-        "with": "A log that keeps up"
-      },
-      {
-        "today": "Building plan in a folder",
-        "with": "A plan you can draw on"
-      },
-      {
-        "today": "Report the day after",
-        "with": "Report as you head back"
-      },
-      {
-        "today": "Debrief from memory",
-        "with": "Run the night through again"
+        "h3": "No lock-in",
+        "p": "All of the code is open: run it, adapt it, develop it further yourself."
       }
-    ]
+    ],
+    "link": "Guide to running it yourself"
   },
   "features": {
     "eyebrow": "Scope",
@@ -235,6 +168,7 @@
     "groups": [
       {
         "h3": "Map &amp; plan",
+        "peek": "Tactical symbols · water relay · hazmat · building info · gas readings",
         "items": [
           "<strong>Tactical symbols</strong> to FKS conventions, with attributes and labelling",
           "Sectors, cordons, areas and freehand drawing",
@@ -255,6 +189,7 @@
       },
       {
         "h3": "Crew &amp; resources",
+        "peek": "SCBA monitoring · attendance · shift plan · location sharing · material",
         "items": [
           "<strong>SCBA monitoring</strong>: pressure, turnaround time, contact clock, alarms",
           "<strong>SCBA emergency</strong>: a team in trouble turns red at the top of every device at once – with an emergency clock and the safety team",
@@ -272,6 +207,7 @@
       },
       {
         "h3": "Documentation",
+        "peek": "Log · replay · report as PDF · station printer",
         "items": [
           "A <strong>log</strong> that is only added to and never rewritten",
           "Voice memos with transcription, photos, reminders",
@@ -288,6 +224,7 @@
       },
       {
         "h3": "Running it",
+        "peek": "Works offline · several devices · roles · alerting · Microsoft sign-in",
         "items": [
           "<strong>Offline-capable</strong> as an installable app – the readiness check shows before an incident whether the required data is on the device",
           "Several connected devices work on the same state – after a connection interruption, changes are synchronised again",
@@ -303,33 +240,9 @@
     ]
   },
   "sibling": {
-    "eyebrow": "Related project",
-    "h2": "KP Front brings tactical depth at the incident site. KP Rück brings operational breadth across the overall situation.",
-    "p": "<strong>KP Rück</strong> is the digital version of the magnetic board in the rear\n          command post: one board for personnel, vehicles and equipment. Its own app, the same\n          handwriting – both take the same alarm\n          from the dispatch system, and neither needs the other. Both apps can be used in parallel and independently of each other for the same situation.",
+    "line": "<strong>KP Rück</strong> – the sister project for the rear command post: one board for personnel, vehicles and material. Both receive the same alert and run independently.",
     "cta": "Take a look at KP Rück",
-    "setup": {
-      "h3": "Running both – without setting everything up twice",
-      "rows": [
-        {
-          "dt": "Dispatch",
-          "dd": "The same payload for both. Your dispatch integration is built once; each app only gets its own address."
-        },
-        {
-          "dt": "Divera access",
-          "dd": "One key for both – the same alarms, the same roster. <span class=\"opt\">optional</span>"
-        },
-        {
-          "dt": "Roster",
-          "dd": "The same source in the same file format – the same person on both sides."
-        },
-        {
-          "dt": "Keywords",
-          "dd": "The same alarm keyword list, so the same classification in both apps."
-        }
-      ],
-      "foot": "<strong>Database, updates and login stay separate.</strong> Neither one needs the other to run.",
-      "link": "Guide: both on one server"
-    }
+    "link": "Guide: both on one server"
   },
   "faq": {
     "eyebrow": "Questions &amp; answers",
@@ -383,8 +296,9 @@
   },
   "contact": {
     "eyebrow": "Contact",
-    "h2": "Tell us what you think.",
-    "p": "Do you want to try KP Front at your fire brigade? Is something missing, or does\n          something not work the way you expect? Get in touch – we read everything.",
+    "h2": "Try it yourself.",
+    "p": "The demo runs without a login. Do you want to use KP Front at your fire brigade, or is something missing? Get in touch – we read everything.",
+    "demoNote": "<strong>Public demo:</strong> don’t enter real incident, personal, location or organisation data. All visitors share the same demo. Whatever you enter stays saved until the next automatic reset.",
     "alt": "For questions and open-ended ideas there are the\n          <a href=\"https://github.com/feuerwehr-oberwil/kp-front/discussions\" target=\"_blank\" rel=\"noopener\">GitHub discussions</a>.",
     "bug": {
       "t": "Report a fault",
@@ -413,13 +327,6 @@
       "privacy": "Delivered by e-mail via the form service staticforms.dev.",
       "privacyLink": "Privacy"
     }
-  },
-  "lightbox": {
-    "close": "Close",
-    "prev": "Previous image",
-    "next": "Next image",
-    "zoom": "Zoom in",
-    "hint": "Slide the image sideways"
   },
   "footer": {
     "origin": "Born out of the operational work of <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">Feuerwehr Oberwil BL</a> –\n      because at incident after incident we kept seeing the same sources of error: double bookings, information\n      scattered across places, and transcription mistakes made by hand.\n      Every fire brigade runs its own KP Front, with its own maps, plans and data.",

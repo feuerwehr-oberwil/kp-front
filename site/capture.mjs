@@ -1,18 +1,22 @@
 #!/usr/bin/env node
 /**
- * Capture the screenshots for the landing page.
+ * Capture the screenshots for the landing page and the README.
  *
  *   node site/capture.mjs                       # against the public demo
  *   node site/capture.mjs --base http://localhost:5188
- *   node site/capture.mjs --only lage,mittel    # only individual shots
+ *   node site/capture.mjs --only feuer,trupps   # only individual shots (either pass)
  *
- * Drives a real instance with Playwright in both themes, hides the demo
- * chrome (welcome dialog, DEMO ribbon) and writes the images into site/shots/ – WebP for the
- * page (night variants in shots/dark/), plus one day JPEG for link previews.
- * --theme light|dark limits capture to one theme; --site-only skips README images.
- * The image names are the contract with `shots.items` in site/content/de.json –
- * whoever renames one here has to follow suit there (only there: the translations
- * inherit the file name and merely caption it).
+ * Drives a real instance with Playwright and hides the demo chrome (welcome dialog, DEMO
+ * ribbon, alarm strips). Two passes:
+ *
+ *   devices  – what the landing page shows: the app on an iPad and on an iPhone, full UI, in
+ *              both themes → shots/<device>/<name>.webp and shots/dark/<device>/<name>.webp
+ *   desktop  – day theme only: the link-preview JPEG (shots/lage.jpg) and the README PNGs
+ *              (docs/screenshots/)
+ *
+ * --theme light|dark limits the device pass to one theme; --site-only skips the README PNGs;
+ * --docs-only writes only the README PNGs. The device image names are the contract with
+ * `hero.img` and `chapters[].img` in site/content/de.json – rename one here, rename it there.
  */
 import { chromium } from '@playwright/test'
 import { mkdirSync, writeFileSync } from 'node:fs'
@@ -21,21 +25,14 @@ import { dirname, join } from 'node:path'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const SHOTS = join(HERE, 'shots')
-// The README images come out of the same page states as the landing-page shots. They used
-// to be shot separately by hand and drifted apart because of it — a shot with `docs:` now
-// writes both in one pass.
+// The README images come out of the same page states as the link preview – a shot with `docs:`
+// writes both in one pass, so they cannot drift apart.
 const DOCS_SHOTS = join(HERE, '..', 'docs', 'screenshots')
 
 const DEFAULT_BASE = 'https://demo.kp-front.ch'
-const VIEWPORT = { width: 1500, height: 937 } // 1.6:1 – the same tile shape for every shot
-// The landing page serves WebP: the same capture weighs about half of the JPEG it used to be.
-// The encoding happens inside the Chromium Playwright ships anyway – no second dependency, and
-// nothing to install on the machine.
+// The encoding happens inside the Chromium Playwright ships anyway – no second dependency.
 const WEBP_QUALITY = 0.8
-// The hero is never shown wider than this (.wrap is 1040px minus 2×24px padding). That second,
-// small copy is the one phones and 1x screens load; the full width stays for 2x screens.
-const HERO_W = 992
-// The one JPEG left: link previews (og:image). WhatsApp, Facebook and friends show no WebP.
+// The one JPEG: link previews (og:image). WhatsApp, Facebook and friends show no WebP.
 const OG_QUALITY = 0.82
 
 const argv = process.argv.slice(2)
@@ -45,111 +42,120 @@ const arg = (name) => {
 }
 const base = (arg('base') || DEFAULT_BASE).replace(/\/$/, '')
 const only = arg('only')?.split(',').map((s) => s.trim()).filter(Boolean)
-// Rewrite only the README images and leave the landing-page JPEGs alone. Needed because
-// both outputs come from the same capture but don't want the same resolution: the landing
-// page inlines them (1x), the README images are viewed enlarged on GitHub (2x). So: the
-// normal run first, then `--scale 2 --docs-only`.
+// The README PNGs are viewed enlarged on GitHub and want 2x: the normal run first, then
+// `--scale 2 --docs-only`.
 const docsOnly = argv.includes('--docs-only')
 const siteOnly = argv.includes('--site-only')
 const requestedTheme = arg('theme')
 if (requestedTheme && !['light', 'dark'].includes(requestedTheme)) throw new Error('--theme must be light or dark')
-const themes = requestedTheme ? [requestedTheme] : docsOnly ? ['light'] : ['light', 'dark']
+const themes = requestedTheme ? [requestedTheme] : ['light', 'dark']
 if (docsOnly && (siteOnly || requestedTheme === 'dark')) throw new Error('--docs-only requires light theme and cannot be combined with --site-only')
-// Capture resolution: 1 for the landing page, 2 for the README images (see above).
+// Desktop capture resolution: 1 for the link preview, 2 for the README images (see above).
 const scale = Number(arg('scale') || 1)
 // The public demo lets you in without signing in. A local instance does not – there it takes a
 // role and a PIN, otherwise the browser sits at the login screen and runs into the timeout.
 const pin = arg('pin')
-
-/** One shot = one view from the left nav rail, plus settle time.
- *  `prep` opens something else first (sheet, menu); `nav` may then be missing.
- *  `hero` marks the one picture the landing page shows above the fold – it gets the small
- *  copy for phones and the JPEG for link previews on top. */
-const shots = [
-  // The Einsatz camera fits the whole incident extent, so the Schloss is small in the frame and
-  // the symbols pile up at the bottom edge. The hero is a crop around the Einsatzort instead:
-  // `crop` = centre (fractions of the frame) and magnification, applied to every output.
-  { name: 'lage', nav: 'Karte', settle: 3500, note: 'Hero: taktische Karte', docs: 'lage', hero: true, crop: { cx: 0.49, cy: 0.6, zoom: 1.8 } },
-  { name: 'plan', nav: 'Modul 1', settle: 4000, note: 'Objektplan als Whiteboard' },
-  { name: 'gebaeude', nav: 'Gebäude', settle: 1500, docs: 'gebaeude' },
-  { name: 'atemschutz', nav: 'Trupps', settle: 1200, docs: 'atemschutz' },
-  { name: 'anwesenheit', nav: 'Anwesenheit', settle: 1500 },
-  {
-    name: 'zeitplan',
-    nav: 'Anwesenheit',
-    settle: 1500,
-    note: 'Zweite Ansicht derselben Mannschaft: Schichten über der Zeit',
-    prep: async (page) => {
-      await page.getByRole('button', { name: 'Zeitplan', exact: true }).click()
-      await page.waitForTimeout(1500)
-      // The default Zeitraum is too wide for a picture: the demo's bars sit in the first few
-      // hours, the rest of the axis would be empty space. Narrow it until the crew actually
-      // fills the width – and scroll to the end so the coverage row sits below the last row
-      // instead of half over it.
-      // The button is disabled once the Zeitraum is as narrow as it gets (22.10.2026: it was
-      // already there after a reset, and a click on a disabled button waits until the timeout).
-      const narrower = page.getByRole('button', { name: 'Zeitraum enger' }).first()
-      for (let i = 0; i < 2 && await narrower.count() && await narrower.isEnabled(); i++) {
-        await narrower.click()
-        await page.waitForTimeout(400)
-      }
-      await page.evaluate(() => {
-        const box = [...document.querySelectorAll('[class]')]
-          .find((el) => [...el.classList].some((c) => c.includes('_scroll_')))
-        if (box) box.scrollTop = box.scrollHeight
-      })
-      await page.waitForTimeout(600)
-    },
-  },
-  { name: 'mittel', nav: 'Material', settle: 1200, docs: 'mittel' },
-  { name: 'checkliste', nav: 'Checkliste', settle: 1500 },
-  {
-    name: 'verlauf',
-    nav: 'Karte',
-    settle: 2500,
-    prep: async (page) => {
-      await page.locator('.tb-act').filter({ hasText: 'Verlauf' }).first().click()
-      await page.waitForTimeout(1500)
-    },
-  },
-  // ⚠️ The Rapport used to be a dialog you opened from the Einsatz menu
-  // (`.ip-switch-btn` → «Einsatzrapport»), and this step scrolled inside
-  // `.report-preflight-body` down to the Anwesenheit card. Neither exists any more: the
-  // Rapport is its own surface in the left rail (key R). The old step ran 30 s into a
-  // timeout and stopped capturing the image altogether – a call that silently matches
-  // nothing is the same mistake here as a test that no longer checks anything.
-  { name: 'rapport', nav: 'Rapport', settle: 2500, note: 'Der Einsatzrapport: ein vorausgefülltes Erfassungsblatt, über den ganzen Einsatz ergänzt' },
-]
+const wanted = (name) => !only || only.includes(name)
 
 /** Demo chrome that has no business being in a marketing picture. */
 const HIDE_CSS = `
   .demo-ribbon, .demo-welcome-scrim, .kp-toast, [data-sonner-toaster] { display: none !important; }
-  /* The floating new-alarm strip (.dv-banner) lay right across the head of the Mittel and
-     Rapport pictures — on the public demo a fresh Alarm keeps coming in. It is real product
-     behaviour, but transient chrome: in a still it reads like an error state covering the
-     heading. Same family as the toasts. */
+  /* The floating new-alarm strip (.dv-banner): on the public demo a fresh Alarm keeps coming
+     in. Real product behaviour, but transient chrome – in a still it reads like an error. */
   .dv-banner { display: none !important; }
   /* The Meldeleiste (.ml) for the same reason (06.10.2026): the demo's seeded AS-Trupps run
      overdue within minutes of a reset, so «Atemschutz überfällig» lay across the head of every
-     picture, and a deploy mid-capture added «Update bereit». The Trupps board still shows the
-     overdue Trupps; only the floating row goes. */
+     picture. The Trupps board still shows the overdue Trupps; only the floating row goes. */
   .ml { display: none !important; }
 `
 
+// ─── Device pass ──────────────────────────────────────────────────────────────
+//
+// Each device is shot at its real screen size, with its safe-area insets emulated: the app runs
+// with `viewport-fit=cover`, so on a device the map sits under the status bar and the bars keep
+// clear of the home indicator – and so it does here. The picture then keeps only part of that
+// gap (`keep`, in points): on the page there is no status bar, and the full gap would read as
+// dead padding. The crop happens in the file, never in CSS – negative margins inside a rounded,
+// clipped frame left an empty band under the picture in Safari (19.11.2026).
+//
+// ⚠️ Playwright's `devices['iPhone 14']` is the SAFARI viewport (390×664), not the screen. An
+// installed app has the whole 390×844 – the preset's pictures came out a third too short.
+const DEVICES = {
+  tablet: { viewport: { width: 1180, height: 820 }, scale: 2, insets: { top: 24, bottom: 20 }, keep: { top: 8, bottom: 20 }, width: 1600, mobile: false },
+  phone: { viewport: { width: 390, height: 844 }, scale: 3, insets: { top: 47, bottom: 34 }, keep: { top: 19, bottom: 14 }, width: 780, mobile: true },
+}
+
+// The Feuer symbol, selected with its detail panel open. The seeded Trupp pill «Müller H.» lies
+// right on top of the fire, so a real tap at that spot selects the Trupp: the tap goes straight
+// to the Feuer marker instead (a touch-type pointerdown/up – the marker selects on its hold
+// gesture's tap, see useHoldToDrag). The Feuer glyph is the one marker that draws `.sym-spread`.
+const selectFeuer = async (page) => {
+  await page.evaluate(() => {
+    const marker = [...document.querySelectorAll('.marker')].find((el) => el.querySelector('.sym-spread'))
+    if (!marker) throw new Error('Feuer marker not found')
+    const r = marker.getBoundingClientRect()
+    const o = { bubbles: true, cancelable: true, composed: true, pointerId: 7, isPrimary: true, button: 0, buttons: 1, clientX: r.x + r.width / 2, clientY: r.y + r.height / 2, pointerType: 'touch' }
+    marker.dispatchEvent(new PointerEvent('pointerdown', o))
+    marker.dispatchEvent(new PointerEvent('pointerup', { ...o, buttons: 0 }))
+  })
+  await page.waitForTimeout(1500)
+}
+
+// The app remembers the last view across loads, so every shot navigates first – the map shots
+// too. The iPad's rail buttons carry plain names (exact match: «Gebäude» must not hit the
+// «Gebäude-Info» pill); the phone's bottom bar names carry a status («Pläne · Modul 1»,
+// «Rapport · 4 offen»), so there they match by prefix.
+const navTo = (name) => async (page) => {
+  const rail = page.locator('.nav-item').getByText(name, { exact: true })
+  if (await rail.count()) await rail.first().click()
+  else await page.getByRole('button', { name: new RegExp(`^${name}`) }).last().click()
+  await page.waitForTimeout(2500)
+}
+const then = (...steps) => async (page) => { for (const step of steps) await step(page) }
+const openPlan = async (page) => {
+  await page.getByRole('button', { name: /^Pläne/ }).first().click()
+  await page.waitForTimeout(800)
+  await page.getByText('Modul 1', { exact: true }).last().click()
+  await page.waitForTimeout(3500)
+}
+const openVerlauf = async (page) => {
+  await navTo('Karte')(page)
+  await page.getByRole('button', { name: /^Verlauf/ }).first().click()
+  await page.waitForTimeout(2500)
+}
+
+/** One device shot = a fresh load of the demo, then `prep`. Atemschutz first: the seeded
+ *  Trupps go overdue ~10 min after a reset. */
+const deviceShots = [
+  { device: 'phone', name: 'trupps', prep: navTo('Trupps') },
+  { device: 'tablet', name: 'karte', prep: navTo('Karte') },
+  { device: 'tablet', name: 'feuer', prep: then(navTo('Karte'), selectFeuer) },
+  { device: 'phone', name: 'feuer', prep: then(navTo('Karte'), selectFeuer) },
+  { device: 'tablet', name: 'gebaeude', prep: navTo('Gebäude') },
+  { device: 'phone', name: 'plan', prep: openPlan },
+  { device: 'phone', name: 'verlauf', prep: openVerlauf },
+  { device: 'tablet', name: 'rapport', prep: navTo('Rapport') },
+  { device: 'phone', name: 'rapport', prep: navTo('Rapport') },
+]
+
 /**
- * Scales one capture (a lossless PNG) to `width` and encodes it – WebP for the page, JPEG for
- * the link preview. `page` is a blank second tab: the app itself has nothing to do with it.
+ * Crops one lossless capture to `keep` (device pixels from `cut`), scales it to `width` and
+ * encodes it. `page` is a blank tab of the same browser – the app has nothing to do with it.
  */
-const encode = async (page, png, { width, type, quality, crop }) => {
-  const b64 = await page.evaluate(async ([src, width, type, quality, crop]) => {
+const encode = async (page, png, { width, type, quality, cut, crop }) => {
+  const b64 = await page.evaluate(async ([src, width, type, quality, cut, crop]) => {
     const img = new Image()
     img.src = src
     await img.decode()
-    // Source window: the whole capture, or the crop's window around (cx, cy) at 1/zoom size.
-    const sw = crop ? img.naturalWidth / crop.zoom : img.naturalWidth
-    const sh = crop ? img.naturalHeight / crop.zoom : img.naturalHeight
-    const sx = crop ? Math.min(Math.max(crop.cx * img.naturalWidth - sw / 2, 0), img.naturalWidth - sw) : 0
-    const sy = crop ? Math.min(Math.max(crop.cy * img.naturalHeight - sh / 2, 0), img.naturalHeight - sh) : 0
+    let sx = 0, sy = 0, sw = img.naturalWidth, sh = img.naturalHeight
+    if (cut) { sy = cut.top; sh -= cut.top + cut.bottom }
+    if (crop) {
+      // A window around (cx, cy) at 1/zoom size – the link preview's close-up of the Einsatzort.
+      sw = img.naturalWidth / crop.zoom
+      sh = img.naturalHeight / crop.zoom
+      sx = Math.min(Math.max(crop.cx * img.naturalWidth - sw / 2, 0), img.naturalWidth - sw)
+      sy = Math.min(Math.max(crop.cy * img.naturalHeight - sh / 2, 0), img.naturalHeight - sh)
+    }
     const canvas = document.createElement('canvas')
     canvas.width = width
     canvas.height = Math.round(sh * (width / sw))
@@ -157,44 +163,25 @@ const encode = async (page, png, { width, type, quality, crop }) => {
     ctx.imageSmoothingQuality = 'high'
     ctx.drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height)
     return canvas.toDataURL(type, quality).split(',')[1]
-  }, [`data:image/png;base64,${png.toString('base64')}`, width, type, quality, crop ?? null])
+  }, [`data:image/png;base64,${png.toString('base64')}`, width, type, quality, cut ?? null, crop ?? null])
   return Buffer.from(b64, 'base64')
 }
 
-const captureTheme = async (browser, theme) => {
-  const output = theme === 'dark' ? join(SHOTS, 'dark') : SHOTS
-  mkdirSync(output, { recursive: true })
-  const ctx = await browser.newContext({
-    viewport: VIEWPORT,
-    // Never below 2: the hero is a crop (`crop` below) and a 1× capture would be upscaled.
-    deviceScaleFactor: Math.max(2, scale),
-    locale: 'de-CH',
-    timezoneId: 'Europe/Zurich',
-    colorScheme: theme,
-    reducedMotion: 'reduce',
-  })
-
-  // Force the matching app palette and skip the welcome dialog before React starts.
+const prefsCookie = (theme, mode) => {
   const { host, protocol } = new URL(base)
-  await ctx.addCookies([{
+  return {
     name: 'kp-front-prefs',
-    value: encodeURIComponent(JSON.stringify({ theme: theme === 'dark' ? 'night' : 'day', mode: 'map' })),
+    value: encodeURIComponent(JSON.stringify({ theme: theme === 'dark' ? 'night' : 'day', mode })),
     domain: host.split(':')[0],
     path: '/',
     secure: protocol === 'https:',
     sameSite: 'Lax',
     expires: Math.floor(Date.now() / 1000) + 3600,
-  }])
-  await ctx.addInitScript(() => {
-    try { localStorage.setItem('kp.demo.welcomed', '1') } catch { /* private mode */ }
-  })
+  }
+}
 
-  const page = await ctx.newPage()
-  page.on('pageerror', (e) => console.warn('  ! page error:', String(e).slice(0, 120)))
-  // The blank tab the images are encoded on (see `encode`).
-  const encoder = await ctx.newPage()
-
-  console.log(`→ ${base} (${theme})`)
+/** Loads the demo into `page` until the app stands, signed in if `--pin`, demo chrome hidden. */
+const openApp = async (page) => {
   await page.goto(base, { waitUntil: 'domcontentloaded' })
   if (pin) {
     const role = page.getByRole('button', { name: /Führungsunterstützung/ }).first()
@@ -211,79 +198,125 @@ const captureTheme = async (browser, theme) => {
       if (await btn.count()) await btn.first().click().catch(() => {})
     }
   }
-  await page.locator('.nav-item').first().waitFor({ timeout: 45000 })
+  await page.getByRole('button', { name: 'Karte', exact: true }).first().waitFor({ timeout: 45000 })
   await page.addStyleTag({ content: HIDE_CSS })
   await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {})
+  await page.waitForTimeout(1500)
+  // The Gebäude card opens by itself the first time a device shows this Einsatz. Right for an
+  // operator, wrong in a picture of the map: close it.
+  const buildingX = page.locator('section[aria-label="Gebäude"] button[aria-label="Schliessen"]')
+  if (await buildingX.count()) {
+    await buildingX.first().click().catch(() => {})
+    await page.waitForTimeout(400)
+  }
+}
 
-  const wanted = shots.filter((s) => !only || only.includes(s.name))
-  if (!wanted.length) throw new Error(`--only passt auf keinen Shot (${shots.map((s) => s.name).join(', ')})`)
-
-  for (const shot of wanted) {
-    // A shot may leave a sheet open (the Verlauf does). Its scrim then lies over the
-    // navigation and swallows every click — the next shot ran into the timeout instead of
-    // capturing. Escape does not close that sheet, so we reload, and only when a scrim really
-    // is in the way: on the normal path this costs nothing.
-    if (await page.locator('.journal-scrim, [data-base-ui-portal] [role="presentation"]').count()) {
-      await page.goto(base, { waitUntil: 'domcontentloaded' })
-      await page.locator('.nav-item').first().waitFor({ timeout: 45000 })
-      await page.addStyleTag({ content: HIDE_CSS })
-      await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {})
+const captureDevices = async (browser, theme) => {
+  const shots = deviceShots.filter((s) => wanted(s.name))
+  for (const [device, d] of Object.entries(DEVICES)) {
+    const mine = shots.filter((s) => s.device === device)
+    if (!mine.length) continue
+    const output = join(SHOTS, ...(theme === 'dark' ? ['dark'] : []), device)
+    mkdirSync(output, { recursive: true })
+    const ctx = await browser.newContext({
+      viewport: d.viewport,
+      deviceScaleFactor: d.scale,
+      isMobile: d.mobile,
+      hasTouch: true,
+      locale: 'de-CH',
+      timezoneId: 'Europe/Zurich',
+      colorScheme: theme,
+      reducedMotion: 'reduce',
+    })
+    await ctx.addCookies([prefsCookie(theme, 'map')])
+    await ctx.addInitScript(() => {
+      try { localStorage.setItem('kp.demo.welcomed', '1') } catch { /* private mode */ }
+    })
+    const encoder = await ctx.newPage()
+    console.log(`→ ${base} (${device}, ${theme})`)
+    for (const shot of mine) {
+      const page = await ctx.newPage()
+      page.on('pageerror', (e) => console.warn('  ! page error:', String(e).slice(0, 120)))
+      const cdp = await ctx.newCDPSession(page)
+      await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: { ...d.insets, left: 0, right: 0 } })
+      await openApp(page)
+      if (shot.prep) await shot.prep(page)
+      const png = await page.screenshot({ type: 'png' })
+      const cut = { top: (d.insets.top - d.keep.top) * d.scale, bottom: (d.insets.bottom - d.keep.bottom) * d.scale }
+      writeFileSync(join(output, `${shot.name}.webp`), await encode(encoder, png, { width: d.width, type: 'image/webp', quality: WEBP_QUALITY, cut }))
+      console.log(`  ✓ ${device}/${shot.name}.webp`)
+      await page.close()
     }
-    const item = page.getByRole('button', { name: shot.nav, exact: true }).and(page.locator('.nav-item')).first()
-    await item.click()
+    await ctx.close()
+  }
+}
+
+// ─── Desktop pass: link preview + README ──────────────────────────────────────
+//
+// One shot = one view from the left nav rail. `og` marks the link-preview picture (a crop
+// around the Einsatzort: the Einsatz camera fits the whole incident, so the Schloss is small in
+// the full frame); `docs` names the README PNG written from the same page state.
+const VIEWPORT = { width: 1500, height: 937 }
+const desktopShots = [
+  { name: 'lage', nav: 'Karte', settle: 3500, docs: 'lage', og: true, crop: { cx: 0.49, cy: 0.6, zoom: 1.8 } },
+  { name: 'gebaeude', nav: 'Gebäude', settle: 1500, docs: 'gebaeude' },
+  { name: 'atemschutz', nav: 'Trupps', settle: 1200, docs: 'atemschutz' },
+  { name: 'mittel', nav: 'Material', settle: 1200, docs: 'mittel' },
+]
+
+const captureDesktop = async (browser) => {
+  const shots = desktopShots.filter((s) => wanted(s.name) && ((s.og && !docsOnly) || (s.docs && !siteOnly)))
+  if (!shots.length) return
+  mkdirSync(DOCS_SHOTS, { recursive: true })
+  const ctx = await browser.newContext({
+    viewport: VIEWPORT,
+    // Never below 2: the link preview is a crop and a 1× capture would be upscaled.
+    deviceScaleFactor: Math.max(2, scale),
+    locale: 'de-CH',
+    timezoneId: 'Europe/Zurich',
+    colorScheme: 'light',
+    reducedMotion: 'reduce',
+  })
+  await ctx.addCookies([prefsCookie('light', 'map')])
+  await ctx.addInitScript(() => {
+    try { localStorage.setItem('kp.demo.welcomed', '1') } catch { /* private mode */ }
+  })
+  const page = await ctx.newPage()
+  page.on('pageerror', (e) => console.warn('  ! page error:', String(e).slice(0, 120)))
+  const encoder = await ctx.newPage()
+  console.log(`→ ${base} (desktop)`)
+  await openApp(page)
+  for (const shot of shots) {
+    await page.getByRole('button', { name: shot.nav, exact: true }).and(page.locator('.nav-item')).first().click()
     await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {})
     await page.waitForTimeout(shot.settle)
-    // The Gebäude card opens by itself the first time a device shows this Einsatz (README ·
-    // Gebäude-Info). Right for an operator, wrong in a picture of the map: close it.
-    const buildingX = page.locator('section[aria-label="Gebäude"] button[aria-label="Schliessen"]')
-    if (await buildingX.count()) {
-      await buildingX.first().click().catch(() => {})
-      await page.waitForTimeout(400)
+    const png = await page.screenshot({ type: 'png' })
+    if (shot.og && !docsOnly) {
+      writeFileSync(join(SHOTS, `${shot.name}.jpg`), await encode(encoder, png, { width: VIEWPORT.width, type: 'image/jpeg', quality: OG_QUALITY, crop: shot.crop }))
+      console.log(`  ✓ ${shot.name}.jpg  (link preview)`)
     }
-    if (shot.prep) await shot.prep(page)
-    if (!docsOnly) {
-      // Always out of the lossless PNG: scaling and the single lossy step then happen in one
-      // pass – which is also why `--scale 2` yields a sharper picture here instead of one
-      // twice as wide.
-      const png = await page.screenshot({ type: 'png' })
-      const write = async (file, opts) => {
-        writeFileSync(join(output, file), await encode(encoder, png, opts))
-        console.log(`  ✓ ${file}  (${shot.nav})`)
-      }
-      const crop = shot.crop
-      await write(`${shot.name}.webp`, { width: VIEWPORT.width, type: 'image/webp', quality: WEBP_QUALITY, crop })
-      if (shot.hero) {
-        await write(`${shot.name}-${HERO_W}.webp`, { width: HERO_W, type: 'image/webp', quality: WEBP_QUALITY, crop })
-        if (theme === 'light') await write(`${shot.name}.jpg`, { width: VIEWPORT.width, type: 'image/jpeg', quality: OG_QUALITY, crop })
-      }
-    }
-    // Same page state, second output: the README image. PNG, because README images are often
-    // viewed enlarged on GitHub and text should stay lossless there. A cropped shot goes through
-    // the same canvas as the page's copy, at the capture's own scale.
-    if (shot.docs && theme === 'light' && !siteOnly) {
-      const docsPath = join(DOCS_SHOTS, `${shot.docs}.png`)
-      if (shot.crop) {
-        const png = await page.screenshot({ type: 'png' })
-        writeFileSync(docsPath, await encode(encoder, png, { width: Math.round(VIEWPORT.width * scale), type: 'image/png', crop: shot.crop }))
-      } else {
-        await page.screenshot({ path: docsPath, type: 'png' })
-      }
+    // PNG, because README images are often viewed enlarged on GitHub and text should stay
+    // lossless there. A cropped shot goes through the same canvas, at the capture's own scale.
+    if (shot.docs && !siteOnly) {
+      const out = shot.crop
+        ? await encode(encoder, png, { width: Math.round(VIEWPORT.width * scale), type: 'image/png', crop: shot.crop })
+        : png
+      writeFileSync(join(DOCS_SHOTS, `${shot.docs}.png`), out)
       console.log(`  ✓ docs/screenshots/${shot.docs}.png`)
     }
   }
-
   await ctx.close()
 }
 
 const run = async () => {
   const browser = await chromium.launch()
   try {
-    for (const theme of themes) await captureTheme(browser, theme)
+    if (!docsOnly) for (const theme of themes) await captureDevices(browser, theme)
+    if (!requestedTheme || requestedTheme === 'light') await captureDesktop(browser)
   } finally {
     await browser.close()
   }
   console.log('Screenshots captured. Rebuild with: node site/build.mjs')
-  if (!siteOnly && themes.includes('light')) console.log('README-Bilder (docs/screenshots/) wurden mitgeschrieben, wo ein Shot `docs:` trägt.')
 }
 
 run().catch((err) => {
