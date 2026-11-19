@@ -695,7 +695,18 @@ export function applyBoardToObjects(
       // the position crosses exactly as a machine write's does — through the fit, each vertex
       // keeping its own storey by index (annoAfterMapEdit · path)
       let edited = annoAfterMapEdit(prev.sheet.anno, body, owner, dragged ? 'machine' : undefined)
-      if (dragged && gesture && !onOwnPaper(edited)) return { ...prev, sheet: { planId, anno } }
+      // a drag into another storey drawing of a floor-pack sheet hands back ONE storey, Von/Bis
+      // cleared (floorPackBinding · withDrawingStorey). On the stack a storey is a tile, so it is
+      // written as the tile – the stack's `floor`, no span – or the bake below would read the old
+      // tile back. A storey the stack has no tile for cannot be held there (Sol review round 3, S2).
+      const tiles = owner?.stack?.floors
+      const crossedTo = tiles && dragged && anno.kind === 'symbol' && anno.storey != null && anno.storey !== was.storey ? anno.storey : null
+      const held = crossedTo != null && !!tiles?.includes(crossedTo)
+      if (dragged && gesture && (!onOwnPaper(edited) || (crossedTo != null && !held))) return { ...prev, sheet: { planId, anno } }
+      if (held) {
+        const { storey: _badge, floorFrom: _from, floorTo: _to, ...rest } = edited
+        edited = { ...rest, floor: crossedTo }
+      }
       // …and a derived value handed back unchanged stays derived: the stack bakes a Leitung's
       // end tag off its last vertex's storey, and the lent anno merely carries that result. Written
       // onto the owner it would freeze the tag, and an absent field would have materialised.

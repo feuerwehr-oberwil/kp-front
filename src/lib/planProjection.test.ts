@@ -348,6 +348,30 @@ describe('Gebäude range edits use the same storeys on every surface', () => {
   })
 })
 
+// Sol review round 3, S2: a Gebäude symbol lent to a Modul-6 sheet, dragged from one storey
+// drawing into another (lib/floorPackBinding · withDrawingStorey hands back ONE storey, Von/Bis
+// cleared). The drop still lies on the owner's tile, so the Gebäude keeps it – on that storey.
+describe('a Gebäude symbol moved across a floor-pack sheet\'s storey drawings', () => {
+  const STACK: PlanFit = { ...PLAN, stack: { floors: [0, 1, 2] } }
+  const fits = new Map([['gebaeude', STACK], ['modul6', PLAN]])
+  const original: BoardAnno = { id: 'f', kind: 'symbol', symbol: 'brand', x: .5, y: .5, floor: 1 }
+  const objects = [bakeGeoBody({ id: 'f', sheet: { planId: 'gebaeude', anno: original } }, STACK, 'taktisch')]
+  const dropped = (storey: number): BoardAnno => {
+    const { floorFrom: _f, floorTo: _t, ...lent } = sheetAnnos(objects, 'modul6', PLAN)[0]
+    return { ...lent, x: .6, storey }
+  }
+  it('is written into the stack as that storey\'s tile, and the stack shows it there', () => {
+    const moved = applyBoardToObjects(objects, 'modul6', [dropped(2)], PLAN, 'taktisch', true, fits)
+    expect(moved[0].sheet).toMatchObject({ planId: 'gebaeude', anno: { floor: 2, floorFrom: 2, floorTo: 2 } })
+    expect(moved[0].entity).toMatchObject({ floorFrom: 2, floorTo: 2 })
+    expect(sheetAnnos(moved, 'gebaeude', STACK)[0]).toMatchObject({ floor: 2 })
+  })
+  it('a storey the stack has no tile for is a move off its paper: this sheet takes it', () => {
+    const moved = applyBoardToObjects(objects, 'modul6', [dropped(-1)], PLAN, 'taktisch', true, fits)
+    expect(moved[0].sheet).toMatchObject({ planId: 'modul6', anno: { storey: -1 } })
+  })
+})
+
 // F16
 describe('photoOverlay — a Verlauf photo on a georeferenced sheet', () => {
   const photo = (over: Partial<Entity> = {}) => ent({

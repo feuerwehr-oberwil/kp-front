@@ -44,11 +44,15 @@ AGENTS.md on 2026-10-08, wording unchanged.
     The drawings are the floors of THIS sheet's own pinned binding (`sheetFloorsOf`), never the
     Gebäude's pack, laid onto the board with the renderer's page layout (`planTiles · sheetLayout`)
     and the pages of the renderer's own successful load (`PdfViewport · onPages`, so «Erneut laden»
-    brings them back too): a sheet without `#page=` shows every page stitched top-down. An explicit
+    brings them back too; the board keeps them on every sheet, so a binding that arrives after the
+    load still finds them): a sheet without `#page=` shows every page stitched top-down. An explicit
     clip wins over a whole-page drawing on the same page. Such a symbol stays on its
     sheet: the Gebäude stack does not show another sheet's ink, and its Karte body is placed through
     the pack's ONE fit, which is measured on the reference drawing – a symbol in another drawing
-    lands where that drawing's paper position puts it.
+    lands where that drawing's paper position puts it. A symbol the Gebäude OWNS (lent to the sheet)
+    and dragged into another drawing stays the Gebäude's while the drop lies on its tile: the new
+    storey is written as the stack's tile `floor`, Von/Bis cleared; a storey the stack has no tile
+    for moves it onto this sheet (`tacticalObjects · applyBoardToObjects`).
   - *A storey's acts live in its LABEL* (29.09.2026). The label shows the word only («4. OG»,
     «EG», a custom name); the signed chip comes back only when a custom name hides the order. A
     tap opens a Menu «Ausblenden · Geschoss entfernen» — Ausblenden is a way of looking
