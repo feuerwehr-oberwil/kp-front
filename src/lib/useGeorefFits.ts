@@ -25,6 +25,8 @@ import { tileAspectOf } from './whiteboard'
 import { fillTemplate } from './format'
 
 const NO_DRAWINGS: readonly SheetDrawing[] = []
+/** a floor-pack sheet whose fit is held back until it tells its pages (see `fitsMap`) */
+const HELD = 'held'
 /** the drawings the Karte reaches the building through: a one-page sheet's, which carry their
  *  join shifts (floorPackBinding · sheetDrawings) */
 const karteDrawings = (d: readonly SheetDrawing[] | null | undefined) => (d?.some((x) => x.shift) ? d : undefined)
@@ -206,8 +208,8 @@ export function useGeorefFits({
   // pinned binding) carries its storey drawings, laid onto the board by the pages its renderer
   // loaded. ONE map for the open sheet's storeys and for the bake, so both use the same drawings.
   // On a ONE-page sheet they carry their join shifts: the fit is measured on the reference drawing,
-  // and a symbol in any other drawing reaches the ground through its shift (floorPackDrawings ·
-  // onReference). A stitched multi-page sheet's drawings give a storey on the sheet only.
+  // and a point object (symbol, note, Form) in any other drawing reaches the ground through its
+  // shift (floorPackDrawings · onReference). A stitched multi-page sheet's drawings give a storey on the sheet only.
   // `null` = a floor pack whose pages are not known yet and that may be one page (all its floors
   // on one page); floors on several pages are a stitched sheet whatever the PDF says.
   const drawingsByPlan = useMemo(() => new Map(planDocs.flatMap((p): [string, SheetDrawing[] | null][] => {
@@ -232,15 +234,33 @@ export function useGeorefFits({
   // …and the drawings re-bake the same silent way the stack does: they come from the frozen
   // binding, not from a reference somebody corrected, so they stay out of the Verlauf. An Einsatz
   // baked before 19.11.2026 gets its storey-drawing symbols back onto the building here.
-  const linkedDrawings = linkedPlans.flatMap((p) => { const d = karteDrawings(drawingsByPlan.get(p.id)); return d ? [[p.id, d] as const] : [] })
-  const drawingsSig = linkedDrawings.length ? JSON.stringify(linkedDrawings) : ''
+  // ⚠️ PER SHEET, and only the sheets whose part of this changed (Sol review #703 round 2):
+  //   · S1 – a held-back fit that becomes available is a change too, even when the sheet brings no
+  //     shifted drawings (a stitched PDF whose floors all sit on one page): it bakes then, and the
+  //     fits map reaches `planFitsRef` – neither the drawings nor the fit signature would say so.
+  //   · S6 – a sheet whose FIT changed in the same render is not baked here: that is a correction,
+  //     and it keeps its undo step and Verlauf row in the effect below.
+  // A key: the stack's fit, a sheet's shifted drawings (`''` = none, what a sheet nothing was said
+  // about counts as), or HELD while its fit is held back (nothing to bake through yet).
+  const silentKeys = new Map(linkedPlans.flatMap((p): [string, string][] => {
+    const d = drawingsByPlan.get(p.id)
+    if (d === undefined) return []
+    const shifted = d && karteDrawings(d)
+    return [[p.id, d === null ? HELD : shifted ? JSON.stringify(shifted) : '']]
+  }))
+  if (stackSig) silentKeys.set(gebaeudeDoc.id, stackSig)
+  const silentSig = JSON.stringify([...silentKeys])
+  /** the keys at the last silent bake – unrecorded while this device may not write, like `bakedFits` */
+  const silentBaked = useRef<ReadonlyMap<string, string>>(new Map())
   useEffect(() => {
     planFitsRef.current = fitsMap
     setFitsVersion((v) => v + 1)
-    if (!(stackSig || drawingsSig) || readOnly || tacticalLocked) return
-    rebake({ checkpoint: false })
+    if (readOnly || tacticalLocked) return
+    const plans = new Set([...silentKeys].flatMap(([id, key]) => (key !== HELD && key !== (silentBaked.current.get(id) ?? '') ? [id] : [])))
+    silentBaked.current = silentKeys
+    if (plans.size) rebake({ checkpoint: false, plans })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stackSig, drawingsSig, readOnly, tacticalLocked])
+  }, [silentSig, readOnly, tacticalLocked])
   useEffect(() => {
     // ⚠️ ABOVE the guard, both of them. The fits and the version that carries them into the
     // memos are what every surface RENDERS through (lib/useObjectStore · board); only writing

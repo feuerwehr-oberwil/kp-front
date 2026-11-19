@@ -7,7 +7,7 @@ import { SHAPE_DEFS } from './shapes'
 import { entityToBoardSymbol, onSheet, planGroundWidthM, TWIN_CLIP_MARGIN } from './georefTwins'
 import type { PlanFit, TacticalObject } from './tacticalObjects'
 import { GEBAEUDE_PLAN_ID } from './whiteboard'
-import { inFrame, offReference, storeyDrawing, type SheetDrawing } from './floorPackDrawings'
+import { inFrame, inReference, JOINED_KINDS, offReference, storeyDrawing } from './floorPackDrawings'
 
 /**
  * The Karte, said in ONE sheet's own words — the second half of the unified object
@@ -127,29 +127,28 @@ export function projectOnto(o: TacticalObject, plan: PlanFit, margin = TWIN_CLIP
 }
 
 /**
- * The fit a map object is projected onto a sheet through. Plain sheets: the sheet's own.
+ * The fit a map object is projected onto a sheet through. Plain sheets, and every object that is
+ * not one point (a line, an area, a Trupp with its breadcrumbs): the sheet's own.
  *
- * ⚠️ A floor pack's own sheet (PlanFit.drawings): the fit speaks the reference drawing, so the
- * object lands in the drawing of ITS storey (the badge, else Von; a line's end tag) at the same
- * building point – the inverse of the bake's `onReference`, which is what keeps a symbol drawn
- * in the 2OG drawing and dragged on the Karte in the 2OG drawing. No storey: the reference.
- * ONE frame for all the object's points (its point, a Trupp's breadcrumbs, a line's vertices),
- * and only one the bake reads back the same way (`inFrame`, Sol review #703 S3): a point that
- * fell into an adjacent drawing would bake back somewhere else the moment it is touched. If the
- * storey's drawing does not hold every point, the reference frame is tried (a ladder of storey 2
- * standing in the yard shows at its ground point); if that does not either, the object is not
- * drawn on this sheet – like one off its paper.
+ * ⚠️ A POINT object (symbol, note, Form – floorPackDrawings · JOINED_KINDS) on a floor pack's own
+ * sheet (PlanFit.drawings): the fit speaks the reference drawing, so the object lands in the
+ * drawing of ITS storey (the badge, else Von) at the same building point – the inverse of the
+ * bake's `onReference`, which is what keeps a symbol drawn in the 2OG drawing and dragged on the
+ * Karte in the 2OG drawing. Only at a point that lies IN that drawing (`inFrame`, Sol review #703
+ * round 1 S3, round 2 S2): one that fell into an adjacent drawing would bake back somewhere else
+ * the moment it is touched. No storey, a storey without a drawing here, or a point its drawing
+ * cannot hold: the reference frame – the reference drawing or bare paper (a ladder of storey 2
+ * standing in the yard shows at its ground point). If neither, it is not drawn on this sheet –
+ * like an object off its paper.
  */
 function sheetFrame(o: TacticalObject, plan: PlanFit): GeorefFit | null {
-  const drawings = plan.drawings
-  const coords = o.entity ? [o.entity.coord, ...(o.entity.trail ?? []).map((p) => p.coord)] : o.drawing?.coords ?? []
-  if (!drawings?.length || !coords.length) return plan.fit
-  const storey = o.entity ? o.entity.floor ?? o.entity.floorFrom : o.drawing?.floorTag
-  const refs = coords.map((c) => pt(plan.fit, c))
-  const own = storeyDrawing(drawings, storey, refs[0])
-  const holds = (d: SheetDrawing | undefined) => refs.every((q) => inFrame(drawings, q, d))
-  if (own && holds(own)) return { ...plan.fit, toPlan: (g) => offReference(plan.fit.toPlan(g), own) }
-  return holds(undefined) ? plan.fit : null
+  const { drawings } = plan
+  const e = o.entity
+  if (!drawings?.length || !e || !JOINED_KINDS.has(e.kind)) return plan.fit
+  const q = pt(plan.fit, e.coord)
+  const own = storeyDrawing(drawings, e.floor ?? e.floorFrom, q)
+  if (own && inFrame(drawings, q, own)) return { ...plan.fit, toPlan: (g) => offReference(plan.fit.toPlan(g), own) }
+  return inReference(drawings, q) ? plan.fit : null
 }
 
 function projectOntoSheet(o: TacticalObject, plan: PlanFit, margin: number): BoardAnno | null {

@@ -352,27 +352,28 @@ describe('a storey drawing reaches the ground through its join', () => {
     expect(out.sheet!.anno).toMatchObject({ x: 0.45, y: 0.55 })
   })
 
-  // Sol review #703 S4: a Leitung from the EG into the 2OG, re-routed by a machine
-  it('S4: a re-routed Leitung keeps each unchanged vertex in its drawing; a new sample takes the end it extends', () => {
-    const line = bakeGeoBody({ id: 'l', sheet: { planId: 'modul6', anno: { id: 'l', kind: 'draw', pts: [[0.7, 0.3], [0.2, 0.7]] } } }, plan, 'lage')
-    const [g0, g1] = line.drawing!.coords
-    // one sample prepended at the EG end, one appended at the 2OG end
-    const coords = [ground(0.75, 0.35), g0, g1, ground(0.25, 0.75, { storey: 2 })]
-    const [out] = applyDocToObjects([line], { entities: [], drawings: [{ ...line.drawing!, coords }] }, new Map([['modul6', plan]]), false)
-    const pts = out.sheet!.anno.pts!
-    for (const [p, [x, y]] of pts.map((p, i) => [p, [[0.75, 0.35], [0.7, 0.3], [0.2, 0.7], [0.25, 0.75]][i]] as const)) {
-      expect(p[0]).toBeCloseTo(x); expect(p[1]).toBeCloseTo(y)
-    }
+  // Sol review #703 round 2, S2: a frame is a drawing's IDENTITY, not its shift. The EG (the
+  // reference) has a zero shift, and so has a 1OG drawn as the whole page around it, unjoined.
+  it('S2: a machine move never carries a symbol out of the reference drawing onto paper', () => {
+    expect(drawings.find((d) => d.storey === 0)).toMatchObject({ reference: true, shift: [0, 0] })
+    const o = bakeGeoBody({ id: 'f', sheet: { planId: 'modul6', anno: { id: 'f', kind: 'symbol', symbol: 'Feuer', x: 0.95, y: 0.2 } } }, plan, 'lage')
+    const [out] = applyDocToObjects([o], { entities: [{ ...o.entity!, coord: refGround(1.05, 0.2) }], drawings: [] }, new Map([['modul6', plan]]), false)
+    expect(out.sheet!.anno).toMatchObject({ x: 0.95, y: 0.2 })
   })
-  it('S4: a Trupp\'s breadcrumbs keep their own drawings; a new one continues the chip\'s', () => {
-    const anno: BoardAnno = { id: 't', kind: 'resource', text: 'AS 1', x: 0.2, y: 0.7, trail: [{ x: 0.7, y: 0.3, t: 't1' }, { x: 0.15, y: 0.65, t: 't2' }] }
-    const chip = bakeGeoBody({ id: 't', sheet: { planId: 'modul6', anno } }, plan, 'lage')
-    const e = chip.entity!
-    const moved = { ...e, coord: ground(0.22, 0.72), trail: [...e.trail!, { coord: e.coord, t: 't3' }] }
-    const [out] = applyDocToObjects([chip], { entities: [moved], drawings: [] }, new Map([['modul6', plan]]), false)
-    const got = out.sheet!.anno
-    expect(got.x).toBeCloseTo(0.22); expect(got.y).toBeCloseTo(0.72)
-    const want = [[0.7, 0.3], [0.15, 0.65], [0.2, 0.7]]
-    got.trail!.forEach((p, i) => { expect(p.x).toBeCloseTo(want[i][0]); expect(p.y).toBeCloseTo(want[i][1]) })
+  describe('S2: two drawings with the same (zero) shift are still two drawings', () => {
+    const nested = sheetDrawings({ page: 0, floors: [{ page: 0, index: 0, name: 'EG', clip: c(0, 0, 0.5, 1) }, { page: 0, index: 1, name: '1OG' }] }, [a3(0)])
+    const flat: PlanFit = { fit: pack.fit!, aspect: 1.414, drawings: nested }
+    it('a machine move keeps a 1OG symbol out of the EG drawing', () => {
+      expect(nested.find((d) => d.storey === 1)?.shift).toEqual([0, 0])
+      const o = bakeGeoBody({ id: 'f', sheet: { planId: 'modul6', anno: { id: 'f', kind: 'symbol', symbol: 'Feuer', x: 0.6, y: 0.5, storey: 1 } } }, flat, 'lage')
+      const [out] = applyDocToObjects([o], { entities: [{ ...o.entity!, coord: refGround(0.4, 0.5) }], drawings: [] }, new Map([['modul6', flat]]), false)
+      expect(out.sheet!.anno).toMatchObject({ x: 0.6, y: 0.5 })
+    })
+    it('a Karte symbol without a storey lands in the reference drawing or on paper, never in the 1OG drawing', () => {
+      const k = (coord: [number, number], floor?: number) => projectOnto({ id: 'k', entity: { id: 'k', kind: 'symbol', symbol: 'Feuer', layer: 'lage', coord, floor } }, flat)
+      expect(k(refGround(0.7, 0.5))).toBeNull()
+      expect(k(refGround(0.7, 0.5), 1)).toMatchObject({ storey: 1 })
+      expect(k(refGround(0.3, 0.5))!.x).toBeCloseTo(0.3)
+    })
   })
 })

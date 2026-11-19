@@ -227,14 +227,16 @@ export function sheetFloorsOf(bindings: readonly IncidentPlanBinding[], imageUrl
  *  review S2). A drawing on a page the board does not show is no drawing here. Empty while the
  *  pages are not known, and for a sheet without floors.
  *  ⚠️ Only a ONE-page sheet's drawings carry their join shift (`joinShifts` from `packReference`,
- *  the same the Gebäude stack uses), so only there the Karte reaches the building through them.
+ *  the same the Gebäude stack uses) and the `reference` mark, so only there a point object on the
+ *  Karte reaches the building through them.
  *  On a stitched multi-page sheet the station's one-page pairs and the board do not share a frame
  *  yet (Sol review #703, S2/S5 – the follow-up in docs/plans-and-buildings.md). */
 export function sheetDrawings(pack: SheetPack | undefined, pages: readonly PageSize[] | null): SheetDrawing[] {
   if (!pack?.floors.length || !pages?.length) return []
   const { floors } = pack
   const { boxes } = sheetLayout(pages)
-  const shifts = pages.length === 1 ? joinShifts(floors, packReference(floors, pack.page)) : null
+  const ref = pages.length === 1 ? packReference(floors, pack.page) : null
+  const shifts = ref ? joinShifts(floors, ref) : null
   // explicit clips first: `drawingAt` takes the first hit and the floors come in storey order, so
   // an EG whole page would mask a 1. OG region drawn on that same page (Sol review round 2, S2)
   return [...floors].sort((a, b) => Number(!a.clip) - Number(!b.clip)).flatMap((f): SheetDrawing[] => {
@@ -243,7 +245,8 @@ export function sheetDrawings(pack: SheetPack | undefined, pages: readonly PageS
     const [x0, y0, x1, y1] = f.clip ?? WHOLE
     const at = (x: number, y: number) => [box.left + x * box.width, box.top + y * box.height] as const
     const drawing: SheetDrawing = { storey: f.index, part: f.part ?? 0, clip: [...at(x0, y0), ...at(x1, y1)] }
-    return [shifts ? { ...drawing, shift: shifts.get(floorKey(f)) ?? [0, 0] } : drawing]
+    if (!shifts) return [drawing]
+    return [{ ...drawing, shift: shifts.get(floorKey(f)) ?? [0, 0], ...(f === ref ? { reference: true as const } : {}) }]
   })
 }
 

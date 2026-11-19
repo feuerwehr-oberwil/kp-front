@@ -27,24 +27,35 @@ const twoPages = [{ page: 0, index: 1, name: '1OG' }, { page: 1, index: 0, name:
 const url = referenceUrl(sheet.datasetId, sheet.planVersion)
 const a3 = (page: number) => ({ page, widthPt: 1191, heightPt: 842 })
 
+// …and a plain Modul 2 beside it, linked by its own binding
+const modul2Sheet = { ...sheet, id: 'object:wyss:plan:modul2', planId: 'modul2', datasetId: 'plan:wyss:modul2' }
+const modul2Binding = inheritPlanBinding(modul2Sheet, approval, null, false)
+// ONE identity, as the workspace's: a new array per render would re-run every fit effect
+const planDocs: PlanDocument[] = [
+  { id: 'modul6', code: 'M6', title: 'Modul 6', subtitle: '', imageUrl: url, orientation: 'landscape', georefKey: incidentGeorefKey('inc', sheet.id) },
+  { id: 'modul2', code: 'M2', title: 'Modul 2', subtitle: '', imageUrl: referenceUrl(modul2Sheet.datasetId, 2), orientation: 'landscape', georefKey: incidentGeorefKey('inc', modul2Sheet.id) },
+]
+
+const planScale = {}
+
 // the hook as the workspace calls it, with only the plan side filled in
-function useFits(planBindings: IncidentPlanBinding[], planFitsRef: { current: Map<string, PlanFit> }) {
-  const modul6: PlanDocument = { id: 'modul6', code: 'M6', title: 'Modul 6', subtitle: '', imageUrl: url, orientation: 'landscape', georefKey: incidentGeorefKey('inc', sheet.id) }
+function useFits(planBindings: IncidentPlanBinding[], planFitsRef: { current: Map<string, PlanFit> }, rebake: () => number) {
   return useGeorefFits({
-    planDocs: [modul6], planScale: {}, building: null, setBuilding: () => {}, planBindings, activeObjectId: 'wyss',
-    board: {}, objects: [], rebake: vi.fn(), planFitsRef, fitsVersion: 0,
+    planDocs, planScale, building: null, setBuilding: () => {}, planBindings, activeObjectId: 'wyss',
+    board: {}, objects: [], rebake, planFitsRef, fitsVersion: 0,
     setFitsVersion: () => {}, stepLabelRef: { current: null }, histSide: { current: { log: () => {} } },
     readOnly: false, canWriteBlob: false, tacticalLocked: false, replayActive: false, twinLayers: {}, twinLayerOpacity: {},
     activePlanId: 'modul6', liveVehicles: [], livePeople: { people: [] }, isVisible: () => true, mapEntities: [],
   })
 }
 function mount(first: IncidentPlanBinding) {
-  const box = { bindings: [first] }
+  const box = { bindings: [first, modul2Binding] }
   const unregister = registerIncidentPlanBindings('inc', { get bindings() { return box.bindings }, save: () => {} })
   const planFitsRef = { current: new Map<string, PlanFit>() }
-  const hook = renderHook(({ b }) => useFits(b, planFitsRef), { initialProps: { b: box.bindings } })
-  const bind = (b: IncidentPlanBinding) => { box.bindings = [b]; hook.rerender({ b: box.bindings }) }
-  return { ...hook, bind, planFitsRef, unregister }
+  const rebake = vi.fn((_opts?: { checkpoint?: boolean; plans?: ReadonlySet<string> }) => 0)
+  const hook = renderHook(({ b }) => useFits(b, planFitsRef, rebake), { initialProps: { b: box.bindings } })
+  const bind = (b: IncidentPlanBinding) => { box.bindings = [b, modul2Binding]; hook.rerender({ b: box.bindings }) }
+  return { ...hook, bind, planFitsRef, rebake, unregister }
 }
 
 describe('a sheet\'s pages and its floors, in either order (FLOORS4/5, 19.11.2026)', () => {
@@ -76,6 +87,30 @@ describe('a sheet\'s pages and its floors, in either order (FLOORS4/5, 19.11.202
         const at = plan.fit.toMap(p.plan)
         expect(at.lng).toBeCloseTo(p.lngLat.lng, 9); expect(at.lat).toBeCloseTo(p.lngLat.lat, 9)
       }
+    } finally { unregister() }
+  })
+
+  // Sol review #703 round 2, S1: a two-page PDF whose recorded floors all sit on page 1 – its fit
+  // is held back until it renders, and the stitched pages then bring no shifted drawings
+  it('S1: a held-back fit that becomes available reaches the bake, though no drawing shifts', () => {
+    const { result, planFitsRef, rebake, unregister } = mount(inheritPlanBinding(sheet, approval, null, false, onePage))
+    try {
+      expect(planFitsRef.current.has('modul6')).toBe(false)
+      expect(planFitsRef.current.has('modul2')).toBe(true)
+      rebake.mockClear()
+      act(() => { result.current.sheetPack.onPages(url, [a3(0), a3(1)]) })
+      expect(planFitsRef.current.get('modul6')).toMatchObject({ fit: expect.anything() })
+      expect(planFitsRef.current.get('modul6')?.drawings).toBeUndefined()
+      expect(rebake).toHaveBeenCalledWith({ checkpoint: false, plans: new Set(['modul6']) })
+    } finally { unregister() }
+  })
+  // S6: the silent bake is the drawings' – another sheet's fit is the normal effect's business
+  it('S6: the drawings arriving re-bake their own sheet only', () => {
+    const { result, rebake, unregister } = mount(inheritPlanBinding(sheet, approval, null, false, onePage))
+    try {
+      rebake.mockClear() // the seed bake of the mount
+      act(() => { result.current.sheetPack.onPages(url, [a3(0)]) })
+      expect(rebake.mock.calls).toEqual([[{ checkpoint: false, plans: new Set(['modul6']) }]])
     } finally { unregister() }
   })
 })

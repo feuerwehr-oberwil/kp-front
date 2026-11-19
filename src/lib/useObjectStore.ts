@@ -152,7 +152,12 @@ export interface ObjectStore {
    * object counts. And the checkpoint follows the count: a re-bake that moved nothing the caller
    * counts is still written, but it is not an undo step — there is nothing to take back.
    */
-  rebake: (opts?: { checkpoint?: boolean; count?: (before: TacticalObject[], after: TacticalObject[]) => number }) => number
+  rebake: (opts?: {
+    checkpoint?: boolean
+    count?: (before: TacticalObject[], after: TacticalObject[]) => number
+    /** only these sheets' objects (by plan id); absent = every sheet */
+    plans?: ReadonlySet<string>
+  }) => number
 }
 
 /** The plan writer — `SetStateAction` plus the one option a machine writer has to pass. */
@@ -387,12 +392,15 @@ export function useObjectStore(
     // operator never took. ⚠️ Against the LIVE store (`current()`), the same value the updater
     // below will see — reading this render's snapshot answered about a state one write behind.
     const live = store.current()
-    const baked = bakeAll(live, getFits(), defaultLayer)
+    const all = getFits()
+    const only = opts?.plans
+    const fits = only ? new Map([...all].filter(([id]) => only.has(id))) : all
+    const baked = bakeAll(live, fits, defaultLayer)
     if (baked === live) return 0
     // ⚠️ Counted on the dry pass, BEFORE the write, because the count decides whether the write
     // is a step. The updater below runs eagerly against the same live store (useUndoableDoc).
     const moved = opts?.count ? opts.count(live, baked) : baked.reduce((n, o, i) => n + (o === live[i] ? 0 : 1), 0)
-    const of = (objects: TacticalObject[]) => bakeAll(objects, getFits(), defaultLayer)
+    const of = (objects: TacticalObject[]) => bakeAll(objects, fits, defaultLayer)
     if (opts?.checkpoint && moved > 0) store.commit(of); else setObjects(of)
     return moved
   }

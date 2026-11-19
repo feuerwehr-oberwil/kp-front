@@ -5,7 +5,7 @@ import type { GeorefFit } from './georef'
 import { planGroundWidthM, boardSymbolToEntity, entitySharedProps } from './georefTwins'
 import { directionalGlyph, directionalGlyph2, projectOnto, turnedToGround, turnedToSheet } from './planProjection'
 import { normalizeStackEdit } from './stackFloors'
-import { drawingAt, inFrame, onReference, type SheetDrawing } from './floorPackDrawings'
+import { drawingAt, inFrame, JOINED_KINDS, onReference, type SheetDrawing } from './floorPackDrawings'
 
 /**
  * The unified tactical object — ONE record per object, whatever surface it stands on
@@ -153,9 +153,10 @@ export interface PlanFit {
    *  storey vocabulary, Von/Bis, on both surfaces; a span shows as copies on every tile in it). A
    *  map object lands on the tile of its `floorFrom` (its `floor`, else 0). */
   stack?: { floors: number[] }
-  /** a floor pack's own sheet (Modul 6): its storey drawings (lib/floorPackBinding ·
-   *  sheetDrawings). `fit` is measured on the reference drawing, so a point crosses to the
-   *  ground and back through the drawing it is in (floorPackDrawings · onReference) */
+  /** a floor pack's own ONE-page sheet (Modul 6): its storey drawings (lib/floorPackBinding ·
+   *  sheetDrawings). `fit` is measured on the reference drawing, so a POINT object (symbol, note,
+   *  Form – floorPackDrawings · JOINED_KINDS) crosses to the ground and back through the drawing
+   *  it is in (floorPackDrawings · onReference). Everything else straight through `fit`. */
   drawings?: readonly SheetDrawing[]
 }
 
@@ -281,9 +282,12 @@ export function bakeGeoBody(o: TacticalObject, plan: PlanFit | undefined, layer:
     return o
   }
   const widthM = planGroundWidthM(plan.fit, plan.aspect)
-  const at = (x: number, y: number): LngLat => { const p = plan.fit.toMap(onReference(plan.drawings, { x, y })); return [p.lng, p.lat] }
+  const at = (x: number, y: number): LngLat => { const p = plan.fit.toMap({ x, y }); return [p.lng, p.lat] }
+  // a point object (symbol, note, Form) through the drawing it stands in (floorPackDrawings ·
+  // onReference); a Trupp chip and its breadcrumbs, a circle, a line through the fit alone
+  const atPoint = (x: number, y: number): LngLat => { const p = onReference(plan.drawings, { x, y }); return at(p.x, p.y) }
   if (anno.kind === 'symbol' && anno.x != null && anno.y != null) {
-    const born = boardSymbolToEntity(anno, at(anno.x, anno.y), o.entity?.layer ?? layer, widthM)
+    const born = boardSymbolToEntity(anno, atPoint(anno.x, anno.y), o.entity?.layer ?? layer, widthM)
     // ⚠️ …and back out of the paper's frame into north's — see planProjection · turnedToSheet
     const entity = born && {
       ...born,
@@ -295,7 +299,7 @@ export function bakeGeoBody(o: TacticalObject, plan: PlanFit | undefined, layer:
   }
   if (anno.kind === 'text' && anno.x != null && anno.y != null) {
     const entity: Entity = {
-      id: o.id, kind: 'note', layer: o.entity?.layer ?? layer, coord: at(anno.x, anno.y),
+      id: o.id, kind: 'note', layer: o.entity?.layer ?? layer, coord: atPoint(anno.x, anno.y),
       label: anno.text ?? anno.label, rotation: anno.rotation, color: anno.color,
       noteSize: anno.noteSize, noteAutoW: anno.noteAutoW, notePlain: anno.notePlain,
       floor: plan.stack ? undefined : anno.storey,
@@ -305,7 +309,7 @@ export function bakeGeoBody(o: TacticalObject, plan: PlanFit | undefined, layer:
   }
   if (anno.kind === 'shape' && anno.x != null && anno.y != null && anno.shape) {
     const entity: Entity = {
-      id: o.id, kind: 'shape', layer: o.entity?.layer ?? layer, coord: at(anno.x, anno.y),
+      id: o.id, kind: 'shape', layer: o.entity?.layer ?? layer, coord: atPoint(anno.x, anno.y),
       shape: anno.shape, rotation: turnedToGround(anno.rotation, plan.fit, true),
       rotation2: turnedToGround(anno.rotation2, plan.fit, directionalGlyph2(anno)), color: anno.color,
       sizeM: anno.sizeN != null ? anno.sizeN * widthM : undefined,
@@ -401,9 +405,6 @@ function annoAfterMapEdit(
   /** the map body the Karte showed BEFORE this write — what tells an edited bearing from one the
    *  write merely carried along (see `sheetBearings`) */
   was?: Entity,
-  /** a line's map vertices BEFORE this write — what tells an unchanged vertex from a new routing
-   *  sample (see `path`) */
-  wasPath?: readonly LngLat[],
 ): BoardAnno {
   const { entity, drawing } = body
   const widthM = plan ? planGroundWidthM(plan.fit, plan.aspect) : undefined
@@ -413,48 +414,27 @@ function annoAfterMapEdit(
    * live-GPS pass re-routes an attached Leitung on every poll, and read as a placement it would
    * have torn plan-drawn hoses off their sheet with nobody touching anything.
    */
-  // …back into the FRAME of the sheet point it continues (`from`). On a floor pack's sheet
-  // (PlanFit.drawings) that is the drawing `from` stands in, and the result counts only if the
-  // bake reads it back in that same drawing (floorPackDrawings · inFrame, Sol review #703 S3).
-  // ⚠️ A machine move never carries an anno across its drawing's edge – into the drawing next to
-  // it, one nested in it, or onto paper – it would bake back as another storey's point, or a
-  // GPS jitter at the wall would swap the drawing for good. Such a point stays at `from`: the
-  // anno keeps its drawing and its last point it can say there. Everywhere else straight
-  // through the fit.
-  const at = (fit: PlanFit, c: LngLat, from: { x: number; y: number } | undefined) => {
-    const q = fit.fit.toPlan({ lng: c[0], lat: c[1] })
-    return fit.drawings && from ? inFrame(fit.drawings, q, drawingAt(fit.drawings, from.x, from.y)) ?? from : q
-  }
-  const own = anno.x != null && anno.y != null ? { x: anno.x, y: anno.y } : undefined
   const machine = movedBy === 'machine' && plan
-  const point = (c: LngLat | undefined) => { if (!machine || !c) return null; const p = at(machine, c, own); return { x: p.x, y: p.y } }
+  const at = (by: PlanFit, c: LngLat) => by.fit.toPlan({ lng: c[0], lat: c[1] })
+  // ⚠️ …and a POINT object (symbol, note, Form) on a floor pack's sheet (PlanFit.drawings) back
+  // into the drawing it stands in, and only to a point that lies IN that drawing (paper: in none –
+  // floorPackDrawings · inFrame, Sol review #703 round 1 S3, round 2 S2). A machine move never
+  // carries it across its drawing's edge – into the drawing next to it, one nested in it, or onto
+  // paper: it would bake back as another storey's point, or a GPS jitter at the wall would swap
+  // the drawing for good. Such a point stays where it was.
+  const own = machine && machine.drawings && JOINED_KINDS.has(anno.kind) && anno.x != null && anno.y != null
+    ? { drawings: machine.drawings, x: anno.x, y: anno.y } : null
+  const point = (c: LngLat | undefined) => {
+    if (!machine || !c) return null
+    const q = at(machine, c)
+    const p = own ? inFrame(own.drawings, q, drawingAt(own.drawings, own.x, own.y)) ?? own : q
+    return { x: p.x, y: p.y }
+  }
   const path = (coords: LngLat[] | undefined): { pts: BoardPoint[] } | null => {
     if (!machine || !coords?.length) return null
-    const old = anno.pts ?? []
-    if (!old.length) return { pts: coords.map((c): BoardPoint => { const p = at(machine, c, undefined); return [p.x, p.y] }) }
-    // ⚠️ A trace-routed Leitung gains and loses vertices (Sol review #703, S4), so the old vertex
-    // a new one continues is found by its GROUND point, not its index: an unchanged vertex (the
-    // same map point, in order) keeps its own frame and storey; a new routing sample takes those
-    // of the unchanged vertex it extends – the one before it (appended: the end), else the one
-    // after it (prepended: the start). As many vertices as before: a vertex that moved keeps its
-    // own, by index (a dragged vertex, a whole line carried along).
-    const same: (number | undefined)[] = []
-    for (let i = 0, k = 0; i < coords.length; i++) {
-      let j = k
-      while (j < old.length && !sameCoord(wasPath?.[j], coords[i])) j++
-      if (j < old.length) { same.push(j); k = j + 1 } else same.push(undefined)
-    }
-    const before = (i: number) => same.slice(0, i).reverse().find((j) => j != null)
-    const after = (i: number) => same.slice(i + 1).find((j) => j != null)
-    // a per-point storey is the paper's own answer and rides along with its vertex; a machine
-    // write moves a line ON the sheet, never between floors
-    return {
-      pts: coords.map((c, i): BoardPoint => {
-        const from = old[same[i] ?? (coords.length === old.length ? i : before(i) ?? after(i) ?? Math.min(i, old.length - 1))]
-        const p = at(machine, c, ptXY(from))
-        return from[2] == null ? [p.x, p.y] : [p.x, p.y, from[2]]
-      }),
-    }
+    // a per-point storey is the paper's own answer and rides along by index; a machine write
+    // moves a line ON the sheet, never between floors
+    return { pts: coords.map((c, i): BoardPoint => { const p = at(machine, c); const f = anno.pts?.[i]?.[2]; return f == null ? [p.x, p.y] : [p.x, p.y, f] }) }
   }
   /** a metre length as a fraction of the sheet's ground width — absent without a fit */
   const asN = (m: number | undefined) => (m != null && widthM ? m / widthM : undefined)
@@ -466,8 +446,7 @@ function annoAfterMapEdit(
     // breadcrumbs are part of the incident record, so they come back through the fit too.
     if (anno.kind === 'resource') {
       const trail = plan && entity.trail
-        // a breadcrumb it had keeps its own frame; a new one continues the chip's (S4)
-        ? entity.trail.map(({ coord, t }) => { const p = at(plan, coord, anno.trail?.find((q) => q.t === t) ?? own); return { x: p.x, y: p.y, t } })
+        ? entity.trail.map(({ coord, t }) => { const p = plan.fit.toPlan({ lng: coord[0], lat: coord[1] }); return { x: p.x, y: p.y, t } })
         : anno.trail
       return { ...anno, ...shared, text: entity.label, truppId: entity.truppId, t: entity.t, trail, ...point(entity.coord) }
     }
@@ -605,7 +584,7 @@ export function applyDocToObjects(
     if (moved && byHand) next.push({ id: o.id, ...body })
     else {
       const plan = fits?.get(o.sheet.planId)
-      const edited = annoAfterMapEdit(o.sheet.anno, body, plan, moved ? 'machine' : undefined, o.entity, o.drawing?.coords)
+      const edited = annoAfterMapEdit(o.sheet.anno, body, plan, moved ? 'machine' : undefined, o.entity)
       const anno = plan?.stack ? normalizeStackEdit(o.sheet.anno, edited) : edited
       next.push({ ...o, entity: undefined, drawing: undefined, ...body, sheet: { ...o.sheet, anno } })
     }
@@ -744,8 +723,8 @@ export function applyBoardToObjects(
       if (dragged && gesture && !owner) return { ...prev, sheet: { planId, anno } }
       const body = geoAfterSheetEdit(prev, planId, anno, plan, defaultLayer, dragged)
       // the position crosses exactly as a machine write's does — through the fit, each vertex
-      // keeping its own storey (annoAfterMapEdit · path)
-      let edited = annoAfterMapEdit(prev.sheet.anno, body, owner, dragged ? 'machine' : undefined, undefined, prev.drawing?.coords)
+      // keeping its own storey by index (annoAfterMapEdit · path)
+      let edited = annoAfterMapEdit(prev.sheet.anno, body, owner, dragged ? 'machine' : undefined)
       if (dragged && gesture && !onOwnPaper(edited)) return { ...prev, sheet: { planId, anno } }
       // A drag into another storey drawing of a floor-pack sheet hands back ONE storey, Von/Bis
       // cleared, or a span shifted by the drawings' step (floorPackBinding · withDrawingStorey).

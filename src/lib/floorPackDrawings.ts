@@ -21,6 +21,10 @@ export interface SheetDrawing {
    *  speak one frame yet, so its drawings give a storey on the sheet and nothing to the Karte
    *  (follow-up, docs/plans-and-buildings.md). */
   shift?: [number, number]
+  /** THE reference drawing (floorPackBinding · packReference) – set with `shift`. Told apart by
+   *  identity, not by its zero shift: an unjoined or aligned drawing can have a zero shift too
+   *  (Sol review #703 round 2, S2). */
+  reference?: true
 }
 
 /** the drawing at (x, y), or null outside every drawing */
@@ -29,13 +33,15 @@ export const drawingAt = (drawings: readonly SheetDrawing[], x: number, y: numbe
 
 /**
  * The pack's ONE map fit is measured on the reference drawing, so on a sheet with storey drawings
- * every point reaches the ground through the drawing it is in (owner, 19.11.2026: a «F» in the 2OG
- * drawing stood in the street): `onReference` lays a board point onto the reference drawing (plus
- * that drawing's join shift) – the same building point; `offReference` puts a reference point back
- * into drawing `d`'s frame. A point outside every drawing is paper, not building, and stays as it
- * is; so does every point of a sheet without (shifted) drawings. Used by the bake and the
- * projection (tacticalObjects · bakeGeoBody / annoAfterMapEdit, planProjection · projectOnto)
- * through `PlanFit.drawings` – the way back always through `inFrame`.
+ * a point object reaches the ground through the drawing it is in (owner, 19.11.2026: a «F» in the
+ * 2OG drawing stood in the street): `onReference` lays a board point onto the reference drawing
+ * (plus that drawing's join shift) – the same building point; `offReference` puts a reference
+ * point back into drawing `d`'s frame. A point outside every drawing is paper, not building, and
+ * stays as it is; so does every point of a sheet without (shifted) drawings.
+ * ⚠️ Point objects only (`JOINED_KINDS`): Leitungen, areas and a Trupp's breadcrumbs cross a
+ * drawing's edge, and bake and project straight through the fit (follow-up,
+ * docs/plans-and-buildings.md). Used by tacticalObjects (bakeGeoBody, annoAfterMapEdit) and
+ * planProjection (sheetFrame) through `PlanFit.drawings` – the way back always through `inFrame`.
  */
 export function onReference(drawings: readonly SheetDrawing[] | undefined, p: PlanPt): PlanPt {
   const [dx, dy] = shiftOf(drawings?.length ? drawingAt(drawings, p.x, p.y) : null)
@@ -47,23 +53,34 @@ export function offReference(q: PlanPt, d: SheetDrawing | null | undefined): Pla
 }
 const shiftOf = (d: SheetDrawing | null | undefined): readonly [number, number] => d?.shift ?? [0, 0]
 
+/** The kinds that cross through their drawing: one point each – symbol, note, Form (both the
+ *  Entity and the BoardAnno word). Not the Trupp chip: its breadcrumbs go with it. */
+export const JOINED_KINDS: ReadonlySet<string> = new Set(['symbol', 'note', 'text', 'shape'])
+
+/** the same drawing (storey + part); `null` is paper */
+const same = (a: SheetDrawing | null, b: SheetDrawing | null) => a?.storey === b?.storey && a?.part === b?.part
+
 /**
- * Reference point `q` said in drawing `d`'s frame (`undefined` = the reference frame itself: the
- * reference drawing, or paper) – but only if the bake reads that sheet point back in the SAME
- * frame, so `onReference` returns `q` (Sol review #703, S3). Otherwise `null`: the point lands in
- * another drawing (an adjacent one, or one nested in a whole-page drawing) and would bake back
- * somewhere else. Same frame = same shift, so the reference drawing and paper are one frame.
+ * Reference point `q` said in drawing `d`'s frame (`null` = paper) – but only if that sheet point
+ * lies IN `d` (paper: in no drawing), so the bake reads it back the same way. Otherwise `null`:
+ * the point lands in another drawing, or leaves `d` for paper, and would bake back somewhere else
+ * or stand on the wrong storey (Sol review #703, round 1 S3 and round 2 S2 – by identity, never by
+ * equal shifts).
  */
-export function inFrame(drawings: readonly SheetDrawing[], q: PlanPt, d: SheetDrawing | null | undefined): PlanPt | null {
+export function inFrame(drawings: readonly SheetDrawing[], q: PlanPt, d: SheetDrawing | null): PlanPt | null {
   const p = offReference(q, d)
-  const [ax, ay] = shiftOf(drawingAt(drawings, p.x, p.y))
-  const [bx, by] = shiftOf(d)
-  return ax === bx && ay === by ? p : null
+  return same(drawingAt(drawings, p.x, p.y), d) ? p : null
+}
+
+/** …in the reference frame: the reference drawing, else bare paper (the same sheet point – the
+ *  reference's shift is zero). A Karte point with no storey drawing of its own lands only there. */
+export function inReference(drawings: readonly SheetDrawing[], q: PlanPt): PlanPt | null {
+  return inFrame(drawings, q, drawings.find((d) => d.reference) ?? null) ?? inFrame(drawings, q, null)
 }
 
 /** The drawing a ground point of storey `storey` lands in on such a sheet: that storey's drawing –
  *  of a storey drawn as wings, the one that holds the point (`inFrame`), else the first. Without a
- *  storey, or one the sheet has no drawing for: none – the reference drawing's frame as it is. */
+ *  storey, or one the sheet has no drawing for: none – the reference frame. */
 export function storeyDrawing(drawings: readonly SheetDrawing[], storey: number | null | undefined, q: PlanPt): SheetDrawing | undefined {
   const own = storey == null ? [] : drawings.filter((d) => d.storey === storey)
   return own.find((d) => inFrame(drawings, q, d)) ?? own[0]
