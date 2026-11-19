@@ -5,7 +5,11 @@ no bias at all, which is the failure mode that matters: an operator typing an ad
 pressure gets a list with the right street missing from it.
 """
 
-from app.geocode import GeoHit, _bias, _home_first
+import time
+
+import pytest
+
+from app.geocode import GeoHit, _bias, _home_first, has_house_number, split_label, street_key, town_key, town_of
 
 LOCALITY = "4104 Oberwil"
 
@@ -96,3 +100,14 @@ async def test_a_locality_typed_by_the_operator_counts(monkeypatch):
     labels = ["Hauptstrasse 4 4103 Bottmingen"]
     assert await _search_with(monkeypatch, "Hauptstr 4, Bottmingen", labels) == labels
     assert await _search_with(monkeypatch, "4103", labels) == labels
+
+
+@pytest.mark.parametrize("read", [street_key, split_label, town_key, town_of, has_house_number])
+def test_a_hostile_address_is_read_in_linear_time(read):
+    # CodeQL py/polynomial-redos: overlapping repeats (`.*?[\s,]+`, `\s*` under `sub`, two
+    # `[^\d,]*` around a letter) took 1–3 s per 16 KB string on 19.11.2026. The text comes from
+    # the address search box and the station's object rows.
+    for text in ("a" + " " * 16384 + "a", "a" * 16384, "a 1234 " * 2340 + "\na"):
+        start = time.perf_counter()
+        read(text)
+        assert time.perf_counter() - start < 0.2, repr(text[:12])

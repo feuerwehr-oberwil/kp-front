@@ -331,8 +331,12 @@ async def reverse(lat: float, lng: float) -> GeoHit | None:
 # number, prefers the home town, accepts exactly one match elsewhere in the brigade's area (the
 # region bias's bbox) and calls several of them ambiguous instead of picking one.
 
-_PLZ_TOWN = re.compile(r"^(?P<street>.*?)[\s,]+(?P<plz>\d{4})\s+(?P<town>.+)$")
-_CANTON_SUFFIX = re.compile(r"\s*(\([A-Z]{2}\)|\b[A-Z]{2})\s*$")
+# ⚠️ Linear on purpose (CodeQL py/polynomial-redos: 16 KB of spaces took ~2 s; the text comes
+# from the address search box). A separator / whitespace run is entered only at its first
+# character (`(?<!…)`), so it is scanned once instead of once per character inside it; DOTALL lets
+# `.+$` reach the end instead of failing at a newline and backtracking from every postal code.
+_PLZ_TOWN = re.compile(r"^(?P<street>.*?)(?<![\s,])[\s,]+(?P<plz>\d{4})\s+(?P<town>.+)$", re.DOTALL)
+_CANTON_SUFFIX = re.compile(r"(?<!\s)\s*(\([A-Z]{2}\)|\b[A-Z]{2})\s*$")
 
 
 def _fold(s: str) -> str:
@@ -357,7 +361,9 @@ def street_key(text: str | None) -> str:
 def has_house_number(text: str | None) -> bool:
     """True when the text reads as «Street 12[a]» — a street word and a house number."""
     s = (text or "").split(",")[0].strip()
-    return bool(re.fullmatch(r"[^\d,]*[A-Za-zÀ-ÿ][^\d,]*\s\d{1,4}\s?[a-zA-Z]?", s))
+    # The FIRST letter, not any letter: two `[^\d,]*` around «a letter» tried every letter as
+    # the one — quadratic on «aaaa…» (CodeQL py/polynomial-redos).
+    return bool(re.fullmatch(r"[^\d,A-Za-zÀ-ÿ]*[A-Za-zÀ-ÿ][^\d,]*\s\d{1,4}\s?[a-zA-Z]?", s))
 
 
 def town_key(text: str | None) -> str:
