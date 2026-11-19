@@ -6,7 +6,7 @@ import { Icon } from '../lib/icons'
 import { Overlay, SheetFoot } from '../lib/overlays'
 import { rosterFromList } from '../lib/personnel'
 import { rankAbbr } from '../lib/rank'
-import { tagHit, tagHitKey, type TagHit } from '../lib/tagCode'
+import { personIdFromTag, tagHit, tagHitKey } from '../lib/tagCode'
 import { loadTagDecoder, readTags } from '../lib/tagDecoder'
 import type { Person } from '../types'
 import { Button, IconButton } from './Button'
@@ -54,7 +54,8 @@ export function TagScan({ personnel, assignedIds, chosenIds, onTake, onClose }: 
   const az = appConfig.copy.atemschutz
   const videoRef = useRef<HTMLVideoElement>(null)
   const [phase, setPhase] = useState<Phase>('starting')
-  const [hits, setHits] = useState<TagHit[]>([])
+  /** every code of ours read so far, in the order it came – the raw reads, never their meaning */
+  const [codes, setCodes] = useState<string[]>([])
   /** when the last NEW person came in – restarts the auto-take (and its fill) */
   const [lastAdd, setLastAdd] = useState(0)
   const [torch, setTorch] = useState<{ track: MediaStreamTrack; on: boolean } | null>(null)
@@ -72,7 +73,14 @@ export function TagScan({ personnel, assignedIds, chosenIds, onTake, onClose }: 
     const g = canvas.getContext('2d', { willReadFrequently: true })
     /** decoded texts already handled – one tag seen in thirty frames is one row */
     const seen = new Set<string>()
-    void loadTagDecoder()
+    const stop = () => {
+      alive = false
+      cancelAnimationFrame(raf)
+      stream?.getTracks().forEach((t) => t.stop())
+    }
+    // a decoder that cannot load (a precache that missed it, offline) is no scanner: say so, stop
+    // the camera, and leave typing as the way in
+    loadTagDecoder().catch(() => { if (alive) { setPhase('nocam'); stop() } })
 
     const frame = async (video: HTMLVideoElement) => {
       if (!alive) return
@@ -82,20 +90,13 @@ export function TagScan({ personnel, assignedIds, chosenIds, onTake, onClose }: 
         canvas.height = Math.round(video.videoHeight * scale)
         g.drawImage(video, 0, 0, canvas.width, canvas.height)
         const texts = await readTags(g.getImageData(0, 0, canvas.width, canvas.height)).catch(() => [])
-        const fresh: TagHit[] = []
-        for (const t of texts) {
-          if (seen.has(t)) continue
-          seen.add(t)
-          const { roster: r, assignedIds: a, chosenIds: c } = read.current
-          const hit = tagHit(t, r, a, c)
-          if (hit && hit.kind !== 'here') fresh.push(hit)
-        }
+        const fresh = texts.filter((t) => !seen.has(t) && personIdFromTag(t))
+        fresh.forEach((t) => seen.add(t))
         if (alive && fresh.length) {
-          setHits((prev) => [...prev, ...fresh.filter((h) => !prev.some((p) => tagHitKey(p) === tagHitKey(h)))])
-          if (fresh.some((h) => h.kind === 'add')) {
-            setLastAdd(performance.now())
-            navigator.vibrate?.(30)
-          }
+          setCodes((prev) => [...prev, ...fresh])
+          // only a new person restarts the auto-take – a «schon in einem Trupp» is no reason to wait
+          const { roster: r, assignedIds: a, chosenIds: c } = read.current
+          if (fresh.some((t) => tagHit(t, r, a, c)?.kind === 'add')) setLastAdd(performance.now())
         }
       }
       if (alive) raf = requestAnimationFrame(() => void frame(video))
@@ -123,13 +124,17 @@ export function TagScan({ personnel, assignedIds, chosenIds, onTake, onClose }: 
       void frame(video)
     })()
 
-    return () => {
-      alive = false
-      cancelAnimationFrame(raf)
-      stream?.getTracks().forEach((t) => t.stop())
-    }
+    return stop
   }, [])
 
+  /* What the reads MEAN is decided on every render against the board as it is NOW, never frozen at
+   * the frame that read them: another device can put somebody in a Trupp during the auto-take's
+   * second, and the form can gain them by name meanwhile (Sol review 19.11.2026). The list and
+   * the take read the same answer, so what is shown is what is taken. */
+  const hits = codes.flatMap((t) => {
+    const h = tagHit(t, roster, assignedIds, chosenIds)
+    return h && h.kind !== 'here' ? [h] : []
+  })
   const adds = hits.flatMap((h) => (h.kind === 'add' ? [h.person] : []))
   const take = () => { if (adds.length) onTake(adds) }
 

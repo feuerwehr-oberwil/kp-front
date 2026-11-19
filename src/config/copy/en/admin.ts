@@ -1024,7 +1024,7 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
       csvTemplate: 'Download example CSV',
       tagsPrint: 'Print tags',
       tagsTitle: 'Print SCBA tags',
-      tagsCaption: 'One tag per active person: QR code, rank and name. «Scan» in the «Register team» form reads it. The code holds only the person id – a lost tag reveals no name and stays valid.',
+      tagsCaption: 'One tag per active person: QR code, rank and name. «Scan» in the «Register team» form reads it. The QR code holds only the person id; the name is printed beside it. A tag stays valid when the name or rank changes.',
       tagsFormat: 'Format',
       tagsFormatSingle: 'Single, 150 × 35 mm – one page per tag (print shop, engraving, label printer)',
       tagsFormatA4: 'A4 sheet – 7 tags per page, with cut lines',

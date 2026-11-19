@@ -6,8 +6,9 @@
 // network. Never let the package fetch its default jsDelivr URL – that is what `locateFile` stops.
 // The JS half is a lazy chunk: nobody pays for it until the first «Scan».
 //
-// One frame may hold the whole Trupp: `maxNumberOfSymbols` reads every code in it at once (the
-// owner's iPhone, 19.11.2026: 4 tags in one frame within 0.24 s, 12 ms per decode at 1280 px).
+// One frame may hold the whole Trupp: the reader returns every code in it at once (the owner's
+// iPhone, 19.11.2026: 4 tags in one frame within 0.24 s, 12 ms per decode at 1280 px). No cap of
+// our own on how many – a frame with a few unrelated codes in it must not crowd a tag out.
 
 import { useEffect, useState } from 'react'
 import wasmUrl from 'zxing-wasm/reader/zxing_reader.wasm?url'
@@ -19,7 +20,6 @@ const OPTIONS: ReaderOptions = {
   tryRotate: true,
   tryInvert: false,
   tryDownscale: true,
-  maxNumberOfSymbols: 8,
 }
 
 let reader: Promise<typeof import('zxing-wasm/reader')> | undefined
@@ -27,13 +27,18 @@ let reader: Promise<typeof import('zxing-wasm/reader')> | undefined
 /** Load (once) and warm the decoder – call it when the camera starts, so the first frame is not
  *  the one that waits for 900 KB of WebAssembly to compile. */
 export function loadTagDecoder() {
-  reader ??= import('zxing-wasm/reader').then(async (m) => {
-    await m.prepareZXingModule({
-      overrides: { locateFile: (path: string, prefix: string) => (path.endsWith('.wasm') ? wasmUrl : prefix + path) },
-      fireImmediately: true,
+  if (!reader) {
+    const loading = import('zxing-wasm/reader').then(async (m) => {
+      await m.prepareZXingModule({
+        overrides: { locateFile: (path: string, prefix: string) => (path.endsWith('.wasm') ? wasmUrl : prefix + path) },
+        fireImmediately: true,
+      })
+      return m
     })
-    return m
-  })
+    // a failed load is not remembered: the next «Scan» tries again (the network may be back)
+    loading.catch(() => { if (reader === loading) reader = undefined })
+    reader = loading
+  }
   return reader
 }
 

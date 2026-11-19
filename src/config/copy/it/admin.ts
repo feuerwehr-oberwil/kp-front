@@ -1026,7 +1026,7 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
       csvTemplate: 'Scarica CSV di esempio',
       tagsPrint: 'Stampa badge',
       tagsTitle: 'Stampa badge APR',
-      tagsCaption: 'Un badge per persona attiva: codice QR, grado e nome. «Scan» nel modulo della squadra lo legge. Il codice contiene solo l\'ID – un badge perso non rivela alcun nome e resta valido.',
+      tagsCaption: 'Un badge per persona attiva: codice QR, grado e nome. «Scan» nel modulo della squadra lo legge. Il codice QR contiene solo l\'ID; il nome è stampato accanto. Un badge resta valido se cambiano nome o grado.',
       tagsFormat: 'Formato',
       tagsFormatSingle: 'Singolo, 150 × 35 mm – una pagina per badge (tipografia, incisione, stampante di etichette)',
       tagsFormatA4: 'Foglio A4 – 7 badge per pagina, con linee di taglio',

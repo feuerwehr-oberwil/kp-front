@@ -1281,7 +1281,7 @@ export const adminCopy = {
       // including brother etc»).
       tagsPrint: 'Tags drucken',
       tagsTitle: 'Atemschutz-Tags drucken',
-      tagsCaption: 'Ein Tag pro aktive Person: QR-Code, Grad und Name. «Scan» im Formular «Trupp anmelden» liest ihn. Der Code enthält nur die Personen-ID – ein verlorener Tag verrät keinen Namen und bleibt gültig.',
+      tagsCaption: 'Ein Tag pro aktive Person: QR-Code, Grad und Name. «Scan» im Formular «Trupp anmelden» liest ihn. Der QR-Code enthält nur die Personen-ID; der Name steht daneben im Klartext. Ein Tag bleibt gültig, auch wenn sich Name oder Grad ändern.',
       tagsFormat: 'Format',
       tagsFormatSingle: 'Einzeln, 150 × 35 mm – eine Seite pro Tag (Druckerei, Gravur, Etikettendrucker)',
       tagsFormatA4: 'A4-Bogen – 7 Tags pro Seite, mit Schnittlinien',

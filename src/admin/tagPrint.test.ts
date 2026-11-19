@@ -1,5 +1,7 @@
+import { readFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { describe, expect, it } from 'vitest'
-import { tagBoxes } from './tagPrint'
+import { buildTagsPdf, tagBoxes } from './tagPrint'
 
 describe('tagBoxes', () => {
   it('puts one tag on each page for the single and tape formats', () => {
@@ -15,5 +17,17 @@ describe('tagBoxes', () => {
     expect(last.y + 35).toBeLessThanOrEqual(297 - 12)
     expect(boxes[7].y).toBe(boxes[0].y)
     expect(boxes[0].x).toBe(30) // 150 mm centred on 210 mm
+  })
+})
+
+describe('buildTagsPdf', () => {
+  it('prints a name outside WinAnsi as written, not as Helvetica would mangle it', async () => {
+    const font = readFileSync(createRequire(import.meta.url).resolve('pdfjs-dist/standard_fonts/LiberationSans-Bold.ttf'))
+    const name = 'Šimůnek Łukasz'
+    const doc = buildTagsPdf([{ id: 'p1', name, rank: null }], 'single', font.buffer.slice(font.byteOffset, font.byteOffset + font.byteLength))
+    const { getDocument } = await import('pdfjs-dist/legacy/build/pdf.mjs')
+    const pdf = await getDocument({ data: new Uint8Array(doc.output('arraybuffer')) }).promise
+    const text = (await (await pdf.getPage(1)).getTextContent()).items.map((i) => ('str' in i ? i.str : '')).join('')
+    expect(text).toContain(name)
   })
 })

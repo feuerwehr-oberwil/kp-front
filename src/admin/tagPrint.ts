@@ -8,9 +8,13 @@
 // page at its real size, an office printer an A4 sheet with cut lines, a Brother P-touch a page
 // as wide as its tape. ⚠️ Every format draws the QR as VECTOR squares, never a bitmap: an engraver
 // or a 180-dpi tape printer resamples a bitmap into mush, a vector stays square.
+// ⚠️ …and the names are set in an EMBEDDED Unicode font (Liberation Sans Bold, shipped with
+// pdfjs-dist), never jsPDF's built-in Helvetica: that one is WinAnsi only and turned «Šimůnek
+// Łukasz» into «Šimonek Aukasz» (Sol review 19.11.2026) – a wrong name on an Atemschutz tag.
 
 import { jsPDF } from 'jspdf'
 import { create } from 'qrcode'
+import tagFontUrl from 'pdfjs-dist/standard_fonts/LiberationSans-Bold.ttf?url'
 import { rankAbbr } from '../lib/rank'
 import { tagPayload } from '../lib/tagCode'
 
@@ -59,6 +63,16 @@ export function tagBoxes(format: TagFormat, count: number): { page: number; x: M
 }
 
 const PT_PER_MM = 72 / 25.4
+const TAG_FONT = 'TagSans'
+
+/** The TTF as jsPDF's virtual file system wants it: base64, built in chunks (a 137 KB font as one
+ *  `String.fromCharCode(...bytes)` spread overflows the call stack). */
+function base64(bytes: ArrayBuffer): string {
+  const u8 = new Uint8Array(bytes)
+  let bin = ''
+  for (let i = 0; i < u8.length; i += 0x8000) bin += String.fromCharCode(...u8.subarray(i, i + 0x8000))
+  return btoa(bin)
+}
 
 /** One tag into the box at (x, y): QR square on the left, rank over name on the right, both
  *  sized from the printable height so the 24 mm tape and the 35 mm tag read the same. */
@@ -83,24 +97,26 @@ function drawTag(doc: jsPDF, p: TagPerson, f: Format, x: Mm, y: Mm) {
   const textW = x + w - pad - textX
   const rank = rankAbbr(p.rank ?? undefined)
   let nameSize = band * 0.3 * PT_PER_MM
-  doc.setFont('helvetica', 'bold').setFontSize(nameSize)
+  doc.setFont(TAG_FONT, 'bold').setFontSize(nameSize)
   // a long name shrinks to fit rather than run off the tag; it never wraps (one line reads at arm's length)
   while (doc.getTextWidth(p.name) > textW && nameSize > 6) doc.setFontSize(--nameSize)
   const nameY = top + band / 2 + (rank ? band * 0.14 : band * 0.06)
   doc.setTextColor(0, 0, 0).text(p.name, textX, nameY)
   if (rank) {
-    doc.setFont('helvetica', 'bold').setFontSize(band * 0.16 * PT_PER_MM).setTextColor(90, 90, 90)
+    doc.setFont(TAG_FONT, 'bold').setFontSize(band * 0.16 * PT_PER_MM).setTextColor(90, 90, 90)
     doc.text(rank, textX, nameY - band * 0.3)
   }
 }
 
-/** Build the PDF for `people` (sorted by name) in `format` and download it. */
-export function downloadTags(people: TagPerson[], format: TagFormat): void {
+/** The PDF for `people` (sorted by name) in `format`, its names set in `font` (a TTF). */
+export function buildTagsPdf(people: TagPerson[], format: TagFormat, font: ArrayBuffer): jsPDF {
   const f: Format = TAG_FORMATS[format]
   const sorted = [...people].sort((a, b) => a.name.localeCompare(b.name, 'de'))
   const [pw, ph] = f.page
   const orientation = pw > ph ? 'landscape' : 'portrait'
   const doc = new jsPDF({ unit: 'mm', format: [pw, ph], orientation })
+  doc.addFileToVFS('tag-font.ttf', base64(font))
+  doc.addFont('tag-font.ttf', TAG_FONT, 'bold')
   let page = 0
   tagBoxes(format, sorted.length).forEach((box, i) => {
     if (box.page > page) { doc.addPage([pw, ph], orientation); page = box.page }
@@ -111,5 +127,12 @@ export function downloadTags(people: TagPerson[], format: TagFormat): void {
     }
     drawTag(doc, sorted[i], f, box.x, box.y)
   })
-  doc.save(`atemschutz-tags-${format}.pdf`)
+  return doc
+}
+
+/** Build the tags PDF and download it (admin › Personal › «Tags drucken»). */
+export async function downloadTags(people: TagPerson[], format: TagFormat): Promise<void> {
+  const res = await fetch(tagFontUrl)
+  if (!res.ok) throw new Error(`tag font: HTTP ${res.status}`)
+  buildTagsPdf(people, format, await res.arrayBuffer()).save(`atemschutz-tags-${format}.pdf`)
 }

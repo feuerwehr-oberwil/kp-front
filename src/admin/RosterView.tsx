@@ -666,7 +666,7 @@ function TagPrintSheet({ people, onClose }: { people: RosterPerson[]; onClose: (
     setErr(null)
     try {
       const { downloadTags } = await import('./tagPrint')
-      downloadTags(active.map((p) => ({ id: p.id, name: p.display_name, rank: p.rank })), format)
+      await downloadTags(active.map((p) => ({ id: p.id, name: p.display_name, rank: p.rank })), format)
       onClose()
     } catch {
       setErr(C.tagsFailed)

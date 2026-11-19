@@ -3,9 +3,10 @@
 // the whole Trupp's tags in one camera frame (components/TagScan). This module is the code's
 // FORMAT and what one decoded code MEANS for the form – no camera, no React.
 //
-// ⚠️ The code carries the roster Person id and nothing else: no name, no rank. A lost tag tells a
-// finder nothing, a rename never needs a reprint, and there is no second id table to keep in sync
-// – the roster id already survives a Divera sync (backend · personnel reconcile by external id).
+// ⚠️ The code carries the roster Person id and nothing else: no name, no rank (those are printed
+// beside it for people – admin · tagPrint). A rename or a new rank never needs a new code, and
+// there is no second id table to keep in sync – the roster id already survives a Divera sync
+// (backend · personnel reconcile by external id).
 // The version in the prefix is what lets the format change later without misreading old tags.
 
 import type { Person } from '../types'

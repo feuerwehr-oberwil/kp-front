@@ -14,6 +14,7 @@ import { Button } from './Button'
 import { SearchField } from './SearchField'
 import { TagScan } from './TagScan'
 import { useHasCamera } from '../lib/tagDecoder'
+import { personIdForName, rosterIdByName } from '../lib/personnel'
 import s from './Atemschutz.module.css'
 // the Dienstgrad chip and the name cell of a roster row live with the picker they were shared
 // with (ComboMenu.module.css) — this list draws the same row, so it draws the same two marks
@@ -233,6 +234,13 @@ export function TruppTeam({
    * and a synced roster – a tag carries a roster id, and the legacy name list has none. */
   const camera = useHasCamera()
   const [scanning, setScanning] = useState(false)
+  // who is already in, as the camera has to know it: a slot typed by NAME has no id yet but is
+  // still that roster person (lib/personnel), and their tag must not add them a second time
+  const byName = useMemo(() => rosterIdByName(personnel), [personnel])
+  const inCrew = new Set(value.flatMap((v) => {
+    const id = v.personId ?? personIdForName(byName, v.name)
+    return id ? [id] : []
+  }))
   const takeScanned = (people: Person[]) => {
     setScanning(false)
     onChange([...value, ...people.map((p) => ({ name: p.displayName, personId: p.id }))], 'add')
@@ -351,7 +359,7 @@ export function TruppTeam({
       />
       {scanning && (
         <TagScan
-          personnel={personnel} assignedIds={assignedIds} chosenIds={chosenIds}
+          personnel={personnel} assignedIds={assignedIds} chosenIds={inCrew}
           onTake={takeScanned} onClose={() => setScanning(false)}
         />
       )}

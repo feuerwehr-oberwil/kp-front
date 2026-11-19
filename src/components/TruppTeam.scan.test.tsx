@@ -8,8 +8,8 @@ import { TruppTeam } from './TruppTeam'
 // The camera and the decoder are the device's; what TruppTeam owns is what a scan DOES to the crew.
 vi.mock('../lib/tagDecoder', () => ({ useHasCamera: () => true }))
 vi.mock('./TagScan', () => ({
-  TagScan: ({ personnel, onTake }: { personnel: Person[]; onTake: (p: Person[]) => void }) => (
-    <button type="button" onClick={() => onTake(personnel.slice(1))}>take-stub</button>
+  TagScan: ({ personnel, chosenIds, onTake }: { personnel: Person[]; chosenIds: ReadonlySet<string>; onTake: (p: Person[]) => void }) => (
+    <button type="button" data-chosen={[...chosenIds].join(',')} onClick={() => onTake(personnel.slice(1))}>take-stub</button>
   ),
 }))
 
@@ -36,6 +36,17 @@ describe('TruppTeam · Scan', () => {
       { name: 'Brunner Thomas', personId: 'p3' },
     ], 'add')
     expect(screen.queryByText('take-stub')).toBeNull()
+  })
+
+  it('tells the camera about a crew member typed by name, so their tag cannot add them twice', () => {
+    render(
+      <TruppTeam
+        value={[{ name: 'Sarah Huber' }]} onChange={vi.fn()}
+        personnel={personnel} legacyRoster={[]} presentIds={new Set()} assignedIds={new Set()} phone
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.atemschutz.scanTitle }))
+    expect(screen.getByText('take-stub').dataset.chosen).toBe('p2')
   })
 
   it('offers no Scan without a synced roster – a tag names a roster id', () => {
