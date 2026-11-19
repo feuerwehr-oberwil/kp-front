@@ -1276,6 +1276,20 @@ export const adminCopy = {
       namePlaceholder: 'z. B. Meier Hans',
       csvImport: 'CSV importieren',
       csvTemplate: 'Beispiel-CSV herunterladen',
+      // «Tags drucken» (19.11.2026): die Atemschutz-Tags für «Scan» im Trupp-Formular. Mehrere
+      // Formate, weil offen ist, wer die Plastik-Tags bedruckt (Owner: «multiple output formats
+      // including brother etc»).
+      tagsPrint: 'Tags drucken',
+      tagsTitle: 'Atemschutz-Tags drucken',
+      tagsCaption: 'Ein Tag pro aktive Person: QR-Code, Grad und Name. «Scan» im Formular «Trupp anmelden» liest ihn. Der Code enthält nur die Personen-ID – ein verlorener Tag verrät keinen Namen und bleibt gültig.',
+      tagsFormat: 'Format',
+      tagsFormatSingle: 'Einzeln, 150 × 35 mm – eine Seite pro Tag (Druckerei, Gravur, Etikettendrucker)',
+      tagsFormatA4: 'A4-Bogen – 7 Tags pro Seite, mit Schnittlinien',
+      tagsFormatTape36: 'Brother-Band 36 mm – eine Seite pro Tag, 150 mm lang',
+      tagsFormatTape24: 'Brother-Band 24 mm – eine Seite pro Tag, 110 mm lang',
+      tagsCreate: 'PDF erstellen · {n} Tags',
+      tagsNone: 'Keine aktiven Personen.',
+      tagsFailed: 'PDF konnte nicht erstellt werden.',
       importing: 'Wird importiert …',
       imported: '{n} importiert',
       skipped: '{n} übersprungen',

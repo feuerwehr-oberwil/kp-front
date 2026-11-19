@@ -1,0 +1,65 @@
+/* «Tags scannen» (components/TagScan) – FULL SCREEN on every width, MapPicker's frame (14-intake ·
+   .mp-sheet): the head with its ‹, the picture, the people read, one «Übernehmen». Opaque – it
+   opens OVER the Trupp form, whose words must not show through. The safe areas are paid by the
+   head (top, sides) and the foot (bottom). */
+.frame:global(.ui-dialog) {
+  position: fixed; inset: 0; z-index: var(--z-blocking); display: flex; flex-direction: column;
+  background: var(--surface); animation: sheetUp .2s var(--ease);
+}
+@media (prefers-reduced-motion: reduce) { .frame:global(.ui-dialog) { animation: none; } }
+
+.head {
+  display: flex; align-items: center; gap: var(--sp-3); flex: none;
+  padding: calc(var(--sp-2) + env(safe-area-inset-top)) max(var(--sp-4), env(safe-area-inset-right)) var(--sp-2) max(var(--sp-3), env(safe-area-inset-left));
+  border-bottom: 1px solid var(--glass-edge); font: var(--sheet-title); color: var(--ink);
+}
+.title { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.torch { flex: none; }
+/* lit = the light is ON: THE «selected» of the app, so it reads like every other pressed answer */
+.torchOn, .torchOn:hover { background: var(--sel); color: var(--on-sel); box-shadow: var(--sel-shadow); }
+
+/* the picture: black whatever the theme – it is a camera, and a grey page around it reads as a
+   picture that failed to load. `contain`, never `cover`: what you see is exactly what is decoded. */
+.view { position: relative; flex: 1; min-height: 0; background: #000; }
+.video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.hint, .state {
+  position: absolute; left: 50%; transform: translateX(-50%); z-index: 1; box-sizing: border-box;
+  width: max-content; max-width: calc(100% - 32px); margin: 0; text-align: center;
+  padding: var(--sp-2) var(--float-pad-x); border-radius: var(--r-sm);
+  background: var(--float-bg); backdrop-filter: var(--float-blur); box-shadow: var(--float-edge);
+  font: var(--fw-medium) var(--fs-2)/1.35 var(--body); color: var(--ink);
+}
+/* the aiming hint is the quieter of the two: one line on a phone, it sits over the picture */
+.hint { bottom: var(--sp-3); pointer-events: none; font-size: var(--fs-1); }
+.state { top: 50%; translate: 0 -50%; }
+
+/* who was read: a wrapping row, the same shape and size as the form's crew chips will be after the
+   take – but read-only (see the component: these are not choices) */
+.hits {
+  flex: none; display: flex; flex-wrap: wrap; gap: var(--sp-2); margin: 0; list-style: none;
+  padding: var(--sp-3) max(var(--sp-4), env(safe-area-inset-right)) var(--sp-2) max(var(--sp-4), env(safe-area-inset-left));
+  max-height: 30dvh; overflow-y: auto; overscroll-behavior: contain;
+}
+.hits:empty { display: none; }
+.hit {
+  display: inline-flex; align-items: center; gap: var(--sp-1); min-height: var(--tap); box-sizing: border-box;
+  padding: 0 var(--sp-3); border-radius: var(--r-sm); background: var(--ink-8); color: var(--ink);
+  font: var(--fw-bold) var(--fs-2)/1.2 var(--body); animation: hitIn .16s var(--ease);
+}
+.rank { color: var(--ink-dim); font-weight: var(--fw-medium); }
+/* not taken: in another Trupp, or an unknown tag – said, and visibly not part of the take */
+.hitOff { background: transparent; box-shadow: inset 0 0 0 1px var(--red); color: var(--ink-dim); }
+@keyframes hitIn { from { opacity: 0; transform: scale(.9); } }
+@media (prefers-reduced-motion: reduce) { .hit { animation: none; } }
+
+.foot { display: flex; flex-direction: column; align-items: center; gap: var(--sp-2); flex: none; }
+.auto { margin: 0; font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-dim); }
+.take { position: relative; overflow: hidden; max-width: 520px; }
+/* the auto-take's second, drawn as the button filling from the left (owner pick 2A) */
+.fill {
+  position: absolute; inset: 0; transform-origin: left; background: rgba(0, 0, 0, .16);
+  animation-name: takeFill; animation-timing-function: linear; animation-fill-mode: forwards;
+}
+.takeLabel { position: relative; }
+@keyframes takeFill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@media (prefers-reduced-motion: reduce) { .fill { animation: none; } }

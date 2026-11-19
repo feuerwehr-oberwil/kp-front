@@ -150,6 +150,28 @@ export const atemschutzCopy = {
      * Liste erscheint erst beim Tippen. Auf Tablet/Desktop bleibt alles, wie es war. Eine leere
      * Chip-Zeile zeigt nichts (09.09.) – die Suche direkt darunter ist bereits die Antwort. */
     teamSearchMore: 'Weitere Person suchen …',
+    /* ── «Scan» (19.11.2026, owner: Atemschutz-Tags statt Namen tippen) ─────────────────────
+     * Der Knopf am Ende von «Person suchen» öffnet die Kamera (components/TagScan); jeder Tag
+     * im Bild kommt als Person in den Trupp. Kurz, weil er im Suchfeld steht – der volle Name
+     * steht im Titel der Kamera und im Tooltip. */
+    scanButton: 'Scan',
+    scanTitle: 'Tags scannen',
+    scanBack: 'Zurück zum Formular',
+    scanHint: 'Tags nebeneinander, ~25 cm darüber halten',
+    scanStarting: 'Kamera startet …',
+    // iOS fragt pro App einmal; wer «Nicht erlauben» tippte, muss es in den Einstellungen ändern.
+    // Der zweite Satz ist der Weg, der IMMER geht.
+    scanDenied: 'Kein Zugriff auf die Kamera. In den Einstellungen erlauben – oder Namen tippen.',
+    scanNoCamera: 'Kamera nicht verfügbar – Namen tippen.',
+    scanTorch: 'Licht',
+    scanTake: 'Übernehmen · {n}',
+    scanTakeNone: 'Noch kein Tag erkannt',
+    // steht über dem Knopf, solange er sich füllt: er übernimmt von selbst, eine Sekunde nach
+    // dem letzten NEUEN Tag (Owner-Wahl 2A) – wer schneller ist, tippt.
+    scanAuto: 'Übernimmt gleich von selbst',
+    scanTaken: '{name} · schon in einem Trupp',
+    scanUnknown: 'Tag unbekannt',
+    scanFound: '{n} erkannt',
     // Das EINE, was unter der Chip-Zeile noch steht (09.09., Feldtest: die alte Zeile war
     // «blabla») – dass ein Tipp auf den Namen ihn zum Gruppenführer macht. Erst ab zwei Personen
     // gezeigt (TruppTeam): bei 0 oder 1 sagt «wer führt» nichts.

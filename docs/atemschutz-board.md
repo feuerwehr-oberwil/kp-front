@@ -280,6 +280,18 @@ good but we don't need the triangle thing. red and notfall is already enough»):
   form reaches the Anwesenheit only at the save (`fileGuests`, after every question) — never
   from the picker, and Enter in «Person suchen» only takes a listed person.
 
+- *The crew can be scanned off their Atemschutz tags* (owner, 19.11.2026; picks 1A · 2A · 4B).
+  Every AdF carries a plastic tag with a QR code that holds `KPF1:` + their roster Person id –
+  no name, so a lost tag tells nothing and stays valid (`lib/tagCode`). «Scan» at the end of
+  «Person suchen» (`TruppTeam`, only with a camera and a synced roster) opens «Tags scannen»
+  (`TagScan`): full screen like the MapPicker, the decoder reads every tag in the frame at once
+  (`lib/tagDecoder`, zxing-wasm, precached – it works offline). Somebody in another active Trupp
+  is listed and NOT taken (the picker's rule), an unknown tag says so, any other code is ignored.
+  «Übernehmen · n» presses itself one second after the last NEW person (the button fills), and
+  the crew goes into the form as ONE add, so the form's rank rule crowns the leader. The tags
+  come out of admin › Personal › «Tags drucken»: every active person, one PDF in the chosen
+  format – 150 × 35 mm per page, A4 sheet with cut lines, Brother tape 36 / 24 mm
+  (`admin/tagPrint`, the QR drawn as vector squares).
 - *One person in two active Trupps is a band, not a guess* (audit F05; owner pick B, 26.10.2026):
   the form refuses a double assignment on one device, but two offline devices can each make one
   half and the merge keeps both. `DoubleAssignmentBanner` stands above the sections («Müller Hans

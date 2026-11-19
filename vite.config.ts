@@ -346,7 +346,9 @@ export default defineConfig(({ mode }) => {
           // precache. Field report 2026-08-25 («PDF konnte nicht geladen werden», all PDFs, a
           // few devices, no pattern). Adding an extension here is never cosmetic — check what
           // is emitted with it (`ls dist/assets`) before removing one.
-          globPatterns: ['**/*.{js,mjs,css,html,svg,woff2,json}'],
+          // `wasm` (19.11.2026) is the QR decoder behind «Scan» in the Trupp form (lib/tagDecoder,
+          // ~0.9 MB): a scan in a cellar without network must still read the tags.
+          globPatterns: ['**/*.{js,mjs,css,html,svg,woff2,json,wasm}'],
           // ⚠️ The build writes hidden sourcemaps (build.sourcemap below). None of them may be
           // precached: they are for the person reading a crash, never for the tablet, and together
           // they are several times the size of the code they describe. `**/*.map` is not matched

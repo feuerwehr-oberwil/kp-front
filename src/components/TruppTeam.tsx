@@ -10,7 +10,10 @@ import type { Person } from '../types'
 import type { CrewChange } from '../lib/truppLeader'
 import type { Slot } from './PersonField'
 import { ComboRank } from './ComboMenu'
+import { Button } from './Button'
 import { SearchField } from './SearchField'
+import { TagScan } from './TagScan'
+import { useHasCamera } from '../lib/tagDecoder'
 import s from './Atemschutz.module.css'
 // the Dienstgrad chip and the name cell of a roster row live with the picker they were shared
 // with (ComboMenu.module.css) — this list draws the same row, so it draws the same two marks
@@ -224,6 +227,17 @@ export function TruppTeam({
     add({ name: guestOffer })
   }
 
+  /* «Scan» (owner pick 1A, 19.11.2026): the camera reads the crew's Atemschutz tags and hands
+   * back who they are (TagScan). ONE `add` for the whole crew, so the form's rank rule
+   * (lib/truppLeader) crowns once, over everybody. Only where it can work: a device with a camera
+   * and a synced roster – a tag carries a roster id, and the legacy name list has none. */
+  const camera = useHasCamera()
+  const [scanning, setScanning] = useState(false)
+  const takeScanned = (people: Person[]) => {
+    setScanning(false)
+    onChange([...value, ...people.map((p) => ({ name: p.displayName, personId: p.id }))], 'add')
+  }
+
   /* Enter keeps the keyboard flow one step, and it never has to be aimed: with matches on screen
    * it takes the first one that can be taken (the list is already sorted the way the hand
    * expects — present first, then alphabetical; confirmed 09.09. against the field ask for rank
@@ -327,7 +341,20 @@ export function TruppTeam({
         // is a second control to a screen reader.
         placeholder={phone && value.length ? az.teamSearchMore : az.teamSearchPlaceholder}
         aria-label={az.teamSearchPlaceholder}
+        trailing={camera && personnel.length > 0 && (
+          <Button
+            className={s.teamScan} icon={<Icon id="scan" />} title={az.scanTitle} aria-label={az.scanTitle}
+            // a door, not part of the search: it must not take the field's focus (keyboard up)
+            {...keepSearch} onClick={() => setScanning(true)}
+          >{az.scanButton}</Button>
+        )}
       />
+      {scanning && (
+        <TagScan
+          personnel={personnel} assignedIds={assignedIds} chosenIds={chosenIds}
+          onTake={takeScanned} onClose={() => setScanning(false)}
+        />
+      )}
 
       {/* ⚠️ On a PHONE the Mannschaft appears only under a typed query, and the list is the
           ANSWER to it rather than a surface to browse: `.teamHits` shrink-wraps its ≤4 rows
