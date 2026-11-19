@@ -31,6 +31,14 @@ import { purgeStaleTiles } from './lib/tilePurge'
 import { liftBootCover } from './lib/snailLaunch'
 import { apiBeacon } from './lib/api'
 import { GIT_SHA } from './lib/buildInfo'
+import { installPracticeFetch } from './lib/practice/installFetch'
+import { purgeRetired, readPracticeParam } from './lib/practice/practiceMode'
+
+// SPIKE «Üben»: the practice Einsatz's requests are answered on this device (lib/practice). FIRST,
+// before any module can send one; `?ueben=1` / `?ueben=0` is the dev entry.
+readPracticeParam()
+installPracticeFetch()
+void purgeRetired()
 
 // zoom applies only to the map/plan, not the UI chrome (app feel, not a web page)
 lockChromeZoom()

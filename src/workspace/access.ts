@@ -8,6 +8,7 @@ import { LINK_REFUSED_EVENT } from '../lib/api'
 import { isAtemschutzLinkKind, useAuth, type AuthUser } from '../lib/auth'
 import { isIncidentRunning, type IncidentMeta } from '../lib/incidents'
 import type { WorkspaceMode } from './types'
+import { isPracticeIncident } from '../lib/practice/practiceMode'
 
 /** The session's identity and role, and the one piece of state it carries: a refused link. */
 export function useSessionRole(incidentMeta: IncidentMeta) {
@@ -34,7 +35,10 @@ export function useSessionRole(incidentMeta: IncidentMeta) {
    *  NOT an editor (`isEditor`/`canEditIncident` stay false, `tacticalLocked` is permanently
    *  on, and the sync pushes only the record slice, so a local doc write could never reach
    *  the server). Distinct from `elView` (workspaceFlags), which is an EDITOR's hands-off mode. */
-  const isEl = user?.role === 'el'
+  // SPIKE «Üben»: inside the practice Einsatz every role works as an editor — nothing it does
+  // leaves the device (lib/practice), so there is nothing for the role to protect
+  const practice = isPracticeIncident(incidentMeta.id)
+  const isEl = !practice && user?.role === 'el'
   /** A LINK page whose own Einsatz answered 403 (api · LINK_REFUSED_EVENT, D1): nothing it takes
    *  from here can ever be delivered, so it takes nothing — the Tafel freezes read-only and says
    *  why. Permanent for this page: a revoked link does not come back. */
@@ -46,8 +50,8 @@ export function useSessionRole(incidentMeta: IncidentMeta) {
     return () => window.removeEventListener(LINK_REFUSED_EVENT, onRefused)
   }, [asLink, incidentMeta.id])
   /** the session may write nothing at all (a viewer, a view link, a refused Atemschutz-Link) */
-  const roleReadOnly = (user?.role !== 'editor' && !asLink && !isEl) || linkRefused
-  const isEditor = user?.role === 'editor'
+  const roleReadOnly = !practice && ((user?.role !== 'editor' && !asLink && !isEl) || linkRefused)
+  const isEditor = practice || user?.role === 'editor'
   // Einsatz-Link session (/l/<token>): a viewer narrowed to ONE incident. Read-only is not
   // enough here — a plain viewer may still generate the Rapport/Zeitplan PDFs and drive the
   // station printer, and all of that is refused for a link (backend/app/auth/incident_link.py).

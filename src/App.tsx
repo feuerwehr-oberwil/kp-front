@@ -58,6 +58,10 @@ import { onStorageDegraded } from './lib/idb'
 import { loadRoster } from './lib/usePersonnel'
 import { HelpOverlay } from './components/HelpOverlay'
 import { installHoldTooltip } from './lib/holdTooltip'
+import { isPracticeIncident, practiceId, practiceModeOn, practiceSeedMeta } from './lib/practice/practiceMode'
+import { ensurePracticeIncident } from './lib/practice/localServer'
+import { setPracticeUser } from './lib/practice/installFetch'
+import { PracticeBar } from './lib/practice/PracticeBar'
 
 // Objektbesuche (/besuche…, docs/object-visits.md): its own lazy chunk — precached with the field
 // app, so the surface opens offline — mounted in place of home while its route is on.
@@ -81,6 +85,8 @@ export default function App() {
 
 function IncidentApp() {
   const { user, logout, sessionExpired } = useAuth()
+  // SPIKE «Üben»: the fake stamps the account on audit events, as the server does
+  useEffect(() => setPracticeUser(user?.id ?? null), [user?.id])
   const isEditor = user?.role === 'editor'
   /** may close and reopen Einsätze – an editor, but not in the Führungsansicht, the editor's
    *  locked view (workspace/access · elView; RBAC audit 22.10.2026: it got «Wieder öffnen»), and
@@ -387,7 +393,8 @@ function IncidentApp() {
       // unchanged: the merge still reasons about the whole blob, because the server's copy has
       // one. Read as of THIS call: selectIncident is a stable ([] deps) callback, and the
       // link_kind cannot change without a fresh session anyway.
-      ...(asLinkRef.current ? { slice: 'trupps' as const } : isElRef.current ? { slice: 'record' as const } : {}),
+      // SPIKE «Üben»: the practice Einsatz takes the whole blob from every role (lib/practice)
+      ...(isPracticeIncident(id) ? {} : asLinkRef.current ? { slice: 'trupps' as const } : isElRef.current ? { slice: 'record' as const } : {}),
       // Concurrent edits are auto-merged three-way (see mergeWorkspace) — silently: no dialog
       // and no toast (toast diet 17.11.2026: «Änderungen zusammengeführt» asked nothing of the
       // operator). The merged result is applied in place via onApplyMerged (registered by the
@@ -490,6 +497,15 @@ function IncidentApp() {
         if (!alive) return
         setIncidents(inc ? [inc as IncidentMeta] : [])
         if (inc) await bootOpen(inc as IncidentMeta)
+        return
+      }
+      // SPIKE «Üben»: practice mode boots INTO this device's practice Einsatz (lib/practice),
+      // seeded on first use — the list still loads for the switcher, but nothing is picked from it
+      if (practiceModeOn()) {
+        const meta = await ensurePracticeIncident(practiceSeedMeta(practiceId()))
+        if (!alive) return
+        void listIncidentsShared().then(({ list }) => { if (alive) setIncidents(list) }).catch(() => {})
+        await bootOpen(meta)
         return
       }
       let { list, offline } = await listIncidentsShared().catch((e: unknown) => {
@@ -835,6 +851,8 @@ function IncidentApp() {
           and the alarm's rows stand in the strip over that surface (IncidentWorkspace · covered;
           lead decision 16.10.2026). One element in one place, so covering and uncovering never
           remount it. */}
+      {/* SPIKE «Üben»: the practice Einsatz's own strip — «Neu beginnen» / «Beenden» (lib/practice) */}
+      {screen === 'einsatz' && isPracticeIncident(activeId) && <PracticeBar />}
       {(screen === 'einsatz' || (einsatzBehind && !linkScoped)) && activeId && activeMeta && syncRef.current ? (
         <ErrorBoundary
           /* Keyed on activeId ONLY (not `remount`): a background remount — the live-follow
