@@ -50,7 +50,7 @@ export function TruppTeam({
   /** whether somebody in another active Trupp can be moved out of it (lib/atemschutz), and the
    *  move itself – the form's own «In diesen Trupp verschieben», handed to the tag scan's question */
   transferState?: (personId: string) => TruppTransferState
-  onTransfer?: (personId: string, toName: string) => void
+  onTransfer?: (personIds: readonly string[], toName: string) => void
   /** this form is here to NAME a Trupp and has nobody in it yet («Trupp anmelden»): the search
    *  wears the ring until the first person stands in the list – who is going in matters more than
    *  what they will do there, and the field looked exactly as optional as the rest (20.09.2026) */
@@ -250,8 +250,8 @@ export function TruppTeam({
   const takeScanned = (people: Person[], move: string[]) => {
     setScanning(false)
     // out of the old Trupp FIRST – the same move as the form's conflict row, one Verlauf row and
-    // one undo step each – so the crew lands without a conflict to answer
-    for (const id of move) onTransfer?.(id, value[0]?.name.trim() ?? '')
+    // one undo step per Trupp they come out of – so the crew lands without a conflict to answer
+    if (move.length) onTransfer?.(move, value[0]?.name.trim() ?? '')
     onChange([...value, ...people.map((p) => ({ name: p.displayName, personId: p.id }))], 'add')
   }
 

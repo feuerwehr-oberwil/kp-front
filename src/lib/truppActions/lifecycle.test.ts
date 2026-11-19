@@ -100,7 +100,7 @@ describe('truppLifecycleActions — stamps in server time', () => {
   it('a person moved to another Trupp leaves a crew row at server time', () => {
     const b = board([trupp()])
     tick(5)
-    expect(b.act().transferOutOfTrupp('T1', 'p2', 'Huber Leo')).toBe(true)
+    expect(b.act().transferOutOfTrupp('T1', ['p2'], 'Huber Leo')).toBe(true)
     expect(last(b.t())).toMatchObject({ kind: 'crew', t: serverAt(5) })
   })
 

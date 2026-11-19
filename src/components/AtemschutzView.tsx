@@ -150,7 +150,7 @@ export function AtemschutzView({
    *  Trupp» warning's own fix (useTruppActions · transferOutOfTrupp). `toName` is the
    *  Gruppenführer of the Trupp being formed here, so the row it writes can say where they went.
    *  Absent ⇒ the warning keeps the plain sentence it has always had. */
-  transferOutOfTrupp?: (fromId: string, personId: string, toName?: string) => boolean
+  transferOutOfTrupp?: (fromId: string, personIds: readonly string[], toName?: string) => boolean
   /** «Bleibt in Trupp …» on the double-assignment band (DoubleAssignmentBanner, audit F05):
    *  takes the person out of every other active Trupp (useTruppActions · keepInOneTrupp).
    *  Absent ⇒ the band names the conflict without offering the choice. */
@@ -323,6 +323,26 @@ export function AtemschutzView({
     }
     return by
   }, [allTrupps, form?.trupp?.id])
+  /** the Trupp a person would be moved OUT of – never `skip`, the Trupp the sheet is editing: a
+   *  person recorded in both must not be taken out of the one receiving them (Sol review 19.11.) */
+  const sourceOf = (personId: string, skip?: string) => {
+    const from = truppOfPerson.get(personId)
+    return from && from.id !== skip ? from : undefined
+  }
+  const transferStateFor = (personId: string, skip?: string) => {
+    const from = sourceOf(personId, skip)
+    return truppTransferState(from, personId, from && crewSlotsOf(from))
+  }
+  /** «In diesen Trupp verschieben» for one person, or the tag scan's batch: grouped by the Trupp
+   *  they come out of, so two of one crew are ONE move (useTruppActions · transferOutOfTrupp) */
+  const movePeople = (personIds: readonly string[], toName: string, skip?: string) => {
+    const bySource = new Map<string, string[]>()
+    for (const id of personIds) {
+      const from = sourceOf(id, skip)
+      if (from) bySource.set(from.id, [...(bySource.get(from.id) ?? []), id])
+    }
+    for (const [fromId, ids] of bySource) transferOutOfTrupp?.(fromId, ids, toName)
+  }
   /**
    * «zeig mir den» from THIS surface — the header's überfällig badge. The `focus` prop covers
    * the jump in from somewhere else (a locked Anwesenheit row); this is the same mark set from
@@ -1918,11 +1938,8 @@ export function AtemschutzView({
           /* …and the way OUT of that conflict, in one tap (11.09.). Both halves read the same
              `truppOfPerson` index, so the state the warning shows and the Trupp the move writes
              to can never be two different cards. */
-          transferState={(personId) => { const from = truppOfPerson.get(personId); return truppTransferState(from, personId, from && crewSlotsOf(from)) }}
-          onTransfer={transferOutOfTrupp && ((personId, toName) => {
-            const from = truppOfPerson.get(personId)
-            if (from) transferOutOfTrupp(from.id, personId, toName)
-          })}
+          transferState={(personId) => transferStateFor(personId)}
+          onTransfer={transferOutOfTrupp && ((personIds, toName) => movePeople(personIds, toName))}
           leitungOptions={leitungOptions(form.trupp?.id)}
           lite={!!lite}
           // ⚠️ EVERY phone, not only the handed-over one (03.09.). `compact` is `useIsPhone`, so a
@@ -1987,11 +2004,8 @@ export function AtemschutzView({
              nobody, for the reason given there */
           : <TruppSheet t={t} personnel={personnel} legacyRoster={roster} presentIds={presentIds} stationIds={stationIds} rolesById={rolesById}
               assignedIds={t.status === 'raus' ? NO_ASSIGNED : assignedPersonIds(allTrupps.filter((x) => x.id !== t.id))}
-              transferState={(personId) => { const from = truppOfPerson.get(personId); return truppTransferState(from, personId, from && crewSlotsOf(from)) }}
-              onTransfer={transferOutOfTrupp && ((personId, toName) => {
-                const from = truppOfPerson.get(personId)
-                if (from) transferOutOfTrupp(from.id, personId, toName)
-              })}
+              transferState={(personId) => transferStateFor(personId, t.id)}
+              onTransfer={transferOutOfTrupp && ((personIds, toName) => movePeople(personIds, toName, t.id))}
               onAddGuest={onAddGuest} onSave={save} onClose={close} />
       })()}
 

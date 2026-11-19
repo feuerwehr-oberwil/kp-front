@@ -467,6 +467,10 @@ export function truppLifecycleActions(deps: LifecycleDeps) {
   /**
    * Take one person OUT of the Trupp they are still recorded in, because they are being written
    * into another one — the tap behind «bereits in einem anderen Trupp» (components/TruppForm).
+   * Or SEVERAL of one crew at once: the tag scan's «Verschieben und übernehmen» (components/TagScan)
+   * can bring two of the same Trupp, and two single calls in one tick would each start from the
+   * original crew, the second putting the first back (Sol review 19.11.2026). One patch, one row
+   * naming everyone who went, one undo step.
    *
    * The warning used to be a dead end: it named the obstacle, and clearing it meant throwing this
    * form away, finding the other card, editing it and starting over. This is that round trip, as
@@ -487,14 +491,18 @@ export function truppLifecycleActions(deps: LifecycleDeps) {
    * reading — the safety clocks of the other Trupp keep running exactly as they were, which is
    * the invariant that lets this be a one-tap action at all.
    */
-  const transferOutOfTrupp = (fromId: string, personId: string, toName?: string): boolean => {
-    const tr = trupps.find((t) => t.id === fromId)
-    if (!tr || truppTransferState(tr, personId, slotsOf?.(tr)) !== 'ready') return false
+  const transferOutOfTrupp = (fromId: string, personIds: readonly string[], toName?: string): boolean => {
+    // the record as it stands NOW, not as this closure last saw it: the tag scan's question can be
+    // open while another device deploys that Trupp, and a deployed crew is never touched
+    const tr = (liveTrupps?.() ?? trupps).find((t) => t.id === fromId)
+    // every person must be movable from the crew the ones before them leave – two of one crew in a
+    // single scan must not empty it, and the second removal must build on the first
+    if (!tr || !personIds.length || !crewWithoutAll(tr, personIds, (cur, id) => truppTransferState(cur, id, slotsOf?.(cur)) === 'ready')) return false
     const az = appConfig.copy.atemschutz
     const to = (toName ?? '').trim()
     // …and «in Trupp Frei Nina gewechselt» on the row about Frei Nina is not an answer: that is
     // the case where the transferred person IS the new Trupp's Gruppenführer (copy · logMovedOutPlain)
-    takeOut(tr, personId, (who) => fillTemplate(to && to !== who ? az.logMovedOut : az.logMovedOutPlain,
+    takeOut(tr, personIds, (who) => fillTemplate(to && to !== who ? az.logMovedOut : az.logMovedOutPlain,
       { name: truppLogName(tr, 'leader'), person: who, to }))
     return true
   }
@@ -518,19 +526,34 @@ export function truppLifecycleActions(deps: LifecycleDeps) {
     if (!keep || !others.length || others.some((t) => !truppCrewWithout(t, personId, slotsOf?.(t)))) return false
     const az = appConfig.copy.atemschutz
     for (const tr of others) {
-      takeOut(tr, personId, (who) => fillTemplate(az.logDoubleResolved,
+      takeOut(tr, [personId], (who) => fillTemplate(az.logDoubleResolved,
         { name: truppLogName(tr, 'leader'), person: who, to: truppLogName(keep, 'leader') }))
     }
     return true
   }
 
-  /** The crew edit both of the above make: `personId` out of `tr`, one Verlauf row, one undo step. */
-  const takeOut = (tr: Trupp, personId: string, lineFor: (who: string) => string) => {
+  /** `tr`'s crew with `personIds` taken out ONE AFTER THE OTHER – each from the crew the one
+   *  before left – and the names that went; null when one cannot go (`ok`, or the crew would empty). */
+  const crewWithoutAll = (tr: Trupp, personIds: readonly string[], ok: (cur: Trupp, id: string) => boolean = () => true) => {
+    let cur = tr
+    const who: string[] = []
+    for (const id of personIds) {
+      const crew = ok(cur, id) ? truppCrewWithout(cur, id, slotsOf?.(cur)) : null
+      if (!crew) return null
+      who.push(crew.who)
+      cur = { ...cur, name: crew.name, members: crew.members, leaderPersonId: crew.leaderPersonId, memberPersonIds: crew.memberPersonIds }
+    }
+    return { crew: cur, who }
+  }
+
+  /** The crew edit both of the above make: `personIds` out of `tr`, one Verlauf row, one undo step. */
+  const takeOut = (tr: Trupp, personIds: readonly string[], lineFor: (who: string) => string) => {
     const fromId = tr.id
-    const crew = truppCrewWithout(tr, personId, slotsOf?.(tr))
-    if (!crew) return
-    // `who` is the NAME that went — read off the roster-resolved slots (see truppCrewWithout)
-    const { who } = crew
+    const out = crewWithoutAll(tr, personIds)
+    if (!out) return
+    // `who` is the NAME(S) that went — read off the roster-resolved slots (see truppCrewWithout)
+    const who = out.who.join(', ')
+    const crew = out.crew
     const patch: Partial<Trupp> = {
       name: crew.name, members: crew.members,
       leaderPersonId: crew.leaderPersonId, memberPersonIds: crew.memberPersonIds,

@@ -123,7 +123,7 @@ export function TruppForm({
   transferState?: (personId: string) => TruppTransferState
   /** move that person out of the Trupp they are still in — `toName` is the Gruppenführer this
    *  form is forming, so the other Trupp's Verlauf row can say where they went */
-  onTransfer?: (personId: string, toName: string) => void
+  onTransfer?: (personIds: readonly string[], toName: string) => void
   /** who already holds a job on this Einsatz (Anwesenheits-Bemerkung), so the picker can say
    *  «schon: Einsatzleiter» beside a name — a hint, never a block */
   rolesById: Map<string, string>

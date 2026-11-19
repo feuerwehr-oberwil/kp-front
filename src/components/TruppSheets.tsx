@@ -472,7 +472,7 @@ export function TeamConflictRow({ conflict, toName, onPoint, onTransfer, classNa
   /** the Gruppenführer this crew is forming — the other Trupp's Verlauf row says where they went */
   toName: string
   onPoint?: () => void
-  onTransfer?: (personId: string, toName: string) => void
+  onTransfer?: (personIds: readonly string[], toName: string) => void
   className?: string
 }) {
   const az = appConfig.copy.atemschutz
@@ -483,7 +483,7 @@ export function TeamConflictRow({ conflict, toName, onPoint, onTransfer, classNa
         {fillTemplate(conflict.state === 'deployed' ? az.assignedConflictDeployed : az.assignedConflict, { name: conflict.name })}
       </button>
       {conflict.state === 'ready' && onTransfer && (
-        <button type="button" className="form-warn-act" onClick={() => onTransfer(conflict.personId, toName)}>
+        <button type="button" className="form-warn-act" onClick={() => onTransfer([conflict.personId], toName)}>
           {az.assignedTransfer}
         </button>
       )}
@@ -508,7 +508,7 @@ export function TruppSheet({ t, personnel, legacyRoster, presentIds, stationIds,
   assignedIds: Set<string>
   rolesById: Map<string, string>
   transferState?: (personId: string) => TruppTransferState
-  onTransfer?: (personId: string, toName: string) => void
+  onTransfer?: (personIds: readonly string[], toName: string) => void
   onAddGuest?: (name: string) => string | undefined
   onSave: (f: TruppFields) => Promise<boolean> | boolean
   onClose: () => void

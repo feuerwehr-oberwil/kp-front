@@ -41,7 +41,7 @@ describe('TruppTeam · Scan', () => {
 
   it('moves the asked-for person out of their old Trupp before the crew changes', () => {
     const calls: string[] = []
-    const onTransfer = vi.fn((id: string, to: string) => { calls.push(`move ${id} to ${to}`) })
+    const onTransfer = vi.fn((ids: readonly string[], to: string) => { calls.push(`move ${ids.join('+')} to ${to}`) })
     render(
       <TruppTeam
         value={[{ name: 'Meier Anna', personId: 'p1' }]} onChange={() => calls.push('change')}

@@ -358,7 +358,7 @@ describe('transferOutOfTrupp — the warning’s own way out', () => {
   it('takes the AdF out and writes ONE row that says where they went', () => {
     const rows: { text: string; subjectId?: string }[] = []
     const { actions, state } = harness(standby(), undefined, undefined, rows)
-    expect(actions.transferOutOfTrupp('T1', 'p2', 'Müller Hans')).toBe(true)
+    expect(actions.transferOutOfTrupp('T1', ['p2'], 'Müller Hans')).toBe(true)
     expect(state.trupps[0]).toMatchObject({
       name: 'Keller Anna', members: ['Amrein Patrick'], leaderPersonId: 'p1', memberPersonIds: ['p3'],
     })
@@ -375,7 +375,7 @@ describe('transferOutOfTrupp — the warning’s own way out', () => {
   it('promotes the next member when the Gruppenführer leaves, marker label included', () => {
     const marker: Entity = { id: 'e1', kind: 'team', layer: 'einheiten', coord: [7.5, 47.4], truppId: 'T1', label: 'Keller A.' }
     const { actions, state } = harness(standby({ entityId: 'e1' }), { entities: [marker] })
-    expect(actions.transferOutOfTrupp('T1', 'p1', 'Müller Hans')).toBe(true)
+    expect(actions.transferOutOfTrupp('T1', ['p1'], 'Müller Hans')).toBe(true)
     expect(state.trupps[0]).toMatchObject({ name: 'Frei Nina', members: ['Amrein Patrick'], leaderPersonId: 'p2' })
     expect(state.doc.entities[0].label).toBe('Frei Nina')
   })
@@ -386,14 +386,34 @@ describe('transferOutOfTrupp — the warning’s own way out', () => {
   it('refuses to move anybody out of a Trupp that is deployed — nothing written, no row', () => {
     const rows: { text: string }[] = []
     const { actions, state } = harness(standby({ status: 'aktiv', entryTime: '2026-07-06T10:00:00Z' }), undefined, undefined, rows)
-    expect(actions.transferOutOfTrupp('T1', 'p2', 'Müller Hans')).toBe(false)
+    expect(actions.transferOutOfTrupp('T1', ['p2'], 'Müller Hans')).toBe(false)
     expect(state.trupps[0].members).toEqual(['Frei Nina', 'Amrein Patrick'])
     expect(rows).toHaveLength(0)
   })
 
+  /* The tag scan can bring two of one crew (components/TagScan · «Verschieben und übernehmen»).
+   * Two single calls in one tick each started from the ORIGINAL crew, and the second put the first
+   * person back (Sol review 19.11.2026): one call, each removal on what the one before left. */
+  it('takes two of one crew out in ONE move – one row, one undo step', () => {
+    const lines: string[] = []
+    const { actions, state, timeline } = timed(standby(), (_icon, text) => lines.push(text))
+    expect(actions.transferOutOfTrupp('T1', ['p2', 'p3'], 'Müller Hans')).toBe(true)
+    expect(state.trupps[0]).toMatchObject({ name: 'Keller Anna', members: [], leaderPersonId: 'p1', memberPersonIds: [] })
+    expect(lines).toEqual([fillTemplate(appConfig.copy.atemschutz.logMovedOut,
+      { name: 'Keller Anna', person: 'Frei Nina, Amrein Patrick', to: 'Müller Hans' })])
+    timeline.undo()
+    expect(state.trupps[0]).toMatchObject({ members: ['Frei Nina', 'Amrein Patrick'], memberPersonIds: ['p2', 'p3'] })
+  })
+
+  it('refuses a batch that would empty the crew – nothing written', () => {
+    const { actions, state } = timed(standby())
+    expect(actions.transferOutOfTrupp('T1', ['p1', 'p2', 'p3'], 'Müller Hans')).toBe(false)
+    expect(state.trupps[0].members).toEqual(['Frei Nina', 'Amrein Patrick'])
+  })
+
   it('refuses to empty a Trupp — that is a deletion, and it has its own button', () => {
     const { actions, state } = harness(standby({ members: [], memberPersonIds: [] }))
-    expect(actions.transferOutOfTrupp('T1', 'p1', 'Müller Hans')).toBe(false)
+    expect(actions.transferOutOfTrupp('T1', ['p1'], 'Müller Hans')).toBe(false)
     expect(state.trupps[0].name).toBe('Keller Anna')
   })
 
@@ -404,7 +424,7 @@ describe('transferOutOfTrupp — the warning’s own way out', () => {
       lastContactTime: '2026-07-06T10:30:00Z', lowestBar: 120,
       readings: [{ t: '2026-07-06T10:00:00Z', bar: 300, kind: 'entry' }] })
     const { actions, state } = harness(t)
-    expect(actions.transferOutOfTrupp('T1', 'p2')).toBe(true)
+    expect(actions.transferOutOfTrupp('T1', ['p2'])).toBe(true)
     expect(state.trupps[0]).toMatchObject({
       status: 'raus', entryTime: t.entryTime, exitTime: t.exitTime,
       lastContactTime: t.lastContactTime, lowestBar: 120,
@@ -425,9 +445,9 @@ describe('transferOutOfTrupp — the warning’s own way out', () => {
     const plain = fillTemplate(appConfig.copy.atemschutz.logMovedOutPlain,
       { name: 'Keller Anna', person: 'Frei Nina' })
     const a = harness(standby(), undefined, undefined, rows)
-    a.actions.transferOutOfTrupp('T1', 'p2')
+    a.actions.transferOutOfTrupp('T1', ['p2'])
     const b = harness(standby(), undefined, undefined, rows)
-    b.actions.transferOutOfTrupp('T1', 'p2', 'Frei Nina')
+    b.actions.transferOutOfTrupp('T1', ['p2'], 'Frei Nina')
     expect(rows.map((r) => r.text)).toEqual([plain, plain])
   })
 })

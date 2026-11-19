@@ -798,7 +798,7 @@ describe('the Reihenfolge menu', () => {
     expect(warn.textContent).toContain(fillTemplate(az.assignedConflict, { name: 'Steiner' }))
     fireEvent.click(screen.getByRole('button', { name: az.assignedTransfer }))
     // …out of THAT Trupp, naming the one being formed here so its Verlauf row can say where to
-    expect(transferOutOfTrupp).toHaveBeenCalledWith('tr2', 'p1', 'Steiner')
+    expect(transferOutOfTrupp).toHaveBeenCalledWith('tr2', ['p1'], 'Steiner')
   })
 
   /* ONE placeholder for every Auftrag (03.09.): «z. B. 2OG links» proposed a storey to a

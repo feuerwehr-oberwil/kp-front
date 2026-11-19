@@ -70,6 +70,11 @@ export function TagScan({ personnel, assignedIds, chosenIds, transferState, onTa
   const [torch, setTorch] = useState<{ track: MediaStreamTrack; on: boolean } | null>(null)
 
   const roster = useMemo(() => rosterFromList(personnel), [personnel])
+  /** false once the sheet is gone – the question is a global card and can be answered after the
+   *  form closed (another device removed the Trupp the sheet was editing): that answer does nothing */
+  const mounted = useRef(true)
+  // set on EVERY mount: StrictMode mounts, cleans up and mounts again
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false } }, [])
 
   useEffect(() => {
     let alive = true
@@ -169,6 +174,10 @@ export function TagScan({ personnel, assignedIds, chosenIds, transferState, onTa
     const answer = free.length
       ? await confirmDialog({ ...ask, altLabel: fillTemplate(az.scanAskFreeOnly, { n: free.length }) })
       : await confirmDialog(ask)
+    if (!mounted.current) return
+    // the move itself re-reads the Trupp it takes people out of (useTruppActions ·
+    // transferOutOfTrupp): one that went in while this question was open is left as it is, and
+    // the form shows its conflict row instead
     if (answer === true) onTake(adds, movable.map((p) => p.id))
     else if (answer === 'alt') onTake(free, [])
     // false: back to the picture, every read kept – a ✕ can drop the stray one
