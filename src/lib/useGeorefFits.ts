@@ -17,7 +17,7 @@ import { georefForPlan, getStationPlanScales, loadStationPlanScales, stationPlan
 import { setGeorefLinkedHandler, useGeorefStorage } from './georefMode'
 import { planPreviewUrl, regionInkBox } from './pdfRaster'
 import { stackGroundFit } from './stackFit'
-import { floorPackOf, packBuildingDoc, PACK_TRIM_MS, trimmedPackFrame } from './floorPackBinding'
+import { floorPackOf, packBuildingDoc, PACK_TRIM_MS, sheetDrawings, trimmedPackFrame } from './floorPackBinding'
 import { buildingPackBinding } from './buildingPackBinding'
 import { tileAspectOf } from './whiteboard'
 import { fillTemplate } from './format'
@@ -187,19 +187,33 @@ export function useGeorefFits({
     return () => { alive = false; clearTimeout(fallback) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [building, floorPack, packBinding, canWriteBlob, board.gebaeude?.length])
+  // a sheet that shows the floor pack's page (Modul 6) carries its storey drawings: its fit is
+  // measured on the reference drawing, and a symbol in any other drawing reaches the ground through
+  // that drawing's join shift (lib/floorPackBinding · onReference)
+  const sheetsDrawings = useMemo(() => new Map(linkedPlans.flatMap((p) => {
+    const drawings = sheetDrawings(floorPack, p.imageUrl ?? '')
+    return drawings.length ? [[p.id, drawings] as const] : []
+  })), [linkedPlans, floorPack])
   const fitsMap = useMemo(() => {
-    const m = new Map<string, PlanFit>(linkedPlans.map((p) => [p.id, { fit: p.fit, aspect: p.widthM / p.fit.scaleMPerU }]))
+    const m = new Map<string, PlanFit>(linkedPlans.map((p) => {
+      const drawings = sheetsDrawings.get(p.id)
+      return [p.id, { fit: p.fit, aspect: p.widthM / p.fit.scaleMPerU, ...(drawings ? { drawings } : {}) }]
+    }))
     if (stackFit && building) m.set(gebaeudeDoc.id, { fit: stackFit, aspect: 1 / tileAspectOf(building), stack: { floors: building.floors } }) // aspect = width / height, like every sheet's
     return m
-  }, [linkedPlans, stackFit, building])
+  }, [linkedPlans, sheetsDrawings, stackFit, building])
   const stackSig = stackFit && building ? `${fitSignature({ id: gebaeudeDoc.id, fit: stackFit, widthM: 0 } as Parameters<typeof fitSignature>[0])}|${building.floors.join(',')}` : ''
+  // …and the drawings re-bake the same silent way the stack does: they come from the frozen
+  // binding, not from a reference somebody corrected, so they stay out of the Verlauf. An Einsatz
+  // baked before 19.11.2026 gets its storey-drawing symbols back onto the building here.
+  const drawingsSig = sheetsDrawings.size ? JSON.stringify([...sheetsDrawings]) : ''
   useEffect(() => {
     planFitsRef.current = fitsMap
     setFitsVersion((v) => v + 1)
-    if (!stackSig || readOnly || tacticalLocked) return
+    if (!(stackSig || drawingsSig) || readOnly || tacticalLocked) return
     rebake({ checkpoint: false })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stackSig, readOnly, tacticalLocked])
+  }, [stackSig, drawingsSig, readOnly, tacticalLocked])
   useEffect(() => {
     // ⚠️ ABOVE the guard, both of them. The fits and the version that carries them into the
     // memos are what every surface RENDERS through (lib/useObjectStore · board); only writing

@@ -5,6 +5,7 @@ import type { GeorefFit } from './georef'
 import { planGroundWidthM, boardSymbolToEntity, entitySharedProps } from './georefTwins'
 import { directionalGlyph, directionalGlyph2, projectOnto, turnedToGround, turnedToSheet } from './planProjection'
 import { normalizeStackEdit } from './stackFloors'
+import { drawingContaining, offReference, onReference, type SheetDrawing } from './floorPackBinding'
 
 /**
  * The unified tactical object — ONE record per object, whatever surface it stands on
@@ -152,6 +153,10 @@ export interface PlanFit {
    *  storey vocabulary, Von/Bis, on both surfaces; a span shows as copies on every tile in it). A
    *  map object lands on the tile of its `floorFrom` (its `floor`, else 0). */
   stack?: { floors: number[] }
+  /** a floor pack's own sheet (Modul 6): its storey drawings (lib/floorPackBinding ·
+   *  sheetDrawings). `fit` is measured on the reference drawing, so a point crosses to the
+   *  ground and back through the drawing it is in (floorPackBinding · onReference) */
+  drawings?: readonly SheetDrawing[]
 }
 
 /** A sheet point's x/y without its optional per-point floor. */
@@ -273,7 +278,7 @@ export function bakeGeoBody(o: TacticalObject, plan: PlanFit | undefined, layer:
     return o
   }
   const widthM = planGroundWidthM(plan.fit, plan.aspect)
-  const at = (x: number, y: number): LngLat => { const p = plan.fit.toMap({ x, y }); return [p.lng, p.lat] }
+  const at = (x: number, y: number): LngLat => { const p = plan.fit.toMap(onReference(plan.drawings, { x, y })); return [p.lng, p.lat] }
   if (anno.kind === 'symbol' && anno.x != null && anno.y != null) {
     const born = boardSymbolToEntity(anno, at(anno.x, anno.y), o.entity?.layer ?? layer, widthM)
     // ⚠️ …and back out of the paper's frame into north's — see planProjection · turnedToSheet
@@ -402,14 +407,20 @@ function annoAfterMapEdit(
    * live-GPS pass re-routes an attached Leitung on every poll, and read as a placement it would
    * have torn plan-drawn hoses off their sheet with nobody touching anything.
    */
-  const at = (c: LngLat) => plan!.fit.toPlan({ lng: c[0], lat: c[1] })
+  // …back into the drawing the anno stands in (`from`, its own point before the write) – a floor
+  // pack's sheet (PlanFit.drawings); everywhere else straight through the fit
+  const at = (fit: PlanFit, c: LngLat, from?: { x?: number; y?: number } | BoardPoint) => {
+    const [fx, fy] = Array.isArray(from) ? from : [from?.x, from?.y]
+    const into = fit.drawings && fx != null && fy != null ? drawingContaining(fit.drawings, fx, fy) : undefined
+    return offReference(fit.fit.toPlan({ lng: c[0], lat: c[1] }), into)
+  }
   const machine = movedBy === 'machine' && plan
-  const point = (c: LngLat | undefined) => (machine && c ? { x: at(c).x, y: at(c).y } : null)
+  const point = (c: LngLat | undefined) => { if (!machine || !c) return null; const p = at(machine, c, anno); return { x: p.x, y: p.y } }
   const path = (coords: LngLat[] | undefined): { pts: BoardPoint[] } | null => {
     if (!machine || !coords?.length) return null
     // a per-point storey is the paper's own answer and rides along by index; a machine write
     // moves a line ON the sheet, never between floors
-    return { pts: coords.map((c, i): BoardPoint => { const p = at(c); const f = anno.pts?.[i]?.[2]; return f == null ? [p.x, p.y] : [p.x, p.y, f] }) }
+    return { pts: coords.map((c, i): BoardPoint => { const p = at(machine, c, anno.pts?.[i]); const f = anno.pts?.[i]?.[2]; return f == null ? [p.x, p.y] : [p.x, p.y, f] }) }
   }
   /** a metre length as a fraction of the sheet's ground width — absent without a fit */
   const asN = (m: number | undefined) => (m != null && widthM ? m / widthM : undefined)
@@ -421,7 +432,7 @@ function annoAfterMapEdit(
     // breadcrumbs are part of the incident record, so they come back through the fit too.
     if (anno.kind === 'resource') {
       const trail = plan && entity.trail
-        ? entity.trail.map(({ coord, t }) => { const p = plan.fit.toPlan({ lng: coord[0], lat: coord[1] }); return { x: p.x, y: p.y, t } })
+        ? entity.trail.map(({ coord, t }) => { const p = at(plan, coord, anno); return { x: p.x, y: p.y, t } })
         : anno.trail
       return { ...anno, ...shared, text: entity.label, truppId: entity.truppId, t: entity.t, trail, ...point(entity.coord) }
     }

@@ -7,6 +7,7 @@ import { SHAPE_DEFS } from './shapes'
 import { entityToBoardSymbol, onSheet, planGroundWidthM, TWIN_CLIP_MARGIN } from './georefTwins'
 import type { PlanFit, TacticalObject } from './tacticalObjects'
 import { GEBAEUDE_PLAN_ID } from './whiteboard'
+import { offReference, storeyDrawing } from './floorPackBinding'
 
 /**
  * The Karte, said in ONE sheet's own words — the second half of the unified object
@@ -131,8 +132,15 @@ function projectOntoSheet(o: TacticalObject, plan: PlanFit, margin: number): Boa
   // motivating case, 14.09.2026: a Brand marked on +2 in the Gebäude reads «+2» on Modul 1). The
   // stack itself never shows another sheet's ink this way, and its own it draws natively.
   if (o.sheet && (o.sheet.planId !== GEBAEUDE_PLAN_ID || plan.stack)) return null
-  const { fit } = plan
-  const widthM = planGroundWidthM(fit, plan.aspect)
+  const widthM = planGroundWidthM(plan.fit, plan.aspect)
+  // ⚠️ A floor pack's own sheet (PlanFit.drawings): the fit speaks the reference drawing, so the
+  // object lands in the drawing of ITS storey (the badge, else Von; a line's end tag) at the same
+  // building point – the inverse of the bake's `onReference`, which is what keeps a symbol drawn
+  // in the 2OG drawing and dragged on the Karte in the 2OG drawing. No storey: the reference.
+  const storey = o.entity ? o.entity.floor ?? o.entity.floorFrom : o.drawing?.floorTag
+  const first = o.entity?.coord ?? o.drawing?.coords[0]
+  const into = plan.drawings?.length && first ? storeyDrawing(plan.drawings, storey, pt(plan.fit, first)) : undefined
+  const fit: GeorefFit = into ? { ...plan.fit, toPlan: (g) => offReference(plan.fit.toPlan(g), into) } : plan.fit
   const asN = (m: number | undefined, fallback?: number) => {
     const v = m ?? fallback
     return v == null ? undefined : v / widthM

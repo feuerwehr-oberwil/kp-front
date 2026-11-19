@@ -38,9 +38,20 @@ AGENTS.md on 2026-10-08, wording unchanged.
     a Von/Bis span whole by the step between the two drawings. Inside the drawing it came from and
     outside every drawing it keeps its storey, so one set by hand stays. Placing, the chip drag and
     the bar's ✥ do it; its `board.move` carries the storey for the replay. Such a symbol stays on its
-    sheet: the Gebäude stack does not show another sheet's ink, and its Karte body is placed through
-    the pack's ONE fit, which is measured on the reference drawing – a symbol in another drawing
-    lands where that drawing's paper position puts it.
+    sheet: the Gebäude stack does not show another sheet's ink.
+  - *Every drawing of that sheet lands on the building* (19.11.2026). The pack's ONE fit is measured
+    on the reference drawing, so a sheet point reaches the ground through the drawing it is in: laid
+    onto the reference by that drawing's join shift – the same `joinShifts` the stack and the station
+    editor use, so an unjoined drawing sits by its rectangle's corner exactly as its stack tile shows
+    it (`lib/floorPackBinding · onReference`, carried as `PlanFit.drawings`). Back from the Karte, an
+    object lands in the drawing of ITS storey (badge, else Von; a line's end tag), else in the
+    reference drawing (`offReference`, `storeyDrawing`); a machine move keeps an anno in its drawing.
+    A point outside every drawing is paper and goes straight through the fit. The drawings re-bake
+    silently, like the stack (`useGeorefFits`). ⚠️ A fit the operator re-links by hand on such a
+    sheet is still read as measured on the reference drawing.
+    *Not done:* a Trupp docked to a symbol on the Karte is drawn beside its host in screen px
+    (`mapView · teamDockAnchor`); the sheet has no docking and projects its stored point, through no
+    drawing (it has no storey).
   - *A storey's acts live in its LABEL* (29.09.2026). The label shows the word only («4. OG»,
     «EG», a custom name); the signed chip comes back only when a custom name hides the order. A
     tap opens a Menu «Ausblenden · Geschoss entfernen» — Ausblenden is a way of looking

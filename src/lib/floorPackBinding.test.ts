@@ -3,6 +3,8 @@ import { floorPackOf, frameAspect, joinShifts, packFloorNames, packStoreys, shee
 import type { BoardAnno } from '../types'
 import { inheritPlanBinding } from './incidentPlanBindings'
 import type { GeorefPair } from './georef'
+import { applyDocToObjects, bakeGeoBody, type PlanFit } from './tacticalObjects'
+import { projectOnto } from './planProjection'
 
 const pairs: GeorefPair[] = [
   { plan: { x: 0.1, y: 0.8 }, lngLat: { lng: 7.555, lat: 47.511 }, kind: 'gesetzt' },
@@ -169,7 +171,7 @@ describe('a plain sheet that shows a floor pack\'s page', () => {
 
   it('knows the drawings of its own page only – and none on another sheet', () => {
     expect(drawings.map((d) => d.storey).sort()).toEqual([-1, 0, 2, 3])
-    expect(sheetDrawings(pack, `${url}#page=2`)).toEqual([{ storey: 1, clip: [0, 0, 1, 1] }])
+    expect(sheetDrawings(pack, `${url}#page=2`)).toEqual([{ storey: 1, clip: [0, 0, 1, 1], shift: [0, 0] }])
     expect(sheetDrawings(pack, '/api/reference/plan%3Awyss%3Amodul2?v=1')).toEqual([])
     expect(sheetDrawings(null, url)).toEqual([])
   })
@@ -198,5 +200,50 @@ describe('a plain sheet that shows a floor pack\'s page', () => {
     const frame1 = withDrawingStorey(stair, { ...stair, x: 0.25, y: 0.75 }, drawings)
     expect(withDrawingStorey(stair, { ...frame1, x: 0.3, y: 0.8 }, drawings)).toMatchObject({ floorFrom: 2, floorTo: 3 })
     expect(withDrawingStorey(stair, { ...frame1, x: 0.75, y: 0.3 }, drawings)).toMatchObject({ floorFrom: 0, floorTo: 1 })
+  })
+})
+
+// owner, 19.11.2026 (shot 07): a «F» in the 2OG drawing of Modul 6 stood in the Allschwilerstrasse.
+// The pack's ONE fit is measured on the reference drawing (EG), so every other drawing has to reach
+// the ground through its join – the same building point, wherever the drawing sits on the paper.
+describe('a storey drawing reaches the ground through its join', () => {
+  const c = (x0: number, y0: number, x1: number, y1: number): [number, number, number, number] => [x0, y0, x1, y1]
+  // the staircase: 2OG (0.1, 0.6) = EG (0.62, 0.12); 3OG (0.1, 0.1) = 2OG (0.1, 0.6); 1UG unjoined
+  const floors = [
+    { page: 0, index: 3, name: '3OG', clip: c(0, 0, 0.5, 0.5), join: { to: 2, at: [0.1, 0.1] as [number, number], there: [0.1, 0.6] as [number, number] } },
+    { page: 0, index: 0, name: 'EG', clip: c(0.5, 0, 1, 0.5) },
+    { page: 0, index: 2, name: '2OG', clip: c(0, 0.5, 0.5, 1), join: { to: 0, at: [0.1, 0.6] as [number, number], there: [0.62, 0.12] as [number, number] } },
+    { page: 0, index: -1, name: '1UG', clip: c(0.5, 0.5, 1, 1) },
+  ]
+  const pack = floorPackOf([{ ...inheritPlanBinding(sheet, approval, null, false, floors), page: 0 }], 'wyss')!
+  const drawings = sheetDrawings(pack, '/api/reference/plan%3Awyss%3Amodul6?v=2')
+  const plan: PlanFit = { fit: pack.fit!, aspect: 1.414, drawings }
+  const ground = (x: number, y: number, more: Partial<BoardAnno> = {}) =>
+    bakeGeoBody({ id: 'f', sheet: { planId: 'modul6', anno: { id: 'f', kind: 'symbol', symbol: 'Feuer', x, y, ...more } } }, plan, 'lage').entity!.coord
+  const near = (a: [number, number], b: [number, number]) => { expect(a[0]).toBeCloseTo(b[0], 9); expect(a[1]).toBeCloseTo(b[1], 9) }
+  const stair = ground(0.62, 0.12)
+
+  it('a symbol at the staircase of the 2OG and of the 3OG lands on the EG\'s staircase', () => {
+    near(ground(0.1, 0.6, { storey: 2 }), stair)
+    near(ground(0.1, 0.1, { storey: 3 }), stair)
+    // …and one outside every drawing is paper: straight through the fit
+    const off = pack.fit!.toMap({ x: 1.01, y: 0.2 })
+    near(ground(1.01, 0.2), [off.lng, off.lat])
+  })
+  it('an unjoined drawing lies on the reference by its corner, as on the Gebäude stack', () => {
+    near(ground(0.6, 0.6), ground(0.6, 0.1))
+  })
+  it('a Karte symbol comes back into the drawing of its storey – none: the reference', () => {
+    const at = (floor?: number) => projectOnto({ id: 'k', entity: { id: 'k', kind: 'symbol', symbol: 'Feuer', layer: 'lage', coord: stair, floor } }, plan)
+    expect(at(2)).toMatchObject({ storey: 2 }); expect(at(2)!.x).toBeCloseTo(0.1); expect(at(2)!.y).toBeCloseTo(0.6)
+    expect(at(0)!.x).toBeCloseTo(0.62); expect(at(0)!.y).toBeCloseTo(0.12)
+    expect(at()!.x).toBeCloseTo(0.62)
+    expect(at(7)!.x).toBeCloseTo(0.62) // a storey the sheet has no drawing for
+  })
+  it('a machine move on the Karte keeps a 2OG symbol in the 2OG drawing', () => {
+    const o = bakeGeoBody({ id: 'f', sheet: { planId: 'modul6', anno: { id: 'f', kind: 'symbol', symbol: 'Feuer', x: 0.1, y: 0.6, storey: 2 } } }, plan, 'lage')
+    const moved = { ...o.entity!, coord: ground(0.63, 0.13) }
+    const [out] = applyDocToObjects([o], { entities: [moved], drawings: [] }, new Map([['modul6', plan]]), false)
+    expect(out.sheet!.anno.x).toBeCloseTo(0.11); expect(out.sheet!.anno.y).toBeCloseTo(0.61)
   })
 })

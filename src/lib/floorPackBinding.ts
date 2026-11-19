@@ -1,7 +1,7 @@
 import type { PlanFloor } from './api/reference'
 import { floorKey, joinKey, referenceUrl } from './api/reference'
 import { effectiveBindingGeoref, type IncidentPlanBinding } from './incidentPlanBindings'
-import { fitSimilarity, type GeorefFit } from './georef'
+import { fitSimilarity, type GeorefFit, type PlanPt } from './georef'
 import { pdfPageOf, withPdfPage } from './whiteboard'
 import { bandAspect } from './footprint'
 import type { BoardAnno, BuildingDoc } from '../types'
@@ -17,7 +17,8 @@ import type { BoardAnno, BuildingDoc } from '../types'
  * staircase on both drawings) – chained floor by floor until the reference is reached, in either
  * direction and across PDF pages; a region nothing joins falls back to its rectangle's top-left corner against the
  * reference's. It is clipped to its own rectangle, so neighbouring drawings never bleed in.
- * All of this is in normalized page coordinates; the pack's ONE map fit speaks the same.
+ * All of this is in normalized page coordinates; the pack's ONE map fit speaks the reference
+ * drawing's, and a sheet showing the drawings reaches the ground through the same shifts (`onReference`).
  *
  * A storey may be drawn in SEVERAL pieces (16.09.) – two wings of one 1. OG as two drawings –
  * and then it has several tiles, each with its own rectangle and its own shift. They land in the
@@ -197,11 +198,14 @@ export async function trimmedPackFrame(
 }
 
 /** One storey drawing on a plain sheet that shows a floor pack's page – Modul 6 with its storeys
- *  drawn side by side: the drawing's storey and its rectangle in the sheet's own normalized
- *  coordinates (a plain sheet IS its page). */
+ *  drawn side by side: the drawing's storey, its rectangle in the sheet's own normalized
+ *  coordinates (a plain sheet IS its page), and its join shift onto the reference drawing. */
 export interface SheetDrawing {
   storey: number
   clip: [number, number, number, number]
+  /** `FloorPackTile.shift`: a point p in this drawing is the building point p + shift of the
+   *  reference drawing, the one the pack's map fit is measured on */
+  shift: [number, number]
 }
 
 /** The storey drawings the sheet at `imageUrl` shows – the pack's drawings on that sheet's page.
@@ -210,12 +214,43 @@ export function sheetDrawings(pack: FloorPackView | null | undefined, imageUrl: 
   if (!pack || !imageUrl) return []
   const page = withPdfPage(imageUrl, pdfPageOf(imageUrl) ?? 0)
   return Object.entries(pack.tiles).flatMap(([storey, tiles]) =>
-    tiles.filter((t) => t.url === page).map((t) => ({ storey: Number(storey), clip: t.clip })))
+    tiles.filter((t) => t.url === page).map((t) => ({ storey: Number(storey), clip: t.clip, shift: t.shift })))
 }
+
+const inClip = ({ clip: [x0, y0, x1, y1] }: SheetDrawing, x: number, y: number) => x >= x0 && x <= x1 && y >= y0 && y <= y1
+
+/** the drawing at (x, y), or undefined outside every drawing */
+export const drawingContaining = (drawings: readonly SheetDrawing[], x: number, y: number): SheetDrawing | undefined =>
+  drawings.find((d) => inClip(d, x, y))
 
 /** the storey of the drawing at (x, y), or null outside every drawing */
 export const drawingAt = (drawings: readonly SheetDrawing[], x: number, y: number): number | null =>
-  drawings.find(({ clip: [x0, y0, x1, y1] }) => x >= x0 && x <= x1 && y >= y0 && y <= y1)?.storey ?? null
+  drawingContaining(drawings, x, y)?.storey ?? null
+
+/**
+ * The pack's ONE map fit is measured on the reference drawing, so on a sheet with storey drawings
+ * every point reaches the ground through the drawing it is in (owner, 19.11.2026: a «F» in the 2OG
+ * drawing stood in the street): `onReference` lays a sheet point onto the reference drawing by
+ * that drawing's join shift – the same building point – and `offReference` puts a reference point
+ * back into drawing `d`. A point outside every drawing is paper, not building, and stays as it is;
+ * so does every point of a sheet without drawings. Used by the bake and the projection
+ * (tacticalObjects · bakeGeoBody / annoAfterMapEdit, planProjection · projectOnto) through
+ * `PlanFit.drawings`.
+ */
+export function onReference(drawings: readonly SheetDrawing[] | undefined, p: PlanPt): PlanPt {
+  const d = drawings?.length ? drawingContaining(drawings, p.x, p.y) : undefined
+  return d ? { x: p.x + d.shift[0], y: p.y + d.shift[1] } : p
+}
+export const offReference = (q: PlanPt, d: SheetDrawing | undefined): PlanPt =>
+  d ? { x: q.x - d.shift[0], y: q.y - d.shift[1] } : q
+
+/** The drawing a ground point of storey `storey` lands in on such a sheet: that storey's drawing –
+ *  of a storey drawn as wings, the one whose rectangle holds the point, else the first. Without a
+ *  storey, or one the sheet has no drawing for: none – the reference drawing's frame as it is. */
+export function storeyDrawing(drawings: readonly SheetDrawing[] | undefined, storey: number | null | undefined, q: PlanPt): SheetDrawing | undefined {
+  const own = storey == null ? [] : (drawings ?? []).filter((d) => d.storey === storey)
+  return own.find((d) => inClip(d, q.x - d.shift[0], q.y - d.shift[1])) ?? own[0]
+}
 
 /**
  * A symbol placed or moved on such a sheet takes the storey of the drawing it lands in – what the
