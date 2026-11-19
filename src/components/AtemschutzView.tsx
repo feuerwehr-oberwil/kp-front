@@ -29,7 +29,7 @@ import { truppAuftragLabel, truppEquipmentLabels } from '../lib/report'
 import { useIsPhone } from '../lib/useIsPhone'
 import { usePageHeadFit } from '../lib/pageHeadFit'
 import type { AttendanceState, Person, Trupp, TruppAuftrag, TruppFields } from '../types'
-import { assignedPersonIds, doubleAssignments, rosterIdByName, truppCrewSlots } from '../lib/personnel'
+import { assignedPersonIds, doubleAssignments, linkTrupps, rosterFromList, rosterIdByName, truppCrewSlots } from '../lib/personnel'
 import { truppLineNo, type LeitungOption } from '../lib/truppLines'
 import { markerHolderNote, type MarkerOption } from '../lib/placedTrupps'
 import { ensureNotifyPermission, notificationsSupported, unlockAlarm } from '../lib/alarm'
@@ -709,6 +709,15 @@ export function AtemschutzView({
   const presentIds = useMemo(
     () => new Set(Object.entries(attendance).filter(([, a]) => a.status === 'present').map(([id]) => id)),
     [attendance],
+  )
+  // «Who is already in an active Trupp» as the picker, the tag scan and the save guard ask it: a
+  // Trupp that holds somebody by NAME only (an older build, a device offline through a roster
+  // sync) still holds that roster person – resolved the way the workspace resolves them for the
+  // Anwesenheit (lib/personnel · linkTrupps). Read off raw ids, such a crew was invisible and a
+  // scanned tag took the same person again (Sol review 19.11.2026).
+  const linkedTrupps = useMemo(
+    () => linkTrupps(trupps, rosterIdByName(personnel), rosterFromList(personnel)),
+    [trupps, personnel],
   )
   // …and which of them are still at the Magazin. Somebody at the Magazin usually cannot go under
   // PA at all, so the picker says so and sinks them below the crew on scene (see TruppTeam).
@@ -1909,7 +1918,7 @@ export function AtemschutzView({
              going back IN. (`assignedPersonIds` already ignores every OTHER raus Trupp, so a
              finished crew never blocks a live form either.) */
           assignedIds={form.mode === 'edit' && form.trupp?.status === 'raus' ? NO_ASSIGNED
-            : assignedPersonIds(trupps.filter((t) => t.id !== form.trupp?.id))}
+            : assignedPersonIds(linkedTrupps.filter((t) => t.id !== form.trupp?.id))}
           /* …and the way OUT of that conflict, in one tap (11.09.). Both halves read the same
              `truppOfPerson` index, so the state the warning shows and the Trupp the move writes
              to can never be two different cards. */
@@ -1981,7 +1990,7 @@ export function AtemschutzView({
              answers the form gets (see TruppForm's props below); a Trupp that has come OUT binds
              nobody, for the reason given there */
           : <TruppSheet t={t} personnel={personnel} legacyRoster={roster} presentIds={presentIds} stationIds={stationIds} rolesById={rolesById}
-              assignedIds={t.status === 'raus' ? NO_ASSIGNED : assignedPersonIds(trupps.filter((x) => x.id !== t.id))}
+              assignedIds={t.status === 'raus' ? NO_ASSIGNED : assignedPersonIds(linkedTrupps.filter((x) => x.id !== t.id))}
               transferState={(personId) => { const from = truppOfPerson.get(personId); return truppTransferState(from, personId, from && crewSlotsOf(from)) }}
               onTransfer={transferOutOfTrupp && ((personId, toName) => {
                 const from = truppOfPerson.get(personId)

@@ -56,14 +56,9 @@ export function TagScan({ personnel, assignedIds, chosenIds, onTake, onClose }: 
   const [phase, setPhase] = useState<Phase>('starting')
   /** every code of ours read so far, in the order it came – the raw reads, never their meaning */
   const [codes, setCodes] = useState<string[]>([])
-  /** when the last NEW person came in – restarts the auto-take (and its fill) */
-  const [lastAdd, setLastAdd] = useState(0)
   const [torch, setTorch] = useState<{ track: MediaStreamTrack; on: boolean } | null>(null)
 
-  // what the frame loop reads without restarting the camera when the board changes under it
   const roster = useMemo(() => rosterFromList(personnel), [personnel])
-  const read = useRef({ roster, assignedIds, chosenIds })
-  useEffect(() => { read.current = { roster, assignedIds, chosenIds } }, [roster, assignedIds, chosenIds])
 
   useEffect(() => {
     let alive = true
@@ -71,7 +66,7 @@ export function TagScan({ personnel, assignedIds, chosenIds, onTake, onClose }: 
     let raf = 0
     const canvas = document.createElement('canvas')
     const g = canvas.getContext('2d', { willReadFrequently: true })
-    /** decoded texts already handled – one tag seen in thirty frames is one row */
+    /** person ids already read – one tag seen in thirty frames, or two copies of it in one, is one row */
     const seen = new Set<string>()
     const stop = () => {
       alive = false
@@ -90,14 +85,14 @@ export function TagScan({ personnel, assignedIds, chosenIds, onTake, onClose }: 
         canvas.height = Math.round(video.videoHeight * scale)
         g.drawImage(video, 0, 0, canvas.width, canvas.height)
         const texts = await readTags(g.getImageData(0, 0, canvas.width, canvas.height)).catch(() => [])
-        const fresh = texts.filter((t) => !seen.has(t) && personIdFromTag(t))
-        fresh.forEach((t) => seen.add(t))
-        if (alive && fresh.length) {
-          setCodes((prev) => [...prev, ...fresh])
-          // only a new person restarts the auto-take – a «schon in einem Trupp» is no reason to wait
-          const { roster: r, assignedIds: a, chosenIds: c } = read.current
-          if (fresh.some((t) => tagHit(t, r, a, c)?.kind === 'add')) setLastAdd(performance.now())
+        const fresh: string[] = []
+        for (const t of texts) {
+          const id = personIdFromTag(t)
+          if (!id || seen.has(id)) continue
+          seen.add(id)
+          fresh.push(t)
         }
+        if (alive && fresh.length) setCodes((prev) => [...prev, ...fresh])
       }
       if (alive) raf = requestAnimationFrame(() => void frame(video))
     }
@@ -116,7 +111,9 @@ export function TagScan({ personnel, assignedIds, chosenIds, onTake, onClose }: 
       const video = videoRef.current
       if (!alive || !video) { stream.getTracks().forEach((t) => t.stop()); return }
       video.srcObject = stream
-      await video.play().catch(() => {})
+      // a picture that will not play is no scanner either (and the scan may have ended meanwhile)
+      try { await video.play() } catch { if (alive) { setPhase('nocam'); stop() } return }
+      if (!alive) return
       const track = stream.getVideoTracks()[0]
       const caps: TorchCaps | undefined = track?.getCapabilities?.()
       if (track && caps?.torch) setTorch({ track, on: false })
@@ -138,14 +135,17 @@ export function TagScan({ personnel, assignedIds, chosenIds, onTake, onClose }: 
   const adds = hits.flatMap((h) => (h.kind === 'add' ? [h.person] : []))
   const take = () => { if (adds.length) onTake(adds) }
 
-  // the auto-take: one second after the last new person, unless a later one restarts it
+  /* The auto-take: one second after the set of people to take last CHANGED – a new tag, or
+   * somebody the board freed or took meanwhile. A «schon in einem Trupp» read changes nothing, so
+   * it is no reason to wait. The fill below is keyed the same way, so it starts over in step. */
+  const addKey = adds.map((p) => p.id).join(' ')
   const takeRef = useRef(take)
   useEffect(() => { takeRef.current = take })
   useEffect(() => {
-    if (!lastAdd) return
+    if (!addKey) return
     const t = window.setTimeout(() => takeRef.current(), AUTO_TAKE_MS)
     return () => window.clearTimeout(t)
-  }, [lastAdd])
+  }, [addKey])
 
   const toggleTorch = async () => {
     if (!torch) return
@@ -193,8 +193,8 @@ export function TagScan({ personnel, assignedIds, chosenIds, onTake, onClose }: 
       <SheetFoot className={s.foot}>
         {adds.length > 0 && <p className={s.auto}>{az.scanAuto}</p>}
         <Button variant="primary" size="lg" block className={s.take} disabled={!adds.length} onClick={take}>
-          {/* keyed by the last new person, so the fill starts over with every one that comes in */}
-          {adds.length > 0 && <span key={lastAdd} className={s.fill} style={{ animationDuration: `${AUTO_TAKE_MS}ms` }} aria-hidden />}
+          {/* keyed by who is to be taken, so the fill starts over with every change to that */}
+          {adds.length > 0 && <span key={addKey} className={s.fill} style={{ animationDuration: `${AUTO_TAKE_MS}ms` }} aria-hidden />}
           <span className={s.takeLabel}>{adds.length ? fillTemplate(az.scanTake, { n: adds.length }) : az.scanTakeNone}</span>
         </Button>
       </SheetFoot>
