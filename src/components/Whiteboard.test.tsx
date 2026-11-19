@@ -1369,6 +1369,29 @@ describe('the plan’s selection bar', () => {
     expect(out(onChange).find((a) => a.id !== 'f1')).toMatchObject({ x: 0.51, storey: 1 })
   })
 
+  // Sol review round 3, S1: the plan loaded (and told its pages once) before the sheet's floor
+  // binding came; the binding then arrives with the same PDF URL
+  it('a sheet whose floors arrive after its pages were told still knows its storey drawings', () => {
+    const modul6: PlanDocument = { id: 'modul6', code: 'M6', title: 'Modul 6', subtitle: '', imageUrl: '/plans/modul6.pdf', orientation: 'landscape' }
+    const sheetFloors = [
+      { page: 0, index: 0, name: 'EG', clip: [0, 0, 0.5, 1] as [number, number, number, number] },
+      { page: 0, index: 1, name: '1OG', clip: [0.5, 0, 1, 1] as [number, number, number, number] },
+    ]
+    const f: BoardAnno = { id: 'f1', kind: 'symbol', x: 0.49, y: 0.5, symbol: 'VKF Feuer', label: 'Feuer', storey: 0 }
+    const keysRef: Keys = { current: null }
+    const onChange = vi.fn()
+    const board = (floors?: typeof sheetFloors) => <Whiteboard
+      plans={[modul6]} activeId="modul6" annos={[f]} onChange={onChange} sheetFloors={floors}
+      building={null} onSelectBuilding={() => {}} onAddFloor={() => {}} onRemoveFloor={() => {}}
+      sym={sym} onRecent={() => {}} log={() => {}} hist={{}} setHist={() => {}} focus={null} keysRef={keysRef}
+    />
+    const { container, rerender } = render(board())
+    rerender(board(sheetFloors))
+    mouseDown(container.querySelector('.wb-symbol')!)
+    act(() => { keysRef.current!.duplicate() })
+    expect(out(onChange).find((a) => a.id !== 'f1')).toMatchObject({ x: 0.51, storey: 1 })
+  })
+
   it('stays out of a Mehrfach group and off a read-only sheet — as on the Karte', () => {
     const { container, onChange, keysRef } = withKeys([line, box])
     armMehrfach()

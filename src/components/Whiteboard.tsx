@@ -749,9 +749,11 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // sheetDrawings, withDrawingStorey). Empty on every other sheet and on the stack.
   // The pages come from the renderer's own successful load (PdfViewport · onPages), so a sheet
   // whose first load failed gets its drawings back with «Erneut laden» (Sol review round 2, S3).
+  // They are kept on EVERY sheet, whether its floors are known yet or not: the binding can arrive
+  // after the load without changing the URL, and the load does not tell twice (round 3, S1).
   const [shownPages, setShownPages] = useState<{ url: string; pages: readonly PageSize[] } | null>(null)
-  const wantsPages = !stack && !!sheetFloors?.length && !!active?.imageUrl
-  const storeyDrawings = wantsPages && shownPages?.url === active.imageUrl ? sheetDrawings(sheetFloors, shownPages.pages) : []
+  const storeyDrawings = !stack && sheetFloors?.length && active?.imageUrl && shownPages?.url === active.imageUrl
+    ? sheetDrawings(sheetFloors, shownPages.pages) : []
 
   // Leaving Linie/Fläche mid-shape never silently drops a committable draft: it asks «Speichern ·
   // Verwerfen · Weiterzeichnen» (27.10.2026; the A6 auto-commit of 29.08. before it). The
@@ -2535,7 +2537,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
                 vw={vp.w}
                 vh={vp.h}
                 onAspect={takeAspect}
-                onPages={wantsPages ? (pages) => setShownPages({ url: active.imageUrl, pages }) : undefined}
+                onPages={(pages) => setShownPages({ url: active.imageUrl, pages })}
               />
             )}
 
