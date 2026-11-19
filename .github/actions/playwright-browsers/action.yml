@@ -46,7 +46,8 @@ runs:
       run: |
         for try in 1 2 3; do
           pnpm exec playwright install --with-deps ${{ inputs.browsers }} && exit 0
-          echo "::warning::playwright install failed (try $try of 3)"; sleep 30
+          echo "::warning::playwright install failed (try $try of 3)"
+          [ "$try" -lt 3 ] && sleep 30
         done
         exit 1
 
@@ -56,6 +57,7 @@ runs:
       run: |
         for try in 1 2 3; do
           pnpm exec playwright install-deps ${{ inputs.browsers }} && exit 0
-          echo "::warning::playwright install-deps failed (try $try of 3)"; sleep 30
+          echo "::warning::playwright install-deps failed (try $try of 3)"
+          [ "$try" -lt 3 ] && sleep 30
         done
         exit 1
