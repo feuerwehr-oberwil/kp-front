@@ -228,8 +228,10 @@ unchanged.
   («W»), a numbered sibling with its number («W1», «W2»); only the label spells the word out
   («Wasser 1»; `lib/navRail · planGlyph` / `planLabel`, owner 27.10.2026: «keep W1/W2»).
 
-- *A head's icon buttons carry their word wherever it fits* (22.09.2026): «Trupps teilen ·
-  Alarmton» on the Trupps head («Reihenfolge» stands in its list row since owner pick 26, 17.11.2026) — MEASURED since 28.09.2026 (the page head's
+- *A head's icon buttons carry their word wherever it fits* (22.09.2026): «Reihenfolge ·
+  Trupps teilen · Alarmton» on the Trupps head («Reihenfolge» is back in the head since owner pick
+  2A, 18.11.2026 – not on the phone board, whose order is fixed), «Anderes Material» on the
+  Material head (pick 2A; on a 390 phone it keeps its whole word) — MEASURED since 28.09.2026 (the page head's
   ladder, `lib/pageHeadFit`; the `.wordBtn`/`useIsPhone` switch there is gone), so a phone that has room shows
   them and a tablet that has none folds them. **A folded tile keeps its word UNDER the glyph**
   at 11/700, never a bare glyph (owner pick, button sweep HEADS.9, 17.11.2026 – the QR and the bell
@@ -237,9 +239,9 @@ unchanged.
   evening): its short word where it has one («Abgeben», «Trupp», «PDF»), else its long one
   («Alarmton», the Zeitplan's «Drucken»). A count chip («⚠ 4») keeps its number beside the glyph
   (`data-fold-beside`). **The tiles fold TOGETHER** – one rank for the head's tiles, never one at a
-  time (pick 24a; 13-incident · «fold»). The search line's «In Verwendung · Filtern ·
-  Anderes Material» (`SurfaceControls.module.css · .wordBtn`) is not a page head and keeps its
-  `useIsPhone` switch. A bare square's way of asking is the hold-tooltip. The bell's word is its
+  time (pick 24a; 13-incident · «fold»). The search line's «In Verwendung · Kategorie»
+  (`SurfaceControls.module.css · .word`) is not a page head and keeps its `useIsPhone` switch; since
+  «Anderes» left it (pick 2A) the phone's Material search is 155px wide, not 81. A bare square's way of asking is the hold-tooltip. The bell's word is its
   honest STATE (Alarmton / Stumm / Ton freigeben).
 - *A checklist item that writes to the Verlauf says so on its row* («⚑ wird im Verlauf
   notiert», `checklists.milestoneTag`, 22.09.2026) — the lone flag's meaning lived in a tooltip

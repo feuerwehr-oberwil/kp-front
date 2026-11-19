@@ -302,7 +302,7 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
 
   // ONE ROW (lib/pageHeadFit)
   const headRef = useRef<HTMLElement>(null)
-  usePageHeadFit(headRef, [lines, captureUsage?.writes, captureUsage?.lastAt].join('|'))
+  usePageHeadFit(headRef, [lines, captureUsage?.writes, captureUsage?.lastAt, canEdit].join('|'))
 
   return (
     <>
@@ -320,12 +320,27 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
           <span className={s.headQr} data-fold={1}>
             <span className="fold-long"><CaptureUsageChip usage={captureUsage} /></span>
           </span>
+          {/* «+ Anderes Material» – an ACT, so it stands in the head (round 18.11.2026 evening, owner
+              pick 2A «Acts up»: every action of a page in its head, the row below holds the search
+              and its filters only). It stays the EMPTY-query door: with something typed, the row
+              under the list is the one that carries the name. Not on an empty catalogue: the empty
+              state's own button is the door there. A page-head tile, folding with the ladder to
+              + over «Anderes» (`.fold-short`). It stays MOUNTED while its sheet is open (Sol review,
+              PR #702): unmounted, Enter → Escape left the focus on <body>; mounted, the sheet hands
+              it back here. */}
+          {canEdit && !empty && (
+            <button type="button" className="head-tile" data-fold={2} onClick={() => setComposer({})}
+              title={M.customMaterial} aria-label={M.customMaterial}>
+              <Icon id="plus" /><span className="fold-long">{M.customMaterial}</span>
+              <span className="fold-short">{M.customMaterialWord}</span>
+            </button>
+          )}
         </div>
       </header>
 
-      {/* the search line — search, category chips, and «Anderes Mittel» at its end. The add
-          button lives HERE rather than under the list: «ich suche X – X gibt es nicht – also
-          erfasse ich X» is one motion, and it used to end with a scroll to the bottom. */}
+      {/* the search line — the search and its filters, nothing else (pick 2A, 18.11.2026: «+ Anderes
+          Material» went up into the head). «ich suche X – X gibt es nicht – also erfasse ich X»
+          stays one motion through the create row under the list, which carries the typed name. */}
       {!empty && (
         <div className={c.controls}>
           <SearchField className={c.search} value={q} onChange={setQ} placeholder={M.searchPlaceholder}
@@ -380,15 +395,6 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
               ]}
             />
           )}
-          {canEdit && !composer && (
-            // a bare +, like the Anwesenheit's «Weitere Person» — the words cost a search row
-            // that has a field and a filter to fit as well. It stays the EMPTY-query door:
-            // with something typed, the row under the list is the one that carries the name.
-            <button type="button" className={c.addBtn} onClick={() => setComposer({})}
-              title={M.customMaterial} aria-label={M.customMaterial}>
-              <Icon id="plus" /><span className={c.word} aria-hidden="true">{phone ? M.customMaterialWord : M.customMaterial}</span>
-            </button>
-          )}
         </div>
       )}
       {/* WHAT narrows the list, and the way back (button sweep HEADS.3, 17.11.2026): «In
@@ -431,11 +437,11 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
         canEdit ? (
           // the taught action right where the teaching text is (recognition over recall)
           <EmptyState className="empty-fill" icon="box" title={M.emptyTitle} sub={M.emptyHint}
-            action={!composer && (
+            action={
               <button type="button" className="ip-btn primary" onClick={() => setComposer({})}>
                 <Icon id="plus" /><span>{M.add}</span>
               </button>
-            )} />
+            } />
         ) : (
           <EmptyState className="empty-fill" icon="box" title={M.emptyReadonly} />
         )

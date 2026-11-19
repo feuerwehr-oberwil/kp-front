@@ -205,10 +205,6 @@ button.ortStation:active:not(:disabled) { background-image: linear-gradient(var(
      is title + summary | printer + reload; the reload's word is the ladder's to fold, not a
      breakpoint's. */
   .headSummary { font-size: var(--fs-1); }
-  .horizon { flex: 0 1 auto; gap: var(--sp-1); }
-  .horizonLabel { display: none; }
-  .horizonValue { min-width: 2.6rem; }
-  .horizonEnd { display: none; }
 
   /* one full-width column: two columns truncated most names («Binggeli Mic…») on a phone —
      a readable name beats density here (field feedback 2026-07-08) */
@@ -247,10 +243,20 @@ button.ortStation:active:not(:disabled) { background-image: linear-gradient(var(
 .paperContent { margin: 0; font: var(--fw-bold) var(--fs-2) var(--body); color: var(--ink); }
 .paperHint { margin: var(--sp-2) 0 0; font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-faint); }
 
-/* Zeitraum control — sits at the end of the search row, beside the thing it scopes */
+/* Zeitraum control — the first of the head's tiles on every device (zoom is no search, pick 2A; its
+   word folds with the tiles) */
 .horizon { flex: none; display: flex; align-items: center; gap: var(--sp-2); }
 .horizonLabel { font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
+/* the hours and «bis 18:01» – side by side; folded, the end's compact «–18:01» UNDER the hours (a
+   folded tile's word under its glyph): the end stays on screen and the block keeps its width (Sol
+   review 2, PR #702 – «bis 18:01» there was 8px wider, and 820 has none to give) */
+.horizonRead { display: flex; align-items: baseline; gap: var(--sp-2); }
 .horizonValue { min-width: 3.4rem; text-align: center; font: var(--fw-bold) var(--fs-1) var(--mono); color: var(--ink); }
+/* folded with the head's tiles: «ZEITRAUM» goes (`.fold-long`), the − hours + close up to one fixed
+   block – fixed, so «+» does not move under the thumb as the hours change */
+.horizon[data-folded] { gap: 0; }
+.horizon[data-folded] .horizonRead { flex-direction: column; align-items: center; gap: 0; min-width: 2.6rem; }
+.horizon[data-folded] .horizonValue { min-width: 0; line-height: 1.2; }
 /* «bis 18:01» — at a constant px-per-hour a wider window is pixel-identical, so this is the only
    visible answer to what widening it bought you. Words and a clock, so the body face with
    tabular figures (T1, 15.11.2026) */

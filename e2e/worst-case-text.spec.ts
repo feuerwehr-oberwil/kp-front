@@ -64,6 +64,16 @@ async function seed(api: APIRequestContext): Promise<string> {
   return id
 }
 
+/** Put the seeded Trupp an HOUR and more under air – the foot's longest time, «1:11:00 h». */
+async function goneLong(api: APIRequestContext, id: string, minAgo = 71) {
+  const cur = await (await api.get(`/api/incidents/${id}/workspace`)).json() as { workspace: { trupps: { readings: { t: string }[] }[] }; workspace_rev: number }
+  const t = new Date(Date.now() - minAgo * 60_000).toISOString()
+  const [tr] = cur.workspace.trupps
+  const trupps = [{ ...tr, entryTime: t, readings: [{ ...tr.readings[0], t }, ...tr.readings.slice(1)] }]
+  const put = await api.put(`/api/incidents/${id}/workspace`, { data: { workspace: { ...cur.workspace, trupps }, base_rev: cur.workspace_rev } })
+  expect(put.ok(), `an hour under air: ${put.status()}`).toBe(true)
+}
+
 type Box = { x: number; y: number; width: number; height: number }
 const inside = (inner: Box, outer: Box) => inner.x >= outer.x - 1 && inner.y >= outer.y - 1
   && inner.x + inner.width <= outer.x + outer.width + 1 && inner.y + inner.height <= outer.y + outer.height + 1
@@ -172,6 +182,56 @@ for (const device of [
       await expectInside(docked, card, 'the «bei ‹Host›» chip')
       await expectInside(docked.locator(':scope > svg'), docked, 'the ▸ of the «bei ‹Host›» chip')
       await expectInside(card.getByTitle(AUFTRAG_TITLE), card, 'the Auftrag · Ziel chip')
+    })
+
+    // Sol review, PR #702: on a narrow foot «Schätzung ≈ 263 bar» was clipped (phone, room kept for
+    // «Eintrag»), and the ⌄ followed the flex box – between the two lines – not the last value
+    test(`the Trupp card foot cuts no value and ends in its ⌄ (${device.name})`, async ({ page }) => {
+      await openEinsatz(page)
+      await go(page, 'Trupps')
+      const card = page.locator('[class*="trowCard"]').filter({ hasText: WORST.crew[0] })
+      if (!await card.isVisible()) await page.getByText(WORST.leader, { exact: true }).filter({ visible: true }).first().click()
+      const line = card.locator('[class*="metaLine"]')
+      await expect(line).toBeVisible()
+      const items = line.locator(':scope > span')
+      // no value cut at its right edge (the ⌄'s 28px box overhangs its line by design, so not the height)
+      for (let i = 0; i < await items.count(); i++) {
+        const m = await items.nth(i).evaluate((e) => ({ sw: e.scrollWidth, cw: e.clientWidth }))
+        expect(m.sw, `foot value ${i + 1}: no text past its right edge`).toBeLessThanOrEqual(m.cw + 1)
+      }
+      // the last value's figure («≈ 263 bar»), and the ⌄ centred on ITS line, right after it
+      const value = await boxOf(items.last().locator('b'), 'the last foot value')
+      const chev = await boxOf(card.locator('[class*="logChev"]'), 'the ⌄')
+      const mid = chev.y + chev.height / 2
+      expect(mid > value.y && mid < value.y + value.height, 'the ⌄ on the last value\'s line, not between two').toBe(true)
+      expect(chev.x, 'the ⌄ stands after the last value').toBeGreaterThanOrEqual(value.x)
+    })
+
+    // Sol review 2, PR #702: with the room kept for «Eintrag» (the FAB guard, `data-az-fab-foot`) a
+    // 360 / 375 phone broke «Schätzung ≈ 270 bar ⌄» between word and value – three lines, the foot
+    // 44 → 51. Two lines max, the foot its 44px row, with an hour-long time on the first line.
+    test(`the Trupp card foot keeps two lines beside «Eintrag», an hour under air (${device.name})`, async ({ page }) => {
+      test.skip(device.name !== 'phone', 'the FAB guard is the phone\'s')
+      await goneLong(page.request, incidentId)
+      for (const width of [360, 375]) {
+        await page.setViewportSize({ width, height: 844 })
+        await openEinsatz(page)
+        await go(page, 'Trupps')
+        const card = page.locator('[class*="trowCard"]').filter({ hasText: WORST.crew[0] })
+        if (!await card.isVisible()) await page.getByText(WORST.leader, { exact: true }).filter({ visible: true }).first().click()
+        const line = card.locator('[class*="metaLine"]')
+        await expect(line).toContainText(/\d+:\d{2}:\d{2} h/)
+        // the guard as the parking effect sets it while the row stands under the FAB – set and read
+        // in one frame, so no re-measure can take it off in between
+        const m = await card.locator('[data-az-foot]').evaluate((row) => {
+          row.setAttribute('data-az-fab-foot', '')
+          const tops = new Set([...row.querySelectorAll('[class*="metaLine"] :is(i, b)')].map((e) => Math.round(e.getBoundingClientRect().top)))
+          return { lines: tops.size, row: row.getBoundingClientRect().height, tap: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--tap')), pad: getComputedStyle(row).paddingRight }
+        })
+        expect(m.pad, `${width}: the FAB guard holds the row`).not.toBe('0px')
+        expect(m.lines, `${width}: «drin 1:11:00 h» over «Schätzung ≈ … bar ⌄», two lines`).toBeLessThanOrEqual(2)
+        expect(m.row, `${width}: the foot stays its ${m.tap}px row`).toBeLessThanOrEqual(m.tap + 0.5)
+      }
     })
 
     test(`the Anwesenheit gives «Nachname Vorname» two lines (${device.name})`, async ({ page }) => {

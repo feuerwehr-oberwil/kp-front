@@ -132,7 +132,7 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     lowestPressure: 'Le plus bas',
     edit: 'Modifier',
     verlauf: 'Journal',
-    cardMenu: 'Autres actions',
+    cardMenu: 'Plus d’actions',
     bandRegisteredAt: 'annoncée à',
     lastContactAt: 'Dernier contact',
     nextContactDue: 'Prochain contact',
@@ -438,6 +438,8 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     cycleEndAtClose: '{t} (encore engagé à la clôture)',
     logClockRestart: 'Binôme {name} : horloge de contact redémarrée – intervention rouverte',
     cardMenuWord: 'Plus',
+    // the Trupps head's «⋯ Mehr», where its rare tiles go on a crowded head (lib/pageHeadFit)
+    headMoreWord: 'Plus',
     lineOnPlan: 'Plan',
     zielPickMap: 'Carte',
     zielPickPlan: 'Plan',

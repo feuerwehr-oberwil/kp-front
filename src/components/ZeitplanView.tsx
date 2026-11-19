@@ -1,11 +1,12 @@
 /*
- * *The Zeitplan's zoom lives in the grid's corner on a phone* (30.09.2026, owner: «the +/- 12h
- * thing … uses up a lot of vertical space»): on a phone it stands in the clock row's empty
- * corner over the names (`ZeitplanView · zoom`, the row grows to a lane's 44px and the hours sit
- * at its foot); a tablet keeps it at the end of the search line. Never a row of its own.
+ * *The Zeitplan's zoom lives in the page head* (Sol review 2, PR #702), on every device: the
+ * AnwesenheitView's `horizonCtl`, the first of its tiles. The phone had it in this grid's clock-row
+ * corner from 30.09.2026 (owner: «the +/- 12h thing … uses up a lot of vertical space»); the
+ * head's fit ladder now gives it the room, so the corner is an empty spacer again. Never a row of
+ * its own.
  */
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, hhmm } from '../lib/format'
@@ -243,7 +244,7 @@ function PersonRow({ person, shifts, blocks, span, nowMs, canEdit, conflicts, no
  */
 export function ZeitplanView({
   people, attendance, shifts, canEdit, startedAt, nowMs,
-  onAdd, onAddSpan, onReplace, onSetTime, onRemove, horizonH, zoom,
+  onAdd, onAddSpan, onReplace, onSetTime, onRemove, horizonH,
 }: {
   /** already filtered + ordered by the shared Anwesenheit header, so both views read alike */
   people: Person[]
@@ -265,9 +266,6 @@ export function ZeitplanView({
    *  null = nobody zoomed yet, the axis is the fitted opening window (lib/shifts · fitSpan) and
    *  fills the visible width */
   horizonH: number | null
-  /** PHONE: the Zeitraum zoom, drawn in the clock row's corner over the names — the search line
-   *  above has no room for it there (AnwesenheitView · horizonCtl) */
-  zoom?: ReactNode
 }) {
   const Z = appConfig.copy.zeitplan // read per-render so the resolved locale applies
   const isPhone = useIsPhone()
@@ -416,11 +414,10 @@ export function ZeitplanView({
       <ShiftConflictNotice shifts={shifts} people={people} className={s.conflictNotice} />
       <div className={s.scroll} ref={scrollRef}>
         <div className={s.grid} style={{ ['--track-w' as string]: `${trackW}px` }}>
-          {/* head — «Wer» over the name column, the clock over the track, exactly as on paper.
-              On a phone the corner over the names holds the Zeitraum zoom (see `zoom`); the row
-              grows to a lane's height and the hours sit at its foot, on the lanes they label. */}
-          <div className={cx(s.row, s.headRow, zoom != null && s.headRowZoom)}>
-            {zoom != null ? <div className={cx(s.who, s.whoHead)}>{zoom}</div> : <div className={cx(s.who, s.whoHead)} aria-hidden />}
+          {/* head — the clock over the track, exactly as on paper; the corner over the names is an
+              empty spacer (the Zeitraum zoom is the page head's) */}
+          <div className={cx(s.row, s.headRow)}>
+            <div className={cx(s.who, s.whoHead)} aria-hidden />
             <div className={s.track} ref={headTrackRef}>
               {hours.map((h) => (
               // The «JETZT» flag is opaque so it stays readable wherever it lands, which means an

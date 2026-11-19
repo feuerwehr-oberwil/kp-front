@@ -335,8 +335,9 @@ export const atemschutzCopy = {
     edit: 'Bearbeiten',
     // per-Trupp contact/pressure log (expandable on the card)
     verlauf: 'Verlauf',
-    // the ⋯ on the card: Bearbeiten · Platzieren · Leitung · Sortierung · Entfernen, as words
-    cardMenu: 'Weitere Aktionen',
+    // the name of the card's «⋯ Mehr» (Bearbeiten · Platzieren · Leitung · Sortierung · Entfernen):
+    // it STARTS with the chip's word, `cardMenuWord`, so «Mehr» said aloud finds it (Sol review, PR #702)
+    cardMenu: 'Mehr Aktionen',
     // ⚠️ Die Unterzeile eines Trupps, der NIE im Einsatz war (truppNeverDeployed): keine laufende
     // Uhr, sondern die Uhrzeit der Anmeldung. Bis 04.09. stand über ihm «Draussen seit» und eine
     // tickende, fette Uhr – ein Sicherungstrupp, der nie unter Atemschutz war, las sich damit wie
@@ -945,6 +946,8 @@ export const atemschutzCopy = {
     // Wiederöffnen neu – die geschlossene Zeit zählt nicht als Zeit ohne Kontakt (r3, F4).
     logClockRestart: 'Trupp {name}: Kontaktuhr neu gestartet – Einsatz wieder geöffnet',
     cardMenuWord: 'Mehr',
+    // the Trupps head's «⋯ Mehr», where its rare tiles go on a crowded head (lib/pageHeadFit)
+    headMoreWord: 'Mehr',
     // Leitung-Picker (TruppSheets): eine Leitung, die auf einem Plan liegt – «Ltg 3 · Plan · M. Stich»
     // (rare-user F13, 17.11.2026; vorher ein fest codiertes « · P»)
     lineOnPlan: 'Plan',

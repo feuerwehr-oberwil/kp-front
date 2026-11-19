@@ -14,8 +14,9 @@
  * «fold»; it was one tile at a time, to a bare glyph on a tablet) – the primary too, to its glyph
  * over its short word («+» over «Trupp»), told apart by its fill alone (round 18.11.2026 #5), (3) a
  * head's own last words (the quiet «✓ Gespeichert» keeps its ✓ — a LOUD sync state never folds; the
- * Rapport's title says the nav's «Rapport»), and only as the LAST resort (≤ 359px, a locale that
- * cannot fit) the tiles take a second row (`data-fit-wrap`). Each head states its ladder where
+ * Rapport's title says the nav's «Rapport»), (4) the rare tiles move into the head's «⋯ Mehr»
+ * (`data-fit-more`), and only as the LAST resort (≤ 359px, a locale that cannot fit) the tiles
+ * take a second row (`data-fit-wrap`). Each head states its ladder where
  * its tiles are drawn — `data-fold="<rank>"` on the part, `.fold-long` / `.fold-short` inside
  * it (`HEAD_FOLD` in AtemschutzView / AnwesenheitView, `RP_FOLD` in ReportPreflight); text that
  * must never be cut wears `data-fit-check`, and every `<h2>` is checked. A new tile takes a rank
@@ -51,8 +52,11 @@ import { climbLadder, useHeadFit } from './useHeadFit'
  *      09.09., and what buys the 390px Trupps head its one row while an alarm tile stands,
  *   4. the tiles close up: 6px apart and 8px inside a worded tile (`data-fit-tight` — the top bar's
  *      «gaps» rung; every tile stays a tap wide), which is what fits a 360px phone,
- *   5. only then — ≤ 359px, or a locale that cannot fit — the tiles take a second row (and open up
- *      again: that row has the room).
+ *   5. a head with a «⋯ Mehr» tile moves its rare tiles into it (`data-fit-more`; Sol review, PR
+ *      #702: the 390px Trupps head with ⚠, «Entfernte Trupps», «Teilen», «Ton freigeben» and
+ *      «+ Trupp» wrapped to 164px) – they stay one tap further, never off the screen,
+ *   6. only then — ≤ 359px, or a locale that cannot fit — the tiles take a second row (and open up
+ *      again: that row has the room; the rare tiles come back out of «Mehr»).
  *
  * The contract is markup, so every head states its own ladder where its tiles are drawn:
  *   - `data-fold="<rank>"` on each part that can give (the quiet line, a tile). Lower ranks give
@@ -64,12 +68,15 @@ import { climbLadder, useHeadFit } from './useHeadFit'
  *     after; a folded tile shows its word (the short one, else the long one) UNDER its glyph
  *     (13-incident.css · «fold»); a count chip that must stay beside its glyph says
  *     `data-fold-beside`. The glyph is never `.fold-long`: it stays.
+ *   - `data-more` on a tile that may move into the head's «Mehr» (step 5), and `data-more-tile` on
+ *     that «Mehr» tile, a menu that repeats those tiles' actions (13-incident.css · «fold» shows
+ *     one or the other). A head without a `data-more-tile` skips the step.
  *   - `data-fit-check` on text that must not be cut (a sync line, the Rapport's chip label); every
  *     <h2> in the head is checked anyway, except one marked `data-fit-free` (a title that is
  *     SUPPOSED to truncate, like the handed-over phone board's Einsatz name).
  * The head gets `data-folded="<level>"` on each folded part (how many of its ranks have come),
- * `data-fit="<step>"` on itself, `data-fit-tight` at the step before last and `data-fit-wrap` at the
- * last (Surface.module.css · the wrap).
+ * `data-fit="<step>"` on itself, `data-fit-tight` from step 4, `data-fit-more` at step 5 and
+ * `data-fit-wrap` at the last (Surface.module.css · the wrap).
  */
 
 /** The fold ranks present, ascending and distinct: one ladder step each, then the second row. */
@@ -110,14 +117,19 @@ export function pageHeadCrowded(head: HTMLElement): boolean {
 export function fitPageHead(head: HTMLElement, crowded: (head: HTMLElement) => boolean = pageHeadCrowded): number {
   const parts = [...head.querySelectorAll<HTMLElement>('[data-fold]')].map((el) => ({ el, own: partRanks(el.dataset.fold) }))
   const ranks = foldRanks(parts.flatMap((p) => p.own))
-  return climbLadder(ranks.length + 2, (step) => {
+  const tight = ranks.length + 1
+  // the «Mehr» step stands between closing up and the second row, only where a head has the tile
+  const more = head.querySelector('[data-more-tile]') ? tight + 1 : null
+  const wrap = (more ?? tight) + 1
+  return climbLadder(wrap, (step) => {
     for (const { el, own } of parts) {
       const level = foldLevel(ranks, step, own)
       if (level) el.dataset.folded = String(level)
       else delete el.dataset.folded
     }
-    head.toggleAttribute('data-fit-tight', step === ranks.length + 1)
-    head.toggleAttribute('data-fit-wrap', step > ranks.length + 1)
+    head.toggleAttribute('data-fit-tight', step >= tight && step < wrap)
+    head.toggleAttribute('data-fit-more', step === more)
+    head.toggleAttribute('data-fit-wrap', step === wrap)
     head.dataset.fit = String(step)
   }, () => crowded(head))
 }

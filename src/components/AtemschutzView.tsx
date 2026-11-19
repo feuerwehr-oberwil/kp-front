@@ -38,7 +38,6 @@ import type { SyncStatus } from '../lib/incidents'
 import { CLOCK_SKEW_WARN_MIN } from '../lib/syncAlert'
 import { truppOrderKey } from '../lib/useTruppActions'
 import s from './Atemschutz.module.css'
-import c from './SurfaceControls.module.css'
 import { AuftragSheet, KanalSheet, PressureSheet, TruppSheet } from './TruppSheets'
 import { ClockVal, RowEnter, TruppCard, TruppRow } from './TruppCard'
 import { tabState, tierMark } from './truppCardText'
@@ -83,7 +82,7 @@ const FROZEN_ALARM: TruppAlarm = { sev: 0, reason: null, line: null }
  *  out — the quiet line's time, then the tiles fold TOGETHER, each to its glyph OVER its word
  *  (owner pick 24a, 17.11.2026 – they folded one at a time to bare glyphs on a tablet, the bell
  *  last; the handover keeps its short «Teilen» (rare-user WORDS: «Trupps teilen»), the ⚠ its count
- *  beside it; «Reihenfolge» is not on it since pick 26 – it stands in the list row under the head).
+ *  beside it; «Reihenfolge» is back on it since pick 2A, 18.11.2026 – every action in the head).
  *  «+ Trupp anmelden» folds WITH them, to + over «Trupp», the same tile told apart only by its
  *  primary fill (round 18.11.2026 #5, owner: «Stack too. Primary difference should be color.» – it
  *  folded a rank later and stood «+ Trupp anmelden» beside the stacked tiles while the title read
@@ -1331,11 +1330,25 @@ export function AtemschutzView({
     </div>
   )
 
+  // «Entfernte Trupps» – its own menu, and the same rows in the head's «Mehr» (below)
+  const restoreItems = [
+    { kind: 'head' as const, label: az.restoreMenu },
+    ...removedTrupps.map((t) => ({
+      label: fillTemplate(az.restoreItem, { name: t.name }),
+      onClick: () => restoreTrupp(t),
+    })),
+  ]
+  // what the head's «⋯ Mehr» holds once its rare tiles have stepped into it (lib/pageHeadFit)
+  const moreItems = [
+    ...(onShareLink ? [{ label: shareLabel, onClick: onShareLink }] : []),
+    ...(canEdit && removedTrupps.length > 0 ? [...(onShareLink ? [{ kind: 'sep' as const }] : []), ...restoreItems] : []),
+  ]
+
   // ONE ROW (lib/pageHeadFit): the head folds words — the quiet line's time, the tiles' words,
   // «Trupp anmelden» → «Trupp» — until it fits, re-measured whenever what it carries changes
   const headRef = useRef<HTMLElement>(null)
   usePageHeadFit(headRef, [
-    focusMode, overdueCount > 0 && overdueCount, removedTrupps.length > 0, muted, audioBlocked,
+    focusMode, overdueCount > 0 && overdueCount, removedTrupps.length > 0, orderOffered, muted, audioBlocked,
     shareLinkActive, syncStatus, lastSyncedAt, skewLoud, canEdit,
   ].join('|'))
 
@@ -1480,7 +1493,7 @@ export function AtemschutzView({
           )}
         </div>
         {/* ⚠️ ONE group, not four siblings. `.head` used to wrap, and as direct children the badge,
-            the sort menu (in the list row since pick 26), the mute toggle and «Trupp anlegen» wrapped INDIVIDUALLY — on a phone the
+            the sort menu, the mute toggle and «Trupp anlegen» wrapped INDIVIDUALLY — on a phone the
             filter stayed up beside the title while the other two dropped to a second row. Grouped,
             they stand as one block at the right end of the one row, and on the ladder's last step
             (lib/pageHeadFit) they move to the second row together. */}
@@ -1512,9 +1525,9 @@ export function AtemschutzView({
             seconds; miss it — gloves, 3am, a second Trupp overdue — and the card was unreachable,
             even though the record itself keeps it (types · Trupp.removedAt). Shown only while there
             IS something to bring back, so an ordinary board never carries it.
-            ⚠️ Beside the badge (05.09.): it sat after the sort until then, and the one that undoes
-            something belongs nearer the badge than the one that only changes how the board is
-            looked at – which has left the head for the list row since pick 26.
+            ⚠️ BEFORE the sort menu (05.09.): the two sat the other way round, and the one that
+            undoes something belongs nearer the badge than the one that only changes how the board
+            is looked at.
             ⚠️ #archive, not #undo (08.09.2026). This header carries a REAL ↶ ↷ pair now, and two
             undo arrows in one row meaning two different things is the kind of guess nobody should
             be making at 3am. Archive is also the truer word: these cards were taken off the board
@@ -1522,19 +1535,13 @@ export function AtemschutzView({
         {canEdit && removedTrupps.length > 0 && (
           <Menu
             trigger={
-              <button type="button" className={s.orderBtn} data-fold={HEAD_FOLD.tiles} aria-label={az.restoreMenu} title={az.restoreMenu}>
+              <button type="button" className={s.orderBtn} data-fold={HEAD_FOLD.tiles} data-more aria-label={az.restoreMenu} title={az.restoreMenu}>
                 <Icon id="archive" /><span className="fold-long">{az.restoreMenu}</span>
               </button>
             }
             popupClassName="rp-print-menu"
             itemClassName={() => 'rp-print-menu-item'}
-            items={[
-              { kind: 'head' as const, label: az.restoreMenu },
-              ...removedTrupps.map((t) => ({
-                label: fillTemplate(az.restoreItem, { name: t.name }),
-                onClick: () => restoreTrupp(t),
-              })),
-            ]}
+            items={restoreItems}
           />
         )}
         {/* ⚠️ The handed-over Tafel has no TopBar at all (IncidentWorkspace · «Tafel pur»), so the
@@ -1558,6 +1565,35 @@ export function AtemschutzView({
             </button>
           </>
         )}
+        {/* «Reihenfolge», beside «Trupps teilen» (round 18.11.2026 evening, owner pick 2A «Acts up»:
+            every action of a page stands in its head; it had left for a list row of its own under
+            the head on 17.11., pick 26, a row that held nothing else). ↑↓ `#sort` (HEADS.1: it wore
+            the funnel, and a lit funnel on the board that exists to show overdue Trupps reads «some
+            are hidden»); the order it is set to stands in the strip under the head (`sortStrip`).
+            ⚠️ A MENU, not a segmented control: four options laid out in full needed ~380px, and a
+            way of LOOKING at the board is not worth a permanent strip of the screen that shows
+            overdue Trupps; the current choice shows as the radio's tick when it is opened. Not on
+            the phone board: its arrangement is fixed (see `phoneMode`). */}
+        {orderOffered && (
+          <Menu
+            trigger={
+              <button type="button" className={s.orderBtn} data-fold={HEAD_FOLD.tiles} aria-label={az.orderLabel} title={az.orderLabel}>
+                <Icon id="sort" /><span className="fold-long">{az.orderLabel}</span>
+              </button>
+            }
+            popupClassName="rp-print-menu"
+            itemClassName={() => 'rp-print-menu-item'}
+            items={[
+              { kind: 'head' as const, label: az.orderLabel },
+              {
+                kind: 'radio' as const,
+                value: order,
+                onChange: (v: string) => onOrder?.(v as TruppOrder),
+                options: (Object.keys(orderWords) as TruppOrder[]).map((value) => ({ value, label: orderWords[value] })),
+              },
+            ]}
+          />
+        )}
         {/* «Trupps teilen»: the QR, beside the bell, because the realistic handover in an
             Einsatz is «Handy scannen lassen» and the FU is standing on THIS page when they
             decide to. Green while a link is live. Folded it keeps a WORD («Teilen», hill climb
@@ -1567,12 +1603,28 @@ export function AtemschutzView({
         {onShareLink && (
           <button
             type="button"
-            className={cx(s.shareBtn, shareLinkActive && s.shareOn)} data-fold={HEAD_FOLD.tiles}
+            className={cx(s.shareBtn, shareLinkActive && s.shareOn)} data-fold={HEAD_FOLD.tiles} data-more
             onClick={onShareLink}
             aria-label={shareLabel} title={shareLabel}
           >
             <Icon id="qr" /><span className="fold-long">{az.shareLink}</span><span className="fold-short">{az.shareLinkShort}</span>
           </button>
+        )}
+        {/* «⋯ Mehr»: where even the closed-up row cannot fit (a phone with an alarm, a removed Trupp
+            and a blocked tone – Sol review, PR #702: the head wrapped to 164px), «Entfernte Trupps»
+            and «Teilen» step into this menu instead of a second row (lib/pageHeadFit · `data-fit-more`).
+            The ⚠, the bell and «+ Trupp» never do: the alarm, its sound and the primary stay up. */}
+        {!focusMode && moreItems.length > 0 && (
+          <Menu
+            trigger={
+              <button type="button" className={s.orderBtn} data-fold={HEAD_FOLD.tiles} data-more-tile aria-label={az.headMoreWord} title={az.headMoreWord}>
+                <Icon id="more" /><span className="fold-long">{az.headMoreWord}</span>
+              </button>
+            }
+            popupClassName="rp-print-menu"
+            itemClassName={() => 'rp-print-menu-item'}
+            items={moreItems}
+          />
         )}
         {/* ⚠️ Stays HERE even on the lite/phone focus board (maintainer correction, 03.09.): an
             earlier pass moved it down beside the strip, but the review put it back — top row,
@@ -1589,40 +1641,7 @@ export function AtemschutzView({
         )}
         </div>
       </header>
-      {/* ── the board's list row: «Reihenfolge» (owner pick 26, 17.11.2026) ──
-          The order is a question about the LIST, not an act on the board, so it left the head – which
-          keeps what acts on the whole board (Alarme · Abgeben · Alarmton · + Trupp anmelden) – for
-          the row every list has under its head (SurfaceControls, like the Verlauf's «Art»): the
-          framed tile, ↑↓ `#sort` (HEADS.1: it wore the funnel, and a lit funnel on the board that
-          exists to show overdue Trupps reads «some are hidden»), worded beside the glyph.
-          ⚠️ A MENU, not a segmented control: four options laid out in full needed ~380px, and a way
-          of LOOKING at the board is not worth a permanent strip of the screen that shows overdue
-          Trupps; the current choice shows as the radio's tick when it is opened. Not on the phone
-          board: its arrangement is fixed (see `phoneMode`). */}
-      {orderOffered && (
-        <div className={cx(c.controls, s.listRow)}>
-          <Menu
-            trigger={
-              <button type="button" className={c.iconBtn} aria-label={az.orderLabel} title={az.orderLabel}>
-                <Icon id="sort" /><span className={c.word} aria-hidden="true">{az.orderLabel}</span>
-              </button>
-            }
-            align="start"
-            popupClassName="rp-print-menu"
-            itemClassName={() => 'rp-print-menu-item'}
-            items={[
-              { kind: 'head' as const, label: az.orderLabel },
-              {
-                kind: 'radio' as const,
-                value: order,
-                onChange: (v: string) => onOrder?.(v as TruppOrder),
-                options: (Object.keys(orderWords) as TruppOrder[]).map((value) => ({ value, label: orderWords[value] })),
-              },
-            ]}
-          />
-        </div>
-      )}
-      {/* a re-sorted board SAYS so, under its list row, with the way back to the hand-set order
+      {/* a re-sorted board SAYS so, under the head, with the way back to the hand-set order
           (button sweep HEADS.3, 17.11.2026): «Reihenfolge» looked the same set to «Wie gesetzt» as
           to «Name» – the strip every narrowed list wears (components/FilterStrip) */}
       {orderOffered && order !== 'manuell' && (

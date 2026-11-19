@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
+import { act, render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
 import { Menu } from './Menu'
 
-afterEach(cleanup)
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks() })
 
 describe('Menu', () => {
   it.each(['field', 'trigger'])('allows keyboard navigation after pointer opening with focus retained (%s)', async (from) => {
@@ -121,5 +121,29 @@ describe('Menu', () => {
     fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Kroki' }))
     expect(onChange).toHaveBeenCalledWith(true, expect.anything())
     expect(screen.queryByRole('menuitemcheckbox', { name: 'Kroki' })).toBeTruthy()
+  })
+  // Sol review 2, PR #702: a page head's «⋯ Mehr» hidden by its fit ladder (an iPad rotating wide)
+  // left its menu open at the screen's top-left; the menu goes with its trigger, the focus to a
+  // control still on screen beside it
+  it('closes when its trigger leaves the layout, and hands the focus to a shown neighbour', async () => {
+    const watching: { el: Element; cb: (entries: ResizeObserverEntry[]) => void }[] = []
+    vi.stubGlobal('ResizeObserver', class {
+      constructor(private cb: (entries: ResizeObserverEntry[]) => void) {}
+      observe(el: Element) { watching.push({ el, cb: this.cb }) }
+      unobserve() {}
+      disconnect() {}
+    })
+    // jsdom lays nothing out: an element «has a box» unless it is marked gone
+    vi.spyOn(HTMLElement.prototype, 'getClientRects').mockImplementation(function (this: HTMLElement) {
+      return (this.hasAttribute('data-gone') ? [] : [{}]) as unknown as DOMRectList
+    })
+    render(<div><button>Teilen</button><Menu trigger={<button>Mehr</button>} items={[{ label: 'Entfernte Trupps', onClick: vi.fn() }]} /></div>)
+    const trigger = screen.getByRole('button', { name: 'Mehr' })
+    fireEvent.click(trigger)
+    expect(await screen.findByRole('menuitem', { name: 'Entfernte Trupps' })).toBeTruthy()
+    trigger.setAttribute('data-gone', '')
+    act(() => { for (const w of watching) if (w.el === trigger) w.cb([]) })
+    await waitFor(() => expect(screen.queryByRole('menuitem', { name: 'Entfernte Trupps' })).toBeNull())
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Teilen' })))
   })
 })

@@ -1044,6 +1044,9 @@ button.list-row:disabled { opacity: var(--disabled); cursor: default; }
    folds twice (`data-fold="1 8"`) loses its short word too at its second rank and keeps only its
    mark — the quiet «✓ Gespeichert» becoming «✓»; a TILE never folds twice (pick 24a). */
 [data-fold]:not([data-folded]) .fold-short, [data-folded] .fold-long, [data-folded="2"] .fold-short { display: none; }
+/* the ladder's «Mehr» step (lib/pageHeadFit · `data-fit-more`): the rare tiles (`data-more`) step
+   into the head's «⋯ Mehr» menu (`data-more-tile`), which stands only while they are in it */
+[data-more-tile]:not([data-fit-more] *), [data-fit-more] [data-more] { display: none; }
 /* …and a folded TILE is glyph OVER word, never a bare glyph – on a phone since the owner's pick
    HEADS.9 (button sweep, 17.11.2026: «word under there too»), on EVERY device since pick 24a (the
    same evening: «a head / bar row folds together, and a folded tile is glyph over word»; it was a
@@ -1928,7 +1931,7 @@ select.cv-input { appearance: none; -webkit-appearance: none;
    title's box padded to --tap, the head stacked from the top */
 .rp-head-titles h2 { padding-top: calc((var(--tap) - 1.3em) / 2); }
 .rp-head-titles h2:last-child { padding-bottom: calc((var(--tap) - 1.3em) / 2); }
-.rp-head:not([data-fit-wrap]) > .rp-head-titles:has(> h2:not(:last-child)) { margin-bottom: calc(var(--sp-1) - var(--head-pad-y)); }
+.rp-head:not([data-fit-wrap]) > .rp-head-titles:has(> h2:not(:last-child)) { height: var(--tap); }
 /* The second row (the ladder's last step — a phone with something open, since the Kontrolle chip
    keeps its words, council round 3): the TITLE and the chip share the first row (what this is,
    what is wrong), the actions take the second, splitting its width — «Ausdrucken» and «PDF ▾»,

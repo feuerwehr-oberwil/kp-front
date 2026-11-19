@@ -151,6 +151,34 @@ export function Menu({ trigger, items, popupClassName, itemClassName, reasonClas
     return () => document.removeEventListener('keydown', release, true)
   }, [open, keepFocusRef])
 
+  // A trigger that LEAVES while its menu is open – a page head's «⋯ Mehr» hidden by the fit
+  // ladder when an iPad rotates wide (lib/pageHeadFit) – takes the menu with it: anchored to a
+  // box that is gone, the portalled popup sat open at the screen's top-left (Sol review, PR #702).
+  // The focus goes to the nearest control still on screen around the trigger, not to the hidden one.
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const triggerGone = useRef(false)
+  useEffect(() => {
+    const el = triggerRef.current
+    if (!open || !el || typeof ResizeObserver === 'undefined') return
+    triggerGone.current = false
+    const ro = new ResizeObserver(() => {
+      if (el.getClientRects().length > 0) return
+      triggerGone.current = true
+      setOpen(false); onOpenChange?.(false)
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [open, onOpenChange])
+  /** the first visible control in the trigger's nearest ancestor that has one */
+  const nearestShown = () => {
+    for (let box = triggerRef.current?.parentElement; box; box = box.parentElement) {
+      const hit = [...box.querySelectorAll<HTMLElement>('button:not([disabled]), [href], input, [tabindex]:not([tabindex="-1"])')]
+        .find((c) => c.getClientRects().length > 0)
+      if (hit) return hit
+    }
+    return false
+  }
+
   // The popup's one ref: open at the END (scrollToEnd) and the finger's slide-to-highlight
   // (menuSlide — not on a menu that keeps a field's focus, whose focus redirect would fight it).
   // ⚠️ rAF as well as the immediate set: the popup attaches before its own rows have wrapped to
@@ -258,11 +286,11 @@ export function Menu({ trigger, items, popupClassName, itemClassName, reasonClas
       if (next) { rowKeepsFocus.current = false; keepFocus.current = !!keepFocusRef?.current && document.activeElement === keepFocusRef.current }
       setOpen(next); onOpenChange?.(next)
     }}>
-      <BaseMenu.Trigger render={trigger} />
+      <BaseMenu.Trigger ref={triggerRef} render={trigger} />
       <BaseMenu.Portal>
         <BaseMenu.Positioner className="ui-menu-pos" side={side} align={align} sideOffset={sideOffset} alignOffset={alignOffset} collisionPadding={collisionPadding}>
           <BaseMenu.Popup
-            finalFocus={() => keepFocus.current ? keepFocusRef?.current : !rowKeepsFocus.current}
+            finalFocus={() => triggerGone.current ? nearestShown() : keepFocus.current ? keepFocusRef?.current : !rowKeepsFocus.current}
             onFocusCapture={() => { if (keepFocus.current) keepFocusRef?.current?.focus({ preventScroll: true }) }}
             onMouseDownCapture={(e) => { if (keepFocus.current) e.preventDefault() }}
             onKeyDownCapture={() => { keepFocus.current = false }}

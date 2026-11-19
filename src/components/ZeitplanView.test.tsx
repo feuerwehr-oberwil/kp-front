@@ -53,20 +53,10 @@ const base = {
 }
 
 describe('ZeitplanView', () => {
-  // 30.09.2026: a phone hands the Zeitraum zoom to the grid, which draws it in the clock row's
-  // empty corner over the names — no row of its own above the grid
-  it('draws a handed-in zoom in the clock row, over the names', () => {
-    const { container } = render(<ZeitplanView {...base} attendance={{}} shifts={[]}
-      zoom={<button type="button" aria-label="Zeitraum weiter">−</button>} />)
-    const head = container.querySelector('[class*="headRow"]')!
-    expect(head.className).toMatch(/headRowZoom/)
-    expect(within(head as HTMLElement).getByRole('button', { name: 'Zeitraum weiter' })).toBeTruthy()
-  })
-
-  it('keeps the corner an empty, hidden spacer without one', () => {
+  // the zoom is the page head's on every device (Sol review 2, PR #702), never in this corner
+  it('keeps the corner over the names an empty, hidden spacer', () => {
     const { container } = render(<ZeitplanView {...base} attendance={{}} shifts={[]} />)
     const head = container.querySelector('[class*="headRow"]')!
-    expect(head.className).not.toMatch(/headRowZoom/)
     expect(head.querySelector('[aria-hidden]')?.childElementCount).toBe(0)
   })
 

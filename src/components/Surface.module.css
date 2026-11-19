@@ -14,7 +14,7 @@
  * shell, only inside a `min-width` block of 1181px or more. Its scrolling body then takes
  * `padding-inline: var(--content-pad-x)`. Because `--content-max` is unset at 1180 and below,
  * phones and tablets get exactly the page's own inset (`--page-x` on a page-grid page, else
- * `--head-pad-x`, 22). Never cap a phone or tablet layout this way.
+ * `--head-pad-x`, 16). Never cap a phone or tablet layout this way.
  * A new capped body uses this token rather than a hand-rolled `max-width` + `margin: auto` box
  * (the Checkliste's readers are not a capped body: one LEFT-aligned 760px column on a white
  * pane, owner pick 20.10.2026). Inside a row, a control stays near its label (the
@@ -92,9 +92,11 @@
    being 19px/1.3 (16px/1.3 on a phone) – and the head stacks from the top, so the title's middle is
    the tiles' middle on every page (Trupps, Rapport, Anwesenheit, Material titles stand on one line).
    The quiet line («✓ Gespeichert», the counts) hangs `--head-sub-gap` under the title's own line,
-   not under the 44px row, and ends 4px above the head's edge – its baseline about level with the
-   tiles' bottom, its glyphs ~8px clear of the hairline – so the head stays the 68px it was (the
-   Trupps tablet board's two rows need every pixel of it: at 8px the board scrolled by 2).
+   not under the 44px row: the titles block is the tiles' `--tap` tall and the quiet line hangs out
+   of it into the head's bottom padding – ~4px above the edge on a tablet, ~2 on a phone, where the
+   head is no band – so a head is 68 / 60 with or without one (round 18.11.2026 evening: a
+   negative margin left the phone's Material and Anwesenheit heads 62 beside 60; the Trupps tablet
+   board's two rows need every pixel of the 68: at 8px the board scrolled by 2).
    Without one the title's box closes at 44 and so does the head. (r22 kept an empty second row
    under a lone title instead: the Rapport's title stood ~10px above its buttons' middle.) The
    Rapport restates this for
@@ -103,13 +105,15 @@
 :where(.head:has(> .headTitles > h2)) { align-items: flex-start; }
 :where(.headTitles) > :where(h2) { padding-top: calc((var(--tap) - 1.3em) / 2); }
 :where(.headTitles) > :where(h2:last-child) { padding-bottom: calc((var(--tap) - 1.3em) / 2); }
-:where(.head:not([data-fit-wrap])) > :where(.headTitles:has(> h2:not(:last-child))) { margin-bottom: calc(var(--sp-1) - var(--head-pad-y)); }
+:where(.head:not([data-fit-wrap])) > :where(.headTitles:has(> h2:not(:last-child))) { height: var(--tap); }
 /* the tile cluster at the right end — levelled to --tap by 20-touch-floors (and a --tap row of its
    own, so a short tile still centres on row 1); one 8px gap between neighbours, the app's one gap
    (docs/ui-conventions.md · the top bar) */
 :where(.headActions) { flex: none; display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; margin-left: auto; min-height: var(--tap); }
 /* the step before last: the tiles close up (4px apart, on the grid since 08.10.2026 — it was 6; a worded tile 8px inside — the module's
-   tile rule, Atemschutz.module.css / 13-incident.css). The top bar's «gaps» rung. */
+   tile rule, Atemschutz.module.css / 13-incident.css). The top bar's «gaps» rung. The titles and the
+   tiles close up to the phone's 8 too (Sol review, PR #702: the 820px Zeitplan head with its zoom). */
+:where(.head[data-fit-tight]) { column-gap: var(--sp-2); }
 :where(.head[data-fit-tight]) :where(.headActions) { gap: 4px; }
 /* the LAST step of the ladder: the titles take the first row whole, the tiles the second, still
    at the right end where the thumb already knows them */
@@ -146,13 +150,14 @@
    cards on ONE inset and keeps ONE gap between the cards, so the page's title starts at the first
    card's left edge and its last tile ends at the last card's right edge. A shell that wears
    `pageGrid` beside `shell` (Atemschutz composes it, ReportPreflight adds it) gets:
-   - `--page-x`: the head's AND the content's side inset – 16, the phone's `--head-pad-x` (14);
+   - `--page-x`: the head's AND the content's side inset – `--head-pad-x`, 16 on every width;
    - `--page-gap`: between the cards, columns and rows alike – 12.
    The shared `.head` above and `--content-pad-x` read `--page-x` with `--head-pad-x` as the
-   fallback, so a page without `pageGrid` (Anwesenheit, Material, Checkliste) keeps its 22 by
-   construction. (Before: the head at 22 over Trupps cards at 16 and Rapport cards at ~33, with
+   fallback; since round 18.11.2026 evening (pick 2A, «check size») that fallback IS 16 too, so
+   every page head and its content stand on one inset (Anwesenheit, Material and Checkliste were
+   at 22 – the title jumped 6px between pages one tap apart). (Before: the head at 22 over Trupps cards at 16 and Rapport cards at ~33, with
    gaps of 12 / 18 × 14 – three insets on two pages.) */
-:where(.pageGrid) { --page-x: var(--sp-4); --page-gap: var(--sp-3); }
+:where(.pageGrid) { --page-x: var(--head-pad-x); --page-gap: var(--sp-3); }
 
 /* Phone (and a short landscape tablet): the surface takes the full width below the floating top
    bar — 78px clears it with a visible gap, at 64px the header sat glued under it — and the
@@ -204,6 +209,4 @@
   }
   /* the head is the page's first row, not a band: no fill, no hairline under it */
   :where(.head) { background: none; box-shadow: none; }
-  /* the page grid takes the phone's one inset (15-mobile · --head-pad-x) */
-  :where(.pageGrid) { --page-x: var(--head-pad-x); }
 }

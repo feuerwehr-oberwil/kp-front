@@ -2,8 +2,9 @@
    The search line that sits above a working list — one definition, two surfaces.
    ============================================================================
 
-   Anwesenheit and Mittel both open with the same row: a search field that takes the slack,
-   one or two --tap filter buttons, and a dashed + to add what the list does not have. It was
+   Anwesenheit and Mittel both open with the same row: a search field that takes the slack and
+   one or two --tap filter buttons – nothing else: an ACTION («+ Anderes Material») stands in the
+   page head (owner pick 2A, 18.11.2026; docs/ui-conventions.md · «Acts up»). It was
    built for the Anwesenheit and then COPIED into Mittel, which is how the two drift: a fix to
    one silently never reaches the other. This is that row, defined once.
 
@@ -63,32 +64,15 @@
    the menu is up – the ticks inside say what is on – and the fill comes back when it closes. */
 .iconBtn:is([data-popup-open], [aria-expanded='true']) { border-color: var(--glass-edge); background: var(--sel-wash); color: var(--blue-strong); }
 
-/* «Weitere Person» / «Anderes Mittel» — a square + at the end of the line. FRAMED like the
-   filters beside it (27.09.2026, slim sweep · mockup 5): it was dashed «because it adds something
-   the list does not have», but a dashed edge in this app means «missing / hidden / placeholder»
-   (the empty Auftrag, a hidden storey, «Entfällt»), and read here as the one control that was not
-   quite there. Adding is an ordinary action; it wears the row's ordinary tile. The words are in
-   the tooltip: they cost ~160px of a row that has a field and its filters to fit as well, and what
-   is added is named in the dialog it opens. */
-.addBtn {
-  display: flex; align-items: center; justify-content: center; flex: none;
-  width: var(--tap); min-width: var(--tap); min-height: var(--tap); padding: 0; cursor: pointer;
-  border: 1px solid var(--glass-edge); background: var(--surface); border-radius: var(--r-ctl);
-  color: var(--ink);
-}
-@media (hover: hover) { .addBtn:hover { border-color: var(--ink-faint); } }
-.addBtn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.addBtn svg { width: 18px; height: 18px; }
 /* ONE labelling rule for these head buttons, decided here, not per surface (duck sweep ELEM.13,
    17.11.2026 – the Anwesenheit worded its filters on a phone only, the Mittel on a tablet only):
    a control that has a word (`.word`) shows it on every device – BESIDE the glyph on a tablet,
    UNDER it on a phone, like the nav bar's tiles (EL phone sweep D2). The word is a fixed string,
-   so the width it takes is fixed too – an active filter is still shown by the fill.
-   ⚠️ AFTER .addBtn: same specificity, and .addBtn's fixed --tap width would otherwise win. */
-:is(.iconBtn, .addBtn):has(> .word) { width: auto; display: inline-flex; align-items: center; gap: 8px; padding: 0 12px;
+   so the width it takes is fixed too – an active filter is still shown by the fill. */
+.iconBtn:has(> .word) { width: auto; display: inline-flex; align-items: center; gap: 8px; padding: 0 12px;
   font: var(--fw-bold) var(--fs-2) var(--body); white-space: nowrap; }
 @media (--phone) {
-  :is(.iconBtn, .addBtn):has(> .word) { display: inline-grid; grid-auto-flow: row; row-gap: var(--sp-1); align-content: center;
+  .iconBtn:has(> .word) { display: inline-grid; grid-auto-flow: row; row-gap: var(--sp-1); align-content: center;
     justify-items: center; padding: 0 var(--sp-2); }
   .word { font: var(--fw-bold) var(--fs-micro)/1 var(--body); letter-spacing: -.02em; }
 }
@@ -119,8 +103,8 @@
    claiming rows of their own — vertical space is what the list underneath is short of */
 @media (--phone) {
   .controls { gap: 8px; padding: 8px var(--head-pad-x); }
-  /* 96, not 120 (button sweep HEADS.6, 17.11.2026): with «Kategorie» as the Mittel's word the three
-     worded tiles took 8px too many and «Anderes» fell onto a row of its own (measured 390px) */
+  /* 96, not 120 (button sweep HEADS.6, 17.11.2026): three worded tiles took 8px too many at 390px;
+     since «Anderes» moved up into the head (pick 2A) the field takes what the two filters leave */
   .search { flex: 1 1 96px; }
 }
 

@@ -221,7 +221,9 @@ while the head's subtitle says when («Schadenlage · erledigt 10:57»).
   time, and a folded tile is never a bare glyph, on any device (13-incident · «fold», 10-journal ·
   «the fold»). The primary folds with them, «+» over «Trupp», the same tile told apart only by its fill
   (round 18.11.2026 #5, owner: «Stack too. Primary difference should be color.»); where even the folded
-  row cannot fit, a tile takes a short word (a `…Short` key), then the head's second row. A phone
+  row cannot fit, a tile takes a short word (a `…Short` key), then a head's rare tiles step into its
+  «⋯ Mehr» (`data-more` / `data-more-tile`, lib/pageHeadFit – the Trupps head's «Entfernte Trupps» and
+  «Teilen»; the alarm, the bell and the primary stay up), then the head's second row. A phone
   wears the folded tiles where its CSS says so (the top bar's `data-tiles`). Exempt: the sheet ✕,
   a field's clear, a list row's chevron and a quiet row-end bin (below).
 - **A print or download that waits on something shows `ShellLoader` in its button** (28.10.2026,
@@ -924,9 +926,16 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     and filters sit in its LIST ROW under the head, never in the head** (owner pick 25 B,
     17.11.2026): the field always in view and taking the slack, the filter tiles after it – the
     Anwesenheit's, the Mittel's and the Verlauf's row (a lens and an ⓘ «Legende» in the Verlauf's
-    head cut its title to «V…»). An ORDER is the list's question too: the Trupps «Reihenfolge» stands
-    in the board's list row, its «Sortiert:» strip under it, and the head keeps what acts on the whole
-    board – Alarme · Abgeben · Alarmton · + Trupp anmelden (owner pick 26, 17.11.2026). A key that explains a list's discs is not a head button either: it
+    head cut its title to «V…»). **Acts up** (owner pick 2A, 18.11.2026 evening; it replaces pick
+    26): every ACTION of a page stands in its head, at the right – «+ Anderes Material» in the
+    Material head, «Reihenfolge» beside «Trupps teilen» in the Trupps head (its «Sortiert:» strip
+    under the head). The row under the head holds the search and its filters ONLY, and exists only
+    where there is a search; view tabs (Anwesenheit · Zeitplan · Schichten) are no actions and stay
+    in the head. One size each, on every page head: the side inset `--head-pad-x` = the page
+    grid's `--page-x` (16, on a phone too – one token, `--head-pad-x`), the head 68 / 60 tall with or without its quiet line,
+    every tile and the view switch's track `--tap` (its options 38 inside the track, the one
+    segmented spec), the list row 68 / 60. The Checkliste runner's head is the reader's own head in
+    its white pane (pick 20.10.2026), no band, and keeps its 56. A key that explains a list's discs is not a head button either: it
     ends the filter menu whose rows wear those discs (the Verlauf's ring key, a Menu `note`). The WORD is the FACET («Kategorie», «Art»,
     «Reihenfolge»), never the act «Filtern»; a menu's head is the trigger's full name («Nach
     Kategorie filtern»), a menu of groups heads each group instead (HEADS.6). The Anwesenheit's
