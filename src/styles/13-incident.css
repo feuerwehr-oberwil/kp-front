@@ -1044,6 +1044,9 @@ button.list-row:disabled { opacity: var(--disabled); cursor: default; }
    folds twice (`data-fold="1 8"`) loses its short word too at its second rank and keeps only its
    mark — the quiet «✓ Gespeichert» becoming «✓»; a TILE never folds twice (pick 24a). */
 [data-fold]:not([data-folded]) .fold-short, [data-folded] .fold-long, [data-folded="2"] .fold-short { display: none; }
+/* the ladder's «Mehr» step (lib/pageHeadFit · `data-fit-more`): the rare tiles (`data-more`) step
+   into the head's «⋯ Mehr» menu (`data-more-tile`), which stands only while they are in it */
+[data-more-tile]:not([data-fit-more] *), [data-fit-more] [data-more] { display: none; }
 /* …and a folded TILE is glyph OVER word, never a bare glyph – on a phone since the owner's pick
    HEADS.9 (button sweep, 17.11.2026: «word under there too»), on EVERY device since pick 24a (the
    same evening: «a head / bar row folds together, and a folded tile is glyph over word»; it was a

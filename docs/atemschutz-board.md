@@ -115,8 +115,10 @@ questions, and what the record keeps (`components/AtemschutzView`; the card and 
     it was hidden since 24.09.2026). The card foot is ONE line,
     «drin 10:00 min · Schätzung ≈ 263 bar» (round 2b: M3's «UNTER ATEMSCHUTZ» wrapped it); a foot
     row too narrow for it wraps between its items, inside the foot's 36 / 44px touch height, and the
-    Schätzung keeps its word (owner pick 4C, 18.11.2026; it dropped the word below 320px until then).
-    The ⌄ hugs the times, and «⋯ Mehr» is one framed chip at the line's end, the glyph beside the
+    Schätzung keeps its word (owner pick 4C, 18.11.2026; it dropped the word below 320px until then);
+    an item wider than the whole row breaks between its word and its value, never inside «263 bar».
+    On a mouse the wrapped lines are 14px, so the foot stays 28. The ⌄ is the last value's last glyph,
+    so a wrapped line ends in it (Sol review, PR #702), and «⋯ Mehr» is one framed chip at the line's end, the glyph beside the
     word – 36px on touch, the foot's 28 on a mouse (pick 4C; it was ⋯ over «Mehr», pick 24). Fact chips are compact fields everywhere (28px drawn, 8px pad above/below on
     touch so a chip owns 44px), rows 8px apart on every device since owner pick A2 (05.11.2026).
     Two rows 8px apart cannot both own 44px in 8px of air, so on the grid on touch the strip stands

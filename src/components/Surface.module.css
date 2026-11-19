@@ -111,7 +111,9 @@
    (docs/ui-conventions.md · the top bar) */
 :where(.headActions) { flex: none; display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; margin-left: auto; min-height: var(--tap); }
 /* the step before last: the tiles close up (4px apart, on the grid since 08.10.2026 — it was 6; a worded tile 8px inside — the module's
-   tile rule, Atemschutz.module.css / 13-incident.css). The top bar's «gaps» rung. */
+   tile rule, Atemschutz.module.css / 13-incident.css). The top bar's «gaps» rung. The titles and the
+   tiles close up to the phone's 8 too (Sol review, PR #702: the 820px Zeitplan head with its zoom). */
+:where(.head[data-fit-tight]) { column-gap: var(--sp-2); }
 :where(.head[data-fit-tight]) :where(.headActions) { gap: 4px; }
 /* the LAST step of the ladder: the titles take the first row whole, the tiles the second, still
    at the right end where the thumb already knows them */
@@ -148,14 +150,14 @@
    cards on ONE inset and keeps ONE gap between the cards, so the page's title starts at the first
    card's left edge and its last tile ends at the last card's right edge. A shell that wears
    `pageGrid` beside `shell` (Atemschutz composes it, ReportPreflight adds it) gets:
-   - `--page-x`: the head's AND the content's side inset – 16, the phone's `--head-pad-x` (14);
+   - `--page-x`: the head's AND the content's side inset – `--head-pad-x`, 16 on every width;
    - `--page-gap`: between the cards, columns and rows alike – 12.
    The shared `.head` above and `--content-pad-x` read `--page-x` with `--head-pad-x` as the
    fallback; since round 18.11.2026 evening (pick 2A, «check size») that fallback IS 16 too, so
    every page head and its content stand on one inset (Anwesenheit, Material and Checkliste were
    at 22 – the title jumped 6px between pages one tap apart). (Before: the head at 22 over Trupps cards at 16 and Rapport cards at ~33, with
    gaps of 12 / 18 × 14 – three insets on two pages.) */
-:where(.pageGrid) { --page-x: var(--sp-4); --page-gap: var(--sp-3); }
+:where(.pageGrid) { --page-x: var(--head-pad-x); --page-gap: var(--sp-3); }
 
 /* Phone (and a short landscape tablet): the surface takes the full width below the floating top
    bar — 78px clears it with a visible gap, at 64px the header sat glued under it — and the
@@ -207,6 +209,4 @@
   }
   /* the head is the page's first row, not a band: no fill, no hairline under it */
   :where(.head) { background: none; box-shadow: none; }
-  /* the page grid takes the phone's one inset (15-mobile · --head-pad-x) */
-  :where(.pageGrid) { --page-x: var(--head-pad-x); }
 }

@@ -247,10 +247,15 @@ button.ortStation:active:not(:disabled) { background-image: linear-gradient(var(
 .paperContent { margin: 0; font: var(--fw-bold) var(--fs-2) var(--body); color: var(--ink); }
 .paperHint { margin: var(--sp-2) 0 0; font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-faint); }
 
-/* Zeitraum control — sits at the end of the search row, beside the thing it scopes */
+/* Zeitraum control — the first of the head's tiles on a tablet (zoom is no search, pick 2A; its words
+   fold with the tiles), the grid's clock-row corner on a phone */
 .horizon { flex: none; display: flex; align-items: center; gap: var(--sp-2); }
 .horizonLabel { font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
 .horizonValue { min-width: 3.4rem; text-align: center; font: var(--fw-bold) var(--fs-1) var(--mono); color: var(--ink); }
+/* folded with the head's tiles: the words go (`.fold-long`), the − value + close up to one fixed
+   130px block – fixed, so «+» does not move under the thumb as the hours change */
+.horizon[data-folded] { gap: 0; }
+.horizon[data-folded] .horizonValue { min-width: 2.6rem; }
 /* «bis 18:01» — at a constant px-per-hour a wider window is pixel-identical, so this is the only
    visible answer to what widening it bought you. Words and a clock, so the body face with
    tabular figures (T1, 15.11.2026) */

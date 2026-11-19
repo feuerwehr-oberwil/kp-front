@@ -1330,6 +1330,20 @@ export function AtemschutzView({
     </div>
   )
 
+  // «Entfernte Trupps» – its own menu, and the same rows in the head's «Mehr» (below)
+  const restoreItems = [
+    { kind: 'head' as const, label: az.restoreMenu },
+    ...removedTrupps.map((t) => ({
+      label: fillTemplate(az.restoreItem, { name: t.name }),
+      onClick: () => restoreTrupp(t),
+    })),
+  ]
+  // what the head's «⋯ Mehr» holds once its rare tiles have stepped into it (lib/pageHeadFit)
+  const moreItems = [
+    ...(onShareLink ? [{ label: shareLabel, onClick: onShareLink }] : []),
+    ...(canEdit && removedTrupps.length > 0 ? [...(onShareLink ? [{ kind: 'sep' as const }] : []), ...restoreItems] : []),
+  ]
+
   // ONE ROW (lib/pageHeadFit): the head folds words — the quiet line's time, the tiles' words,
   // «Trupp anmelden» → «Trupp» — until it fits, re-measured whenever what it carries changes
   const headRef = useRef<HTMLElement>(null)
@@ -1521,19 +1535,13 @@ export function AtemschutzView({
         {canEdit && removedTrupps.length > 0 && (
           <Menu
             trigger={
-              <button type="button" className={s.orderBtn} data-fold={HEAD_FOLD.tiles} aria-label={az.restoreMenu} title={az.restoreMenu}>
+              <button type="button" className={s.orderBtn} data-fold={HEAD_FOLD.tiles} data-more aria-label={az.restoreMenu} title={az.restoreMenu}>
                 <Icon id="archive" /><span className="fold-long">{az.restoreMenu}</span>
               </button>
             }
             popupClassName="rp-print-menu"
             itemClassName={() => 'rp-print-menu-item'}
-            items={[
-              { kind: 'head' as const, label: az.restoreMenu },
-              ...removedTrupps.map((t) => ({
-                label: fillTemplate(az.restoreItem, { name: t.name }),
-                onClick: () => restoreTrupp(t),
-              })),
-            ]}
+            items={restoreItems}
           />
         )}
         {/* ⚠️ The handed-over Tafel has no TopBar at all (IncidentWorkspace · «Tafel pur»), so the
@@ -1595,12 +1603,28 @@ export function AtemschutzView({
         {onShareLink && (
           <button
             type="button"
-            className={cx(s.shareBtn, shareLinkActive && s.shareOn)} data-fold={HEAD_FOLD.tiles}
+            className={cx(s.shareBtn, shareLinkActive && s.shareOn)} data-fold={HEAD_FOLD.tiles} data-more
             onClick={onShareLink}
             aria-label={shareLabel} title={shareLabel}
           >
             <Icon id="qr" /><span className="fold-long">{az.shareLink}</span><span className="fold-short">{az.shareLinkShort}</span>
           </button>
+        )}
+        {/* «⋯ Mehr»: where even the closed-up row cannot fit (a phone with an alarm, a removed Trupp
+            and a blocked tone – Sol review, PR #702: the head wrapped to 164px), «Entfernte Trupps»
+            and «Teilen» step into this menu instead of a second row (lib/pageHeadFit · `data-fit-more`).
+            The ⚠, the bell and «+ Trupp» never do: the alarm, its sound and the primary stay up. */}
+        {!focusMode && moreItems.length > 0 && (
+          <Menu
+            trigger={
+              <button type="button" className={s.orderBtn} data-fold={HEAD_FOLD.tiles} data-more-tile aria-label={az.headMoreWord} title={az.headMoreWord}>
+                <Icon id="more" /><span className="fold-long">{az.headMoreWord}</span>
+              </button>
+            }
+            popupClassName="rp-print-menu"
+            itemClassName={() => 'rp-print-menu-item'}
+            items={moreItems}
+          />
         )}
         {/* ⚠️ Stays HERE even on the lite/phone focus board (maintainer correction, 03.09.): an
             earlier pass moved it down beside the strip, but the review put it back — top row,

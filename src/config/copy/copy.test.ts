@@ -92,3 +92,15 @@ describe('admin picker registry', () => {
     expect(AVAILABLE_LOCALES.map((l) => l.id)).toEqual(['de-CH', 'en', 'fr', 'it'])
   })
 })
+
+// Label in name (WCAG 2.5.3; Sol review, PR #702): the Trupp card's chip SHOWS «⋯ Mehr» and was
+// named «Weitere Aktionen» – «Mehr» said to voice control found nothing. Its name starts with its word.
+describe('the Trupp card «⋯ Mehr» chip', () => {
+  it('is named starting with its visible word, in every language', async () => {
+    for (const { id } of AVAILABLE_LOCALES) {
+      await applyLocale(id)
+      const az = getCopy().atemschutz
+      expect(az.cardMenu.startsWith(az.cardMenuWord), id).toBe(true)
+    }
+  })
+})

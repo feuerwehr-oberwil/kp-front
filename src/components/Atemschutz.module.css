@@ -236,7 +236,11 @@
 .metaLine { --meta-gap: calc(var(--sp-4) + var(--sp-1));
   display: flex; flex-wrap: wrap; align-items: baseline; gap: 1px var(--meta-gap); overflow-x: clip;
   padding: var(--sp-2) var(--sp-3) 0; font: var(--fw-medium) var(--fs-1)/17px var(--body); color: var(--ink-dim); }
-.metaLine > span { display: inline-flex; align-items: baseline; gap: var(--sp-1); white-space: nowrap; }
+/* An item is ONE unit, but an item wider than the whole line (the 375px phone with room kept for the
+   Eintrag button: «Schätzung ≈ 263 bar» needs 135px, has 126) breaks between its word and its
+   value – never inside either, so «263 bar» stays together (Sol review, PR #702; it was clipped). */
+.metaLine > span { display: inline-flex; flex-wrap: wrap; align-items: baseline; column-gap: var(--sp-1); min-width: 0; }
+.metaLine > span > * { white-space: nowrap; }
 .metaLine > span + span { position: relative; }
 .metaLine > span + span::before { content: '·'; position: absolute; right: 100%; width: var(--meta-gap); text-align: center;
   color: var(--ink-faint); opacity: .7; }
@@ -348,7 +352,7 @@
    pick 4C, round 18.11.2026 evening; owner on the glyph-over-word tile of pick 24: «ugly»). 36px
    on touch (the touch grid draws its foot 36 and owns 44 with the pad under the card, below), the
    foot line's 28 on a mouse; it ends at the card's own inset, in line with the tiles above. */
-.footMore { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 var(--sp-3);
+.footMore { flex: none; display: inline-flex; align-items: center; gap: var(--sp-1); height: 36px; padding: 0 var(--sp-3);
   margin-right: var(--sp-3); border: 1px solid var(--glass-edge); border-radius: var(--r-sm); background: transparent;
   color: var(--ink); font: var(--fw-bold) var(--fs-1)/1 var(--body); white-space: nowrap; cursor: pointer;
   -webkit-tap-highlight-color: transparent; }
@@ -1495,7 +1499,7 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    AtemschutzView · the trigger). It costs the head nothing — the row is already 44px because of
    the three controls beside it — and it turns a line of text that happened to be clickable into
    a button somebody can hit with a glove. The negative side margin keeps the title's first
-   letter on the head's own 14px inset despite the button's padding. */
+   letter on the head's own inset despite the button's padding. */
 .headTitleBtn { flex: 1 1 auto; min-width: 0; min-height: var(--tap);
   display: inline-flex; align-items: center; gap: var(--sp-2);
   border: none; background: none; padding: 0 2px; margin: 0 -2px; cursor: pointer;
@@ -1775,10 +1779,14 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 /* the card's foot as ONE terse line: values with units (the Schätzung and «Draussen seit» with
    their word), the Verlauf's chevron at the end, and the whole line is the tap (TruppCard · footZone) */
 .vrowTerse { padding: 0 var(--sp-3); gap: var(--sp-2); }
-/* the ⌄ HUGS the times (owner pick 4C, 18.11.2026): the line takes its own width, the chevron
-   stands right after it – the button still spans the row up to «⋯ Mehr», so the tap is as wide */
+/* the ⌄ HUGS the times (owner pick 4C, 18.11.2026): it is the last value's last glyph
+   (TruppCard · footChev), so a wrapped line ends in it; the button still spans the row up to
+   «⋯ Mehr», so the tap is as wide. Its 28px box gives 8px over and under back (the glyph is ~14),
+   so it sits inside the line – the touch line's 17px, the mouse line's 14 – and never makes a
+   line taller. */
 .vrowTerse .metaLine { flex: 0 1 auto; min-width: 0; padding: 0; }
 .trowCard .vrowTerse .metaLine { padding: 0; }
+.vrowTerse .metaLine .logChev { margin: calc(-1 * var(--sp-2)) 0 calc(-1 * var(--sp-2)) var(--sp-1); vertical-align: middle; }
 
 /* ── The opened card on the phone board IS the row, grown downwards (26.09.2026, owner) ─────────
    Same frame, tone and padding as `.trow` at this width (12px since 08.10.2026, 10/11 before), the
@@ -2034,6 +2042,9 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
   .grid .trowCard :is(.trowPressBtn, .trowKontakt, .actBtn) { min-height: 36px; }
   .grid .trowCard .vrow { min-height: 28px; }
   .grid .trowCard .footMore { height: 28px; }
+  /* a wrapped foot (a 3-column board in a narrow window) keeps the 28: two 14px lines, no row gap */
+  .grid .trowCard .vrowTerse .metaLine { row-gap: 0; line-height: 14px; }
+  .grid .trowCard .vrowTerse .metaLine b { line-height: 14px; }
 }
 /* Touch: the foot line DRAWN 36px, its 44px owned by an invisible 8px pad BELOW the card (hill climb
    r17, 05.11.2026 – on the 1180×820 iPad the second row's foot stood on the panel's edge, 1px of

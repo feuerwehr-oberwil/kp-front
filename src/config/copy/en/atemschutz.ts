@@ -442,6 +442,8 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     cycleEndAtClose: '{t} (still inside at closing)',
     logClockRestart: 'Team {name}: contact clock restarted – incident reopened',
     cardMenuWord: 'More',
+    // the Trupps head's «⋯ Mehr», where its rare tiles go on a crowded head (lib/pageHeadFit)
+    headMoreWord: 'More',
     lineOnPlan: 'Plan',
     zielPickMap: 'Map',
     zielPickPlan: 'Plan',

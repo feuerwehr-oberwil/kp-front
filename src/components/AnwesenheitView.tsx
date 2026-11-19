@@ -651,15 +651,17 @@ export function AnwesenheitView({
   const bandsAvailable = planAvailable && !!bands && (canEdit || bands.length > 0)
   const showBands = bandsAvailable && view === 'bands'
 
-  /* the Zeitraum zoom. A tablet carries it at the end of the search line; a PHONE in the empty
+  /* the Zeitraum zoom. A tablet carries it in the page head, among the tiles (Sol review, PR #702:
+     zoom is no search and no filter, and the row under the head holds only those – pick 2A); a PHONE in the empty
      corner of the grid's clock row, over the names (30.09.2026, owner: «the +/- 12h thing … uses
      up a lot of vertical space»). The search line has no room left there — search · ✓ · rank
      filter fill 360px — so it wrapped to a row of its own that held nothing else: 56px of a
      screen whose job is showing the Mannschaft. The corner was dead space; it stays put while
      the names and the hours scroll under it, and it sits on the axis the zoom changes. */
   const horizonCtl = showPlan ? (
-    <div className={s.horizon}>
-      <span className={s.horizonLabel}>{appConfig.copy.zeitplan.horizon}</span>
+    // on the tablet head its words («ZEITRAUM», «bis 18:01») fold with the tiles; the zoom stays
+    <div className={s.horizon} data-fold={isPhone ? undefined : HEAD_FOLD.tiles}>
+      <span className={cx(s.horizonLabel, 'fold-long')}>{appConfig.copy.zeitplan.horizon}</span>
       {/* A ZOOM, not a stepper. «−» shows MORE time (the axis zooms out), which is why
           the number beside it grows — magnifier glyphs rather than −/+ so nobody reads
           it as «make this number smaller». */}
@@ -669,7 +671,7 @@ export function AnwesenheitView({
       {/* At a constant px-per-hour the view is pixel-identical when you widen the window —
           only this number moved, and the scrollbar that would have hinted at more axis is
           ignored by iPadOS. Naming the end makes the control answer its own question. */}
-      <span className={s.horizonEnd}>{fillTemplate(appConfig.copy.zeitplan.horizonUntil, { t: horizonEndLabel })}</span>
+      <span className={cx(s.horizonEnd, 'fold-long')}>{fillTemplate(appConfig.copy.zeitplan.horizonUntil, { t: horizonEndLabel })}</span>
       <IconButton variant="secondary" onClick={() => stepHorizon(-1)}
         disabled={shownH <= HORIZONS[0]} label={appConfig.copy.zeitplan.zoomIn}><Icon id="zoom-in" /></IconButton>
     </div>
@@ -704,7 +706,7 @@ export function AnwesenheitView({
   const headRef = useRef<HTMLElement>(null)
   usePageHeadFit(headRef, [
     counts.present, counts.station, counts.scene, counts.left, captureUsage?.writes, captureUsage?.lastAt,
-    !!error, reloadPhase, loading, view, showPlan, showBands,
+    !!error, reloadPhase, loading, view, showPlan, showBands, shownH, horizonEndLabel,
   ].join('|'))
 
   return (
@@ -763,6 +765,8 @@ export function AnwesenheitView({
               <Icon id="redo" /><span className="fold-long">{appConfig.copy.redo}</span>
             </button>
           )}
+          {/* the Zeitplan's zoom, the first of the tiles (on a phone: the grid's clock row, `horizonCtl`) */}
+          {!isPhone && horizonCtl}
           {/* The Zeitplan's paper output. Kept MOUNTED in both views and merely hidden in the
               list — mounting it only for the Zeitplan made the view toggle jump sideways every
               time you switched tabs, because the actions row is right-aligned and one more button
@@ -961,10 +965,6 @@ export function AnwesenheitView({
             on the Mannschaftsliste — see `guestOffer` and the last row of the list.) */}
         {/* (the inline legend strip and its phone ⓘ popover are gone — both facets live in
             the «Filter» menu above, which is also where the marks are looked up now.) */}
-        {/* how far the axis reaches — it belongs on the search line beside the thing it filters,
-            not on a row of its own pushing the grid down (a phone has no room left on that
-            line: there it stands in the grid's own clock row, see `horizonCtl`) */}
-        {!isPhone && horizonCtl}
       </div>
       {/* WHAT narrows the list, on every tab (the three read the same filtered Mannschaft) – and
           the way back (button sweep HEADS.3, 17.11.2026). The count only while nothing is typed. */}

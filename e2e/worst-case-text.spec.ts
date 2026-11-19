@@ -174,6 +174,29 @@ for (const device of [
       await expectInside(card.getByTitle(AUFTRAG_TITLE), card, 'the Auftrag · Ziel chip')
     })
 
+    // Sol review, PR #702: on a narrow foot «Schätzung ≈ 263 bar» was clipped (phone, room kept for
+    // «Eintrag»), and the ⌄ followed the flex box – between the two lines – not the last value
+    test(`the Trupp card foot cuts no value and ends in its ⌄ (${device.name})`, async ({ page }) => {
+      await openEinsatz(page)
+      await go(page, 'Trupps')
+      const card = page.locator('[class*="trowCard"]').filter({ hasText: WORST.crew[0] })
+      if (!await card.isVisible()) await page.getByText(WORST.leader, { exact: true }).filter({ visible: true }).first().click()
+      const line = card.locator('[class*="metaLine"]')
+      await expect(line).toBeVisible()
+      const items = line.locator(':scope > span')
+      // no value cut at its right edge (the ⌄'s 28px box overhangs its line by design, so not the height)
+      for (let i = 0; i < await items.count(); i++) {
+        const m = await items.nth(i).evaluate((e) => ({ sw: e.scrollWidth, cw: e.clientWidth }))
+        expect(m.sw, `foot value ${i + 1}: no text past its right edge`).toBeLessThanOrEqual(m.cw + 1)
+      }
+      // the last value's figure («≈ 263 bar»), and the ⌄ centred on ITS line, right after it
+      const value = await boxOf(items.last().locator('b'), 'the last foot value')
+      const chev = await boxOf(card.locator('[class*="logChev"]'), 'the ⌄')
+      const mid = chev.y + chev.height / 2
+      expect(mid > value.y && mid < value.y + value.height, 'the ⌄ on the last value\'s line, not between two').toBe(true)
+      expect(chev.x, 'the ⌄ stands after the last value').toBeGreaterThanOrEqual(value.x)
+    })
+
     test(`the Anwesenheit gives «Nachname Vorname» two lines (${device.name})`, async ({ page }) => {
       await openEinsatz(page)
       await go(page, 'Anwesenheit')

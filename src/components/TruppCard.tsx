@@ -927,6 +927,7 @@ export function TruppCard({
       </div>
     </>
   )
+  const footChev = <Icon id="chevron-down" className={cx('chev', s.logChev)} />
   const footZone = (
     <>
       {/* ── 6 + 7 Sockel und Verlauf, EIN Block (09.09., Maintainer-Entscheid) ────────────────
@@ -970,16 +971,17 @@ export function TruppCard({
         <div className={s.vfootRow} data-az-foot="">
         <button type="button" className={cx(s.vrow, s.vrowTerse)} aria-expanded={logOpen} aria-label={az.verlauf}
           onClick={() => setLogOpen((o) => !o)}>
+          {/* the ⌄ rides INSIDE the last value, so a wrapped line ends in it – not the flex box,
+              which left it between the two lines (Sol review, PR #702) */}
           <span className={s.metaLine}>
-            {sockelLine.length > 0 ? sockelLine.map((it) => (
+            {sockelLine.length > 0 ? sockelLine.map((it, i) => (
               <span key={it.key} title={it.title}>
                 {it.labelled && <i className={it.quiet ? s.metaWordQuiet : undefined}>{it.label}</i>}
                 {/* the Einsatzzeit / «Draussen seit» past a day in the head's compact «3d 10h» — one card, one spelling */}
-                <b className={cx(it.alarm && s.metaAlarm)}><ClockVal val={it.value} /></b>
+                <b className={cx(it.alarm && s.metaAlarm)}><ClockVal val={it.value} />{i === sockelLine.length - 1 && footChev}</b>
               </span>
-            )) : <span><i>{az.verlauf}</i></span>}
+            )) : <span><i>{az.verlauf}{footChev}</i></span>}
           </span>
-          <Icon id="chevron-down" className={cx('chev', s.logChev)} />
         </button>
         {menu}
         </div>
