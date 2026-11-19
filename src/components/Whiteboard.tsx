@@ -22,8 +22,8 @@ import { Icon } from '../lib/icons'
 import { newId } from '../lib/ids'
 import { Palette } from './Palette'
 import { FloorPage } from './FloorPage'
-import { usePlanPages, usePlanPaperMm } from './usePlanPaper'
-import { paperMaxScale } from '../lib/planTiles'
+import { usePlanPaperMm } from './usePlanPaper'
+import { paperMaxScale, type PageSize } from '../lib/planTiles'
 import { prefetchPlanTiles } from '../lib/planTilePrefetch'
 import { PdfViewport } from './PdfViewport'
 import { prewarmPlans } from '../lib/pdfRaster'
@@ -86,7 +86,7 @@ import { foldedStoreyTeams, loadHiddenFloors, saveHiddenFloors, shownFloors, sto
 import { arrowEdgePadPx, attachInsetPx, boundaryPoint, candidateAttachment, DEFAULT_OBJECT_ROUTING, DETACH_SHOW_PROGRESS, detachAnnos, dwellFor, flipLine, forkPortPoint, wireFreed, isMagnetAnno, lineEndTargets, relationshipNetwork, resolveLinePoints, withDetach, type AnnoDetachPatch, type AttachableLine, type MagneticTarget } from '../lib/lineAttachments'
 import { packFrameRing, packPagePlacement, pagePlacement, regionCorners, stackGroundFit } from '../lib/stackFit'
 import { circleRing, enclosesSection, inSection, rectPoly, storeySections, visibleCentre } from '../lib/storeyClip'
-import { sheetDrawings, type FloorPackView } from '../lib/floorPackBinding'
+import { sheetDrawings, withDrawingStorey, type FloorPackView } from '../lib/floorPackBinding'
 import type { PlanFloor } from '../lib/incidents'
 import { stackInstances } from '../lib/stackFloors'
 import { StackReadings } from './ReadingParts'
@@ -747,8 +747,11 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // per page): the storey drawings, laid onto the board as the board lays its pages, so a symbol
   // placed or moved into one takes its storey, as on the stack (lib/floorPackBinding ·
   // sheetDrawings, withDrawingStorey). Empty on every other sheet and on the stack.
-  const sheetPages = usePlanPages(!stack && sheetFloors?.length && active?.imageUrl ? planUrl(active.imageUrl) : null)
-  const storeyDrawings = stack ? [] : sheetDrawings(sheetFloors, sheetPages)
+  // The pages come from the renderer's own successful load (PdfViewport · onPages), so a sheet
+  // whose first load failed gets its drawings back with «Erneut laden» (Sol review round 2, S3).
+  const [shownPages, setShownPages] = useState<{ url: string; pages: readonly PageSize[] } | null>(null)
+  const wantsPages = !stack && !!sheetFloors?.length && !!active?.imageUrl
+  const storeyDrawings = wantsPages && shownPages?.url === active.imageUrl ? sheetDrawings(sheetFloors, shownPages.pages) : []
 
   // Leaving Linie/Fläche mid-shape never silently drops a committable draft: it asks «Speichern ·
   // Verwerfen · Weiterzeichnen» (27.10.2026; the A6 auto-commit of 29.08. before it). The
@@ -1031,7 +1034,9 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     const src = annos.find((a) => a.id === selId)
     if (!src) return
     const id = newId(DUP_PREFIX[src.kind])
-    const copy = duplicateAnno(src, id, () => [...annos.filter((a) => a.kind === 'resource').map((a) => a.text), ...(placedTeamNames?.() ?? [])])
+    // the nudge may carry the copy across a storey drawing's edge: it takes that drawing's storey,
+    // as a move from the source's place would (Sol review round 2, S4)
+    const copy = withDrawingStorey(src, duplicateAnno(src, id, () => [...annos.filter((a) => a.kind === 'resource').map((a) => a.text), ...(placedTeamNames?.() ?? [])]), storeyDrawings)
     add(copy)
     setSelId(id); setSelIds([])
     log('layers', appConfig.copy.log.duplicated, { annoId: id, x: copy.x ?? copy.pts?.[0]?.[0], y: copy.y ?? copy.pts?.[0]?.[1], floor: copy.floor })
@@ -2530,6 +2535,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
                 vw={vp.w}
                 vh={vp.h}
                 onAspect={takeAspect}
+                onPages={wantsPages ? (pages) => setShownPages({ url: active.imageUrl, pages }) : undefined}
               />
             )}
 

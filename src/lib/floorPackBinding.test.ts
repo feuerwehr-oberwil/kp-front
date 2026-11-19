@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { barStorey, floorPackOf, frameAspect, joinShifts, packFloorNames, packStoreys, sheetDrawings, sheetFloorsOf, trimmedPackFrame, withDrawingStorey } from './floorPackBinding'
+import { barStorey, floorPackOf, frameAspect, joinShifts, packFloorNames, packStoreys, sheetDrawings, sheetFloorsOf, storeyMove, trimmedPackFrame, withDrawingStorey } from './floorPackBinding'
 import type { BoardAnno } from '../types'
 import { inheritPlanBinding } from './incidentPlanBindings'
 import type { GeorefPair } from './georef'
@@ -188,16 +188,17 @@ describe('a plain sheet that shows a floor pack', () => {
     // one storey per page, the whole document on the board (no #page): EG on top, 1OG below it
     const perPage = [{ page: 0, index: 0, name: 'EG' }, { page: 1, index: 1, name: '1OG', clip: c(0, 0.5, 0.5, 1) }]
     const stitched = sheetDrawings(perPage, [a3(0), a3(1)])
+    // (the clipped drawing first: an explicit clip wins over a whole page, round 2 S2)
     expect(stitched).toEqual([
-      { storey: 0, part: 0, clip: [0, 0, 1, 0.5] },
       { storey: 1, part: 0, clip: [0, 0.75, 0.5, 1] },
+      { storey: 0, part: 0, clip: [0, 0, 1, 0.5] },
     ])
     // a Feuer placed in the 1OG drawing – the board's lower quarter, left – is on the 1. OG
     expect(withDrawingStorey(null, fire(0.25, 0.9), stitched)).toMatchObject({ storey: 1 })
     // …and the lower half's right side is page 2 OUTSIDE its drawing: no storey
     expect('storey' in withDrawingStorey(null, fire(0.75, 0.6), stitched)).toBe(false)
     // a narrower page is centred, as the bake stitches it
-    expect(sheetDrawings(perPage, [a3(0), { page: 1, widthPt: 595.5, heightPt: 842 }])[1].clip).toEqual([0.25, 0.75, 0.5, 1])
+    expect(sheetDrawings(perPage, [a3(0), { page: 1, widthPt: 595.5, heightPt: 842 }])[0].clip).toEqual([0.25, 0.75, 0.5, 1])
     // a `#page=2` sheet shows that page alone: its drawings, and only its
     expect(sheetDrawings(perPage, [a3(1)])).toEqual([{ storey: 1, part: 0, clip: [0, 0.5, 0.5, 1] }])
   })
@@ -230,6 +231,23 @@ describe('a plain sheet that shows a floor pack', () => {
     const out = withDrawingStorey(stair, { ...stair, x: 0.25, y: 0.75 }, drawings)
     expect(out).toMatchObject({ floorFrom: 2, floorTo: 3 })
     expect('storey' in out).toBe(false)
+  })
+  // Sol review round 2, S1: «5» set on the EG drawing, moved to the 2OG's, read «7»
+  it('Von alone, Bis alone or Von = Bis is ONE storey: moved across, it becomes the drawing\'s storey', () => {
+    for (const one of [{ floorFrom: 5 }, { floorTo: 5 }, { floorFrom: 5, floorTo: 5 }]) {
+      const sym = fire(0.75, 0.25, one)
+      const out = withDrawingStorey(sym, { ...sym, x: 0.25, y: 0.75 }, drawings)
+      expect(out.storey).toBe(2)
+      expect('floorFrom' in out || 'floorTo' in out).toBe(false)
+      // …and the replay hears the cleared ends (JSON drops an undefined, never a null)
+      expect(storeyMove(out, false, drawings)).toEqual({ storey: 2, floorFrom: null, floorTo: null })
+    }
+  })
+  // Sol review round 2, S2: floors come in storey order, so the EG whole page used to win
+  it('an explicit clip wins over a whole-page drawing on the same page', () => {
+    const mixed = sheetDrawings([{ page: 0, index: 0, name: 'EG' }, { page: 0, index: 1, name: '1OG', clip: c(0.5, 0.5, 1, 1) }], [a3(0)])
+    expect(withDrawingStorey(null, fire(0.75, 0.75), mixed).storey).toBe(1)
+    expect(withDrawingStorey(null, fire(0.25, 0.25), mixed).storey).toBe(0)
   })
   it('works from the symbol as the gesture found it: a streamed frame never shifts twice, and back home is home', () => {
     const stair = fire(0.75, 0.25, { floorFrom: 0, floorTo: 1 })

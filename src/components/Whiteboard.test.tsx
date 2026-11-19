@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { BoardAnno, BuildingDoc, PlanDocument, Trupp } from '../types'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
@@ -48,6 +48,16 @@ vi.mock('../lib/ui', async (importOriginal) => {
     },
   }
 })
+
+// the plan renderer is pdf.js / tiles, neither of which jsdom has: stubbed down to what the
+// board hears from it – the pages of a successful load (PdfViewport · onPages), one A3 page
+vi.mock('./PdfViewport', () => ({
+  PdfViewport: ({ onPages }: { onPages?: (pages: { page: number; widthPt: number; heightPt: number }[]) => void }) => {
+    const told = useRef(false)
+    useEffect(() => { if (!told.current) { told.current = true; onPages?.([{ page: 0, widthPt: 1191, heightPt: 842 }]) } })
+    return null
+  },
+}))
 
 import { Whiteboard } from './Whiteboard'
 
@@ -1342,6 +1352,21 @@ describe('the plan’s selection bar', () => {
     act(() => { keysRef.current!.duplicate() })
     const copy = out(onChange).find((a) => a.id !== 'r1')!
     expect(copy.trail).toBeUndefined()
+  })
+
+  // Sol review round 2, S4: the nudge carried the copy into the next storey drawing with the
+  // source drawing's storey
+  it('a copy nudged across a storey drawing\'s edge takes that drawing\'s storey', () => {
+    const modul6: PlanDocument = { id: 'modul6', code: 'M6', title: 'Modul 6', subtitle: '', imageUrl: '/plans/modul6.pdf', orientation: 'landscape' }
+    const sheetFloors = [
+      { page: 0, index: 0, name: 'EG', clip: [0, 0, 0.5, 1] as [number, number, number, number] },
+      { page: 0, index: 1, name: '1OG', clip: [0.5, 0, 1, 1] as [number, number, number, number] },
+    ]
+    const f: BoardAnno = { id: 'f1', kind: 'symbol', x: 0.49, y: 0.5, symbol: 'VKF Feuer', label: 'Feuer', storey: 0 }
+    const { container, onChange, keysRef } = withKeys([f], { plans: [modul6], activeId: 'modul6', sheetFloors })
+    mouseDown(container.querySelector('.wb-symbol')!)
+    act(() => { keysRef.current!.duplicate() })
+    expect(out(onChange).find((a) => a.id !== 'f1')).toMatchObject({ x: 0.51, storey: 1 })
   })
 
   it('stays out of a Mehrfach group and off a read-only sheet — as on the Karte', () => {

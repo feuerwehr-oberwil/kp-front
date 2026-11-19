@@ -217,15 +217,17 @@ export function sheetFloorsOf(bindings: readonly IncidentPlanBinding[], imageUrl
 }
 
 /** The storey drawings the board shows, laid onto it the way the board lays its pages: `pages` are
- *  the pages the sheet's URL shows, in order (components/usePlanPaper · usePlanPages), stacked by
- *  `sheetLayout` – the renderer's own layout. A sheet without `#page=` shows EVERY page stitched,
+ *  the pages the sheet's URL shows, in order, as the renderer loaded them (components/PdfViewport ·
+ *  onPages), stacked by `sheetLayout` – the renderer's own layout. A sheet without `#page=` shows EVERY page stitched,
  *  so a drawing on page 2 lies in the board's lower half, not where page 1 would put it (Sol
  *  review S2). A drawing on a page the board does not show is no drawing here. Empty while the
  *  pages are not known, and for a sheet without floors. */
 export function sheetDrawings(floors: readonly PlanFloor[] | undefined, pages: readonly PageSize[] | null): SheetDrawing[] {
   if (!floors?.length || !pages?.length) return []
   const { boxes } = sheetLayout(pages)
-  return floors.flatMap((f) => {
+  // explicit clips first: `drawingAt` takes the first hit and the floors come in storey order, so
+  // an EG whole page would mask a 1. OG region drawn on that same page (Sol review round 2, S2)
+  return [...floors].sort((a, b) => Number(!a.clip) - Number(!b.clip)).flatMap((f) => {
     const box = boxes.find((b) => b.page.page === f.page)
     if (!box) return []
     const [x0, y0, x1, y1] = f.clip ?? WHOLE
@@ -267,11 +269,14 @@ export function withDrawingStorey(orig: BoardAnno | null, moved: BoardAnno, draw
     if (base.floorTo != null) out.floorTo = base.floorTo
     return out
   }
-  if (base.floorFrom == null && base.floorTo == null) return { ...out, storey: to.storey }
+  // only a span with two DISTINCT ends is a span: Von alone, Bis alone or Von = Bis name ONE
+  // storey, and that one storey is the drawing's – shifting it would read «5» on the EG drawing
+  // as «7» on the 2. OG's (Sol review round 2, S1)
+  if (base.floorFrom == null || base.floorTo == null || base.floorFrom === base.floorTo) return { ...out, storey: to.storey }
   // the span's step is between STOREYS: wing to wing of one storey moves it by none
-  const delta = to.storey - (from?.storey ?? base.floorFrom ?? base.floorTo ?? to.storey)
-  if (base.floorFrom != null) out.floorFrom = base.floorFrom + delta
-  if (base.floorTo != null) out.floorTo = base.floorTo + delta
+  const delta = to.storey - (from?.storey ?? base.floorFrom)
+  out.floorFrom = base.floorFrom + delta
+  out.floorTo = base.floorTo + delta
   return out
 }
 
@@ -284,7 +289,10 @@ export const barStorey = (orig: BoardAnno, moved: BoardAnno, drawings: readonly 
 
 /** The storey half of a symbol's `board.move` payload, so the Verlauf replay folds it too
  *  (lib/replay · board.move): Von/Bis on the Gebäude stack, and on a sheet with storey drawings
- *  the storey a drawing may have given it. Nothing elsewhere – a move there keeps its storey. */
-export const storeyMove = (a: BoardAnno, stack: boolean, drawings: readonly SheetDrawing[]): Partial<BoardAnno> =>
+ *  the storey a drawing may have given it. Nothing elsewhere – a move there keeps its storey.
+ *  On such a sheet an absent field travels as `null`: a single-storey Von/Bis that a drawing
+ *  replaced with its `storey` is CLEARED, and JSON would drop an `undefined` (Sol review round 2,
+ *  S1). */
+export const storeyMove = (a: BoardAnno, stack: boolean, drawings: readonly SheetDrawing[]): Partial<Record<'storey' | 'floorFrom' | 'floorTo', number | null>> =>
   stack ? { floorFrom: a.floorFrom, floorTo: a.floorTo }
-    : drawings.length ? { storey: a.storey, floorFrom: a.floorFrom, floorTo: a.floorTo } : {}
+    : drawings.length ? { storey: a.storey ?? null, floorFrom: a.floorFrom ?? null, floorTo: a.floorTo ?? null } : {}

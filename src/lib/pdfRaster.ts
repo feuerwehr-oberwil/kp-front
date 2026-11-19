@@ -16,7 +16,7 @@ import './pdfPolyfills'
 import pdfWorkerShimUrl from './pdfWorkerEntry?worker&url'
 import { pdfPageOf } from './whiteboard'
 import { FLOOR_PAGE_SIDE, pageCanvasBudget, rasterSide, regionRaster, renderScale } from './pdfRenderBudget'
-import { loadTileManifest, sourcePages, tileSource, type PageSize } from './planTiles'
+import { loadTileManifest, tileSource, type PageSize } from './planTiles'
 import { composeTiles } from './planTileRaster'
 
 
@@ -143,7 +143,10 @@ const PREVIEW_SIDE = 1024
 export const DPR = () => Math.min(window.devicePixelRatio || 1, 2)
 export const clamp01 = (v: number) => Math.min(1, Math.max(0, v))
 
-export type Baked = { bitmap: ImageBitmap; aspect: number; side: number; pages: number }
+/** One baked sheet. `pages` are the pages the bitmap stitches, top-down, with their sizes in pt –
+ *  the geometry a floor pack's storey drawings are laid onto the board with (components/
+ *  PdfViewport · onPages, lib/floorPackBinding · sheetDrawings). */
+export type Baked = { bitmap: ImageBitmap; aspect: number; side: number; pages: PageSize[] }
 
 // What the resident bitmaps may weigh together. ⚠️ Bytes, not a count: one stitched A4 plan at
 // 3840 px on an iPad is ~83 MB, and the old cap of twelve bitmaps allowed close to a gigabyte —
@@ -219,35 +222,13 @@ function bakeWidth(aspect: number, vw: number, vh: number, maxSide: number, budg
   return renderScale(1, aspect, want, 1, budgetPx) // a 1 × aspect page: the scale IS the width
 }
 
-/** The pages (1-based, pdf.js numbering) the board shows for `url`: a floor sheet (`#page=N`) is
- *  ONE page of the pack; anything else is the whole document, stitched (`render`). */
-const shownPageNos = (url: string, numPages: number): number[] => {
-  const only = pdfPageOf(url)
-  return only != null ? [Math.min(only, numPages - 1) + 1] : Array.from({ length: numPages }, (_, i) => i + 1)
-}
-
-/**
- * The pages the board shows for `url`, with their sizes in pt, in board order – what
- * lib/planTiles · sheetLayout stacks. The tile manifest's where the revision has a pyramid,
- * else pdf.js's own page viewports: the same numbers each renderer draws the sheet from. Null
- * when neither answers (offline and uncached, a PDF that will not open).
- */
-export async function sheetPages(url: string): Promise<PageSize[] | null> {
-  const source = tileSource(url)
-  const manifest = source ? await loadTileManifest(source).catch(() => null) : null
-  if (source && manifest) return sourcePages(manifest, source)
-  const pdf = await loadDocTimed(url).catch(() => null)
-  if (!pdf) return null
-  return Promise.all(shownPageNos(url, pdf.numPages).map(async (no) => {
-    const vp = (await pdf.getPage(no)).getViewport({ scale: 1 })
-    return { page: no - 1, widthPt: vp.width, heightPt: vp.height }
-  }))
-}
-
 function render(url: string, vw: number, vh: number, maxSide: number, budgetPx: number): Promise<Baked> {
   return loadDocTimed(url).then(async (pdf) => {
-    const pageNos = shownPageNos(url, pdf.numPages)
+    // a floor sheet (`#page=N`) is ONE page of the pack; anything else is the whole document
+    const only = pdfPageOf(url)
+    const pageNos = only != null ? [Math.min(only, pdf.numPages - 1) + 1] : Array.from({ length: pdf.numPages }, (_, i) => i + 1)
     const n = pageNos.length
+    const pages: PageSize[] = []
     // measure every page; stitched width is the widest page, height is the sum
     const metas: { page: Awaited<ReturnType<PDFDocumentProxy['getPage']>>; w: number; h: number }[] = []
     let W = 0, totalH = 0
@@ -255,6 +236,7 @@ function render(url: string, vw: number, vh: number, maxSide: number, budgetPx: 
       const pg = await pdf.getPage(i)
       const vp = pg.getViewport({ scale: 1 })
       metas.push({ page: pg, w: vp.width, h: vp.height })
+      pages.push({ page: i - 1, widthPt: vp.width, heightPt: vp.height })
       W = Math.max(W, vp.width)
       totalH += vp.height
     }
@@ -300,7 +282,7 @@ function render(url: string, vw: number, vh: number, maxSide: number, budgetPx: 
     // the bitmap owns the pixels from here; zeroing the canvas hands its backing store back
     // immediately instead of waiting for a collection that an iOS tab may not get to
     canvas.width = canvas.height = 0
-    return { bitmap, aspect, side, pages: n }
+    return { bitmap, aspect, side, pages }
   })
 }
 

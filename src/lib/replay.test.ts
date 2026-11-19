@@ -237,6 +237,15 @@ describe('attachment and Plan replay folding', () => {
     expect((await stateAt(b, 2000))?.board?.modul6[0]).toMatchObject({ x: 0.2, y: 0.7, storey: 2 })
   })
 
+  it('…and the single-storey Von/Bis that storey replaced is gone (sent as null)', async () => {
+    const ws = { ...emptyWs(), board: { modul6: [{ id: 's1', kind: 'symbol' as const, x: 0.7, y: 0.2, floorFrom: 5, floorTo: 5 }] } }
+    const b = bundle([ev({ seq: 1, op_type: 'board.move', occurred_at: iso(1000), payload_json: { id: 's1', planId: 'modul6', x: 0.2, y: 0.7, storey: 2, floorFrom: null, floorTo: null } })],
+      () => ({ workspace: ws, occurredMs: 0 }))
+    const out = (await stateAt(b, 2000))?.board?.modul6[0]
+    expect(out).toMatchObject({ x: 0.2, y: 0.7, storey: 2 })
+    expect(out && ('floorFrom' in out || 'floorTo' in out)).toBe(false)
+  })
+
   it('…a stroke moves by its POINTS, which is what a stroke’s position is', async () => {
     const ws = { ...emptyWs(), board: { gebaeude: [{ id: 'l1', kind: 'draw' as const, pts: [[0, 0, 0], [1, 1, 0]] as [number, number, number][] }] } }
     const b = bundle([ev({ seq: 1, op_type: 'board.move', occurred_at: iso(1000), payload_json: { id: 'l1', planId: 'gebaeude', pts: [[0.5, 0, 0], [1.5, 1, 0]] } })],

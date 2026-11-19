@@ -35,13 +35,17 @@ AGENTS.md on 2026-10-08, wording unchanged.
     drawings side by side on one page, or one per page. A symbol placed or moved INTO one of them takes its storey
     – what a storey tile does on the stack (owner, 18.11.2026, `lib/floorPackBinding ·
     withDrawingStorey`): it writes the sheet's badge `storey` (what Von/Bis shows there), or shifts
-    a Von/Bis span whole by the step between the two drawings. Inside the drawing it came from and
-    outside every drawing it keeps its storey, so one set by hand stays; a drawing is (storey, part),
-    so wing to wing of one storey takes the storey too. Placing, the chip drag and
-    the bar's ✥ do it (a ⟳ turn never does); its `board.move` carries the storey for the replay.
+    a Von/Bis span – two DISTINCT ends – whole by the step between the two drawings. Von alone, Bis
+    alone or Von = Bis is one storey: it becomes the drawing's `storey` and the ends are cleared.
+    Inside the drawing it came from and outside every drawing it keeps its storey, so one set by
+    hand stays; a drawing is (storey, part), so wing to wing of one storey takes the storey too.
+    Placing, the chip drag, the bar's ✥ and Cmd/Ctrl+D's nudge do it (a ⟳ turn never does); its
+    `board.move` carries the storey for the replay, a cleared field as `null` (`storeyMove`).
     The drawings are the floors of THIS sheet's own pinned binding (`sheetFloorsOf`), never the
-    Gebäude's pack, laid onto the board with the renderer's page layout (`planTiles · sheetLayout`):
-    a sheet without `#page=` shows every page stitched top-down. Such a symbol stays on its
+    Gebäude's pack, laid onto the board with the renderer's page layout (`planTiles · sheetLayout`)
+    and the pages of the renderer's own successful load (`PdfViewport · onPages`, so «Erneut laden»
+    brings them back too): a sheet without `#page=` shows every page stitched top-down. An explicit
+    clip wins over a whole-page drawing on the same page. Such a symbol stays on its
     sheet: the Gebäude stack does not show another sheet's ink, and its Karte body is placed through
     the pack's ONE fit, which is measured on the reference drawing – a symbol in another drawing
     lands where that drawing's paper position puts it.

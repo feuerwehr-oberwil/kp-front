@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
-import { loadTileManifest, ptToMm, sourcePages, tileSource, type PageSize } from '../lib/planTiles'
-import { sheetPages } from '../lib/pdfRaster'
+import { loadTileManifest, ptToMm, sourcePages, tileSource } from '../lib/planTiles'
 
 /**
  * How wide the sheet behind `url` is ON PAPER, in mm — known only for a sheet that has a tile
@@ -22,21 +21,4 @@ export function usePlanPaperMm(url: string | null): number | null {
     return () => { cancelled = true }
   }, [url])
   return answer && answer.url === url ? answer.mm : null
-}
-
-/**
- * The pages the board shows for the sheet behind `url`, sized, in board order (lib/pdfRaster ·
- * sheetPages) – what a floor pack's storey drawings are laid onto the board through
- * (lib/floorPackBinding · sheetDrawings). Null while unknown, and for `url` null: ask only for a
- * sheet that has drawings.
- */
-export function usePlanPages(url: string | null): readonly PageSize[] | null {
-  const [answer, setAnswer] = useState<{ url: string; pages: PageSize[] } | null>(null)
-  useEffect(() => {
-    if (!url) return
-    let cancelled = false
-    sheetPages(url).then((pages) => { if (!cancelled && pages?.length) setAnswer({ url, pages }) }, () => {})
-    return () => { cancelled = true }
-  }, [url])
-  return answer && answer.url === url ? answer.pages : null
 }
