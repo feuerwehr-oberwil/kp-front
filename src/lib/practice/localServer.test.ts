@@ -42,7 +42,7 @@ describe('practice local server', () => {
   it('starts a fresh practice Einsatz on the practice site, as rev 1', async () => {
     const first = await (await call('GET', `/api/incidents/${ID}/workspace`)).json()
     expect(first.workspace_rev).toBe(1)
-    expect(first.workspace.entities.map((e: { id: string }) => e.id)).toEqual(['ueben-h1', 'ueben-w', 'ueben-eingang'])
+    expect(first.workspace.entities.map((e: { id: string }) => e.id)).toEqual(['ueben-h1', 'ueben-eingang'])
     // …and only once: a second open keeps what was done there
     await call('PUT', `/api/incidents/${ID}/workspace`, { workspace: { entities: [] }, base_rev: 1 })
     await ensurePracticeIncident(seed, siteScene([7.6, 47.5]))

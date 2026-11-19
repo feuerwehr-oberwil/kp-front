@@ -42,38 +42,47 @@ export const uebenCopy = {
     // the head pill's sync word on the practice Einsatz: nothing is synchronised, by design
     localOnly: 'Nur auf diesem Gerät',
     siteMissing: '{name} fehlt auf der Karte – «Neu beginnen» stellt den Übungsplatz wieder her',
-    site: { hydrant: 'H1', weiher: 'W', eingang: 'Eingang' },
+    site: { hydrant: 'H1', eingang: 'Eingang' },
     modules: {
       karteWasser: 'Karte & Wasser',
       atemschutzGebaeude: 'Atemschutz & Gebäude',
       protokollAbschluss: 'Protokoll & Abschluss',
     },
-    // every drill's title; `task` and `goals` only where the drill can be run already
+    // the intro card's button – before the task, once per start from the sheet
+    introGo: 'Los',
+    // every drill's title; `intro`, `task` and `goals` only where the drill can be run already
     drills: {
       fahrzeugLeitung: {
         title: 'Fahrzeug mit Leitung',
-        task: 'Das TLF steht am Hydranten H1. Setz es dort hin und zieh eine Leitung bis zum Eingang.',
-        goals: { tlf: 'TLF steht beim Hydranten H1', leitung: 'Leitung vom TLF bis zum Eingang' },
-        tlfFar: 'TLF steht {m} m von H1',
+        // what is practised and why (owner, round 2, 19.11.2026: an intro card first)
+        intro: 'Eine Leitung mit Pfeil zeigt auf der Karte, woher das Wasser kommt und wohin es fliesst. Du stellst ein TLF neben einen Hydranten und legst die Leitung vom TLF bis zum Eingang.',
+        task: 'Stell das TLF neben den Hydranten H1 und zieh eine Leitung mit Pfeil vom TLF bis zum Eingang.',
+        // goals are TARGETS, not statements: a red one must not read «TLF steht neben …» over «… auf dem Hydranten»
+        goals: { tlf: 'TLF neben dem Hydranten H1', leitung: 'Leitung mit Pfeil vom TLF zum Eingang' },
+        tlfFar: 'TLF steht {m} m von H1 – zu weit für den Schlauch zum Hydranten',
+        tlfOnTop: 'TLF steht auf dem Hydranten – stell es daneben',
         vehicleFar: 'Fahrzeug steht {m} m von H1 – und heisst noch nicht «TLF»',
-        nameIt: 'Steht. Noch die Bezeichnung «TLF» wählen',
-        tlfFirst: 'Zuerst das TLF',
         startFar: 'Leitung beginnt {m} m vom TLF',
         endFar: 'Leitung endet {m} m vor dem Eingang',
+        noArrow: 'Pfeil fehlt – er zeigt, wohin das Wasser fliesst',
+        arrowBack: 'Pfeil zeigt zum TLF – das Wasser fliesst zum Eingang',
         hint: {
           karte: 'Zur Karte',
-          addPhone: 'Hinzufügen › Fahrzeug, dann auf H1 tippen',
-          addTablet: 'Symbol › Fahrzeug, dann auf H1 tippen',
+          addPhone: 'Hinzufügen › Fahrzeug, dann neben H1 tippen',
+          addTablet: 'Symbol › Fahrzeug, dann neben H1 tippen',
           pick: 'Fahrzeug wählen',
-          tapH1: 'Auf H1 tippen',
+          tapBeside: 'Neben H1 tippen',
           tapVehicle: 'Fahrzeug antippen',
           name: 'Bezeichnung: TLF',
-          drag: 'TLF zu H1 ziehen',
+          drag: 'TLF neben H1 ziehen',
           linePhone: 'Hinzufügen › Linie, dann vom TLF zum Eingang ziehen',
           lineTablet: 'Linie, dann vom TLF zum Eingang ziehen',
           linePick: 'Linie wählen',
           lineDraw: 'Am TLF ansetzen, bis zum Eingang ziehen',
           lineFix: 'Neue Linie vom TLF bis zum Eingang ziehen',
+          lineTap: 'Leitung antippen',
+          arrow: 'Linienende: Pfeil',
+          reverse: 'Richtung umkehren',
         },
       },
       absperrkreis: { title: 'Absperrkreis' },

@@ -9,7 +9,8 @@
 // no drill on the card it is the practice Einsatz's own small card: «Übung wählen» and the two ways
 // out («Neu beginnen», «Übung verlassen») – what the spike's pill said.
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
+import { createPortal } from 'react-dom'
 import type { MapRef } from 'react-map-gl/maplibre'
 import { appConfig } from '../../config/appConfig'
 import { fillTemplate } from '../../lib/format'
@@ -65,6 +66,19 @@ function anchorRect(map: MapRef | null, a: Anchor): Rect | null {
 const sameRect = (a: Rect | null, b: Rect | null) =>
   a === b || (!!a && !!b && Math.round(a.x) === Math.round(b.x) && Math.round(a.y) === Math.round(b.y) && Math.round(a.w) === Math.round(b.w))
 
+/** Is `el` wholly inside the viewport and inside every scrolling box around it? */
+function inView(el: HTMLElement): boolean {
+  const r = el.getBoundingClientRect()
+  if (r.top < 0 || r.bottom > window.innerHeight) return false
+  for (let p = el.parentElement; p; p = p.parentElement) {
+    const o = getComputedStyle(p).overflowY
+    if (o !== 'auto' && o !== 'scroll') continue
+    const b = p.getBoundingClientRect()
+    if (r.top < b.top || r.bottom > b.bottom) return false
+  }
+  return true
+}
+
 /** Frame `points` on the map in the room the card leaves free. */
 function frame(map: MapRef | null, points: LngLat[], card: HTMLElement | null, phone: boolean) {
   if (!map || !points.length) return
@@ -93,7 +107,7 @@ function keepInView(map: MapRef | null, points: LngLat[], card: HTMLElement | nu
 
 export default function UebenRunner({ doc, ui, detailOpen, mapRef, api, commit }: UebenRunnerProps) {
   const C = appConfig.copy.ueben
-  const { drill: drillId, run, done } = useUeben()
+  const { drill: drillId, run, again, done } = useUeben()
   const drill = drillId ? drillById(drillId) : undefined
   const cardRef = useRef<HTMLDivElement>(null)
   const site = useMemo(() => siteOf(doc.entities), [doc.entities])
@@ -126,7 +140,7 @@ export default function UebenRunner({ doc, ui, detailOpen, mapRef, api, commit }
   }, [drill, run, commit])
   // …framed once the workspace has loaded the site and the map's style stands (both come after
   // mount). The points travel by value (`focusKey`), so a re-render is no new frame.
-  const focusKey = drill ? JSON.stringify(drill.focus(site)) : '[]'
+  const focusKey = drill ? JSON.stringify(drill.focus(site, snap)) : '[]'
   const phone = ui.phone
   useEffect(() => {
     const pts = JSON.parse(focusKey) as LngLat[]
@@ -191,6 +205,23 @@ export default function UebenRunner({ doc, ui, detailOpen, mapRef, api, commit }
     return () => cancelAnimationFrame(raf)
   }, [anchorKey, gestureKey, level, mapRef])
 
+  // the ring's control may stand in a scrolled list (the palette's Fahrzeug, the line editor's
+  // Linienende below the fold): bring it into view once, when the ring first points at it
+  useEffect(() => {
+    if (!anchorKey) return
+    const anchor = JSON.parse(anchorKey) as Anchor
+    if (anchor.kind !== 'control') return
+    const t = setTimeout(() => {
+      const el = [...document.querySelectorAll<HTMLElement>(anchor.sel)].find((x) => x.getClientRects().length > 0)
+      if (el && !inView(el)) el.scrollIntoView({ block: 'center', behavior: prefersReducedMotion() ? 'auto' : 'smooth' })
+    }, 250)
+    return () => clearTimeout(t)
+  }, [anchorKey])
+
+  // the intro card (owner, round 2): what is practised and why, before the task – once per start
+  // from the sheet; «Nochmals» (`again`) and a reload in the middle of a drill go straight on
+  const [introRead, setIntroRead] = useState<string | null>(null)
+
   const restart = async () => {
     const ok = await confirmDialog({ title: C.restartTitle, message: C.restartMessage, confirmLabel: C.restartConfirm, danger: true })
     if (!ok) return
@@ -209,34 +240,35 @@ export default function UebenRunner({ doc, ui, detailOpen, mapRef, api, commit }
     { label: C.restart, onClick: () => void restart(), danger: true },
     { label: C.leave, onClick: () => { stopDrill(); leavePractice() } },
   ]
+  // the app's menu skin (13-incident · .rp-print-menu, the Rapport's and the Trupps' ⋯ menus)
   const more = (items: MenuItems) => (
     <Menu
       trigger={<button type="button" className={`ip-btn ${s.more}`} aria-label={C.more} title={C.more}><Icon id="more" /></button>}
-      items={items} side="top"
+      items={items} side="top" popupClassName="rp-print-menu" itemClassName={() => 'rp-print-menu-item'}
     />
   )
 
-  // the palette is a full-screen sheet on a phone: the card steps aside while it is up (the ring
-  // still points into it)
-  const hidden = phone && ui.paletteOpen
+  // the palette is the one place the next tap goes while it is up – a full-screen sheet on a phone,
+  // a centred modal on a tablet that the lifted card would cover: the card steps aside, the ring
+  // and its words point into the palette
+  const hidden = ui.paletteOpen
   const folded = shape === 'folded'
   const hinting = !!hint && level === 1 && !!ring
+  // ⚠️ on <body>, not in the workspace: the palette and the detail sheets are portalled dialogs,
+  // and a ring inside the workspace's stacking context could never stand above them
+  const out = (node: ReactNode) => createPortal(node, document.body)
 
   if (!drill || !drillId) {
-    return (
+    return out(
       <div ref={cardRef} className={`${s.card} ${s.idle}`} hidden={hidden} data-ueben-card="idle">
-        <div className={s.row}>
-          <div className={s.grow}>
-            <div className={s.title}>{C.idleTitle}</div>
-            <p className={s.task}>{C.idleText}</p>
-          </div>
-        </div>
+        <div className={s.title}>{C.idleTitle}</div>
+        <p className={s.task}>{C.idleText}</p>
         <div className={s.actions}>
           <Button variant="primary" className={s.go} onClick={openUebenSheet}>{C.idlePick}</Button>
           <span className={s.grow} />
           {more(ways.slice(2))}
         </div>
-      </div>
+      </div>,
     )
   }
 
@@ -246,7 +278,7 @@ export default function UebenRunner({ doc, ui, detailOpen, mapRef, api, commit }
 
   if (finished) {
     const after: DrillId | null = nextDrill(done, drillId)
-    return (
+    return out(
       <div ref={cardRef} className={s.card} hidden={hidden} data-ueben-card="done">
         <span className={s.kicker}>{kicker}</span>
         <div className={s.doneHead}><span className={s.doneMark}><Icon id="check" /></span><span className={s.title}>{C.doneTitle} · {copy.title}</span></div>
@@ -255,18 +287,33 @@ export default function UebenRunner({ doc, ui, detailOpen, mapRef, api, commit }
           {after
             ? <Button variant="primary" className={s.go} onClick={() => startDrill(after)}>{C.doneNext}</Button>
             : <Button variant="primary" className={s.go} onClick={openUebenSheet}>{C.doneList}</Button>}
-          <Button onClick={() => startDrill(drillId)}>{C.doneAgain}</Button>
+          <Button onClick={() => startDrill(drillId, { again: true })}>{C.doneAgain}</Button>
           <span className={s.grow} />
           {more(after ? ways : ways.slice(1))}
         </div>
-      </div>
+      </div>,
+    )
+  }
+
+  if (copy.intro && run > 0 && !again && introRead !== runKey) {
+    return out(
+      <div ref={cardRef} className={s.card} hidden={hidden} data-ueben-card="intro">
+        <span className={s.kicker}>{kicker}</span>
+        <div className={s.title}>{copy.title}</div>
+        <p className={s.task}>{copy.intro}</p>
+        <div className={s.actions}>
+          <Button variant="primary" className={s.go} onClick={() => setIntroRead(runKey)}>{C.introGo}</Button>
+          <span className={s.grow} />
+          {more(ways)}
+        </div>
+      </div>,
     )
   }
 
   const goals = drill.goals.map((g, i) => ({ id: g.id, label: copy.goals?.[g.id] ?? g.id, st: states[i] }))
   const step = level === 0 ? C.show : level === 1 ? C.showMore : C.solve
 
-  return (
+  return out(
     <>
       {hint && level > 0 && (
         <HintLayer ring={hinting ? ring : null} words={hint.words} hand={level === 2 ? hand : null} tap={gesture?.kind === 'tap'} />
@@ -294,7 +341,6 @@ export default function UebenRunner({ doc, ui, detailOpen, mapRef, api, commit }
                 <span className={s.grow}>
                   <span className={st.s === 'ok' ? s.goalDone : st.s === 'wrong' ? s.goalWrong : undefined}>{label}</span>
                   {st.s === 'wrong' && <span className={s.reason}>{st.reason}</span>}
-                  {st.s === 'open' && st.note && <span className={s.note}>{st.note}</span>}
                 </span>
               </li>
             ))}
@@ -308,7 +354,7 @@ export default function UebenRunner({ doc, ui, detailOpen, mapRef, api, commit }
           </div>
         </div>
       )}
-    </>
+    </>,
   )
 }
 

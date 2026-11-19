@@ -35,6 +35,6 @@ export function nextDrill(done: ReadonlySet<DrillId>, after?: DrillId): DrillId 
 }
 
 /** A drill's copy: the title always, the task and goal words where the drill can run. */
-export function drillCopy(id: DrillId): { title: string; task?: string; goals?: Record<string, string> } {
+export function drillCopy(id: DrillId): { title: string; intro?: string; task?: string; goals?: Record<string, string> } {
   return appConfig.copy.ueben.drills[id]
 }

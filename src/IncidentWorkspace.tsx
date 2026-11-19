@@ -2398,7 +2398,8 @@ export function IncidentWorkspace({
       emit('entity.add', { id: e.id, symbol: e.symbol, entity: e })
     },
     patchEntity,
-    addLine: (coords, attachments) => { createLine(coords, attachments, { select: false }) },
+    patchDrawing: patchDrawingById,
+    addLine: (coords, attachments, props) => { createLine(coords, attachments, { select: false, props }) },
   }
   const {
     deleteGroup, deleteEntity, placed, goToModule, goToTrupp, viewsApi, toggleViews, selected,
@@ -3494,7 +3495,7 @@ export function IncidentWorkspace({
         <Suspense fallback={null}>
           <UebenRunner
             doc={doc}
-            ui={{ phone: isPhone, mode, paletteOpen, tool, pending, selectedId }}
+            ui={{ phone: isPhone, mode, paletteOpen, tool, pending, selectedId, selectedDrawingId }}
             detailOpen={!!selectedId || !!selectedDrawingId}
             mapRef={mapRef}
             commit={commit}

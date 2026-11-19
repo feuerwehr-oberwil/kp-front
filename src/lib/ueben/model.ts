@@ -1,6 +1,7 @@
 // «Üben»: the drill model. A drill is a concrete problem on the practice site (lib/ueben/site)
 // with GOALS that the card ticks live; each goal is a pure check over a snapshot of the practice
-// workspace and answers ok, still open (with an optional quiet note) or wrong WITH the reason
+// workspace and answers ok, still open or wrong WITH the reason (no how-to line under a goal –
+// owner, round 2: «Zeigen» is where the how lives)
 // (owner pick 3B, 19.11.2026: «a wrong value turns red with the reason»).
 //
 // «Zeigen» is a three-step ladder (owner picks, round 2026-11-19-ueben-zeigen): 1 the screen dims
@@ -28,7 +29,7 @@ export interface Snapshot {
   answer?: string
 }
 
-export type GoalState = { s: 'ok' } | { s: 'open'; note?: string } | { s: 'wrong'; reason: string }
+export type GoalState = { s: 'ok' } | { s: 'open' } | { s: 'wrong'; reason: string }
 
 export interface Goal {
   /** key into the drill's `copy.ueben.drills.<id>.goals` */
@@ -44,6 +45,7 @@ export interface UiState {
   tool: MapTool
   pending: string | null
   selectedId: string | null
+  selectedDrawingId: string | null
 }
 
 /** Where the ring goes: a control (CSS selector, the first VISIBLE match) or a spot on the map. */
@@ -61,15 +63,17 @@ export interface Hint {
 export interface SolveApi {
   addEntity: (e: Entity) => void
   patchEntity: (id: string, patch: Partial<Entity>) => void
-  addLine: (coords: LngLat[], attachments?: { startAttachment?: LineAttachment; endAttachment?: LineAttachment }) => void
+  patchDrawing: (id: string, patch: Partial<Drawing>) => void
+  addLine: (coords: LngLat[], attachments?: { startAttachment?: LineAttachment; endAttachment?: LineAttachment }, props?: Pick<Drawing, 'arrow'>) => void
 }
 
 export interface Drill {
   id: DrillId
   module: ModuleId
   goals: readonly Goal[]
-  /** the points the map frames when the drill starts and when «Zeigen» pans */
-  focus: (site: Site) => LngLat[]
+  /** the points the map keeps in view: the site's, and what the operator placed for the drill (a
+   *  TLF that turned red 80 m away must not be off-screen) */
+  focus: (site: Site, snap: Snapshot) => LngLat[]
   /** the next step towards goal `goal` (the first one not ok) */
   hint: (snap: Snapshot, ui: UiState, site: Site, goal: number) => Hint | null
   solve: (snap: Snapshot, site: Site, api: SolveApi) => void
