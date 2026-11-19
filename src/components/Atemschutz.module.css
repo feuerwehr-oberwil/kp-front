@@ -2076,7 +2076,9 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
   .grid .trowCard .vfoot:has(> .vopen) { overflow: hidden; }
   .grid .trowCard .vfootRow:last-child > .vrow { position: relative; min-height: 36px; border-bottom-left-radius: var(--r-ctl); }
   .grid .trowCard .vfootRow:last-child > .footMore { position: relative; height: 36px; }
-  .grid .trowCard .vfootRow:last-child > :is(.vrow, .footMore)::before { content: ''; position: absolute; inset: 0 0 calc(-1 * var(--sp-2)); }
+  /* the pad reaches 8px past the chip's BORDER edge: an absolute box starts inside the 1px border,
+     so the 44px target needs 8 + 1 (Sol review round 3, S2) */
+  .grid .trowCard .vfootRow:last-child > :is(.vrow, .footMore)::before { content: ''; position: absolute; inset: 0 0 calc(-1 * var(--sp-2) - 1px); }
 }
 
 /* the Sicherungstrupp — one place, between the crews inside and everybody else */
