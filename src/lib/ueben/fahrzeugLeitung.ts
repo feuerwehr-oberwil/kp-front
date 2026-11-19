@@ -66,12 +66,13 @@ export function lineMiss(line: Drawing, tlf: Entity, eingang: Entity): { atTlf: 
 }
 
 function checkLeitung(snap: Snapshot, site: Site): GoalState {
-  if (!site.eingang) return missing(appConfig.copy.ueben.site.eingang)
+  const eingang = site.eingang
+  if (!eingang) return missing(appConfig.copy.ueben.site.eingang)
   const tlf = site.h1 ? tlfCandidate(snap.entities, site.h1) : null
   if (!tlf?.named) return { s: 'open', note: C().tlfFirst }
   const ls = lines(snap.drawings)
   if (!ls.length) return { s: 'open' }
-  const misses = ls.map((l) => lineMiss(l, tlf.e, site.eingang!))
+  const misses = ls.map((l) => lineMiss(l, tlf.e, eingang))
   if (misses.some((x) => x.atTlf <= END_AT_M && x.atEingang <= END_AT_M)) return { s: 'ok' }
   // the reason speaks about the line drawn last – the one the operator is looking at
   const last = misses[misses.length - 1]

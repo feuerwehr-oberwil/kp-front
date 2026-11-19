@@ -11,16 +11,16 @@
 // teardown beacon of the page being left cannot recreate it) and every IndexedDB/localStorage key
 // that names it is deleted on the next boot (`purgeRetired`), when no store of it is alive any more.
 //
+// ⚠️ This module is in the ENTRY chunk (main.tsx installs the seam before anything else): it
+// imports lib/idb and nothing heavier. The seed and the way out, which need the copy and the
+// config, live in lib/practice/practiceSeed; the fake server is loaded on the first practice
+// request (installFetch).
+//
 // The mode flag (`kp.practice.on`) says whether App boots INTO the practice Einsatz: a drill
-// started from the «Üben» sheet sets it, «Übung verlassen» (`leavePractice`) clears it. `?ueben=1`
+// started from the «Üben» sheet sets it, «Übung verlassen» (practiceSeed · leavePractice) clears it. `?ueben=1`
 // / `?ueben=0` sets it from the address (readPracticeParam, called once from main.tsx) – the e2e
 // and proof scripts' entry.
 
-import { idbDel, idbKeys } from '../idb'
-import { deploymentDefaultCenter } from '../deploymentConfig'
-import type { IncidentFull } from '../api/incidents'
-import { appConfig } from '../../config/appConfig'
-import { loadPrefs, savePrefs } from '../prefs'
 
 const ID_KEY = 'kp.practice.id'
 const ON_KEY = 'kp.practice.on'
@@ -82,46 +82,6 @@ export function readPracticeParam(): void {
   window.history.replaceState(window.history.state, '', url.toString())
 }
 
-/** The seed meta of a fresh practice Einsatz: an Übung, «Übungsplatz», at the station centre
- *  (the site of lib/ueben/site is laid out around it). */
-export function practiceSeedMeta(id: string, now = new Date()): IncidentFull {
-  const center = deploymentDefaultCenter()
-  const iso = now.toISOString()
-  return {
-    id,
-    divera_id: null,
-    title: appConfig.copy.ueben.idleTitle,
-    type: null,
-    priority: null,
-    address: null,
-    lat: center ? center[1] : null,
-    lng: center ? center[0] : null,
-    status: 'offen',
-    source: 'practice',
-    source_ref: null,
-    auto_opened: false,
-    started_at: iso,
-    closed_at: null,
-    last_closed_at: null,
-    is_archived: false,
-    is_exercise: true,
-    exercise_since_creation: true,
-    report_done_at: null,
-    editor_opened_at: null,
-    capture_writes: 0,
-    capture_last_at: null,
-    workspace_rev: 0,
-    created_by: null,
-    created_at: iso,
-    updated_at: iso,
-    atemschutz_due: [],
-    alarm_update: null,
-    text: null,
-    details_json: null,
-    map_workspace_json: null,
-  }
-}
-
 /** «Neu beginnen»: retire the current id and mint a fresh one. The caller reloads the page; the
  *  next boot purges the retired id's keys (purgeRetired). */
 export function resetPractice(): string {
@@ -136,6 +96,8 @@ export function resetPractice(): string {
 export async function purgeRetired(): Promise<void> {
   const retired = retiredPracticeIds()
   if (!retired.length) return
+  // lib/idb on demand: this module is in the entry chunk, the store is not
+  const { idbDel, idbKeys } = await import('../idb')
   const keys = await idbKeys('')
   if (keys.ok) {
     await Promise.all((keys.value ?? []).filter((k) => retired.some((id) => k.includes(id))).map((k) => idbDel(k)))
@@ -150,11 +112,10 @@ export async function purgeRetired(): Promise<void> {
   } catch { /* nothing to purge without localStorage */ }
 }
 
-/** «Übung verlassen»: practice mode off, the practice Einsatz forgotten as the one to reopen, and
- *  a fresh boot onto home – the sync engines of the practice Einsatz end with the page. The
- *  practice Einsatz itself stays on the device for the next drill. */
-export function leavePractice(): void {
-  setPracticeMode(false)
-  savePrefs({ ...loadPrefs(), incidentId: undefined })
-  window.location.assign('/')
+/** Does this URL path belong to a practice incident – the current one or a retired one? Returns
+ *  its id. The seam's filter (installFetch) and the fake server's router (localServer) share it. */
+export function practiceTarget(pathname: string, ctx: { id: string; retired: readonly string[] }): string | null {
+  if (!pathname.startsWith('/api/')) return null
+  for (const id of [ctx.id, ...ctx.retired]) if (id && pathname.includes(id)) return id
+  return null
 }

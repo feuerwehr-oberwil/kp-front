@@ -9,8 +9,11 @@
 // CSS url(), a navigation. Practice media rendered that way would leak its URL – open: practice
 // photos as blob URLs (spike report 19.11.2026); the app's media go through fetch today.
 
-import { answerPractice, practiceTarget, type PracticeContext } from './localServer'
-import { knownPracticeId, retiredPracticeIds } from './practiceMode'
+import type { PracticeContext } from './localServer'
+import { knownPracticeId, practiceTarget, retiredPracticeIds } from './practiceMode'
+
+/** the fake server, loaded on the first practice request: this module is in the entry chunk */
+const answerPractice = async (req: Request, ctx: PracticeContext) => (await import('./localServer')).answerPractice(req, ctx)
 
 let installed = false
 let userId: string | null = null

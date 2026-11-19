@@ -23,7 +23,7 @@ export const isDrillId = (v: unknown): v is DrillId => typeof v === 'string' && 
 
 /** Where a drill stands in its module: «Karte & Wasser · 1 / 5». */
 export function drillPlace(id: DrillId): { module: ModuleId; i: number; n: number } {
-  const m = MODULES.find((x) => x.drills.includes(id))!
+  const m = MODULES.find((x) => x.drills.includes(id)) ?? MODULES[0]
   return { module: m.id, i: m.drills.indexOf(id) + 1, n: m.drills.length }
 }
 

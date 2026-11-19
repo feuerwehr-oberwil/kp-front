@@ -2,7 +2,9 @@ import 'fake-indexeddb/auto'
 import { IDBFactory } from 'fake-indexeddb'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { __resetIdbForTests, idbKeys } from '../idb'
-import { answerPractice, ensurePracticeIncident, practiceTarget, type PracticeContext } from './localServer'
+import { answerPractice, ensurePracticeIncident, type PracticeContext } from './localServer'
+import { practiceTarget } from './practiceMode'
+import { siteScene } from '../ueben/site'
 import type { IncidentFull } from '../api/incidents'
 
 const ID = '11111111-2222-4333-8444-555555555555'
@@ -25,7 +27,7 @@ const seed: IncidentFull = {
 beforeEach(async () => {
   globalThis.indexedDB = new IDBFactory()
   __resetIdbForTests()
-  await ensurePracticeIncident(seed)
+  await ensurePracticeIncident(seed, siteScene([7.6, 47.5]))
 })
 
 describe('practice local server', () => {
@@ -43,7 +45,7 @@ describe('practice local server', () => {
     expect(first.workspace.entities.map((e: { id: string }) => e.id)).toEqual(['ueben-h1', 'ueben-w', 'ueben-eingang'])
     // …and only once: a second open keeps what was done there
     await call('PUT', `/api/incidents/${ID}/workspace`, { workspace: { entities: [] }, base_rev: 1 })
-    await ensurePracticeIncident(seed)
+    await ensurePracticeIncident(seed, siteScene([7.6, 47.5]))
     expect((await (await call('GET', `/api/incidents/${ID}/workspace`)).json()).workspace).toEqual({ entities: [] })
   })
 

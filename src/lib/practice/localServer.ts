@@ -25,8 +25,7 @@
 import { idbDel, idbGet, idbKeys, idbSet, idbUpdate } from '../idb'
 import type { IncidentFull } from '../api/incidents'
 import type { In, Out } from '../api/wire'
-import type { LngLat } from '../../types'
-import { siteScene } from '../ueben/site'
+import { practiceTarget } from './practiceMode'
 
 type WorkspaceOut = Out<'WorkspaceOut'>
 type JournalEntryOut = Out<'JournalEntryOut'>
@@ -87,15 +86,17 @@ async function readMeta(id: string): Promise<IncidentFull | null> {
 }
 
 /** Store the seed meta unless the incident already exists (App calls this at every open). A
- *  fresh one starts with the practice site (lib/ueben/site) as its first workspace – a legacy-shape
- *  blob of `entities` + `drawings`, which workspace · deriveInitial unifies like any old Einsatz. */
-export async function ensurePracticeIncident(seed: IncidentFull): Promise<IncidentFull> {
+ *  fresh one starts with `scene` as its first workspace – the practice site (lib/ueben/site ·
+ *  siteScene), a legacy-shape blob of `entities` + `drawings` that workspace · deriveInitial
+ *  unifies like any old Einsatz. Handed in, not imported: this module sits in the entry chunk
+ *  (installFetch), the site needs the copy. */
+export async function ensurePracticeIncident(seed: IncidentFull, scene?: Blob_): Promise<IncidentFull> {
   const have = await readMeta(seed.id)
   if (have) return have
-  const centre: LngLat | null = seed.lng != null && seed.lat != null ? [seed.lng, seed.lat] : null
-  if (centre) await idbSet(slot(seed.id, 'ws'), { workspace: siteScene(centre), rev: 1, writers: [[1, null]] } satisfies StoredWorkspace)
-  await idbSet(slot(seed.id, 'meta'), { ...seed, workspace_rev: centre ? 1 : 0 })
-  return { ...seed, workspace_rev: centre ? 1 : 0 }
+  const rev = scene ? 1 : 0
+  if (scene) await idbSet(slot(seed.id, 'ws'), { workspace: scene, rev, writers: [[1, null]] } satisfies StoredWorkspace)
+  await idbSet(slot(seed.id, 'meta'), { ...seed, workspace_rev: rev })
+  return { ...seed, workspace_rev: rev }
 }
 
 /** The fields an IncidentPatch may set, applied like the server's `exclude_unset`. */
@@ -280,13 +281,6 @@ export interface PracticeContext {
   retired: readonly string[]
   /** the signed-in account, stamped on audit events like the server does */
   userId?: string | null
-}
-
-/** Does this URL path belong to a practice incident (current or retired)? */
-export function practiceTarget(pathname: string, ctx: PracticeContext): string | null {
-  if (!pathname.startsWith('/api/')) return null
-  for (const id of [ctx.id, ...ctx.retired]) if (pathname.includes(id)) return id
-  return null
 }
 
 /** Answer one request for a practice incident. The caller has checked `practiceTarget`. */

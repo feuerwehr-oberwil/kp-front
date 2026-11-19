@@ -58,8 +58,8 @@ import { onStorageDegraded } from './lib/idb'
 import { loadRoster } from './lib/usePersonnel'
 import { HelpOverlay } from './components/HelpOverlay'
 import { installHoldTooltip } from './lib/holdTooltip'
-import { isPracticeIncident, practiceId, practiceModeOn, practiceSeedMeta, setPracticeMode } from './lib/practice/practiceMode'
-import { ensurePracticeIncident } from './lib/practice/localServer'
+import { isPracticeIncident, practiceModeOn, setPracticeMode } from './lib/practice/practiceMode'
+import { openPracticeIncident } from './lib/practice/practiceSeed'
 import { setPracticeUser } from './lib/practice/installFetch'
 import { closeUebenSheet, openUebenSheet, startDrill, useUeben } from './lib/ueben/session'
 import type { DrillId } from './lib/ueben/model'
@@ -510,7 +510,7 @@ function IncidentApp() {
       // «Üben»: practice mode boots INTO this device's practice Einsatz (lib/practice),
       // seeded on first use — the list still loads for the switcher, but nothing is picked from it
       if (practiceModeOn()) {
-        const meta = await ensurePracticeIncident(practiceSeedMeta(practiceId()))
+        const meta = await openPracticeIncident()
         if (!alive) return
         void listIncidentsShared().then(({ list }) => { if (alive) setIncidents(list) }).catch(() => {})
         await bootOpen(meta)
@@ -811,7 +811,7 @@ function IncidentApp() {
   const startPracticeDrill = async (id: DrillId) => {
     startDrill(id)
     setPracticeMode(true)
-    const meta = await ensurePracticeIncident(practiceSeedMeta(practiceId()))
+    const meta = await openPracticeIncident()
     if (screen === 'einsatz' && activeId === meta.id) return
     openOrUncover(meta as IncidentMeta)
   }

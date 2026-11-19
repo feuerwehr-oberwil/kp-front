@@ -17,7 +17,8 @@ import { Icon } from '../../lib/icons'
 import { Menu } from '../../lib/overlays'
 import { prefersReducedMotion } from '../../lib/reducedMotion'
 import { confirmDialog } from '../../lib/ui'
-import { leavePractice, resetPractice } from '../../lib/practice/practiceMode'
+import { resetPractice } from '../../lib/practice/practiceMode'
+import { leavePractice } from '../../lib/practice/practiceSeed'
 import { drillById, drillCopy, drillPlace, nextDrill } from '../../lib/ueben/catalogue'
 import { goalStates, nextGoal, type Anchor, type DrillId, type Gesture, type Snapshot, type SolveApi, type UiState } from '../../lib/ueben/model'
 import { markDone, openUebenSheet, startDrill, stopDrill, useUeben } from '../../lib/ueben/session'
@@ -71,7 +72,8 @@ function frame(map: MapRef | null, points: LngLat[], card: HTMLElement | null, p
   const top = card?.getBoundingClientRect().top ?? window.innerHeight
   const padding = phone
     ? { top: 110, bottom: Math.max(80, window.innerHeight - top + 24), left: 48, right: 48 }
-    : { top: 110, bottom: 120, left: (card?.getBoundingClientRect().right ?? 120) + 72, right: 150 }
+    // right: the tool rail AND an armed tool's dock beside it (≈ 250 px) – a gesture must never end under it
+    : { top: 110, bottom: 120, left: (card?.getBoundingClientRect().right ?? 120) + 72, right: 260 }
   // a padding larger than the map would throw – fall back to a plain centre
   if (padding.top + padding.bottom >= window.innerHeight - 40) { map.easeTo({ center: points[0], duration: 600 }); return }
   map.fitBounds([[Math.min(...lng), Math.min(...lat)], [Math.max(...lng), Math.max(...lat)]], { padding, maxZoom: 19, duration: prefersReducedMotion() ? 0 : 700 })
@@ -100,94 +102,94 @@ export default function UebenRunner({ doc, ui, detailOpen, mapRef, api, commit }
   const next = drill ? nextGoal(states) : -1
   const finished = !!drill && next === -1
 
-  // «Zeigen»'s step, and whether «Lösung» did it (done, no mark – owner, 19.11.2026)
-  const [level, setLevel] = useState<Level>(0)
-  const [solved, setSolved] = useState(false)
-  // a new goal, a new drill or a new run: the ladder starts at the bottom again
-  useEffect(() => { setLevel(0) }, [next, drillId, run])
-  useEffect(() => { setSolved(false) }, [drillId, run])
+  // «Zeigen»'s step, and whether «Lösung» did it (done, no mark – owner, 19.11.2026). Both are
+  // keyed: a new goal, drill or run starts the ladder at the bottom again, a new run is unsolved.
+  const stepKey = `${drillId}|${run}|${next}`
+  const [ladder, setLadder] = useState<{ key: string; level: Level }>({ key: '', level: 0 })
+  const level: Level = ladder.key === stepKey ? ladder.level : 0
+  const setLevel = (l: Level) => setLadder({ key: stepKey, level: l })
+  const runKey = `${drillId}|${run}`
+  const [solvedRun, setSolvedRun] = useState<string | null>(null)
+  const solved = solvedRun === runKey
   useEffect(() => { if (finished && drillId) markDone(drillId) }, [finished, drillId])
 
   // a fresh start (from the sheet, «Nochmals»): clear an earlier run's result, frame the problem.
   // A reload keeps the run in progress (`run` starts at 0 on every page).
   const prepared = useRef(-1)
-  const [framePending, setFramePending] = useState(false)
+  const frameRun = useRef<number | null>(null)
   useEffect(() => {
     if (!drill || prepared.current === run) return
     const first = prepared.current === -1
     prepared.current = run
     if (run > 0 && drill.prepare) commit(drill.prepare)
-    if (run > 0 || first) setFramePending(true)
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per run
-  }, [drill, run])
-  // …framed once the workspace has loaded the site and the map stands (both arrive after mount)
+    if (run > 0 || first) frameRun.current = run
+  }, [drill, run, commit])
+  // …framed once the workspace has loaded the site and the map's style stands (both come after
+  // mount). The points travel by value (`focusKey`), so a re-render is no new frame.
   const focusKey = drill ? JSON.stringify(drill.focus(site)) : '[]'
+  const phone = ui.phone
   useEffect(() => {
-    if (!framePending || !drill) return
-    const pts = drill.focus(site)
-    if (!pts.length) return
+    const pts = JSON.parse(focusKey) as LngLat[]
+    if (frameRun.current == null || !pts.length) return
     let tries = 0
     const t = setInterval(() => {
       const map = mapRef.current
-      if (map?.loaded() || ++tries > 20) {
+      if (map?.isStyleLoaded() || ++tries > 20) {
         clearInterval(t)
-        frame(map, pts, cardRef.current, ui.phone)
-        setFramePending(false)
+        frame(map, pts, cardRef.current, phone)
+        frameRun.current = null
       }
     }, 250)
     return () => clearInterval(t)
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- the points by value (focusKey)
-  }, [framePending, focusKey])
+  }, [run, focusKey, phone, mapRef])
 
   // the card grows back over the map (a phone's detail sheet closed) or turns into the done card:
   // the problem must not lie under it. After the sheet's slide, so the card stands where it will
   // stay. NOT when «Zeigen» folds back – the camera must never move under a finger about to draw.
-  const shape = !drill ? 'idle' : finished ? 'done' : level === 2 || (ui.phone && detailOpen) ? 'folded' : 'task'
-  const sheetUp = ui.phone && detailOpen
+  const shape = !drill ? 'idle' : finished ? 'done' : level === 2 || (phone && detailOpen) ? 'folded' : 'task'
+  const sheetUp = phone && detailOpen
   useEffect(() => {
-    if (!drill || sheetUp) return
-    const t = setTimeout(() => keepInView(mapRef.current, drill.focus(site), cardRef.current, ui.phone), 350)
+    const pts = JSON.parse(focusKey) as LngLat[]
+    if (sheetUp || !pts.length) return
+    const t = setTimeout(() => keepInView(mapRef.current, pts, cardRef.current, phone), 350)
     return () => clearTimeout(t)
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- when the sheet goes or the drill is done
-  }, [sheetUp, finished])
+  }, [sheetUp, finished, focusKey, phone, mapRef])
 
-  // the UI arrives as a fresh object every render; its fields are what the hint depends on
-  const uiKey = `${ui.phone}|${ui.mode}|${ui.paletteOpen}|${ui.tool}|${ui.pending}|${ui.selectedId}`
-  const hint = useMemo(() => (drill && next >= 0 && level > 0 ? drill.hint(snap, ui, site, next) : null),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- `ui` by its fields (uiKey)
-    [drill, next, level, snap, site, uiKey])
+  const hint = drill && next >= 0 && level > 0 ? drill.hint(snap, ui, site, next) : null
   const gesture: Gesture | undefined = level === 2 ? hint?.gesture : undefined
 
-  // «Zeigen» pans the map to what it shows before it shows it
-  const shownKey = hint ? `${level}:${JSON.stringify(hint.gesture ?? hint.anchor)}` : ''
+  // «Zeigen» pans the map to what it shows before it shows it – once per thing shown (by value)
+  const shownPts = JSON.stringify(!hint ? [] : hint.gesture ? (hint.gesture.kind === 'tap' ? [hint.gesture.at] : [hint.gesture.from, hint.gesture.to])
+    : hint.anchor.kind === 'map' ? [hint.anchor.at] : [])
+  const shownKey = `${level}:${shownPts}`
   useEffect(() => {
-    if (!hint) return
-    const pts: LngLat[] = hint.gesture ? (hint.gesture.kind === 'tap' ? [hint.gesture.at] : [hint.gesture.from, hint.gesture.to])
-      : hint.anchor.kind === 'map' ? [hint.anchor.at] : []
-    if (pts.length) frame(mapRef.current, pts, cardRef.current, ui.phone)
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per thing shown
-  }, [shownKey])
+    const pts = JSON.parse(shownKey.slice(shownKey.indexOf(':') + 1)) as LngLat[]
+    if (pts.length) frame(mapRef.current, pts, cardRef.current, phone)
+  }, [shownKey, phone, mapRef])
 
   // follow the target every frame while something is shown: the map moves, sheets slide in
   const [ring, setRing] = useState<Rect | null>(null)
   const [hand, setHand] = useState<{ a: { x: number; y: number }; b: { x: number; y: number } } | null>(null)
+  const anchorKey = hint ? JSON.stringify(hint.anchor) : ''
+  const gestureKey = gesture ? JSON.stringify(gesture) : ''
   useLayoutEffect(() => {
-    if (!hint) { setRing(null); setHand(null); return }
+    if (!anchorKey) return
+    const anchor = JSON.parse(anchorKey) as Anchor
+    const g = gestureKey ? (JSON.parse(gestureKey) as Gesture) : null
     let raf = 0
     const tick = () => {
       const map = mapRef.current
-      const r = level === 1 || !gesture ? anchorRect(map, hint.anchor) : null
+      const r = level === 1 || !g ? anchorRect(map, anchor) : null
       setRing((cur) => (sameRect(cur, r) ? cur : r))
-      if (gesture) {
-        const a = mapPoint(map, gesture.kind === 'tap' ? gesture.at : gesture.from)
-        const b = mapPoint(map, gesture.kind === 'tap' ? gesture.at : gesture.to)
-        setHand((cur) => (a && b && (!cur || Math.round(cur.a.x) !== Math.round(a.x) || Math.round(cur.a.y) !== Math.round(a.y) || Math.round(cur.b.x) !== Math.round(b.x) || Math.round(cur.b.y) !== Math.round(b.y)) ? { a, b } : a && b ? cur : null))
-      } else setHand(null)
+      const a = g ? mapPoint(map, g.kind === 'tap' ? g.at : g.from) : null
+      const b = g ? mapPoint(map, g.kind === 'tap' ? g.at : g.to) : null
+      const near = (p: { x: number; y: number }, q: { x: number; y: number }) => Math.round(p.x) === Math.round(q.x) && Math.round(p.y) === Math.round(q.y)
+      setHand((cur) => (!a || !b ? null : cur && near(cur.a, a) && near(cur.b, b) ? cur : { a, b }))
       raf = requestAnimationFrame(tick)
     }
-    tick()
+    raf = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(raf)
-  }, [hint, level, gesture, mapRef])
+  }, [anchorKey, gestureKey, level, mapRef])
 
   const restart = async () => {
     const ok = await confirmDialog({ title: C.restartTitle, message: C.restartMessage, confirmLabel: C.restartConfirm, danger: true })
@@ -198,7 +200,7 @@ export default function UebenRunner({ doc, ui, detailOpen, mapRef, api, commit }
   const solve = () => {
     if (!drill) return
     drill.solve(snap, site, api)
-    setSolved(true)
+    setSolvedRun(runKey)
     setLevel(0)
   }
   const ways: MenuItems = [
@@ -216,9 +218,9 @@ export default function UebenRunner({ doc, ui, detailOpen, mapRef, api, commit }
 
   // the palette is a full-screen sheet on a phone: the card steps aside while it is up (the ring
   // still points into it)
-  const hidden = ui.phone && ui.paletteOpen
+  const hidden = phone && ui.paletteOpen
   const folded = shape === 'folded'
-  const hinting = level === 1 && !!ring
+  const hinting = !!hint && level === 1 && !!ring
 
   if (!drill || !drillId) {
     return (
@@ -299,7 +301,7 @@ export default function UebenRunner({ doc, ui, detailOpen, mapRef, api, commit }
           </ul>
           <div className={s.actions}>
             <Button variant={level === 0 ? 'secondary' : 'primary'} className={s.go}
-              onClick={() => (level === 2 ? solve() : setLevel((l) => (l + 1) as Level))}>{step}</Button>
+              onClick={() => (level === 2 ? solve() : setLevel((level + 1) as Level))}>{step}</Button>
             {level > 0 && <Button variant="quiet" onClick={() => setLevel(0)}>{C.hideHint}</Button>}
             <span className={s.grow} />
             {more([{ label: C.solve, onClick: solve }, { kind: 'sep' as const }, ...ways])}
