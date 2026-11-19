@@ -114,10 +114,10 @@
         "p": "Ouvrir le plan d’intervention, dessiner dessus, y placer les équipes, mesurer à l’échelle – avec les mêmes outils que sur la carte. La pile d’étages montre quelle équipe travaille à quel étage.",
         "li": [
           "Plans d’objet et d’intervention de votre propre corps",
-          "Pile d’étages avec les équipes par étage",
-          "Points de mesure avec valeurs de gaz par pièce"
+          "Géoréférencé : ce qui est sur la carte est aussi sur le plan",
+          "Pile d’étages avec les équipes par étage"
         ],
-        "alt": "Pile d’étages avec les équipes par étage ; sur le téléphone, le plan d’objet"
+        "alt": "Plan d’objet (module 1) : les signes de la carte de situation figurent aussi sur le plan"
       },
       {
         "was": "Bouts de papier et mémoire",
@@ -158,6 +158,10 @@
       {
         "h3": "Sans dépendance",
         "p": "Tout le code est ouvert : l’exploiter, l’adapter, le faire évoluer vous-mêmes."
+      },
+      {
+        "h3": "Adapté à vous",
+        "p": "Votre effectif, vos véhicules, plans, check-lists et couches de carte se configurent dans votre propre espace d’administration – sans programmer."
       }
     ],
     "link": "Guide pour l’exploiter vous-mêmes"

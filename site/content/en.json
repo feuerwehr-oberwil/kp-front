@@ -113,10 +113,10 @@
         "p": "Open the pre-incident plan, draw on it, place teams, measure to scale – with the same tools as on the map. The floor stack shows which team works on which storey.",
         "li": [
           "Building and pre-incident plans of your own brigade",
-          "Floor stack with the teams per storey",
-          "Measuring points with gas readings per room"
+          "Georeferenced: what is on the map is on the plan too",
+          "Floor stack with the teams per storey"
         ],
-        "alt": "Floor stack with the teams per storey; on the phone, the building plan"
+        "alt": "Building plan (Modul 1): the situation map’s symbols stand on the plan too"
       },
       {
         "was": "Scraps of paper and memory",
@@ -157,6 +157,10 @@
       {
         "h3": "No lock-in",
         "p": "All of the code is open: run it, adapt it, develop it further yourself."
+      },
+      {
+        "h3": "Made to fit you",
+        "p": "Your crew, vehicles, plans, checklists and map layers are set up in your own admin area – no programming needed."
       }
     ],
     "link": "Guide to running it yourself"

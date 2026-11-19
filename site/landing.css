@@ -885,7 +885,7 @@ section.chap:nth-of-type(even) .chap-txt { order: 2; }
 }
 
 /* Betrieb: three short answers to «what does it cost, where does it run, are we bound?». */
-.own { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 28px; }
+.own { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 28px; }
 .own-card {
   background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-surface);
   padding: 20px 22px;
@@ -942,7 +942,8 @@ details.way form { margin-top: 6px; padding-left: 58px; max-width: 640px; }
   section.chap, .chap:not(:has(.dev-tab)) { grid-template-columns: 1fr; gap: 28px; padding-top: 56px; padding-bottom: 56px; }
   section.chap:nth-of-type(even) .chap-txt { order: 0; }
   .chap .dev-ph { max-width: 260px; }
-  .own, .ways { grid-template-columns: 1fr; }
+  .own { grid-template-columns: 1fr 1fr; }
+  .ways { grid-template-columns: 1fr; }
   details.way[open] { order: 0; }
   details.way form { padding-left: 0; }
   .split { grid-template-columns: 1fr; gap: 20px; }
@@ -957,4 +958,5 @@ details.way form { margin-top: 6px; padding-left: 58px; max-width: 640px; }
   .wide-only { display: none; }
   .narrow-only { display: block; }
   .sib { flex-direction: column; align-items: flex-start; }
+  .own { grid-template-columns: 1fr; }
 }

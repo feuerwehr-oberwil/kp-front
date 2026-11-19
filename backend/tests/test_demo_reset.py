@@ -630,3 +630,20 @@ def test_the_demo_report_links_are_https():
     links = cfg["report"]["links"]
     assert links and all(link["url"].startswith("https://") for link in links)
     assert len({link["id"] for link in links}) == len(links)
+
+
+def test_the_seeded_plan_georeference_validates_and_names_a_shipped_object():
+    """The Schloss's Modul 1 georeference is keyed by its manifest id. The reset re-pushes the
+    objects with those ids – if the manifest's id moved, the key would silently point at no
+    sheet and the plan would show none of the Karte's symbols."""
+    from app.api.plan_scales import PlanScales
+
+    doc = PlanScales.model_validate(dr.DEMO_PLAN_SCALES)
+    manifest = json.loads(
+        (Path(__file__).resolve().parents[2] / "examples/demo-data/objects.manifest.json").read_text()
+    )
+    shipped = {o["id"]: {p["module"] for p in o.get("plans", [])} for o in manifest["objects"]}
+    for key, georef in doc.georefByPlan.items():
+        _, object_id, _, plan_id = key.split(":")
+        assert plan_id in shipped.get(object_id, set()), key
+        assert len(georef.pairs) >= 2

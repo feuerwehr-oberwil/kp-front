@@ -118,6 +118,28 @@ const zoomToScene = async (page) => {
   await page.waitForTimeout(2500) // tiles for the new zoom
 }
 
+// The same for a plan: at sheet scale (Modul 1 is 1:2500) the Karte's symbols, mirrored onto
+// it through the demo's georeference, pile up on the castle. Zoom on the castle – a fixed spot
+// of the sheet (`at`, fractions of it) – until they stand apart.
+// Where the castle sits on the Schloss's Modul 1 sheet, as fractions of the page.
+const CASTLE = { x: 0.53, y: 0.475 }
+const zoomOnSheet = (at, notches) => async (page) => {
+  // the sheet is drawn as image tiles (Whiteboard · wb-tile); their union is the whole page
+  const r = await page.evaluate(() => {
+    const tiles = [...document.querySelectorAll('img[class*="wb-tile"]')].map((el) => el.getBoundingClientRect()).filter((b) => b.width > 0)
+    if (!tiles.length) return null
+    const x = Math.min(...tiles.map((b) => b.left)), y = Math.min(...tiles.map((b) => b.top))
+    return { x, y, w: Math.max(...tiles.map((b) => b.right)) - x, h: Math.max(...tiles.map((b) => b.bottom)) - y }
+  })
+  if (!r) throw new Error('plan sheet not found')
+  for (let i = 0; i < notches; i++) {
+    await page.mouse.move(r.x + at.x * r.w, r.y + at.y * r.h)
+    await page.mouse.wheel(0, -240)
+    await page.waitForTimeout(400)
+  }
+  await page.waitForTimeout(2000)
+}
+
 // The app remembers the last view across loads, so every shot navigates first – the map shots
 // too. The iPad's rail buttons carry plain names (exact match: «Gebäude» must not hit the
 // «Gebäude-Info» pill); the phone's bottom bar names carry a status («Pläne · Modul 1»,
@@ -149,8 +171,8 @@ const deviceShots = [
   { device: 'phone', name: 'karte', prep: then(navTo('Karte'), zoomToScene) },
   { device: 'tablet', name: 'feuer', prep: then(navTo('Karte'), zoomToScene, selectFeuer) },
   { device: 'phone', name: 'feuer', prep: then(navTo('Karte'), zoomToScene, selectFeuer) },
-  { device: 'tablet', name: 'gebaeude', prep: navTo('Gebäude') },
-  { device: 'phone', name: 'plan', prep: openPlan },
+  { device: 'tablet', name: 'plan', prep: then(navTo('Modul 1'), zoomOnSheet(CASTLE, 12)) },
+  { device: 'phone', name: 'plan', prep: then(openPlan, zoomOnSheet(CASTLE, 12)) },
   { device: 'phone', name: 'verlauf', prep: openVerlauf },
   { device: 'tablet', name: 'rapport', prep: navTo('Rapport') },
   { device: 'phone', name: 'rapport', prep: navTo('Rapport') },

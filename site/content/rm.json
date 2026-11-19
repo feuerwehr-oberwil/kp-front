@@ -114,10 +114,10 @@
         "p": "Avrir il plan d’acziun, dissegnar sin quel, plazzar gruppas e mesirar tenor scala – cun ils medems instruments sco sin la charta. La pigna da plauns mussa tge gruppa che lavura sin tge plaun.",
         "li": [
           "Plans d’object e d’acziun da voss corps da pumpiers",
-          "Pigna da plauns cun las gruppas per plaun",
-          "Puncts da mesiraziun cun valurs da gas per stanza"
+          "Georeferenzià: tge che stat sin la charta, stat er sin il plan",
+          "Pigna da plauns cun las gruppas per plaun"
         ],
-        "alt": "Pigna da plauns cun las gruppas per plaun; sin il telefonin il plan d’object"
+        "alt": "Plan d’object (modul 1): ils segns da la charta da situaziun stattan er sin il plan"
       },
       {
         "was": "Fegls da notizias e memoria",
@@ -158,6 +158,10 @@
       {
         "h3": "Senza dependenza",
         "p": "L’entir code è avert: manar, adattar e sviluppar vinavant sezs."
+      },
+      {
+        "h3": "Fatg per vus",
+        "p": "Voss persunal, vehichels, plans, glistas da controlla e nivels da charta endrizzais vus en voss agen champ d’administraziun – senza programmar."
       }
     ],
     "link": "Instrucziun per manar sez"

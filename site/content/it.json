@@ -114,10 +114,10 @@
         "p": "Aprire il piano d’intervento, disegnarci sopra, posizionare le squadre, misurare in scala – con gli stessi strumenti della carta. La pila dei piani mostra quale squadra lavora a quale piano.",
         "li": [
           "Piani d’oggetto e d’intervento del proprio corpo",
-          "Pila dei piani con le squadre per piano",
-          "Punti di misura con valori dei gas per locale"
+          "Georeferenziato: ciò che sta sulla carta sta anche sul piano",
+          "Pila dei piani con le squadre per piano"
         ],
-        "alt": "Pila dei piani con le squadre per piano; sul telefono il piano d’oggetto"
+        "alt": "Piano d’oggetto (modulo 1): i simboli della carta della situazione stanno anche sul piano"
       },
       {
         "was": "Foglietti e memoria",
@@ -158,6 +158,10 @@
       {
         "h3": "Senza vincoli",
         "p": "Tutto il codice è aperto: gestirlo, adattarlo, svilupparlo da voi."
+      },
+      {
+        "h3": "Su misura per voi",
+        "p": "Uomini, veicoli, piani, liste di controllo e livelli della carta si configurano nella vostra area di amministrazione – senza programmare."
       }
     ],
     "link": "Guida per gestirlo da voi"

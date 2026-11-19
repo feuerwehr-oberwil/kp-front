@@ -123,14 +123,14 @@
         "p": "Einsatzplan öffnen, drauf zeichnen, Trupps platzieren, massstabsgetreu messen – mit denselben Werkzeugen wie auf der Karte. Im Geschossstapel seht ihr, welcher Trupp auf welchem Stock arbeitet.",
         "li": [
           "Objekt- und Einsatzpläne der eigenen Feuerwehr",
-          "Geschossstapel mit Trupps pro Stock",
-          "Messpunkte mit Gaswerten pro Raum"
+          "Georeferenziert: was auf der Karte steht, steht auch auf dem Plan",
+          "Geschossstapel mit Trupps pro Stock"
         ],
         "img": {
-          "tablet": "gebaeude.webp",
+          "tablet": "plan.webp",
           "phone": "plan.webp"
         },
-        "alt": "Geschossstapel mit den Trupps pro Stockwerk; auf dem Handy der Objektplan"
+        "alt": "Objektplan Modul 1: die Zeichen der Lagekarte stehen auch auf dem Plan"
       },
       {
         "was": "Notizzettel und Gedächtnis",
@@ -178,6 +178,10 @@
       {
         "h3": "Ohne Bindung",
         "p": "Der ganze Code liegt offen: selbst betreiben, selbst anpassen, selbst weiterentwickeln."
+      },
+      {
+        "h3": "Auf euch zugeschnitten",
+        "p": "Eure Mannschaft, Fahrzeuge, Pläne, Checklisten und Karten-Ebenen richtet ihr im eigenen Verwaltungsbereich ein – ohne Programmieren."
       }
     ],
     "link": "Anleitung zum Selbstbetreiben"

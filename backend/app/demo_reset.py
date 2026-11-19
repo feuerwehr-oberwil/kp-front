@@ -68,6 +68,10 @@ ZURICH = ZoneInfo("Europe/Zurich")
 # exactly the "a plan measures out of the box" case the station layer exists for.
 # Not written by `admin_config load`, which only touches config_json, so the reset script's
 # step 2 cannot wipe what step 1 writes here.
+#: Schloss Musterdorf's id in examples/demo-data/objects.manifest.json – the reset re-pushes the
+#: objects with their manifest ids, so a station document keyed by it survives every reset.
+DEMO_SCHLOSS_OBJECT_ID = "d0000000-0000-5000-8000-00000000b077"
+
 DEMO_PLAN_SCALES = {
     "default": None,
     "byPlan": {
@@ -77,6 +81,39 @@ DEMO_PLAN_SCALES = {
         # in the workspace fixture (same 14.97 m/u this entry used to pin by hand). A seeded
         # calibration here would sit as a decoy under the derived one — that decoy is exactly
         # how the demo once showed «Ref. 10 m» instead of «Ref. auto».
+    },
+    # The Schloss's Modul 1 sheet, georeferenced: the Karte's symbols stand on the plan too, and
+    # what is drawn on the plan shows on the Karte – «ein Objekt, auf beiden Flächen». Keyed by
+    # the object's sheet (useObjectPlans · objectPlanGeorefKey); the demo Einsatz's plan binding
+    # takes it over when it first opens the sheet (incidentPlanBindings · inheritPlanBinding).
+    # The four pairs are the moat's corners, read off the rendered sheet and off the demo map
+    # (19.11.2026): north-up within 0.2°, corners within 1 m, scale within 2 % of the printed
+    # 1:2500. They are landmarks an operator could have tapped, hence `gesetzt`.
+    "georefByPlan": {
+        f"object:{DEMO_SCHLOSS_OBJECT_ID}:plan:modul1": {
+            "pairs": [
+                {
+                    "plan": {"x": 0.482675, "y": 0.406838},
+                    "lngLat": {"lng": 7.56997472, "lat": 47.52416195},
+                    "kind": "gesetzt",
+                },
+                {
+                    "plan": {"x": 0.614827, "y": 0.45641},
+                    "lngLat": {"lng": 7.57091571, "lat": 47.52382174},
+                    "kind": "gesetzt",
+                },
+                {
+                    "plan": {"x": 0.565673, "y": 0.538462},
+                    "lngLat": {"lng": 7.57056184, "lat": 47.52326357},
+                    "kind": "gesetzt",
+                },
+                {
+                    "plan": {"x": 0.434327, "y": 0.499715},
+                    "lngLat": {"lng": 7.56962618, "lat": 47.52352999},
+                    "kind": "gesetzt",
+                },
+            ],
+        },
     },
 }
 
