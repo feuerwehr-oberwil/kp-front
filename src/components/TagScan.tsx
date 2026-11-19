@@ -15,8 +15,6 @@ import s from './TagScan.module.css'
 /** the frame handed to the decoder is at most this wide: 12 ms a frame on an iPhone, and a 28 mm
  *  code at arm's length is still ~90 px across (prototype run on the owner's phone, 19.11.2026) */
 const FRAME_WIDTH = 1280
-/** «Übernehmen» presses itself this long after the last NEW person (owner pick 2A, 19.11.2026) */
-const AUTO_TAKE_MS = 1000
 
 /** the torch is a camera constraint Safari and Chrome honour but lib.dom does not list yet */
 type TorchSet = MediaTrackConstraintSet & { torch?: boolean }
@@ -31,9 +29,9 @@ type Phase = 'starting' | 'live' | 'denied' | 'nocam'
  *
  * FULL SCREEN on every width, like MapPicker: it is a place you AIM, and a sheet over the form
  * left too little picture. ‹ goes back to the form unchanged; «Übernehmen · n» hands over who was
- * read – and presses ITSELF one second after the last new person (`AUTO_TAKE_MS`, the button
- * fills meanwhile), because the whole crew arrives within a quarter second and the fourth tag
- * that comes in late restarts the second.
+ * read. ⚠️ The operator PRESSES it, after looking at the names (owner, sign-off round 19.11.2026,
+ * taking back pick 2A): it pressed itself one second after the last new person, and a tag that
+ * reads a moment late then missed the take. A wrong read is dropped with its ✕ before the take.
  *
  * What a tag means lives in lib/tagCode: somebody already in another active Trupp is LISTED and
  * not taken (the picker's rule), an unknown tag says so, a code that is not ours is ignored. The
@@ -56,6 +54,9 @@ export function TagScan({ personnel, assignedIds, chosenIds, onTake, onClose }: 
   const [phase, setPhase] = useState<Phase>('starting')
   /** every code of ours read so far, in the order it came – the raw reads, never their meaning */
   const [codes, setCodes] = useState<string[]>([])
+  /** person ids the operator dropped with ✕ – they stay read (`seen`), so the next frame does not
+   *  bring them back */
+  const [dropped, setDropped] = useState<ReadonlySet<string>>(new Set())
   const [torch, setTorch] = useState<{ track: MediaStreamTrack; on: boolean } | null>(null)
 
   const roster = useMemo(() => rosterFromList(personnel), [personnel])
@@ -125,27 +126,16 @@ export function TagScan({ personnel, assignedIds, chosenIds, onTake, onClose }: 
   }, [])
 
   /* What the reads MEAN is decided on every render against the board as it is NOW, never frozen at
-   * the frame that read them: another device can put somebody in a Trupp during the auto-take's
-   * second, and the form can gain them by name meanwhile (Sol review 19.11.2026). The list and
-   * the take read the same answer, so what is shown is what is taken. */
+   * the frame that read them: another device can put somebody in a Trupp while the names are
+   * being checked, and the form can gain them by name meanwhile (Sol review 19.11.2026). The list
+   * and the take read the same answer, so what is shown is what is taken. */
   const hits = codes.flatMap((t) => {
     const h = tagHit(t, roster, assignedIds, chosenIds)
-    return h && h.kind !== 'here' ? [h] : []
+    return h && h.kind !== 'here' && !(h.kind === 'add' && dropped.has(h.person.id)) ? [h] : []
   })
   const adds = hits.flatMap((h) => (h.kind === 'add' ? [h.person] : []))
   const take = () => { if (adds.length) onTake(adds) }
-
-  /* The auto-take: one second after the set of people to take last CHANGED – a new tag, or
-   * somebody the board freed or took meanwhile. A «schon in einem Trupp» read changes nothing, so
-   * it is no reason to wait. The fill below is keyed the same way, so it starts over in step. */
-  const addKey = adds.map((p) => p.id).join(' ')
-  const takeRef = useRef(take)
-  useEffect(() => { takeRef.current = take })
-  useEffect(() => {
-    if (!addKey) return
-    const t = window.setTimeout(() => takeRef.current(), AUTO_TAKE_MS)
-    return () => window.clearTimeout(t)
-  }, [addKey])
+  const drop = (id: string) => setDropped((prev) => new Set(prev).add(id))
 
   const toggleTorch = async () => {
     if (!torch) return
@@ -177,8 +167,9 @@ export function TagScan({ personnel, assignedIds, chosenIds, onTake, onClose }: 
           ? <p className={s.state} role="status">{stateLine}</p>
           : <p className={s.hint}>{az.scanHint}</p>}
       </div>
-      {/* the people read so far, in the order they came. Read-only rows, not `Chip`s: a Chip is a
-          choice you tap, and nothing here is chosen – the crown is the form's, after the take. */}
+      {/* the people read so far, in the order they came – the names to check before the take. Not
+          `Chip`s: a Chip is a choice you tap, and nothing here is chosen (the crown is the form's,
+          after the take); a person to be taken carries the ✕ of the form's own crew chips. */}
       <ul className={s.hits} aria-live="polite" aria-label={fillTemplate(az.scanFound, { n: hits.length })}>
         {hits.map((h) => (
           <li key={tagHitKey(h)} className={cx(s.hit, h.kind !== 'add' && s.hitOff)}>
@@ -186,16 +177,21 @@ export function TagScan({ personnel, assignedIds, chosenIds, onTake, onClose }: 
               ? az.scanUnknown
               : h.kind === 'taken'
                 ? fillTemplate(az.scanTaken, { name: h.person.displayName })
-                : <>{h.person.rank && <span className={s.rank}>{rankAbbr(h.person.rank)}</span>}{h.person.displayName}</>}
+                : (
+                  <>
+                    {h.person.rank && <span className={s.rank}>{rankAbbr(h.person.rank)}</span>}
+                    {h.person.displayName}
+                    <IconButton className={s.drop} label={fillTemplate(az.scanDrop, { name: h.person.displayName })} onClick={() => drop(h.person.id)}>
+                      <Icon id="close" />
+                    </IconButton>
+                  </>
+                )}
           </li>
         ))}
       </ul>
       <SheetFoot className={s.foot}>
-        {adds.length > 0 && <p className={s.auto}>{az.scanAuto}</p>}
         <Button variant="primary" size="lg" block className={s.take} disabled={!adds.length} onClick={take}>
-          {/* keyed by who is to be taken, so the fill starts over with every change to that */}
-          {adds.length > 0 && <span key={addKey} className={s.fill} style={{ animationDuration: `${AUTO_TAKE_MS}ms` }} aria-hidden />}
-          <span className={s.takeLabel}>{adds.length ? fillTemplate(az.scanTake, { n: adds.length }) : hits.length ? az.scanTakeNobody : az.scanTakeNone}</span>
+          {adds.length ? fillTemplate(az.scanTake, { n: adds.length }) : hits.length ? az.scanTakeNobody : az.scanTakeNone}
         </Button>
       </SheetFoot>
     </Overlay>

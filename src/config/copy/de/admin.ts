@@ -1287,6 +1287,10 @@ export const adminCopy = {
       tagsFormatA4: 'A4-Bogen – 7 Tags pro Seite, mit Schnittlinien',
       tagsFormatTape36: 'Brother-Band 36 mm – eine Seite pro Tag, 150 mm lang',
       tagsFormatTape24: 'Brother-Band 24 mm – eine Seite pro Tag, 110 mm lang',
+      // Für alle, die eigene Tags machen (Etikettenprogramm, Druckerei): was der Code enthalten
+      // muss, damit «Scan» ihn liest – und die Inhalte aller aktiven Personen als CSV.
+      tagsOwnCodes: 'Eigene Codes: ein QR-Code mit dem Text «KPF1:» und der Personen-ID, z. B. «KPF1:3df3ecde-bc2f-4b16-a866-b81cdda2cd46». Jede Fehlerkorrektur wird gelesen, Stufe Q (25 %) empfohlen; mindestens 20 mm gross. «Codes als CSV» liefert Name, Grad und diesen Text für jede aktive Person.',
+      tagsCsv: 'Codes als CSV',
       tagsCreate: 'PDF erstellen · {n} Tags',
       tagsNone: 'Keine aktiven Personen.',
       tagsFailed: 'PDF konnte nicht erstellt werden.',

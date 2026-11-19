@@ -1030,6 +1030,8 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
       tagsFormatA4: 'A4 sheet – 7 tags per page, with cut lines',
       tagsFormatTape36: 'Brother tape 36 mm – one page per tag, 150 mm long',
       tagsFormatTape24: 'Brother tape 24 mm – one page per tag, 110 mm long',
+      tagsOwnCodes: 'Your own codes: a QR code holding the text «KPF1:» followed by the person id, e.g. «KPF1:3df3ecde-bc2f-4b16-a866-b81cdda2cd46». Any error correction is read, level Q (25 %) recommended; at least 20 mm wide. «Codes as CSV» gives name, rank and that text for every active person.',
+      tagsCsv: 'Codes as CSV',
       tagsCreate: 'Create PDF · {n} tags',
       tagsNone: 'No active people.',
       tagsFailed: 'The PDF could not be created.',

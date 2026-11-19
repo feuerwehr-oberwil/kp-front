@@ -1014,12 +1014,12 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    by (`:has(.teamSearch input:focus)` below) and carries no look of its own. */
 .teamSearch { flex: none; }
 /* «Scan» at the search's far end (TruppTeam, owner pick 1A, 19.11.2026): the pill's full height
-   (the 44px floor), flush with its rounded end, in the primary fill – it starts
-   something (the camera) rather than narrowing the list. Doubled with the button class so it
-   outranks `.ip-btn`'s own size. */
+   (the 44px floor), flush with its rounded end, in the plain secondary look of «Karte» beside the
+   Ziel (owner, sign-off round 19.11.2026: the primary fill «screams a bit too much») – a door
+   beside the search, not the form's answer. Doubled with the button class so it outranks
+   `.ip-btn`'s own size. */
 .teamScan:global(.ip-btn) { flex: none; align-self: stretch; min-height: 0; height: auto; margin: 0;
-  padding: 0 var(--sp-3); border-radius: 0 var(--r-sm) var(--r-sm) 0;
-  background: var(--btn-primary); color: var(--on-btn-primary); }
+  padding: 0 var(--sp-3); border-radius: 0 var(--r-sm) var(--r-sm) 0; }
 /* «Trupp erstellen» with nobody in it yet: the one field that has to be answered first says so,
    in the focus ring's own colour – it is where the form starts, with or without the keyboard.
    Doubled with the global class so it outranks the pill's resting look. */

@@ -79,7 +79,7 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     scanTake: 'Take · {n}',
     scanTakeNone: 'No tag read yet',
     scanTakeNobody: 'Nobody to take',
-    scanAuto: 'Takes them by itself in a moment',
+    scanDrop: 'Do not take {name}',
     scanTaken: '{name} · already on a team',
     scanUnknown: 'Unknown tag',
     scanFound: '{n} read',

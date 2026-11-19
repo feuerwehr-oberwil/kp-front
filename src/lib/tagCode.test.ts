@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Person } from '../types'
-import { personIdFromTag, tagHit, tagHitKey, tagPayload } from './tagCode'
+import { personIdFromTag, tagHit, tagHitKey, tagPayload, tagsCsv } from './tagCode'
 
 const person = (id: string, extra: Partial<Person> = {}): Person =>
   ({ id, displayName: `P ${id}`, active: true, updatedAt: '2026-11-19T00:00:00Z', ...extra })
@@ -47,5 +47,12 @@ describe('tagHit', () => {
     const hit = tagHit(tagPayload('a'), roster, none, none)
     expect(hit && tagHitKey(hit)).toBe('a')
     expect(tagHitKey({ kind: 'unknown', id: 'a' })).toBe('?a')
+  })
+})
+
+describe('tagsCsv', () => {
+  it('lists the exact QR text per person, quoted, with a BOM for Excel', () => {
+    expect(tagsCsv([{ id: 'p1', name: 'Šimunović "Đorđe"', rank: 'Wm' }]))
+      .toBe('\uFEFFname,rank,qr\n"Šimunović ""Đorđe""","Wm","KPF1:p1"\n')
   })
 })

@@ -24,6 +24,7 @@ import { activeRanks, rankAbbr, rankDisplay, rankLabel } from '../lib/rank'
 import { Icon } from '../lib/icons'
 import { Sheet } from '../lib/overlays'
 import type { TagFormat } from './tagPrint'
+import { tagsCsv } from '../lib/tagCode'
 import {
   ActionMenu, Card, EmptyState, Field, Select, SettingRow, SettingsSheet, standardNote, StatusBadge,
   type SelectOption,
@@ -661,6 +662,10 @@ function TagPrintSheet({ people, onClose }: { people: RosterPerson[]; onClose: (
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const active = people.filter((p) => p.is_active)
+  const downloadCsv = () => {
+    const csv = tagsCsv(active.map((p) => ({ id: p.id, name: p.display_name, rank: rankAbbr(p.rank ?? undefined) })))
+    downloadBlob(new Blob([csv], { type: 'text/csv;charset=utf-8' }), 'atemschutz-tags.csv')
+  }
   const create = async () => {
     setBusy(true)
     setErr(null)
@@ -701,6 +706,12 @@ function TagPrintSheet({ people, onClose }: { people: RosterPerson[]; onClose: (
           </Field>
         )
         : <EmptyState message={C.tagsNone} />}
+      {/* the format, said out loud, for whoever makes their own tags (owner, sign-off round
+          19.11.2026) – and the text of every active person's code to make them from */}
+      <p className="ip-hint">{C.tagsOwnCodes}</p>
+      {active.length > 0 && (
+        <button type="button" className="btn adm-int-btn" onClick={downloadCsv}>{C.tagsCsv}</button>
+      )}
       {err && <EmptyState tone="err" message={err} />}
     </Sheet>
   )

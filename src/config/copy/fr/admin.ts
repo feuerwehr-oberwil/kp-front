@@ -1032,6 +1032,8 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
       tagsFormatA4: 'Feuille A4 – 7 badges par page, avec traits de coupe',
       tagsFormatTape36: 'Ruban Brother 36 mm – une page par badge, 150 mm',
       tagsFormatTape24: 'Ruban Brother 24 mm – une page par badge, 110 mm',
+      tagsOwnCodes: 'Vos propres codes : un code QR contenant le texte «KPF1:» suivi de l\'identifiant, p. ex. «KPF1:3df3ecde-bc2f-4b16-a866-b81cdda2cd46». Toute correction d\'erreur est lue, niveau Q (25 %) recommandé ; au moins 20 mm. «Codes en CSV» fournit nom, grade et ce texte pour chaque personne active.',
+      tagsCsv: 'Codes en CSV',
       tagsCreate: 'Créer le PDF · {n} badges',
       tagsNone: 'Aucune personne active.',
       tagsFailed: 'Le PDF n\'a pas pu être créé.',

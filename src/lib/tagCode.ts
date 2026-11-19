@@ -49,3 +49,12 @@ export function tagHit(text: string, roster: ReadonlyMap<string, Person>, assign
 
 /** The stable key of a hit, so one tag seen in thirty frames is one row. */
 export const tagHitKey = (h: TagHit) => (h.kind === 'unknown' ? `?${h.id}` : h.person.id)
+
+/** One CSV line per person for whoever makes their own tags (a label program, a print shop):
+ *  name, Dienstgrad and the exact text the QR code must hold (admin › «Tags drucken»). UTF-8 with
+ *  a BOM, so Excel opens «Šimunović» as written. */
+export function tagsCsv(people: { id: string; name: string; rank: string }[]): string {
+  const cell = (v: string) => `"${v.replace(/"/g, '""')}"`
+  const rows = people.map((p) => [p.name, p.rank, tagPayload(p.id)].map(cell).join(','))
+  return `\uFEFF${['name', 'rank', 'qr'].join(',')}\n${rows.join('\n')}\n`
+}
