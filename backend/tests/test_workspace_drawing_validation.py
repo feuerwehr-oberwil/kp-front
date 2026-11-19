@@ -9,9 +9,11 @@ Neutralise, never reject: an incident whose blob is refused stops syncing on eve
 the offending property is dropped and the object keeps its geometry and its clocks.
 """
 
+import time
+
 import pytest
 
-from app.schemas import WorkspacePut
+from app.schemas import WorkspacePut, _scrub_svg
 
 HOSTILE = 'red" onmouseover="window.__pwned=1'
 
@@ -162,6 +164,19 @@ def test_legit_symbolsvg_survives_unchanged():
     glyph = '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="40" fill="#00a0ff"/></svg>'
     body = WorkspacePut(base_rev=0, workspace={"entities": [{"id": "e1", "symbolSvg": glyph}]})
     assert body.workspace["entities"][0]["symbolSvg"] == glyph  # idempotent: nothing to scrub
+
+
+@pytest.mark.parametrize("opener", ["<!--", "<![CDATA[", "<script"])
+def test_an_unterminated_opener_is_dropped_to_the_end_in_linear_time(opener):
+    # CodeQL py/polynomial-redos: a lazy `<!--.*?-->` rescanned the whole tail from every
+    # unterminated opener — 128 KB of `<!--` took ~16 s on 19.11.2026, and a workspace PUT may carry
+    # 8 MB. An unterminated comment, CDATA section or tag now runs to the end, as an HTML parser
+    # reads it at end-of-file.
+    hostile = "<svg><rect/>" + opener * (131072 // len(opener))
+    start = time.perf_counter()
+    cleaned = _scrub_svg(hostile)
+    assert time.perf_counter() - start < 0.2
+    assert cleaned == "<svg><rect/>"
 
 
 def test_a_colour_with_a_trailing_newline_is_dropped():
