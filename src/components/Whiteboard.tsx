@@ -22,7 +22,7 @@ import { Icon } from '../lib/icons'
 import { newId } from '../lib/ids'
 import { Palette } from './Palette'
 import { FloorPage } from './FloorPage'
-import { usePlanPaperMm } from './usePlanPaper'
+import { usePlanPages, usePlanPaperMm } from './usePlanPaper'
 import { paperMaxScale } from '../lib/planTiles'
 import { prefetchPlanTiles } from '../lib/planTilePrefetch'
 import { PdfViewport } from './PdfViewport'
@@ -87,6 +87,7 @@ import { arrowEdgePadPx, attachInsetPx, boundaryPoint, candidateAttachment, DEFA
 import { packFrameRing, packPagePlacement, pagePlacement, regionCorners, stackGroundFit } from '../lib/stackFit'
 import { circleRing, enclosesSection, inSection, rectPoly, storeySections, visibleCentre } from '../lib/storeyClip'
 import { sheetDrawings, type FloorPackView } from '../lib/floorPackBinding'
+import type { PlanFloor } from '../lib/incidents'
 import { stackInstances } from '../lib/stackFloors'
 import { StackReadings } from './ReadingParts'
 import { READING_ICON, readingAct } from '../lib/readingLog'
@@ -173,6 +174,10 @@ interface Props {
   /** the active object's floor pack – the PDF page each storey tile draws underneath, and the
    *  pack's shared map fit that places it (lib/floorPackBinding) */
   floorPack?: FloorPackView | null
+  /** the OPEN sheet's own floor pack, when it shows one (its pinned binding's floors – Modul 6
+   *  with its storeys side by side, lib/floorPackBinding · sheetFloorsOf): a symbol placed or
+   *  moved into a storey drawing takes its storey. Absent on every other sheet. */
+  sheetFloors?: readonly PlanFloor[]
   /** the picked footprints, their auto-orientation angle, and WHERE that footprint box sits on
    *  the ground — the third is what lets the workspace carry the floor stack across the change
    *  instead of clearing it (lib/buildingTransfer · amendBuilding). */
@@ -416,7 +421,7 @@ export interface PlanLogExtra {
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
 
-export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange: onChangeAll, building, floorPack, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, authorName, onStepLabel, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], truppColors, placedTeamNames, teamNameTaken, onLinkTrupp, onShowTrupp, truppFinder, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, buildingInfo, readingsChip, incidentId, incidentAddress, incidentPos, onObjectSwitch, planScale = {}, onCalibrate, live = [], photos = [], liveFacts, onPlanLiveMove, onStepEnd, slimTools: slimToolsProp = false, linkViewer = false, railLabels, tafel, presentation, replay = false }: Props) {
+export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange: onChangeAll, building, floorPack, sheetFloors, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, authorName, onStepLabel, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], truppColors, placedTeamNames, teamNameTaken, onLinkTrupp, onShowTrupp, truppFinder, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, buildingInfo, readingsChip, incidentId, incidentAddress, incidentPos, onObjectSwitch, planScale = {}, onCalibrate, live = [], photos = [], liveFacts, onPlanLiveMove, onStepEnd, slimTools: slimToolsProp = false, linkViewer = false, railLabels, tafel, presentation, replay = false }: Props) {
   // ⚠️ RIDERS: what lives on a sheet but is not drawn ON it — the Tafel's pages (kind `form`,
   // lib/boardForm) and any board object this build does not understand (lib/workspace ·
   // isPassengerAnno). Nothing positional may see them: every drawing path below reads `annos` —
@@ -738,10 +743,12 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   const inkTap = useRef<InkTap | null>(null)
   // floor-stack ↔ board-normalized y maps for the current document (see lib/whiteboard)
   const { mapY, localY, floorAt, boardPts, moveRigid } = floorGeometry(stack, floorsTTB, N)
-  // …and on a plain sheet that IS a floor pack's page (Modul 6, its storeys drawn side by side):
-  // the storey drawings, so a symbol placed or moved into one takes its storey, as on the stack
-  // (lib/floorPackBinding · withDrawingStorey). Empty on every other sheet and on the stack.
-  const storeyDrawings = stack ? [] : sheetDrawings(floorPack, active?.imageUrl ?? '')
+  // …and on a plain sheet that shows a floor pack (Modul 6, its storeys drawn side by side or one
+  // per page): the storey drawings, laid onto the board as the board lays its pages, so a symbol
+  // placed or moved into one takes its storey, as on the stack (lib/floorPackBinding ·
+  // sheetDrawings, withDrawingStorey). Empty on every other sheet and on the stack.
+  const sheetPages = usePlanPages(!stack && sheetFloors?.length && active?.imageUrl ? planUrl(active.imageUrl) : null)
+  const storeyDrawings = stack ? [] : sheetDrawings(sheetFloors, sheetPages)
 
   // Leaving Linie/Fläche mid-shape never silently drops a committable draft: it asks «Speichern ·
   // Verwerfen · Weiterzeichnen» (27.10.2026; the A6 auto-commit of 29.08. before it). The

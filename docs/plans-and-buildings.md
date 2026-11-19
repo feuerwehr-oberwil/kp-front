@@ -32,12 +32,16 @@ AGENTS.md on 2026-10-08, wording unchanged.
   with it, the target tile lights up, one ↶. A docked line, a turn, or a step that would put any
   vertex off the stack keeps it on its storeys; a single vertex still changes storey by its own grip.
   - *The pack's own sheet* (Modul 6, or any module whose binding carries `floors`) shows the same
-    drawings side by side on one page. A symbol placed or moved INTO one of them takes its storey
+    drawings side by side on one page, or one per page. A symbol placed or moved INTO one of them takes its storey
     – what a storey tile does on the stack (owner, 18.11.2026, `lib/floorPackBinding ·
     withDrawingStorey`): it writes the sheet's badge `storey` (what Von/Bis shows there), or shifts
     a Von/Bis span whole by the step between the two drawings. Inside the drawing it came from and
-    outside every drawing it keeps its storey, so one set by hand stays. Placing, the chip drag and
-    the bar's ✥ do it; its `board.move` carries the storey for the replay. Such a symbol stays on its
+    outside every drawing it keeps its storey, so one set by hand stays; a drawing is (storey, part),
+    so wing to wing of one storey takes the storey too. Placing, the chip drag and
+    the bar's ✥ do it (a ⟳ turn never does); its `board.move` carries the storey for the replay.
+    The drawings are the floors of THIS sheet's own pinned binding (`sheetFloorsOf`), never the
+    Gebäude's pack, laid onto the board with the renderer's page layout (`planTiles · sheetLayout`):
+    a sheet without `#page=` shows every page stitched top-down. Such a symbol stays on its
     sheet: the Gebäude stack does not show another sheet's ink, and its Karte body is placed through
     the pack's ONE fit, which is measured on the reference drawing – a symbol in another drawing
     lands where that drawing's paper position puts it.

@@ -16,7 +16,7 @@ import './pdfPolyfills'
 import pdfWorkerShimUrl from './pdfWorkerEntry?worker&url'
 import { pdfPageOf } from './whiteboard'
 import { FLOOR_PAGE_SIDE, pageCanvasBudget, rasterSide, regionRaster, renderScale } from './pdfRenderBudget'
-import { loadTileManifest, tileSource } from './planTiles'
+import { loadTileManifest, sourcePages, tileSource, type PageSize } from './planTiles'
 import { composeTiles } from './planTileRaster'
 
 
@@ -219,11 +219,34 @@ function bakeWidth(aspect: number, vw: number, vh: number, maxSide: number, budg
   return renderScale(1, aspect, want, 1, budgetPx) // a 1 × aspect page: the scale IS the width
 }
 
+/** The pages (1-based, pdf.js numbering) the board shows for `url`: a floor sheet (`#page=N`) is
+ *  ONE page of the pack; anything else is the whole document, stitched (`render`). */
+const shownPageNos = (url: string, numPages: number): number[] => {
+  const only = pdfPageOf(url)
+  return only != null ? [Math.min(only, numPages - 1) + 1] : Array.from({ length: numPages }, (_, i) => i + 1)
+}
+
+/**
+ * The pages the board shows for `url`, with their sizes in pt, in board order – what
+ * lib/planTiles · sheetLayout stacks. The tile manifest's where the revision has a pyramid,
+ * else pdf.js's own page viewports: the same numbers each renderer draws the sheet from. Null
+ * when neither answers (offline and uncached, a PDF that will not open).
+ */
+export async function sheetPages(url: string): Promise<PageSize[] | null> {
+  const source = tileSource(url)
+  const manifest = source ? await loadTileManifest(source).catch(() => null) : null
+  if (source && manifest) return sourcePages(manifest, source)
+  const pdf = await loadDocTimed(url).catch(() => null)
+  if (!pdf) return null
+  return Promise.all(shownPageNos(url, pdf.numPages).map(async (no) => {
+    const vp = (await pdf.getPage(no)).getViewport({ scale: 1 })
+    return { page: no - 1, widthPt: vp.width, heightPt: vp.height }
+  }))
+}
+
 function render(url: string, vw: number, vh: number, maxSide: number, budgetPx: number): Promise<Baked> {
   return loadDocTimed(url).then(async (pdf) => {
-    // a floor sheet (`#page=N`) is ONE page of the pack; anything else is the whole document
-    const only = pdfPageOf(url)
-    const pageNos = only != null ? [Math.min(only, pdf.numPages - 1) + 1] : Array.from({ length: pdf.numPages }, (_, i) => i + 1)
+    const pageNos = shownPageNos(url, pdf.numPages)
     const n = pageNos.length
     // measure every page; stitched width is the widest page, height is the sum
     const metas: { page: Awaited<ReturnType<PDFDocumentProxy['getPage']>>; w: number; h: number }[] = []
