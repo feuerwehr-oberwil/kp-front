@@ -251,16 +251,10 @@
    (TruppCard · sockelLine `quiet`), so the Schätzung's word can never wear it. */
 .metaLine i.metaWordQuiet { font-weight: var(--fw-regular); color: var(--ink-dim); }
 /* …and a crew inside says «drin» the same way (round 2b, 13.11.2026: M3's eyebrow «UNTER
-   ATEMSCHUTZ» wrapped the foot to two lines). The foot is ONE line: where the card's foot row is too
-   narrow for «drin 1:11:51 h · Schätzung ≈ 263 bar», the Schätzung's word drops (`.metaDrop`,
-   TruppCard · sockelLine `drop`) before anything wraps – the «≈» still marks it as no reading, and
-   its title keeps the Planungshilfe sentence. The wrap stays the safety net for a viewer's
-   three-item line, never a cut number. */
-.vrowTerse { container-type: inline-size; }
-/* 320px: the foot row the word needs – «drin 19:41 min · Schätzung ≈ 152 bar» is ~252px of line,
-   and the row gives the line its width less the ⌄ and the padding (~60px); measured on the 1180
-   tablet's three-column grid, where the row is 285px and the word goes */
-@container (max-width: 320px) { .metaLine i.metaDrop { display: none; } }
+   ATEMSCHUTZ» wrapped the foot to two lines). Where the foot row is too narrow for «drin 1:11:51 h ·
+   Schätzung ≈ 263 bar» (a 3-column board, the phone), the line wraps between its items – two 17px
+   lines stand inside the touch foot's 36 / 44px – and the Schätzung KEEPS its word (owner pick 4C,
+   18.11.2026; it dropped below 320px until then, `.metaDrop`). Never a cut number. */
 .metaLine b { font: var(--fw-bold) var(--fs-1) var(--mono); color: var(--ink); font-variant-numeric: tabular-nums; }
 /* (`.metaEst`, the Schätzung's dimmed + lighter value, went on 29.09.2026, T2: the owner wants the
    Schätzung CLEARLY visible, so it keeps full ink and its WORD — «Schätzung ≈ 0 bar» — and the word
@@ -350,17 +344,17 @@
 .vfootRow { display: flex; align-items: center; }
 .vfootRow > .vrow { flex: 1 1 auto; min-width: 0; }
 .vfootRow[data-az-fab-foot] { padding-right: var(--fab-safe, 0px); }
-/* the card's ⋯ — a quiet glyph at the end of the foot line, a full --tap target, no chip frame */
-.footMore { flex: none; width: var(--tap); height: var(--tap); display: grid; place-items: center; padding: 0;
-  border: none; background: transparent; color: var(--ink-dim); cursor: pointer; border-radius: var(--r-sm);
+/* the card's «⋯ Mehr» — ONE framed chip at the foot line's end, the glyph BESIDE the word (owner
+   pick 4C, round 18.11.2026 evening; owner on the glyph-over-word tile of pick 24: «ugly»). 36px
+   on touch (the touch grid draws its foot 36 and owns 44 with the pad under the card, below), the
+   foot line's 28 on a mouse; it ends at the card's own inset, in line with the tiles above. */
+.footMore { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 var(--sp-3);
+  margin-right: var(--sp-3); border: 1px solid var(--glass-edge); border-radius: var(--r-sm); background: transparent;
+  color: var(--ink); font: var(--fw-bold) var(--fs-1)/1 var(--body); white-space: nowrap; cursor: pointer;
   -webkit-tap-highlight-color: transparent; }
+@media (hover: hover) { .footMore:hover { border-color: var(--ink-faint); } }
 .footMore:active { background-image: linear-gradient(var(--press), var(--press)); }
-.footMore :global(.i) { width: 18px; height: 18px; }
-/* …a tile: ⋯ over «Mehr» at 11/700 (pick 24, 17.11.2026), in the foot's 36px – the dots draw in
-   the glyph box's middle 4px, so the box gives its air to the word */
-.footMore { grid-auto-flow: row; align-content: center; row-gap: 0; }
-.footMore :global(.i) { margin-block: -4px 0; }
-.footMore > span { font: var(--fw-bold) var(--fs-micro)/1 var(--body); letter-spacing: -.02em; }
+.footMore :global(.i) { width: 16px; height: 16px; flex: none; }
 /* the expanded per-Trupp contact/pressure log, inside the footer */
 /* ⚠️ The seam under the look-up panel is this border (09.09., ex-`.readHead`): without it the
    first reading butts straight against «Schätzung …» and the two read as one list. `:first-child`
@@ -1671,6 +1665,7 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .focusCard > .trow.trowCard > .vfoot { margin: var(--sp-3) calc(-1 * var(--sp-4)) 0 calc(-1 * var(--page-in)); background: transparent; }
 .focusCard > .trow.trowCard > .vfoot :is(.vrow, .zonePanel, .logList) { padding-left: var(--page-in); }
 .focusCard > .trow.trowCard > .vfoot :is(.zonePanel, .logList) { padding-right: var(--sp-4); }
+.focusCard > .trow.trowCard > .vfoot .footMore { margin-right: var(--sp-4); }
 /* every page opens with its NAME big (the scale's 32px; the mock's 30), the Notfall Trupp's
    included (NotfallPageHead) */
 .focusCard .trowHead .trowNameTxt { font-size: var(--fs-6); line-height: 1.1; }
@@ -1780,9 +1775,10 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 /* the card's foot as ONE terse line: values with units (the Schätzung and «Draussen seit» with
    their word), the Verlauf's chevron at the end, and the whole line is the tap (TruppCard · footZone) */
 .vrowTerse { padding: 0 var(--sp-3); gap: var(--sp-2); }
-.vrowTerse .metaLine { flex: 1 1 auto; min-width: 0; padding: 0; }
+/* the ⌄ HUGS the times (owner pick 4C, 18.11.2026): the line takes its own width, the chevron
+   stands right after it – the button still spans the row up to «⋯ Mehr», so the tap is as wide */
+.vrowTerse .metaLine { flex: 0 1 auto; min-width: 0; padding: 0; }
 .trowCard .vrowTerse .metaLine { padding: 0; }
-.vrowTerse .logChev { margin-left: auto; }
 
 /* ── The opened card on the phone board IS the row, grown downwards (26.09.2026, owner) ─────────
    Same frame, tone and padding as `.trow` at this width (12px since 08.10.2026, 10/11 before), the
@@ -2037,7 +2033,7 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
 @media (hover: hover) and (pointer: fine) {
   .grid .trowCard :is(.trowPressBtn, .trowKontakt, .actBtn) { min-height: 36px; }
   .grid .trowCard .vrow { min-height: 28px; }
-  .grid .trowCard .footMore { width: 32px; height: 28px; }
+  .grid .trowCard .footMore { height: 28px; }
 }
 /* Touch: the foot line DRAWN 36px, its 44px owned by an invisible 8px pad BELOW the card (hill climb
    r17, 05.11.2026 – on the 1180×820 iPad the second row's foot stood on the panel's edge, 1px of
