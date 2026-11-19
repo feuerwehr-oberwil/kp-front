@@ -56,22 +56,6 @@
     }
   },
   "fit": {
-    "whoLabel": "For whom",
-    "who": [
-      "Militia fire brigades",
-      "Local fire brigades",
-      "Regional support fire brigades",
-      "Professional fire brigades",
-      "Industrial fire brigades"
-    ],
-    "whatLabel": "For what",
-    "what": [
-      "Fires",
-      "Road traffic collisions",
-      "Technical rescue",
-      "Hazmat and oil spills",
-      "Major incidents"
-    ],
     "note": "Grown out of the real operational work of\n        <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">Feuerwehr Oberwil BL</a>\n        – proven there, and developed further with every incident.",
     "own": {
       "h2": "Your data stays with you."
@@ -255,6 +239,10 @@
       {
         "q": "Why switch?",
         "a": "Everyone sees the same situation at the same time – in the command vehicle, on the\n          tablet and with the incident commander. No message is lost on a scrap of paper. The SCBA\n          monitoring speaks up by itself before it gets tight. Less radio traffic for questions\n          that are already answered on the situation picture – and the report is nearly done as\n          you head back, instead of the weekend after. KP Front helps the incident commander keep\n          the situation free of contradictions and make the odd one out visible: a team out of\n          radio contact, an appliance that is nowhere, a check-in that never came."
+      },
+      {
+        "q": "Which fire brigades and incidents is KP Front for?",
+        "a": "For militia, local, regional support, professional and industrial fire brigades – at fires, road traffic collisions, technical rescue, hazmat and oil spills, and major incidents. KP Front grew out of the operations of a militia fire brigade, so it is built for people who do not use it every day."
       },
       {
         "q": "Where is sensitive incident data stored?",

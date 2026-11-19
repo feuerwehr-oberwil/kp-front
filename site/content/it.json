@@ -57,22 +57,6 @@
     }
   },
   "fit": {
-    "whoLabel": "Per chi",
-    "who": [
-      "Pompieri di milizia",
-      "Corpi locali",
-      "Centri di soccorso",
-      "Pompieri professionisti",
-      "Pompieri aziendali"
-    ],
-    "whatLabel": "Per cosa",
-    "what": [
-      "Incendi",
-      "Incidenti della circolazione",
-      "Interventi di soccorso tecnico",
-      "Difesa chimica e antinquinamento",
-      "Grandi eventi"
-    ],
     "note": "Nato dall’attività operativa reale dei\n        <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">pompieri di Oberwil BL</a>\n        – lì collaudato e sviluppato di intervento in intervento.",
     "own": {
       "h2": "I vostri dati restano vostri."
@@ -256,6 +240,10 @@
       {
         "q": "Perché cambiare?",
         "a": "Tutti vedono nello stesso momento la stessa situazione – al veicolo di comando, sul\n          tablet e dal capo intervento. Nessun messaggio si perde su un foglietto. La\n          sorveglianza della protezione respiratoria si fa sentire da sola prima che diventi\n          stretta. Meno traffico radio per domande che stanno comunque sul quadro della\n          situazione – e il rapporto è quasi pronto al rientro invece che il fine settimana dopo.\n          KP Front aiuta la direzione dell’intervento a tenere la situazione priva di\n          contraddizioni e a rendere visibili gli scarti: una squadra senza contatto radio, un\n          veicolo che non sta da nessuna parte, un riscontro che non è mai arrivato."
+      },
+      {
+        "q": "Per quali corpi e quali interventi è pensato KP Front?",
+        "a": "Per pompieri di milizia, corpi locali, centri di soccorso, pompieri professionisti e pompieri aziendali – in caso di incendi, incidenti della circolazione, interventi di soccorso tecnico, difesa chimica e antinquinamento e grandi eventi. KP Front è nato nell’attività d’intervento di un corpo di pompieri di milizia; per questo è fatto per persone che non lo usano tutti i giorni."
       },
       {
         "q": "Dove vengono salvati i dati sensibili d’intervento?",

@@ -57,22 +57,6 @@
     }
   },
   "fit": {
-    "whoLabel": "Pour qui",
-    "who": [
-      "Sapeurs-pompiers de milice",
-      "Corps locaux",
-      "Centres de renfort",
-      "Sapeurs-pompiers professionnels",
-      "Sapeurs-pompiers d’entreprise"
-    ],
-    "whatLabel": "Pour quoi",
-    "what": [
-      "Incendies",
-      "Accidents de la circulation",
-      "Assistance technique",
-      "Défense chimique et lutte contre les hydrocarbures",
-      "Événements majeurs"
-    ],
     "note": "Né du service opérationnel réel des\n        <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">sapeurs-pompiers d’Oberwil BL</a>\n        – éprouvé sur le terrain et développé en continu.",
     "own": {
       "h2": "Vos données restent chez vous."
@@ -256,6 +240,10 @@
       {
         "q": "Pourquoi changer ?",
         "a": "Tout le monde voit la même situation au même moment – au véhicule de commandement,\n          sur la tablette et chez le chef d’intervention. Aucune annonce ne se perd sur un bout de\n          papier. La surveillance PR alerte automatiquement avant que la marge ne devienne trop courte.\n          Moins de trafic radio pour des questions dont la réponse est déjà sur l’image de la\n          situation – et le rapport est presque terminé au retour à la caserne, au lieu du week-end suivant.\n          KP Front aide la direction d’intervention à garder une situation sans contradictions et à rendre\n          les écarts visibles : une équipe sans contact radio, un véhicule qui n’est nulle part,\n          une annonce qui n’est jamais venue."
+      },
+      {
+        "q": "Pour quels corps et quelles interventions KP Front est-il conçu ?",
+        "a": "Pour les sapeurs-pompiers de milice, les corps locaux, les centres de renfort, les sapeurs-pompiers professionnels et d’entreprise – lors d’incendies, d’accidents de la circulation, d’assistance technique, de défense chimique et de lutte contre les hydrocarbures et d’événements majeurs. KP Front est né dans l’engagement d’un corps de sapeurs-pompiers de milice ; il est donc conçu pour des personnes qui ne l’utilisent pas tous les jours."
       },
       {
         "q": "Où sont stockées les données d’intervention sensibles ?",

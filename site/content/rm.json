@@ -57,22 +57,6 @@
     }
   },
   "fit": {
-    "whoLabel": "Per tgi",
-    "who": [
-      "Corps da pumpiers da milissa",
-      "Corps da pumpiers locals",
-      "Corps da pumpiers da basa",
-      "Corps da pumpiers professiunals",
-      "Corps da pumpiers d’interpresa"
-    ],
-    "whatLabel": "Per tge",
-    "what": [
-      "Incendis",
-      "Accidents da traffic",
-      "Agid tecnic",
-      "Defensiun chemica e cunter ieli",
-      "Eveniments gronds"
-    ],
     "note": "Sviluppà or dal manaschi real d’acziun dals\n        <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">pumpiers d’Oberwil BL</a>\n        – là testà e sviluppà vinavant cuntinuadamain.",
     "own": {
       "h2": "Vossas datas restan tar vus."
@@ -256,6 +240,10 @@
       {
         "q": "Pertge midar?",
         "a": "Tuts vesan il medem maletg a medem temp. Nagina annunzia va a perder. La surveglianza\n          avertescha automaticamain, il traffic da radio diminuescha ed il rapport è quasi terminà al return."
+      },
+      {
+        "q": "Per tge corps da pumpiers e tge intervenziuns è KP Front fatg?",
+        "a": "Per corps da pumpiers da milissa, locals, da basa, professiunals e d’interpresa – tar incendis, accidents da traffic, agid tecnic, defensiun chemica e cunter ieli ed eveniments gronds. KP Front è naschì en il manaschi d’intervenziun d’in corps da pumpiers da milissa; perquai è el fatg per persunas che n’al dovran betg mintga di."
       },
       {
         "q": "Nua vegnan las datas d’acziun sensiblas memorisadas?",

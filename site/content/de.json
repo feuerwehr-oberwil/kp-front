@@ -60,22 +60,6 @@
     }
   },
   "fit": {
-    "whoLabel": "Für wen",
-    "who": [
-      "Milizfeuerwehren",
-      "Ortsfeuerwehren",
-      "Stützpunktfeuerwehren",
-      "Berufsfeuerwehren",
-      "Betriebsfeuerwehren"
-    ],
-    "whatLabel": "Wofür",
-    "what": [
-      "Brände",
-      "Verkehrsunfälle",
-      "Hilfeleistungen",
-      "Chemie- und Ölwehr",
-      "Grossereignisse"
-    ],
     "note": "Entwickelt aus dem realen Einsatzbetrieb der\n        <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">Feuerwehr Oberwil BL</a>\n        – dort erprobt und laufend weiterentwickelt.",
     "own": {
       "h2": "Eure Daten bleiben bei euch."
@@ -276,6 +260,10 @@
       {
         "q": "Warum umsteigen?",
         "a": "Alle sehen gleichzeitig dieselbe Lage – am Führungsfahrzeug, auf dem Tablet und beim\n          Einsatzleiter. Keine Meldung geht auf einem Notizzettel verloren. Die\n          Atemschutzüberwachung meldet sich selbst, bevor es knapp wird. Weniger Funkverkehr für\n          Fragen, die ohnehin auf dem Lagebild stehen – und der Rapport ist beim Einrücken fast\n          fertig statt am Wochenende danach. KP Front unterstützt die Einsatzleitung dabei, die\n          Lage widerspruchsfrei zu halten und Abweichungen sichtbar zu machen: ein Trupp ohne\n          Funkkontakt, ein Fahrzeug, das nirgends steht, eine Rückmeldung, die nie kam."
+      },
+      {
+        "q": "Für welche Feuerwehren und Einsätze ist KP Front gedacht?",
+        "a": "Für Miliz-, Orts-, Stützpunkt-, Berufs- und Betriebsfeuerwehren – bei Bränden, Verkehrsunfällen, Hilfeleistungen, Chemie- und Ölwehr und Grossereignissen. Entstanden ist KP Front im Einsatzbetrieb einer Milizfeuerwehr; darum ist es für Leute gebaut, die es nicht jeden Tag bedienen."
       },
       {
         "q": "Wo werden die sensiblen Einsatzdaten gespeichert?",
