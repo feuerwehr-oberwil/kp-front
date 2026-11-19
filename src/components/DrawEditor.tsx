@@ -401,7 +401,8 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
               // the label NAMES the pick under the row's word (button sweep audit A2, 17.11.2026):
               // four pictures, and the hold that names them is taught nowhere – a tap to find out is
               // safe, a pick undoes
-              <div className="de-row"><span>{appConfig.copy.drawingEditor.ending}<b className="de-pick">{endingName(endingOf(drawing))}</b></span>
+              // `data-field`: the anchors «Üben»'s «Zeigen» rings (lib/ueben), as on the reverse below
+              <div className="de-row" data-field="lineEnd"><span>{appConfig.copy.drawingEditor.ending}<b className="de-pick">{endingName(endingOf(drawing))}</b></span>
                 <Segmented
                   ariaLabel={appConfig.copy.drawingEditor.ending}
                   value={endingOf(drawing)}
@@ -434,7 +435,7 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
                 glyph + verb, at the control edge (owner, button sweep SHEETS.6, 17.11.2026 – it
                 was an unframed 12.5px row that read as a label). */}
             {onReverse && (
-              <div className="de-act">
+              <div className="de-act" data-field="lineReverse">
                 <Button icon={<Icon id="swap" />} onClick={onReverse}>{appConfig.copy.drawingEditor.reverse}</Button>
               </div>
             )}

@@ -20,6 +20,8 @@ export interface UebenState {
   drill: DrillId | null
   /** bumped on every start, so starting the same drill again re-runs it */
   run: number
+  /** this run is «Nochmals»: the intro card was read a moment ago and is skipped */
+  again: boolean
   done: ReadonlySet<DrillId>
   sheetOpen: boolean
 }
@@ -45,6 +47,7 @@ const parseDone = (raw: string): ReadonlySet<DrillId> => {
 let state: UebenState = {
   drill: read(DRILL_KEY, (raw) => (isDrillId(raw) ? raw : null), null),
   run: 0,
+  again: false,
   done: read(DONE_KEY, parseDone, new Set<DrillId>()),
   sheetOpen: false,
 }
@@ -62,10 +65,11 @@ export function useUeben(): UebenState {
 export const openUebenSheet = () => set({ sheetOpen: true })
 export const closeUebenSheet = () => set({ sheetOpen: false })
 
-/** Put `id` on the card (App opens the practice Einsatz around it). */
-export function startDrill(id: DrillId): void {
+/** Put `id` on the card (App opens the practice Einsatz around it). `again` («Nochmals») skips
+ *  the intro card. */
+export function startDrill(id: DrillId, opts: { again?: boolean } = {}): void {
   write(DRILL_KEY, id)
-  set({ drill: id, run: state.run + 1, sheetOpen: false })
+  set({ drill: id, run: state.run + 1, again: !!opts.again, sheetOpen: false })
 }
 /** The card shows no drill any more (the practice Einsatz stays). */
 export function stopDrill(): void {
