@@ -117,7 +117,7 @@
       {
         "was": "Rapporto il giorno dopo",
         "h2": "Il rapporto al rientro.",
-        "p": "Situazione, uomini, materiale e diario confluiscono direttamente nel rapporto: controllare, completare, stampare come PDF. Per il debriefing il viaggio nel tempo riproduce tutta la notte.",
+        "p": "Situazione, personale, materiale e diario confluiscono direttamente nel rapporto: controllare, completare, stampare come PDF. Per il debriefing il viaggio nel tempo riproduce tutta la notte.",
         "li": [
           "Rapporto d’intervento come PDF pronto",
           "Il controllo finale mostra cosa manca ancora",
@@ -145,7 +145,7 @@
       },
       {
         "h3": "Su misura per voi",
-        "p": "Uomini, veicoli, piani, liste di controllo e livelli della carta si configurano nella vostra area di amministrazione – senza programmare."
+        "p": "Personale, veicoli, piani, liste di controllo e livelli della carta si configurano nella vostra area di amministrazione – senza programmare."
       }
     ],
     "link": "Guida per gestirlo da voi"
@@ -177,7 +177,7 @@
         ]
       },
       {
-        "h3": "Uomini &amp; mezzi",
+        "h3": "Personale &amp; mezzi",
         "peek": "Sorveglianza protezione respiratoria · presenze · piano turni · condivisione posizione · materiale",
         "items": [
           "<strong>Sorveglianza della protezione respiratoria</strong>: pressione, tempo di rientro, tempo dall’ultimo contatto, allarmi",
@@ -223,7 +223,7 @@
           "Posizioni dei veicoli via GPS <span class=\"opt\">opzionale</span>",
           "Accesso con Microsoft all’account esistente, in aggiunta al PIN <span class=\"opt\">opzionale</span>",
           "<strong>Visite agli oggetti</strong> senza intervento, offline – lista di controllo, foto e rapporto <span class=\"opt\">opzionale</span>",
-          "<strong>Area amministrativa propria</strong> per ogni corpo: uomini, veicoli, liste di controllo, livelli cartografici e modelli"
+          "<strong>Area amministrativa propria</strong> per ogni corpo: personale, veicoli, liste di controllo, livelli cartografici e modelli"
         ]
       }
     ]
@@ -271,7 +271,7 @@
       },
       {
         "q": "Possiamo adattarlo ai nostri processi?",
-        "a": "Sì. Ogni corpo ha la propria area amministrativa: uomini, veicoli, dottrina e modelli\n          si impostano liberamente lì. Liste di controllo, piani d’oggetto e livelli cartografici arrivano dai dati della vostra sede: uno alla volta si caricano nell’area amministrativa, molti insieme con gli strumenti da riga di comando forniti. E poiché tutto il codice sta su <a href=\"https://github.com/feuerwehr-oberwil/kp-front\" target=\"_blank\" rel=\"noopener\">GitHub <svg class=\"ico\" style=\"width:13px;height:13px;vertical-align:-2px\"><use href=\"#i-gh\"/></svg></a>,\n          tutto il resto si può costruire – da soli o su mandato."
+        "a": "Sì. Ogni corpo ha la propria area amministrativa: personale, veicoli, dottrina e modelli\n          si impostano liberamente lì. Liste di controllo, piani d’oggetto e livelli cartografici arrivano dai dati della vostra sede: uno alla volta si caricano nell’area amministrativa, molti insieme con gli strumenti da riga di comando forniti. E poiché tutto il codice sta su <a href=\"https://github.com/feuerwehr-oberwil/kp-front\" target=\"_blank\" rel=\"noopener\">GitHub <svg class=\"ico\" style=\"width:13px;height:13px;vertical-align:-2px\"><use href=\"#i-gh\"/></svg></a>,\n          tutto il resto si può costruire – da soli o su mandato."
       },
       {
         "q": "KP Front funziona solo in Svizzera?",

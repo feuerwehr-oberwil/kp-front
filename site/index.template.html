@@ -56,6 +56,8 @@
 <link rel="preload" href="{{base}}fonts/spline-sans-mono.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="{{base}}landing.css">
 
+<!--@template Every <svg><use href="#i-…"/></svg> is decoration: build.mjs adds aria-hidden and
+     focusable="false" to each one, so the uses below leave them out. -->
 <svg style="display:none" aria-hidden="true">
   <symbol id="i-moon" viewBox="0 0 16 16"><path d="M13.8 10.2A6.2 6.2 0 0 1 5.8 2.2a6.2 6.2 0 1 0 8 8z"/></symbol>
   <symbol id="i-sun" viewBox="0 0 16 16"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="3"/><path d="M8 1v1M8 14v1M1 8h1M14 8h1M3 3l1 1M12 12l1 1M3 13l1-1M12 4l1-1"/></g></symbol>
@@ -103,18 +105,18 @@
       <a href="#funktionen">{{nav.features}}</a>
       <a href="#kontakt">{{nav.contact}}</a>
       <span class="langs desktop-options" role="group" aria-label="{{nav.languageAria}}">{{#langLinks}}<a class="lang{{#current}} on{{/current}}" data-language-link href="{{href}}" hreflang="{{code}}" lang="{{code}}"{{#current}} aria-current="page"{{/current}}><abbr title="{{name}}">{{label}}</abbr></a>{{/langLinks}}</span>
-      <button class="icon-link theme-toggle desktop-options" type="button" aria-label="{{theme.label}}" title="{{theme.label}}" aria-pressed="false" hidden><svg class="ico theme-moon" aria-hidden="true"><use href="#i-moon"/></svg><svg class="ico theme-sun" aria-hidden="true"><use href="#i-sun"/></svg></button>
+      <button class="icon-link theme-toggle desktop-options" type="button" aria-label="{{theme.label}}" title="{{theme.label}}" aria-pressed="false" hidden><svg class="ico theme-moon"><use href="#i-moon"/></svg><svg class="ico theme-sun"><use href="#i-sun"/></svg></button>
       <a class="icon-link desktop-options" href="https://github.com/feuerwehr-oberwil/kp-front" target="_blank" rel="noopener" aria-label="{{nav.githubAria}}"><svg class="ico"><use href="#i-gh"/></svg></a>
       <a class="cta" href="https://demo.kp-front.ch" target="_blank" rel="noopener"><svg class="ico"><use href="#i-play"/></svg>{{nav.demo}}</a>
 
       <details class="mobile-options">
-        <summary aria-label="{{nav.options}}" title="{{nav.options}}"><svg class="ico menu-icon" aria-hidden="true"><use href="#i-menu"/></svg><svg class="ico close-icon" aria-hidden="true"><use href="#i-close"/></svg></summary>
+        <summary aria-label="{{nav.options}}" title="{{nav.options}}"><svg class="ico menu-icon"><use href="#i-menu"/></svg><svg class="ico close-icon"><use href="#i-close"/></svg></summary>
         <div class="options-panel">
           <p class="options-label">{{nav.languageAria}}</p>
           <div class="menu-languages" role="group" aria-label="{{nav.languageAria}}">
             {{#langLinks}}<a class="menu-language{{#current}} on{{/current}}" data-language-link href="{{href}}" hreflang="{{code}}" lang="{{code}}"{{#current}} aria-current="page"{{/current}}><span>{{name}}</span><span aria-hidden="true">{{#current}}✓{{/current}}</span></a>{{/langLinks}}
           </div>
-          <button class="theme-toggle menu-theme" type="button" aria-pressed="false" hidden><svg class="ico" aria-hidden="true"><use href="#i-moon"/></svg><span>{{theme.label}}</span><span class="theme-check" aria-hidden="true">✓</span></button>
+          <button class="theme-toggle menu-theme" type="button" aria-pressed="false" hidden><svg class="ico"><use href="#i-moon"/></svg><span>{{theme.label}}</span><span class="theme-check" aria-hidden="true">✓</span></button>
         </div>
       </details>
     </nav>
