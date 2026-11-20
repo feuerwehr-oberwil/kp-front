@@ -95,8 +95,14 @@ jobs:
           PR_URL: ${{ github.event.pull_request.url }}
         # …but only while this run's head is still the PR's head: a newer head has a run of
         # its own, and that run decides (the concurrency group above cancels this one anyway)
+        # A failed lookup fails the step (and so the required check): it never reads as «newer».
         run: |
-          if [ "$(gh api "$PR_URL" --jq .head.sha)" != "$HEAD_SHA" ]; then
+          current_head=$(gh api "$PR_URL" --jq .head.sha)
+          if [ -z "$current_head" ] || [ "$current_head" = null ]; then
+            echo "::error::could not read the PR's head – not taking the request back blind"
+            exit 1
+          fi
+          if [ "$current_head" != "$HEAD_SHA" ]; then
             echo "the PR has a newer head – its own run decides"
             exit 0
           fi
