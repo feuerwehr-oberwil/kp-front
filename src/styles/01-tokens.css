@@ -66,6 +66,7 @@
   --ueben: #7c3aed;
   --ueben-12: color-mix(in srgb, var(--ueben) 12%, transparent);
   --ueben-45: color-mix(in srgb, var(--ueben) 45%, transparent);
+  --ueben-dim: rgba(8, 12, 20, .5);   /* «Zeigen» 1: what the ring's shadow lays over the rest of the screen */
   --on-ueben: #fff;
   /* layered shadow: hairline edge + tight contact + soft ambient — holds the
      panel edge over dark aerial imagery where the white border alone vanishes */

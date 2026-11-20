@@ -62,7 +62,7 @@ import { isPracticeIncident, practiceModeOn, setPracticeMode } from './lib/pract
 import { openPracticeIncident } from './lib/practice/practiceSeed'
 import { setPracticeUser } from './lib/practice/installFetch'
 import { closeUebenSheet, openFree, openUebenSheet, startDrill, useUeben } from './lib/ueben/session'
-import type { DrillId } from './lib/ueben/catalogue'
+import type { StepId } from './lib/ueben/catalogue'
 import type { TryTarget } from './lib/ueben/tryOut'
 
 // Objektbesuche (/besuche…, docs/object-visits.md): its own lazy chunk — precached with the field
@@ -817,7 +817,8 @@ function IncidentApp() {
   }
   // …with a drill on its card («Üben» sheet), or without one: «Frei üben» on the sheet, and the
   // Hilfe's «Ausprobieren», which names the surface to land on (lib/ueben/tryOut)
-  const startPracticeDrill = (id: DrillId) => { startDrill(id); void openPractice() }
+  // from the sheet: the topic's intro card stands before the task
+  const startPracticeDrill = (id: StepId) => { startDrill(id, { intro: true }); void openPractice() }
   const tryOnPractice = (target: TryTarget | null) => { openFree(target); void openPractice() }
 
   // the two home menus (components/HomeMenus): the launcher card and «Einsätze ▾» on the viewer
