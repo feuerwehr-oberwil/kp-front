@@ -1,8 +1,8 @@
 import 'fake-indexeddb/auto'
 import { IDBFactory } from 'fake-indexeddb'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { alarmProviderName, atemschutzDoctrine, incidentCategories, atemschutzEquipment, carrySessionOnly, demoNote, getDeploymentConfig, loadDeploymentConfig, bootDeploymentConfig, mapReferenceLayers, moduleAlignment, moduleViewer, offlineRadiusM, personnelProviderName, reportLinks, stripLocality } from './deploymentConfig'
-import { idbSet, __resetIdbForTests } from './idb'
+import { alarmProviderName, applyCaptureConfig, atemschutzDoctrine, incidentCategories, atemschutzEquipment, carrySessionOnly, demoNote, ensureSessionConfig, getDeploymentConfig, hasStationConfig, loadDeploymentConfig, bootDeploymentConfig, mapReferenceLayers, mergePartial, moduleAlignment, moduleViewer, offlineRadiusM, personnelProviderName, reportLinks, stripLocality } from './deploymentConfig'
+import { idbGet, idbSet, __resetIdbForTests } from './idb'
 
 describe('mapReferenceLayers', () => {
   it('returns [] for missing/empty input', () => {
@@ -378,10 +378,115 @@ describe('reportLinks — what is allowed onto the Rapport', () => {
   })
 })
 
-// `/api/config` withholds the CARTO key and the Rapport links from an anonymous caller without
-// saying so — and the boot fetch IS anonymous whenever the access cookie has expired. An answer
-// that lacks them where the previous one had them is «withheld», never «removed».
-describe('carrySessionOnly — an anonymous answer never downgrades a keyed config', () => {
+// `/api/config` answers a caller WITHOUT a session with the public parts only (`partial`), and
+// the boot fetch IS such a caller on a new device and whenever the access cookie has expired.
+// What a partial answer does not hold was withheld, never removed.
+describe('a partial answer is merged over the copy on the device, never stored in its place', () => {
+  const CACHE_KEY = 'kp-front-deployment-config'
+  const fetchMock = vi.fn()
+  const json = (body: unknown) =>
+    new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } })
+  const STATION = {
+    identity: { appName: 'Feuerwehr Musterdorf', kommandant: 'Brunner Thomas', accentColor: '#c4161c', assets: { logo: '/old.png' } },
+    fleet: { vehicles: [{ id: 'tlf', label: 'TLF' }] },
+    doctrine: { defaultFunkkanal: 11 },
+    integrations: { cartoBasemapKey: 'k1', diveraConfigured: true, microsoftLoginConfigured: false },
+    version: 'v1',
+  }
+  const PUBLIC = {
+    partial: true as const,
+    identity: { appName: 'Feuerwehr Musterdorf', shortName: null, accentColor: '#0055aa', assets: { logo: '/new.png' }, demoMode: false },
+    integrations: { microsoftLoginConfigured: true },
+  }
+
+  beforeEach(() => {
+    globalThis.indexedDB = new IDBFactory()
+    __resetIdbForTests()
+    vi.stubGlobal('fetch', fetchMock)
+    fetchMock.mockReset()
+  })
+  afterEach(() => { vi.unstubAllGlobals() })
+
+  it('mergePartial updates the parts the answer holds and keeps the rest', () => {
+    const out = mergePartial(STATION, PUBLIC)
+    expect(out.identity).toEqual({
+      appName: 'Feuerwehr Musterdorf', kommandant: 'Brunner Thomas', shortName: null,
+      accentColor: '#0055aa', assets: { logo: '/new.png' }, demoMode: false,
+    })
+    expect(out.fleet).toEqual(STATION.fleet)
+    expect(out.doctrine).toEqual(STATION.doctrine)
+    expect(out.integrations).toEqual({ cartoBasemapKey: 'k1', diveraConfigured: true, microsoftLoginConfigured: true })
+    expect(out.version).toBe('v1')
+    expect(out).not.toHaveProperty('partial')
+  })
+
+  it('a boot without a session keeps the fleet, the Funkkanal and the basemap key — also in the offline copy', async () => {
+    fetchMock.mockResolvedValueOnce(json(STATION))
+    await loadDeploymentConfig()
+    expect(hasStationConfig()).toBe(true)
+
+    fetchMock.mockResolvedValueOnce(json(PUBLIC))
+    const cfg = await loadDeploymentConfig()
+    expect(cfg.fleet?.vehicles).toHaveLength(1)
+    expect(atemschutzDoctrine().defaultFunkkanal).toBe(11)
+    expect(getDeploymentConfig().integrations?.cartoBasemapKey).toBe('k1')
+    // …and what the public answer does hold is fresh
+    expect(getDeploymentConfig().identity?.accentColor).toBe('#0055aa')
+    expect(hasStationConfig()).toBe(true)
+    await vi.waitFor(async () => {
+      expect(await idbGet(CACHE_KEY)).toMatchObject({ fleet: STATION.fleet, identity: { accentColor: '#0055aa' } })
+    })
+  })
+
+  it('a session answer still replaces the copy: a section the station emptied goes away', async () => {
+    fetchMock.mockResolvedValueOnce(json(STATION))
+    await loadDeploymentConfig()
+    fetchMock.mockResolvedValueOnce(json({ identity: { appName: 'Feuerwehr Musterdorf' }, version: 'v2' }))
+    await loadDeploymentConfig()
+    expect(getDeploymentConfig().fleet).toBeUndefined()
+    expect(getDeploymentConfig().version).toBe('v2')
+  })
+
+  it('ensureSessionConfig reads again after a partial answer, and not after a session answer', async () => {
+    fetchMock.mockResolvedValueOnce(json(PUBLIC))
+    await loadDeploymentConfig()
+    fetchMock.mockResolvedValueOnce(json(STATION))
+    await ensureSessionConfig()
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(getDeploymentConfig().fleet?.vehicles).toHaveLength(1)
+
+    await ensureSessionConfig()
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('ensureSessionConfig waits for a read that is still on its way before it decides', async () => {
+    let answer!: (r: Response) => void
+    fetchMock.mockReturnValueOnce(new Promise<Response>((res) => { answer = res }))
+    const boot = loadDeploymentConfig()
+    fetchMock.mockResolvedValueOnce(json(STATION))
+    const ensured = ensureSessionConfig()
+    // the boot read was sent before the session was renewed: its answer is partial, and lands late
+    answer(json(PUBLIC))
+    await boot
+    await ensured
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(getDeploymentConfig().version).toBe('v1')
+  })
+
+  it('the Erfassungs-Poster parts land in the singleton beside the public ones', async () => {
+    fetchMock.mockResolvedValueOnce(json({ identity: { appName: 'Feuerwehr Musterdorf' }, version: 'v9' }))
+    await loadDeploymentConfig()
+    applyCaptureConfig({ fleet: { vehicles: [{ id: 'tlf', label: 'TLF' }] }, report: { partnerOrgs: ['Polizei'] }, identity: { kommandant: 'Brunner Thomas' } })
+    expect(getDeploymentConfig().fleet?.vehicles).toHaveLength(1)
+    expect(getDeploymentConfig().report?.partnerOrgs).toEqual(['Polizei'])
+    expect(getDeploymentConfig().identity).toEqual({ appName: 'Feuerwehr Musterdorf', kommandant: 'Brunner Thomas' })
+  })
+})
+
+// A link session's answer is the whole document without the Rapport links (they go to a PIN
+// session only), and a full answer replaces the copy. An answer that lacks the links or the
+// CARTO key where the previous one had them is «withheld», never «removed».
+describe('carrySessionOnly — a full answer never downgrades a keyed config', () => {
   type Cfg = Parameters<typeof carrySessionOnly>[0]
   const link = { id: 'l1', url: 'https://x' } as unknown as NonNullable<NonNullable<Cfg['report']>['links']>[number]
   const keyed: Cfg = { integrations: { cartoBasemapKey: 'k1' }, report: { links: [link] } }

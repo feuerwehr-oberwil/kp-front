@@ -231,7 +231,7 @@ Einsatz shows what was missing.
 A technical owner should be able to confirm all of the following:
 
 - `/ready` reports both database and storage as healthy.
-- `/api/config` shows the intended station identity and map defaults.
+- `/api/config`, read with a session, shows the intended station identity and map defaults.
 - A known hydrant or reference feature appears at the expected location.
 - An incident at a known object offers the correct plans.
 - Station checklists open and remain available after preparing the device for offline use.

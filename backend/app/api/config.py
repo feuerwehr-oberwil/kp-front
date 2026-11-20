@@ -1,9 +1,15 @@
-"""Per-station deployment config: public GET (branding before login) + editor PUT.
+"""Per-station deployment config: GET (a short public list before login, the document with a
+session) + editor PUT.
 
 The config document shape is defined in docs/CONFIGURATION.md §1 and validated through
 ``DeploymentConfigIn`` in schemas.py. The singleton row (id=1) is seeded empty on startup.
 
-Response contract (both GET and PUT return the SAME projection ``DeploymentConfigOut``):
+Who reads what: a caller WITHOUT a session gets ``PUBLIC_PARTS`` and nothing else, the
+Erfassungs-Poster gets ``CAPTURE_PARTS`` on its own route (api/capture), and every session gets
+the projection below. A part somebody adds later is on neither list, so it is withheld until
+somebody lists it.
+
+Response contract (GET with a session and PUT return the SAME projection ``DeploymentConfigOut``):
 
     {
       "identity": { "appName": null, "shortName": null, "locale": null, "accentColor": null,
@@ -26,7 +32,7 @@ Response contract (both GET and PUT return the SAME projection ``DeploymentConfi
                     "contactGraceSec": null, "defaultPressureBar": null, "entryPressureMin": null,
                     "pressureStep": null, "pressureMax": null },
       "roster": { "source": "manual"|"divera"|null },
-      "alarmKeywords": null | { … },   # ADMIN SESSIONS ONLY — withheld from anonymous GET
+      "alarmKeywords": null | { … },   # ADMIN SESSIONS ONLY
       "integrations": { "diveraConfigured": bool, "traccarConfigured": bool },  # env-derived
       "alarmVocabulary": { "source": "shipped"|"deployment", "schemaVersion": int,
                            "titleKeywords": int, "highPriorityKeywords": int,
@@ -41,8 +47,8 @@ Response contract (both GET and PUT return the SAME projection ``DeploymentConfi
 
 Never exposes ``updated_by`` or server secrets. The one deliberate client credential is
 ``integrations.cartoBasemapKey``: CARTO requires it in browser tile URLs, so domain restrictions
-rather than secrecy protect it. On a fresh / empty / corrupt DB row, GET serves the safe empty
-config above — never 404, never 500.
+rather than secrecy protect it. It is on no public list, so it reaches sessions only. On a fresh /
+empty / corrupt DB row, GET serves the safe empty config above — never 404, never 500.
 
 Every config write takes ``config_row(lock=True)`` BEFORE checking a version or deriving a
 replacement. If-Match alone is a check-then-write race: overlapping requests could both accept
@@ -52,14 +58,16 @@ one version, discard one accepted change and keep the original twice in history.
 import hashlib
 import json
 import logging
+from collections.abc import Iterable
 
 from fastapi import APIRouter, Cookie, Depends, Header, HTTPException, Request
+from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..alarm_keywords import SHIPPED
-from ..auth.dependencies import CurrentAdmin, OptionalUser, _admin_session_valid
+from ..auth.dependencies import CurrentAdmin, DeviceUser, OptionalUser, _admin_session_valid
 from ..auth.incident_link import read_link_session
 from ..config import settings
 from ..config_guard import (
@@ -88,6 +96,87 @@ from ..schemas import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/config", tags=["config"])
+
+#: Everything ``GET /api/config`` hands a caller WITHOUT a session (owner pick, 20.11.2026): what
+#: the app draws before anybody is signed in — the start cover, the login screen, a link page
+#: before its exchange, the Erfassungs-Poster's frame. Dotted paths into the response.
+#:
+#: ⚠️ An ALLOW-list on purpose. Until 20.11.2026 this route withheld five named sections and
+#: served the rest, so every section added later was public by default: the fleet, the radio
+#: channels, the alarm groups and the Kommandant's name all reached anybody who asked. A new part
+#: is on this list only when the screens above cannot be drawn without it.
+PUBLIC_PARTS: tuple[str, ...] = (
+    "identity.appName",
+    "identity.shortName",
+    "identity.locale",
+    "identity.accentColor",
+    "identity.assets",
+    # the demo ribbon, the demo's automatic login and the note on its login screen
+    "identity.demoMode",
+    "identity.demoNote",
+    # draws «Mit Microsoft anmelden» on the login screen
+    "integrations.microsoftLoginConfigured",
+)
+
+#: What the Erfassungs-Poster gets with its token (``GET /api/capture/config``): the pickers of
+#: its form — Fahrzeuge, Alarmgruppen, the rank order of the Anwesenheit, the Material catalogue,
+#: the Partnerorganisationen — and the three values its Rapport-PDF is composed with. Without
+#: those three a Rapport printed from the poster would differ from the tablet's for the same
+#: Einsatz: other Einsatzstunden, other stretches on the Personalblatt, no name on the
+#: Kommandant's signature line.
+CAPTURE_PARTS: tuple[str, ...] = (
+    "fleet.vehicles",
+    "alarms.groups",
+    "roster.ranks",
+    "mittel.catalogue",
+    "report.partnerOrgs",
+    "report.hoursRounding",
+    "report.attendanceMergeGapMin",
+    "identity.kommandant",
+)
+
+
+def pick_parts(document: dict, parts: Iterable[str]) -> dict:
+    """Only the named parts of a config document, in the document's own shape.
+
+    ``parts`` are dotted paths (``PUBLIC_PARTS``, ``CAPTURE_PARTS``). Whatever they do not name
+    is ABSENT from the result, not emptied: the caller's device merges such an answer over the
+    copy it holds (src/lib/deploymentConfig · mergePartial), and an emptied section would wipe
+    that copy.
+    """
+    out: dict = {}
+    for part in parts:
+        *parents, leaf = part.split(".")
+        source: object = document
+        for key in parents:
+            source = source.get(key) if isinstance(source, dict) else None
+        if not isinstance(source, dict) or leaf not in source:
+            continue
+        target = out
+        for key in parents:
+            target = target.setdefault(key, {})
+        target[leaf] = source[leaf]
+    return out
+
+
+async def stored_document(db: AsyncSession) -> tuple[DeploymentConfigIn, dict]:
+    """The stored config as a validated document, plus the raw JSON it came from.
+
+    Last-good fallback: a missing row or one that fails validation (a hand-edited bad row) is
+    answered with the safe empty document and a warning. Never raises.
+
+    ⚠️ Read through ``load_stored_config``, not the strict PUT-body model: a field that has
+    grown a rule since the row was written (``identity.accentColor``) must be dropped, not
+    refused. Refusing it lands in the fallback — and answering one bad colour by serving
+    the login screen a station with no name and no logo is the wrong trade.
+    """
+    row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
+    raw = row.config_json if (row and row.config_json) else {}
+    try:
+        return load_stored_config(raw), raw
+    except Exception:  # never let a bad stored row brick a read
+        logger.warning("deployment_config row failed validation; serving empty fallback", exc_info=True)
+        return DeploymentConfigIn(), raw
 
 
 def _alarm_vocabulary(doc: DeploymentConfigIn) -> AlarmVocabularyStatus:
@@ -135,7 +224,6 @@ def _projection(
     *,
     include_keywords: bool = True,
     include_links: bool = True,
-    include_carto: bool = True,
     include_internal: bool = True,
     include_filing: bool = True,
     version: str | None = None,
@@ -143,40 +231,32 @@ def _projection(
 ) -> DeploymentConfigOut:
     """Validated document + env-derived integration flags → the response projection.
 
-    ``include_keywords=False`` withholds the ``alarmKeywords`` block. GET is public so the
-    login screen can brand itself, and a station's whole alarm vocabulary is the one section
-    with no unauthenticated reader: matching happens server-side and nothing in the frontend
-    reads it. Publishing it would be surface for nothing.
+    This is what a SESSION reads. A caller without one never gets this object: ``get_config``
+    cuts it down to ``PUBLIC_PARTS``. The flags below say what each KIND of session is still
+    refused, each for its own reason.
+
+    ``include_keywords=False`` withholds the ``alarmKeywords`` block — a station's whole alarm
+    vocabulary. Matching happens server-side and nothing in the frontend reads it, so only an
+    admin session, whose /admin edits the document, gets it.
 
     ``include_links=False`` empties ``report.links`` — the station's own Formulare (see
     lib/reportLinks). Those URLs are CAPABILITIES: a Google-Forms prefill link is submittable by
     anyone who has it, and the list also names a Wehr's internal paperwork and the hosts it
-    lives on. There is no unauthenticated reader for them — only the Rapport shows them, and the
-    Rapport is behind the PIN.
+    lives on. Only the Rapport shows them, and the Rapport is behind the PIN, so a link session
+    does not get them.
 
-    An anonymous caller therefore sees ``links: []``, which is byte-identical to what a station
-    that has configured none returns: the withholding does not announce itself. (Removing the
-    key is not an option anyway — ``DeploymentConfigOut`` types the section, so the field comes
-    back with its default whatever the dict says.)
+    Such a caller sees ``links: []``, which is byte-identical to what a station that has
+    configured none returns: the withholding does not announce itself. (Removing the key is not
+    an option anyway — ``DeploymentConfigOut`` types the section, so the field comes back with
+    its default whatever the dict says.)
 
-    ``include_carto=False`` drops ``integrations.cartoBasemapKey``. The key is a BROWSER
+    ``integrations.cartoBasemapKey`` has no flag: it goes to every session. The key is a BROWSER
     credential — CARTO wants it in every tile URL, and a domain restriction in CARTO, not
-    secrecy, is what stops it being used elsewhere. That is an argument for not hiding it from
-    the people who draw maps; it is not an argument for handing it to callers who draw none.
-    The only caller this endpoint serves before any session exists is the LOGIN SCREEN, and the
-    login screen renders a Splash, never a map. So the key follows the same rule as
-    ``report.links``: everyone with a session, nobody without.
-
-    ⚠️ «A session» here includes an incident-LINK session, and that is the whole subtlety.
-    ``LinkApp`` renders the full app — the AdF who taps the alarm link gets the real map — while
-    ``OptionalUser`` sees no user for them, because a link carries its own cookie and never an
-    ``access_token``. Gating on ``actor is not None`` alone would therefore hand a blank basemap
-    to precisely the person furthest from a keyboard. ``/api/config`` is on the link allowlist
-    for this exact reason (auth/incident_link · «the map is useless without it»).
-
-    The ``alarmVocabulary`` SUMMARY stays public either way — it carries counts and which
-    source is active, never the words — because "is my override live?" must be answerable
-    without a session.
+    secrecy, is what stops it being used elsewhere. ⚠️ «A session» includes an incident-LINK
+    session, and that is the whole subtlety. ``LinkApp`` renders the full app — the AdF who taps
+    the alarm link gets the real map — while ``OptionalUser`` sees no user for them, because a
+    link carries its own cookie and never an ``access_token``. ``/api/config`` is on the link
+    allowlist for this exact reason (auth/incident_link · «the map is useless without it»).
 
     ``include_internal=False`` empties ``alarms.webhooks``, ``sharepoint.sources`` (RBAC audit
     S3, 22.10.2026) and ``incidentArchive.destinations`` (no client but /admin reads them). Both are addresses the SERVER talks to, and a webhook URL is often a
@@ -186,7 +266,7 @@ def _projection(
     ``include_filing=False`` empties ``objectVisits.destinations`` — SharePoint site addresses,
     but ones a signed-in client DOES read (the Objektbesuch's «Ablage» line and the filing
     status name the destination's folders), so it follows ``report.links``: every PIN session,
-    no anonymous caller and no link.
+    no link.
 
     ⚠️ Withholding any of these from an ADMIN would be a data-loss bug, not a tightening: the admin UI
     does a full-document PUT (GET → draft → PUT), so a config the admin never received is a
@@ -215,14 +295,9 @@ def _projection(
         payload["incidentArchive"] = {**(payload.get("incidentArchive") or {}), "destinations": []}
     if not include_filing:
         payload["objectVisits"] = {**(payload.get("objectVisits") or {}), "destinations": []}
-    ints = integrations()
-    if not include_carto:
-        # `None`, not "", so it is byte-identical to a deployment that configured no key —
-        # the withholding does not announce itself, exactly as with `report.links`.
-        ints = ints.model_copy(update={"cartoBasemapKey": None})
     return DeploymentConfigOut(
         **payload,
-        integrations=ints,
+        integrations=integrations(),
         alarmVocabulary=_alarm_vocabulary(doc),
         categoryLabels=CATEGORY_LABELS,
         version=version,
@@ -253,56 +328,48 @@ def _final_document(stored: dict | None, stated: set[str], doc: DeploymentConfig
 async def get_config(
     request: Request,
     db: AsyncSession = Depends(get_db),
-    actor: OptionalUser = None,
+    actor: DeviceUser = None,
     admin_session: str | None = Cookie(default=None),
-) -> DeploymentConfigOut:
-    """PUBLIC (no auth) — the login screen needs branding before login.
+) -> DeploymentConfigOut | JSONResponse:
+    """Open to every caller, but a caller WITHOUT a session gets a short list only.
 
-    Some sections are withheld from ANONYMOUS (and some from non-admin) callers, each for its own
-    reason:
+    * No session — ``PUBLIC_PARTS``: the branding and two switches, what the start cover and the
+      login screen draw. The answer holds those keys, ``"partial": true`` and nothing else — it
+      is NOT the whole ``DeploymentConfigOut``, and ``partial`` is on no other answer.
+    * A session of any kind (PIN login, Einsatz-Link, terminal, admin) — the document, minus
+      what ``_projection`` refuses that kind of session:
 
-    * ``alarmKeywords`` — admin only; nothing in the frontend reads it (see ``_projection``).
-    * ``report.links`` — the station's own Formulare. Withheld from anonymous callers but
-      served to any SIGNED-IN one (PIN user or admin), because the Rapport that shows them is
-      itself behind the PIN. A prefill URL is a capability — whoever has it can submit to that
-      form — so «anyone who can reach the login screen» is the wrong audience for it.
-    * ``integrations.cartoBasemapKey`` — the CARTO browser key. Served to anyone with a session
-      OF ANY KIND, including an incident-LINK session, and withheld from a caller with none.
-      See ``_projection`` for why the link case is the one that matters.
-    * ``alarms.webhooks`` + ``sharepoint.sources`` — admin only: server-side destinations, the
-      webhooks often capabilities. ``objectVisits.destinations`` — like ``report.links``.
+      * ``alarmKeywords``, ``alarms.webhooks``, ``sharepoint.sources`` and
+        ``incidentArchive.destinations`` — admin only.
+      * ``report.links`` and ``objectVisits.destinations`` — a PIN session or admin, not a link:
+        a prefill URL is a capability, and the Rapport that shows the links is behind the PIN.
 
-    ⚠️ The app reads this at BOOT, before login, so a first fetch on a fresh device legitimately
-    comes back without the links; ``AuthProvider.login`` re-reads the config on the way in (see
-    lib/auth), and every later boot already carries the session cookie.
+    ⚠️ The app reads this at BOOT, before `/me`. A signed-in device whose access cookie has
+    expired still counts as its account here, by its refresh cookie (auth/dependencies ·
+    ``get_device_user``) — this route never answers 401, so nothing renews the session before
+    it. A device that is not signed in (a new one, a link page before its exchange) gets the
+    partial answer; the client MERGES that over the copy it holds and reads again once a
+    session is known (src/lib/deploymentConfig · mergePartial, lib/auth). Replacing with it
+    would empty a tablet's fleet and map layers.
 
-    Last-good fallback: if the persisted ``config_json`` is missing or fails validation
-    (e.g. a hand-edited bad row), serve a safe empty config and log a warning. Never raises.
-
-    ⚠️ Read through ``load_stored_config``, not the strict PUT-body model: a field that has
-    grown a rule since the row was written (``identity.accentColor``) must be dropped, not
-    refused. Refusing it lands in the fallback below — and answering one bad colour by serving
-    the login screen a station with no name, no logo and no fleet is the wrong trade.
+    On a missing or invalid stored row every caller gets the safe empty config
+    (``stored_document``). Never raises.
     """
     # `integrations` in the projection is derived from the credential store, so refresh it —
     # otherwise a station that just connected Divera would keep seeing «nicht konfiguriert»
     # on the surface it went to check.
     await load_credentials(db)
-    row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
-    raw = row.config_json if (row and row.config_json) else {}
-    try:
-        doc = load_stored_config(raw)
-    except Exception:  # never let a bad stored row brick GET
-        logger.warning("deployment_config row failed validation; serving empty fallback", exc_info=True)
-        doc = DeploymentConfigIn()
+    doc, raw = await stored_document(db)
     is_admin = await _admin_session_valid(admin_session)
     # A link session is a session: LinkApp mounts the whole app, map included.
-    has_session = is_admin or actor is not None or read_link_session(request) is not None
+    if not (is_admin or actor is not None or read_link_session(request) is not None):
+        # The projection first, so the public demo's forced `demoMode` is in the answer too.
+        everything = _projection(doc).model_dump(mode="json")
+        return JSONResponse({**pick_parts(everything, PUBLIC_PARTS), "partial": True})
     return _projection(
         doc,
         include_keywords=is_admin,
         include_links=is_admin or actor is not None,
-        include_carto=has_session,
         include_internal=is_admin,
         include_filing=is_admin or actor is not None,
         version=_version(raw),

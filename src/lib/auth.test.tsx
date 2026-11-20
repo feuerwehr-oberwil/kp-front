@@ -35,6 +35,8 @@ const LINK_USER = {
 
 beforeEach(() => {
   apiGet.mockReset(); apiPost.mockReset(); idbSet.mockReset(); idbDel.mockReset(); syncMediaCacheAuth.mockReset()
+  // out of the way by default; the probe tests below put their own in
+  vi.spyOn(deploymentConfig, 'ensureSessionConfig').mockResolvedValue()
 })
 afterEach(() => vi.restoreAllMocks())
 
@@ -63,31 +65,63 @@ describe('AuthProvider — offline user cache', () => {
   })
 })
 
-describe('AuthProvider — the boot probe re-reads a config the anonymous boot fetch had withheld from', () => {
-  // `/api/config` is public and answers keyless when only the refresh cookie is alive; the probe
-  // is what refreshes the session, so it re-reads — before the app (and the map) mounts
-  it('re-reads when the booted config has no CARTO key, and waits for it before exposing the user', async () => {
+describe('AuthProvider — the boot probe reads the config again once the session is known', () => {
+  // `/api/config` answers a caller without a session with the public parts only, and the boot
+  // read is such a caller when only the refresh cookie is alive (and on a link page). The probe
+  // is what renews the session, so it reads again — before the app (and the map) mounts.
+  it('a device with only the public parts waits for the session config before exposing the user', async () => {
     vi.spyOn(deploymentConfig, 'isDemoMode').mockReturnValue(false)
-    vi.spyOn(deploymentConfig, 'getDeploymentConfig').mockReturnValue({ integrations: {} })
-    let releaseConfig!: (cfg: DeploymentConfig) => void
-    const loadConfig = vi.spyOn(deploymentConfig, 'loadDeploymentConfig')
-      .mockReturnValue(new Promise<DeploymentConfig>((resolve) => { releaseConfig = resolve }))
+    vi.spyOn(deploymentConfig, 'hasStationConfig').mockReturnValue(false)
+    let release!: () => void
+    const ensure = vi.spyOn(deploymentConfig, 'ensureSessionConfig')
+      .mockReturnValue(new Promise<void>((resolve) => { release = resolve }))
     apiGet.mockResolvedValue(EDITOR_USER)
     const { result } = renderHook(() => useAuth(), { wrapper })
-    await waitFor(() => expect(loadConfig).toHaveBeenCalledTimes(1))
-    expect(result.current.user).toBeNull() // still on the splash — the map must not mount keyless
-    releaseConfig({ integrations: { cartoBasemapKey: 'k' } })
+    await waitFor(() => expect(ensure).toHaveBeenCalledTimes(1))
+    // no budget here: without the answer the app has no fleet, no map layers and the shipped
+    // Atemschutz numbers, so it stays on the splash
+    await new Promise((r) => setTimeout(r, 50))
+    expect(result.current.user).toBeNull()
+    release()
     await waitFor(() => expect(result.current.user).toEqual(EDITOR_USER))
   })
 
-  it('does not re-read when the booted config already carries the key', async () => {
+  it('a device that holds the station config waits a bounded time only', async () => {
+    vi.useFakeTimers()
+    try {
+      vi.spyOn(deploymentConfig, 'isDemoMode').mockReturnValue(false)
+      vi.spyOn(deploymentConfig, 'hasStationConfig').mockReturnValue(true)
+      vi.spyOn(deploymentConfig, 'ensureSessionConfig').mockReturnValue(new Promise<void>(() => {}))
+      apiGet.mockResolvedValue(EDITOR_USER)
+      const { result } = renderHook(() => useAuth(), { wrapper })
+      await act(() => vi.advanceTimersByTimeAsync(3_900))
+      expect(result.current.user).toBeNull()
+      await act(() => vi.advanceTimersByTimeAsync(200))
+      expect(result.current.user).toEqual(EDITOR_USER)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})
+
+describe('AuthProvider — login', () => {
+  it('reads the config with the new session BEFORE the user is adopted (adopting mounts the app)', async () => {
     vi.spyOn(deploymentConfig, 'isDemoMode').mockReturnValue(false)
-    vi.spyOn(deploymentConfig, 'getDeploymentConfig').mockReturnValue({ integrations: { cartoBasemapKey: 'k' } })
-    const loadConfig = vi.spyOn(deploymentConfig, 'loadDeploymentConfig').mockResolvedValue({})
-    apiGet.mockResolvedValue(EDITOR_USER)
+    apiGet.mockRejectedValue(new ApiError(401, 'Nicht angemeldet'))
     const { result } = renderHook(() => useAuth(), { wrapper })
-    await waitFor(() => expect(result.current.user).toEqual(EDITOR_USER))
-    expect(loadConfig).not.toHaveBeenCalled()
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    let release!: (cfg: DeploymentConfig) => void
+    const loadConfig = vi.spyOn(deploymentConfig, 'loadDeploymentConfig')
+      .mockReturnValue(new Promise<DeploymentConfig>((resolve) => { release = resolve }))
+    apiPost.mockResolvedValue(EDITOR_USER)
+    let login!: Promise<void>
+    act(() => { login = result.current.login('ed-1', '135790') })
+    await waitFor(() => expect(loadConfig).toHaveBeenCalledOnce())
+    // a first login on a new device: only the public parts so far, so no app yet
+    expect(result.current.user).toBeNull()
+    await act(async () => { release({ fleet: { vehicles: [] } }); await login })
+    expect(result.current.user).toEqual(EDITOR_USER)
   })
 })
 
@@ -95,7 +129,6 @@ describe('AuthProvider — onAccountKnown', () => {
   // main.tsx hangs the station plan calibration on this: its route needs a session
   it('fires once the account is known, never for a signed-out device', async () => {
     vi.spyOn(deploymentConfig, 'isDemoMode').mockReturnValue(false)
-    vi.spyOn(deploymentConfig, 'getDeploymentConfig').mockReturnValue({ integrations: { cartoBasemapKey: 'k' } })
     const known = vi.fn()
     onAccountKnown(known)
     apiGet.mockRejectedValue(new ApiError(401, 'Nicht angemeldet'))
@@ -123,8 +156,8 @@ describe('AuthProvider — demo auto-login', () => {
 
     const { result } = renderHook(() => useAuth(), { wrapper })
     await waitFor(() => expect(loadConfig).toHaveBeenCalledOnce())
-    // Anonymous /api/config withholds the CARTO browser key. Exposing the user before this
-    // refresh mounts the map with unkeyed, visibly watermarked tiles until a full reload.
+    // Without a session /api/config gives the public parts only. Exposing the user before this
+    // refresh mounts the app without the station's data and its CARTO key until a full reload.
     expect(result.current.user).toBeNull()
 
     releaseConfig({ integrations: { cartoBasemapKey: 'demo-key' } })

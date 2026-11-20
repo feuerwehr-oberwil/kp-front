@@ -262,8 +262,12 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let alive = true
-    apiGet<DeploymentConfig>('/api/config')
-      .then((cfg) => {
+    // The shared copy too (lib/deploymentConfig · loadDeploymentConfig, it never throws). The
+    // boot read it without a session, so on a browser with no PIN login it holds the public
+    // parts only, and the views here read ranks, modules and the basemap key from it. A second
+    // read on purpose: the draft must be the server's answer itself, with nothing merged in.
+    Promise.all([apiGet<DeploymentConfig>('/api/config'), loadDeploymentConfig()])
+      .then(([cfg]) => {
         if (!alive) return
         const safe = cfg && typeof cfg === 'object' ? cfg : {}
         versionRef.current = safe.version ?? null

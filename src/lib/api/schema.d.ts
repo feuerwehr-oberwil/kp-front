@@ -305,33 +305,29 @@ export interface paths {
         };
         /**
          * Get Config
-         * @description PUBLIC (no auth) — the login screen needs branding before login.
+         * @description Open to every caller, but a caller WITHOUT a session gets a short list only.
          *
-         *     Some sections are withheld from ANONYMOUS (and some from non-admin) callers, each for its own
-         *     reason:
+         *     * No session — ``PUBLIC_PARTS``: the branding and two switches, what the start cover and the
+         *       login screen draw. The answer holds those keys, ``"partial": true`` and nothing else — it
+         *       is NOT the whole ``DeploymentConfigOut``, and ``partial`` is on no other answer.
+         *     * A session of any kind (PIN login, Einsatz-Link, terminal, admin) — the document, minus
+         *       what ``_projection`` refuses that kind of session:
          *
-         *     * ``alarmKeywords`` — admin only; nothing in the frontend reads it (see ``_projection``).
-         *     * ``report.links`` — the station's own Formulare. Withheld from anonymous callers but
-         *       served to any SIGNED-IN one (PIN user or admin), because the Rapport that shows them is
-         *       itself behind the PIN. A prefill URL is a capability — whoever has it can submit to that
-         *       form — so «anyone who can reach the login screen» is the wrong audience for it.
-         *     * ``integrations.cartoBasemapKey`` — the CARTO browser key. Served to anyone with a session
-         *       OF ANY KIND, including an incident-LINK session, and withheld from a caller with none.
-         *       See ``_projection`` for why the link case is the one that matters.
-         *     * ``alarms.webhooks`` + ``sharepoint.sources`` — admin only: server-side destinations, the
-         *       webhooks often capabilities. ``objectVisits.destinations`` — like ``report.links``.
+         *       * ``alarmKeywords``, ``alarms.webhooks``, ``sharepoint.sources`` and
+         *         ``incidentArchive.destinations`` — admin only.
+         *       * ``report.links`` and ``objectVisits.destinations`` — a PIN session or admin, not a link:
+         *         a prefill URL is a capability, and the Rapport that shows the links is behind the PIN.
          *
-         *     ⚠️ The app reads this at BOOT, before login, so a first fetch on a fresh device legitimately
-         *     comes back without the links; ``AuthProvider.login`` re-reads the config on the way in (see
-         *     lib/auth), and every later boot already carries the session cookie.
+         *     ⚠️ The app reads this at BOOT, before `/me`. A signed-in device whose access cookie has
+         *     expired still counts as its account here, by its refresh cookie (auth/dependencies ·
+         *     ``get_device_user``) — this route never answers 401, so nothing renews the session before
+         *     it. A device that is not signed in (a new one, a link page before its exchange) gets the
+         *     partial answer; the client MERGES that over the copy it holds and reads again once a
+         *     session is known (src/lib/deploymentConfig · mergePartial, lib/auth). Replacing with it
+         *     would empty a tablet's fleet and map layers.
          *
-         *     Last-good fallback: if the persisted ``config_json`` is missing or fails validation
-         *     (e.g. a hand-edited bad row), serve a safe empty config and log a warning. Never raises.
-         *
-         *     ⚠️ Read through ``load_stored_config``, not the strict PUT-body model: a field that has
-         *     grown a rule since the row was written (``identity.accentColor``) must be dropped, not
-         *     refused. Refusing it lands in the fallback below — and answering one bad colour by serving
-         *     the login screen a station with no name, no logo and no fleet is the wrong trade.
+         *     On a missing or invalid stored row every caller gets the safe empty config
+         *     (``stored_document``). Never raises.
          */
         get: operations["get_config_api_config_get"];
         /**
@@ -1522,6 +1518,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/capture/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Capture Config
+         * @description The parts of the deployment config the poster's form and its Rapport-PDF read
+         *     (api/config · ``CAPTURE_PARTS``), in the config document's own shape.
+         */
+        get: operations["capture_config_api_capture_config_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/capture/roster": {
         parameters: {
             query?: never;
@@ -1532,6 +1549,7 @@ export interface paths {
         /**
          * Capture Roster
          * @description Active Mannschaft for the attendance checklist and the Einsatzleiter/Rückmeldung pickers.
+         *     Names and ranks only: no Divera id, like the roster a link session reads (api/personnel).
          */
         get: operations["capture_roster_api_capture_roster_get"];
         put?: never;
@@ -8816,6 +8834,7 @@ export interface operations {
             cookie?: {
                 admin_session?: string | null;
                 access_token?: string | null;
+                refresh_token?: string | null;
             };
         };
         requestBody?: never;
@@ -10915,6 +10934,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["IncidentMeta"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    capture_config_api_capture_config_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-capture-token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
             /** @description Validation Error */

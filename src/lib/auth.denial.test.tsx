@@ -32,7 +32,6 @@ const wrapper = ({ children }: { children: ReactNode }) => <AuthProvider>{childr
 /** boot straight into a signed-in session, with the config re-read out of the way */
 async function signedIn() {
   vi.spyOn(deploymentConfig, 'isDemoMode').mockReturnValue(false)
-  vi.spyOn(deploymentConfig, 'getDeploymentConfig').mockReturnValue({ integrations: { cartoBasemapKey: 'k' } })
   apiGet.mockResolvedValueOnce(EDITOR_USER)
   const { result } = renderHook(() => useAuth(), { wrapper })
   await waitFor(() => expect(result.current.user).toEqual(EDITOR_USER))
@@ -44,6 +43,8 @@ beforeEach(() => {
   apiGet.mockReset(); apiPost.mockReset(); idbSet.mockReset(); idbDel.mockReset()
   idbGet.mockReset().mockResolvedValue(null) // no cached user unless a test seeds one
   syncMediaCacheAuth.mockReset(); denyWorkspaceCache.mockReset(); setWorkspaceCacheOwner.mockReset()
+  // the config re-read after a live /me is not this file's subject (auth.test.tsx covers it)
+  vi.spyOn(deploymentConfig, 'ensureSessionConfig').mockResolvedValue()
 })
 // ⚠️ No global RTL auto-cleanup in this repo (vite.config · test has no setupFiles), and these
 // tests fire a WINDOW event: a provider left mounted by the previous test would answer it too.
@@ -347,7 +348,6 @@ describe('AuthProvider — a logout during the boot probe is not undone', () => 
 
   it('still logs in on a live /me 200 mid-boot — a real answer legitimately lifts a denial', async () => {
     vi.spyOn(deploymentConfig, 'isDemoMode').mockReturnValue(false)
-    vi.spyOn(deploymentConfig, 'getDeploymentConfig').mockReturnValue({ integrations: { cartoBasemapKey: 'k' } })
     idbGet.mockResolvedValue(EDITOR_USER)
 
     let resolveProbe!: (u: unknown) => void

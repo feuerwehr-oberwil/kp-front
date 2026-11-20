@@ -965,7 +965,7 @@ async def test_a_link_session_receives_the_carto_basemap_key(client, link_key, i
     )
 
     # anonymous first: same endpoint, same station, no key
-    assert (await client.get("/api/config")).json()["integrations"]["cartoBasemapKey"] is None
+    assert "carto-browser-key" not in (await client.get("/api/config")).text
 
     await _open_link(client)
     r = await client.get("/api/config")
@@ -974,7 +974,7 @@ async def test_a_link_session_receives_the_carto_basemap_key(client, link_key, i
 
     # …and it goes away again with the link
     _forget_link(client)
-    assert (await client.get("/api/config")).json()["integrations"]["cartoBasemapKey"] is None
+    assert "carto-browser-key" not in (await client.get("/api/config")).text
 
 
 # --- the Rapport's view-only link ---------------------------------------------------------

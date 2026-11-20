@@ -8,7 +8,9 @@ completed Rapport — the backlog the station still owes paperwork for — plus 
 within `alarms.captureWindowHours` (default 12) regardless of report state. Deliberately
 narrow: list those incidents, read roster, read/save the ATTENDANCE PART of the workspace,
 append journal rows, and upload a Rapport-Beilage (photo). No create/delete/meta/admin, nothing
-when no secret is set (fail-closed).
+when no secret is set (fail-closed). Of the deployment config it reads the parts its form
+needs (``GET /config`` · api/config · ``CAPTURE_PARTS``), because the public config no longer
+carries them.
 
 The workspace endpoints are key-scoped (`CAPTURE_WORKSPACE_KEYS`). They used to hand out and
 overwrite the whole `map_workspace_json` blob, which meant a poster token could read and
@@ -50,6 +52,7 @@ from ..schemas import (
     WorkspaceOut,
     WorkspacePut,
 )
+from .config import CAPTURE_PARTS, pick_parts, stored_document
 
 if TYPE_CHECKING:  # the composer chain is heavy; this file only names the type
     from .report import ReportAssetScope
@@ -221,9 +224,18 @@ async def list_capture_incidents(db: AsyncSession = Depends(get_db)) -> list[Inc
     return await _capture_incidents(db)
 
 
+@router.get("/config", dependencies=[Depends(_check_token)])
+async def capture_config(db: AsyncSession = Depends(get_db)) -> dict:
+    """The parts of the deployment config the poster's form and its Rapport-PDF read
+    (api/config · ``CAPTURE_PARTS``), in the config document's own shape."""
+    doc, _raw = await stored_document(db)
+    return pick_parts(doc.model_dump(mode="json"), CAPTURE_PARTS)
+
+
 @router.get("/roster", response_model=list[PersonnelOut], dependencies=[Depends(_check_token)])
 async def capture_roster(db: AsyncSession = Depends(get_db)):
-    """Active Mannschaft for the attendance checklist and the Einsatzleiter/Rückmeldung pickers."""
+    """Active Mannschaft for the attendance checklist and the Einsatzleiter/Rückmeldung pickers.
+    Names and ranks only: no Divera id, like the roster a link session reads (api/personnel)."""
     rows = list((await db.execute(select(Personnel).where(Personnel.is_active.is_(True)))).scalars())
     # Same names, same order, same sort as the KP tablet's roster — the two lists are read
     # side by side (phone ticks off, tablet checks) and must not disagree on either.
@@ -231,6 +243,8 @@ async def capture_roster(db: AsyncSession = Depends(get_db)):
     out = []
     for p in rows:
         served = PersonnelOut.model_validate(p)
+        # the poster ticks names off; it never reads the id (src/lib/captureClient · CapturePerson)
+        served.divera_id = None
         served.display_name = personnel_svc.person_display_name(p, order)
         out.append(served)
     out.sort(key=lambda person: personnel_svc.name_sort_key(person.display_name))

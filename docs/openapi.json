@@ -809,7 +809,7 @@
           "config"
         ],
         "summary": "Get Config",
-        "description": "PUBLIC (no auth) — the login screen needs branding before login.\n\nSome sections are withheld from ANONYMOUS (and some from non-admin) callers, each for its own\nreason:\n\n* ``alarmKeywords`` — admin only; nothing in the frontend reads it (see ``_projection``).\n* ``report.links`` — the station's own Formulare. Withheld from anonymous callers but\n  served to any SIGNED-IN one (PIN user or admin), because the Rapport that shows them is\n  itself behind the PIN. A prefill URL is a capability — whoever has it can submit to that\n  form — so «anyone who can reach the login screen» is the wrong audience for it.\n* ``integrations.cartoBasemapKey`` — the CARTO browser key. Served to anyone with a session\n  OF ANY KIND, including an incident-LINK session, and withheld from a caller with none.\n  See ``_projection`` for why the link case is the one that matters.\n* ``alarms.webhooks`` + ``sharepoint.sources`` — admin only: server-side destinations, the\n  webhooks often capabilities. ``objectVisits.destinations`` — like ``report.links``.\n\n⚠️ The app reads this at BOOT, before login, so a first fetch on a fresh device legitimately\ncomes back without the links; ``AuthProvider.login`` re-reads the config on the way in (see\nlib/auth), and every later boot already carries the session cookie.\n\nLast-good fallback: if the persisted ``config_json`` is missing or fails validation\n(e.g. a hand-edited bad row), serve a safe empty config and log a warning. Never raises.\n\n⚠️ Read through ``load_stored_config``, not the strict PUT-body model: a field that has\ngrown a rule since the row was written (``identity.accentColor``) must be dropped, not\nrefused. Refusing it lands in the fallback below — and answering one bad colour by serving\nthe login screen a station with no name, no logo and no fleet is the wrong trade.",
+        "description": "Open to every caller, but a caller WITHOUT a session gets a short list only.\n\n* No session — ``PUBLIC_PARTS``: the branding and two switches, what the start cover and the\n  login screen draw. The answer holds those keys, ``\"partial\": true`` and nothing else — it\n  is NOT the whole ``DeploymentConfigOut``, and ``partial`` is on no other answer.\n* A session of any kind (PIN login, Einsatz-Link, terminal, admin) — the document, minus\n  what ``_projection`` refuses that kind of session:\n\n  * ``alarmKeywords``, ``alarms.webhooks``, ``sharepoint.sources`` and\n    ``incidentArchive.destinations`` — admin only.\n  * ``report.links`` and ``objectVisits.destinations`` — a PIN session or admin, not a link:\n    a prefill URL is a capability, and the Rapport that shows the links is behind the PIN.\n\n⚠️ The app reads this at BOOT, before `/me`. A signed-in device whose access cookie has\nexpired still counts as its account here, by its refresh cookie (auth/dependencies ·\n``get_device_user``) — this route never answers 401, so nothing renews the session before\nit. A device that is not signed in (a new one, a link page before its exchange) gets the\npartial answer; the client MERGES that over the copy it holds and reads again once a\nsession is known (src/lib/deploymentConfig · mergePartial, lib/auth). Replacing with it\nwould empty a tablet's fleet and map layers.\n\nOn a missing or invalid stored row every caller gets the safe empty config\n(``stored_document``). Never raises.",
         "operationId": "get_config_api_config_get",
         "parameters": [
           {
@@ -842,6 +842,22 @@
                 }
               ],
               "title": "Access Token"
+            }
+          },
+          {
+            "name": "refresh_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Refresh Token"
             }
           }
         ],
@@ -4889,13 +4905,65 @@
         }
       }
     },
+    "/api/capture/config": {
+      "get": {
+        "tags": [
+          "capture"
+        ],
+        "summary": "Capture Config",
+        "description": "The parts of the deployment config the poster's form and its Rapport-PDF read\n(api/config · ``CAPTURE_PARTS``), in the config document's own shape.",
+        "operationId": "capture_config_api_capture_config_get",
+        "parameters": [
+          {
+            "name": "x-capture-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Capture-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Capture Config Api Capture Config Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/capture/roster": {
       "get": {
         "tags": [
           "capture"
         ],
         "summary": "Capture Roster",
-        "description": "Active Mannschaft for the attendance checklist and the Einsatzleiter/Rückmeldung pickers.",
+        "description": "Active Mannschaft for the attendance checklist and the Einsatzleiter/Rückmeldung pickers.\nNames and ranks only: no Divera id, like the roster a link session reads (api/personnel).",
         "operationId": "capture_roster_api_capture_roster_get",
         "parameters": [
           {
