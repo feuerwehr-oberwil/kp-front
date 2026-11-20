@@ -67,8 +67,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..alarm_keywords import SHIPPED
-from ..auth.dependencies import CurrentAdmin, DeviceUser, OptionalUser, _admin_session_valid
-from ..auth.incident_link import read_link_session
+from ..auth.dependencies import CurrentAdmin, DeviceUser, OptionalUser, _admin_session_valid, is_link_session
+from ..auth.incident_link import link_page_owns_session, read_link_session
 from ..config import settings
 from ..config_guard import (
     carry_runtime_sections,
@@ -360,18 +360,24 @@ async def get_config(
     # on the surface it went to check.
     await load_credentials(db)
     doc, raw = await stored_document(db)
-    is_admin = await _admin_session_valid(admin_session)
+    # ⚠️ A page that speaks for its link («use») is that link and nothing more: not the admin
+    # whose cookie lies in the same browser, and not a PIN account — `actor` is then the link's
+    # own guest, which must not count as one (the Atemschutz board handed over on a phone that
+    # is signed in got the Formular links and the filing destinations, and with an admin
+    # cookie the whole admin projection).
+    is_admin = not link_page_owns_session(request) and await _admin_session_valid(admin_session)
+    has_account = actor is not None and not is_link_session(actor)
     # A link session is a session: LinkApp mounts the whole app, map included.
-    if not (is_admin or actor is not None or read_link_session(request) is not None):
+    if not (is_admin or has_account or read_link_session(request) is not None):
         # The projection first, so the public demo's forced `demoMode` is in the answer too.
         everything = _projection(doc).model_dump(mode="json")
         return JSONResponse({**pick_parts(everything, PUBLIC_PARTS), "partial": True})
     return _projection(
         doc,
         include_keywords=is_admin,
-        include_links=is_admin or actor is not None,
+        include_links=is_admin or has_account,
         include_internal=is_admin,
-        include_filing=is_admin or actor is not None,
+        include_filing=is_admin or has_account,
         version=_version(raw),
     )
 

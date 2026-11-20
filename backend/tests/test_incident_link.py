@@ -977,6 +977,42 @@ async def test_a_link_session_receives_the_carto_basemap_key(client, link_key, i
     assert "carto-browser-key" not in (await client.get("/api/config")).text
 
 
+async def test_a_link_page_gets_the_link_projection_beside_a_login_and_an_admin_cookie(
+    client, link_key, incident, editor, admin_login, put_config
+):
+    """A page that speaks for its link is that link and nothing more. Its guest used to count as
+    a PIN account when the phone was signed in too (`report.links`, the filing destinations),
+    and an admin cookie in the same browser handed it the whole admin projection."""
+    hook = "https://hooks.example.org/alarm?sig=SECRETSIG"
+    form = {"id": "f1", "title": "Formular", "url": "https://forms.example.org/x"}
+    await admin_login(client)
+    r = await put_config(
+        client,
+        {
+            "report": {"links": [form]},
+            "alarms": {"webhooks": [hook]},
+            "objectVisits": {"destinations": [{"id": "sp", "siteUrl": "https://contoso.sharepoint.com/sites/x"}]},
+        },
+    )
+    assert r.status_code == 200, r.text
+    assert (await client.post("/api/auth/login", json={"user_id": str(editor.id), "pin": "135790"})).status_code == 200
+    await _open_link(client)
+
+    r = await client.get("/api/config", headers=LINK_PAGE)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert "partial" not in body and body["version"]  # a session: the document …
+    assert body["report"]["links"] == []  # … as a link reads it
+    assert body["objectVisits"]["destinations"] == []
+    assert body["alarms"]["webhooks"] == []
+    assert "SECRETSIG" not in r.text and "sharepoint.com" not in r.text
+
+    # the ordinary app on the same device is still the account and the admin
+    body = (await client.get("/api/config", headers=BARE_SITE)).json()
+    assert [link["id"] for link in body["report"]["links"]] == ["f1"]
+    assert body["alarms"]["webhooks"] == [hook]
+
+
 # --- the Rapport's view-only link ---------------------------------------------------------
 #
 # The other lifecycle: minted in the app by an editor, handed to somebody outside the station,
