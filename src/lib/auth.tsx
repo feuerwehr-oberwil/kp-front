@@ -318,27 +318,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   //   · a live /me, or a refresh that succeeded meanwhile (SESSION_RESTORED_EVENT) → the session
   //     works: withdraw the warning (sweep 09.11.2026, UX.1 — it used to stand until a sign-in).
   //
-  // Single-flight: every failing request re-fires the event, and one answer settles all of them.
+  // Single-flight PER SESSION: every failing request re-fires the event, and one answer settles
+  // all of them. A check sent before a sign-in asked about the old session: its answer, 200 or
+  // refusal, is not about the new one and is dropped — and it does not stand in for a check of
+  // the new session either.
   useEffect(() => {
     let alive = true
-    let asking = false
+    /** the sign-in epoch the check in flight asks about, or null */
+    let askingFor: number | null = null
     let standing = false
     const withdraw = () => { standing = false; setSessionExpired(false) }
     const ask = () => {
-      if (asking) return
-      asking = true
       const signInAtAsk = signInEpoch.current
+      if (askingFor === signInAtAsk) return
+      askingFor = signInAtAsk
+      const current = () => alive && signInEpoch.current === signInAtAsk
       void (async () => {
         try {
           const u = await apiGet<AuthUser>('/api/auth/me', { timeoutMs: CACHED_PROBE_TIMEOUT_MS })
-          if (!alive) return
+          if (!current()) return
           adoptUser(u)
           writeCachedUser(u)
           withdraw()
         } catch (e) {
-          if (alive && isDenial(e) && signInEpoch.current === signInAtAsk) { standing = false; denySession() }
+          if (current() && isDenial(e)) { standing = false; denySession() }
         } finally {
-          asking = false
+          if (askingFor === signInAtAsk) askingFor = null
         }
       })()
     }

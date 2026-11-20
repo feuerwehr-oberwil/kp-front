@@ -496,3 +496,31 @@ describe('AuthProvider — a session check sent before a sign-in', () => {
     expect(result.current.user).toEqual(EDITOR_USER)
   })
 })
+
+describe('AuthProvider — the new session gets its own check while the old one is still asked about', () => {
+  it('runs a check for the new session and honours its refusal', async () => {
+    vi.spyOn(deploymentConfig, 'isDemoMode').mockReturnValue(false)
+    apiGet.mockRejectedValueOnce(new ApiError(401, 'Nicht angemeldet')) // boot /me
+    const { result } = renderHook(() => useAuth(), { wrapper })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    let refuseOld!: (e: unknown) => void
+    apiGet.mockReturnValueOnce(new Promise((_res, rej) => { refuseOld = rej })) // the old session's check
+    act(() => { window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT)) })
+    await waitFor(() => expect(apiGet).toHaveBeenCalledTimes(2))
+
+    vi.spyOn(deploymentConfig, 'loadDeploymentConfig').mockResolvedValue({})
+    apiPost.mockResolvedValue(EDITOR_USER)
+    await act(async () => { await result.current.login('ed-1', '135790') })
+
+    // the NEW session expires too, while the old check still hangs
+    apiGet.mockRejectedValueOnce(new ApiError(401, 'Nicht angemeldet'))
+    denyWorkspaceCache.mockClear()
+    act(() => { window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT)) })
+    await waitFor(() => expect(apiGet).toHaveBeenCalledTimes(3)) // its own check went out
+    await waitFor(() => expect(denyWorkspaceCache).toHaveBeenCalled()) // …and its refusal counts
+    expect(result.current.user).toBeNull()
+
+    await act(async () => { refuseOld(new ApiError(401, 'Nicht angemeldet')); await Promise.resolve() })
+  })
+})
