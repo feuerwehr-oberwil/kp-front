@@ -28,6 +28,9 @@
      the small print: .cta-note, .fit-note, captions, the footer, placeholders). */
   --ink-faint: #68707b;
   --red: #e30613;
+  /* Small red text (eyebrows, tags, small table heads): 5.36:1 on --sibling-bg, where --red
+     reaches only 4.21 (and 4.48 on --bg). Buttons and marks keep the brand red. */
+  --red-text: #c4041a;
   --red-deep: #b30510;
   --ok: #38c172;
   --surface: #ffffff;
@@ -52,6 +55,7 @@
   --ink-dim: #c3cbd8;
   --ink-faint: #a8b1c0;
   --red: #ff746a;
+  --red-text: #ff746a;
   --red-deep: #ff9a91;
   --surface: #1e2530;
   --line: color-mix(in srgb, var(--ink) 20%, transparent);
@@ -69,6 +73,7 @@
     --ink-dim: #c3cbd8;
     --ink-faint: #a8b1c0;
     --red: #ff746a;
+    --red-text: #ff746a;
     --red-deep: #ff9a91;
     --surface: #1e2530;
     --line: color-mix(in srgb, var(--ink) 20%, transparent);
@@ -218,17 +223,20 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 .eyebrow {
   font-family: var(--mono); font-size: 12.5px; font-weight: 500;
   letter-spacing: .14em; text-transform: uppercase;
-  color: var(--red);
+  color: var(--red-text);
   display: flex; align-items: center; gap: 10px;
 }
-.eyebrow::before { content: ''; width: 26px; height: 2px; background: var(--red); }
+.eyebrow::before { content: ''; width: 26px; height: 2px; background: var(--red-text); }
 .hero h1 {
   font-size: clamp(2.3rem, 6vw, 3.9rem);
   line-height: 1.06; font-weight: 800; letter-spacing: -.04em;
-  text-wrap: balance; overflow-wrap: anywhere; hyphens: auto;
+  text-wrap: balance; overflow-wrap: anywhere; hyphens: manual;
   margin: 18px 0 0;
   max-width: 17ch;
 }
+/* Only a phone is narrow enough to need a break inside a word. Wider, automatic hyphenation
+   cut «Einsatz-board» and «d’inter-vention» although the whole word had room on the next line. */
+@media (max-width: 520px) { .hero h1 { hyphens: auto; } }
 .hero .lede {
   color: var(--ink-dim); font-size: clamp(1.02rem, 1.6vw, 1.15rem);
   max-width: 56ch; margin-top: 20px;
@@ -392,7 +400,7 @@ section[id] { scroll-margin-top: 76px; } /* anchor targets clear the sticky head
 .entry:last-child .body { padding-bottom: 0; }
 .entry .tag {
   font-family: var(--mono); font-size: 12px; font-weight: 600;
-  letter-spacing: .13em; text-transform: uppercase; color: var(--red);
+  letter-spacing: .13em; text-transform: uppercase; color: var(--red-text);
 }
 .entry h3 { font-size: 1.12rem; font-weight: 700; letter-spacing: -.01em; margin-top: 6px; }
 .entry p { color: var(--ink-dim); margin-top: 6px; max-width: 58ch; }
@@ -428,7 +436,7 @@ section[id] { scroll-margin-top: 76px; } /* anchor targets clear the sticky head
 }
 .pillar .tag {
   font-family: var(--mono); font-size: 12px; font-weight: 600;
-  letter-spacing: .13em; text-transform: uppercase; color: var(--red);
+  letter-spacing: .13em; text-transform: uppercase; color: var(--red-text);
 }
 .pillar h3 { font-size: 1.3rem; font-weight: 700; letter-spacing: -.015em; margin-top: 10px; }
 .pillar p { color: var(--ink-dim); margin-top: 10px; }
@@ -458,7 +466,7 @@ section[id] { scroll-margin-top: 76px; } /* anchor targets clear the sticky head
 }
 .fgroup h3 {
   font-family: var(--mono); font-size: 12px; font-weight: 600;
-  letter-spacing: .13em; text-transform: uppercase; color: var(--red);
+  letter-spacing: .13em; text-transform: uppercase; color: var(--red-text);
   padding-bottom: 10px; border-bottom: 1px solid var(--line-soft);
 }
 .flist { list-style: none; margin: 0; padding: 0; }
@@ -510,7 +518,7 @@ section[id] { scroll-margin-top: 76px; } /* anchor targets clear the sticky head
   background: var(--fill-soft);
   color: var(--ink-faint);
 }
-.change th:last-child { color: var(--red); }
+.change th:last-child { color: var(--red-text); }
 .change th + th, .change td + td { border-left: 1px solid var(--line-soft); }
 .change td { font-size: .97rem; }
 .change td:first-child { color: var(--ink-faint); width: 44%; }
@@ -930,6 +938,8 @@ section.chap:nth-of-type(even) .chap-txt { order: 2; }
   background: var(--sibling-bg); border-radius: var(--r-surface); padding: 22px 26px;
 }
 .sib p { color: var(--ink-dim); font-size: .97rem; max-width: 70ch; }
+/* The button never gives way to the line beside it: «Take a look at KP Rück» stood on four lines. */
+.sib .btn { flex: none; white-space: nowrap; }
 .sib p a { color: var(--ink-dim); }
 
 /* Closing: try it, then the three ways to reach us – the form opens inside its card. */
