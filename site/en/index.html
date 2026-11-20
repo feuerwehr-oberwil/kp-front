@@ -37,7 +37,8 @@
         if (!menu.contains(event.target)) menu.open = false;
       });
       document.addEventListener('keydown', function (event) {
-        if (event.key !== 'Escape' || !menu.open) return;
+        // An open dialog (the lightbox) stands in front of the menu, so Escape is its own first.
+        if (event.key !== 'Escape' || !menu.open || document.querySelector('dialog[open]')) return;
         menu.open = false;
         menu.querySelector('summary').focus();
         event.preventDefault();
@@ -1026,7 +1027,8 @@
       var more = wide || pic.scrollHeight - pic.clientHeight > 1;
       track.hidden = !wide;
       hint.hidden = !more;
-      if (more) pic.tabIndex = 0; else pic.removeAttribute('tabindex');
+      // -1, not removed: a focus that sits on the picture when it stops panning stays in the dialog.
+      pic.tabIndex = more ? 0 : -1;
       track.firstChild.style.left = pic.scrollLeft / pic.scrollWidth * 100 + '%';
       track.firstChild.style.width = pic.clientWidth / pic.scrollWidth * 100 + '%';
     };
@@ -1038,8 +1040,7 @@
       measure();
     };
 
-    var show = function (btn) {
-      var list = onScreen();
+    var show = function (btn, list) {
       var src = btn.querySelector('img');
       var box = boxOf(btn);
       var sub = box.querySelector('.cap-s');
@@ -1066,14 +1067,14 @@
       var list = onScreen();
       var box = boxOf(cur);
       var i = list.findIndex(function (b) { return boxOf(b) === box; });
-      show(list[(i + by + list.length) % list.length]);
+      show(list[(i + by + list.length) % list.length], list);
     };
 
     all.forEach(function (btn) {
       btn.addEventListener('click', function () {
         // Picture and caption first: the caption names the dialog when the focus enters it.
         // The box exists only once the dialog is open, and it keeps its last pan until then.
-        show(btn);
+        show(btn, onScreen());
         dlg.showModal();
         home();
       });
@@ -1086,7 +1087,7 @@
     dlg.querySelector('.lb-next').addEventListener('click', function () { step(1); });
     dlg.addEventListener('click', function (e) { if (e.target === dlg) dlg.close(); });
     dlg.addEventListener('keydown', function (e) {
-      if (e.target === pic) return;
+      if (e.target === pic && pic.tabIndex === 0) return;
       if (e.key === 'ArrowLeft') { e.preventDefault(); step(-1); }
       if (e.key === 'ArrowRight') { e.preventDefault(); step(1); }
     });
