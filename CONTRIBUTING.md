@@ -132,6 +132,14 @@ tag in the adjacent comment or image name. Review the upstream release, let Depe
 pin, then run the normal CI gate. Do not replace a digest with a mutable major tag to make an
 update easier.
 
+**Small updates merge by themselves.** `.github/workflows/dependabot-automerge.yml` asks GitHub
+for auto-merge on a Dependabot PR that is a minor or patch update, or any GitHub Actions update;
+GitHub merges it when every required check is green. A major update waits for a person, and so
+does a Dependabot PR that a person pushed to (auto-merge is turned off again). Such a merge
+deploys prod and the demo like every merge to `main`, and GitHub starts no workflow run on that
+`main` commit. The workflow needs the repository setting «Allow auto-merge» and `automerge-off`
+as a required check; without them it merges nothing.
+
 `pnpm audit --prod --audit-level high` and `pip-audit` are blocking. If an upstream advisory has
 no fix and production must continue, any exception must name exactly one advisory beside the
 command, explain why this app is not exposed, and carry a review/expiry date. Do not make the
