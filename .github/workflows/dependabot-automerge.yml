@@ -1,16 +1,23 @@
 # Turns on GitHub auto-merge for the small Dependabot PRs: a minor or patch update (npm, uv,
-# Docker) and any GitHub Actions update. A major update waits for a person. GitHub then merges
-# the PR once every required check on main has passed.
+# Docker) and any GitHub Actions update. Everything else waits for a person: a major update,
+# and an update whose size cannot be read (a Docker digest refresh, a version that is no
+# MAJOR.MINOR.PATCH). GitHub then merges the PR once every required check on main has passed.
 #
 # This workflow only ASKS for auto-merge and never merges by itself. Without the repository
-# setting «Allow auto-merge», or with no required check on main that is still open, the request
-# fails and nothing merges.
+# setting «Allow auto-merge» the request fails and nothing merges.
+#
+# ⚠️ Set up in this order: 1. make `automerge-off` a required check on main, next to the seven
+# of `CI`; 2. turn on «Allow auto-merge»; 3. merge this file. With auto-merge allowed but
+# `automerge-off` not required, a PR could merge before that job has taken a request back.
 #
 # ⚠️ What a merge does here: prod and the demo deploy continuously from main (CONTRIBUTING.md ·
 # Releases), so an auto-merged update goes live when its checks are green — at any hour, with
 # nobody watching. GitHub makes the merge with this workflow's token and starts NO workflow run
 # for it: `CI`, `CodeQL` and `Pages` do not run on that main commit. The PR's own run is the
 # gate; the next push to main runs them again.
+#
+# An Actions update that GitHub will not merge with the workflow token (main and the PR both
+# changed the same workflow file) stays open: `@dependabot rebase`, or merge it by hand.
 name: Dependabot auto-merge
 
 on: pull_request
@@ -29,15 +36,28 @@ jobs:
     if: >-
       github.event.pull_request.user.login == 'dependabot[bot]' && github.actor == 'dependabot[bot]'
     runs-on: ubuntu-latest
+    outputs:
+      armed: ${{ steps.arm.outcome == 'success' }}
     steps:
       # reads the update from Dependabot's commit; stops when Dependabot did not sign that commit
       - id: metadata
         uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
-      # A grouped PR (`minor-and-patch`) reports the highest change in the group.
-      - if: >-
-          steps.metadata.outputs.package-ecosystem == 'github_actions' ||
-          steps.metadata.outputs.update-type == 'version-update:semver-minor' ||
-          steps.metadata.outputs.update-type == 'version-update:semver-patch'
+      # Small = a GitHub Actions update, or EVERY dependency of the update is a minor or patch
+      # step. The action's own `update-type` output is not enough for a group: it is the highest
+      # change it could read, and it passes over a dependency whose change it could not read.
+      - id: size
+        env:
+          ECOSYSTEM: ${{ steps.metadata.outputs.package-ecosystem }}
+          DEPENDENCIES: ${{ steps.metadata.outputs.updated-dependencies-json }}
+        run: |
+          if [ "$ECOSYSTEM" = github_actions ] || jq -e '
+            length > 0 and all(.[]; .updateType == "version-update:semver-minor"
+                                 or .updateType == "version-update:semver-patch")
+          ' <<<"$DEPENDENCIES" >/dev/null; then
+            echo "small=true" >> "$GITHUB_OUTPUT"
+          fi
+      - id: arm
+        if: steps.size.outputs.small == 'true'
         # the mutation, not `gh pr merge --auto`: gh merges at once when no required check is open
         run: >-
           gh api graphql -f pr="$PR_ID" -f head="$HEAD_SHA" -f query='
@@ -47,18 +67,23 @@ jobs:
         env:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
 
-  # A person pushed to a Dependabot PR (or reopened it): turn auto-merge off, so their commits
-  # wait for a person. GitHub keeps auto-merge on after a push by someone with write access.
-  # Make `automerge-off` a required check on main, next to the seven of `CI`: then such a PR
-  # cannot merge before this job has run. It waits for `automerge-on`, so this required check is
-  # still open while auto-merge is requested – GitHub refuses the request once every check has
-  # passed. On PRs that are not Dependabot's the job is skipped, which counts as passed.
+  # Takes a request for auto-merge back whenever THIS run did not make one: a person pushed to
+  # the Dependabot PR or reopened it (GitHub keeps auto-merge on after a push by someone with
+  # write access), Dependabot replaced a small update with one that is not small, or the update
+  # could not be verified. A request from an earlier head must not carry over to such a head.
+  #
+  # Make `automerge-off` a required check on main: then the PR cannot merge before this job has
+  # run on its head, and a failed revocation blocks the merge. It waits for `automerge-on`, so
+  # the check is still open while auto-merge is requested – GitHub refuses the request once
+  # every check has passed. On a PR that is not Dependabot's the job is skipped, which counts as
+  # passed. This guards against accidents, not against a person with write access: whoever may
+  # push to the PR may also merge it.
   automerge-off:
     needs: automerge-on
     if: always() && github.event.pull_request.user.login == 'dependabot[bot]'
     runs-on: ubuntu-latest
     steps:
-      - if: github.actor != 'dependabot[bot]'
+      - if: needs.automerge-on.result != 'success' || needs.automerge-on.outputs.armed != 'true'
         run: >-
           gh api graphql -f pr="$PR_ID" -f query='mutation($pr: ID!) {
           disablePullRequestAutoMerge(input: { pullRequestId: $pr }) { clientMutationId } }'

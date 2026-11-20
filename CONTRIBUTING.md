@@ -133,12 +133,13 @@ pin, then run the normal CI gate. Do not replace a digest with a mutable major t
 update easier.
 
 **Small updates merge by themselves.** `.github/workflows/dependabot-automerge.yml` asks GitHub
-for auto-merge on a Dependabot PR that is a minor or patch update, or any GitHub Actions update;
-GitHub merges it when every required check is green. A major update waits for a person, and so
-does a Dependabot PR that a person pushed to (auto-merge is turned off again). Such a merge
-deploys prod and the demo like every merge to `main`, and GitHub starts no workflow run on that
-`main` commit. The workflow needs the repository setting «Allow auto-merge» and `automerge-off`
-as a required check; without them it merges nothing.
+for auto-merge on a Dependabot PR whose every dependency is a minor or patch step, and on any
+GitHub Actions update; GitHub merges it when every required check is green. A major update, an
+update whose size cannot be read, and a Dependabot PR that a person pushed to wait for a person
+(a request for auto-merge is taken back). Such a merge deploys prod and the demo like every
+merge to `main`, and GitHub starts no workflow run on that `main` commit. The workflow needs
+two repository settings, in this order: `automerge-off` as a required check on `main`, then
+«Allow auto-merge».
 
 `pnpm audit --prod --audit-level high` and `pip-audit` are blocking. If an upstream advisory has
 no fix and production must continue, any exception must name exactly one advisory beside the
