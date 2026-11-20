@@ -3,6 +3,8 @@ import { barStorey, floorPackOf, frameAspect, joinShifts, packFloorNames, packSt
 import type { BoardAnno } from '../types'
 import { inheritPlanBinding } from './incidentPlanBindings'
 import type { GeorefPair } from './georef'
+import { applyDocToObjects, bakeGeoBody, type PlanFit } from './tacticalObjects'
+import { projectOnto } from './planProjection'
 
 const pairs: GeorefPair[] = [
   { plan: { x: 0.1, y: 0.8 }, lngLat: { lng: 7.555, lat: 47.511 }, kind: 'gesetzt' },
@@ -162,7 +164,7 @@ describe('a plain sheet that shows a floor pack', () => {
     { page: 0, index: 2, name: '2OG', clip: c(0, 0.5, 0.5, 1) }, { page: 0, index: -1, name: '1UG', clip: c(0.5, 0.5, 1, 1) },
   ]
   const a3 = (page: number) => ({ page, widthPt: 1191, heightPt: 842 })
-  const drawings = sheetDrawings(floors, [a3(0)])
+  const drawings = sheetDrawings({ floors, page: 0 }, [a3(0)])
   const fire = (x: number, y: number, more: Partial<BoardAnno> = {}): BoardAnno => ({ id: 'f', kind: 'symbol', symbol: 'Feuer', x, y, ...more })
 
   it('S1: the drawings come from the binding that pinned THIS sheet, not the Gebäude\'s pack', () => {
@@ -171,9 +173,9 @@ describe('a plain sheet that shows a floor pack', () => {
     const other = { ...inheritPlanBinding({ ...sheet, id: 'object:haus:plan:modul6', objectId: 'haus', datasetId: 'plan:haus:modul6' }, approval, null, false, [{ page: 0, index: 1, name: '1OG' }]), page: 0 }
     const bindings = [modul6, modul7, other]
     // a second floor-pack sheet of the same object, and the sheet of the object switched to
-    expect(sheetFloorsOf(bindings, '/api/reference/plan%3Awyss%3Amodul7?v=2')).toBe(modul7.floors)
-    expect(sheetFloorsOf(bindings, '/api/reference/plan%3Ahaus%3Amodul6?v=2')).toBe(other.floors)
-    expect(sheetFloorsOf(bindings, '/api/reference/plan%3Awyss%3Amodul6?v=2')).toBe(modul6.floors)
+    expect(sheetFloorsOf(bindings, '/api/reference/plan%3Awyss%3Amodul7?v=2')?.floors).toBe(modul7.floors)
+    expect(sheetFloorsOf(bindings, '/api/reference/plan%3Ahaus%3Amodul6?v=2')?.floors).toBe(other.floors)
+    expect(sheetFloorsOf(bindings, '/api/reference/plan%3Awyss%3Amodul6?v=2')?.floors).toBe(modul6.floors)
     // another revision of the same dataset is another sheet; so is an unbound one
     expect(sheetFloorsOf(bindings, '/api/reference/plan%3Awyss%3Amodul6?v=1')).toBeUndefined()
     expect(sheetFloorsOf(bindings, '/plans/modul2.pdf')).toBeUndefined()
@@ -182,14 +184,14 @@ describe('a plain sheet that shows a floor pack', () => {
     expect(drawings.map((d) => d.storey).sort()).toEqual([-1, 0, 2, 3])
     expect(drawings.find((d) => d.storey === 2)?.clip).toEqual([0, 0.5, 0.5, 1])
     expect(sheetDrawings(undefined, [a3(0)])).toEqual([])
-    expect(sheetDrawings(floors, null)).toEqual([])
+    expect(sheetDrawings({ floors, page: 0 }, null)).toEqual([])
   })
   it('S2: every page stitched – a drawing on page 2 lies where the board stacks page 2', () => {
     // one storey per page, the whole document on the board (no #page): EG on top, 1OG below it
     const perPage = [{ page: 0, index: 0, name: 'EG' }, { page: 1, index: 1, name: '1OG', clip: c(0, 0.5, 0.5, 1) }]
-    const stitched = sheetDrawings(perPage, [a3(0), a3(1)])
+    const stitched = sheetDrawings({ floors: perPage, page: 0 }, [a3(0), a3(1)])
     // (the clipped drawing first: an explicit clip wins over a whole page, round 2 S2)
-    expect(stitched).toEqual([
+    expect(stitched.map(({ storey, part, clip }) => ({ storey, part, clip }))).toEqual([
       { storey: 1, part: 0, clip: [0, 0.75, 0.5, 1] },
       { storey: 0, part: 0, clip: [0, 0, 1, 0.5] },
     ])
@@ -198,9 +200,9 @@ describe('a plain sheet that shows a floor pack', () => {
     // …and the lower half's right side is page 2 OUTSIDE its drawing: no storey
     expect('storey' in withDrawingStorey(null, fire(0.75, 0.6), stitched)).toBe(false)
     // a narrower page is centred, as the bake stitches it
-    expect(sheetDrawings(perPage, [a3(0), { page: 1, widthPt: 595.5, heightPt: 842 }])[0].clip).toEqual([0.25, 0.75, 0.5, 1])
+    expect(sheetDrawings({ floors: perPage, page: 0 }, [a3(0), { page: 1, widthPt: 595.5, heightPt: 842 }])[0].clip).toEqual([0.25, 0.75, 0.5, 1])
     // a `#page=2` sheet shows that page alone: its drawings, and only its
-    expect(sheetDrawings(perPage, [a3(1)])).toEqual([{ storey: 1, part: 0, clip: [0, 0.5, 0.5, 1] }])
+    expect(sheetDrawings({ floors: perPage, page: 0 }, [a3(1)])).toMatchObject([{ storey: 1, part: 0, clip: [0, 0.5, 0.5, 1] }])
   })
   it('a symbol placed in the 2OG drawing is on the 2OG; outside every drawing it has none', () => {
     expect(withDrawingStorey(null, fire(0.25, 0.75), drawings)).toMatchObject({ storey: 2 })
@@ -217,10 +219,10 @@ describe('a plain sheet that shows a floor pack', () => {
     expect(withDrawingStorey(byHand, { ...byHand, x: 1.3, y: 0.3 }, drawings).storey).toBe(5) // off every drawing
   })
   it('S4: two drawings of ONE storey are two drawings – wing to wing takes the storey, a span moves by none', () => {
-    const wings = sheetDrawings([
+    const wings = sheetDrawings({ page: 0, floors: [
       { page: 0, index: 1, part: 0, name: 'Westflügel', clip: c(0, 0, 0.5, 1) },
       { page: 0, index: 1, part: 1, name: 'Ostflügel', clip: c(0.5, 0, 1, 1) },
-    ], [a3(0)])
+    ] }, [a3(0)])
     const byHand = fire(0.25, 0.5, { storey: 5 })
     expect(withDrawingStorey(byHand, { ...byHand, x: 0.75 }, wings).storey).toBe(1)
     const stair = fire(0.25, 0.5, { floorFrom: 0, floorTo: 2 })
@@ -245,7 +247,7 @@ describe('a plain sheet that shows a floor pack', () => {
   })
   // Sol review round 2, S2: floors come in storey order, so the EG whole page used to win
   it('an explicit clip wins over a whole-page drawing on the same page', () => {
-    const mixed = sheetDrawings([{ page: 0, index: 0, name: 'EG' }, { page: 0, index: 1, name: '1OG', clip: c(0.5, 0.5, 1, 1) }], [a3(0)])
+    const mixed = sheetDrawings({ page: 0, floors: [{ page: 0, index: 0, name: 'EG' }, { page: 0, index: 1, name: '1OG', clip: c(0.5, 0.5, 1, 1) }] }, [a3(0)])
     expect(withDrawingStorey(null, fire(0.75, 0.75), mixed).storey).toBe(1)
     expect(withDrawingStorey(null, fire(0.25, 0.25), mixed).storey).toBe(0)
   })
@@ -261,5 +263,117 @@ describe('a plain sheet that shows a floor pack', () => {
     expect(barStorey(onEg, swung, drawings, false, 30).storey).toBe(0)
     expect(barStorey(onEg, swung, drawings, false, 0).storey).toBe(3) // the same place by a move
     expect(barStorey(onEg, swung, drawings, true, 0)).toBe(swung) // the stack has its own step
+  })
+})
+
+// owner, 19.11.2026 (shot 07): a «F» in the 2OG drawing of Modul 6 stood in the Allschwilerstrasse.
+// The pack's ONE fit is measured on the reference drawing (EG), so every other drawing has to reach
+// the ground through its join – the same building point, wherever the drawing sits on the paper.
+describe('a storey drawing reaches the ground through its join', () => {
+  const c = (x0: number, y0: number, x1: number, y1: number): [number, number, number, number] => [x0, y0, x1, y1]
+  // the staircase: 2OG (0.1, 0.6) = EG (0.62, 0.12); 3OG (0.1, 0.1) = 2OG (0.1, 0.6); 1UG unjoined
+  const floors = [
+    { page: 0, index: 3, name: '3OG', clip: c(0, 0, 0.5, 0.5), join: { to: 2, at: [0.1, 0.1] as [number, number], there: [0.1, 0.6] as [number, number] } },
+    { page: 0, index: 0, name: 'EG', clip: c(0.5, 0, 1, 0.5) },
+    { page: 0, index: 2, name: '2OG', clip: c(0, 0.5, 0.5, 1), join: { to: 0, at: [0.1, 0.6] as [number, number], there: [0.62, 0.12] as [number, number] } },
+    { page: 0, index: -1, name: '1UG', clip: c(0.5, 0.5, 1, 1) },
+  ]
+  const pack = floorPackOf([{ ...inheritPlanBinding(sheet, approval, null, false, floors), page: 0 }], 'wyss')!
+  const a3 = (page: number) => ({ page, widthPt: 1191, heightPt: 842 })
+  const drawings = sheetDrawings({ floors, page: 0 }, [a3(0)])
+  const plan: PlanFit = { fit: pack.fit!, aspect: 1.414, drawings }
+  const ground = (x: number, y: number, more: Partial<BoardAnno> = {}) =>
+    bakeGeoBody({ id: 'f', sheet: { planId: 'modul6', anno: { id: 'f', kind: 'symbol', symbol: 'Feuer', x, y, ...more } } }, plan, 'lage').entity!.coord
+  const near = (a: [number, number], b: [number, number]) => { expect(a[0]).toBeCloseTo(b[0], 9); expect(a[1]).toBeCloseTo(b[1], 9) }
+  const stair = ground(0.62, 0.12)
+
+  it('a symbol at the staircase of the 2OG and of the 3OG lands on the EG\'s staircase', () => {
+    near(ground(0.1, 0.6, { storey: 2 }), stair)
+    near(ground(0.1, 0.1, { storey: 3 }), stair)
+    // …and one outside every drawing is paper: straight through the fit
+    const off = pack.fit!.toMap({ x: 1.01, y: 0.2 })
+    near(ground(1.01, 0.2), [off.lng, off.lat])
+  })
+  it('an unjoined drawing lies on the reference by its corner, as on the Gebäude stack', () => {
+    near(ground(0.6, 0.6), ground(0.6, 0.1))
+  })
+  it('a Karte symbol comes back into the drawing of its storey – none: the reference', () => {
+    const at = (floor?: number) => projectOnto({ id: 'k', entity: { id: 'k', kind: 'symbol', symbol: 'Feuer', layer: 'lage', coord: stair, floor } }, plan)
+    expect(at(2)).toMatchObject({ storey: 2 }); expect(at(2)!.x).toBeCloseTo(0.1); expect(at(2)!.y).toBeCloseTo(0.6)
+    expect(at(0)!.x).toBeCloseTo(0.62); expect(at(0)!.y).toBeCloseTo(0.12)
+    expect(at()!.x).toBeCloseTo(0.62)
+    expect(at(7)!.x).toBeCloseTo(0.62) // a storey the sheet has no drawing for
+  })
+  it('a machine move on the Karte keeps a 2OG symbol in the 2OG drawing', () => {
+    const o = bakeGeoBody({ id: 'f', sheet: { planId: 'modul6', anno: { id: 'f', kind: 'symbol', symbol: 'Feuer', x: 0.1, y: 0.6, storey: 2 } } }, plan, 'lage')
+    const moved = { ...o.entity!, coord: ground(0.63, 0.13) }
+    const [out] = applyDocToObjects([o], { entities: [moved], drawings: [] }, new Map([['modul6', plan]]), false)
+    expect(out.sheet!.anno.x).toBeCloseTo(0.11); expect(out.sheet!.anno.y).toBeCloseTo(0.61)
+  })
+  // Lead decision #703 (19.11.2026): the join shifts reach the Karte only on a ONE-page sheet. A
+  // stitched sheet's station pairs and board do not share a frame yet (Sol S2/S5 – the follow-up).
+  it('a stitched two-page sheet: its drawings give the storey, but carry no shift to the Karte', () => {
+    const perPage = [
+      { page: 0, index: 0, name: 'EG' },
+      { page: 1, index: 1, name: '1OG', clip: c(0, 0, 0.5, 1), join: { to: 0, at: [0.2, 0.3] as [number, number], there: [0.6, 0.4] as [number, number] } },
+    ]
+    const stitched = sheetDrawings({ floors: perPage, page: 0 }, [a3(0), a3(1)])
+    expect(withDrawingStorey(null, { id: 'f', kind: 'symbol', symbol: 'Feuer', x: 0.2, y: 0.65 }, stitched)).toMatchObject({ storey: 1 })
+    expect(stitched.some((d) => 'shift' in d)).toBe(false)
+    // …so even handed to the bake, a point goes straight through the fit, as before #703
+    const board: PlanFit = { fit: pack.fit!, aspect: 0.707, drawings: stitched }
+    const off = pack.fit!.toMap({ x: 0.2, y: 0.65 })
+    near(bakeGeoBody({ id: 'f', sheet: { planId: 'modul6', anno: { id: 'f', kind: 'symbol', symbol: 'Feuer', x: 0.2, y: 0.65 } } }, board, 'lage').entity!.coord, [off.lng, off.lat])
+  })
+
+  // Sol review #703 S3: the way back may only give a point the bake reads in the SAME drawing.
+  // 2OG shift = (0.52, −0.48), 3OG = (0.52, 0.02), 1UG (unjoined, by its corner) = (0, −0.5).
+  const karte = (coord: [number, number], floor?: number) => projectOnto({ id: 'k', entity: { id: 'k', kind: 'symbol', symbol: 'Feuer', layer: 'lage', coord, floor } }, plan)
+  const refGround = (x: number, y: number): [number, number] => { const g = pack.fit!.toMap({ x, y }); return [g.lng, g.lat] }
+  it('S3: a 2OG Karte symbol off the 2OG drawing comes back at its ground point, never in the 3OG drawing', () => {
+    // EG-frame (0.6, 0.01) in the 2OG's frame is (0.08, 0.49): inside the 3OG drawing next to it.
+    // The reference frame holds it: the EG drawing, at its ground point
+    const back = karte(refGround(0.6, 0.01), 2)!
+    expect(back.x).toBeCloseTo(0.6); expect(back.y).toBeCloseTo(0.01)
+    near(ground(back.x!, back.y!, { storey: 2 }), refGround(0.6, 0.01))
+    // …inside its drawing it is still the 2OG's point
+    expect(karte(refGround(0.62, 0.12), 2)!.y).toBeCloseTo(0.6)
+  })
+  it('S3: a Karte point the paper shows inside ANOTHER drawing is not drawn on the sheet', () => {
+    // EG-frame (0.3, 0.3) is the reference drawing's frame, but on this sheet the 3OG drawing
+    // lies there, so the point would bake back 0.52 to the right
+    expect(karte(refGround(0.3, 0.3))).toBeNull()
+    expect(karte(refGround(0.3, 0.3), 2)).toBeNull()
+  })
+  it('S3: a machine move across its drawing\'s edge keeps the anno in its drawing, at its last point there', () => {
+    const o = bakeGeoBody({ id: 'f', sheet: { planId: 'modul6', anno: { id: 'f', kind: 'symbol', symbol: 'Feuer', x: 0.45, y: 0.55, storey: 2 } } }, plan, 'lage')
+    // 2OG-frame (0.55, 0.55) is inside the 1UG drawing: EG-frame (1.07, 0.07)
+    const [out] = applyDocToObjects([o], { entities: [{ ...o.entity!, coord: refGround(1.07, 0.07) }], drawings: [] }, new Map([['modul6', plan]]), false)
+    expect(out.sheet!.anno).toMatchObject({ x: 0.45, y: 0.55 })
+  })
+
+  // Sol review #703 round 2, S2: a frame is a drawing's IDENTITY, not its shift. The EG (the
+  // reference) has a zero shift, and so has a 1OG drawn as the whole page around it, unjoined.
+  it('S2: a machine move never carries a symbol out of the reference drawing onto paper', () => {
+    expect(drawings.find((d) => d.storey === 0)).toMatchObject({ reference: true, shift: [0, 0] })
+    const o = bakeGeoBody({ id: 'f', sheet: { planId: 'modul6', anno: { id: 'f', kind: 'symbol', symbol: 'Feuer', x: 0.95, y: 0.2 } } }, plan, 'lage')
+    const [out] = applyDocToObjects([o], { entities: [{ ...o.entity!, coord: refGround(1.05, 0.2) }], drawings: [] }, new Map([['modul6', plan]]), false)
+    expect(out.sheet!.anno).toMatchObject({ x: 0.95, y: 0.2 })
+  })
+  describe('S2: two drawings with the same (zero) shift are still two drawings', () => {
+    const nested = sheetDrawings({ page: 0, floors: [{ page: 0, index: 0, name: 'EG', clip: c(0, 0, 0.5, 1) }, { page: 0, index: 1, name: '1OG' }] }, [a3(0)])
+    const flat: PlanFit = { fit: pack.fit!, aspect: 1.414, drawings: nested }
+    it('a machine move keeps a 1OG symbol out of the EG drawing', () => {
+      expect(nested.find((d) => d.storey === 1)?.shift).toEqual([0, 0])
+      const o = bakeGeoBody({ id: 'f', sheet: { planId: 'modul6', anno: { id: 'f', kind: 'symbol', symbol: 'Feuer', x: 0.6, y: 0.5, storey: 1 } } }, flat, 'lage')
+      const [out] = applyDocToObjects([o], { entities: [{ ...o.entity!, coord: refGround(0.4, 0.5) }], drawings: [] }, new Map([['modul6', flat]]), false)
+      expect(out.sheet!.anno).toMatchObject({ x: 0.6, y: 0.5 })
+    })
+    it('a Karte symbol without a storey lands in the reference drawing or on paper, never in the 1OG drawing', () => {
+      const k = (coord: [number, number], floor?: number) => projectOnto({ id: 'k', entity: { id: 'k', kind: 'symbol', symbol: 'Feuer', layer: 'lage', coord, floor } }, flat)
+      expect(k(refGround(0.7, 0.5))).toBeNull()
+      expect(k(refGround(0.7, 0.5), 1)).toMatchObject({ storey: 1 })
+      expect(k(refGround(0.3, 0.5))!.x).toBeCloseTo(0.3)
+    })
   })
 })

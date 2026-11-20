@@ -112,7 +112,7 @@ export function PlansSurface({
   vehicleOverrides,
 }: PlansSurfaceProps) {
   const { activeObjectName, activeObjectAddress, activeObjectNearby } = objectPlans
-  const { activeLinkedPlan, floorPack, sheetFloors, planLive, planPhotos } = georefFits
+  const { activeLinkedPlan, floorPack, sheetPack, planLive, planPhotos } = georefFits
   const { moveLiveOnSheet } = mapActions
   const { board, setBoard } = store
   const zielPick = useZielPick() === 'picking'
@@ -188,7 +188,7 @@ export function PlansSurface({
           onChange={(next, opts) => { if (tacticalLocked) return; setBoard((b) => ({ ...b, [activePlanId]: next }), opts) }}
           building={replayActive ? replayBuilding : building}
           floorPack={floorPack}
-          sheetFloors={sheetFloors}
+          sheetPack={sheetPack}
           // ⚠️ Every writer below that changes the shared blob is wired WITH the lock (RBAC audit
           // 22.10.2026, hardening): the Whiteboard already withholds the doors on a locked plan, but
           // a writer that cannot be reached is the second wall, not the first one's replacement.

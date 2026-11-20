@@ -12,7 +12,8 @@ import { useArmedTransform } from '../lib/useArmedTransform'
 import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
 import type { floorGeometry } from '../lib/whiteboard'
 import { doorsOn, shiftStoreys } from '../lib/grundriss'
-import { barStorey, storeyMove, type SheetDrawing } from '../lib/floorPackBinding'
+import { barStorey, storeyMove } from '../lib/floorPackBinding'
+import type { SheetDrawing } from '../lib/floorPackDrawings'
 import type { useBoardDoc } from './useBoardDoc'
 
 type FloorGeometry = ReturnType<typeof floorGeometry>

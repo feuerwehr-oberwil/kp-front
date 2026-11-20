@@ -2,6 +2,7 @@ import type { PlanFloor } from './api/reference'
 import { floorKey, joinKey, referenceUrl } from './api/reference'
 import { effectiveBindingGeoref, type IncidentPlanBinding } from './incidentPlanBindings'
 import { fitSimilarity, type GeorefFit } from './georef'
+import { drawingAt, type SheetDrawing } from './floorPackDrawings'
 import { withPdfPage } from './whiteboard'
 import { sheetLayout, type PageSize } from './planTiles'
 import { bandAspect } from './footprint'
@@ -18,7 +19,8 @@ import type { BoardAnno, BuildingDoc } from '../types'
  * staircase on both drawings) – chained floor by floor until the reference is reached, in either
  * direction and across PDF pages; a region nothing joins falls back to its rectangle's top-left corner against the
  * reference's. It is clipped to its own rectangle, so neighbouring drawings never bleed in.
- * All of this is in normalized page coordinates; the pack's ONE map fit speaks the same.
+ * All of this is in normalized page coordinates; the pack's ONE map fit speaks the reference
+ * drawing's, and a one-page sheet showing the drawings reaches the ground through the same shifts (lib/floorPackDrawings · `onReference`).
  *
  * A storey may be drawn in SEVERAL pieces (16.09.) – two wings of one 1. OG as two drawings –
  * and then it has several tiles, each with its own rectangle and its own shift. They land in the
@@ -59,10 +61,7 @@ export function floorPackOf(bindings: IncidentPlanBinding[], objectId: string | 
   if (!b?.floors) return null
   const url = referenceUrl(b.datasetId, b.planVersion)
   const pairs = effectiveBindingGeoref(b).pairs
-  const onFitPage = b.floors.filter((f) => f.page === b.page)
-  // the FRAME is one drawing: level 0's first piece, never a second wing of it
-  const first = onFitPage.filter((f) => (f.part ?? 0) === 0)
-  const ref = first.find((f) => f.index === 0) ?? first[0] ?? onFitPage[0] ?? b.floors[0]
+  const ref = packReference(b.floors, b.page)
   const shifts = joinShifts(b.floors, ref)
   const tiles: Record<number, FloorPackTile[]> = {}
   for (const f of [...b.floors].sort((a, c) => (a.part ?? 0) - (c.part ?? 0))) {
@@ -78,13 +77,22 @@ export function floorPackOf(bindings: IncidentPlanBinding[], objectId: string | 
   }
 }
 
+/** The reference drawing of a pack whose map fit is measured on page `fitPage`: the one drawing
+ *  every other is joined onto – level 0's first piece on that page, never a second wing of it.
+ *  The stack's FRAME (`floorPackOf`) and a sheet's drawings (`sheetDrawings`) share it. */
+export function packReference(floors: readonly PlanFloor[], fitPage: number): PlanFloor {
+  const onFitPage = floors.filter((f) => f.page === fitPage)
+  const first = onFitPage.filter((f) => (f.part ?? 0) === 0)
+  return first.find((f) => f.index === 0) ?? first[0] ?? onFitPage[0] ?? floors[0]
+}
+
 /** Resolve explicit joins first, in either direction and across pages. Disconnected components
  *  retain the legacy page frame (whole page) or corner fallback (crop); their joins still apply.
  *  One point supplies translation only: pages must share normalized scale and orientation.
  *
  *  Keyed by DRAWING (`floorKey`, storey + part): two wings of one storey are two drawings with
  *  two joins, and a shift per storey could only ever place one of them. */
-export function joinShifts(floors: PlanFloor[], ref: PlanFloor): Map<string, [number, number]> {
+export function joinShifts(floors: readonly PlanFloor[], ref: PlanFloor): Map<string, [number, number]> {
   const out = new Map<string, [number, number]>()
   const rc = ref.clip ?? WHOLE
   const resolve = (seed: PlanFloor, shift: [number, number]) => {
@@ -197,23 +205,19 @@ export async function trimmedPackFrame(
   return out[2] - out[0] > 0.01 && out[3] - out[1] > 0.01 ? out : view.frame
 }
 
-/** One storey drawing on a plain sheet that shows a floor pack's pages – Modul 6 with its storeys
- *  drawn side by side, or one storey per page: which drawing it is (storey + part, as `floorKey`)
- *  and its rectangle in the BOARD's normalized coordinates. */
-export interface SheetDrawing {
-  storey: number
-  part: number
-  clip: [number, number, number, number]
-}
+/** What a sheet needs of its floor pack: the drawings, and the page the map fit is measured on
+ *  (it picks the reference drawing, as on the stack – `packReference`). */
+export type SheetPack = Pick<IncidentPlanBinding, 'page'> & { floors: readonly PlanFloor[] }
 
-/** The floors of the binding whose revision THIS sheet shows: `imageUrl` is the URL a bound sheet
- *  is pinned to (lib/useObjectPlans · pin: `referenceUrl` of the binding). Never the Gebäude's
- *  pack nor the selected object's first pack – a second floor-pack sheet, or a sheet after an
- *  object switch while the Gebäude stays on the old one, has floors of its own (Sol review S1,
- *  19.11.2026). Undefined for every sheet that is not a floor pack. */
-export function sheetFloorsOf(bindings: readonly IncidentPlanBinding[], imageUrl: string): PlanFloor[] | undefined {
+/** The floor pack of the binding whose revision THIS sheet shows: `imageUrl` is the URL a bound
+ *  sheet is pinned to (lib/useObjectPlans · pin: `referenceUrl` of the binding). Never the
+ *  Gebäude's pack nor the selected object's first pack – a second floor-pack sheet, or a sheet
+ *  after an object switch while the Gebäude stays on the old one, has floors of its own (Sol
+ *  review S1, 19.11.2026). Undefined for every sheet that is not a floor pack. */
+export function sheetFloorsOf(bindings: readonly IncidentPlanBinding[], imageUrl: string): SheetPack | undefined {
   const url = imageUrl.replace(/#.*$/, '')
-  return url ? bindings.find((b) => b.floors?.length && referenceUrl(b.datasetId, b.planVersion) === url)?.floors : undefined
+  const b = url ? bindings.find((x) => x.floors?.length && referenceUrl(x.datasetId, x.planVersion) === url) : undefined
+  return b?.floors ? { floors: b.floors, page: b.page } : undefined
 }
 
 /** The storey drawings the board shows, laid onto it the way the board lays its pages: `pages` are
@@ -221,24 +225,30 @@ export function sheetFloorsOf(bindings: readonly IncidentPlanBinding[], imageUrl
  *  onPages), stacked by `sheetLayout` – the renderer's own layout. A sheet without `#page=` shows EVERY page stitched,
  *  so a drawing on page 2 lies in the board's lower half, not where page 1 would put it (Sol
  *  review S2). A drawing on a page the board does not show is no drawing here. Empty while the
- *  pages are not known, and for a sheet without floors. */
-export function sheetDrawings(floors: readonly PlanFloor[] | undefined, pages: readonly PageSize[] | null): SheetDrawing[] {
-  if (!floors?.length || !pages?.length) return []
+ *  pages are not known, and for a sheet without floors.
+ *  ⚠️ Only a ONE-page sheet's drawings carry their join shift (`joinShifts` from `packReference`,
+ *  the same the Gebäude stack uses) and the `reference` mark, so only there a point object on the
+ *  Karte reaches the building through them.
+ *  On a stitched multi-page sheet the station's one-page pairs and the board do not share a frame
+ *  yet (Sol review #703, S2/S5 – the follow-up in docs/plans-and-buildings.md). */
+export function sheetDrawings(pack: SheetPack | undefined, pages: readonly PageSize[] | null): SheetDrawing[] {
+  if (!pack?.floors.length || !pages?.length) return []
+  const { floors } = pack
   const { boxes } = sheetLayout(pages)
+  const ref = pages.length === 1 ? packReference(floors, pack.page) : null
+  const shifts = ref ? joinShifts(floors, ref) : null
   // explicit clips first: `drawingAt` takes the first hit and the floors come in storey order, so
   // an EG whole page would mask a 1. OG region drawn on that same page (Sol review round 2, S2)
-  return [...floors].sort((a, b) => Number(!a.clip) - Number(!b.clip)).flatMap((f) => {
+  return [...floors].sort((a, b) => Number(!a.clip) - Number(!b.clip)).flatMap((f): SheetDrawing[] => {
     const box = boxes.find((b) => b.page.page === f.page)
     if (!box) return []
     const [x0, y0, x1, y1] = f.clip ?? WHOLE
     const at = (x: number, y: number) => [box.left + x * box.width, box.top + y * box.height] as const
-    return [{ storey: f.index, part: f.part ?? 0, clip: [...at(x0, y0), ...at(x1, y1)] }]
+    const drawing: SheetDrawing = { storey: f.index, part: f.part ?? 0, clip: [...at(x0, y0), ...at(x1, y1)] }
+    if (!shifts) return [drawing]
+    return [{ ...drawing, shift: shifts.get(floorKey(f)) ?? [0, 0], ...(f === ref ? { reference: true as const } : {}) }]
   })
 }
-
-/** the drawing at (x, y), or null outside every drawing */
-export const drawingAt = (drawings: readonly SheetDrawing[], x: number, y: number): SheetDrawing | null =>
-  drawings.find(({ clip: [x0, y0, x1, y1] }) => x >= x0 && x <= x1 && y >= y0 && y <= y1) ?? null
 
 /**
  * A symbol placed or moved on such a sheet takes the storey of the drawing it lands in – what the

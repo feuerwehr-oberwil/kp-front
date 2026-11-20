@@ -44,19 +44,66 @@ AGENTS.md on 2026-10-08, wording unchanged.
     The drawings are the floors of THIS sheet's own pinned binding (`sheetFloorsOf`), never the
     Gebäude's pack, laid onto the board with the renderer's page layout (`planTiles · sheetLayout`)
     and the pages of the renderer's own successful load (`PdfViewport · onPages`, so «Erneut laden»
-    brings them back too; the board keeps them on every sheet, so a binding that arrives after the
-    load still finds them): a sheet without `#page=` shows every page stitched top-down. An explicit
+    brings them back too; the workspace keeps them for every sheet, so a binding that arrives
+    after the load still finds them): a sheet without `#page=` shows every page stitched top-down. An explicit
     clip wins over a whole-page drawing on the same page. Such a symbol stays on its
-    sheet: the Gebäude stack does not show another sheet's ink, and its Karte body is placed through
-    the pack's ONE fit, which is measured on the reference drawing – a symbol in another drawing
-    lands where that drawing's paper position puts it. A symbol the Gebäude OWNS (lent to the sheet)
-    and dragged into another drawing stays the Gebäude's: the new storey is written as the stack's
-    tile `floor`, Von/Bis cleared, and a shifted span as its new ends. A storey the stack has no
-    tile for – for a span, either end – keeps the storey or span the drag STARTED with, like a
-    drop outside every drawing, so the result depends only on where the drag starts and ends
-    (1 → 2 → 3 without a tile ends on 1, not on 2); it never hands the symbol to this sheet, because the selection bar writes every frame
+    sheet: the Gebäude stack does not show another sheet's ink.
+    A symbol the Gebäude OWNS (lent to the sheet) and dragged into another drawing stays the
+    Gebäude's: the new storey is written as the stack's tile `floor`, Von/Bis cleared, and a
+    shifted span as its new ends. A storey the stack has no tile for – for a span, either end –
+    keeps the storey or span the drag STARTED with, like a drop outside every drawing, so the
+    result depends only on where the drag starts and ends (1 → 2 → 3 without a tile ends on 1, not
+    on 2); it never hands the symbol to this sheet, because the selection bar writes every frame
     and a drag only passing over such a drawing would lose it (`tacticalObjects ·
     applyBoardToObjects`).
+  - *A point object in any drawing of a ONE-page floor-pack sheet lands on the building*
+    (19.11.2026; 35 of FWO's 41 Modul 6). Point objects: symbol, note, Form
+    (`lib/floorPackDrawings · JOINED_KINDS`). The pack's ONE fit is measured on the reference
+    drawing, so such a sheet point reaches the ground through the drawing it is in: plus that
+    drawing's join shift – the same `joinShifts` the stack and the station editor use (from
+    `packReference`), so an unjoined drawing sits by its rectangle's corner exactly as its stack
+    tile shows it (`onReference`, carried as `PlanFit.drawings`). A point outside every drawing is
+    paper and goes straight through the fit.
+    Back from the Karte, a point object lands in the drawing of ITS storey (badge, else Von), else
+    in the reference frame – the reference drawing or bare paper (`storeyDrawing`, `inReference`) –
+    and only at a point that lies IN that drawing (`inFrame`, by the drawing's IDENTITY, never by
+    an equal shift: an unjoined whole page has a zero shift too). If neither holds it, it is not
+    drawn on that sheet, like an object off its paper (a point next to the building that the paper
+    shows inside ANOTHER drawing would bake back there). A machine move keeps a point object in its
+    drawing; a point that drawing cannot hold leaves it where it was (no GPS jitter at a wall swaps
+    the drawing; nothing carries it out of the reference drawing onto paper either).
+    ONE set of drawings per sheet (`useGeorefFits · drawingsByPlan`): the open sheet's storeys and
+    the Karte bake read the same, from the pages its renderer told (kept per sheet URL for the
+    session, for EVERY sheet: a binding or its floors that arrive after the load still find them).
+    Until a floor-pack sheet that may be one page (all its floors on one page) has told its pages it
+    has NO fit in the bake, so its map bodies stay as baked rather than go back to their paper
+    position. The drawings re-bake silently, like the stack – PER SHEET: only a sheet whose shifted
+    drawings changed or whose held-back fit became available (even with no shifted drawings: a
+    stitched PDF whose floors all sit on one page); a fit corrected in the same render keeps its
+    undo step and Verlauf row. ⚠️ A fit the operator re-links by hand on such a sheet is still read
+    as measured on the reference drawing.
+  - *Follow-up: Leitungen, areas and Trupp trails on a floor pack's sheet.* They bake and project
+    straight through the pack's fit, as before 19.11.2026 – a Leitung drawn in the 2OG drawing
+    still lands where its paper position puts it, and on the Karte a Leitung attached to a 2OG
+    symbol ends there too, away from the symbol on the building. Requirements from Sol's reviews
+    of #703: a re-routed Leitung may repeat a ground point, so its vertices cannot be matched by
+    ground point alone (round 2, S3); breadcrumbs carry minute-resolution times, so `t` is no
+    identity (round 2, S4); a storey drawn as several wings needs a frame per vertex, not per
+    storey (round 2, S5); every vertex and every breadcrumb must keep its own drawing across a
+    machine write that adds or drops samples (round 1, S4). Also open: the Gebäude stack's
+    per-point storey of a Leitung rides by INDEX, so a prepended routing sample shifts every
+    vertex's storey by one.
+  - *Follow-up: multi-page floor packs* (Bottmingerstrasse 72a, Föhrenstrasse 17, Langegasse 97a).
+    A stitched sheet's drawings give a storey on the sheet (#701) but carry no join shift, so its
+    bake and fit are as before 19.11.2026 – storey symbols there still land where the paper puts
+    them. The station measures an approved alignment on ONE page (`AlignmentPairing` shows
+    `#page=N`), the bound sheet stitches every page, so the pairs and the board speak two frames.
+    Requirements from Sol's review of #703: the pairs must never move onto the board inside a
+    running Einsatz in a way that re-bakes symbols to wrong ground positions (S2), and a valid
+    station fit on a long stitched sheet must not be rejected by the board's shape (S5).
+    *Not done:* a Trupp docked to a symbol on the Karte is drawn beside its host in screen px
+    (`mapView · teamDockAnchor`); the sheet has no docking and projects its stored point, through no
+    drawing (it has no storey).
   - *A storey's acts live in its LABEL* (29.09.2026). The label shows the word only («4. OG»,
     «EG», a custom name); the signed chip comes back only when a custom name hides the order. A
     tap opens a Menu «Ausblenden · Geschoss entfernen» — Ausblenden is a way of looking
