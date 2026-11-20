@@ -138,6 +138,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    *  WHILE the probe is in flight must win, so the offline-fallback restore cannot resurrect the
    *  very session that was just ended (SEC-10 — denial resurrection). */
   const denialEpoch = useRef(0)
+  /** Bumped by every successful sign-in (PIN, demo). A session check (`/me` after
+   *  `kp:session-expired`) sent BEFORE it asked about the old session: its refusal must not
+   *  end the new one. */
+  const signInEpoch = useRef(0)
 
   /** The local half of a denial: lock the workspace cache, drop the view to the kiosk login, and
    *  forbid an offline restore. Shared by a locally-detected refusal and one another tab broadcast.
@@ -184,6 +188,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const editor = roster.find((r) => r.role === 'editor') ?? roster[0]
       if (!editor) return null
       const demoUser = await apiPost<AuthUser>('/api/auth/login', { user_id: editor.id, pin: DEMO_PIN })
+      signInEpoch.current++
       // Boot fetched the config before this session existed, so it got the public parts only
       // (no fleet, no map layers, no CARTO key). Mount the app only after the read with the
       // session, or a first-time visitor sees a station without its data until reloading.
@@ -232,6 +237,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const probe = () => apiGet<AuthUser>('/api/auth/me', cached ? { timeoutMs: CACHED_PROBE_TIMEOUT_MS } : undefined)
       try {
         const u: AuthUser = await probe()
+        // A live 200 lifts a denial that landed BEFORE it; one that lands while the config is
+        // read below (a logout in another tab) wins, as it does for a login (see `login`).
+        const epochAtAnswer = denialEpoch.current
         // The boot config was fetched BEFORE this probe. With the access cookie expired and only
         // the refresh cookie alive — and on an Einsatz-Link page, whose session did not exist
         // yet — `/api/config` answered a caller without a session: no 401, so no refresh, and
@@ -256,6 +264,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             return
           }
         }
+        if (denialEpoch.current !== epochAtAnswer) return
         if (alive) { adoptUser(u); writeCachedUser(u) }
       } catch (e) {
         if (!alive) return
@@ -318,6 +327,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const ask = () => {
       if (asking) return
       asking = true
+      const signInAtAsk = signInEpoch.current
       void (async () => {
         try {
           const u = await apiGet<AuthUser>('/api/auth/me', { timeoutMs: CACHED_PROBE_TIMEOUT_MS })
@@ -326,7 +336,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           writeCachedUser(u)
           withdraw()
         } catch (e) {
-          if (alive && isDenial(e)) { standing = false; denySession() }
+          if (alive && isDenial(e) && signInEpoch.current === signInAtAsk) { standing = false; denySession() }
         } finally {
           asking = false
         }
@@ -366,6 +376,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // the backend's German `detail` (and disable the pad on a Retry-After).
   const login = async (userId: string, pin: string) => {
     const u = await apiPost<AuthUser>('/api/auth/login', { user_id: userId, pin })
+    signInEpoch.current++
     // ⚠️ Re-read the deployment config now that there IS a session, and BEFORE the user is
     // adopted: adopting mounts the app. A caller without a session gets the public parts only
     // (backend api/config · get_config), and the boot fetch necessarily ran before this login —

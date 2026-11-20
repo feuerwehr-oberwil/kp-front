@@ -1025,8 +1025,10 @@ async def test_a_link_beside_only_a_refresh_cookie_reads_as_the_link_on_every_ro
     client.cookies.clear()
     assert (await client.post("/api/auth/login", json={"user_id": str(editor.id), "pin": "135790"})).status_code == 200
     client.cookies.delete(ACCESS_COOKIE)
-    # refresh cookie alone: the device's own account, with the Formular links
-    assert [link["id"] for link in (await client.get("/api/config")).json()["report"]["links"]] == ["f1"]
+    # refresh cookie alone, on the ordinary app: the device's own account, with the Formular links
+    assert [link["id"] for link in (await client.get("/api/config", headers=BARE_SITE)).json()["report"]["links"]] == [
+        "f1"
+    ]
 
     await _open_link(client)
     assert (await client.get("/api/auth/me")).json()["link_scoped"] is True

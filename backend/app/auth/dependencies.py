@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..config import settings
 from ..database import get_db
 from ..models import User
-from .incident_link import link_page_owns_session, read_link_session
+from .incident_link import LINK_MODE_HEADER, link_page_owns_session, read_link_session
 from .security import admin_token_is_current, decode_token
 from .token_blocklist import token_blocklist
 from .viewer_scope import enforce_viewer_window
@@ -295,17 +295,16 @@ async def get_device_user(
     current — and never consumed: this mints nothing and rotates nothing. Whoever holds it can
     mint an access token with it anyway, so a read it allows is no wider than the token.
 
-    ⚠️ Not where a link is the caller. A page that speaks for itself (``LINK_MODE_HEADER`` =
-    "use") is its link session or nobody, never the device's login (see ``get_current_user``).
-    And a live link cookie with NO access cookie is the link on every other route
-    (``read_link_session``: a link counts where there is no login) — `/api/auth/me` answers as
-    its guest, so this must not answer as the account whose refresh cookie lies beside it.
+    ⚠️ Only for a page that says it is the ordinary app (``LINK_MODE_HEADER`` = "off": the
+    field app, /admin, the login screen and the capture poster send it, lib/linkMode). A link page
+    sends "use" or nothing, and its session is the link's or nobody's: before its exchange a link
+    page asks as nobody, and once the link cookie exists `/api/auth/me` answers as the link's
+    guest — so this must never answer as the account whose refresh cookie lies beside it. A
+    script sends no header either and signs in instead.
     """
     user = await get_optional_user(request, access_token, db)
-    if user is not None or not refresh_token:
+    if user is not None or not refresh_token or request.headers.get(LINK_MODE_HEADER) != "off":
         return user
-    if link_page_owns_session(request) or read_link_session(request) is not None:
-        return None
     try:
         payload = decode_token(refresh_token)
         if payload.get("type") != "refresh":

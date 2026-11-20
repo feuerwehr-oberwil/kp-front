@@ -189,6 +189,9 @@ async def test_the_poster_roster_carries_no_divera_id(client, db_session, poster
 
 # --- a signed-in device whose 8 h access cookie has run out --------------------------------
 
+#: what the ordinary app sends on every request (lib/linkMode · linkSessionHeaders)
+APP = {"X-Incident-Link": "off"}
+
 
 @pytest.fixture
 async def refresh_only(client, db_session, station):
@@ -204,7 +207,7 @@ async def refresh_only(client, db_session, station):
 async def test_a_device_with_only_its_refresh_cookie_still_gets_its_station(client, refresh_only):
     """`/api/config` never answers 401, so nothing renews the session before the boot read. Read
     as «nobody», the tablet would get the public list in place of its fleet and map layers."""
-    body = (await client.get("/api/config")).json()
+    body = (await client.get("/api/config", headers=APP)).json()
     assert "partial" not in body
     assert body["fleet"]["vehicles"] and body["identity"]["kommandant"]
     # …and the read consumed nothing: the same cookie still renews the session afterwards
@@ -214,13 +217,13 @@ async def test_a_device_with_only_its_refresh_cookie_still_gets_its_station(clie
 async def test_a_refresh_cookie_of_a_revoked_session_is_nobody(client, db_session, refresh_only):
     refresh_only.auth_generation += 1  # what a PIN reset or a deactivation does
     await db_session.commit()
-    assert (await client.get("/api/config")).json().get("partial") is True
+    assert (await client.get("/api/config", headers=APP)).json().get("partial") is True
 
 
 async def test_a_refresh_cookie_of_an_inactive_account_is_nobody(client, db_session, refresh_only):
     refresh_only.is_active = False
     await db_session.commit()
-    assert (await client.get("/api/config")).json().get("partial") is True
+    assert (await client.get("/api/config", headers=APP)).json().get("partial") is True
 
 
 async def test_a_signed_out_device_is_nobody(client, refresh_only):
@@ -228,7 +231,7 @@ async def test_a_signed_out_device_is_nobody(client, refresh_only):
     kept = client.cookies.get("refresh_token")
     assert (await client.post("/api/auth/logout")).status_code in (200, 204)
     client.cookies.set("refresh_token", kept)
-    assert (await client.get("/api/config")).json().get("partial") is True
+    assert (await client.get("/api/config", headers=APP)).json().get("partial") is True
 
 
 async def test_an_access_cookie_is_not_accepted_in_the_refresh_slot(client, db_session, station):
@@ -237,9 +240,16 @@ async def test_an_access_cookie_is_not_accepted_in_the_refresh_slot(client, db_s
     access = client.cookies.get("access_token")
     client.cookies.clear()
     client.cookies.set("refresh_token", access)
-    assert (await client.get("/api/config")).json().get("partial") is True
+    assert (await client.get("/api/config", headers=APP)).json().get("partial") is True
 
 
 async def test_a_link_page_that_speaks_for_itself_is_never_the_device_login(client, refresh_only):
     body = (await client.get("/api/config", headers={"X-Incident-Link": "use"})).json()
     assert body.get("partial") is True
+
+
+async def test_an_alarm_link_page_before_its_exchange_is_nobody_and_so_is_a_script(client, refresh_only):
+    """An alarm or view link page sends no header: before its exchange it asks as nobody, so it
+    cannot keep the account's projection after `/me` turned into the link's guest. A script sends
+    none either."""
+    assert (await client.get("/api/config")).json().get("partial") is True

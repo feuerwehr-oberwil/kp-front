@@ -447,3 +447,52 @@ describe('AuthProvider — a logout that lands while a login reads the config', 
     otherTab.close()
   })
 })
+
+describe('AuthProvider — a logout that lands while the boot probe reads the config', () => {
+  it('wins: the probe does not adopt the user it got before the logout', async () => {
+    vi.spyOn(deploymentConfig, 'isDemoMode').mockReturnValue(false)
+    vi.spyOn(deploymentConfig, 'hasStationConfig').mockReturnValue(false) // the app waits for the read
+    let release!: () => void
+    vi.spyOn(deploymentConfig, 'ensureSessionConfig').mockReturnValue(new Promise<void>((resolve) => { release = resolve }))
+    apiGet.mockResolvedValueOnce(EDITOR_USER) // /me: 200
+    const { result } = renderHook(() => useAuth(), { wrapper })
+    await waitFor(() => expect(deploymentConfig.ensureSessionConfig).toHaveBeenCalled())
+
+    const otherTab = new BroadcastChannel('kp-auth-denial')
+    otherTab.postMessage('denied')
+    await waitFor(() => expect(denyWorkspaceCache).toHaveBeenCalled())
+
+    vi.mocked(deploymentConfig.hasStationConfig).mockReturnValue(true)
+    await act(async () => { release() })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.user).toBeNull()
+    expect(idbSet).not.toHaveBeenCalledWith('kp-front-user', EDITOR_USER)
+    otherTab.close()
+  })
+})
+
+describe('AuthProvider — a session check sent before a sign-in', () => {
+  it('does not end the new session with its late refusal', async () => {
+    vi.spyOn(deploymentConfig, 'isDemoMode').mockReturnValue(false)
+    apiGet.mockRejectedValueOnce(new ApiError(401, 'Nicht angemeldet')) // boot /me
+    const { result } = renderHook(() => useAuth(), { wrapper })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    // the old session's expiry is asked about …
+    let refuse!: (e: unknown) => void
+    apiGet.mockReturnValueOnce(new Promise((_res, rej) => { refuse = rej }))
+    act(() => { window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT)) })
+    await waitFor(() => expect(apiGet).toHaveBeenCalledTimes(2))
+
+    // … and before the answer comes, somebody signs in
+    vi.spyOn(deploymentConfig, 'loadDeploymentConfig').mockResolvedValue({})
+    apiPost.mockResolvedValue(EDITOR_USER)
+    await act(async () => { await result.current.login('ed-1', '135790') })
+    expect(result.current.user).toEqual(EDITOR_USER)
+
+    denyWorkspaceCache.mockClear()
+    await act(async () => { refuse(new ApiError(401, 'Nicht angemeldet')); await Promise.resolve() })
+    expect(denyWorkspaceCache).not.toHaveBeenCalled()
+    expect(result.current.user).toEqual(EDITOR_USER)
+  })
+})
