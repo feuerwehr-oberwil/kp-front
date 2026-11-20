@@ -184,8 +184,9 @@ jobs:
       # The range comes from the checkout itself: on a pull request HEAD is GitHub's merge of
       # the base (first parent) and the PR head (second parent). A HEAD that is no such merge
       # fails the step — it never scans an empty range. `--diff-merges=first-parent` makes
-      # `git log -p` show what a merge commit INSIDE the pull request brought in by itself
-      # (a conflict resolution), which it leaves out by default.
+      # `git log -p` show a merge commit INSIDE the pull request as its change against its first
+      # parent (what it brought in, a conflict resolution included); without it a merge commit
+      # shows no patch at all.
       # `safe.directory`: the container's user is not the owner of the checkout.
       - name: Scan the pull request's commits for secrets
         if: github.event_name == 'pull_request'
