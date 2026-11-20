@@ -122,7 +122,8 @@ def _calls(dependant: Dependant) -> Iterator[object]:
 def _mounted() -> Iterator[tuple[str, str, bool]]:
     """(METHOD, path as mounted, has an auth dependency) for every entry of the route table.
 
-    A mount is ("MOUNT", path) and a WebSocket ("WS", path): neither has a dependency tree this
+    A mount is ("MOUNT", path), a WebSocket ("WS", path) and a plain route that takes every
+    method ("*", path): none of them has a dependency tree this
     walk can read, so both count as open. ``HEAD`` beside ``GET`` on one route is Starlette's own
     twin of that GET and is not listed twice; every other method is, ``OPTIONS`` included.
     """
@@ -140,7 +141,10 @@ def _mounted() -> Iterator[tuple[str, str, bool]]:
             for method in route.methods or set():
                 yield method.upper(), f"{base}{route.path}", guarded
         elif isinstance(route, Route):
-            methods = set(route.methods or set())
+            if route.methods is None:  # Starlette: no methods given = every method
+                yield "*", f"{base}{route.path}", False
+                return
+            methods = set(route.methods)
             for method in methods - ({"HEAD"} if "GET" in methods else set()):
                 yield method.upper(), f"{base}{route.path}", False
         elif isinstance(route, Mount):
