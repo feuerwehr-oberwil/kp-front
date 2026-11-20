@@ -187,9 +187,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Boot fetched the config before this session existed, so it got the public parts only
       // (no fleet, no map layers, no CARTO key). Mount the app only after the read with the
       // session, or a first-time visitor sees a station without its data until reloading.
+      const epoch = denialEpoch.current
       try { await loadDeploymentConfig() } catch { /* keep the booted config */ }
-      // …and without it there is no app to land in: the login screen instead (see `login`)
-      if (!hasStationConfig()) return null
+      // …and without it there is no app to land in: the login screen instead (see `login`).
+      // The same when another tab signed out while the config was read.
+      if (!hasStationConfig() || denialEpoch.current !== epoch) return null
       return demoUser
     } catch { return null }
   }
@@ -372,8 +374,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // A device that already holds the station's config goes on with it when the read fails.
     // One that holds only the public parts does not get an app with the shipped defaults in
     // place of its station: the login screen says so and the PIN is entered again.
+    const epoch = denialEpoch.current
     try { await loadDeploymentConfig() } catch { /* keep the booted config */ }
     if (!hasStationConfig()) throw new ApiError(503, appConfig.copy.login.configFailed)
+    // A logout or a refusal that landed during that read (another tab shares the cookies) wins:
+    // adopting now would reopen the caches it has just closed.
+    if (denialEpoch.current !== epoch) throw new ApiError(401, appConfig.copy.login.loginFailed)
     // The account is back: this is what lifts a denial and hands the offline cache — including
     // any edit that never reached the server — to the user who left it there.
     adoptUser(u)

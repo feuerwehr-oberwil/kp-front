@@ -1013,6 +1013,27 @@ async def test_a_link_page_gets_the_link_projection_beside_a_login_and_an_admin_
     assert body["alarms"]["webhooks"] == [hook]
 
 
+async def test_a_link_beside_only_a_refresh_cookie_reads_as_the_link_on_every_route(
+    client, link_key, incident, editor, admin_login, put_config
+):
+    """The phone was signed in, its 8 h access cookie ran out, and somebody taps the alarm link.
+    `/api/auth/me` is then the link's guest — so `/api/config` must be the link's projection too,
+    not the PIN account's (its refresh cookie still lies in the jar)."""
+    await admin_login(client)
+    form = {"id": "f1", "title": "Formular", "url": "https://forms.example.org/x"}
+    assert (await put_config(client, {"report": {"links": [form]}})).status_code == 200
+    client.cookies.clear()
+    assert (await client.post("/api/auth/login", json={"user_id": str(editor.id), "pin": "135790"})).status_code == 200
+    client.cookies.delete(ACCESS_COOKIE)
+    # refresh cookie alone: the device's own account, with the Formular links
+    assert [link["id"] for link in (await client.get("/api/config")).json()["report"]["links"]] == ["f1"]
+
+    await _open_link(client)
+    assert (await client.get("/api/auth/me")).json()["link_scoped"] is True
+    body = (await client.get("/api/config")).json()
+    assert "partial" not in body and body["report"]["links"] == []
+
+
 # --- the Rapport's view-only link ---------------------------------------------------------
 #
 # The other lifecycle: minted in the app by an editor, handed to somebody outside the station,

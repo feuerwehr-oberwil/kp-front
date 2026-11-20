@@ -536,7 +536,7 @@ export interface AlarmGroup {
 }
 
 import { apiGet } from './api'
-import { idbGet, idbSet } from './idb'
+import { idbGet, idbSet, idbUpdate } from './idb'
 import { lv95ToWgs84 } from './geo'
 import { appConfig } from '../config/appConfig'
 import { DEFAULT_ATTENDANCE_MERGE_GAP_MIN } from './attendanceIntervals'
@@ -633,7 +633,11 @@ async function fetchDeploymentConfig(): Promise<DeploymentConfig> {
     if (generation === loadGeneration) {
       setStored(next)
       lastAnswerHadSession = !fetched.partial
-      void idbSet(CACHE_KEY, stored) // durable copy for offline boot; in-memory singleton is enough this session
+      // The durable copy for an offline boot. A session's answer replaces it. A partial answer
+      // is merged into the copy AS IT IS NOW: another tab may have stored a newer document
+      // since this tab read its own, and writing this tab's snapshot back would undo that.
+      if (fetched.partial) void idbUpdate<DeploymentConfig>(CACHE_KEY, (current) => mergePartial(current ?? {}, fetched))
+      else void idbSet(CACHE_KEY, stored)
     }
     return next
   } catch {

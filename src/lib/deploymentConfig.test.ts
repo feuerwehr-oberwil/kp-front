@@ -485,6 +485,19 @@ describe('a partial answer is merged over the copy on the device, never stored i
     await vi.waitFor(async () => { expect(await idbGet(CACHE_KEY)).toMatchObject({ version: 'v2', report: { links: [] } }) })
   })
 
+  it('a late partial answer does not write the snapshot of this tab over a newer document another tab stored', async () => {
+    fetchMock.mockResolvedValueOnce(json({ ...STATION, report: { links: [{ id: 'l1', title: 'Formular', url: 'https://forms.example.org/x' }] } }))
+    await loadDeploymentConfig()
+    await vi.waitFor(async () => { expect(await idbGet(CACHE_KEY)).toMatchObject({ version: 'v1' }) })
+    // another tab reads with its session after the station removed the link, and stores that
+    await idbSet(CACHE_KEY, { ...STATION, report: { links: [] }, version: 'v2' })
+    // …then this tab's partial answer lands
+    fetchMock.mockResolvedValueOnce(json(PUBLIC))
+    await loadDeploymentConfig()
+    await vi.waitFor(async () => { expect(await idbGet(CACHE_KEY)).toMatchObject({ identity: { accentColor: '#0055aa' } }) })
+    expect(await idbGet(CACHE_KEY)).toMatchObject({ version: 'v2', report: { links: [] } })
+  })
+
   // values no other test holds: the module singleton outlives single tests here
   const POSTER = { fleet: { vehicles: [{ id: 'poster-adl', label: 'ADL' }] }, report: { partnerOrgs: ['Poster-Partner'] }, identity: { kommandant: 'Poster Kdt' } }
 

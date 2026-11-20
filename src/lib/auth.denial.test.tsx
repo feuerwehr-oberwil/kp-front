@@ -418,3 +418,32 @@ describe('AuthProvider — the demo auto-login', () => {
     await waitFor(() => expect(result.current.sessionExpired).toBe(false))
   })
 })
+
+describe('AuthProvider — a logout that lands while a login reads the config', () => {
+  it('wins: the login is refused and the caches stay closed', async () => {
+    vi.spyOn(deploymentConfig, 'isDemoMode').mockReturnValue(false)
+    apiGet.mockRejectedValue(new ApiError(401, 'Nicht angemeldet'))
+    const { result } = renderHook(() => useAuth(), { wrapper })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    let release!: (cfg: object) => void
+    vi.spyOn(deploymentConfig, 'loadDeploymentConfig').mockReturnValue(new Promise((resolve) => { release = resolve }))
+    apiPost.mockResolvedValue(EDITOR_USER)
+    let outcome: unknown
+    let login!: Promise<void>
+    act(() => { login = result.current.login('ed-1', '135790').catch((e: unknown) => { outcome = e }) })
+    await waitFor(() => expect(deploymentConfig.loadDeploymentConfig).toHaveBeenCalled())
+
+    // another tab signs out (the two share the cookies) while the config is still on its way
+    const otherTab = new BroadcastChannel('kp-auth-denial')
+    otherTab.postMessage('denied')
+    await waitFor(() => expect(denyWorkspaceCache).toHaveBeenCalled())
+    setWorkspaceCacheOwner.mockClear()
+
+    await act(async () => { release({}); await login })
+    expect(outcome).toBeInstanceOf(ApiError)
+    expect(result.current.user).toBeNull()
+    expect(setWorkspaceCacheOwner).not.toHaveBeenCalledWith(EDITOR_USER.id)
+    otherTab.close()
+  })
+})

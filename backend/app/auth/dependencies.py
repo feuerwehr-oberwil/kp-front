@@ -295,12 +295,17 @@ async def get_device_user(
     current — and never consumed: this mints nothing and rotates nothing. Whoever holds it can
     mint an access token with it anyway, so a read it allows is no wider than the token.
 
-    ⚠️ Not on a link page that speaks for itself (``LINK_MODE_HEADER`` = "use"): that page is
-    its link session or nobody, never the device's login (see ``get_current_user``).
+    ⚠️ Not where a link is the caller. A page that speaks for itself (``LINK_MODE_HEADER`` =
+    "use") is its link session or nobody, never the device's login (see ``get_current_user``).
+    And a live link cookie with NO access cookie is the link on every other route
+    (``read_link_session``: a link counts where there is no login) — `/api/auth/me` answers as
+    its guest, so this must not answer as the account whose refresh cookie lies beside it.
     """
     user = await get_optional_user(request, access_token, db)
-    if user is not None or not refresh_token or link_page_owns_session(request):
+    if user is not None or not refresh_token:
         return user
+    if link_page_owns_session(request) or read_link_session(request) is not None:
+        return None
     try:
         payload = decode_token(refresh_token)
         if payload.get("type") != "refresh":
