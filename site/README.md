@@ -71,6 +71,9 @@ Decided deliberately, not accidental:
 - **A translation that no fire-service person of that language has read says so at the top
   of the page** (`notice` in `fr.json`, `it.json` and `rm.json`). That line disappears once someone has
   proofread it – it is not decoration.
+- **The build sets the French punctuation spaces.** Type a plain space before `: ; ? !` and
+  inside `« »` in `fr.json`; `build.mjs` (`TYPOGRAPHY`) turns it into a narrow no-break space
+  (U+202F) on the page, so the mark never starts a line. Structured data keeps the plain space.
 
 ## Theme assets and shared runtime
 
