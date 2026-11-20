@@ -4,13 +4,16 @@
 // device (lib/practice). A drill finished with «Lösung» counts as done, without a mark (owner,
 // 19.11.2026).
 //
+// The Übungsplatz also opens WITHOUT a drill (owner pick, 20.11.2026): «Frei üben» on the sheet,
+// and «Ausprobieren» in a Hilfe section, which lands on that section's surface (`goTo`).
+//
 // One tiny external store, read with `useUeben()`: the menus open the sheet, App starts a drill,
 // the runner inside the practice Einsatz follows it – none of them needs to hand props to the
 // others.
 
 import { useSyncExternalStore } from 'react'
-import { isDrillId } from './catalogue'
-import type { DrillId } from './model'
+import { isDrillId, type DrillId } from './catalogue'
+import type { TryTarget } from './tryOut'
 
 const DRILL_KEY = 'kp.ueben.drill'
 const DONE_KEY = 'kp.ueben.done'
@@ -24,6 +27,9 @@ export interface UebenState {
   again: boolean
   done: ReadonlySet<DrillId>
   sheetOpen: boolean
+  /** the surface the practice Einsatz still has to show («Ausprobieren»); the drill card goes
+   *  there once and clears it (components/ueben/UebenRunner) */
+  goTo: TryTarget | null
 }
 
 function read<T>(key: string, parse: (raw: string) => T, fallback: T): T {
@@ -50,6 +56,7 @@ let state: UebenState = {
   again: false,
   done: read(DONE_KEY, parseDone, new Set<DrillId>()),
   sheetOpen: false,
+  goTo: null,
 }
 const listeners = new Set<() => void>()
 function set(next: Partial<UebenState>): void {
@@ -76,6 +83,13 @@ export function stopDrill(): void {
   write(DRILL_KEY, null)
   set({ drill: null })
 }
+/** «Frei üben» / «Ausprobieren»: the Übungsplatz without a drill, on `target` when one is named
+ *  (App opens the practice Einsatz around it). */
+export function openFree(target: TryTarget | null = null): void {
+  write(DRILL_KEY, null)
+  set({ drill: null, goTo: target, sheetOpen: false })
+}
+export const clearGoTo = () => set({ goTo: null })
 export function markDone(id: DrillId): void {
   if (state.done.has(id)) return
   const done = new Set(state.done).add(id)

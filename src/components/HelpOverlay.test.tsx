@@ -65,3 +65,23 @@ describe('the help search finds what a rare user types', () => {
     expect(hits(q)).toContain(section)
   })
 })
+
+// «Auf dem Übungsplatz ausprobieren» (lib/ueben/tryOut): a section whose surface works on the
+// practice Einsatz carries the button; a renamed section id must not lose it silently.
+describe('«Ausprobieren» opens the Übungsplatz on the section’s surface', () => {
+  const buttons = () => screen.queryAllByRole('button', { name: 'Auf dem Übungsplatz ausprobieren' })
+
+  it('every section named in HELP_TRY has its button, and it names that section’s surface', async () => {
+    const { HELP_TRY } = await import('../lib/ueben/tryOut')
+    const onTry = vi.fn()
+    render(<HelpOverlay onClose={vi.fn()} onTry={onTry} />)
+    expect(buttons().map((b) => b.getAttribute('data-help-try')).sort()).toEqual(Object.keys(HELP_TRY).sort())
+    fireEvent.click(buttons().find((b) => b.getAttribute('data-help-try') === 'atemschutz')!)
+    expect(onTry).toHaveBeenCalledWith('atemschutz')
+  })
+
+  it('a session without an Übungsplatz (a link) gets no button', () => {
+    render(<HelpOverlay onClose={vi.fn()} />)
+    expect(buttons()).toHaveLength(0)
+  })
+})

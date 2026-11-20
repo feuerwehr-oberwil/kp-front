@@ -37,12 +37,27 @@ describe('Üben · progress per device', () => {
   })
 })
 
+describe('Üben · without a drill', () => {
+  it('«Ausprobieren» takes the drill off the card, names the surface once and closes the sheet', async () => {
+    const a = await fresh()
+    a.startDrill('fahrzeugLeitung')
+    a.openUebenSheet()
+    a.openFree('atemschutz')
+    expect(a.uebenState()).toMatchObject({ drill: null, goTo: 'atemschutz', sheetOpen: false })
+    a.clearGoTo()
+    expect(a.uebenState().goTo).toBeNull()
+    // not remembered: a reload opens the Übungsplatz where the device left it
+    expect((await fresh()).uebenState()).toMatchObject({ drill: null, goTo: null })
+  })
+})
+
 describe('Üben · catalogue', () => {
-  it('17 drills in three modules; «Als Nächstes» skips what is done and what cannot run yet', async () => {
-    const { ALL_DRILLS, MODULES, nextDrill } = await import('./catalogue')
-    expect(MODULES.map((m) => m.drills.length)).toEqual([5, 6, 6])
-    expect(new Set(ALL_DRILLS).size).toBe(17)
-    expect(nextDrill(new Set())).toBe('fahrzeugLeitung')
-    expect(nextDrill(new Set(['fahrzeugLeitung']))).toBeNull()
+  it('one list: every drill has its copy, and «Als Nächstes» walks it and skips what is done', async () => {
+    const { ALL_DRILLS, drillCopy, drillPlace, nextDrill } = await import('./catalogue')
+    expect(new Set(ALL_DRILLS).size).toBe(ALL_DRILLS.length)
+    for (const id of ALL_DRILLS) expect(drillCopy(id).title).toBeTruthy()
+    expect(drillPlace(ALL_DRILLS[0])).toEqual({ i: 1, n: ALL_DRILLS.length })
+    expect(nextDrill(new Set())).toBe(ALL_DRILLS[0])
+    expect(nextDrill(new Set(ALL_DRILLS))).toBeNull()
   })
 })

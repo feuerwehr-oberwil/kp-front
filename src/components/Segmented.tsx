@@ -34,7 +34,8 @@ export function Segmented<T extends string | number | boolean>({ options, value,
       {options.map((o) => {
         const on = value === o.value
         return (
-          <button key={String(o.value)} type="button" className={`useg-btn${on ? ' on' : ''}`}
+          // `data-value`: names ONE option from outside – «Üben»'s «Zeigen» rings it (lib/ueben)
+          <button key={String(o.value)} type="button" className={`useg-btn${on ? ' on' : ''}`} data-value={String(o.value)}
             {...(explain ? { 'data-holdexplain': true, 'aria-label': o.title } : { title: o.title })}
             aria-pressed={on} disabled={o.disabled} onClick={() => onChange(o.value)}>{o.label}</button>
         )

@@ -1,40 +1,39 @@
-// «Üben»: the 17 drills in their three modules (owner pick, round 2026-11-19-ueben-zeigen: «if
-// each section is only 2-3 steps we can also group a few things»). The ORDER is the order on the
-// sheet and the one «Als Nächstes» walks. A drill listed here without an entry in `RUNNABLE` is
-// shown as «bald» – it has its title, not yet its goals.
+// «Üben»: the drills, in ONE list (owner pick, 20.11.2026: a few core drills instead of 17 in
+// three modules – «a simple way to learn the app without being overwhelming»). The ORDER is the
+// order on the sheet and the one «Als Nächstes» walks. Only a drill that runs is listed: a new
+// drill joins `DRILLS` together with its copy (`copy.ueben.drills.<id>`), and the sheet, the
+// progress and the e2e walker (e2e/ueben.spec.ts) pick it up from here.
+//
+// Every other function is practised without a drill: «Ausprobieren» in a Hilfe section opens the
+// Übungsplatz on that surface (lib/ueben/tryOut).
 
 import { appConfig } from '../../config/appConfig'
 import { fahrzeugLeitung } from './fahrzeugLeitung'
-import type { Drill, DrillId, ModuleId } from './model'
+import type { Drill } from './model'
 
-export const MODULES: readonly { id: ModuleId; drills: readonly DrillId[] }[] = [
-  { id: 'karteWasser', drills: ['fahrzeugLeitung', 'absperrkreis', 'messen', 'leitungRechnen', 'pumpenVerschieben'] },
-  { id: 'atemschutzGebaeude', drills: ['truppAnmelden', 'funkkontakt', 'rueckzug', 'notfall', 'truppGeschoss', 'gefahrUg'] },
-  { id: 'protokollAbschluss', drills: ['eintrag', 'pendenz', 'checkliste', 'anwesenheit', 'material', 'fehlalarm'] },
-]
+export const DRILLS = [fahrzeugLeitung] as const satisfies readonly Drill[]
 
-const RUNNABLE: Partial<Record<DrillId, Drill>> = { fahrzeugLeitung }
+export type DrillId = (typeof DRILLS)[number]['id']
 
-export const drillById = (id: DrillId): Drill | undefined => RUNNABLE[id]
+export const ALL_DRILLS: readonly DrillId[] = DRILLS.map((d) => d.id)
 
-export const ALL_DRILLS: readonly DrillId[] = MODULES.flatMap((m) => m.drills)
+export const drillById = (id: DrillId): Drill | undefined => DRILLS.find((d) => d.id === id)
 
-export const isDrillId = (v: unknown): v is DrillId => typeof v === 'string' && (ALL_DRILLS as readonly string[]).includes(v)
+export const isDrillId = (v: unknown): v is DrillId => ALL_DRILLS.some((id) => id === v)
 
-/** Where a drill stands in its module: «Karte & Wasser · 1 / 5». */
-export function drillPlace(id: DrillId): { module: ModuleId; i: number; n: number } {
-  const m = MODULES.find((x) => x.drills.includes(id)) ?? MODULES[0]
-  return { module: m.id, i: m.drills.indexOf(id) + 1, n: m.drills.length }
+/** Where a drill stands in the list: «Üben · 1 / 6». */
+export function drillPlace(id: DrillId): { i: number; n: number } {
+  return { i: ALL_DRILLS.indexOf(id) + 1, n: ALL_DRILLS.length }
 }
 
-/** The first runnable drill not done on this device, after `after` when given (wrapping round). */
+/** The first drill not done on this device, after `after` when given (wrapping round). */
 export function nextDrill(done: ReadonlySet<DrillId>, after?: DrillId): DrillId | null {
   const start = after ? ALL_DRILLS.indexOf(after) + 1 : 0
   const order = [...ALL_DRILLS.slice(start), ...ALL_DRILLS.slice(0, start)]
-  return order.find((id) => RUNNABLE[id] && !done.has(id) && id !== after) ?? null
+  return order.find((id) => !done.has(id) && id !== after) ?? null
 }
 
-/** A drill's copy: the title always, the task and goal words where the drill can run. */
-export function drillCopy(id: DrillId): { title: string; intro?: string; task?: string; goals?: Record<string, string> } {
+/** A drill's copy: title, intro, task and the goals' words. */
+export function drillCopy(id: DrillId): { title: string; intro: string; task: string; goals: Record<string, string> } {
   return appConfig.copy.ueben.drills[id]
 }

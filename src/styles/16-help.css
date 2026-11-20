@@ -62,6 +62,8 @@
 /* the section glyphs, bullets and the note's ⓘ are decoration: ink-dim, never the blue of «chosen»
    (style sweep T2, owner pick A, 15.11.2026) */
 .help-sec > h3 .i { width: 19px; height: 19px; color: var(--ink-dim); }
+/* «Auf dem Übungsplatz ausprobieren» (lib/ueben/tryOut): THE button, placed under the title */
+.help-try { margin: 0 0 var(--sp-3); }
 .help-lead { margin: 0 0 var(--sp-3); font-size: var(--fs-2); line-height: 1.55; color: var(--ink-dim); }
 .help-sub { margin: var(--sp-4) 0 var(--sp-2); font-size: var(--fs-2); font-weight: var(--fw-bold); color: var(--ink); }
 .help-list { margin: var(--sp-1) 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--sp-2); }

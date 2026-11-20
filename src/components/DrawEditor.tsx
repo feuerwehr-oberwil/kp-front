@@ -401,7 +401,8 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
               // the label NAMES the pick under the row's word (button sweep audit A2, 17.11.2026):
               // four pictures, and the hold that names them is taught nowhere – a tap to find out is
               // safe, a pick undoes
-              // `data-field`: the anchors «Üben»'s «Zeigen» rings (lib/ueben), as on the reverse below
+              // `data-field`: the anchors «Üben»'s «Zeigen» rings (lib/ueben) – here the ONE option to
+              // tap (Segmented · data-value), on the reverse below its button
               <div className="de-row" data-field="lineEnd"><span>{appConfig.copy.drawingEditor.ending}<b className="de-pick">{endingName(endingOf(drawing))}</b></span>
                 <Segmented
                   ariaLabel={appConfig.copy.drawingEditor.ending}

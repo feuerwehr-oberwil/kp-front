@@ -61,8 +61,9 @@ import { installHoldTooltip } from './lib/holdTooltip'
 import { isPracticeIncident, practiceModeOn, setPracticeMode } from './lib/practice/practiceMode'
 import { openPracticeIncident } from './lib/practice/practiceSeed'
 import { setPracticeUser } from './lib/practice/installFetch'
-import { closeUebenSheet, openUebenSheet, startDrill, useUeben } from './lib/ueben/session'
-import type { DrillId } from './lib/ueben/model'
+import { closeUebenSheet, openFree, openUebenSheet, startDrill, useUeben } from './lib/ueben/session'
+import type { DrillId } from './lib/ueben/catalogue'
+import type { TryTarget } from './lib/ueben/tryOut'
 
 // Objektbesuche (/besuche…, docs/object-visits.md): its own lazy chunk — precached with the field
 // app, so the surface opens offline — mounted in place of home while its route is on.
@@ -806,15 +807,18 @@ function IncidentApp() {
     openOrUncover(i)
   }
 
-  // «Üben»: a drill runs on this device's practice Einsatz (lib/practice) – seeded with the site on
-  // first use, opened like any Einsatz, or only uncovered when it already stands behind the viewer
-  const startPracticeDrill = async (id: DrillId) => {
-    startDrill(id)
+  // «Üben»: this device's practice Einsatz (lib/practice) – seeded with the site on first use,
+  // opened like any Einsatz, or only uncovered when it already stands behind the viewer
+  const openPractice = async () => {
     setPracticeMode(true)
     const meta = await openPracticeIncident()
     if (screen === 'einsatz' && activeId === meta.id) return
     openOrUncover(meta as IncidentMeta)
   }
+  // …with a drill on its card («Üben» sheet), or without one: «Frei üben» on the sheet, and the
+  // Hilfe's «Ausprobieren», which names the surface to land on (lib/ueben/tryOut)
+  const startPracticeDrill = (id: DrillId) => { startDrill(id); void openPractice() }
+  const tryOnPractice = (target: TryTarget | null) => { openFree(target); void openPractice() }
 
   // the two home menus (components/HomeMenus): the launcher card and «Einsätze ▾» on the viewer
   const home: HomeActions = {
@@ -902,6 +906,7 @@ function IncidentApp() {
           // «Karte & Objekte» from the Einsatz menu's «App» group: the viewer over this Einsatz,
           // which stays open behind it — never for a link session (docs/karte-objekte.md)
           onOpenKarte={linkScoped ? undefined : enterKarte}
+          onTryPractice={linkScoped ? undefined : tryOnPractice}
           covered={screen !== 'einsatz'}
           onUncover={uncoverEinsatz}
           // «Einsatz eröffnen» goes straight to the manual wizard — the pool sheet is gone
@@ -979,11 +984,16 @@ function IncidentApp() {
           onFeedback={linkScoped ? undefined : () => setFeedbackFor('plain')}
         />
       )}
-      {screen !== 'einsatz' && landingSheet === 'help' && <HelpOverlay onClose={() => setLandingSheet(null)} />}
+      {screen !== 'einsatz' && landingSheet === 'help' && (
+        <HelpOverlay
+          onClose={() => setLandingSheet(null)}
+          onTry={linkScoped ? undefined : (target) => { setLandingSheet(null); tryOnPractice(target) }}
+        />
+      )}
       {/* «Üben»: one sheet for both menus, home's and the Einsatz's (lib/ueben/session) */}
       {ueben.sheetOpen && (
         <Suspense fallback={null}>
-          <UebenSheet done={ueben.done} current={ueben.drill} onClose={closeUebenSheet} onStart={(id) => void startPracticeDrill(id)} />
+          <UebenSheet done={ueben.done} current={ueben.drill} onClose={closeUebenSheet} onStart={startPracticeDrill} onFree={() => tryOnPractice(null)} />
         </Suspense>
       )}
       {screen !== 'einsatz' && landingSheet === 'install' && <InstallGuide onClose={() => setLandingSheet(null)} />}

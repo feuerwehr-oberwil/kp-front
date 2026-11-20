@@ -12,6 +12,7 @@ import { isDemoMode } from '../lib/deploymentConfig'
 import { currentFix } from '../lib/devicePosition'
 import type { IncidentMeta, SyncStatus } from '../lib/incidents'
 import type { SymbolSurface, RailLabels } from '../lib/prefs'
+import type { TryTarget } from '../lib/ueben/tryOut'
 import type { PlanDatasetRef } from '../lib/useObjectPlans'
 import type { useShareMyPosition } from '../lib/useShareMyPosition'
 import type { useSymbols } from '../lib/useSymbols'
@@ -22,6 +23,8 @@ import type { Person, CaptionMode } from '../types'
 export interface WorkspaceSheetsProps {
   helpOpen: boolean
   setHelpOpen: Dispatch<SetStateAction<boolean>>
+  /** the Hilfe's «Ausprobieren» (App · tryOnPractice); undefined = a link session */
+  onTryPractice?: (target: TryTarget) => void
   shareLink: ShareLinkKind | null
   incidentMeta: IncidentMeta
   setShareLink: Dispatch<SetStateAction<ShareLinkKind | null>>
@@ -72,7 +75,7 @@ export interface WorkspaceSheetsProps {
 }
 
 export function WorkspaceSheets({
-  helpOpen, setHelpOpen, shareLink, incidentMeta, setShareLink, setAtemschutzLinkOn, installGuideOpen,
+  helpOpen, setHelpOpen, onTryPractice, shareLink, incidentMeta, setShareLink, setAtemschutzLinkOn, installGuideOpen,
   setInstallGuideOpen, offlineReadyOpen, setOfflineReadyOpen, offlineProbeUrls, sym, backendPlans,
   manualObject, liveWeather, personnel, syncStatus, lastSyncedAt, downloadOffline,
   reloadPersonnel, cancelOffline, offlineProgress, settingsOpen, feedbackOpen, sharePick, shareParent,
@@ -83,7 +86,12 @@ export function WorkspaceSheets({
 }: WorkspaceSheetsProps) {
   return (
     <>
-      {helpOpen && <HelpOverlay onClose={() => setHelpOpen(false)} />}
+      {helpOpen && (
+        <HelpOverlay
+          onClose={() => setHelpOpen(false)}
+          onTry={onTryPractice && ((target) => { setHelpOpen(false); onTryPractice(target) })}
+        />
+      )}
       {/* ONE sheet for every «Teilen» door — its own tabs are the chooser (03.09.). `archived`
           drops the Atemschutz tab, which dies with the Einsatz. */}
       {shareLink && (
