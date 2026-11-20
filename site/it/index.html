@@ -983,9 +983,10 @@
   // The caption is the figure's own (`.cap-t`, `.cap-s`) or, without one, the heading of the
   // section the picture stands in. Prev/next walk the pictures that are on screen: a chapter's
   // picture for the other device is display:none and left out.
-  // On a phone the picture keeps a readable size and pans inside <picture>: the track shows the
-  // part of a wide picture in view, the hint shows whenever there is more picture than box, and
-  // the counter says «2 / 9» (landing.css, `.lb-track`, `.lb-hint`, `.lb-count`, `.lb-tall`).
+  // On a phone or an upright tablet the picture keeps a readable size and pans inside <picture>:
+  // the track shows the part of a wide picture in view and the counter says «2 / 9». A phone
+  // capture pans up and down wherever the screen is too short for it. The hint shows whenever
+  // there is more picture than box (landing.css: `.lb-track`, `.lb-hint`, `.lb-count`, `.lb-tall`).
   // A picture that pans is a Tab stop: with the focus on it the arrow keys pan it, from anywhere
   // else in the dialog ← and → change the picture.
   // The page behind does not scroll: landing.css, `html:has(dialog.lb[open])`.
@@ -1060,6 +1061,7 @@
       img.src = src.src;
       img.alt = src.alt;
       fig.classList.toggle('lb-tall', +h > +w);
+      fig.style.setProperty('--lb-ratio', w / h);
       cap.innerHTML = '<b></b>';
       cap.firstChild.textContent = box.querySelector('.cap-t, h2').textContent;
       if (sub) cap.append(' – ' + sub.textContent);

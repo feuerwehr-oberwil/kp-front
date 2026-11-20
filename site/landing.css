@@ -766,14 +766,27 @@ dialog.lb {
 dialog.lb[open] { display: grid; place-items: center; }
 dialog.lb::backdrop { background: rgba(12, 14, 17, .9); }
 
-.lb-fig { display: grid; gap: 14px; justify-items: center; max-height: 100%; }
+/* --lb-room: the height a layout leaves for the picture. */
+.lb-fig { display: grid; gap: 14px; justify-items: center; max-height: 100%; --lb-room: calc(100dvh - 150px); }
 .lb-fig picture { display: flex; justify-content: center; min-width: 0; }
 .lb-fig img {
-  max-width: 100%; max-height: calc(100dvh - 150px); width: auto; height: auto;
+  max-width: 100%; max-height: var(--lb-room); width: auto; height: auto;
   object-fit: contain;
   border-radius: var(--r-surface);
   background: var(--surface);
   box-shadow: 0 30px 80px rgba(0, 0, 0, .5);
+}
+/* A phone capture is taller than wide (`.lb-tall`; the script also sets --lb-ratio, its width
+   over its height). Fitted to the height of a laptop or a phone screen it is smaller than on
+   the page. So it is at least a phone's width – life-size – and pans up and down inside
+   <picture>; where the screen is tall enough it grows to fit and does not pan. */
+.lb-fig.lb-tall picture {
+  display: block; max-height: var(--lb-room); overflow: hidden auto; overscroll-behavior: contain;
+}
+.lb-fig.lb-tall img {
+  display: block; margin: 0 auto;
+  width: max(430px, calc(var(--lb-room) * var(--lb-ratio))); max-width: 100%;
+  height: auto; min-height: 0; max-height: none;
 }
 .lb-fig figcaption {
   font-size: .95rem; color: #d5dae1; text-align: center; max-width: 68ch;
@@ -791,16 +804,25 @@ dialog.lb::backdrop { background: rgba(12, 14, 17, .9); }
 .lb-prev { left: 14px; }
 .lb-next { right: 14px; }
 .lb-x:hover, .lb-nav:hover { background: rgba(255, 255, 255, .24); }
-/* Phone-only parts of the lightbox: the scroll track, its hint and the «2 / 9» counter. */
+/* Built by the script: the scroll track and the «2 / 9» counter belong to the narrow layout
+   below; the hint shows in every layout while a picture pans. */
 .lb-track, .lb-hint, .lb-count { display: none; }
-@media (max-width: 620px) {
-  /* A tablet capture fitted to a phone's width is a quarter of its size and unreadable. So
-     the picture keeps a readable height and scrolls sideways inside <picture>; prev/next and
-     the counter stand in one row at the bottom, where a thumb reaches them. */
+.lb-hint:not([hidden]) {
+  display: block; font-family: var(--mono); font-size: 12.5px; color: #9aa3b0;
+}
+/* The narrow layout: phones, and upright tablets (7/8 keeps short windows out). */
+@media (max-width: 620px), (max-width: 860px) and (max-aspect-ratio: 7/8) {
+  /* A tablet capture fitted to a phone's width is a quarter of its size and unreadable, and on
+     an upright tablet the page already shows it at full width. So the picture keeps a readable
+     height – 80vw makes it wider than the page shows it – and scrolls sideways inside <picture>;
+     prev/next and the counter stand in one row at the bottom, where a thumb reaches them. */
   dialog.lb { padding: 64px 0 calc(84px + env(safe-area-inset-bottom)); }
   /* hint, caption and counter stand on the backdrop itself here, so less of the page shows through */
   dialog.lb::backdrop { background: rgba(12, 14, 17, .96); }
-  .lb-fig { width: 100%; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .lb-fig {
+    width: 100%; grid-template-columns: minmax(0, 1fr); gap: 12px;
+    --lb-room: calc(100dvh - 260px - env(safe-area-inset-bottom));
+  }
   .lb-fig picture {
     width: 100%; justify-content: flex-start; overflow-x: auto;
     overscroll-behavior-x: contain; scrollbar-width: none;
@@ -808,7 +830,7 @@ dialog.lb::backdrop { background: rgba(12, 14, 17, .9); }
   .lb-fig picture::-webkit-scrollbar { display: none; }
   .lb-fig img {
     flex: none; max-width: none; max-height: none;
-    height: min(460px, calc(100dvh - 330px)); min-height: 180px;
+    height: min(max(460px, 80vw), calc(100dvh - 330px)); min-height: 180px;
     border-radius: 0; box-shadow: none;
   }
   .lb-track:not([hidden]) {
@@ -816,17 +838,6 @@ dialog.lb::backdrop { background: rgba(12, 14, 17, .9); }
     height: 4px; margin: 0 22px; border-radius: 2px; background: rgba(255, 255, 255, .18);
   }
   .lb-track i { position: absolute; top: 0; bottom: 0; border-radius: 2px; background: #fff; }
-  .lb-hint:not([hidden]) {
-    display: block; font-family: var(--mono); font-size: 12.5px; color: #9aa3b0;
-  }
-  /* A phone capture is taller than wide (`.lb-tall`, set by the script). At a fixed height it
-     would be smaller than on the page, so it takes the width – a phone's own width shows it
-     life-size – and pans up and down inside <picture>. */
-  .lb-tall picture {
-    display: block; overflow: hidden auto; overscroll-behavior: contain;
-    max-height: calc(100dvh - 260px - env(safe-area-inset-bottom));
-  }
-  .lb-tall img { display: block; width: min(100%, 430px); height: auto; min-height: 0; margin: 0 auto; }
   .lb-fig figcaption { padding: 0 22px; }
   .lb-nav {
     top: auto; bottom: calc(18px + env(safe-area-inset-bottom)); transform: none;
