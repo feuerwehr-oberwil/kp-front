@@ -342,6 +342,13 @@
       "privacyLink": "Datenschutz"
     }
   },
+  "lightbox": {
+    "close": "Schliessen",
+    "prev": "Vorheriges Bild",
+    "next": "Nächstes Bild",
+    "zoom": "Vergrössern",
+    "hint": "Wischen, um das Bild zu verschieben"
+  },
   "footer": {
     "origin": "Entstanden im Einsatzbetrieb der <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">Feuerwehr Oberwil BL</a> –\n      weil wir im Einsatz immer wieder dieselben Fehlerquellen gesehen haben: Doppelbelegungen, verstreute\n      Informationen und handschriftliche Übertragungsfehler.\n      Jede Feuerwehr betreibt ihr eigenes KP Front, mit eigenen Karten, Plänen und Daten.",
     "demo": "Demo",

@@ -5,6 +5,8 @@
   Text belongs in content/<language>.json, structure belongs here.
   Screenshots pair shots/<file> with shots/dark/<file>; theme.js runs before CSS.
   Desktop controls stay in the header; compact headers use the native options disclosure.
+  The chapter pictures are lightbox triggers (`.shot-zoom`); the lightbox script at the end of
+  this file is the same in kp-rueck – change it in both.
 -->
 <html lang="{{lang}}">
 <meta charset="utf-8">
@@ -188,6 +190,9 @@
     picture. A chapter with `img.tablet` shows the iPad picture on wide screens and its phone
     picture on narrow ones; without one it shows the phone everywhere. The hidden picture is
     `loading="lazy"` and display:none, so a phone never downloads the iPad picture.
+    Each picture is a `.shot-zoom` button: the lightbox script at the end of this file enlarges
+    it. The button's label carries the picture's description, because a button's name replaces
+    what is inside it.
   -->
   <div id="einsatz">
     {{#chapters.note}}
@@ -208,19 +213,23 @@
       <div class="chap-img">
         {{#img.tablet}}
         <div class="dev dev-tab wide-only">
-          <picture>
-          <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="{{base}}shots/dark/tablet/{{img.tablet}}">
-          <script>document.currentScript.previousElementSibling.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';</script>
-          <img src="{{base}}shots/tablet/{{img.tablet}}" alt="{{alt}}" width="1600" height="1090" loading="lazy" decoding="async">
-        </picture>
+          <button class="shot-zoom" type="button" aria-label="{{lightbox.zoom}}: {{alt}}">
+            <picture>
+              <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="{{base}}shots/dark/tablet/{{img.tablet}}">
+              <script>document.currentScript.previousElementSibling.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';</script>
+              <img src="{{base}}shots/tablet/{{img.tablet}}" alt="{{alt}}" width="1600" height="1090" loading="lazy" decoding="async">
+            </picture>
+          </button>
         </div>
         {{/img.tablet}}
         <div class="dev dev-ph{{#img.tablet}} narrow-only{{/img.tablet}}">
-          <picture>
-          <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="{{base}}shots/dark/phone/{{img.phone}}">
-          <script>document.currentScript.previousElementSibling.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';</script>
-          <img src="{{base}}shots/phone/{{img.phone}}" alt="{{alt}}" width="780" height="1592" loading="lazy" decoding="async">
-        </picture>
+          <button class="shot-zoom" type="button" aria-label="{{lightbox.zoom}}: {{alt}}">
+            <picture>
+              <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="{{base}}shots/dark/phone/{{img.phone}}">
+              <script>document.currentScript.previousElementSibling.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';</script>
+              <img src="{{base}}shots/phone/{{img.phone}}" alt="{{alt}}" width="780" height="1592" loading="lazy" decoding="async">
+            </picture>
+          </button>
         </div>
       </div>
     </section>
@@ -451,6 +460,99 @@
           note.className = 'f-note err';
           note.textContent = '{{contact.form.error}}';
         });
+    });
+  })();
+
+  // Lightbox – the same block on kp-front.ch and kp-rueck.ch. Every `.shot-zoom` button enlarges
+  // the picture inside it; the dialog is built here, so without JS the page stays as it is.
+  // The caption is the figure's own (`.cap-t`, `.cap-s`) or, without one, the heading of the
+  // section the picture stands in. Prev/next walk the pictures that are on screen: a chapter's
+  // picture for the other device is display:none and left out.
+  // On a phone the picture keeps a readable size and pans inside <picture>: the track shows the
+  // part of a wide picture in view, the hint shows whenever there is more picture than box, and
+  // the counter says «2 / 9» (landing.css, `.lb-track`, `.lb-hint`, `.lb-count`, `.lb-tall`).
+  // The page behind does not scroll: landing.css, `html:has(dialog.lb[open])`.
+  (function () {
+    var all = [].slice.call(document.querySelectorAll('.shot-zoom'));
+    if (!all.length || typeof HTMLDialogElement === 'undefined') return;
+
+    var dlg = document.createElement('dialog');
+    dlg.className = 'lb';
+    dlg.setAttribute('aria-labelledby', 'lb-cap');
+    dlg.innerHTML =
+      '<button class="lb-x" type="button" aria-label="{{lightbox.close}}">×</button>' +
+      '<button class="lb-nav lb-prev" type="button" aria-label="{{lightbox.prev}}">‹</button>' +
+      '<button class="lb-nav lb-next" type="button" aria-label="{{lightbox.next}}">›</button>' +
+      '<figure class="lb-fig"><picture><source data-theme-dark><img alt=""></picture>' +
+      '<div class="lb-track" aria-hidden="true" hidden><i></i></div>' +
+      '<p class="lb-hint" hidden>{{lightbox.hint}}</p>' +
+      '<figcaption id="lb-cap"></figcaption></figure>' +
+      '<p class="lb-count"></p>';
+    document.body.appendChild(dlg);
+
+    var fig = dlg.querySelector('.lb-fig');
+    var pic = fig.querySelector('picture');
+    var img = pic.querySelector('img');
+    var dark = pic.querySelector('source');
+    var track = fig.querySelector('.lb-track');
+    var hint = fig.querySelector('.lb-hint');
+    var cap = fig.querySelector('figcaption');
+    var count = dlg.querySelector('.lb-count');
+    var shown = [];
+    var idx = 0;
+
+    // Track and hint follow the picture's box: called when a picture is set, when it has
+    // loaded, when it pans and when the window changes.
+    var measure = function () {
+      if (!dlg.open) return;
+      var wide = pic.scrollWidth - pic.clientWidth > 1;
+      track.hidden = !wide;
+      hint.hidden = !wide && pic.scrollHeight - pic.clientHeight <= 1;
+      track.firstChild.style.left = pic.scrollLeft / pic.scrollWidth * 100 + '%';
+      track.firstChild.style.width = pic.clientWidth / pic.scrollWidth * 100 + '%';
+    };
+
+    var show = function (i) {
+      idx = (i + shown.length) % shown.length;
+      var src = shown[idx].querySelector('img');
+      var box = shown[idx].closest('figure, section');
+      var sub = box.querySelector('.cap-s');
+      var w = src.getAttribute('width');
+      var h = src.getAttribute('height');
+      dark.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';
+      dark.srcset = shown[idx].querySelector('source').srcset;
+      // The size is known before the file arrives, so the box does not jump.
+      img.width = w;
+      img.height = h;
+      img.src = src.src;
+      img.alt = src.alt;
+      fig.classList.toggle('lb-tall', +h > +w);
+      cap.innerHTML = '<b></b>';
+      cap.firstChild.textContent = box.querySelector('.cap-t, h2').textContent;
+      if (sub) cap.append(' – ' + sub.textContent);
+      count.textContent = idx + 1 + ' / ' + shown.length;
+      pic.scrollLeft = 0;
+      pic.scrollTop = 0;
+      measure();
+    };
+
+    all.forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        shown = all.filter(function (b) { return b.getClientRects().length; });
+        dlg.showModal();
+        show(shown.indexOf(btn));
+      });
+    });
+    img.addEventListener('load', measure);
+    pic.addEventListener('scroll', measure);
+    addEventListener('resize', measure);
+    dlg.querySelector('.lb-x').addEventListener('click', function () { dlg.close(); });
+    dlg.querySelector('.lb-prev').addEventListener('click', function () { show(idx - 1); });
+    dlg.querySelector('.lb-next').addEventListener('click', function () { show(idx + 1); });
+    dlg.addEventListener('click', function (e) { if (e.target === dlg) dlg.close(); });
+    dlg.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowLeft') { e.preventDefault(); show(idx - 1); }
+      if (e.key === 'ArrowRight') { e.preventDefault(); show(idx + 1); }
     });
   })();
 </script>

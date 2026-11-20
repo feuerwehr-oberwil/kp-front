@@ -753,6 +753,8 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
   background: none; font: inherit; color: inherit; cursor: zoom-in;
 }
 .shot-zoom img { display: block; }
+/* The page behind an open lightbox stays where it is. */
+html:has(dialog.lb[open]) { overflow: hidden; }
 
 dialog.lb {
   width: 100vw; max-width: 100vw; height: 100dvh; max-height: 100dvh;
@@ -794,6 +796,8 @@ dialog.lb::backdrop { background: rgba(12, 14, 17, .9); }
      the picture keeps a readable height and scrolls sideways inside <picture>; prev/next and
      the counter stand in one row at the bottom, where a thumb reaches them. */
   dialog.lb { padding: 64px 0 calc(84px + env(safe-area-inset-bottom)); }
+  /* hint, caption and counter stand on the backdrop itself here, so less of the page shows through */
+  dialog.lb::backdrop { background: rgba(12, 14, 17, .96); }
   .lb-fig { width: 100%; grid-template-columns: minmax(0, 1fr); gap: 12px; }
   .lb-fig picture {
     width: 100%; justify-content: flex-start; overflow-x: auto;
@@ -813,6 +817,14 @@ dialog.lb::backdrop { background: rgba(12, 14, 17, .9); }
   .lb-hint:not([hidden]) {
     display: block; font-family: var(--mono); font-size: 12.5px; color: #9aa3b0;
   }
+  /* A phone capture is taller than wide (`.lb-tall`, set by the script). At a fixed height it
+     would be smaller than on the page, so it takes the width – a phone's own width shows it
+     life-size – and pans up and down inside <picture>. */
+  .lb-tall picture {
+    display: block; overflow: hidden auto; overscroll-behavior: contain;
+    max-height: calc(100dvh - 260px - env(safe-area-inset-bottom));
+  }
+  .lb-tall img { display: block; width: min(100%, 430px); height: auto; min-height: 0; margin: 0 auto; }
   .lb-fig figcaption { padding: 0 22px; }
   .lb-nav {
     top: auto; bottom: calc(18px + env(safe-area-inset-bottom)); transform: none;
@@ -889,6 +901,9 @@ dialog.lb::backdrop { background: rgba(12, 14, 17, .9); }
 .dev img { display: block; width: 100%; height: auto; }
 .dev-ph picture { border-radius: 12.1cqw; }
 .dev-tab picture { border-radius: 1.5cqw; }
+/* A device picture as a lightbox trigger: the focus ring follows the screen's corner. */
+.dev-ph .shot-zoom { border-radius: 12.1cqw; }
+.dev-tab .shot-zoom { border-radius: 1.5cqw; }
 .narrow-only { display: none; }
 
 /* Hero: centred, the pair below. The tablet carries the height; the phone hangs off its right

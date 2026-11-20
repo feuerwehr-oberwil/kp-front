@@ -85,6 +85,12 @@ origin. Keep `theme.js`, `build.mjs` and `landing.css` byte-identical in both re
 The builder embeds the runtime in the page head, including the single-file hand-out.
 KP Front lists it as a Knip entry because the builder reads it as text rather than importing it.
 
+The lightbox is shared in the same way: a picture inside a `.shot-zoom` button opens enlarged,
+the styles are in `landing.css`, and the script is the last block of `index.template.html` –
+the same block in both repositories, so change it in both. It reads the caption from the
+figure (`.cap-t`, `.cap-s`) or, without one, from the heading of the picture's section. The
+texts are `lightbox.*` in `content/*.json`.
+
 Capture both real app palettes: `shots/<device>/<name>.webp` is light, and
 `shots/dark/<device>/<name>.webp` is its night counterpart, with matching names and dimensions.
 The link-preview JPEG and README PNGs remain light. Do not simulate night mode by filtering a

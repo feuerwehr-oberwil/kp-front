@@ -321,6 +321,13 @@
       "privacyLink": "Privacy"
     }
   },
+  "lightbox": {
+    "close": "Close",
+    "prev": "Previous image",
+    "next": "Next image",
+    "zoom": "Enlarge",
+    "hint": "Swipe to move the image"
+  },
   "footer": {
     "origin": "Born out of the operational work of <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">Feuerwehr Oberwil BL</a> –\n      because at incident after incident we kept seeing the same sources of error: double bookings, information\n      scattered across places, and transcription mistakes made by hand.\n      Every fire brigade runs its own KP Front, with its own maps, plans and data.",
     "demo": "Demo",
