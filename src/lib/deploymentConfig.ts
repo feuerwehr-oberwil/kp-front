@@ -548,6 +548,13 @@ const CACHE_KEY = 'kp-front-deployment-config'
 // this — it stays {} until loadDeploymentConfig() resolves at boot (before first render),
 // so an early read is always safe (every field is optional → callers fall back to appConfig).
 let resolved: DeploymentConfig = {}
+/** What this device holds of the station's config: the answers of `/api/config`, and what goes
+ *  to the offline copy. `resolved` is this plus `pageParts`. */
+let stored: DeploymentConfig = {}
+/** Parts the PAGE read with a credential of its own — the Erfassungs-Poster's token
+ *  (`applyCaptureConfig`). In memory only: they are laid over every later answer and never
+ *  written to the offline copy, which belongs to the device and outlives the page. */
+let pageParts: DeploymentConfig | null = null
 // Config can be loaded twice during demo boot: an anonymous request starts before first paint,
 // then authentication immediately asks again for the session-only capabilities. A slow first
 // response must never overwrite the newer authenticated one.
@@ -574,8 +581,8 @@ function overlay(base: unknown, part: unknown): unknown {
  * A partial answer holds a few parts of the document and nothing else: the public parts a caller
  * without a session gets from `/api/config`, or the Erfassungs-Poster's parts (`/api/capture/
  * config`). What it does not hold was WITHHELD, not removed. Storing it in place of the copy
- * would leave a tablet whose access cookie ran out overnight with no fleet, the shipped
- * Atemschutz numbers and no map layers — also offline, until the next read with a session.
+ * would leave a tablet whose session ran out with no fleet, the shipped Atemschutz numbers and
+ * no map layers — also offline, until the next read with a session.
  * So the parts it holds are updated (a new logo or app name shows at once) and the rest stays.
  */
 export function mergePartial(prev: DeploymentConfig, part: DeploymentConfig): DeploymentConfig {
@@ -584,34 +591,11 @@ export function mergePartial(prev: DeploymentConfig, part: DeploymentConfig): De
   return overlay(prev, parts) as DeploymentConfig
 }
 
-/**
- * Keep two session-only parts across the answer of a session that does not get them.
- *
- * `report.links` goes to a PIN session and not to an Einsatz-Link (backend api/config ·
- * `_projection`), and a full answer replaces the copy on this device. A device that holds both
- * kinds of session would lose the links each time the link page reads.
- *
- * The CARTO key is kept the same way. Every session gets it today, so this half only matters
- * against a server from before 20.11.2026, whose answer without a session was the whole
- * document minus the key: that answer once replaced a keyed copy, the basemap printed «API key
- * required» for the whole session (field report 02.09.), and an OFFLINE boot afterwards built
- * keyless tile URLs that no longer matched the tiles the service worker had cached under `?key=`.
- *
- * Both values are deployment-stable, so an answer that lacks one where the previous answer had
- * it is read as «withheld», never as «removed» — a station that really rotates its key serves the
- * new one on the next session-bearing load, which every login and every boot probe makes.
- */
-export function carrySessionOnly(prev: DeploymentConfig, next: DeploymentConfig): DeploymentConfig {
-  let out = next
-  const prevKey = prev.integrations?.cartoBasemapKey
-  if (prevKey && !next.integrations?.cartoBasemapKey) {
-    out = { ...out, integrations: { ...out.integrations, cartoBasemapKey: prevKey } }
-  }
-  const prevLinks = prev.report?.links
-  if (prevLinks?.length && !next.report?.links?.length) {
-    out = { ...out, report: { ...out.report, links: prevLinks } }
-  }
-  return out
+/** The one place the config changes: `stored` is what the device holds, `resolved` what read
+ *  sites see (the page's own parts laid over it). */
+function setStored(next: DeploymentConfig): void {
+  stored = next
+  resolved = pageParts ? mergePartial(stored, pageParts) : stored
 }
 
 function readCache(): Promise<DeploymentConfig | null> {
@@ -624,8 +608,9 @@ function readCache(): Promise<DeploymentConfig | null> {
  * never white-screen the app; it simply means unbranded appConfig defaults. On a network error
  * we fall back to the last cached value if present, else `{}`.
  *
- * An answer without a session is `partial` and is merged over what this device holds; a
- * session's answer replaces it (`mergePartial`, `carrySessionOnly`).
+ * A session's answer is the document and REPLACES what the device holds: a Formular link or a
+ * basemap key the station removed goes away here too. An answer without a session is `partial`
+ * and is merged over it (`mergePartial`).
  */
 export function loadDeploymentConfig(): Promise<DeploymentConfig> {
   const load = fetchDeploymentConfig()
@@ -639,29 +624,32 @@ async function fetchDeploymentConfig(): Promise<DeploymentConfig> {
   try {
     const cfg = await apiGet<DeploymentConfig>('/api/config')
     const fetched = cfg && typeof cfg === 'object' ? cfg : {}
-    // what this device last knew — the singleton, or on a cold boot the offline copy
-    const prev = Object.keys(resolved).length ? resolved : (await readCache()) ?? {}
-    const next = fetched.partial ? mergePartial(prev, fetched) : carrySessionOnly(prev, fetched)
+    let next = fetched
+    if (fetched.partial) {
+      // what this device last knew — the singleton, or on a cold boot the offline copy
+      const prev = Object.keys(stored).length ? stored : (await readCache()) ?? {}
+      next = mergePartial(prev, fetched)
+    }
     if (generation === loadGeneration) {
-      resolved = next
+      setStored(next)
       lastAnswerHadSession = !fetched.partial
-      void idbSet(CACHE_KEY, resolved) // durable copy for offline boot; in-memory singleton is enough this session
+      void idbSet(CACHE_KEY, stored) // durable copy for offline boot; in-memory singleton is enough this session
     }
     return next
   } catch {
     // network / server failure — fall back to the cached value (offline tablets), else empty
     const cached = (await readCache()) ?? {}
-    if (generation === loadGeneration) resolved = cached
+    if (generation === loadGeneration) setStored(cached)
     return cached
   }
 }
 
 /**
  * Called once a session is known to exist (lib/auth, after `/me` answered): read the config
- * again unless the last answer already came with that session. The boot read is sent before
- * `/me`, so with an expired access cookie it was answered without a session — `partial`, the
- * public parts only — and `/me` is what renewed the cookie. Waits for a read that is still on
- * its way first, so its late partial answer cannot land after this check. NEVER throws.
+ * again unless the last answer already came with a session. The boot read is sent before the
+ * session exists on a link page, and before a first login; its answer is then `partial`, the
+ * public parts only. Waits for a read that is still on its way first, so its late partial
+ * answer cannot land after this check. NEVER throws.
  */
 export async function ensureSessionConfig(): Promise<void> {
   await pendingLoad
@@ -672,14 +660,25 @@ export async function ensureSessionConfig(): Promise<void> {
  *  session's answer carries `version`, and a partial answer never takes it away. A device
  *  without it has no fleet, no map layers and the shipped Atemschutz numbers. */
 export function hasStationConfig(): boolean {
-  return !!resolved.version
+  return !!stored.version
 }
 
-/** The Erfassungs-Poster's parts (`GET /api/capture/config`, read with the poster token) into
- *  the singleton, so the form's pickers and its Rapport-PDF read them like every other surface.
- *  Not written to the offline copy: the poster page works online only. */
+/** An answer the /admin editor read itself (`GET /api/config` with the admin session) becomes
+ *  the runtime config, so its views read ranks, modules and the basemap key from the document
+ *  the editor shows. No second request, and nothing is written to the offline copy here. */
+export function adoptSessionConfig(cfg: DeploymentConfig): void {
+  loadGeneration++ // a read that is still on its way was sent earlier and must not land over this
+  setStored(cfg)
+  lastAnswerHadSession = true
+}
+
+/** The Erfassungs-Poster's parts (`GET /api/capture/config`, read with the poster token), so the
+ *  form's pickers and its Rapport-PDF read them like every other surface. They stay over every
+ *  later answer of this page (a slow boot read that lands or fails afterwards) and never reach
+ *  the offline copy. */
 export function applyCaptureConfig(parts: DeploymentConfig): void {
-  resolved = mergePartial(resolved, parts)
+  pageParts = parts
+  setStored(stored)
 }
 
 /**
@@ -703,7 +702,7 @@ export async function bootDeploymentConfig(
 ): Promise<DeploymentConfig> {
   const cached = await readCache()
   if (cached) {
-    resolved = cached
+    setStored(cached)
     void loadDeploymentConfig().then(onFresh)
     return cached
   }

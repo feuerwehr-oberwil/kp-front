@@ -27,6 +27,7 @@ const { apiGet, apiPut, ApiError } = vi.hoisted(() => {
 })
 vi.mock('../lib/api', () => ({ apiGet, apiPut, ApiError }))
 vi.mock('../lib/deploymentConfig', () => ({
+  adoptSessionConfig: vi.fn(),
   loadDeploymentConfig: vi.fn(async () => ({})),
   applyDeploymentBranding: vi.fn(),
 }))

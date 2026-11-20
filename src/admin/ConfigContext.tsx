@@ -5,6 +5,7 @@ import { fillTemplate } from '../lib/format'
 import { Sheet } from '../lib/overlays'
 import { EmptyState } from './ui'
 import {
+  adoptSessionConfig,
   loadDeploymentConfig,
   applyDeploymentBranding,
   type DeploymentConfig,
@@ -262,14 +263,14 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let alive = true
-    // The shared copy too (lib/deploymentConfig · loadDeploymentConfig, it never throws). The
-    // boot read it without a session, so on a browser with no PIN login it holds the public
-    // parts only, and the views here read ranks, modules and the basemap key from it. A second
-    // read on purpose: the draft must be the server's answer itself, with nothing merged in.
-    Promise.all([apiGet<DeploymentConfig>('/api/config'), loadDeploymentConfig()])
-      .then(([cfg]) => {
+    apiGet<DeploymentConfig>('/api/config')
+      .then((cfg) => {
         if (!alive) return
         const safe = cfg && typeof cfg === 'object' ? cfg : {}
+        // The runtime config too (lib/deploymentConfig). The boot read it without a session, so
+        // on a browser with no PIN login it holds the public parts only, and the views here read
+        // ranks, modules and the basemap key from it.
+        adoptSessionConfig(safe)
         versionRef.current = safe.version ?? null
         setDraft(safe)
         setSaved(safe)
