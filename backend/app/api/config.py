@@ -292,7 +292,7 @@ async def get_config(
     raw = row.config_json if (row and row.config_json) else {}
     try:
         doc = load_stored_config(raw)
-    except Exception:  # noqa: BLE001 — never let a bad stored row brick GET
+    except Exception:  # never let a bad stored row brick GET
         logger.warning("deployment_config row failed validation; serving empty fallback", exc_info=True)
         doc = DeploymentConfigIn()
     is_admin = await _admin_session_valid(admin_session)

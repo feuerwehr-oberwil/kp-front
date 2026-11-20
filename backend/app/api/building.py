@@ -47,7 +47,7 @@ async def _register_switch(db: AsyncSession) -> bool | None:
     row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
     try:
         return load_stored_config((row.config_json if row else None) or {}).map.buildingRegister
-    except Exception:  # noqa: BLE001 — a broken stored document must not take the card down
+    except Exception:  # a broken stored document must not take the card down
         logger.warning("deployment config failed validation — Gebäude registers read as auto", exc_info=True)
         return None
 
