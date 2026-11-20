@@ -255,9 +255,9 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
   margin: 18px 0 0;
   max-width: 17ch;
 }
-/* Only a phone is narrow enough to need a break inside a word. Wider, automatic hyphenation
-   cut «Einsatz-board» and «d’inter-vention» although the whole word had room on the next line. */
-@media (max-width: 520px) { .hero h1 { hyphens: auto; } }
+/* `manual` at every width: automatic hyphenation cut «Einsatz-board», «d’inter-vention» and
+   «opera-tivo» although the whole word had room on the next line. A word that is too long for
+   a phone carries a soft hyphen in its text (`hero.h1`). */
 .hero .lede {
   color: var(--ink-dim); font-size: clamp(1.02rem, 1.6vw, 1.15rem);
   max-width: 56ch; margin-top: 20px;
@@ -809,6 +809,15 @@ dialog.lb::backdrop { background: rgba(12, 14, 17, .9); }
 .lb-track, .lb-hint, .lb-count { display: none; }
 .lb-hint:not([hidden]) {
   display: block; font-family: var(--mono); font-size: 12.5px; color: #9aa3b0;
+}
+/* A phone held sideways is too short for the narrow layout and gets the fitted one. It keeps
+   its counter, in the corner opposite the close button. (Never both: the narrow layout is at
+   most 620px wide, or at least 8/7 as tall as wide.) */
+@media (min-width: 621px) and (max-height: 520px) {
+  .lb-count {
+    display: block; position: fixed; top: 16px; left: 18px; line-height: 40px;
+    pointer-events: none; font-family: var(--mono); font-size: 14px; color: #d5dae1;
+  }
 }
 /* The narrow layout: phones, and upright tablets (7/8 keeps short windows out). */
 @media (max-width: 620px), (max-width: 860px) and (max-aspect-ratio: 7/8) {
