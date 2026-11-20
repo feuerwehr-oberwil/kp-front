@@ -243,7 +243,7 @@ The required checks retain their names, so branch protection needs no migration:
 | Image (hadolint + build + smoke) | Requires the image build and all three isolated browser suites. Builds the real production image once, then drives every e2e spec against it except the journeys and screenshots – among them the white-screen smoke (`e2e/smoke.spec.ts`) and the field scenario of the Übung on 23.09.2026 (`e2e/field-scenario.spec.ts`: a parked vehicle sending GPS, a coupled Leitung, a tapped Trupp, and then three devices on one login). |
 | Visual (screenshots vs baseline) | Loads that run's image into its own stack; unchanged screenshot thresholds. Advisory: a difference warns and uploads the pictures, only a failed stack fails it. |
 | Performance (user journeys vs baseline) | Loads that run's image into its own stack; unchanged journeys, calibration, confirmation and budgets. Reports without failing on a Dependabot PR. |
-| Secrets (gitleaks) | Scans the tracked tree. |
+| Secrets (gitleaks) | Scans the tracked tree. On a pull request it also scans the commits of that pull request, so a secret that one commit adds and a later one removes is found. |
 | Shared files match KP Rück | Compares the shared manifest against the paired/default sibling branch. |
 
 The two aggregate checks run even after a dependency fails and accept only `success` from

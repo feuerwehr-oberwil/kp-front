@@ -13,6 +13,12 @@ on:
     - cron: "0 23 * * *"   # once daily ≈ midnight Europe/Zurich (23:00 UTC; ±1h across DST)
   workflow_dispatch: {}
 
+# The job reads the repository and nothing else: it talks to the demo with its own secrets,
+# never through the workflow token. Without this block the token gets the repository default,
+# which is read AND write here.
+permissions:
+  contents: read
+
 concurrency:
   group: demo-reset
   cancel-in-progress: false
