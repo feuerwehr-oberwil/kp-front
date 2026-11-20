@@ -755,6 +755,8 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
 .shot-zoom img { display: block; }
 /* The page behind an open lightbox stays where it is. */
 html:has(dialog.lb[open]) { overflow: hidden; }
+/* A picture that pans is a Tab stop (the script sets it); the ring sits inside its clipped box. */
+.lb-fig picture:focus-visible { outline: 2px solid var(--red); outline-offset: -2px; }
 
 dialog.lb {
   width: 100vw; max-width: 100vw; height: 100dvh; max-height: 100dvh;

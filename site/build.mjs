@@ -87,12 +87,14 @@ const allLeafPaths = (v, path = '', out = []) => {
 // French sets a space before : ; ? ! » and after «. Typed as a plain space, the browser may
 // break the line there and the mark starts the next line on its own. `typeset` turns that
 // space – plain or `&nbsp;` – into U+202F, the narrow no-break space of Swiss French typography,
-// in every text of a page. Markup inside a text stays as written. The rule hangs on the
-// language code, so both sites apply it without a setting. Structured data keeps the texts as
-// typed (`plainText` would fold the space back anyway).
+// in every text of a page. Markup inside a text stays as written: a tag is matched whole, with
+// its quoted attributes, and passed through. The rule hangs on the language code, so both sites
+// apply it without a setting. Structured data keeps the texts as typed (`plainText` would fold
+// the space back anyway).
 const TYPOGRAPHY = {
   fr: (text) =>
-    text.replace(/<[^>]*>|(?: |&nbsp;)(?=[:;?!»])|(?<=«)(?: |&nbsp;)/g, (m) => (m[0] === '<' ? m : ' ')),
+    text.replace(/<(?:"[^"]*"|'[^']*'|[^>"'])*>|(?: |&nbsp;)(?=[:;?!»])|(?<=«)(?: |&nbsp;)/g, (m) =>
+      m[0] === '<' ? m : '\u202f'),
 }
 const typeset = (code, value) => {
   const rule = TYPOGRAPHY[code]

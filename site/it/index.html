@@ -985,6 +985,8 @@
   // On a phone the picture keeps a readable size and pans inside <picture>: the track shows the
   // part of a wide picture in view, the hint shows whenever there is more picture than box, and
   // the counter says «2 / 9» (landing.css, `.lb-track`, `.lb-hint`, `.lb-count`, `.lb-tall`).
+  // A picture that pans is a Tab stop: with the focus on it the arrow keys pan it, from anywhere
+  // else in the dialog ← and → change the picture.
   // The page behind does not scroll: landing.css, `html:has(dialog.lb[open])`.
   (function () {
     var all = [].slice.call(document.querySelectorAll('.shot-zoom'));
@@ -1012,29 +1014,45 @@
     var hint = fig.querySelector('.lb-hint');
     var cap = fig.querySelector('figcaption');
     var count = dlg.querySelector('.lb-count');
-    var shown = [];
-    var idx = 0;
+    var cur = all[0];
 
-    // Track and hint follow the picture's box: called when a picture is set, when it has
-    // loaded, when it pans and when the window changes.
+    // The triggers on screen, asked again at every step: a turned phone swaps a chapter's tablet
+    // picture for its phone picture behind the open dialog.
+    var onScreen = function () {
+      return all.filter(function (b) { return b.getClientRects().length; });
+    };
+    var boxOf = function (btn) { return btn.closest('figure, section'); };
+
+    // Track, hint and the picture's Tab stop follow the picture's box: called when the dialog
+    // opens, when a picture is set or has loaded, when it pans and when the window changes.
     var measure = function () {
       if (!dlg.open) return;
       var wide = pic.scrollWidth - pic.clientWidth > 1;
+      var more = wide || pic.scrollHeight - pic.clientHeight > 1;
       track.hidden = !wide;
-      hint.hidden = !wide && pic.scrollHeight - pic.clientHeight <= 1;
+      hint.hidden = !more;
+      if (more) pic.tabIndex = 0; else pic.removeAttribute('tabindex');
       track.firstChild.style.left = pic.scrollLeft / pic.scrollWidth * 100 + '%';
       track.firstChild.style.width = pic.clientWidth / pic.scrollWidth * 100 + '%';
     };
 
-    var show = function (i) {
-      idx = (i + shown.length) % shown.length;
-      var src = shown[idx].querySelector('img');
-      var box = shown[idx].closest('figure, section');
+    // Back to the picture's top-left corner, with track and hint for what is in the box now.
+    var home = function () {
+      pic.scrollLeft = 0;
+      pic.scrollTop = 0;
+      measure();
+    };
+
+    var show = function (btn) {
+      var list = onScreen();
+      var src = btn.querySelector('img');
+      var box = boxOf(btn);
       var sub = box.querySelector('.cap-s');
       var w = src.getAttribute('width');
       var h = src.getAttribute('height');
+      cur = btn;
       dark.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';
-      dark.srcset = shown[idx].querySelector('source').srcset;
+      dark.srcset = btn.querySelector('source').srcset;
       // The size is known before the file arrives, so the box does not jump.
       img.width = w;
       img.height = h;
@@ -1044,29 +1062,38 @@
       cap.innerHTML = '<b></b>';
       cap.firstChild.textContent = box.querySelector('.cap-t, h2').textContent;
       if (sub) cap.append(' – ' + sub.textContent);
-      count.textContent = idx + 1 + ' / ' + shown.length;
-      pic.scrollLeft = 0;
-      pic.scrollTop = 0;
-      measure();
+      count.textContent = list.indexOf(btn) + 1 + ' / ' + list.length;
+      home();
+    };
+
+    // Prev/next: from the chapter that is shown to its neighbour among the pictures on screen.
+    var step = function (by) {
+      var list = onScreen();
+      var box = boxOf(cur);
+      var i = list.findIndex(function (b) { return boxOf(b) === box; });
+      show(list[(i + by + list.length) % list.length]);
     };
 
     all.forEach(function (btn) {
       btn.addEventListener('click', function () {
-        shown = all.filter(function (b) { return b.getClientRects().length; });
+        // Picture and caption first: the caption names the dialog when the focus enters it.
+        // The box exists only once the dialog is open, and it keeps its last pan until then.
+        show(btn);
         dlg.showModal();
-        show(shown.indexOf(btn));
+        home();
       });
     });
     img.addEventListener('load', measure);
     pic.addEventListener('scroll', measure);
     addEventListener('resize', measure);
     dlg.querySelector('.lb-x').addEventListener('click', function () { dlg.close(); });
-    dlg.querySelector('.lb-prev').addEventListener('click', function () { show(idx - 1); });
-    dlg.querySelector('.lb-next').addEventListener('click', function () { show(idx + 1); });
+    dlg.querySelector('.lb-prev').addEventListener('click', function () { step(-1); });
+    dlg.querySelector('.lb-next').addEventListener('click', function () { step(1); });
     dlg.addEventListener('click', function (e) { if (e.target === dlg) dlg.close(); });
     dlg.addEventListener('keydown', function (e) {
-      if (e.key === 'ArrowLeft') { e.preventDefault(); show(idx - 1); }
-      if (e.key === 'ArrowRight') { e.preventDefault(); show(idx + 1); }
+      if (e.target === pic) return;
+      if (e.key === 'ArrowLeft') { e.preventDefault(); step(-1); }
+      if (e.key === 'ArrowRight') { e.preventDefault(); step(1); }
     });
   })();
 </script>
