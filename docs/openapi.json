@@ -4963,7 +4963,7 @@
           "capture"
         ],
         "summary": "Capture Roster",
-        "description": "Active Mannschaft for the attendance checklist and the Einsatzleiter/Rückmeldung pickers.\nNames and ranks only: no Divera id, like the roster a link session reads (api/personnel).",
+        "description": "Active Mannschaft for the attendance checklist and the Einsatzleiter/Rückmeldung pickers.\nNames and ranks only: no Divera id (``CapturePersonOut``).",
         "operationId": "capture_roster_api_capture_roster_get",
         "parameters": [
           {
@@ -4991,7 +4991,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/PersonnelOut"
+                    "$ref": "#/components/schemas/CapturePersonOut"
                   },
                   "title": "Response Capture Roster Api Capture Roster Get"
                 }
@@ -17287,6 +17287,37 @@
         ],
         "title": "BuildingsRequest",
         "description": "A WGS84 bounding box. Ordering matches Overpass: south, west, north, east."
+      },
+      "CapturePersonOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "rank": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rank"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "display_name"
+        ],
+        "title": "CapturePersonOut",
+        "description": "One row of the Erfassungs-Poster's roster: what its form reads, and nothing else.\n\nThe poster ticks names off and sorts them by rank (src/lib/captureClient · CapturePerson).\nNo Divera id, no external identities, no name parts: the token goes to people outside the\ncommand post."
       },
       "ClientError": {
         "properties": {

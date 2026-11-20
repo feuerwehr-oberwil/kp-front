@@ -1549,7 +1549,7 @@ export interface paths {
         /**
          * Capture Roster
          * @description Active Mannschaft for the attendance checklist and the Einsatzleiter/Rückmeldung pickers.
-         *     Names and ranks only: no Divera id, like the roster a link session reads (api/personnel).
+         *     Names and ranks only: no Divera id (``CapturePersonOut``).
          */
         get: operations["capture_roster_api_capture_roster_get"];
         put?: never;
@@ -5089,6 +5089,25 @@ export interface components {
             north: number;
             /** East */
             east: number;
+        };
+        /**
+         * CapturePersonOut
+         * @description One row of the Erfassungs-Poster's roster: what its form reads, and nothing else.
+         *
+         *     The poster ticks names off and sorts them by rank (src/lib/captureClient · CapturePerson).
+         *     No Divera id, no external identities, no name parts: the token goes to people outside the
+         *     command post.
+         */
+        CapturePersonOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Display Name */
+            display_name: string;
+            /** Rank */
+            rank?: string | null;
         };
         /**
          * ClientError
@@ -10997,7 +11016,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PersonnelOut"][];
+                    "application/json": components["schemas"]["CapturePersonOut"][];
                 };
             };
             /** @description Validation Error */

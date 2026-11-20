@@ -44,11 +44,11 @@ from ..database import get_db
 from ..deployment_config import config_row
 from ..models import DeploymentConfig, Incident, Media, Personnel
 from ..schemas import (
+    CapturePersonOut,
     IncidentMeta,
     JournalAppendIn,
     JournalEntryOut,
     JournalPage,
-    PersonnelOut,
     WorkspaceOut,
     WorkspacePut,
 )
@@ -232,19 +232,17 @@ async def capture_config(db: AsyncSession = Depends(get_db)) -> dict:
     return pick_parts(doc.model_dump(mode="json"), CAPTURE_PARTS)
 
 
-@router.get("/roster", response_model=list[PersonnelOut], dependencies=[Depends(_check_token)])
+@router.get("/roster", response_model=list[CapturePersonOut], dependencies=[Depends(_check_token)])
 async def capture_roster(db: AsyncSession = Depends(get_db)):
     """Active Mannschaft for the attendance checklist and the Einsatzleiter/Rückmeldung pickers.
-    Names and ranks only: no Divera id, like the roster a link session reads (api/personnel)."""
+    Names and ranks only: no Divera id (``CapturePersonOut``)."""
     rows = list((await db.execute(select(Personnel).where(Personnel.is_active.is_(True)))).scalars())
     # Same names, same order, same sort as the KP tablet's roster — the two lists are read
     # side by side (phone ticks off, tablet checks) and must not disagree on either.
     order = await personnel_svc.load_roster_name_order(db)
     out = []
     for p in rows:
-        served = PersonnelOut.model_validate(p)
-        # the poster ticks names off; it never reads the id (src/lib/captureClient · CapturePerson)
-        served.divera_id = None
+        served = CapturePersonOut.model_validate(p)
         served.display_name = personnel_svc.person_display_name(p, order)
         out.append(served)
     out.sort(key=lambda person: personnel_svc.name_sort_key(person.display_name))

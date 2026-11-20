@@ -181,8 +181,10 @@ async def test_the_poster_roster_carries_no_divera_id(client, db_session, poster
     await db_session.commit()
     r = await client.get("/api/capture/roster", headers={"X-Capture-Token": POSTER})
     assert r.status_code == 200, r.text
-    assert [(p["display_name"], p["rank"], p["divera_id"]) for p in r.json()] == [("Meier Anna", "wm", None)]
-    assert "4711" not in r.text
+    [person] = r.json()
+    assert set(person) == {"id", "display_name", "rank"}
+    assert (person["display_name"], person["rank"]) == ("Meier Anna", "wm")
+    assert "4711" not in r.text and "divera" not in r.text
 
 
 # --- a signed-in device whose 8 h access cookie has run out --------------------------------
