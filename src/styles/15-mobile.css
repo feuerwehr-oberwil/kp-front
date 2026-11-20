@@ -296,10 +296,7 @@
   .phone-tools .whiteboard:has(.ctx) { z-index: var(--z-chrome-raised); }
   .phone-tools :is(.coord-read, .sel-bar) { bottom: calc(var(--rail-h) * 2 + 30px + env(safe-area-inset-bottom)); }
   /* (the Eintrag-FAB clears both bars on the drawing surfaces through --float-bottom, below) */
-  /* the armed tool's readout stands on THE floating row's baseline (--float-bottom, below): one
-     gap above the tool bar when the tool has no dock (Symbol), one gap above the dock while one is
-     out (Linie, Fläche …). It fixes for the same nesting reason as the dock. */
-  .phone-tools .armed-pill-row { position: fixed; bottom: var(--float-bottom); max-width: calc(100vw - 16px); }
+  /* (no armed tool's pill on a phone since 16.11.2026: the dock leads with the tool – ToolDock · armed) */
 
   /* ── details as a bottom sheet ── the shared .ctx editors (ContextPanel / DrawEditor /
      ShapeEditor) become a drag-expandable bottom sheet: half-height default so the map and
@@ -1163,7 +1160,7 @@
   :root:has(.rp-return) { --float-clear: var(--float-row); }
   /* …but a tool's option dock hides the FAB (below) and the host drops the strip, so there only
      the chips — and a RECORDING FAB, which never yields (sweep 27.10.2026 #10) — stand in it */
-  :root:has(.phone-tools :is(.wb-dock, .armed-pill-row)):not(:has(:is(.wb-botleft, .fab-entry.rec))) { --float-row: 0px; }
+  :root:has(.phone-tools .wb-dock):not(:has(:is(.wb-botleft, .fab-entry.rec))) { --float-row: 0px; }
   /* ── THE message lane (25.09.2026) ── one baseline for every message that floats over the
      foot of the screen: the toasts AND the instruction of a pick mode (OsmOutline ·
      .wb-osm-barwrap) and a tool's tip (DockInfo · .wb-dock-tip), which used to sit at three
@@ -1273,15 +1270,13 @@
 
   /* while a tool-option dock is open it owns the bottom-right corner — the FAB sat ON TOP
      of it (z55 over z31) and blocked the ✕/options. The Eintrag FAB yields for the duration
-     of the tool interaction and returns the moment the dock closes. The armed tool's readout
-     (.armed-pill-row) stands on the same row and the FAB yields to it the same way – with the
-     symbol tool's dock gone (23.10.2026) the FAB sat on its «Mehrere platzieren» toggle. */
+     of the tool interaction and returns the moment the dock closes – the symbol's too, which is
+     a dock again on a phone (16.11.2026; as a pill row the FAB had sat on «Mehrere platzieren»). */
   /* ⚠️ …except a RUNNING RECORDING (sweep 27.10.2026 #10, lead call): the red FAB is the only
      sign a voice memo is being taken and the only way to stop it, so it never yields (FabEntry
-     stays mounted too, IncidentWorkspace). Over a dock or the armed pill it already stands one
+     stays mounted too, IncidentWorkspace). Over a dock it already stands one
      row up, on --float-bottom; a detail sheet it rides on top of, below. */
   .app:has(.wb-dock) .fab-entry:not(.rec),
-  .app:has(.armed-pill-row) .fab-entry:not(.rec),
   .app:has(.wb-georef-dock) .fab-entry:not(.rec),
   .app:has(.ctx) .fab-entry:not(.rec) { display: none; }
   .phone-georef .fab-entry { display: none; }

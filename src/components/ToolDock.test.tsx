@@ -63,4 +63,16 @@ describe('ToolDock', () => {
     vi.mocked(useIsPhone).mockReturnValue(true)
     expect(words(render(<ToolDock groups={[...lineDock(), ...shapeDock]} />).container)).toEqual([])
   })
+
+  // owner, 16.11.2026: on a phone the dock names the armed tool in its first cell – the pill above
+  // it was a fourth row; the tablet keeps its pill, so its dock does not repeat the name
+  it('leads with the armed tool on a phone, and only there', () => {
+    const armed = { glyph: <svg />, name: 'Linie' }
+    expect(words(render(<ToolDock armed={armed} groups={lineDock()} />).container)).toEqual(lineWords)
+    cleanup()
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    render(<ToolDock armed={armed} groups={lineDock()} />)
+    expect(words(document.body)).toEqual(['Linie', ...lineWords])
+    expect(screen.getByRole('img', { name: 'Linie' })).toBeTruthy()
+  })
 })

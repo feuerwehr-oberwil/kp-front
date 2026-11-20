@@ -37,6 +37,10 @@ export type DockItem =
   | { type: 'action'; icon: string; label: string; short?: string; onClick: () => void; disabled?: boolean; cls?: string }
   | { type: 'info'; text: string }
 
+/** The armed tool as the phone's dock names it in its first cell (MapToolDocks, Whiteboard): its
+ *  glyph and the tool's own word («Linie», «Feuer») – the input mode is the lit toggle beside it. */
+export interface ArmedReadout { glyph: ReactNode; name: string }
+
 /** a dock tile's word under its glyph, the rail tile's `.vrail-label` look (09-whiteboard) */
 const word = (w: string, on: boolean) => on ? <span className="wb-dock-word">{w}</span> : null
 
@@ -72,14 +76,20 @@ function renderItem(item: DockItem, key: string, worded: boolean): ReactNode {
  * EVERY item wears its word under its glyph like a rail tile («Abbrechen», the mode names,
  * «Fertig», «Info», the Form's name) – on the tablet's column and on the phone's row alike; off,
  * every item is a bare glyph. Never a mix, so the dock reads as one family.
+ *
+ * `armed` (phone only): the armed tool's glyph + word as the dock's first cell – the readout the
+ * tablet shows as its bottom-centre pill (ArmedToolPill).
  */
-export function ToolDock({ groups }: { groups: DockItem[][] }) {
+export function ToolDock({ groups, armed = null }: { groups: DockItem[][]; armed?: ArmedReadout | null }) {
+  const phone = useIsPhone()
+  // ⚠️ on a phone the dock LEADS with the armed tool (owner, 16.11.2026: the pill above the dock
+  // was a fourth row of chrome – «ideally we don't need a 4th line»); the tablet keeps its pill
+  const lead: DockItem[][] = phone && armed ? [[{ type: 'glyph', node: armed.glyph, label: armed.name }]] : []
   // the ✕ leaves its group for the dock's end (see DockItem · close); it carries its own group gap
   const isClose = (item: DockItem) => item.type === 'close'
   const close = groups.flat().filter(isClose)
-  const visible = groups.map((g) => g.filter((item) => !isClose(item))).filter((g) => g.length)
+  const visible = [...lead, ...groups].map((g) => g.filter((item) => !isClose(item))).filter((g) => g.length)
   const ref = useRef<HTMLDivElement>(null)
-  const phone = useIsPhone()
   const level = useRailLevel(ref, !phone)
   const worded = useRailLabels() === 'short'
   return (

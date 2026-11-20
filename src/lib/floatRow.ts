@@ -6,7 +6,7 @@
 // Mehrfach armed, though the dock under it ([ⓘ | ✕], centred, 120px wide) left the left end of
 // its line empty. The CSS reserve (15-mobile · --float-base) has to assume the worst: the dock is
 // as wide as the screen. Here the row's floor is the bars alone (`--float-floor`) and it rises
-// only past what actually stands in its way — the dock, the armed tool's pill — by the measured
+// only past what actually stands in its way — the dock, Messen's panel — by the measured
 // overlap (`--row-lift`), so it sits beside a short dock and above a long one.
 //
 // Mounted ONCE per workspace (IncidentWorkspace, phone only) and it places every row on screen —
@@ -27,11 +27,11 @@ export interface Box { left: number; right: number; top: number; bottom: number 
 /** The gap the floating family keeps from everything (01-tokens · --float-gap). */
 const GAP = 8
 const ROW_SEL = '.wb-botleft'
-/** what stands on the row's floor on a phone: the tool's option dock, the armed tool's readout,
- *  Messen's results panel (MeasurePanel · `data-float-stack`, a hashed module class), and the
+/** what stands on the row's floor on a phone: the tool's option dock (which also names the armed
+ *  tool there since 16.11.2026 – no pill on a phone), Messen's results panel (MeasurePanel · `data-float-stack`, a hashed module class), and the
  *  Präsentationsmodus pill (components/Presentation – it stands bottom centre, the chips rise
  *  past it; owner's iPhone 06.11.2026) */
-const OBSTACLE_SEL = '.phone-tools .wb-dock, .phone-tools .armed-pill-row, .phone-tools [data-float-stack], .phone-tools .present-pill, .phone-tools .present-again'
+const OBSTACLE_SEL = '.phone-tools .wb-dock, .phone-tools [data-float-stack], .phone-tools .present-pill, .phone-tools .present-again'
 /** …and what else stands in the stack the message lane has to clear: the Eintrag FAB (only a
  *  recording one stays while a tool is out) */
 const STACK_EXTRA_SEL = '.fab-entry'

@@ -808,9 +808,9 @@ describe('KarteApp', () => {
     expect(screen.getByRole('button', { name: 'Suchen' })).toBeTruthy()
   })
 
-  // «Beschriftung» reaches every bar here as in an Einsatz (owner, 07.11.2026) – and the left
-  // rail keeps its chevron with the words on (the regression of 20.10.2026 was losing it)
-  it('with saved toolbar labels: words on every bar, and the left rail still expands and collapses', async () => {
+  // «Beschriftung» reaches every bar here as in an Einsatz (owner, 07.11.2026) – and, as there,
+  // the left rail drops its chevron with the words on (owner, 16.11.2026)
+  it('with saved toolbar labels: words on every bar, and the left rail no longer expands', async () => {
     const prefs = loadPrefs()
     savePrefs({ ...prefs, railLabels: 'short', railLabelsChosen: true })
     try {
@@ -820,12 +820,7 @@ describe('KarteApp', () => {
       expect(document.querySelector('aside.tool-rail.labelled')).toBeTruthy()
       expect(document.querySelector('.view-bar.labelled')).toBeTruthy()
       expect(document.documentElement.style.getPropertyValue('--rail-w')).toBe('92px')
-      fireEvent.click(within(rail).getByRole('button', { name: 'Ausklappen' }))
-      expect(rail.classList.contains('expanded')).toBe(true)
-      expect(document.documentElement.style.getPropertyValue('--rail-w')).toBe('216px')
-      fireEvent.click(within(rail).getByRole('button', { name: 'Einklappen' }))
-      expect(rail.classList.contains('expanded')).toBe(false)
-      expect(document.documentElement.style.getPropertyValue('--rail-w')).toBe('92px')
+      expect(within(rail).queryByRole('button', { name: 'Ausklappen' })).toBeNull()
       await act(async () => {})
     } finally {
       savePrefs(prefs)

@@ -118,7 +118,7 @@ import { useBoardDoc, type BoardHistory } from './useBoardDoc'
 import { useBoardGestures } from './useBoardGestures'
 import { WbToolDocks, WbCircleHandle, WbCircleLayer, WbInkLayer, WbVertexHandles, WbDraftHandles, WbSnapRing, type TruppFinderDoor } from './WbControls'
 import { MeasurePanel } from './MeasurePanel'
-import { ToolDock } from './ToolDock'
+import { ToolDock, type ArmedReadout } from './ToolDock'
 import { ArmedSymbolGlyph, ArmedToolPill } from './ArmedToolPill'
 import { armedToolIcon, armedToolName } from '../lib/armedTool'
 import { PlanCompass } from './PlanCompass'
@@ -1186,6 +1186,15 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   }, [selectOnly, setTool, setPending, setPendingShape, setDraft, setCircleDraft])
   /** Put a symbol / shape being placed down – the armed pill's ✕ and Escape (round 2, 27.10.2026) */
   const stopPlacing = () => { setPending(null); setPendingShape(null); setTool('pan') }
+  // the armed tool's glyph + word: the phone's dock leads with it (ToolDock · armed). Not for a
+  // Form (its dock already leads with its glyph) nor Messen (its results panel names it).
+  const armed: ArmedReadout | null = (() => {
+    if (tool === 'pan' || tool === 'measure' || tool === 'shape') return null
+    if (tool === 'symbol') return pending ? { glyph: <ArmedSymbolGlyph svg={sym.byName[pending] ?? ''} />, name: formatSymbolName(pending) || pending } : null
+    const name = armedToolName(tool, appConfig.copy.planTools)
+    const icon = armedToolIcon(tool, appConfig.copy.planTools)
+    return name && icon ? { glyph: <Icon id={icon} />, name } : null
+  })()
   // Esc cancels an in-progress node shape, else clears the selection
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -2893,6 +2902,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
           onMeasClear={() => setMeasPath(() => [])}
           onMeasClose={() => { measReset(); setTool('pan') }}
           truppFinder={truppFinder}
+          armed={armed}
         />}
       </div>
 
@@ -2968,11 +2978,12 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
           bottom centre, nothing else. The symbol tool has no dock here either; «Mehrere
           platzieren» and a ✕ (27.10.2026) stand beside the pill. Rest tool is 'pan' here (the plan pans on empty
           canvas) vs the map's 'select'. Never while Messen is armed, on any size – its results
-          panel stands in that spot (sweep 30.10.2026 #3). */}
-      {tool !== 'pan' && tool !== 'measure' && (() => {
+          panel stands in that spot (sweep 30.10.2026 #3). Not on a phone (owner, 16.11.2026): the
+          dock leads with the tool there (`armed`), and the symbol gets a dock of its own, below. */}
+      {!isPhone && tool !== 'pan' && tool !== 'measure' && (() => {
         if (tool === 'symbol') {
-          if (!pending) return null
-          return <ArmedToolPill glyph={<ArmedSymbolGlyph svg={sym.byName[pending] ?? ''} />} name={formatSymbolName(pending) || pending}
+          if (!armed) return null
+          return <ArmedToolPill glyph={armed.glyph} name={armed.name}
             lock={{ on: placeLock, onToggle: () => setPlaceLock((v) => !v) }} onClose={stopPlacing} />
         }
         if (tool === 'shape') {
@@ -2984,10 +2995,16 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
         const name = grundriss
           ? `${armedToolName(tool, appConfig.copy.planTools)} · ${appConfig.copy.whiteboard.grundriss[grundriss]}`
           : armedToolName(tool, appConfig.copy.planTools, { lineMode, areaMode })
-        const icon = armedToolIcon(tool, appConfig.copy.planTools)
-        if (!name || !icon) return null
-        return <ArmedToolPill glyph={<Icon id={icon} />} name={name} />
+        if (!name || !armed) return null
+        return <ArmedToolPill glyph={armed.glyph} name={name} />
       })()}
+      {/* the phone's symbol dock: [F Feuer · ⟳ Mehrere | ✕] – the Lage map's twin (MapToolDocks) */}
+      {isPhone && tool === 'symbol' && armed && (
+        <ToolDock armed={armed} groups={[
+          [{ type: 'close', onClick: stopPlacing }],
+          [{ type: 'toggle', icon: 'place-repeat', label: appConfig.copy.keepPlacing, short: appConfig.copy.keepPlacingShort, on: placeLock, onClick: () => setPlaceLock((v) => !v) }],
+        ]} />
+      )}
 
       {pendingShape && tool === 'shape' && (
         <ToolDock groups={[

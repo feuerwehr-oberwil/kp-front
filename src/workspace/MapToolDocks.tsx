@@ -10,7 +10,7 @@ import { ArmedSymbolGlyph, ArmedToolPill } from '../components/ArmedToolPill'
 import { type ViewsApi, MapViewsButton } from '../components/MapViewsMenu'
 import { MeasurePanel } from '../components/MeasurePanel'
 import { Palette } from '../components/Palette'
-import { ToolDock } from '../components/ToolDock'
+import { ToolDock, type ArmedReadout } from '../components/ToolDock'
 import { RailKey, ToolRail } from '../components/ToolRail'
 import { appConfig } from '../config/appConfig'
 import { armedToolIcon, armedToolName } from '../lib/armedTool'
@@ -18,6 +18,7 @@ import { isAtemschutzTrupp } from '../lib/atemschutz'
 import { formatSymbolName } from '../lib/format'
 import { PANEL_KEY } from '../lib/hotkeys'
 import { Icon } from '../lib/icons'
+import { useIsPhone } from '../lib/useIsPhone'
 import { layerPresetLabel, type LayerPreset } from '../lib/layerPreset'
 import { Overlay } from '../lib/overlays'
 import type { PlacedTrupp } from '../lib/placedTrupps'
@@ -95,21 +96,33 @@ export function MapToolDocks({
   view, readOnly, isEl, viewsOpen, sharePick, shareParent, toggleViews, coord, mapRef, paletteOpen,
   sym, setPaletteOpen, pickShape, teamPick, trupps, truppColors, placeTruppOnMap, placeGenericTeam,
 }: MapToolDocksProps) {
+  const isPhone = useIsPhone()
+  // the ✕ puts a symbol down exactly as Escape does (useMapActions · cancelPlacement) – the Plan's twin
+  const stopPlacing = () => { setPending(null); setPendingShape(null); setRotStart(null); setTool('select') }
+  // the armed tool's glyph + word: the phone's dock leads with it (ToolDock · armed). Not for a
+  // Form (its dock already leads with its glyph) nor Messen (its results panel names it).
+  const armed: ArmedReadout | null = (() => {
+    if (!mapUI || tool === 'select' || tool === 'measure' || tool === 'shape') return null
+    if (tool === 'symbol') return pending ? { glyph: <ArmedSymbolGlyph svg={sym.byName[pending] ?? ''} />, name: formatSymbolName(pending) || pending } : null
+    const name = armedToolName(tool, appConfig.copy.mapTools)
+    const icon = armedToolIcon(tool, appConfig.copy.mapTools)
+    return name && icon ? { glyph: <Icon id={icon} />, name } : null
+  })()
   return (
     <>
       {/* the armed tool's readout — ONE pill, bottom centre, glyph + name (3am sweep point 3,
           23.10.2026). A symbol wears its own SVG and name, the others their rail glyph and word;
-          Linie/Fläche say their input mode. The symbol tool has no dock any more: the pill IS
+          Linie/Fläche say their input mode. The symbol tool has no dock: the pill IS
           its readout, «Mehrere platzieren» stands beside it, and the way out is the ✕ beside that
           (27.10.2026), the rail tile or Escape. Never while Messen is armed, on any size – its results
-          panel stands in that spot and the pill covered its numbers (sweep 30.10.2026 #3). */}
-      {mapUI && tool !== 'select' && tool !== 'measure' && (() => {
+          panel stands in that spot and the pill covered its numbers (sweep 30.10.2026 #3).
+          ⚠️ Not on a phone (owner, 16.11.2026): there the pill was a fourth row over dock, tool bar
+          and nav bar – the dock leads with the tool instead, and the symbol gets a dock of its own. */}
+      {mapUI && !isPhone && tool !== 'select' && tool !== 'measure' && (() => {
         if (tool === 'symbol') {
-          if (!pending) return null
-          // the ✕ puts it down exactly as Escape does (useMapActions · cancelPlacement) – the Plan's twin
-          return <ArmedToolPill glyph={<ArmedSymbolGlyph svg={sym.byName[pending] ?? ''} />} name={formatSymbolName(pending) || pending}
-            lock={{ on: placeLock, onToggle: () => setPlaceLock((v) => !v) }}
-            onClose={() => { setPending(null); setPendingShape(null); setRotStart(null); setTool('select') }} />
+          if (!armed) return null
+          return <ArmedToolPill glyph={armed.glyph} name={armed.name}
+            lock={{ on: placeLock, onToggle: () => setPlaceLock((v) => !v) }} onClose={stopPlacing} />
         }
         if (tool === 'shape') {
           if (!pendingShape) return null
@@ -117,19 +130,25 @@ export function MapToolDocks({
             name={appConfig.copy.shapes.names[pendingShape] ?? appConfig.copy.shapes.kindLabel} />
         }
         const name = armedToolName(tool, appConfig.copy.mapTools, { lineMode, areaMode })
-        const icon = armedToolIcon(tool, appConfig.copy.mapTools)
-        if (!name || !icon) return null
-        return <ArmedToolPill glyph={<Icon id={icon} />} name={name} />
+        if (!armed || !name) return null
+        return <ArmedToolPill glyph={armed.glyph} name={name} />
       })()}
+      {/* the phone's symbol dock: [F Feuer · ⟳ Mehrere | ✕] – what the pill row said, in the dock's shape */}
+      {mapUI && isPhone && tool === 'symbol' && armed && (
+        <ToolDock armed={armed} groups={[
+          [{ type: 'close', onClick: stopPlacing }],
+          [{ type: 'toggle', icon: 'place-repeat', label: appConfig.copy.keepPlacing, short: appConfig.copy.keepPlacingShort, on: placeLock, onClick: () => setPlaceLock((v) => !v) }],
+        ]} />
+      )}
       {/* active-tool option docks — the right-edge column (a bottom bar on the phone) */}
       {mapUI && tool === 'lasso' && (
-        <ToolDock groups={[
+        <ToolDock armed={armed} groups={[
           [{ type: 'close', onClick: () => setTool('select') }],
           [{ type: 'info', text: appConfig.copy.dockHints.lasso }],
         ]} />
       )}
       {mapUI && tool === 'line' && (
-        <ToolDock groups={[
+        <ToolDock armed={armed} groups={[
           [{ type: 'close', onClick: () => { setTool('select'); settleDraft() } }],
           // input mode: Freihand (drag) ↔ Punkte (tap each vertex, ✓ to finish)
           [
@@ -144,7 +163,7 @@ export function MapToolDocks({
         ]} />
       )}
       {mapUI && tool === 'area' && (
-        <ToolDock groups={[
+        <ToolDock armed={armed} groups={[
           [{ type: 'close', onClick: () => { setTool('select'); settleDraft() } }],
           [
             { type: 'toggle', icon: 'pen', label: appConfig.copy.drawingEditor.modeFreehand, on: areaMode === 'freehand', onClick: () => { setAreaMode('freehand'); settleDraft() } },
@@ -159,7 +178,7 @@ export function MapToolDocks({
           caret already in the text (notePlacedId), and Zettel/Klartext, S/M/L and the colour
           live THERE — where they also write the next note's defaults. */}
       {mapUI && tool === 'note' && (
-        <ToolDock groups={[
+        <ToolDock armed={armed} groups={[
           [{ type: 'close', onClick: () => setTool('select') }],
           [{ type: 'info', text: appConfig.copy.dockHints.note }],
         ]} />
@@ -167,7 +186,7 @@ export function MapToolDocks({
       {/* Trupp — the one tool that had NO dock (testing feedback 2026-07-15): every active
           tool shows a ✕ + ⓘ so nobody is stranded wondering what the mode does */}
       {mapUI && tool === 'team' && (
-        <ToolDock groups={[
+        <ToolDock armed={armed} groups={[
           [{ type: 'close', onClick: () => { setTeamPick(null); setTool('select') } }],
           // ⚠️ «Trupp finden» lives HERE, on the tool the question is about — not in the left
           // rail, which navigates between surfaces. Reaching for the Trupp tool is already the
@@ -183,13 +202,13 @@ export function MapToolDocks({
         ]} />
       )}
       {mapUI && tool === 'circle' && (
-        <ToolDock groups={[
+        <ToolDock armed={armed} groups={[
           [{ type: 'close', onClick: () => setTool('select') }],
           [{ type: 'info', text: appConfig.copy.dockHints.circle }],
         ]} />
       )}
       {mapUI && tool === 'measure' && (
-        <ToolDock groups={[
+        <ToolDock armed={armed} groups={[
           [{ type: 'close', onClick: () => { measure.reset(); setTool('select') } }],
           [
             { type: 'toggle', icon: 'measure', label: appConfig.copy.measure.modeLine, on: measure.mode === 'line', onClick: () => measure.setMode('line') },
@@ -200,7 +219,7 @@ export function MapToolDocks({
         ]} />
       )}
       {mapUI && tool === 'shape' && pendingShape && (
-        <ToolDock groups={[
+        <ToolDock armed={armed} groups={[
           [{ type: 'close', onClick: () => { setPendingShape(null); setRotStart(null); setTool('select') } }],
           // currentColor, not #fff: the dock is light by day since 20.10.2026 (3am sweep, nit)
           [{ type: 'glyph', node: <ShapeGlyph kind={pendingShape} color="currentColor" aspect={SHAPE_DEFS[pendingShape].defaultAspect} fit />,
