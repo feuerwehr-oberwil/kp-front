@@ -61,7 +61,9 @@ jobs:
           # Only move `latest` when this really is the newest release – a late patch on an
           # older series (0.1.1 after 0.2.0) must not drag `latest` backwards.
           image="ghcr.io/${GITHUB_REPOSITORY}"
-          newest=$(git tag -l 'v*' | sort -V | tail -1)
+          # Only tags of the same strict shape compete: a mistyped tag that this job refused
+          # (v1.2.3x) would otherwise sort on top and keep `latest` from ever moving again.
+          newest=$(git tag -l 'v*' | grep -E '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$' | sort -V | tail -1)
           tags="${image}:${version}"$'\n'"${image}:${version%.*}"
           if [ "$newest" = "$GITHUB_REF_NAME" ]; then
             tags="$tags"$'\n'"${image}:latest"

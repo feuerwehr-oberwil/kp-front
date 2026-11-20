@@ -180,17 +180,24 @@ jobs:
       # and a later commit takes out again passes it — and a merge commit carries both commits
       # into main's history, where the secret stays readable. So a pull request's own commits
       # are scanned too (same image, same rules, same `gitleaks:allow` comments).
+      #
+      # The range comes from the checkout itself: on a pull request HEAD is GitHub's merge of
+      # the base (first parent) and the PR head (second parent). A HEAD that is no such merge
+      # fails the step — it never scans an empty range. `--diff-merges=first-parent` makes
+      # `git log -p` show what a merge commit INSIDE the pull request brought in by itself
+      # (a conflict resolution), which it leaves out by default.
       # `safe.directory`: the container's user is not the owner of the checkout.
       - name: Scan the pull request's commits for secrets
         if: github.event_name == 'pull_request'
-        env:
-          PR_BASE: ${{ github.event.pull_request.base.sha }}
-          PR_HEAD: ${{ github.event.pull_request.head.sha }}
         run: |
+          set -euo pipefail
+          base=$(git rev-parse --verify --quiet 'HEAD^1')
+          head=$(git rev-parse --verify --quiet 'HEAD^2')
+          echo "scanning $(git rev-list --count "$base..$head") commit(s): $base..$head"
           docker run --rm -v "$PWD":/repo \
             -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0='*' \
             ghcr.io/gitleaks/gitleaks@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f \
-            detect --source /repo --log-opts "$PR_BASE..$PR_HEAD" --redact --exit-code 1
+            detect --source /repo --log-opts "--diff-merges=first-parent $base..$head" --redact --exit-code 1
 
   # --- Shared files: the copies KP Front and KP Rück hold of the same files ------------
   # shared/MANIFEST.json lists every file the two products share by copy (telemetry sanitiser,
