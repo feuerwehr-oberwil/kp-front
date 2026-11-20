@@ -31,7 +31,8 @@
     "demo": "Demo",
     "githubAria": "KP Front sin GitHub",
     "languageAria": "Lingua",
-    "options": "Lingua ed apparientscha"
+    "options": "Lingua ed apparientscha",
+    "skip": "Siglir al cuntegn"
   },
   "theme": {
     "label": "Apparientscha stgira"
@@ -331,6 +332,7 @@
       "notes": "Notizias da la versiun",
       "dateFormat": "DD.MM.YYYY"
     },
-    "security": "Segirezza"
+    "security": "Segirezza",
+    "privacy": "Protecziun da datas"
   }
 }

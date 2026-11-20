@@ -56,6 +56,9 @@
 <link rel="preload" href="{{base}}fonts/spline-sans-mono.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="{{base}}landing.css">
 
+<!--@template The first Tab stop: it jumps over the header's eleven links to <main>. -->
+<a class="skip" href="#main">{{nav.skip}}</a>
+
 <!--@template Every <svg><use href="#i-…"/></svg> is decoration: build.mjs adds aria-hidden and
      focusable="false" to each one, so the uses below leave them out. -->
 <svg style="display:none" aria-hidden="true">
@@ -117,6 +120,14 @@
             {{#langLinks}}<a class="menu-language{{#current}} on{{/current}}" data-language-link href="{{href}}" hreflang="{{code}}" lang="{{code}}"{{#current}} aria-current="page"{{/current}}><span>{{name}}</span><span aria-hidden="true">{{#current}}✓{{/current}}</span></a>{{/langLinks}}
           </div>
           <button class="theme-toggle menu-theme" type="button" aria-pressed="false" hidden><svg class="ico"><use href="#i-moon"/></svg><span>{{theme.label}}</span><span class="theme-check" aria-hidden="true">✓</span></button>
+          <!--@template The links a compact header has no room for. GitHub leaves the header with the
+               other desktop options (860px); the two section links stay until 560px, so `.menu-narrow`
+               lists them only below that. theme.js closes the menu after a link to a section. -->
+          <div class="menu-links">
+            <a class="menu-link menu-narrow" href="#funktionen">{{nav.features}}</a>
+            <a class="menu-link menu-narrow" href="#kontakt">{{nav.contact}}</a>
+            <a class="menu-link" href="https://github.com/feuerwehr-oberwil/kp-front" target="_blank" rel="noopener"><svg class="ico"><use href="#i-gh"/></svg>GitHub</a>
+          </div>
         </div>
       </details>
     </nav>
@@ -128,7 +139,7 @@
   <p class="wrap">{{notice}}</p>
 </div>
 {{/notice}}
-<main>
+<main id="main">
   <!--@template
     The hero is a centred headline over the app as it really looks: the iPad with the Karte and
     the iPhone with the Trupps in front of it. Device pictures come from capture.mjs (real
@@ -362,6 +373,7 @@
       <a href="{{sister}}">KP Rück</a>
       <a href="#kontakt">{{footer.contact}}</a>
       <a href="https://github.com/feuerwehr-oberwil/kp-front/security/policy" target="_blank" rel="noopener">{{footer.security}}</a>
+      <a href="https://github.com/feuerwehr-oberwil/kp-front/blob/main/PRIVACY.md#the-project-website" target="_blank" rel="noopener">{{footer.privacy}}</a>
     </div>
   </div>
 </footer>

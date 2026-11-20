@@ -31,7 +31,8 @@
     "demo": "Démo",
     "githubAria": "KP Front sur GitHub",
     "languageAria": "Langue",
-    "options": "Langue et apparence"
+    "options": "Langue et apparence",
+    "skip": "Aller au contenu"
   },
   "theme": {
     "label": "Mode sombre"
@@ -331,6 +332,7 @@
       "notes": "Notes de version",
       "dateFormat": "DD.MM.YYYY"
     },
-    "security": "Sécurité"
+    "security": "Sécurité",
+    "privacy": "Protection des données"
   }
 }

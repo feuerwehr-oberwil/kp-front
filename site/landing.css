@@ -113,6 +113,16 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 
 .wrap { max-width: 1040px; margin: 0 auto; padding: 0 24px; }
 
+/* The first Tab stop: off screen until it has the focus, then above the sticky header. */
+.skip {
+  position: absolute; left: 12px; top: 8px; z-index: 20;
+  padding: 10px 16px; border-radius: var(--r-btn);
+  background: var(--ink); color: var(--bg);
+  font-size: 14.5px; font-weight: 600; text-decoration: none;
+  transform: translateY(-200%);
+}
+.skip:focus { transform: none; }
+
 /* ---------- header ---------- */
 .top {
   position: sticky; top: 0; z-index: 10;
@@ -189,6 +199,17 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 }
 .theme-check { margin-left: auto; visibility: hidden; }
 [aria-pressed="true"] .theme-check { visibility: visible; }
+/* The links the compact header has no room for. `.menu-narrow` marks the ones a mid-width
+   header still shows itself, so the menu lists them only where the header drops them (560px). */
+.menu-links {
+  display: grid; gap: 2px;
+  padding-top: 12px; border-top: 1px solid var(--line-soft);
+}
+.top nav a.menu-link {
+  display: flex; align-items: center; gap: 10px;
+  min-height: 44px; padding: 8px 12px;
+}
+.top nav a.menu-narrow { display: none; }
 
 /* Real language links stay crawlable; the compact menu uses the same destinations. */
 .langs { display: flex; align-items: center; }
@@ -281,7 +302,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 section { padding: 96px 0; }
 section.wrap { padding-top: 96px; padding-bottom: 96px; }
 section.hero { padding-top: 88px; padding-bottom: 64px; }
-section[id] { scroll-margin-top: 76px; } /* anchor targets clear the sticky header */
+section[id], main { scroll-margin-top: 76px; } /* anchor targets clear the sticky header */
 .sec-head { max-width: 62ch; }
 .sec-head h2 {
   font-size: clamp(1.55rem, 3.4vw, 2.15rem);
@@ -826,8 +847,9 @@ dialog.lb::backdrop { background: rgba(12, 14, 17, .9); }
   .sibling-grid { grid-template-columns: 1fr; gap: 34px; }
 }
 @media (max-width: 560px) {
-  /* The menu holds languages and appearance; the brand and Demo stay one row. */
+  /* The menu holds languages, appearance and the page's links; the brand and Demo stay one row. */
   .top nav > a:not(.cta) { display: none; }
+  .top nav a.menu-narrow { display: flex; }
   .top-in { gap: 8px; }
   .mark { gap: 8px; }
   .top nav { gap: 8px; }

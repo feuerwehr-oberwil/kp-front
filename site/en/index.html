@@ -42,6 +42,10 @@
         menu.querySelector('summary').focus();
         event.preventDefault();
       });
+      // A link to a section of this page does not load a page, so the menu closes itself.
+      menu.addEventListener('click', function (event) {
+        if (event.target.closest('a[href^="#"]')) menu.open = false;
+      });
     });
     document.querySelectorAll('.theme-toggle').forEach(function (button) {
       button.addEventListener('click', function () {
@@ -349,6 +353,8 @@
 <link rel="preload" href="../fonts/spline-sans-mono.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="../landing.css">
 
+<a class="skip" href="#main">Skip to content</a>
+
 <svg style="display:none" aria-hidden="true">
   <symbol id="i-moon" viewBox="0 0 16 16"><path d="M13.8 10.2A6.2 6.2 0 0 1 5.8 2.2a6.2 6.2 0 1 0 8 8z"/></symbol>
   <symbol id="i-sun" viewBox="0 0 16 16"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="3"/><path d="M8 1v1M8 14v1M1 8h1M14 8h1M3 3l1 1M12 12l1 1M3 13l1-1M12 4l1-1"/></g></symbol>
@@ -408,13 +414,18 @@
             <a class="menu-language" data-language-link href="../" hreflang="de" lang="de"><span>Deutsch</span><span aria-hidden="true"></span></a><a class="menu-language" data-language-link href="../fr/" hreflang="fr" lang="fr"><span>Français</span><span aria-hidden="true"></span></a><a class="menu-language" data-language-link href="../it/" hreflang="it" lang="it"><span>Italiano</span><span aria-hidden="true"></span></a><a class="menu-language" data-language-link href="../rm/" hreflang="rm" lang="rm"><span>Rumantsch</span><span aria-hidden="true"></span></a><a class="menu-language on" data-language-link href="../en/" hreflang="en" lang="en" aria-current="page"><span>English</span><span aria-hidden="true">✓</span></a>
           </div>
           <button class="theme-toggle menu-theme" type="button" aria-pressed="false" hidden><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-moon"/></svg><span>Dark appearance</span><span class="theme-check" aria-hidden="true">✓</span></button>
+          <div class="menu-links">
+            <a class="menu-link menu-narrow" href="#funktionen">Features</a>
+            <a class="menu-link menu-narrow" href="#kontakt">Contact</a>
+            <a class="menu-link" href="https://github.com/feuerwehr-oberwil/kp-front" target="_blank" rel="noopener"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-gh"/></svg>GitHub</a>
+          </div>
         </div>
       </details>
     </nav>
   </div>
 </header>
 
-<main>
+<main id="main">
   <section class="hero hero-center wrap">
     <p class="eyebrow">Open source&nbsp;· free&nbsp;· Switzerland</p>
     <h1>Digital incident command for the fire brigade.</h1>
@@ -864,6 +875,7 @@
       <a href="https://kp-rueck.ch/en/">KP Rück</a>
       <a href="#kontakt">Contact</a>
       <a href="https://github.com/feuerwehr-oberwil/kp-front/security/policy" target="_blank" rel="noopener">Security</a>
+      <a href="https://github.com/feuerwehr-oberwil/kp-front/blob/main/PRIVACY.md#the-project-website" target="_blank" rel="noopener">Privacy</a>
     </div>
   </div>
 </footer>
