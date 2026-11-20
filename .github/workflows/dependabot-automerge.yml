@@ -22,6 +22,12 @@ name: Dependabot auto-merge
 
 on: pull_request
 
+# One run per PR at a time, and a newer push cancels the older run: an old run must not take
+# back the request a newer head has just made.
+concurrency:
+  group: dependabot-automerge-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 permissions:
   contents: write # both are needed to turn auto-merge on or off
   pull-requests: write
@@ -84,6 +90,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - if: needs.automerge-on.result != 'success' || needs.automerge-on.outputs.armed != 'true'
-        run: >-
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_URL: ${{ github.event.pull_request.url }}
+        # …but only while this run's head is still the PR's head: a newer head has a run of
+        # its own, and that run decides (the concurrency group above cancels this one anyway)
+        run: |
+          if [ "$(gh api "$PR_URL" --jq .head.sha)" != "$HEAD_SHA" ]; then
+            echo "the PR has a newer head – its own run decides"
+            exit 0
+          fi
           gh api graphql -f pr="$PR_ID" -f query='mutation($pr: ID!) {
-          disablePullRequestAutoMerge(input: { pullRequestId: $pr }) { clientMutationId } }'
+            disablePullRequestAutoMerge(input: { pullRequestId: $pr }) { clientMutationId } }'
