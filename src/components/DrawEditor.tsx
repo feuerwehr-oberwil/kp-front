@@ -308,7 +308,7 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
           {appConfig.copy.drawingEditor.lock}
         </Button>
       )}
-      {!readOnly && <Button variant="danger" icon={<Icon id="trash" />} onClick={onDelete}>{appConfig.copy.remove}</Button>}
+      {!readOnly && <Button variant="danger" icon={<Icon id="trash" />} onClick={onDelete} data-field="delete">{appConfig.copy.remove}</Button>}
     </div>
   )
   // the header shares the grip's drag (tap stays a tap there — see useSheetDrag)
@@ -401,7 +401,8 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
               // the label NAMES the pick under the row's word (button sweep audit A2, 17.11.2026):
               // four pictures, and the hold that names them is taught nowhere – a tap to find out is
               // safe, a pick undoes
-              // `data-field`: the anchors «Üben»'s «Zeigen» rings (lib/ueben) – here the ONE option to
+              // `data-field` (here, on «Schlauch», «Leitung Nr.», «Verbindung lösen» and «Entfernen»):
+              // the anchors «Üben»'s «Zeigen» rings (lib/ueben) – here the ONE option to
               // tap (Segmented · data-value), on the reverse below its button
               <div className="de-row" data-field="lineEnd"><span>{appConfig.copy.drawingEditor.ending}<b className="de-pick">{endingName(endingOf(drawing))}</b></span>
                 <Segmented
@@ -672,7 +673,7 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
                 a picked Ø can be cleared (owner 05.11.2026: as five chips «110» wrapped onto a row
                 of its own on the iPhone – and in the tablet's 360px sheet just the same). */}
             {onHose && (
-              <div className="de-row"><span>{appConfig.copy.drawingEditor.hose}</span>
+              <div className="de-row" data-field="hose"><span>{appConfig.copy.drawingEditor.hose}</span>
                 <Menu
                   trigger={
                     <button className="de-menu-trigger" aria-label={`${appConfig.copy.drawingEditor.hose}: ${hose ? appConfig.copy.relay.hoseLabels[hose] : appConfig.copy.drawingEditor.hoseNone}`}>
@@ -703,7 +704,7 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
               </div>
             )}
             {onLineNo && (
-              <div className="de-row"><span>{appConfig.copy.drawingEditor.lineNo}</span>
+              <div className="de-row" data-field="lineNo"><span>{appConfig.copy.drawingEditor.lineNo}</span>
                 <Stepper value={drawing.lineNo ?? null} min={1} max={99} placeholder="–"
                   onChange={(v) => onLineNo(v)} onClear={() => onLineNo(undefined)} canClear={drawing.lineNo != null}
                   ariaLabel={appConfig.copy.drawingEditor.lineNo} />
@@ -921,7 +922,7 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
                 {/* «Lösen» is the neutral framed unlink button at the control edge (button sweep
                     SHEETS.3, 17.11.2026): a detach can be taken back, so it is no red word */}
                 {!readOnly && onDetach && !inGpsBlock && (
-                  <div className="de-act">
+                  <div className="de-act" data-field="detach">
                     <Button icon={<Icon id="unlink" />} onClick={() => onDetach(endpoint)}>{a.gps ? (onSiteKnown(a.gps) ? appConfig.copy.drawingEditor.gpsDetachOnSite : appConfig.copy.drawingEditor.gpsDetachHere) : appConfig.copy.drawingEditor.detachConnection}</Button>
                   </div>
                 )}

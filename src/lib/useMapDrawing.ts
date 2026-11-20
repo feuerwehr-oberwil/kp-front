@@ -126,17 +126,14 @@ export function useMapDrawing(deps: MapDrawingDeps) {
   // create a line from a finished path (freehand stroke OR node-tapped draft), seeded from the
   // sticky style above. EVERY finished line one-shots to Select with the new line active, so
   // its detail editor opens right away for post-draw tweaks — no extra click needed.
-  // `props`: a line adopted from Messen carries its Wassertransport (hose + relay) along, and the
-  // one «Üben»'s Lösung draws its arrow
-  const createLine = (coords: LngLat[], attachments?: { startAttachment?: LineAttachment; endAttachment?: LineAttachment }, opts?: { select?: boolean; props?: Pick<Drawing, 'hose' | 'relay' | 'arrow'> }): Drawing | null => {
+  // `props`: a line adopted from Messen carries its Wassertransport (hose + relay) along
+  const createLine = (coords: LngLat[], attachments?: { startAttachment?: LineAttachment; endAttachment?: LineAttachment }, opts?: { select?: boolean; props?: Pick<Drawing, 'hose' | 'relay'> }): Drawing | null => {
     if (tacticalLocked) return null // the funnel every finished line goes through — same guard as the edit handlers
     const id = newId('d')
     const drawing: Drawing = {
       id, kind: 'line', coords, color: drawColor, width: drawWidth, dashed: drawDashed || undefined,
       ...(drawMarker ? { marker: drawMarker } : {}), ...(drawArrow ? { arrow: true } : {}), ...attachments,
       ...(opts?.props?.hose ? { hose: opts.props.hose } : {}), ...(opts?.props?.relay ? { relay: opts.props.relay } : {}),
-      // «Üben»'s Lösung draws the Leitung with its arrow, in the same one step (lib/ueben)
-      ...(opts?.props?.arrow ? { arrow: true } : {}),
     }
     commit((d) => ({ ...d, drawings: [...d.drawings, drawing] }))
     revealLayer?.(appConfig.defaults.drawingLayerId)

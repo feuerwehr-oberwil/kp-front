@@ -1969,6 +1969,8 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
         >
           <div
             className={`draw-handle ${editRingIdx.includes(i) ? 'draw-handle--ring' : ''} ${vertexPress.armed?.key === `draw:${i}` ? 'doomed' : ''}`}
+            // which point of the line this pad is – «Üben»'s «Zeigen» rings an inner one (lib/ueben)
+            data-node={i === 0 ? 'start' : i === editDraw.coords.length - 1 ? 'end' : 'inner'}
             title={appConfig.copy.measure.deleteNode}
             {...vertexPress.press(`draw:${i}`, () => deleteVertexKeepSelection(editDraw.id, i), editDraw.coords.length > (editArea ? 3 : 2))}
             onContextMenu={(ev) => { ev.stopPropagation(); ev.preventDefault(); if (editDraw.coords.length > (editArea ? 3 : 2)) deleteVertexKeepSelection(editDraw.id, i) }}

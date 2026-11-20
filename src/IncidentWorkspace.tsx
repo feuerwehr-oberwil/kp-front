@@ -37,7 +37,7 @@ import { clearAllDrafts } from './lib/draftKeep'
 import { newRowId } from './lib/ids'
 import { atemschutzDoctrine, getDeploymentConfig, deploymentDefaultCenter, isDemoMode } from './lib/deploymentConfig'
 import { countSurface } from './lib/visitBeacon'
-import { fillTemplate, formatSymbolName, formatTime } from './lib/format'
+import { fillTemplate, formatTime } from './lib/format'
 import { addSignature, shortChecksum, type ReportSignature } from './lib/reportSignature'
 import { drawingExtent } from './lib/geo'
 import { isPresent } from './lib/attendanceIntervals'
@@ -192,7 +192,6 @@ import { usePresentation } from './workspace/usePresentation'
 import { isFollower } from './lib/presentation'
 import { MapRings, PresentationPill } from './components/Presentation'
 import { isPracticeIncident } from './lib/practice/practiceMode'
-import type { SolveApi } from './lib/ueben/model'
 import type { TryTarget } from './lib/ueben/tryOut'
 
 // «Üben»'s task card (components/ueben/UebenRunner): its own chunk, loaded on the practice Einsatz only
@@ -2392,19 +2391,6 @@ export function IncidentWorkspace({
     endDrag, flyToMapVisible, setVehicleOverrides, trupps, linkTruppLine, patchEntity, objectsRef, objects,
     setPlanFocus, focusEntity, editNoteId, user, stepLabelRef: stepLabel,
   })
-  /** «Üben»'s «Lösung» (lib/ueben · SolveApi): a placement is addSymbol's four steps – one undo
-   *  step, the layer shown, the «… platziert» Verlauf row and the `entity.add` event */
-  const uebenApi: SolveApi = {
-    addEntity: (e) => {
-      commit((d) => ({ ...d, entities: [...d.entities, e] }))
-      revealLayer(e.layer)
-      log('hex', fillTemplate(appConfig.copy.log.symbolPlaced, { name: e.label || formatSymbolName(e.symbol ?? '') }), 'symbol', undefined, e.id)
-      emit('entity.add', { id: e.id, symbol: e.symbol, entity: e })
-    },
-    patchEntity,
-    patchDrawing: patchDrawingById,
-    addLine: (coords, attachments, props) => { createLine(coords, attachments, { select: false, props }) },
-  }
   const {
     deleteGroup, deleteEntity, placed, goToModule, goToTrupp, viewsApi, toggleViews, selected,
     undockTeam, setEntityDone, commitEntityFields, focusDrawing, noteEntity, pick, pickShape,
@@ -3493,17 +3479,17 @@ export function IncidentWorkspace({
           className="file-picker" tabIndex={-1} onChange={onQuickPhotoPicked} />
       )}
 
-      {/* «Üben»: the drill's card on the practice Einsatz (lib/practice), and nowhere else. «Lösung»
-          writes through the same writers a hand uses, so ↶ takes it back step by step. */}
+      {/* «Üben»: the step's card on the practice Einsatz (lib/practice), and nowhere else. A step's
+          start and «Lösung» are one `commit` each, so ↶ takes them back. */}
       {practice && !replayActive && (
         <Suspense fallback={null}>
           <UebenRunner
             doc={doc}
             ui={{ phone: isPhone, mode, paletteOpen, tool, pending, selectedId, selectedDrawingId }}
             detailOpen={!!selectedId || !!selectedDrawingId}
+            closeDetail={() => { setSelectedId(null); setSelectedDrawingId(null) }}
             mapRef={mapRef}
             commit={commit}
-            api={uebenApi}
             go={(t) => {
               if (t === 'verlauf') { setJournalOpen(true); return }
               if (t !== mode) clearMapUi()
