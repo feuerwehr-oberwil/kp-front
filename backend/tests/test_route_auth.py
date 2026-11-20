@@ -124,7 +124,7 @@ def _mounted() -> Iterator[tuple[str, str, bool]]:
 
     A mount is ("MOUNT", path), a WebSocket ("WS", path) and a plain route that takes every
     method ("*", path): none of them has a dependency tree this
-    walk can read, so both count as open. ``HEAD`` beside ``GET`` on one route is Starlette's own
+    walk can read, so all three count as open. ``HEAD`` beside ``GET`` on one route is Starlette's own
     twin of that GET and is not listed twice; every other method is, ``OPTIONS`` included.
     """
 
