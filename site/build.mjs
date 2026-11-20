@@ -82,6 +82,32 @@ const allLeafPaths = (v, path = '', out = []) => {
   return out
 }
 
+// ─── Typography per language ──────────────────────────────────────────────────
+//
+// French sets a space before : ; ? ! » and after «. Typed as a plain space, the browser may
+// break the line there and the mark starts the next line on its own. `typeset` turns that
+// space – plain or `&nbsp;` – into U+202F, the narrow no-break space of Swiss French typography,
+// in every text of a page. Markup inside a text stays as written: a tag is matched whole, with
+// its quoted attributes, and passed through. The rule hangs on the language code, so both sites
+// apply it without a setting. Structured data keeps the texts as typed (`plainText` would fold
+// the space back anyway).
+const TYPOGRAPHY = {
+  fr: (text) =>
+    text.replace(/<(?:"[^"]*"|'[^']*'|[^>"'])*>|(?: |&nbsp;)(?=[:;?!»])|(?<=«)(?: |&nbsp;)/g, (m) =>
+      m[0] === '<' ? m : '\u202f'),
+}
+const typeset = (code, value) => {
+  const rule = TYPOGRAPHY[code]
+  if (!rule) return value
+  const walk = (v) => {
+    if (typeof v === 'string') return rule(v)
+    if (Array.isArray(v)) return v.map(walk)
+    if (isPlainObject(v)) return Object.fromEntries(Object.entries(v).map(([key, x]) => [key, walk(x)]))
+    return v
+  }
+  return walk(value)
+}
+
 // Which leaves a language did NOT translate – reported as a coverage figure.
 const untranslated = (base, over, path = '', out = []) => {
   if (over === undefined) { out.push(path); return out }
@@ -496,7 +522,7 @@ for (const locale of config.locales) {
   // Everything that is not text but follows from where the page sits: language,
   // path depth, canonical address, and the links to its sister languages.
   const page = {
-    ...content,
+    ...typeset(locale.code, content),
     lang: locale.code,
     ogLocale: locale.ogLocale,
     ogAlternates: config.locales.filter((l) => l.code !== locale.code).map((l) => l.ogLocale),
@@ -571,7 +597,7 @@ for (const locale of config.locales) {
     const isBase = locale.code === baseLocale.code
     const content = isBase ? base : merge(base, readJson('content', `${locale.code}.json`))
     return {
-      ...content,
+      ...typeset(locale.code, content),
       lang: locale.code,
       // absolute, because this page is displayed at an address that is not its own
       home: `/${dirOf(locale)}`,

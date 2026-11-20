@@ -71,6 +71,9 @@ Decided deliberately, not accidental:
 - **A translation that no fire-service person of that language has read says so at the top
   of the page** (`notice` in `fr.json`, `it.json` and `rm.json`). That line disappears once someone has
   proofread it – it is not decoration.
+- **The build sets the French punctuation spaces.** Type a plain space before `: ; ? !` and
+  inside `« »` in `fr.json`; `build.mjs` (`TYPOGRAPHY`) turns it into a narrow no-break space
+  (U+202F) on the page, so the mark never starts a line. Structured data keeps the plain space.
 
 ## Theme assets and shared runtime
 
@@ -81,6 +84,12 @@ choice is a local preference (`kp-landing-theme`), shared across language pages 
 origin. Keep `theme.js`, `build.mjs` and `landing.css` byte-identical in both repositories.
 The builder embeds the runtime in the page head, including the single-file hand-out.
 KP Front lists it as a Knip entry because the builder reads it as text rather than importing it.
+
+The lightbox is shared in the same way: a picture inside a `.shot-zoom` button opens enlarged,
+the styles are in `landing.css`, and the script is the last block of `index.template.html` –
+the same block in both repositories, so change it in both. It reads the caption from the
+figure (`.cap-t`, `.cap-s`) or, without one, from the heading of the picture's section. The
+texts are `lightbox.*` in `content/*.json`.
 
 Capture both real app palettes: `shots/<device>/<name>.webp` is light, and
 `shots/dark/<device>/<name>.webp` is its night counterpart, with matching names and dimensions.

@@ -29,10 +29,15 @@
         if (!menu.contains(event.target)) menu.open = false;
       });
       document.addEventListener('keydown', function (event) {
-        if (event.key !== 'Escape' || !menu.open) return;
+        // An open dialog (the lightbox) stands in front of the menu, so Escape is its own first.
+        if (event.key !== 'Escape' || !menu.open || document.querySelector('dialog[open]')) return;
         menu.open = false;
         menu.querySelector('summary').focus();
         event.preventDefault();
+      });
+      // A link to a section of this page does not load a page, so the menu closes itself.
+      menu.addEventListener('click', function (event) {
+        if (event.target.closest('a[href^="#"]')) menu.open = false;
       });
     });
     document.querySelectorAll('.theme-toggle').forEach(function (button) {

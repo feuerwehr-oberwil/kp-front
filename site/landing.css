@@ -28,6 +28,9 @@
      the small print: .cta-note, .fit-note, captions, the footer, placeholders). */
   --ink-faint: #68707b;
   --red: #e30613;
+  /* Small red text (eyebrows, tags, small table heads): 5.36:1 on --sibling-bg, where --red
+     reaches only 4.21 (and 4.48 on --bg). Buttons and marks keep the brand red. */
+  --red-text: #c4041a;
   --red-deep: #b30510;
   --ok: #38c172;
   --surface: #ffffff;
@@ -52,6 +55,7 @@
   --ink-dim: #c3cbd8;
   --ink-faint: #a8b1c0;
   --red: #ff746a;
+  --red-text: #ff746a;
   --red-deep: #ff9a91;
   --surface: #1e2530;
   --line: color-mix(in srgb, var(--ink) 20%, transparent);
@@ -69,6 +73,7 @@
     --ink-dim: #c3cbd8;
     --ink-faint: #a8b1c0;
     --red: #ff746a;
+    --red-text: #ff746a;
     --red-deep: #ff9a91;
     --surface: #1e2530;
     --line: color-mix(in srgb, var(--ink) 20%, transparent);
@@ -107,6 +112,16 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 }
 
 .wrap { max-width: 1040px; margin: 0 auto; padding: 0 24px; }
+
+/* The first Tab stop: off screen until it has the focus, then above the sticky header. */
+.skip {
+  position: absolute; left: 12px; top: 8px; z-index: 20;
+  padding: 10px 16px; border-radius: var(--r-btn);
+  background: var(--ink); color: var(--bg);
+  font-size: 14.5px; font-weight: 600; text-decoration: none;
+  transform: translateY(-200%);
+}
+.skip:focus { transform: none; }
 
 /* ---------- header ---------- */
 .top {
@@ -184,6 +199,17 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 }
 .theme-check { margin-left: auto; visibility: hidden; }
 [aria-pressed="true"] .theme-check { visibility: visible; }
+/* The links the compact header has no room for. `.menu-narrow` marks the ones a mid-width
+   header still shows itself, so the menu lists them only where the header drops them (560px). */
+.menu-links {
+  display: grid; gap: 2px;
+  padding-top: 12px; border-top: 1px solid var(--line-soft);
+}
+.top nav a.menu-link {
+  display: flex; align-items: center; gap: 10px;
+  min-height: 44px; padding: 8px 12px;
+}
+.top nav a.menu-narrow { display: none; }
 
 /* Real language links stay crawlable; the compact menu uses the same destinations. */
 .langs { display: flex; align-items: center; }
@@ -218,17 +244,20 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 .eyebrow {
   font-family: var(--mono); font-size: 12.5px; font-weight: 500;
   letter-spacing: .14em; text-transform: uppercase;
-  color: var(--red);
+  color: var(--red-text);
   display: flex; align-items: center; gap: 10px;
 }
-.eyebrow::before { content: ''; width: 26px; height: 2px; background: var(--red); }
+.eyebrow::before { content: ''; width: 26px; height: 2px; background: var(--red-text); }
 .hero h1 {
   font-size: clamp(2.3rem, 6vw, 3.9rem);
   line-height: 1.06; font-weight: 800; letter-spacing: -.04em;
-  text-wrap: balance; overflow-wrap: anywhere; hyphens: auto;
+  text-wrap: balance; overflow-wrap: anywhere; hyphens: manual;
   margin: 18px 0 0;
   max-width: 17ch;
 }
+/* `manual` at every width: automatic hyphenation cut «Einsatz-board», «d’inter-vention» and
+   «opera-tivo» although the whole word had room on the next line. A word that is too long for
+   a phone carries a soft hyphen in its text (`hero.h1`). */
 .hero .lede {
   color: var(--ink-dim); font-size: clamp(1.02rem, 1.6vw, 1.15rem);
   max-width: 56ch; margin-top: 20px;
@@ -273,7 +302,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 section { padding: 96px 0; }
 section.wrap { padding-top: 96px; padding-bottom: 96px; }
 section.hero { padding-top: 88px; padding-bottom: 64px; }
-section[id] { scroll-margin-top: 76px; } /* anchor targets clear the sticky header */
+section[id], main { scroll-margin-top: 76px; } /* anchor targets clear the sticky header */
 .sec-head { max-width: 62ch; }
 .sec-head h2 {
   font-size: clamp(1.55rem, 3.4vw, 2.15rem);
@@ -392,7 +421,7 @@ section[id] { scroll-margin-top: 76px; } /* anchor targets clear the sticky head
 .entry:last-child .body { padding-bottom: 0; }
 .entry .tag {
   font-family: var(--mono); font-size: 12px; font-weight: 600;
-  letter-spacing: .13em; text-transform: uppercase; color: var(--red);
+  letter-spacing: .13em; text-transform: uppercase; color: var(--red-text);
 }
 .entry h3 { font-size: 1.12rem; font-weight: 700; letter-spacing: -.01em; margin-top: 6px; }
 .entry p { color: var(--ink-dim); margin-top: 6px; max-width: 58ch; }
@@ -428,7 +457,7 @@ section[id] { scroll-margin-top: 76px; } /* anchor targets clear the sticky head
 }
 .pillar .tag {
   font-family: var(--mono); font-size: 12px; font-weight: 600;
-  letter-spacing: .13em; text-transform: uppercase; color: var(--red);
+  letter-spacing: .13em; text-transform: uppercase; color: var(--red-text);
 }
 .pillar h3 { font-size: 1.3rem; font-weight: 700; letter-spacing: -.015em; margin-top: 10px; }
 .pillar p { color: var(--ink-dim); margin-top: 10px; }
@@ -458,7 +487,7 @@ section[id] { scroll-margin-top: 76px; } /* anchor targets clear the sticky head
 }
 .fgroup h3 {
   font-family: var(--mono); font-size: 12px; font-weight: 600;
-  letter-spacing: .13em; text-transform: uppercase; color: var(--red);
+  letter-spacing: .13em; text-transform: uppercase; color: var(--red-text);
   padding-bottom: 10px; border-bottom: 1px solid var(--line-soft);
 }
 .flist { list-style: none; margin: 0; padding: 0; }
@@ -510,7 +539,7 @@ section[id] { scroll-margin-top: 76px; } /* anchor targets clear the sticky head
   background: var(--fill-soft);
   color: var(--ink-faint);
 }
-.change th:last-child { color: var(--red); }
+.change th:last-child { color: var(--red-text); }
 .change th + th, .change td + td { border-left: 1px solid var(--line-soft); }
 .change td { font-size: .97rem; }
 .change td:first-child { color: var(--ink-faint); width: 44%; }
@@ -724,6 +753,10 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
   background: none; font: inherit; color: inherit; cursor: zoom-in;
 }
 .shot-zoom img { display: block; }
+/* The page behind an open lightbox stays where it is. */
+html:has(dialog.lb[open]) { overflow: hidden; }
+/* A picture that pans is a Tab stop (the script sets it); the ring sits inside its clipped box. */
+.lb-fig picture:focus-visible { outline: 2px solid var(--red); outline-offset: -2px; }
 
 dialog.lb {
   width: 100vw; max-width: 100vw; height: 100dvh; max-height: 100dvh;
@@ -733,14 +766,27 @@ dialog.lb {
 dialog.lb[open] { display: grid; place-items: center; }
 dialog.lb::backdrop { background: rgba(12, 14, 17, .9); }
 
-.lb-fig { display: grid; gap: 14px; justify-items: center; max-height: 100%; }
+/* --lb-room: the height a layout leaves for the picture. */
+.lb-fig { display: grid; gap: 14px; justify-items: center; max-height: 100%; --lb-room: calc(100dvh - 150px); }
 .lb-fig picture { display: flex; justify-content: center; min-width: 0; }
 .lb-fig img {
-  max-width: 100%; max-height: calc(100dvh - 150px); width: auto; height: auto;
+  max-width: 100%; max-height: var(--lb-room); width: auto; height: auto;
   object-fit: contain;
   border-radius: var(--r-surface);
   background: var(--surface);
   box-shadow: 0 30px 80px rgba(0, 0, 0, .5);
+}
+/* A phone capture is taller than wide (`.lb-tall`; the script also sets --lb-ratio, its width
+   over its height). Fitted to the height of a laptop or a phone screen it is smaller than on
+   the page. So it is at least a phone's width – life-size – and pans up and down inside
+   <picture>; where the screen is tall enough it grows to fit and does not pan. */
+.lb-fig.lb-tall picture {
+  display: block; max-height: var(--lb-room); overflow: hidden auto; overscroll-behavior: contain;
+}
+.lb-fig.lb-tall img {
+  display: block; margin: 0 auto;
+  width: max(430px, calc(var(--lb-room) * var(--lb-ratio))); max-width: 100%;
+  height: auto; min-height: 0; max-height: none;
 }
 .lb-fig figcaption {
   font-size: .95rem; color: #d5dae1; text-align: center; max-width: 68ch;
@@ -758,14 +804,34 @@ dialog.lb::backdrop { background: rgba(12, 14, 17, .9); }
 .lb-prev { left: 14px; }
 .lb-next { right: 14px; }
 .lb-x:hover, .lb-nav:hover { background: rgba(255, 255, 255, .24); }
-/* Phone-only parts of the lightbox: the scroll track, its hint and the «2 / 9» counter. */
+/* Built by the script: the scroll track and the «2 / 9» counter belong to the narrow layout
+   below; the hint shows in every layout while a picture pans. */
 .lb-track, .lb-hint, .lb-count { display: none; }
-@media (max-width: 620px) {
-  /* A tablet capture fitted to a phone's width is a quarter of its size and unreadable. So
-     the picture keeps a readable height and scrolls sideways inside <picture>; prev/next and
-     the counter stand in one row at the bottom, where a thumb reaches them. */
+.lb-hint:not([hidden]) {
+  display: block; font-family: var(--mono); font-size: 12.5px; color: #9aa3b0;
+}
+/* A phone held sideways is too short for the narrow layout and gets the fitted one. It keeps
+   its counter, in the corner opposite the close button. (Never both: the narrow layout is at
+   most 620px wide, or at least 8/7 as tall as wide.) */
+@media (min-width: 621px) and (max-height: 520px) {
+  .lb-count {
+    display: block; position: fixed; top: 16px; left: 18px; line-height: 40px;
+    pointer-events: none; font-family: var(--mono); font-size: 14px; color: #d5dae1;
+  }
+}
+/* The narrow layout: phones, and upright tablets (7/8 keeps short windows out). */
+@media (max-width: 620px), (max-width: 860px) and (max-aspect-ratio: 7/8) {
+  /* A tablet capture fitted to a phone's width is a quarter of its size and unreadable, and on
+     an upright tablet the page already shows it at full width. So the picture keeps a readable
+     height – 80vw makes it wider than the page shows it – and scrolls sideways inside <picture>;
+     prev/next and the counter stand in one row at the bottom, where a thumb reaches them. */
   dialog.lb { padding: 64px 0 calc(84px + env(safe-area-inset-bottom)); }
-  .lb-fig { width: 100%; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  /* hint, caption and counter stand on the backdrop itself here, so less of the page shows through */
+  dialog.lb::backdrop { background: rgba(12, 14, 17, .96); }
+  .lb-fig {
+    width: 100%; grid-template-columns: minmax(0, 1fr); gap: 12px;
+    --lb-room: calc(100dvh - 260px - env(safe-area-inset-bottom));
+  }
   .lb-fig picture {
     width: 100%; justify-content: flex-start; overflow-x: auto;
     overscroll-behavior-x: contain; scrollbar-width: none;
@@ -773,7 +839,7 @@ dialog.lb::backdrop { background: rgba(12, 14, 17, .9); }
   .lb-fig picture::-webkit-scrollbar { display: none; }
   .lb-fig img {
     flex: none; max-width: none; max-height: none;
-    height: min(460px, calc(100dvh - 330px)); min-height: 180px;
+    height: min(max(460px, 80vw), calc(100dvh - 330px)); min-height: 180px;
     border-radius: 0; box-shadow: none;
   }
   .lb-track:not([hidden]) {
@@ -781,9 +847,6 @@ dialog.lb::backdrop { background: rgba(12, 14, 17, .9); }
     height: 4px; margin: 0 22px; border-radius: 2px; background: rgba(255, 255, 255, .18);
   }
   .lb-track i { position: absolute; top: 0; bottom: 0; border-radius: 2px; background: #fff; }
-  .lb-hint:not([hidden]) {
-    display: block; font-family: var(--mono); font-size: 12.5px; color: #9aa3b0;
-  }
   .lb-fig figcaption { padding: 0 22px; }
   .lb-nav {
     top: auto; bottom: calc(18px + env(safe-area-inset-bottom)); transform: none;
@@ -818,8 +881,9 @@ dialog.lb::backdrop { background: rgba(12, 14, 17, .9); }
   .sibling-grid { grid-template-columns: 1fr; gap: 34px; }
 }
 @media (max-width: 560px) {
-  /* The menu holds languages and appearance; the brand and Demo stay one row. */
+  /* The menu holds languages, appearance and the page's links; the brand and Demo stay one row. */
   .top nav > a:not(.cta) { display: none; }
+  .top nav a.menu-narrow { display: flex; }
   .top-in { gap: 8px; }
   .mark { gap: 8px; }
   .top nav { gap: 8px; }
@@ -859,6 +923,9 @@ dialog.lb::backdrop { background: rgba(12, 14, 17, .9); }
 .dev img { display: block; width: 100%; height: auto; }
 .dev-ph picture { border-radius: 12.1cqw; }
 .dev-tab picture { border-radius: 1.5cqw; }
+/* A device picture as a lightbox trigger: the focus ring follows the screen's corner. */
+.dev-ph .shot-zoom { border-radius: 12.1cqw; }
+.dev-tab .shot-zoom { border-radius: 1.5cqw; }
 .narrow-only { display: none; }
 
 /* Hero: centred, the pair below. The tablet carries the height; the phone hangs off its right
@@ -930,6 +997,8 @@ section.chap:nth-of-type(even) .chap-txt { order: 2; }
   background: var(--sibling-bg); border-radius: var(--r-surface); padding: 22px 26px;
 }
 .sib p { color: var(--ink-dim); font-size: .97rem; max-width: 70ch; }
+/* The button never gives way to the line beside it: «Take a look at KP Rück» stood on four lines. */
+.sib .btn { flex: none; white-space: nowrap; }
 .sib p a { color: var(--ink-dim); }
 
 /* Closing: try it, then the three ways to reach us – the form opens inside its card. */

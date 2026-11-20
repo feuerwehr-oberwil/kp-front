@@ -37,10 +37,15 @@
         if (!menu.contains(event.target)) menu.open = false;
       });
       document.addEventListener('keydown', function (event) {
-        if (event.key !== 'Escape' || !menu.open) return;
+        // An open dialog (the lightbox) stands in front of the menu, so Escape is its own first.
+        if (event.key !== 'Escape' || !menu.open || document.querySelector('dialog[open]')) return;
         menu.open = false;
         menu.querySelector('summary').focus();
         event.preventDefault();
+      });
+      // A link to a section of this page does not load a page, so the menu closes itself.
+      menu.addEventListener('click', function (event) {
+        if (event.target.closest('a[href^="#"]')) menu.open = false;
       });
     });
     document.querySelectorAll('.theme-toggle').forEach(function (button) {
@@ -349,6 +354,8 @@
 <link rel="preload" href="../fonts/spline-sans-mono.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="../landing.css">
 
+<a class="skip" href="#main">Skip to content</a>
+
 <svg style="display:none" aria-hidden="true">
   <symbol id="i-moon" viewBox="0 0 16 16"><path d="M13.8 10.2A6.2 6.2 0 0 1 5.8 2.2a6.2 6.2 0 1 0 8 8z"/></symbol>
   <symbol id="i-sun" viewBox="0 0 16 16"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="3"/><path d="M8 1v1M8 14v1M1 8h1M14 8h1M3 3l1 1M12 12l1 1M3 13l1-1M12 4l1-1"/></g></symbol>
@@ -408,13 +415,18 @@
             <a class="menu-language" data-language-link href="../" hreflang="de" lang="de"><span>Deutsch</span><span aria-hidden="true"></span></a><a class="menu-language" data-language-link href="../fr/" hreflang="fr" lang="fr"><span>Français</span><span aria-hidden="true"></span></a><a class="menu-language" data-language-link href="../it/" hreflang="it" lang="it"><span>Italiano</span><span aria-hidden="true"></span></a><a class="menu-language" data-language-link href="../rm/" hreflang="rm" lang="rm"><span>Rumantsch</span><span aria-hidden="true"></span></a><a class="menu-language on" data-language-link href="../en/" hreflang="en" lang="en" aria-current="page"><span>English</span><span aria-hidden="true">✓</span></a>
           </div>
           <button class="theme-toggle menu-theme" type="button" aria-pressed="false" hidden><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-moon"/></svg><span>Dark appearance</span><span class="theme-check" aria-hidden="true">✓</span></button>
+          <div class="menu-links">
+            <a class="menu-link menu-narrow" href="#funktionen">Features</a>
+            <a class="menu-link menu-narrow" href="#kontakt">Contact</a>
+            <a class="menu-link" href="https://github.com/feuerwehr-oberwil/kp-front" target="_blank" rel="noopener"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-gh"/></svg>GitHub</a>
+          </div>
         </div>
       </details>
     </nav>
   </div>
 </header>
 
-<main>
+<main id="main">
   <section class="hero hero-center wrap">
     <p class="eyebrow">Open source&nbsp;· free&nbsp;· Switzerland</p>
     <h1>Digital incident command for the fire brigade.</h1>
@@ -472,18 +484,22 @@
       </div>
       <div class="chap-img">
         <div class="dev dev-tab wide-only">
-          <picture>
-          <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="../shots/dark/tablet/feuer.webp">
-          <script>document.currentScript.previousElementSibling.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';</script>
-          <img src="../shots/tablet/feuer.webp" alt="Situation map with the fire symbol selected: floor, spread and notes in the detail panel" width="1600" height="1090" loading="lazy" decoding="async">
-        </picture>
+          <button class="shot-zoom" type="button" aria-label="Enlarge: Situation map with the fire symbol selected: floor, spread and notes in the detail panel">
+            <picture>
+              <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="../shots/dark/tablet/feuer.webp">
+              <script>document.currentScript.previousElementSibling.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';</script>
+              <img src="../shots/tablet/feuer.webp" alt="Situation map with the fire symbol selected: floor, spread and notes in the detail panel" width="1600" height="1090" loading="lazy" decoding="async">
+            </picture>
+          </button>
         </div>
         <div class="dev dev-ph narrow-only">
-          <picture>
-          <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="../shots/dark/phone/feuer.webp">
-          <script>document.currentScript.previousElementSibling.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';</script>
-          <img src="../shots/phone/feuer.webp" alt="Situation map with the fire symbol selected: floor, spread and notes in the detail panel" width="780" height="1592" loading="lazy" decoding="async">
-        </picture>
+          <button class="shot-zoom" type="button" aria-label="Enlarge: Situation map with the fire symbol selected: floor, spread and notes in the detail panel">
+            <picture>
+              <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="../shots/dark/phone/feuer.webp">
+              <script>document.currentScript.previousElementSibling.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';</script>
+              <img src="../shots/phone/feuer.webp" alt="Situation map with the fire symbol selected: floor, spread and notes in the detail panel" width="780" height="1592" loading="lazy" decoding="async">
+            </picture>
+          </button>
         </div>
       </div>
     </section>
@@ -500,11 +516,13 @@
       </div>
       <div class="chap-img">
         <div class="dev dev-ph">
-          <picture>
-          <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="../shots/dark/phone/trupps.webp">
-          <script>document.currentScript.previousElementSibling.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';</script>
-          <img src="../shots/phone/trupps.webp" alt="Teams on a phone: cylinder pressure and running contact clock per team" width="780" height="1592" loading="lazy" decoding="async">
-        </picture>
+          <button class="shot-zoom" type="button" aria-label="Enlarge: Teams on a phone: cylinder pressure and running contact clock per team">
+            <picture>
+              <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="../shots/dark/phone/trupps.webp">
+              <script>document.currentScript.previousElementSibling.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';</script>
+              <img src="../shots/phone/trupps.webp" alt="Teams on a phone: cylinder pressure and running contact clock per team" width="780" height="1592" loading="lazy" decoding="async">
+            </picture>
+          </button>
         </div>
       </div>
     </section>
@@ -521,18 +539,22 @@
       </div>
       <div class="chap-img">
         <div class="dev dev-tab wide-only">
-          <picture>
-          <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="../shots/dark/tablet/plan.webp">
-          <script>document.currentScript.previousElementSibling.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';</script>
-          <img src="../shots/tablet/plan.webp" alt="Building plan (Modul 1): the situation map’s symbols stand on the plan too" width="1600" height="1090" loading="lazy" decoding="async">
-        </picture>
+          <button class="shot-zoom" type="button" aria-label="Enlarge: Building plan (Modul 1): the situation map’s symbols stand on the plan too">
+            <picture>
+              <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="../shots/dark/tablet/plan.webp">
+              <script>document.currentScript.previousElementSibling.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';</script>
+              <img src="../shots/tablet/plan.webp" alt="Building plan (Modul 1): the situation map’s symbols stand on the plan too" width="1600" height="1090" loading="lazy" decoding="async">
+            </picture>
+          </button>
         </div>
         <div class="dev dev-ph narrow-only">
-          <picture>
-          <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="../shots/dark/phone/plan.webp">
-          <script>document.currentScript.previousElementSibling.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';</script>
-          <img src="../shots/phone/plan.webp" alt="Building plan (Modul 1): the situation map’s symbols stand on the plan too" width="780" height="1592" loading="lazy" decoding="async">
-        </picture>
+          <button class="shot-zoom" type="button" aria-label="Enlarge: Building plan (Modul 1): the situation map’s symbols stand on the plan too">
+            <picture>
+              <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="../shots/dark/phone/plan.webp">
+              <script>document.currentScript.previousElementSibling.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';</script>
+              <img src="../shots/phone/plan.webp" alt="Building plan (Modul 1): the situation map’s symbols stand on the plan too" width="780" height="1592" loading="lazy" decoding="async">
+            </picture>
+          </button>
         </div>
       </div>
     </section>
@@ -549,11 +571,13 @@
       </div>
       <div class="chap-img">
         <div class="dev dev-ph">
-          <picture>
-          <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="../shots/dark/phone/verlauf.webp">
-          <script>document.currentScript.previousElementSibling.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';</script>
-          <img src="../shots/phone/verlauf.webp" alt="Log on a phone: timed entries and one open task" width="780" height="1592" loading="lazy" decoding="async">
-        </picture>
+          <button class="shot-zoom" type="button" aria-label="Enlarge: Log on a phone: timed entries and one open task">
+            <picture>
+              <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="../shots/dark/phone/verlauf.webp">
+              <script>document.currentScript.previousElementSibling.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';</script>
+              <img src="../shots/phone/verlauf.webp" alt="Log on a phone: timed entries and one open task" width="780" height="1592" loading="lazy" decoding="async">
+            </picture>
+          </button>
         </div>
       </div>
     </section>
@@ -570,18 +594,22 @@
       </div>
       <div class="chap-img">
         <div class="dev dev-tab wide-only">
-          <picture>
-          <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="../shots/dark/tablet/rapport.webp">
-          <script>document.currentScript.previousElementSibling.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';</script>
-          <img src="../shots/tablet/rapport.webp" alt="Incident report: incident data already filled in, summary and incident commander to complete" width="1600" height="1090" loading="lazy" decoding="async">
-        </picture>
+          <button class="shot-zoom" type="button" aria-label="Enlarge: Incident report: incident data already filled in, summary and incident commander to complete">
+            <picture>
+              <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="../shots/dark/tablet/rapport.webp">
+              <script>document.currentScript.previousElementSibling.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';</script>
+              <img src="../shots/tablet/rapport.webp" alt="Incident report: incident data already filled in, summary and incident commander to complete" width="1600" height="1090" loading="lazy" decoding="async">
+            </picture>
+          </button>
         </div>
         <div class="dev dev-ph narrow-only">
-          <picture>
-          <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="../shots/dark/phone/rapport.webp">
-          <script>document.currentScript.previousElementSibling.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';</script>
-          <img src="../shots/phone/rapport.webp" alt="Incident report: incident data already filled in, summary and incident commander to complete" width="780" height="1592" loading="lazy" decoding="async">
-        </picture>
+          <button class="shot-zoom" type="button" aria-label="Enlarge: Incident report: incident data already filled in, summary and incident commander to complete">
+            <picture>
+              <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="../shots/dark/phone/rapport.webp">
+              <script>document.currentScript.previousElementSibling.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';</script>
+              <img src="../shots/phone/rapport.webp" alt="Incident report: incident data already filled in, summary and incident commander to complete" width="780" height="1592" loading="lazy" decoding="async">
+            </picture>
+          </button>
         </div>
       </div>
     </section>
@@ -864,6 +892,7 @@
       <a href="https://kp-rueck.ch/en/">KP Rück</a>
       <a href="#kontakt">Contact</a>
       <a href="https://github.com/feuerwehr-oberwil/kp-front/security/policy" target="_blank" rel="noopener">Security</a>
+      <a href="https://github.com/feuerwehr-oberwil/kp-front/blob/main/PRIVACY.md#the-project-website" target="_blank" rel="noopener">Privacy</a>
     </div>
   </div>
 </footer>
@@ -941,6 +970,128 @@
           note.className = 'f-note err';
           note.textContent = 'That did not work. Please write directly to bastian.eichenberger@feuerwehr-oberwil.ch.';
         });
+    });
+  })();
+
+  // Lightbox – the same block on kp-front.ch and kp-rueck.ch. Every `.shot-zoom` button enlarges
+  // the picture inside it; the dialog is built here, so without JS the page stays as it is.
+  // The caption is the figure's own (`.cap-t`, `.cap-s`) or, without one, the heading of the
+  // section the picture stands in. Prev/next walk the pictures that are on screen: a chapter's
+  // picture for the other device is display:none and left out.
+  // On a phone or an upright tablet the picture keeps a readable size and pans inside <picture>:
+  // the track shows the part of a wide picture in view and the counter says «2 / 9». A phone
+  // capture pans up and down wherever the screen is too short for it. The hint shows whenever
+  // there is more picture than box (landing.css: `.lb-track`, `.lb-hint`, `.lb-count`, `.lb-tall`).
+  // A picture that pans is a Tab stop: with the focus on it the arrow keys pan it, from anywhere
+  // else in the dialog ← and → change the picture.
+  // The page behind does not scroll: landing.css, `html:has(dialog.lb[open])`.
+  (function () {
+    var all = [].slice.call(document.querySelectorAll('.shot-zoom'));
+    if (!all.length || typeof HTMLDialogElement === 'undefined') return;
+
+    var dlg = document.createElement('dialog');
+    dlg.className = 'lb';
+    dlg.setAttribute('aria-labelledby', 'lb-cap');
+    dlg.innerHTML =
+      '<button class="lb-x" type="button" aria-label="Close">×</button>' +
+      '<button class="lb-nav lb-prev" type="button" aria-label="Previous image">‹</button>' +
+      '<button class="lb-nav lb-next" type="button" aria-label="Next image">›</button>' +
+      '<figure class="lb-fig"><picture><source data-theme-dark><img alt=""></picture>' +
+      '<div class="lb-track" aria-hidden="true" hidden><i></i></div>' +
+      '<p class="lb-hint" hidden>Swipe to move the image</p>' +
+      '<figcaption id="lb-cap"></figcaption></figure>' +
+      '<p class="lb-count"></p>';
+    document.body.appendChild(dlg);
+
+    var fig = dlg.querySelector('.lb-fig');
+    var pic = fig.querySelector('picture');
+    var img = pic.querySelector('img');
+    var dark = pic.querySelector('source');
+    var track = fig.querySelector('.lb-track');
+    var hint = fig.querySelector('.lb-hint');
+    var cap = fig.querySelector('figcaption');
+    var count = dlg.querySelector('.lb-count');
+    var cur = all[0];
+
+    // The triggers on screen, asked again at every step: a turned phone swaps a chapter's tablet
+    // picture for its phone picture behind the open dialog.
+    var onScreen = function () {
+      return all.filter(function (b) { return b.getClientRects().length; });
+    };
+    var boxOf = function (btn) { return btn.closest('figure, section'); };
+
+    // Track, hint and the picture's Tab stop follow the picture's box: called when the dialog
+    // opens, when a picture is set or has loaded, when it pans and when the window changes.
+    var measure = function () {
+      if (!dlg.open) return;
+      var wide = pic.scrollWidth - pic.clientWidth > 1;
+      var more = wide || pic.scrollHeight - pic.clientHeight > 1;
+      track.hidden = !wide;
+      hint.hidden = !more;
+      // -1, not removed: a focus that sits on the picture when it stops panning stays in the dialog.
+      pic.tabIndex = more ? 0 : -1;
+      track.firstChild.style.left = pic.scrollLeft / pic.scrollWidth * 100 + '%';
+      track.firstChild.style.width = pic.clientWidth / pic.scrollWidth * 100 + '%';
+    };
+
+    // Back to the picture's top-left corner, with track and hint for what is in the box now.
+    var home = function () {
+      pic.scrollLeft = 0;
+      pic.scrollTop = 0;
+      measure();
+    };
+
+    var show = function (btn, list) {
+      var src = btn.querySelector('img');
+      var box = boxOf(btn);
+      var sub = box.querySelector('.cap-s');
+      var w = src.getAttribute('width');
+      var h = src.getAttribute('height');
+      cur = btn;
+      dark.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';
+      dark.srcset = btn.querySelector('source').srcset;
+      // The size is known before the file arrives, so the box does not jump.
+      img.width = w;
+      img.height = h;
+      img.src = src.src;
+      img.alt = src.alt;
+      fig.classList.toggle('lb-tall', +h > +w);
+      fig.style.setProperty('--lb-ratio', w / h);
+      cap.innerHTML = '<b></b>';
+      cap.firstChild.textContent = box.querySelector('.cap-t, h2').textContent;
+      if (sub) cap.append(' – ' + sub.textContent);
+      count.textContent = list.indexOf(btn) + 1 + ' / ' + list.length;
+      home();
+    };
+
+    // Prev/next: from the chapter that is shown to its neighbour among the pictures on screen.
+    var step = function (by) {
+      var list = onScreen();
+      var box = boxOf(cur);
+      var i = list.findIndex(function (b) { return boxOf(b) === box; });
+      show(list[(i + by + list.length) % list.length], list);
+    };
+
+    all.forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        // Picture and caption first: the caption names the dialog when the focus enters it.
+        // The box exists only once the dialog is open, and it keeps its last pan until then.
+        show(btn, onScreen());
+        dlg.showModal();
+        home();
+      });
+    });
+    img.addEventListener('load', measure);
+    pic.addEventListener('scroll', measure);
+    addEventListener('resize', measure);
+    dlg.querySelector('.lb-x').addEventListener('click', function () { dlg.close(); });
+    dlg.querySelector('.lb-prev').addEventListener('click', function () { step(-1); });
+    dlg.querySelector('.lb-next').addEventListener('click', function () { step(1); });
+    dlg.addEventListener('click', function (e) { if (e.target === dlg) dlg.close(); });
+    dlg.addEventListener('keydown', function (e) {
+      if (e.target === pic && pic.tabIndex === 0) return;
+      if (e.key === 'ArrowLeft') { e.preventDefault(); step(-1); }
+      if (e.key === 'ArrowRight') { e.preventDefault(); step(1); }
     });
   })();
 </script>
