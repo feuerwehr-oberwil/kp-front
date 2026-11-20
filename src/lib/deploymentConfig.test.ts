@@ -498,6 +498,16 @@ describe('a partial answer is merged over the copy on the device, never stored i
     expect(await idbGet(CACHE_KEY)).toMatchObject({ version: 'v2', report: { links: [] } })
   })
 
+  it('a failed read keeps the document the page holds, not a poorer offline copy', async () => {
+    fetchMock.mockResolvedValueOnce(json(PUBLIC))
+    await loadDeploymentConfig() // the offline copy: public parts only
+    adoptSessionConfig({ ...STATION, version: 'admin' }) // /admin read the document itself
+    fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch'))
+    await loadDeploymentConfig()
+    expect(getDeploymentConfig().version).toBe('admin')
+    expect(getDeploymentConfig().fleet?.vehicles).toHaveLength(1)
+  })
+
   // values no other test holds: the module singleton outlives single tests here
   const POSTER = { fleet: { vehicles: [{ id: 'poster-adl', label: 'ADL' }] }, report: { partnerOrgs: ['Poster-Partner'] }, identity: { kommandant: 'Poster Kdt' } }
 

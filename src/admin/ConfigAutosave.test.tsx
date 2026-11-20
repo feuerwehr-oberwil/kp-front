@@ -32,7 +32,7 @@ vi.mock('../lib/deploymentConfig', () => ({
   applyDeploymentBranding: vi.fn(),
 }))
 
-import { ConfigProvider, ConfigAutosaveStatus, useConfig } from './ConfigContext'
+import { ConfigGate, ConfigProvider, ConfigAutosaveStatus, useConfig } from './ConfigContext'
 import { appConfig } from '../config/appConfig'
 
 /** A control that edits one field, so the autosave has something to fire on. Plus the seams the
@@ -304,5 +304,15 @@ describe('Verwaltung autosave — «würde Abschnitte leeren» asks instead of h
 
     await waitFor(() => expect(screen.getByText('Konfiguration wurde anderswo geändert')).toBeTruthy())
     expect(screen.queryByText(A.emptyTitle)).toBeNull()
+  })
+})
+
+describe('Verwaltung — an admin session that ran out before the first read', () => {
+  it('says so instead of editing the public parts as if they were the document', async () => {
+    apiGet.mockReset().mockResolvedValue({ partial: true, identity: { appName: 'Wehr' } })
+    render(<ConfigProvider><ConfigGate><Edit /></ConfigGate></ConfigProvider>)
+    expect(await screen.findByText(appConfig.copy.admin.autosave.sessionExpired)).toBeTruthy()
+    expect(screen.queryByText('edit')).toBeNull()
+    expect(apiPut).not.toHaveBeenCalled()
   })
 })

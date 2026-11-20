@@ -267,6 +267,10 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
       .then((cfg) => {
         if (!alive) return
         const safe = cfg && typeof cfg === 'object' ? cfg : {}
+        // ⚠️ The admin session ran out between the unlock and this read: the server answered with
+        // the public parts only. Editing that would show every other section empty, and its
+        // first save would be refused anyway — so say what happened instead.
+        if (safe.partial) { setLoadError(appConfig.copy.admin.autosave.sessionExpired); return }
         // The runtime config too (lib/deploymentConfig). The boot read it without a session, so
         // on a browser with no PIN login it holds the public parts only, and the views here read
         // ranks, modules and the basemap key from it.

@@ -641,7 +641,10 @@ async function fetchDeploymentConfig(): Promise<DeploymentConfig> {
     }
     return next
   } catch {
-    // network / server failure — fall back to the cached value (offline tablets), else empty
+    // network / server failure — keep what this page already holds; only a page that holds
+    // nothing yet falls back to the cached value (offline tablets), else empty. Replacing a held
+    // document with the cache could swap the station's config for a poorer copy (public parts).
+    if (Object.keys(stored).length) return stored
     const cached = (await readCache()) ?? {}
     if (generation === loadGeneration) setStored(cached)
     return cached
