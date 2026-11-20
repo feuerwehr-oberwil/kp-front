@@ -111,6 +111,16 @@ const STANDALONE = /^[ \t]*(\{\{[#/][\w.]+\}\})[ \t]*\r?\n/gm
 const SECTION = /\{\{#([\w.]+)\}\}([\s\S]*?)\{\{\/\1\}\}/g
 const VALUE = /\{\{(\.|\w+(?:\.\w+)*)\}\}/g
 
+// A sprite icon – an <svg> that only shows a symbol of the page's sprite (`<use href="#i-…">`) –
+// is decoration: the text beside it, or its control's aria-label, already names it. So the
+// build hides every one from assistive tech, wherever it is written (template or a text), and
+// neither of those repeats the attributes. A graphic that carries meaning is not a sprite icon
+// and names itself.
+const SPRITE_ICON = /<svg\b([^>]*)>(?=\s*<use href="#i-)/g
+const hideSpriteIcons = (html) =>
+  html.replace(SPRITE_ICON, (_, attrs) =>
+    `<svg${attrs.replace(/\s(aria-hidden|focusable)="[^"]*"/g, '')} aria-hidden="true" focusable="false">`)
+
 // Notes addressed to whoever edits the template have no business on the page.
 const TEMPLATE_ONLY = /^[ \t]*<!--@template[\s\S]*?-->[ \t]*\r?\n/gm
 
@@ -517,7 +527,7 @@ for (const locale of config.locales) {
   // `--check` compares like with like.
   const missing = new Set()
   const htmlFor = (modified) =>
-    render(template, [{ ...page, jsonLd: jsonLd(modified) }], missing)
+    hideSpriteIcons(render(template, [{ ...page, jsonLd: jsonLd(modified) }], missing))
       .replace(/^<!doctype html>/i, `<!doctype html>\n${BANNER(locale.code)}`)
   const rel = `${dir}index.html`
   const committed = existsSync(join(HERE, rel)) ? read(rel) : null
