@@ -193,6 +193,7 @@ import { isFollower } from './lib/presentation'
 import { MapRings, PresentationPill } from './components/Presentation'
 import { isPracticeIncident } from './lib/practice/practiceMode'
 import type { SolveApi } from './lib/ueben/model'
+import type { TryTarget } from './lib/ueben/tryOut'
 
 // «Üben»'s task card (components/ueben/UebenRunner): its own chunk, loaded on the practice Einsatz only
 const UebenRunner = lazy(() => import('./components/ueben/UebenRunner'))
@@ -251,6 +252,9 @@ interface WorkspaceProps {
   onOpenObjectVisits?: (objectId?: string | null) => void
   /** opens «Karte & Objekte» over this Einsatz (App · enterKarte); undefined = a link session */
   onOpenKarte?: () => void
+  /** the Hilfe's «Ausprobieren»: the Übungsplatz on a section's surface (App · tryOnPractice);
+   *  undefined = a link session */
+  onTryPractice?: (target: TryTarget) => void
   /** another surface («Karte & Objekte», the Objektbesuche) is in front of this Einsatz: it stays
    *  MOUNTED — its state, sync and live poll, and above all its Atemschutz alarm — but renders
    *  only the headless hosts and the alarm rows (see the `covered` return below) */
@@ -299,7 +303,7 @@ interface WorkspaceProps {
 
 export function IncidentWorkspace({
   incidentMeta, incidents, workspace, sync, forceReadOnly, tabLockLost, onTakeOverTab, onCompleteRapport, abschlussRef,
-  onSwitchIncident, onOpenHistory, onOpenObjectVisits, onOpenKarte, onOpenDivera, menuAlarms, menuFolded, onReactivateActive, onBackFromArchive,
+  onSwitchIncident, onOpenHistory, onOpenObjectVisits, onOpenKarte, onTryPractice, onOpenDivera, menuAlarms, menuFolded, onReactivateActive, onBackFromArchive,
   covered = false, onUncover, needsReview, onReviewDone, reviewedLocallyAt, onEditMeta, lifecycleElsewhere, openCover, onOpenCoverDone,
 }: WorkspaceProps) {
   const { user, logout, asLink, isEl, linkRefused, roleReadOnly, isEditor, linkScoped } = useSessionRole(incidentMeta)
@@ -3440,7 +3444,7 @@ export function IncidentWorkspace({
         />
       )}
       <WorkspaceSheets {...{
-        helpOpen, setHelpOpen, shareLink, incidentMeta, setShareLink, setAtemschutzLinkOn, installGuideOpen,
+        helpOpen, setHelpOpen, onTryPractice, shareLink, incidentMeta, setShareLink, setAtemschutzLinkOn, installGuideOpen,
         setInstallGuideOpen, offlineReadyOpen, setOfflineReadyOpen, offlineProbeUrls, sym, backendPlans,
         manualObject, liveWeather, personnel, syncStatus, lastSyncedAt, downloadOffline,
         reloadPersonnel, cancelOffline, offlineProgress, settingsOpen, feedbackOpen, sharePick, shareParent,
@@ -3500,6 +3504,11 @@ export function IncidentWorkspace({
             mapRef={mapRef}
             commit={commit}
             api={uebenApi}
+            go={(t) => {
+              if (t === 'verlauf') { setJournalOpen(true); return }
+              if (t !== mode) clearMapUi()
+              setMode(t)
+            }}
           />
         </Suspense>
       )}

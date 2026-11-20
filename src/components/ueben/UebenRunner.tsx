@@ -7,7 +7,11 @@
 //
 // Mounted by IncidentWorkspace on the practice Einsatz only (lib/practice), as a lazy chunk. With
 // no drill on the card it is the practice Einsatz's own small card: «Übung wählen» and the two ways
-// out («Neu beginnen», «Übung verlassen») – what the spike's pill said.
+// out («Neu beginnen», «Übung verlassen») – what the spike's pill said. It also takes the practice
+// Einsatz to the surface «Ausprobieren» named (lib/ueben/session · goTo).
+//
+// `data-ueben-card`, the ring's `data-anchor` and the hand's `data-gesture` are what the e2e walker
+// reads (e2e/ueben.spec.ts): it follows «Zeigen» to the done card, for every drill.
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
@@ -20,9 +24,10 @@ import { prefersReducedMotion } from '../../lib/reducedMotion'
 import { confirmDialog } from '../../lib/ui'
 import { resetPractice } from '../../lib/practice/practiceMode'
 import { leavePractice } from '../../lib/practice/practiceSeed'
-import { drillById, drillCopy, drillPlace, nextDrill } from '../../lib/ueben/catalogue'
-import { goalStates, nextGoal, type Anchor, type DrillId, type Gesture, type Snapshot, type SolveApi, type UiState } from '../../lib/ueben/model'
-import { markDone, openUebenSheet, startDrill, stopDrill, useUeben } from '../../lib/ueben/session'
+import { drillById, drillCopy, drillPlace, nextDrill, type DrillId } from '../../lib/ueben/catalogue'
+import { goalStates, nextGoal, type Anchor, type Gesture, type Snapshot, type SolveApi, type UiState } from '../../lib/ueben/model'
+import { clearGoTo, markDone, openUebenSheet, startDrill, stopDrill, useUeben } from '../../lib/ueben/session'
+import type { TryTarget } from '../../lib/ueben/tryOut'
 import { siteOf } from '../../lib/ueben/site'
 import type { Doc } from '../../lib/workspace'
 import type { LngLat } from '../../types'
@@ -37,17 +42,39 @@ export interface UebenRunnerProps {
   mapRef: RefObject<MapRef | null>
   api: SolveApi
   commit: (updater: (d: Doc) => Doc) => void
+  /** show a surface of the practice Einsatz («Ausprobieren») */
+  go: (target: TryTarget) => void
 }
 
 type Rect = { x: number; y: number; w: number; h: number }
 type MenuItems = Parameters<typeof Menu>[0]['items']
 type Level = 0 | 1 | 2
 
+const rectOf = (el: Element): Rect => {
+  const r = el.getBoundingClientRect()
+  return { x: r.left, y: r.top, w: r.width, h: r.height }
+}
 /** The first VISIBLE element `sel` names – the phone and the tablet carry the same anchor twice. */
-function controlRect(sel: string): Rect | null {
+function controlEl(sel: string): HTMLElement | null {
   for (const el of document.querySelectorAll<HTMLElement>(sel)) {
     const r = el.getBoundingClientRect()
-    if (r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== 'hidden') return { x: r.left, y: r.top, w: r.width, h: r.height }
+    if (r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== 'hidden') return el
+  }
+  return null
+}
+/** The ✕ of whatever lies OVER the control `sel` names – on a phone, the detail sheet of the
+ *  symbol just placed covers the tool bar. A control under a sheet cannot be tapped, so the ring
+ *  goes to that ✕ first. Null when the control is on top, or nothing with a ✕ covers it. */
+function coverClose(sel: string): HTMLElement | null {
+  const target = controlEl(sel)
+  if (!target) return null
+  const r = target.getBoundingClientRect()
+  const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)
+  if (!top || target.contains(top) || top.contains(target)) return null
+  const label = appConfig.copy.closeDialog
+  for (let p: Element | null = top; p && p !== document.body; p = p.parentElement) {
+    const x = [...p.querySelectorAll<HTMLElement>('button')].find((b) => b.getAttribute('aria-label') === label && b.getClientRects().length > 0)
+    if (x) return x
   }
   return null
 }
@@ -59,7 +86,10 @@ function mapPoint(map: MapRef | null, at: LngLat): { x: number; y: number } | nu
 }
 /** The ring's box: a control's own, or a 56px circle round a map spot. */
 function anchorRect(map: MapRef | null, a: Anchor): Rect | null {
-  if (a.kind === 'control') return controlRect(a.sel)
+  if (a.kind === 'control') {
+    const el = controlEl(a.sel)
+    return el ? rectOf(el) : null
+  }
   const p = mapPoint(map, a.at)
   return p ? { x: p.x - 28, y: p.y - 28, w: 56, h: 56 } : null
 }
@@ -79,15 +109,28 @@ function inView(el: HTMLElement): boolean {
   return true
 }
 
-/** Frame `points` on the map in the room the card leaves free. */
+/** px of a phone's bottom that is not free map: the tool bar, the dock of the tool that is out
+ *  above it and the «Eintrag» button beside that. */
+function phoneBars(): number {
+  const bar = controlEl('.vrail')
+  return (bar ? window.innerHeight - bar.getBoundingClientRect().top : 140) + 110
+}
+
+/** Frame `points` on the map in the room the card leaves free. The card stands at the bottom (the
+ *  task) or hangs folded under the top bar («Zeigen» 2, a phone's detail sheet) – a gesture must
+ *  never start or end under either. */
 function frame(map: MapRef | null, points: LngLat[], card: HTMLElement | null, phone: boolean) {
   if (!map || !points.length) return
   const lng = points.map((p) => p[0]), lat = points.map((p) => p[1])
-  const top = card?.getBoundingClientRect().top ?? window.innerHeight
+  const r = card?.getBoundingClientRect()
+  const top = r?.top ?? window.innerHeight
+  const hangs = !!r && r.height > 0 && r.bottom < window.innerHeight / 2
   const padding = phone
-    ? { top: 110, bottom: Math.max(80, window.innerHeight - top + 24), left: 48, right: 48 }
+    ? hangs
+      ? { top: r.bottom + 32, bottom: phoneBars(), left: 48, right: 48 }
+      : { top: 110, bottom: Math.max(80, window.innerHeight - top + 24), left: 48, right: 48 }
     // right: the tool rail AND an armed tool's dock beside it (≈ 250 px) – a gesture must never end under it
-    : { top: 110, bottom: 120, left: (card?.getBoundingClientRect().right ?? 120) + 72, right: 260 }
+    : { top: 110, bottom: 120, left: (r?.right ?? 120) + 72, right: 260 }
   // a padding larger than the map would throw – fall back to a plain centre
   if (padding.top + padding.bottom >= window.innerHeight - 40) { map.easeTo({ center: points[0], duration: 600 }); return }
   map.fitBounds([[Math.min(...lng), Math.min(...lat)], [Math.max(...lng), Math.max(...lat)]], { padding, maxZoom: 19, duration: prefersReducedMotion() ? 0 : 700 })
@@ -105,9 +148,15 @@ function keepInView(map: MapRef | null, points: LngLat[], card: HTMLElement | nu
   if (hidden) frame(map, points, card, phone)
 }
 
-export default function UebenRunner({ doc, ui, detailOpen, mapRef, api, commit }: UebenRunnerProps) {
+export default function UebenRunner({ doc, ui, detailOpen, mapRef, api, commit, go }: UebenRunnerProps) {
   const C = appConfig.copy.ueben
-  const { drill: drillId, run, again, done } = useUeben()
+  const { drill: drillId, run, again, done, goTo } = useUeben()
+  // «Ausprobieren»: the surface a Hilfe section named, once (the session clears it)
+  useEffect(() => {
+    if (!goTo) return
+    go(goTo)
+    clearGoTo()
+  }, [goTo, go])
   const drill = drillId ? drillById(drillId) : undefined
   const cardRef = useRef<HTMLDivElement>(null)
   const site = useMemo(() => siteOf(doc.entities), [doc.entities])
@@ -183,6 +232,8 @@ export default function UebenRunner({ doc, ui, detailOpen, mapRef, api, commit }
 
   // follow the target every frame while something is shown: the map moves, sheets slide in
   const [ring, setRing] = useState<Rect | null>(null)
+  // a sheet lies over the control the hint names: the ring stands on that sheet's ✕ (coverClose)
+  const [covered, setCovered] = useState(false)
   const [hand, setHand] = useState<{ a: { x: number; y: number }; b: { x: number; y: number } } | null>(null)
   const anchorKey = hint ? JSON.stringify(hint.anchor) : ''
   const gestureKey = gesture ? JSON.stringify(gesture) : ''
@@ -193,8 +244,10 @@ export default function UebenRunner({ doc, ui, detailOpen, mapRef, api, commit }
     let raf = 0
     const tick = () => {
       const map = mapRef.current
-      const r = level === 1 || !g ? anchorRect(map, anchor) : null
+      const close = anchor.kind === 'control' && (level === 1 || !g) ? coverClose(anchor.sel) : null
+      const r = close ? rectOf(close) : level === 1 || !g ? anchorRect(map, anchor) : null
       setRing((cur) => (sameRect(cur, r) ? cur : r))
+      setCovered((cur) => (cur === !!close ? cur : !!close))
       const a = g ? mapPoint(map, g.kind === 'tap' ? g.at : g.from) : null
       const b = g ? mapPoint(map, g.kind === 'tap' ? g.at : g.to) : null
       const near = (p: { x: number; y: number }, q: { x: number; y: number }) => Math.round(p.x) === Math.round(q.x) && Math.round(p.y) === Math.round(q.y)
@@ -253,13 +306,16 @@ export default function UebenRunner({ doc, ui, detailOpen, mapRef, api, commit }
   // and its words point into the palette
   const hidden = ui.paletteOpen
   const folded = shape === 'folded'
-  const hinting = !!hint && level === 1 && !!ring
-  // ⚠️ on <body>, not in the workspace: the palette and the detail sheets are portalled dialogs,
-  // and a ring inside the workspace's stacking context could never stand above them
-  const out = (node: ReactNode) => createPortal(node, document.body)
+  // the ring: step 1, and step 2 where there is no gesture to play (model · Hint.gesture)
+  const hinting = !!hint && !!ring && (level === 1 || !gesture)
+  // ⚠️ «Zeigen»'s layer, and the card it lifts over its own dim, go on <body>: the palette and the
+  // detail sheets are portalled dialogs, and a ring inside the workspace's stacking context could
+  // never stand above them. The card AT REST stays in the workspace, under its menus, drawers and
+  // sheets (--z-ueben) – on <body> it lay over the open Einsatz menu (20.11.2026).
+  const onBody = (node: ReactNode) => createPortal(node, document.body)
 
   if (!drill || !drillId) {
-    return out(
+    return (
       <div ref={cardRef} className={`${s.card} ${s.idle}`} hidden={hidden} data-ueben-card="idle">
         <div className={s.title}>{C.idleTitle}</div>
         <p className={s.task}>{C.idleText}</p>
@@ -268,17 +324,17 @@ export default function UebenRunner({ doc, ui, detailOpen, mapRef, api, commit }
           <span className={s.grow} />
           {more(ways.slice(2))}
         </div>
-      </div>,
+      </div>
     )
   }
 
   const copy = drillCopy(drillId)
   const place = drillPlace(drillId)
-  const kicker = fillTemplate(C.kicker, { module: C.modules[place.module], i: place.i, n: place.n })
+  const kicker = fillTemplate(C.kicker, place)
 
   if (finished) {
     const after: DrillId | null = nextDrill(done, drillId)
-    return out(
+    return (
       <div ref={cardRef} className={s.card} hidden={hidden} data-ueben-card="done">
         <span className={s.kicker}>{kicker}</span>
         <div className={s.doneHead}><span className={s.doneMark}><Icon id="check" /></span><span className={s.title}>{C.doneTitle} · {copy.title}</span></div>
@@ -291,12 +347,12 @@ export default function UebenRunner({ doc, ui, detailOpen, mapRef, api, commit }
           <span className={s.grow} />
           {more(after ? ways : ways.slice(1))}
         </div>
-      </div>,
+      </div>
     )
   }
 
-  if (copy.intro && run > 0 && !again && introRead !== runKey) {
-    return out(
+  if (run > 0 && !again && introRead !== runKey) {
+    return (
       <div ref={cardRef} className={s.card} hidden={hidden} data-ueben-card="intro">
         <span className={s.kicker}>{kicker}</span>
         <div className={s.title}>{copy.title}</div>
@@ -306,55 +362,56 @@ export default function UebenRunner({ doc, ui, detailOpen, mapRef, api, commit }
           <span className={s.grow} />
           {more(ways)}
         </div>
-      </div>,
+      </div>
     )
   }
 
-  const goals = drill.goals.map((g, i) => ({ id: g.id, label: copy.goals?.[g.id] ?? g.id, st: states[i] }))
+  const goals = drill.goals.map((g, i) => ({ id: g.id, label: copy.goals[g.id] ?? g.id, st: states[i] }))
+  // ONE button climbs the ladder, on the task card and on the folded one alike
   const step = level === 0 ? C.show : level === 1 ? C.showMore : C.solve
+  const advance = () => (level === 2 ? solve() : setLevel((level + 1) as Level))
 
-  return out(
+  const lift = hinting ? ` ${s.lifted}` : ''
+  const taskCard = folded ? (
+    <div ref={cardRef} className={`${s.card} ${s.folded}${lift}`} hidden={hidden} data-ueben-card="folded">
+      <div className={s.grow}>
+        <span className={s.kicker}>{kicker}</span>
+        <div className={s.foldText}>{level === 2 && hint ? hint.words : copy.title}</div>
+      </div>
+      <Button variant={level === 2 ? 'primary' : 'secondary'} className={s.go} onClick={advance}>{step}</Button>
+      {level > 0 && <button type="button" className={`ip-btn ${s.more}`} aria-label={C.hideHint} title={C.hideHint} onClick={() => setLevel(0)}><Icon id="close" /></button>}
+    </div>
+  ) : (
+    <div ref={cardRef} className={`${s.card}${lift}`} hidden={hidden} data-ueben-card="task">
+      <span className={s.kicker}>{kicker}</span>
+      <div className={s.title}>{copy.title}</div>
+      <p className={s.task}>{copy.task}</p>
+      <ul className={s.goals}>
+        {goals.map(({ id, label, st }) => (
+          <li key={id} className={s.goal} data-goal={id} data-state={st.s}>
+            <span className={s.dot} aria-hidden>{st.s === 'ok' ? <Icon id="check" /> : st.s === 'wrong' ? '!' : null}</span>
+            <span className={s.grow}>
+              <span className={st.s === 'ok' ? s.goalDone : st.s === 'wrong' ? s.goalWrong : undefined}>{label}</span>
+              {st.s === 'wrong' && <span className={s.reason}>{st.reason}</span>}
+            </span>
+          </li>
+        ))}
+      </ul>
+      <div className={s.actions}>
+        <Button variant={level === 0 ? 'secondary' : 'primary'} className={s.go} onClick={advance}>{step}</Button>
+        {level > 0 && <Button variant="quiet" onClick={() => setLevel(0)}>{C.hideHint}</Button>}
+        <span className={s.grow} />
+        {more([{ label: C.solve, onClick: solve }, { kind: 'sep' as const }, ...ways])}
+      </div>
+    </div>
+  )
+  return (
     <>
-      {hint && level > 0 && (
-        <HintLayer ring={hinting ? ring : null} words={hint.words} hand={level === 2 ? hand : null} tap={gesture?.kind === 'tap'} />
+      {hint && level > 0 && onBody(
+        <HintLayer ring={hinting ? ring : null} anchor={hint.anchor.kind} words={covered ? C.closeFirst : hint.words} hand={level === 2 ? hand : null} tap={gesture?.kind === 'tap'} />,
       )}
-      {folded ? (
-        <div ref={cardRef} className={`${s.card} ${s.folded}`} hidden={hidden} data-ueben-card="folded">
-          <div className={s.grow}>
-            <span className={s.kicker}>{kicker}</span>
-            <div className={s.foldText}>{level === 2 && hint ? hint.words : copy.title}</div>
-          </div>
-          {level === 2
-            ? <Button variant="primary" className={s.go} onClick={solve}>{C.solve}</Button>
-            : <Button className={s.go} onClick={() => setLevel(1)}>{C.show}</Button>}
-          {level > 0 && <button type="button" className={`ip-btn ${s.more}`} aria-label={C.hideHint} title={C.hideHint} onClick={() => setLevel(0)}><Icon id="close" /></button>}
-        </div>
-      ) : (
-        <div ref={cardRef} className={`${s.card}${hinting ? ` ${s.lifted}` : ''}`} hidden={hidden} data-ueben-card="task">
-          <span className={s.kicker}>{kicker}</span>
-          <div className={s.title}>{copy.title}</div>
-          <p className={s.task}>{copy.task}</p>
-          <ul className={s.goals}>
-            {goals.map(({ id, label, st }) => (
-              <li key={id} className={s.goal} data-goal={id} data-state={st.s}>
-                <span className={s.dot} aria-hidden>{st.s === 'ok' ? <Icon id="check" /> : st.s === 'wrong' ? '!' : null}</span>
-                <span className={s.grow}>
-                  <span className={st.s === 'ok' ? s.goalDone : st.s === 'wrong' ? s.goalWrong : undefined}>{label}</span>
-                  {st.s === 'wrong' && <span className={s.reason}>{st.reason}</span>}
-                </span>
-              </li>
-            ))}
-          </ul>
-          <div className={s.actions}>
-            <Button variant={level === 0 ? 'secondary' : 'primary'} className={s.go}
-              onClick={() => (level === 2 ? solve() : setLevel((level + 1) as Level))}>{step}</Button>
-            {level > 0 && <Button variant="quiet" onClick={() => setLevel(0)}>{C.hideHint}</Button>}
-            <span className={s.grow} />
-            {more([{ label: C.solve, onClick: solve }, { kind: 'sep' as const }, ...ways])}
-          </div>
-        </div>
-      )}
-    </>,
+      {hinting ? onBody(taskCard) : taskCard}
+    </>
   )
 }
 
@@ -373,7 +430,7 @@ function bubblePlace(ring: Rect, pad: number): CSSProperties {
 }
 
 /** «Zeigen» 1: the dim with the ring cut out of it and the path in words · 2: the ghost hand. */
-function HintLayer({ ring, words, hand, tap }: { ring: Rect | null; words: string; hand: { a: { x: number; y: number }; b: { x: number; y: number } } | null; tap: boolean }) {
+function HintLayer({ ring, anchor, words, hand, tap }: { ring: Rect | null; anchor: Anchor['kind']; words: string; hand: { a: { x: number; y: number }; b: { x: number; y: number } } | null; tap: boolean }) {
   const pad = 6
   // the words BESIDE the ring where a side has room – in a grid (the palette) above or below would
   // lie on the section heading or the next row – else above it, or under it when it sits high up
@@ -382,7 +439,7 @@ function HintLayer({ ring, words, hand, tap }: { ring: Rect | null; words: strin
     <div className={s.hint} aria-live="polite">
       {ring && (
         <>
-          <div className={s.ring} style={{ left: ring.x - pad, top: ring.y - pad, width: ring.w + 2 * pad, height: ring.h + 2 * pad }} />
+          <div className={s.ring} data-anchor={anchor} style={{ left: ring.x - pad, top: ring.y - pad, width: ring.w + 2 * pad, height: ring.h + 2 * pad }} />
           <div className={s.bubble} style={place ?? undefined}>{words}</div>
         </>
       )}
@@ -393,7 +450,7 @@ function HintLayer({ ring, words, hand, tap }: { ring: Rect | null; words: strin
               <line x1={hand.a.x} y1={hand.a.y} x2={hand.b.x} y2={hand.b.y} />
             </svg>
           )}
-          <div className={`${s.hand}${tap ? ` ${s.handTap}` : ''}`} aria-hidden
+          <div className={`${s.hand}${tap ? ` ${s.handTap}` : ''}`} aria-hidden data-gesture={tap ? 'tap' : 'drag'}
             style={{ '--hx0': `${hand.a.x}px`, '--hy0': `${hand.a.y}px`, '--hx1': `${hand.b.x}px`, '--hy1': `${hand.b.y}px` } as CSSProperties}>
             <span className={s.touch} />
             <Icon id="hand" />

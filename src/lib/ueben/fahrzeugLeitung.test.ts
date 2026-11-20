@@ -11,7 +11,7 @@ const h1 = scene.entities.find((e) => e.id === SITE_IDS.h1)!
 const eingang = scene.entities.find((e) => e.id === SITE_IDS.eingang)!
 const beside = offsetM(h1.coord, 12, 4)
 
-const vehicle = (coord: LngLat, label = 'TLF', id = 'v1'): Entity =>
+const vehicle = (coord: LngLat, label = '', id = 'v1'): Entity =>
   ({ id, kind: 'symbol', layer: 'fahrzeuge', coord, symbol: appConfig.symbols.vehicleName, label })
 const line = (coords: LngLat[], over: Partial<Drawing> = {}): Drawing => ({ id: 'l1', kind: 'line', coords, arrow: true, ...over })
 
@@ -20,20 +20,22 @@ function states(extra: Entity[], drawings: Drawing[] = []) {
   return goalStates(fahrzeugLeitung, { entities, drawings }, siteOf(entities))
 }
 
-describe('Fahrzeug mit Leitung · the TLF beside H1', () => {
+describe('Fahrzeug mit Leitung · the Fahrzeug by H1', () => {
   it('starts with both goals open', () => {
     expect(states([]).map((s) => s.s)).toEqual(['open', 'open'])
   })
 
-  it('beside H1 is right; on top of it and 80 m off are wrong, each with its reason', () => {
+  // lenient (owner pick, 20.11.2026): no band, no name – placed near the hydrant is done
+  it('any Fahrzeug near H1 is right: unnamed, named, on top of the hydrant, 35 m off', () => {
     expect(states([vehicle(beside)])[0]).toEqual({ s: 'ok' })
-    expect(states([vehicle(offsetM(h1.coord, 3, 0))])[0]).toEqual({ s: 'wrong', reason: 'TLF steht auf dem Hydranten – stell es daneben' })
-    expect(states([vehicle(offsetM(h1.coord, 80, 0))])[0]).toEqual({ s: 'wrong', reason: 'TLF steht 80 m von H1 – zu weit für den Schlauch zum Hydranten' })
+    expect(states([vehicle(beside, 'MTF')])[0]).toEqual({ s: 'ok' })
+    expect(states([vehicle(offsetM(h1.coord, 2, 0))])[0]).toEqual({ s: 'ok' })
+    expect(states([vehicle(offsetM(h1.coord, 35, 0))])[0]).toEqual({ s: 'ok' })
   })
 
-  it('a Fahrzeug beside H1 without its name is open, not wrong; an MTF is not the TLF', () => {
-    expect(states([vehicle(beside, '')])[0]).toEqual({ s: 'open' })
-    expect(states([vehicle(beside, 'MTF')])[0]).toEqual({ s: 'open' })
+  it('one clearly somewhere else says how far – the nearest Fahrzeug is the one that counts', () => {
+    expect(states([vehicle(offsetM(h1.coord, 80, 0))])[0]).toEqual({ s: 'wrong', reason: 'Fahrzeug steht 80 m von H1 – zieh es näher zum Hydranten' })
+    expect(states([vehicle(offsetM(h1.coord, 80, 0)), vehicle(beside, '', 'v2')])[0]).toEqual({ s: 'ok' })
   })
 
   it('a removed H1 says so instead of failing silently', () => {
@@ -43,30 +45,30 @@ describe('Fahrzeug mit Leitung · the TLF beside H1', () => {
 })
 
 describe('Fahrzeug mit Leitung · the Leitung with its arrow', () => {
-  const tlf = vehicle(beside)
+  const v = vehicle(beside)
 
-  it('TLF → Eingang with the arrow is right, coupled or within a few metres', () => {
-    expect(states([tlf], [line([tlf.coord, eingang.coord])])).toEqual([{ s: 'ok' }, { s: 'ok' }])
-    const coupled = line([offsetM(tlf.coord, 40, 0), eingang.coord], { startAttachment: { target: { kind: 'object', id: tlf.id }, routing: 'direct' } })
-    expect(states([tlf], [coupled])[1]).toEqual({ s: 'ok' })
+  it('Fahrzeug → Eingang with the arrow is right, coupled or within a few metres', () => {
+    expect(states([v], [line([v.coord, eingang.coord])])).toEqual([{ s: 'ok' }, { s: 'ok' }])
+    const coupled = line([offsetM(v.coord, 40, 0), eingang.coord], { startAttachment: { target: { kind: 'object', id: v.id }, routing: 'direct' } })
+    expect(states([v], [coupled])[1]).toEqual({ s: 'ok' })
   })
 
-  it('no arrow, or the arrow at the TLF, is wrong with what the arrow says', () => {
-    expect(states([tlf], [line([tlf.coord, eingang.coord], { arrow: undefined })])[1])
+  it('no arrow, or the arrow at the Fahrzeug, is wrong with what the arrow says', () => {
+    expect(states([v], [line([v.coord, eingang.coord], { arrow: undefined })])[1])
       .toEqual({ s: 'wrong', reason: 'Pfeil fehlt – er zeigt, wohin das Wasser fliesst' })
-    expect(states([tlf], [line([eingang.coord, tlf.coord])])[1])
-      .toEqual({ s: 'wrong', reason: 'Pfeil zeigt zum TLF – das Wasser fliesst zum Eingang' })
+    expect(states([v], [line([eingang.coord, v.coord])])[1])
+      .toEqual({ s: 'wrong', reason: 'Pfeil zeigt zum Fahrzeug – das Wasser fliesst zum Eingang' })
     // the Entwicklungsgrenze is no Pfeil for water
-    expect(states([tlf], [line([tlf.coord, eingang.coord], { arrowStop: true })])[1].s).toBe('wrong')
+    expect(states([v], [line([v.coord, eingang.coord], { arrowStop: true })])[1].s).toBe('wrong')
   })
 
   it('names the end that misses', () => {
-    expect(states([tlf], [line([tlf.coord, offsetM(eingang.coord, -30, 0)])])[1]).toEqual({ s: 'wrong', reason: 'Leitung endet 30 m vor dem Eingang' })
-    expect(states([tlf], [line([offsetM(tlf.coord, 0, 40), eingang.coord])])[1]).toEqual({ s: 'wrong', reason: 'Leitung beginnt 40 m vom TLF' })
+    expect(states([v], [line([v.coord, offsetM(eingang.coord, -30, 0)])])[1]).toEqual({ s: 'wrong', reason: 'Leitung endet 30 m vor dem Eingang' })
+    expect(states([v], [line([offsetM(v.coord, 0, 40), eingang.coord])])[1]).toEqual({ s: 'wrong', reason: 'Leitung beginnt 40 m vom Fahrzeug' })
   })
 
   it('a Wand is no Leitung', () => {
-    expect(states([tlf], [line([tlf.coord, eingang.coord], { role: 'wand' })])[1].s).toBe('open')
+    expect(states([v], [line([v.coord, eingang.coord], { role: 'wand' })])[1].s).toBe('open')
   })
 })
 
@@ -79,30 +81,29 @@ describe('Fahrzeug mit Leitung · Zeigen', () => {
     return fahrzeugLeitung.hint(snap, u, site, nextGoal(goalStates(fahrzeugLeitung, snap, site)))
   }
 
-  it('walks the path to the TLF: Hinzufügen → Fahrzeug → tap beside H1 → its name', () => {
+  it('walks the path to the Fahrzeug: Hinzufügen → Fahrzeug → tap beside H1', () => {
     expect(hintFor(ui())?.anchor).toEqual({ kind: 'control', sel: '.vrail [data-tool="symbol"]' })
     expect(hintFor(ui({ phone: false }))?.words).toBe('Symbol › Fahrzeug, dann neben H1 tippen')
     expect(hintFor(ui({ paletteOpen: true }))?.anchor).toEqual({ kind: 'control', sel: `[data-sym="${appConfig.symbols.vehicleName}"]` })
     expect(hintFor(ui({ tool: 'symbol', pending: appConfig.symbols.vehicleName }))?.anchor).toEqual({ kind: 'map', at: besideH1(h1.coord) })
-    const placed = vehicle(beside, '')
-    expect(hintFor(ui({ selectedId: placed.id }), [placed])?.anchor).toEqual({ kind: 'control', sel: '[data-field="label"]' })
   })
 
-  it('a TLF on the hydrant is dragged beside it', () => {
-    const onTop = vehicle(offsetM(h1.coord, 2, 0))
-    expect(hintFor(ui(), [onTop])?.gesture).toEqual({ kind: 'drag', from: onTop.coord, to: besideH1(h1.coord) })
+  it('a Fahrzeug somewhere else is dragged to H1', () => {
+    const far = vehicle(offsetM(h1.coord, 90, 0))
+    expect(hintFor(ui(), [far])?.gesture).toEqual({ kind: 'drag', from: far.coord, to: besideH1(h1.coord) })
   })
 
   it('then the Leitung: through Hinzufügen on a phone, straight to Linie on a tablet, then its arrow', () => {
-    const tlf = vehicle(beside)
-    expect(hintFor(ui(), [tlf])?.anchor).toEqual({ kind: 'control', sel: '.vrail [data-tool="symbol"]' })
-    expect(hintFor(ui({ phone: false }), [tlf])?.anchor).toEqual({ kind: 'control', sel: '.vrail [data-tool="line"]' })
-    expect(hintFor(ui({ tool: 'line' }), [tlf])?.gesture).toEqual({ kind: 'drag', from: tlf.coord, to: eingang.coord })
-    const bare = line([tlf.coord, eingang.coord], { arrow: undefined })
-    expect(hintFor(ui(), [tlf], [bare])?.words).toBe('Leitung antippen')
-    expect(hintFor(ui({ selectedDrawingId: bare.id }), [tlf], [bare])?.anchor).toEqual({ kind: 'control', sel: '[data-field="lineEnd"]' })
-    const back = line([eingang.coord, tlf.coord])
-    expect(hintFor(ui({ selectedDrawingId: back.id }), [tlf], [back])?.anchor).toEqual({ kind: 'control', sel: '[data-field="lineReverse"]' })
+    const v = vehicle(beside)
+    expect(hintFor(ui(), [v])?.anchor).toEqual({ kind: 'control', sel: '.vrail [data-tool="symbol"]' })
+    expect(hintFor(ui({ phone: false }), [v])?.anchor).toEqual({ kind: 'control', sel: '.vrail [data-tool="line"]' })
+    expect(hintFor(ui({ tool: 'line' }), [v])?.gesture).toEqual({ kind: 'drag', from: v.coord, to: eingang.coord })
+    const bare = line([v.coord, eingang.coord], { arrow: undefined })
+    expect(hintFor(ui(), [v], [bare])?.words).toBe('Leitung antippen')
+    // the ring stands on the ONE thing to tap: the «Pfeil» option, the reverse button
+    expect(hintFor(ui({ selectedDrawingId: bare.id }), [v], [bare])?.anchor).toEqual({ kind: 'control', sel: '[data-field="lineEnd"] [data-value="arrow"]' })
+    const back = line([eingang.coord, v.coord])
+    expect(hintFor(ui({ selectedDrawingId: back.id }), [v], [back])?.anchor).toEqual({ kind: 'control', sel: '[data-field="lineReverse"] button' })
   })
 
   it('off the Karte, the way back to it comes first', () => {
@@ -124,23 +125,25 @@ describe('Fahrzeug mit Leitung · Lösung', () => {
     return { states: goalStates(fahrzeugLeitung, doc, siteOf(doc.entities)).map((s) => s.s), doc }
   }
 
-  it('solves from nothing, from a TLF on the hydrant and from an unnamed Fahrzeug', () => {
+  it('solves from nothing and from a Fahrzeug somewhere else; one that stands near H1 stays where it is', () => {
     expect(run(scene.entities).states).toEqual(['ok', 'ok'])
-    expect(run([...scene.entities, vehicle(offsetM(h1.coord, 1, 0))]).states).toEqual(['ok', 'ok'])
-    expect(run([...scene.entities, vehicle(beside, '')]).states).toEqual(['ok', 'ok'])
+    expect(run([...scene.entities, vehicle(offsetM(h1.coord, 90, 0))]).states).toEqual(['ok', 'ok'])
+    const near = run([...scene.entities, vehicle(beside)])
+    expect(near.states).toEqual(['ok', 'ok'])
+    expect(near.doc.entities.find((e) => e.id === 'v1')?.coord).toEqual(beside)
   })
 
   it('gives a drawn Leitung its arrow – turned round when it runs the wrong way – instead of a second one', () => {
-    const tlf = vehicle(beside)
-    const back = run([...scene.entities, tlf], [line([eingang.coord, tlf.coord], { arrow: undefined })])
+    const v = vehicle(beside)
+    const back = run([...scene.entities, v], [line([eingang.coord, v.coord], { arrow: undefined })])
     expect(back.states).toEqual(['ok', 'ok'])
     expect(back.doc.drawings).toHaveLength(1)
   })
 
   it('a second run starts from the problem again', () => {
-    const tlf = vehicle(beside)
-    const doc = { entities: [...scene.entities, tlf], drawings: [...scene.drawings, line([tlf.coord, eingang.coord])] }
-    const fresh = fahrzeugLeitung.prepare!(doc)
+    const v = vehicle(beside)
+    const doc = { entities: [...scene.entities, v], drawings: [...scene.drawings, line([v.coord, eingang.coord])] }
+    const fresh = fahrzeugLeitung.prepare(doc)
     expect(fresh.entities.map((e) => e.id)).toEqual(scene.entities.map((e) => e.id))
     expect(fresh.drawings.map((d) => d.id)).toEqual([SITE_IDS.gebaeude])
   })

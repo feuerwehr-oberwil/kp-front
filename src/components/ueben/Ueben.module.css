@@ -16,7 +16,10 @@
 @media (--phone) {
   .card { left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right)); width: auto;
     bottom: calc(var(--dock-bottom) + var(--line-h) + var(--float-gap)); padding: 12px 14px 10px; }
-  :global(:root[data-stack-lane]) .card { bottom: max(calc(var(--dock-bottom) + var(--line-h) + var(--float-gap)), var(--stack-lane)); }
+  /* ⚠️ `:not(.folded)`: the folded card hangs from the TOP. With this rule's `bottom` too it
+     stretched from the top bar down to the dock whenever a tool was out – a sheet of glass over
+     the map that took the very tap «Zeigen» 2 was showing (found by e2e/ueben.spec.ts, 20.11.2026) */
+  :global(:root[data-stack-lane]) .card:not(.folded) { bottom: max(calc(var(--dock-bottom) + var(--line-h) + var(--float-gap)), var(--stack-lane)); }
 }
 /* «Zeigen» 1: the card stays readable over its own dim */
 .lifted { z-index: var(--z-ueben-hint-card); }
@@ -96,5 +99,6 @@
 .nextCard { margin-bottom: 16px; padding: 14px 16px; border-radius: var(--r-surface); background: var(--ueben-12);
   display: flex; flex-direction: column; gap: 6px; }
 .nextCard :global(.ip-btn.primary) { align-self: flex-start; background: var(--ueben); border-color: var(--ueben); color: var(--on-ueben); }
-.soon { color: var(--ink-faint); font-size: var(--fs-1); }
+/* «Frei üben»: its own card under the drills – a door, not one more drill */
+.free { margin-top: 16px; }
 .check { color: var(--green); }

@@ -1,8 +1,12 @@
 // «Üben»: the drill model. A drill is a concrete problem on the practice site (lib/ueben/site)
 // with GOALS that the card ticks live; each goal is a pure check over a snapshot of the practice
 // workspace and answers ok, still open or wrong WITH the reason (no how-to line under a goal –
-// owner, round 2: «Zeigen» is where the how lives)
-// (owner pick 3B, 19.11.2026: «a wrong value turns red with the reason»).
+// owner, round 2: «Zeigen» is where the how lives).
+//
+// ⚠️ Checks are LENIENT (owner pick, 20.11.2026): a goal is ok when the function was used with a
+// sensible result. An exact value is asked only where the number is the lesson (Messen, Leitung
+// rechnen). `wrong` is for what would be wrong on a real Einsatz (an arrow against the water) or
+// for a result so far off that the drill cannot go on – never for a tolerance band.
 //
 // «Zeigen» is a three-step ladder (owner picks, round 2026-11-19-ueben-zeigen): 1 the screen dims
 // and a ring pulses on the ONE next control – or on the spot on the map – with the path in words;
@@ -14,12 +18,6 @@ import type { Doc } from '../workspace'
 import type { WorkspaceMode } from '../../workspace/types'
 import type { Drawing, Entity, LineAttachment, LngLat, MapTool } from '../../types'
 import type { Site } from './site'
-
-export type ModuleId = 'karteWasser' | 'atemschutzGebaeude' | 'protokollAbschluss'
-export type DrillId =
-  | 'fahrzeugLeitung' | 'absperrkreis' | 'messen' | 'leitungRechnen' | 'pumpenVerschieben'
-  | 'truppAnmelden' | 'funkkontakt' | 'rueckzug' | 'notfall' | 'truppGeschoss' | 'gefahrUg'
-  | 'eintrag' | 'pendenz' | 'checkliste' | 'anwesenheit' | 'material' | 'fehlalarm'
 
 /** What the goals read. `answer` is the card's answer field (a drill with `answer`, e.g.
  *  «Messen»: the distance the operator read off), absent while empty. */
@@ -67,9 +65,10 @@ export interface SolveApi {
   addLine: (coords: LngLat[], attachments?: { startAttachment?: LineAttachment; endAttachment?: LineAttachment }, props?: Pick<Drawing, 'arrow'>) => void
 }
 
+/** A drill. Its `id` is its key in the catalogue (lib/ueben/catalogue · DrillId) and in the copy
+ *  (`copy.ueben.drills.<id>`). */
 export interface Drill {
-  id: DrillId
-  module: ModuleId
+  id: string
   goals: readonly Goal[]
   /** the points the map keeps in view: the site's, and what the operator placed for the drill (a
    *  TLF that turned red 80 m away must not be off-screen) */

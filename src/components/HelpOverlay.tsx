@@ -11,6 +11,8 @@ import { DEFAULT_HOURS_ROUNDING } from '../lib/attendanceHours'
 import { useIsPhone, useMediaQuery } from '../lib/useIsPhone'
 import { helpShows } from '../lib/helpDevice'
 import { pickActiveSection } from '../lib/scrollSpy'
+import { HELP_TRY, type TryTarget } from '../lib/ueben/tryOut'
+import { Button } from './Button'
 
 // In-app capabilities/help overlay reached from the incident menu ("Funktionen &
 // Hilfe"). One scrollable column of feature sections with a sticky TOC + scroll-spy
@@ -105,7 +107,24 @@ function sectionHaystack(s: HelpSection, intro: string): string {
   return parts.join(' ').replace(/\*\*|\[\[|\]\]|\u00AD/g, '').toLowerCase()
 }
 
-export function HelpOverlay({ onClose }: { onClose: () => void }) {
+/** «Auf dem Übungsplatz ausprobieren» under a section's title, where the section has a surface
+ *  there (lib/ueben/tryOut · HELP_TRY). */
+function TryButton({ section, onTry }: { section: string; onTry: (target: TryTarget) => void }) {
+  const target = HELP_TRY[section]
+  if (!target) return null
+  return (
+    <Button className="help-try" icon={<Icon id="target" />} data-help-try={section} onClick={() => onTry(target)}>
+      {appConfig.copy.ueben.tryOut}
+    </Button>
+  )
+}
+
+export function HelpOverlay({ onClose, onTry }: {
+  onClose: () => void
+  /** opens the Übungsplatz on a section's surface (TryButton). Absent = no buttons: a link
+   *  session has no Übungsplatz. */
+  onTry?: (target: TryTarget) => void
+}) {
   const C = appConfig.copy.help
   const phone = useIsPhone()
   // a finger and nothing else = no keyboard to speak of. ⚠️ Two plain queries rather than one
@@ -240,6 +259,7 @@ export function HelpOverlay({ onClose }: { onClose: () => void }) {
             {sections.map((s) => (
               <section key={s.id} id={`help-${s.id}`} className="help-sec">
                 <h3><Icon id={s.icon} />{mark(s.title, q, 'h')}</h3>
+                {onTry && <TryButton section={s.id} onTry={onTry} />}
                 {s.blocks.map((b, i) => {
                   switch (b.kind) {
                     case 'intro':
