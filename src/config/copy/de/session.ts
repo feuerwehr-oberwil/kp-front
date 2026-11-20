@@ -38,6 +38,8 @@ export const sessionCopy = {
     unsentMore: 'und {n} weitere',
     unsentBody: 'Sie liegen nur auf diesem Gerät und werden erst synchronisiert, wenn sich dieses Konto hier anmeldet.',
     loginFailed: 'Nicht angemeldet – PIN erneut eingeben',
+    // the PIN was right but the station's config did not load on a device that never held it
+    configFailed: 'Stationsdaten nicht geladen – PIN erneut eingeben',
     pleaseWait: 'Bitte kurz warten …',
     clearDigit: 'Letzte Ziffer entfernen',
     // the ✓ key on the pad — a PIN submits deliberately, never on some Nth digit

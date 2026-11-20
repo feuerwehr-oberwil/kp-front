@@ -45,6 +45,7 @@ beforeEach(() => {
   syncMediaCacheAuth.mockReset(); denyWorkspaceCache.mockReset(); setWorkspaceCacheOwner.mockReset()
   // the config re-read after a live /me is not this file's subject (auth.test.tsx covers it)
   vi.spyOn(deploymentConfig, 'ensureSessionConfig').mockResolvedValue()
+  vi.spyOn(deploymentConfig, 'hasStationConfig').mockReturnValue(true)
 })
 // ⚠️ No global RTL auto-cleanup in this repo (vite.config · test has no setupFiles), and these
 // tests fire a WINDOW event: a provider left mounted by the previous test would answer it too.

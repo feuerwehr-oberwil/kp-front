@@ -35,8 +35,10 @@ const LINK_USER = {
 
 beforeEach(() => {
   apiGet.mockReset(); apiPost.mockReset(); idbSet.mockReset(); idbDel.mockReset(); syncMediaCacheAuth.mockReset()
-  // out of the way by default; the probe tests below put their own in
+  // out of the way by default — a device that holds its station's config; the tests below
+  // put their own in
   vi.spyOn(deploymentConfig, 'ensureSessionConfig').mockResolvedValue()
+  vi.spyOn(deploymentConfig, 'hasStationConfig').mockReturnValue(true)
 })
 afterEach(() => vi.restoreAllMocks())
 
@@ -71,7 +73,7 @@ describe('AuthProvider — the boot probe reads the config again once the sessio
   // is what renews the session, so it reads again — before the app (and the map) mounts.
   it('a device with only the public parts waits for the session config before exposing the user', async () => {
     vi.spyOn(deploymentConfig, 'isDemoMode').mockReturnValue(false)
-    vi.spyOn(deploymentConfig, 'hasStationConfig').mockReturnValue(false)
+    const has = vi.spyOn(deploymentConfig, 'hasStationConfig').mockReturnValue(false)
     let release!: () => void
     const ensure = vi.spyOn(deploymentConfig, 'ensureSessionConfig')
       .mockReturnValue(new Promise<void>((resolve) => { release = resolve }))
@@ -82,6 +84,33 @@ describe('AuthProvider — the boot probe reads the config again once the sessio
     // Atemschutz numbers, so it stays on the splash
     await new Promise((r) => setTimeout(r, 50))
     expect(result.current.user).toBeNull()
+    has.mockReturnValue(true)
+    release()
+    await waitFor(() => expect(result.current.user).toEqual(EDITOR_USER))
+  })
+
+  it('a good session whose config read failed does not mount the app: it says «not reachable»', async () => {
+    vi.spyOn(deploymentConfig, 'isDemoMode').mockReturnValue(false)
+    vi.spyOn(deploymentConfig, 'hasStationConfig').mockReturnValue(false) // also after the read
+    apiGet.mockResolvedValue(EDITOR_USER)
+    const { result } = renderHook(() => useAuth(), { wrapper })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.user).toBeNull()
+    expect(result.current.probeUnreachable).toBe(true)
+    expect(idbSet).not.toHaveBeenCalledWith('kp-front-user', expect.anything())
+  })
+
+  it('a cached user on a device without the station config is not opened at once', async () => {
+    vi.spyOn(deploymentConfig, 'isDemoMode').mockReturnValue(false)
+    const has = vi.spyOn(deploymentConfig, 'hasStationConfig').mockReturnValue(false)
+    vi.mocked(idbGet).mockResolvedValueOnce(EDITOR_USER)
+    let release!: () => void
+    vi.spyOn(deploymentConfig, 'ensureSessionConfig').mockReturnValue(new Promise<void>((resolve) => { release = resolve }))
+    apiGet.mockResolvedValue(EDITOR_USER)
+    const { result } = renderHook(() => useAuth(), { wrapper })
+    await new Promise((r) => setTimeout(r, 50))
+    expect(result.current.user).toBeNull()
+    has.mockReturnValue(true)
     release()
     await waitFor(() => expect(result.current.user).toEqual(EDITOR_USER))
   })
@@ -122,6 +151,23 @@ describe('AuthProvider — login', () => {
     expect(result.current.user).toBeNull()
     await act(async () => { release({ fleet: { vehicles: [] } }); await login })
     expect(result.current.user).toEqual(EDITOR_USER)
+  })
+
+  it('refuses the login when the config did not load on a device that never held the station config', async () => {
+    vi.spyOn(deploymentConfig, 'isDemoMode').mockReturnValue(false)
+    vi.spyOn(deploymentConfig, 'hasStationConfig').mockReturnValue(false)
+    apiGet.mockRejectedValue(new ApiError(401, 'Nicht angemeldet'))
+    const { result } = renderHook(() => useAuth(), { wrapper })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    vi.spyOn(deploymentConfig, 'loadDeploymentConfig').mockResolvedValue({ identity: { appName: 'FW' } })
+    apiPost.mockResolvedValue(EDITOR_USER)
+    let refused: unknown
+    await act(async () => { refused = await result.current.login('ed-1', '135790').catch((e: unknown) => e) })
+    expect(refused).toBeInstanceOf(ApiError)
+    expect((refused as ApiError).detail).toMatch(/Stationsdaten/)
+    expect(result.current.user).toBeNull()
+    expect(idbSet).not.toHaveBeenCalledWith('kp-front-user', expect.anything())
   })
 })
 

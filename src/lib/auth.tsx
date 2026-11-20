@@ -7,6 +7,7 @@ import { notifyAccountKnown } from './accountKnown'
 import { syncMediaCacheAuth } from './authMediaCache'
 import { denyWorkspaceCache, setWorkspaceCacheOwner } from './api/workspaceSync'
 import { linkPageOwnsSession } from './linkMode'
+import { appConfig } from '../config/appConfig'
 
 // The demo's public PIN (shown to every visitor) — used to auto-sign-in on demo instances so
 // there's no login screen. Only ever sent when isDemoMode() is true; real stations never use it.
@@ -187,6 +188,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // (no fleet, no map layers, no CARTO key). Mount the app only after the read with the
       // session, or a first-time visitor sees a station without its data until reloading.
       try { await loadDeploymentConfig() } catch { /* keep the booted config */ }
+      // …and without it there is no app to land in: the login screen instead (see `login`)
+      if (!hasStationConfig()) return null
       return demoUser
     } catch { return null }
   }
@@ -217,7 +220,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // to it — see the isUnverifiable branch.
       const denialEpochAtStart = denialEpoch.current
       const cached = await readCachedUser()
-      if (cached && alive && denialEpoch.current === denialEpochAtStart) {
+      // At once only on a device that also holds the station's config (the boot seeded it from
+      // the offline copy). One that holds the public parts alone waits for the read below.
+      const openAtOnce = !!cached && hasStationConfig()
+      if (cached && openAtOnce && alive && denialEpoch.current === denialEpochAtStart) {
         adoptUser(cached)
         setLoading(false)
       }
@@ -236,10 +242,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // lands in the singleton and the offline cache. A device that holds only the public
         // parts waits for the answer: the app is not this station's without it.
         const reread = ensureSessionConfig()
-        if (!cached) {
+        if (!openAtOnce) {
           await (hasStationConfig()
             ? Promise.race([reread, new Promise((r) => setTimeout(r, SESSION_CONFIG_BUDGET_MS))])
             : reread)
+          // The session is good but the config read failed: no app without the station's data.
+          // Say «not reachable» (the login screen and the link page offer the retry); the
+          // session cookie stays, so the next start or a new login reads again.
+          if (!hasStationConfig()) {
+            if (alive) setProbeUnreachable(true)
+            return
+          }
         }
         if (alive) { adoptUser(u); writeCachedUser(u) }
       } catch (e) {
@@ -250,7 +263,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // silently reversing the logout. Only a live 200 above may lift a denial; the offline
           // fallback may not. Stay locked and require a fresh login.
           if (denialEpoch.current !== denialEpochAtStart) return
-          // unverifiable, not refused — the cached session (adopted above) stays usable
+          // unverifiable, not refused — the cached session stays usable (adopted above, or
+          // here when the device holds no station config: offline there is nothing to wait for)
+          if (cached && !openAtOnce) adoptUser(cached)
           if (!cached) setProbeUnreachable(true)
         } else if (isDenial(e)) {
           // A reachable refusal, 401 OR 403, clears the cached identity — or a later OFFLINE boot
@@ -354,9 +369,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // (backend api/config · get_config), and the boot fetch necessarily ran before this login —
     // on a device that never held a session the app would mount without fleet, map layers and
     // the station's Atemschutz numbers. A later boot re-reads too (probe effect above).
-    // Best-effort: a station that cannot re-read still has the config it booted with, and
-    // failing the login over a config refresh would be the worse trade at 3am.
+    // A device that already holds the station's config goes on with it when the read fails.
+    // One that holds only the public parts does not get an app with the shipped defaults in
+    // place of its station: the login screen says so and the PIN is entered again.
     try { await loadDeploymentConfig() } catch { /* keep the booted config */ }
+    if (!hasStationConfig()) throw new ApiError(503, appConfig.copy.login.configFailed)
     // The account is back: this is what lifts a denial and hands the offline cache — including
     // any edit that never reached the server — to the user who left it there.
     adoptUser(u)
