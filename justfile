@@ -250,7 +250,7 @@ hooks:
     dir=$(git rev-parse --git-path hooks)
     installed=$(ls "$dir" 2>/dev/null | grep -v '\.sample$' | tr '\n' ' ' || true)
     if [ -n "$installed" ]; then
-      echo "hooks: $dir has $installed– core.hooksPath would turn them off. Move them into .githooks/ first." >&2
+      echo "hooks: $dir has $installed– core.hooksPath would turn them off in every worktree. Commit an equivalent into .githooks/ (or remove them), then run this again." >&2
       exit 1
     fi
     git config core.hooksPath .githooks

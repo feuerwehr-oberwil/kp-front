@@ -94,7 +94,11 @@ export default tseslint.config(
   {
     files: ['src/**/*.{ts,tsx}'],
     ignores: ['src/lib/overlays/**'],
-    rules: { 'no-restricted-imports': ['error', { patterns: [OVERLAY_DOOR] }] },
+    rules: {
+      'no-restricted-imports': ['error', { patterns: [OVERLAY_DOOR] }],
+      // no-restricted-imports does not see `import()`
+      'no-restricted-syntax': ['error', { selector: 'ImportExpression[source.value=/^@base-ui\\u002Freact/]', message: OVERLAY_DOOR.message }],
+    },
   },
   {
     files: ['src/**/*.{ts,tsx}'],
