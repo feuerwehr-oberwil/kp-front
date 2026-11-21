@@ -43,10 +43,14 @@ jobs:
         run: |
           set -euo pipefail
           version="${GITHUB_REF_NAME#v}"
-          case "$version" in
-            [0-9]*.[0-9]*.[0-9]*) ;;
-            *) echo "tag $GITHUB_REF_NAME is not vMAJOR.MINOR.PATCH"; exit 1 ;;
-          esac
+          # ⚠️ Digits and dots only, the whole string. The glob that stood here
+          # (`[0-9]*.[0-9]*.[0-9]*`) let anything follow a digit, so a tag like `v1.2.3;x` or
+          # `v1a.2.3` passed — and the version goes into image tags and into the shell line of
+          # the next step.
+          if ! [[ "$version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "tag $GITHUB_REF_NAME is not vMAJOR.MINOR.PATCH"
+            exit 1
+          fi
           pkg=$(python3 -c 'import json;print(json.load(open("package.json"))["version"])')
           if [ "$pkg" != "$version" ]; then
             echo "tag says $version but package.json says $pkg – run 'just release $version' first"
@@ -57,7 +61,9 @@ jobs:
           # Only move `latest` when this really is the newest release – a late patch on an
           # older series (0.1.1 after 0.2.0) must not drag `latest` backwards.
           image="ghcr.io/${GITHUB_REPOSITORY}"
-          newest=$(git tag -l 'v*' | sort -V | tail -1)
+          # Only tags of the same strict shape compete: a mistyped tag that this job refused
+          # (v1.2.3x) would otherwise sort on top and keep `latest` from ever moving again.
+          newest=$(git tag -l 'v*' | grep -E '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$' | sort -V | tail -1)
           tags="${image}:${version}"$'\n'"${image}:${version%.*}"
           if [ "$newest" = "$GITHUB_REF_NAME" ]; then
             tags="$tags"$'\n'"${image}:latest"

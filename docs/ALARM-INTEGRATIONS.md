@@ -293,7 +293,8 @@ async def incident_created(req: Request):
     label = f"{inc['title']}\n{inc.get('address') or ''}\nAlarm: {inc['started_at'][11:16]}"
     # kp-rueck's endpoint has a TRAILING SLASH, requires `title`, calls the payload field
     # `qr_content`, and is editor-gated — so the receiver needs a logged-in kp-rueck session
-    # cookie (or a master token), not just network reachability.
+    # cookie (sign in with an editor account: POST /api/auth/login), not just network
+    # reachability. kp-rueck has no static master token any more.
     async with httpx.AsyncClient(cookies=KP_RUECK_SESSION) as c:
         await c.post(f"{KP_RUECK}/api/print/qr-code/",
                      json={"qr_content": url or inc["id"], "title": inc["title"],

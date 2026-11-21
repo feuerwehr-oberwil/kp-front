@@ -35,6 +35,11 @@ on:
     - cron: "40 */2 * * *"   # every 2 hours, offset off the hour so it never races the reset
   workflow_dispatch: {}
 
+# Reads one file of the repository. Without this block the workflow token gets the repository
+# default, which is read AND write here.
+permissions:
+  contents: read
+
 concurrency:
   group: demo-watchdog
   cancel-in-progress: true
