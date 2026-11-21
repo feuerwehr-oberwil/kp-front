@@ -367,7 +367,7 @@ def safe_markup(markup: str | None) -> str:
         f.feed(markup)
         f.close()
         return f.result()
-    except Exception:  # noqa: BLE001 — a malformed row must not cost the whole Rapport
+    except Exception:  # a malformed row must not cost the whole Rapport
         logger.warning("Journal-Markup unlesbar — die Zeile wird als reiner Text gedruckt", exc_info=True)
         return _esc(re.sub(r"<[^>]*>", "", markup))
 
@@ -741,7 +741,7 @@ def _logo_flowable(data: bytes | None) -> Image | None:
             b = io.BytesIO()
             img.save(b, "PNG")
             data = b.getvalue()
-        except Exception:  # noqa: BLE001 — a logo never fails a rapport
+        except Exception:  # a logo never fails a rapport
             logger.warning("Logo konnte nicht gerendert werden — Rapport wird ohne Logo gedruckt.", exc_info=True)
             return None
     out = _fit_image(data, _LOGO_MAX_W, _LOGO_H)
@@ -792,7 +792,7 @@ def _fit_image(data: bytes | None, max_w: float, max_h: float) -> Image | None:
     data = _exif_upright(data)
     try:
         iw, ih = ImageReader(io.BytesIO(data)).getSize()
-    except Exception:  # noqa: BLE001 — unreadable image → no image, never a failed rapport
+    except Exception:  # unreadable image → no image, never a failed rapport
         # …but never a silent one: a photo missing from a signed Rapport has to be explainable.
         logger.warning("report: a picture could not be decoded and is left out", exc_info=True)
         return None

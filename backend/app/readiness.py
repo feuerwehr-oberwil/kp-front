@@ -38,14 +38,14 @@ async def check_readiness(engine: AsyncEngine) -> dict[str, str]:
             async with engine.connect() as conn:
                 await conn.execute(text("SELECT 1"))
         checks["database"] = "ok"
-    except Exception:  # noqa: BLE001 - every data-layer failure must withhold a healthy signal
+    except Exception:  # every data-layer failure must withhold a healthy signal
         logger.warning("Readiness probe: database unavailable", exc_info=True)
         checks["database"] = "error"
     try:
         with anyio.fail_after(PROBE_TIMEOUT_SECONDS):
             await _check_storage()
         checks["storage"] = "ok"
-    except Exception:  # noqa: BLE001 - includes platform filesystem errors and probe timeout
+    except Exception:  # includes platform filesystem errors and probe timeout
         logger.warning("Readiness probe: storage unavailable", exc_info=True)
         checks["storage"] = "error"
     return checks

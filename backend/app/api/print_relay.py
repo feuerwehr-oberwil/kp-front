@@ -176,7 +176,7 @@ def reverse_pdf_pages(pdf: bytes) -> bytes:
                     out.close()
             finally:
                 src.close()
-    except Exception:  # noqa: BLE001 — see the docstring: never lose the print over the order
+    except Exception:  # see the docstring: never lose the print over the order
         logger.warning("Reversing the Rapport pages failed; printing in reading order", exc_info=True)
         return pdf
 

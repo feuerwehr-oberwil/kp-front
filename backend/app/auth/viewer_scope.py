@@ -41,7 +41,7 @@ async def viewer_history(db: AsyncSession) -> timedelta:
     row = (await db.execute(select(DeploymentConfig.config_json).where(DeploymentConfig.id == 1))).scalar_one_or_none()
     try:
         days = load_stored_config(row or {}).access.viewerHistoryDays
-    except Exception:  # noqa: BLE001 — a bad stored row must not 500 every viewer request
+    except Exception:  # a bad stored row must not 500 every viewer request
         logger.warning("deployment config failed validation — viewer window read as the default", exc_info=True)
         days = AccessConfig().viewerHistoryDays
     return timedelta(days=days)

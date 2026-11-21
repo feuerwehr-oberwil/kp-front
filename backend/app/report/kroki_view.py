@@ -94,7 +94,7 @@ def warm_report_tiles(payload: ReportPayload) -> None:
             cache=kk.get_tile_cache(),
             max_tile_z=payload.kroki.maxTileZoom or 19,
         )
-    except Exception:  # noqa: BLE001 — a cold cache must not fail the rapport
+    except Exception:  # a cold cache must not fail the rapport
         # A failed prewarm is recoverable (the real render refetches), but silence here is how a
         # permanently unreachable tile source stays invisible.
         logger.warning("Rapport tile prewarm failed; the render will refetch", exc_info=True)

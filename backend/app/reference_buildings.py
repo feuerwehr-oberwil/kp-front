@@ -210,7 +210,7 @@ async def ensure_snapshot(db: AsyncSession) -> dict | None:
             }
             storage.put_bytes(SNAPSHOT_KEY, json.dumps(stored).encode())
             logger.info("building snapshot refreshed: %d elements for bbox %s", len(stored["elements"]), wanted)
-        except Exception:  # noqa: BLE001 – the stale snapshot (if any) is still the better reference
+        except Exception:  # the stale snapshot (if any) is still the better reference
             logger.warning(
                 "building snapshot refresh failed; keeping %s", "the stale one" if stored else "nothing", exc_info=True
             )

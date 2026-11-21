@@ -281,7 +281,7 @@ async def record(kind: str, key: str, request, *, day: date | None = None) -> No
                 )
             )
             await db.commit()
-    except Exception:  # noqa: BLE001 — a statistic is never worth a failed request
+    except Exception:  # a statistic is never worth a failed request
         logger.warning("visit stats: recording %s/%s failed", kind, key, exc_info=True)
 
 

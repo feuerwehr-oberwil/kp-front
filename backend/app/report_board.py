@@ -491,7 +491,7 @@ class BoardPageFlowable(Flowable):
         try:
             img = ImageReader(io.BytesIO(self.map_png))
             iw, ih = img.getSize()
-        except Exception:  # noqa: BLE001 — a broken render leaves the box to sketch in
+        except Exception:  # a broken render leaves the box to sketch in
             logger.warning("report: the Tafel's map render could not be decoded; its box stays empty", exc_info=True)
             return
         # cover the box (the render is framed on the Lage with room around it), clipped to it
