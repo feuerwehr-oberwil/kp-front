@@ -5,71 +5,108 @@
 // scripts/eslint-baseline.json): the existing count may only go down, a new occurrence fails
 // `pnpm lint`. A rule that the code already meets everywhere belongs in eslint.config.js as an
 // error instead.
+import { createHash } from 'node:crypto'
+import { readFileSync } from 'node:fs'
 
 const EFFECTS = new Set(['useEffect', 'useLayoutEffect'])
 const TIMERS = new Set(['setTimeout', 'setInterval', 'requestAnimationFrame', 'requestIdleCallback'])
-/** `React.useEffect(…)`, `window.setTimeout(…)`: the objects a global or hook is reached through */
-const OWNERS = new Set(['React', 'window', 'globalThis', 'self'])
-/** JSX attributes that a user reads or a screen reader speaks */
-const COPY_ATTRS = new Set(['aria-label', 'aria-description', 'title', 'placeholder', 'alt'])
+/** `window.setTimeout(…)`: the globals a timer is reached through (React namespaces come from imports) */
+const GLOBALS = new Set(['window', 'globalThis', 'self'])
+/** attributes and props that a user reads or a screen reader speaks */
+const COPY_ATTRS = new Set(['aria-label', 'aria-description', 'title', 'placeholder', 'alt', 'label', 'sub', 'hint'])
 /** two letters in a row, any script: «OK» counts, «›» or «12» does not */
 const WORDS = /\p{L}{2,}/u
 const DIRECTIVE = /^\s*eslint-disable(?:-next-line|-line)?(?=\s|$)/
+/** ESLint's own separator between a directive's rules and its reason */
+const REASON = /\s-{2,}\s/u
 
-/** the called name: `f()` → f, `React.f()` / `window.f()` → f, anything else → undefined */
-function calleeName(callee) {
-  if (callee.type === 'Identifier') return callee.name
-  if (
-    callee.type === 'MemberExpression' && !callee.computed &&
-    callee.object.type === 'Identifier' && OWNERS.has(callee.object.name) &&
-    callee.property.type === 'Identifier'
-  ) return callee.property.name
-  return undefined
+/**
+ * The names a call to one of `names` can take in this file: the bare names, a local alias from
+ * `import { useEffect as x } from 'react'`, and `React.` / `import * as R` namespaces.
+ */
+function reactBindings(program, names) {
+  const direct = new Set(names)
+  const namespaces = new Set(['React'])
+  for (const node of program.body) {
+    if (node.type !== 'ImportDeclaration' || node.source.value !== 'react') continue
+    for (const s of node.specifiers) {
+      if (s.type === 'ImportSpecifier' && names.has(s.imported.name)) direct.add(s.local.name)
+      else namespaces.add(s.local.name) // default or namespace import
+    }
+  }
+  return { direct, namespaces }
 }
 
-/** a rule that reports every call to one of `names` with `message` */
-const callRule = (names, message) => ({
+/** a rule that reports every call to one of `names`; `owners` are the objects it may be reached through */
+const callRule = (names, message, { react }) => ({
   meta: { type: 'suggestion', schema: [], messages: { call: message } },
-  create: (context) => ({
-    CallExpression(node) {
-      const name = calleeName(node.callee)
-      if (name && names.has(name)) context.report({ node: node.callee, messageId: 'call', data: { name } })
-    },
-  }),
+  create: (context) => {
+    let direct = names
+    let owners = GLOBALS
+    return {
+      Program(program) {
+        if (!react) return
+        const b = reactBindings(program, names)
+        direct = b.direct
+        owners = b.namespaces
+      },
+      CallExpression(node) {
+        const c = node.callee
+        const name = c.type === 'Identifier' && direct.has(c.name) ? c.name
+          : c.type === 'MemberExpression' && !c.computed && c.object.type === 'Identifier' &&
+            owners.has(c.object.name) && c.property.type === 'Identifier' && names.has(c.property.name)
+            ? c.property.name : undefined
+        if (name) context.report({ node: c, messageId: 'call', data: { name } })
+      },
+    }
+  },
 })
+
+/** the string pieces an expression renders: a literal, a template's text, either branch of `?:`, the right of `&&` / `??` */
+function rendered(e) {
+  if (!e) return []
+  if (e.type === 'Literal') return typeof e.value === 'string' ? [{ node: e, text: e.value }] : []
+  if (e.type === 'TemplateLiteral') return e.quasis.map((q) => ({ node: e, text: q.value.cooked ?? '' }))
+  if (e.type === 'ConditionalExpression') return [...rendered(e.consequent), ...rendered(e.alternate)]
+  if (e.type === 'LogicalExpression') return rendered(e.right)
+  return []
+}
 
 /** @type {import('eslint').ESLint.Plugin} */
 export default {
+  // ESLint's cache keys on the config, where a plugin is its name and version: the content hash
+  // makes an edited rule re-lint every file instead of reusing stale counts.
+  meta: { name: 'kp', version: createHash('sha256').update(readFileSync(new URL(import.meta.url))).digest('hex').slice(0, 12) },
   rules: {
     // A raw effect needs nuance to get right, and agents copy the ones they see. Product code
     // reaches effects through named hooks in src/lib, where each one is tested once.
     'no-raw-effect': callRule(EFFECTS,
-      '{{name}} in product code: use a named hook from src/lib, or write one there with a test.'),
+      '{{name}} in product code: use a named hook from src/lib, or write one there with a test.', { react: true }),
 
     // A raw timer usually patches over an ordering or layout problem instead of fixing it
     // (and many short-lived timers cost GC pauses on the iPad).
     'no-raw-timer': callRule(TIMERS,
-      '{{name}} in product code: fix the ordering it waits for, or use a helper from src/lib.'),
+      '{{name}} in product code: fix the ordering it waits for, or use a helper from src/lib.', { react: false }),
 
     // Words on a screen come from appConfig.copy.* (German first, then en/fr/it) –
     // docs/copy-and-wording.md. Text written into JSX is never translated.
     'no-literal-copy': {
       meta: { type: 'suggestion', schema: [], messages: { literal: 'Text on a screen comes from appConfig.copy.* – docs/copy-and-wording.md.' } },
       create: (context) => {
-        const report = (node) => context.report({ node, messageId: 'literal' })
+        const reportWords = (pieces) => {
+          const hit = pieces.find((p) => WORDS.test(p.text))
+          if (hit) context.report({ node: hit.node, messageId: 'literal' })
+        }
         return {
-          JSXText(node) { if (WORDS.test(node.value)) report(node) },
-          'JSXElement > JSXExpressionContainer > Literal, JSXFragment > JSXExpressionContainer > Literal'(node) {
-            if (typeof node.value === 'string' && WORDS.test(node.value)) report(node)
+          JSXText(node) { reportWords([{ node, text: node.value }]) },
+          'JSXElement > JSXExpressionContainer, JSXFragment > JSXExpressionContainer'(node) {
+            reportWords(rendered(node.expression))
           },
           JSXAttribute(node) {
             const name = node.name.type === 'JSXIdentifier' ? node.name.name : undefined
             const v = node.value
             if (!name || !COPY_ATTRS.has(name) || !v) return
-            const text = v.type === 'Literal' ? v.value
-              : v.type === 'JSXExpressionContainer' && v.expression.type === 'Literal' ? v.expression.value
-                : undefined
-            if (typeof text === 'string' && WORDS.test(text)) report(v)
+            reportWords(v.type === 'Literal' ? rendered(v) : v.type === 'JSXExpressionContainer' ? rendered(v.expression) : [])
           },
         }
       },
@@ -83,8 +120,8 @@ export default {
         Program() {
           for (const c of context.sourceCode.getAllComments()) {
             if (!DIRECTIVE.test(c.value)) continue
-            const reason = c.value.split('--').slice(1).join('--').trim()
-            if (!reason) context.report({ loc: c.loc, messageId: 'bare' })
+            const [, ...rest] = c.value.split(REASON)
+            if (!rest.join(' ').replace(/^-+/, '').trim()) context.report({ loc: c.loc, messageId: 'bare' })
           }
         },
       }),

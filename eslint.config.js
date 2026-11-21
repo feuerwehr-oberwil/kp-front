@@ -88,17 +88,18 @@ export default tseslint.config(
     // a fixture's `!` asserts what the test just arranged; a wrong one fails the test itself
     rules: { '@typescript-eslint/no-non-null-assertion': 'off' },
   },
-  // The two doors. src/lib is the data layer and imports lib/api/* directly; src/lib/overlays is
-  // the one importer of Base UI. Tests may import a module under test anywhere.
+  // The two doors. src/lib/overlays is the one importer of Base UI, tests included. src/lib is the
+  // data layer and imports lib/api/* directly, and a test may import its module under test from
+  // anywhere. The second block overrides the first (same rule) where both match, so it names both.
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    ignores: ['src/lib/overlays/**'],
+    rules: { 'no-restricted-imports': ['error', { patterns: [OVERLAY_DOOR] }] },
+  },
   {
     files: ['src/**/*.{ts,tsx}'],
     ignores: ['src/lib/**', ...TESTS],
     rules: { 'no-restricted-imports': ['error', { patterns: [API_DOOR, OVERLAY_DOOR] }] },
-  },
-  {
-    files: ['src/lib/**/*.{ts,tsx}'],
-    ignores: ['src/lib/overlays/**', ...TESTS],
-    rules: { 'no-restricted-imports': ['error', { patterns: [OVERLAY_DOOR] }] },
   },
   // Playwright e2e: node, and a fixture's `use` callback is Playwright's, not React's hook
   {

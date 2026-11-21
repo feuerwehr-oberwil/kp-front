@@ -236,10 +236,20 @@ ci:
     gates=$(node scripts/ci-scope.mjs)
     if [ -n "$gates" ]; then just "$gates"; else echo "ci: no gate reads what this branch changes"; fi
 
-# (Once per clone; every worktree of it then runs .githooks/. `git push --no-verify` skips it.)
+# (Once per clone; every worktree of it then runs .githooks/. `git push --no-verify` skips it.
+# It stops when .git/hooks holds an installed hook – e.g. `pre-commit install` – that the switch
+# would silently turn off.)
 # Run `just ci` before every push (the .githooks/pre-push hook).
 [group('Quality')]
 hooks:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    dir="$(git rev-parse --git-common-dir)/hooks"
+    installed=$(find "$dir" -maxdepth 1 -type f ! -name '*.sample' -printf '%f ' 2>/dev/null || true)
+    if [ -n "$installed" ]; then
+      echo "hooks: $dir has $installed– core.hooksPath would turn them off. Move them into .githooks/ first." >&2
+      exit 1
+    fi
     git config core.hooksPath .githooks
 
 # Run the frontend, coverage and backend gates together (just >=1.56); --jobs 1 runs them serially.
