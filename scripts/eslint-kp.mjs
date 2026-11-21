@@ -93,9 +93,11 @@ export default {
     'no-literal-copy': {
       meta: { type: 'suggestion', schema: [], messages: { literal: 'Text on a screen comes from appConfig.copy.* – docs/copy-and-wording.md.' } },
       create: (context) => {
+        // one report per literal (both branches of a `?:` count), one per template
         const reportWords = (pieces) => {
-          const hit = pieces.find((p) => WORDS.test(p.text))
-          if (hit) context.report({ node: hit.node, messageId: 'literal' })
+          for (const node of new Set(pieces.filter((p) => WORDS.test(p.text)).map((p) => p.node))) {
+            context.report({ node, messageId: 'literal' })
+          }
         }
         return {
           JSXText(node) { reportWords([{ node, text: node.value }]) },

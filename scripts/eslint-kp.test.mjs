@@ -42,6 +42,8 @@ tester.run('no-literal-copy', kp.rules['no-literal-copy'], {
     { code: "<b aria-label={'Menü'} />", errors: 1 },
     { code: "<b>{busy ? 'Speichern…' : C.save}</b>", errors: 1 },
     { code: "<b>{open && 'Offen'}</b>", errors: 1 },
+    { code: "<b>{busy ? 'Speichern…' : 'Speichern'}</b>", errors: 2 },
+    { code: '<b title={`Menü ${n} Eintrag`} />', errors: 1 },
     { code: '<b aria-label={`Menü ${n}`} />', errors: 1 },
     { code: '<Row sub="Offen" />', errors: 1 },
   ],

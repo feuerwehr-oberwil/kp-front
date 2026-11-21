@@ -244,8 +244,11 @@ ci:
 hooks:
     #!/usr/bin/env bash
     set -euo pipefail
-    dir="$(git rev-parse --git-common-dir)/hooks"
-    installed=$(find "$dir" -maxdepth 1 -type f ! -name '*.sample' -printf '%f ' 2>/dev/null || true)
+    current=$(git config core.hooksPath || true)
+    if [ "$current" = .githooks ]; then echo "hooks: already on .githooks"; exit 0; fi
+    if [ -n "$current" ]; then echo "hooks: core.hooksPath is $current – set it by hand if .githooks should replace it." >&2; exit 1; fi
+    dir=$(git rev-parse --git-path hooks)
+    installed=$(ls "$dir" 2>/dev/null | grep -v '\.sample$' | tr '\n' ' ' || true)
     if [ -n "$installed" ]; then
       echo "hooks: $dir has $installed– core.hooksPath would turn them off. Move them into .githooks/ first." >&2
       exit 1
