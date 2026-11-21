@@ -40,6 +40,7 @@ Alembic, one service that serves the frontend same-origin – **uv** ([`backend/
 - Before you push, run `just ci` for the stacks your diff can affect, or `just ci-all` for all
   stacks. They run lint, build, the full unit suite + coverage floor and the backend with
   migration drift, in parallel. What each covers and what stays CI's: [`docs/testing/ci.md`](docs/testing/ci.md).
+  `just hooks` (once per clone) makes every `git push` run `just ci` first.
 
 ## Working in this repo
 
@@ -72,7 +73,9 @@ Alembic, one service that serves the frontend same-origin – **uv** ([`backend/
   everywhere). Never put them in `site/`, because `site/` is published.
 - Match the surrounding code's style, naming and comment density. Write technical prose (docs,
   comments, commits) in English and user-facing text in German. Convert relative dates to absolute.
-- **A new rule goes where the next editor meets it**: the module's header, or, when it spans
+- **A correction becomes a check.** When the owner corrects a change and a lint rule
+  (`scripts/eslint-kp.mjs`), a test or a type can hold it, build that check in the same PR and name
+  the correction in the PR body. Prose comes last: the module's header, or, when the rule spans
   modules, the `docs/` page of its topic. Add a line here only for something every change must know.
 
 ## Before you change …
@@ -98,7 +101,6 @@ rules that break silently.
   three ways to join it, what is deliberately not undoable.
 - **Synced state, storage, ids, the Verlauf, the record** → [`docs/sync-and-offline.md`](docs/sync-and-offline.md):
   - ⚠️ a new synced field needs a `MERGE_POLICY` row (`mergeWorkspace.ts`);
-  - ⚠️ every minted id comes from `newId(prefix)` (`src/lib/ids.ts`), never `crypto.randomUUID()`;
   - ⚠️ a board object kind that a build does not draw is a passenger, never dropped. A new kind
     bumps `WORKSPACE_SCHEMA_VERSION` and joins `backend/app/data/board_kinds.json`;
   - operational state in IndexedDB, «saved» means every queue acknowledged, records append-only,

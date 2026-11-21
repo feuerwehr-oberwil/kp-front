@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Runs the gates this branch can affect before it leaves the machine: `just ci`, scoped by
+# scripts/ci-scope.mjs. Install once per clone with `just hooks`. A 3am hotfix skips it with
+# `git push --no-verify`. It checks the working tree, so uncommitted edits count too.
+set -euo pipefail
+
+# git passes one line per ref: <local ref> <local sha> <remote ref> <remote sha>.
+# A push that only deletes remote branches or tags has nothing to check.
+zero=0000000000000000000000000000000000000000
+pushing=false
+while read -r _ local_sha _ _; do
+  [ "$local_sha" != "$zero" ] && pushing=true
+done
+$pushing || exit 0
+
+exec just ci
