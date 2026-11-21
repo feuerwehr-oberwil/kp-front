@@ -277,26 +277,6 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 .btn-ghost:hover { background: var(--fill-soft); }
 .cta-note { font-family: var(--mono); font-size: 12.5px; color: var(--ink-faint); }
 
-.frame {
-  margin-top: 56px;
-  border-radius: var(--r-hero);
-  border: 1px solid var(--line);
-  box-shadow: var(--shadow);
-  overflow: hidden;
-  background: var(--surface);
-}
-.frame picture, .shot picture { display: block; }
-.frame img { display: block; width: 100%; height: auto; }
-.frame-bar {
-  display: flex; align-items: center; gap: 8px;
-  padding: 10px 16px;
-  border-bottom: 1px solid var(--line-soft);
-  font-family: var(--mono); font-size: 12px; color: var(--ink-faint);
-}
-.frame-bar .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--line); }
-.frame-bar .dot.live { background: var(--red); }
-.frame-bar .addr { margin-left: auto; }
-
 /* ---------- section scaffolding ---------- */
 /* section.wrap beats both `.wrap` (which zeroes vertical padding) and per-section classes */
 section { padding: 96px 0; }
@@ -314,59 +294,9 @@ section[id], main { scroll-margin-top: 76px; } /* anchor targets clear the stick
 /* A caveat under a section lede – smaller and quieter than the lede itself. */
 .sec-head p.sec-note { color: var(--ink-faint); font-size: .86rem; margin-top: 12px; }
 
-/* ---------- Passt für ---------- */
-/* Der schnelle Filter «ist das für uns?», direkt unter dem Hero. Bewusst
-   typografische Haken statt grüner Emoji – die Seite hat sonst keine. */
-.fit {
-  border-top: 1px solid var(--line-soft);
-  border-bottom: 1px solid var(--line-soft);
-  background: var(--fill-soft);
-  padding: 30px 0;
-}
-.fit-row { display: grid; grid-template-columns: 86px 1fr; gap: 6px 22px; align-items: baseline; }
-.fit-row + .fit-row { margin-top: 14px; }
-.fit-k {
-  font-family: var(--mono); font-size: 11.5px; font-weight: 600;
-  letter-spacing: .13em; text-transform: uppercase; color: var(--ink-faint);
-}
-.fit-v { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 22px; }
-.fit-v li {
-  display: flex; align-items: center; gap: 9px;
-  font-size: .96rem; font-weight: 600; color: var(--ink);
-}
-.fit-v li::before {
-  content: ''; flex: none; width: 11px; height: 6px;
-  border-left: 2px solid var(--red); border-bottom: 2px solid var(--red);
-  transform: rotate(-45deg) translateY(-2px);
-}
+/* ---------- origin line, under the hero picture ---------- */
 .fit-note { margin-top: 20px; font-size: .9rem; color: var(--ink-faint); max-width: 70ch; }
 .fit-note a { color: var(--ink-dim); }
-
-/* Die Bande trägt zwei Fragen nebeneinander: links «ist das für uns?», rechts
-   «gehört das dann auch uns?». Die zweite ist die, die einem Kommandanten die
-   Sorge nimmt – darum eine eigene Fläche und nicht bloss eine dritte Zeile.
-   Unter 860px stapeln sie, und der Kasten kommt dann unter den Filter. */
-.fit-split { display: grid; grid-template-columns: 1fr minmax(280px, 380px); gap: 40px; }
-.fit-panel {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-left: 3px solid var(--red);
-  border-radius: var(--r-surface);
-  padding: 20px 22px;
-  align-self: start;
-}
-.fit-panel h2 { font-size: 1.08rem; font-weight: 700; letter-spacing: -.015em; }
-.fit-panel p { font-size: .89rem; color: var(--ink-dim); margin-top: 8px; }
-.fit-panel ul { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 7px; }
-.fit-panel li {
-  display: flex; align-items: center; gap: 9px;
-  font-size: .87rem; font-weight: 600; color: var(--ink);
-}
-.fit-panel li::before {
-  content: ''; flex: none; width: 11px; height: 6px;
-  border-left: 2px solid var(--red); border-bottom: 2px solid var(--red);
-  transform: rotate(-45deg) translateY(-2px);
-}
 
 /* ---------- 3am band ---------- */
 /* die einzige dunkle Sektion: die Nacht als Story-Moment mitten im Tag */
@@ -389,81 +319,6 @@ section[id], main { scroll-margin-top: 76px; } /* anchor targets clear the stick
 }
 .tenet .expl strong { color: #fff; font-weight: 600; }
 
-/* ---------- verlauf ---------- */
-.verlauf-list { margin-top: 44px; display: flex; flex-direction: column; }
-.entry {
-  display: grid;
-  grid-template-columns: 72px 20px 1fr;
-  gap: 0 18px;
-}
-.entry .time {
-  font-family: var(--mono); font-size: 14px; font-weight: 600;
-  color: var(--ink); text-align: right;
-  padding-top: 2px;
-  font-variant-numeric: tabular-nums;
-}
-.entry .rail { position: relative; }
-.entry .rail::before {
-  content: ''; position: absolute; left: 50%; top: 0; bottom: 0;
-  width: 2px; transform: translateX(-50%);
-  background: var(--line-soft);
-}
-.entry .rail::after {
-  content: ''; position: absolute; left: 50%; top: 7px;
-  width: 9px; height: 9px; border-radius: 50%;
-  transform: translateX(-50%);
-  background: var(--red);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--red) 18%, transparent);
-}
-.entry:first-child .rail::before { top: 7px; }
-.entry:last-child .rail::before { bottom: auto; height: 7px; }
-.entry .body { padding-bottom: 34px; }
-.entry:last-child .body { padding-bottom: 0; }
-.entry .tag {
-  font-family: var(--mono); font-size: 12px; font-weight: 600;
-  letter-spacing: .13em; text-transform: uppercase; color: var(--red-text);
-}
-.entry h3 { font-size: 1.12rem; font-weight: 700; letter-spacing: -.01em; margin-top: 6px; }
-.entry p { color: var(--ink-dim); margin-top: 6px; max-width: 58ch; }
-
-/* ---------- screenshots ---------- */
-/* Drei Spalten: die Kachel ist nur noch der Wegweiser – das ganze Bild kommt
-   per Klick in der Lightbox. Darum darf sie kleiner sein als lesbar. Die
-   Sektion behält die Breite aller anderen (.wrap), damit die Kante stimmt. */
-.shots-grid {
-  margin-top: 40px;
-  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px;
-}
-.shot {
-  border-radius: var(--r-surface);
-  border: 1px solid var(--line);
-  background: var(--surface);
-  overflow: hidden;
-  box-shadow: var(--shadow);
-}
-.shot img { display: block; width: 100%; height: auto; border-bottom: 1px solid var(--line-soft); }
-.shot figcaption { padding: 14px 16px 16px; }
-.shot .cap-t { font-weight: 700; font-size: .98rem; }
-.shot .cap-s { color: var(--ink-faint); font-size: .83rem; margin-top: 3px; }
-
-/* ---------- pillars ---------- */
-.pillars-grid { margin-top: 40px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-.pillar {
-  border: 1px solid var(--line-soft);
-  border-radius: var(--r-surface);
-  background: var(--surface);
-  box-shadow: var(--shadow);
-  padding: 28px;
-}
-.pillar .tag {
-  font-family: var(--mono); font-size: 12px; font-weight: 600;
-  letter-spacing: .13em; text-transform: uppercase; color: var(--red-text);
-}
-.pillar h3 { font-size: 1.3rem; font-weight: 700; letter-spacing: -.015em; margin-top: 10px; }
-.pillar p { color: var(--ink-dim); margin-top: 10px; }
-.pillar p strong { color: var(--ink); font-weight: 600; }
-.pillar a { color: var(--ink); }
-
 /* Ausfallstufen im dunklen Band: drei Spalten, die auf dem Grundsatz aufbauen */
 .stages { margin-top: 40px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 26px; }
 .stage { border-top: 2px solid #ff4d3f; padding-top: 18px; }
@@ -477,19 +332,9 @@ section[id], main { scroll-margin-top: 76px; } /* anchor targets clear the stick
 }
 .stage p { color: #a8b1c0; font-size: .95rem; margin-top: 9px; }
 .stage p strong { color: #fff; font-weight: 600; }
-.stage-note { margin-top: 30px; font-size: .88rem; color: #7f8899; max-width: 78ch; }
 
 /* ---------- Funktionsumfang ---------- */
 /* Die Liste, die den Umfang zeigt, ohne für jede Ansicht ein Bild zu brauchen */
-.feature-cols {
-  margin-top: 40px;
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 32px 28px;
-}
-.fgroup h3 {
-  font-family: var(--mono); font-size: 12px; font-weight: 600;
-  letter-spacing: .13em; text-transform: uppercase; color: var(--red-text);
-  padding-bottom: 10px; border-bottom: 1px solid var(--line-soft);
-}
 .flist { list-style: none; margin: 0; padding: 0; }
 .flist li {
   position: relative;
@@ -504,9 +349,8 @@ section[id], main { scroll-margin-top: 76px; } /* anchor targets clear the stick
   background: color-mix(in srgb, var(--red) 55%, transparent);
 }
 .flist strong { color: var(--ink); font-weight: 600; }
-/* «optional» ist ein Abzeichen, kein Wort im Satz – und es steht in ZWEI Listen: der
-   Funktionsliste und der Setup-Karte weiter unten. Deshalb unscoped: an .flist gebunden
-   rutschte es in der Karte als gewöhnlicher Fliesstext durch, in allen vier Sprachen. */
+/* «optional» ist ein Abzeichen, kein Wort im Satz. Unscoped: ein Text darf es überall
+   setzen, nicht nur in der Funktionsliste. */
 .opt {
   font-family: var(--mono); font-size: 10.5px; font-weight: 600;
   letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint);
@@ -514,133 +358,17 @@ section[id], main { scroll-margin-top: 76px; } /* anchor targets clear the stick
   padding: 1px 5px; margin-left: 6px; white-space: nowrap;
 }
 
-/* ---------- Was sich ändert ---------- */
-/* Zwei Spalten: was heute an der Wand hängt, und was an dieselbe Stelle tritt.
-   Bewusst ohne Wertung in der linken Spalte – die Magnettafel funktioniert. */
-.change-wrap { margin-top: 36px; overflow-x: auto; }
-.change {
-  width: 100%; min-width: 420px;
-  border-collapse: separate; border-spacing: 0;
-  text-align: left;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--r-surface);
-  overflow: hidden;
-}
-.change th, .change td {
-  padding: 14px 20px;
-  border-bottom: 1px solid var(--line-soft);
-  vertical-align: top;
-}
-.change tr:last-child td { border-bottom: 0; }
-.change th {
-  font-family: var(--mono); font-size: 11.5px; font-weight: 600;
-  letter-spacing: .13em; text-transform: uppercase;
-  background: var(--fill-soft);
-  color: var(--ink-faint);
-}
-.change th:last-child { color: var(--red-text); }
-.change th + th, .change td + td { border-left: 1px solid var(--line-soft); }
-.change td { font-size: .97rem; }
-.change td:first-child { color: var(--ink-faint); width: 44%; }
-.change td:last-child { color: var(--ink); font-weight: 600; }
-
-/* ---------- FAQ ---------- */
-.faq-list { max-width: 720px; margin-top: 6px; }
-.faq-item { padding: 20px 0 22px; border-top: 1px solid var(--line-soft); }
-.faq-item:last-child { border-bottom: 1px solid var(--line-soft); }
-.faq-item h3 { font-size: 1.08rem; font-weight: 700; letter-spacing: -.015em; }
-.faq-item p { color: var(--ink-dim); margin-top: 8px; max-width: 62ch; }
-.faq-item p strong { color: var(--ink); font-weight: 600; }
-
-/* ---------- Schwesterprojekt ---------- */
-.sibling {
-  border-top: 1px solid var(--line-soft);
-  border-bottom: 1px solid var(--line-soft);
-  background: var(--sibling-bg);
-}
-.sibling-txt h2 {
-  font-size: 1.45rem; font-weight: 700; letter-spacing: -.015em;
-  text-wrap: balance; max-width: 34ch;
-  margin-top: 14px;
-}
-.sibling-txt p:not(.eyebrow) { color: var(--ink-dim); margin-top: 10px; max-width: 58ch; }
-.sibling-txt .btn { margin-top: 24px; }
-
-/* Wer beide betreibt, soll nicht raten müssen, was doppelt einzurichten ist und was nicht.
-   Die Karte steht neben dem Text, nicht darunter: sie ist die Antwort auf «und was heisst
-   das für unseren Betrieb?», und diese Frage stellt sich beim Lesen, nicht danach. */
-.sibling-grid { display: grid; grid-template-columns: 5fr 6fr; gap: 52px; align-items: start; }
-.setup-card {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--r-surface);
-  overflow: hidden;
-}
-.setup-card h3 {
-  font-family: var(--mono); font-size: 11.5px; font-weight: 600;
-  letter-spacing: .13em; text-transform: uppercase; color: var(--ink-faint);
-  background: var(--fill-soft);
-  padding: 13px 20px;
-  border-bottom: 1px solid var(--line-soft);
-}
-.setup-card dl { margin: 0; }
-.setup-row {
-  display: grid; grid-template-columns: 128px 1fr; gap: 16px;
-  padding: 13px 20px;
-  border-bottom: 1px solid var(--line-soft);
-  font-size: .93rem;
-}
-.setup-row dt { font-weight: 600; color: var(--ink); }
-.setup-row dd { margin: 0; color: var(--ink-dim); }
-.setup-foot {
-  padding: 14px 20px 16px;
-  font-size: .88rem; color: var(--ink-faint);
-  background: var(--fill-soft);
-}
-.setup-foot strong { color: var(--ink-dim); font-weight: 600; }
-.setup-foot a { color: var(--ink-dim); }
-
 /* ---------- Selbst betreiben (KP Rück) ---------- */
-/* Drei Wege nebeneinander, gleich gewichtet: keiner ist «der richtige». Die Zeile
-   über dem Titel sagt, wofür der Weg steht. Unter #betrieb, weil `.way` auch die
-   Kontaktkarten heisst – ungescoped legte dieser Block sie auf den Kopf (19.11.2026). */
-#betrieb .ways { margin-top: 36px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
-#betrieb .way {
-  display: flex; flex-direction: column;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--r-surface);
-  padding: 20px 22px;
-}
+/* The line above a way's title says what the way is for (`.own-3` below). */
 .way-tag {
   font-family: var(--mono); font-size: 11.5px; font-weight: 600;
   letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint);
 }
-#betrieb .way h3 { font-size: 1.08rem; font-weight: 700; letter-spacing: -.015em; margin-top: 8px; }
-#betrieb .way p:not(.way-tag) { font-size: .93rem; color: var(--ink-dim); margin-top: 8px; }
-#betrieb .way a {
-  display: inline-flex; align-items: center; gap: 6px;
-  margin-top: auto; padding-top: 16px;
-  font-size: .9rem; font-weight: 600; color: var(--ink);
-}
-#betrieb .way a .ico { width: 14px; height: 14px; }
+
 .ways-note { margin-top: 18px; }
 
 /* ---------- contact ---------- */
-.contact-grid { margin-top: 40px; display: grid; grid-template-columns: 5fr 7fr; gap: 44px; align-items: start; }
-.contact-side h2 {
-  font-size: clamp(1.55rem, 3.4vw, 2.15rem);
-  font-weight: 700; letter-spacing: -.02em; line-height: 1.15;
-  text-wrap: balance;
-  margin-top: 14px;
-}
-.contact-side p:not(.eyebrow) { color: var(--ink-dim); margin-top: 12px; max-width: 44ch; }
-.contact-side .alt { margin-top: 26px; font-size: .93rem; color: var(--ink-faint); }
-.contact-side .alt a { color: var(--ink-dim); }
-
 /* Kontaktwege statt Formular: je eine Karte pro Weg (Issue, Issue, Mail) */
-.contact-ways { display: flex; flex-direction: column; gap: 14px; }
 .way {
   display: flex; align-items: flex-start; gap: 16px;
   border: 1px solid var(--line);
@@ -661,8 +389,7 @@ section[id], main { scroll-margin-top: 76px; } /* anchor targets clear the stick
 .way-body { display: block; flex: 1; min-width: 0; }
 .way-t { display: block; font-weight: 700; font-size: 1.06rem; letter-spacing: -.01em; }
 .way-s { display: block; color: var(--ink-dim); font-size: .93rem; margin-top: 5px; }
-.way-go { flex: none; width: 15px; height: 15px; color: var(--ink-faint); margin-top: 5px; }
-.way:hover .way-go { color: var(--red); }
+
 .contact-note { margin-top: 16px; font-size: .85rem; color: var(--ink-faint); }
 
 /* Die dritte Karte ist ein echtes Formular statt eines mailto:-Links – wer kein
@@ -726,10 +453,6 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
     from { transform: translateY(14px); }
     to { transform: none; }
   }
-  .hero .frame { animation: rise-frame .9s cubic-bezier(.22, 1, .36, 1) .32s backwards; }
-
-  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .4; } }
-  .frame-bar .dot.live { animation: pulse 2.6s ease-in-out infinite; }
 
   .btn { transition: background-color .15s ease, color .15s ease, transform .18s ease, box-shadow .18s ease; }
   .btn:hover { transform: translateY(-1px); }
@@ -741,13 +464,12 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
     transition: opacity .6s cubic-bezier(.22, 1, .36, 1), transform .6s cubic-bezier(.22, 1, .36, 1);
   }
   .js .reveal.in { opacity: 1; transform: none; }
-  .js .pillar.reveal:nth-child(2), .js .shot.reveal:nth-child(3) { transition-delay: .1s; }
 }
 
 /* ---------- Lightbox ---------- */
-/* Die Kacheln zeigen die Screenshots klein; ein Klick legt sie bildschirmfüllend
+/* Die Kapitel zeigen die Screenshots klein; ein Klick legt sie bildschirmfüllend
    über die Seite. Der Knopf steht im Markup, JS hängt nur den Handler an –
-   ohne JS bleibt das Raster ein Raster, nur ohne Zoom. */
+   ohne JS bleibt das Bild ein Bild, nur ohne Zoom. */
 .shot-zoom {
   display: block; width: 100%; padding: 0; border: 0;
   background: none; font: inherit; color: inherit; cursor: zoom-in;
@@ -862,23 +584,12 @@ dialog.lb::backdrop { background: rgba(12, 14, 17, .9); }
   }
 }
 
-@media (max-width: 1180px) {
-  /* unter der vollen Breite wird die dritte Spalte zu schmal */
-  .shots-grid { grid-template-columns: 1fr 1fr; }
-}
 @media (max-width: 860px) {
   .top nav .desktop-options { display: none; }
   .mobile-options { display: block; }
   section, section.wrap { padding-top: 64px; padding-bottom: 64px; }
   section.hero { padding-top: 48px; }
-  .shots-grid { grid-template-columns: 1fr; }
-  .pillars-grid { grid-template-columns: 1fr; }
   .stages { grid-template-columns: 1fr; gap: 22px; }
-  .contact-grid { grid-template-columns: 1fr; gap: 28px; }
-  #betrieb .ways { grid-template-columns: 1fr; gap: 14px; }
-  .fit-split { grid-template-columns: 1fr; gap: 24px; }
-  .entry { grid-template-columns: 52px 16px 1fr; gap: 0 12px; }
-  .sibling-grid { grid-template-columns: 1fr; gap: 34px; }
 }
 @media (max-width: 560px) {
   /* The menu holds languages, appearance and the page's links; the brand and Demo stay one row. */
@@ -887,35 +598,13 @@ dialog.lb::backdrop { background: rgba(12, 14, 17, .9); }
   .top-in { gap: 8px; }
   .mark { gap: 8px; }
   .top nav { gap: 8px; }
-  .fit-row { grid-template-columns: 1fr; }
-  /* 128px Begriffsspalte plus Text passt auf dem Handy nicht – Begriff über die Erklärung */
-  .setup-row { grid-template-columns: 1fr; gap: 3px; }
-  /* Zwei Spalten passen auf dem Handy nicht nebeneinander, und seitlich schieben
-     will niemand: aus jeder Zeile wird eine Karte «vorher → nachher». */
-  .change { min-width: 0; display: block; border: 0; background: none; border-radius: 0; }
-  .change thead { display: none; }
-  .change tbody, .change tr, .change td { display: block; }
-  .change tr {
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: var(--r-surface);
-    padding: 12px 15px;
-  }
-  .change tr + tr { margin-top: 10px; }
-  .change td { border: 0; padding: 0; font-size: .93rem; }
-  .change td:first-child { width: auto; } /* schlägt die 44 % aus der Tabellenansicht */
-  .change td + td { border: 0; margin-top: 5px; position: relative; padding-left: 19px; }
-  .change td + td::before {
-    content: '→'; position: absolute; left: 0; top: 0;
-    color: var(--red); font-weight: 700;
-  }
 }
 
-/* ---------- device pictures (KP Front since 19.11.2026) ---------- */
+/* ---------- device pictures (KP Front since 19.11.2026, KP Rück since 21.11.2026) ---------- */
 /* The app as it really looks: the screenshot with the screen's own corner radius and a thin
    outline – no drawn bezel, no status bar. The radius is a share of the device's width (cqw),
    taken from the real screens, so the shape holds at every size: iPhone 14 corner 47.3 pt of
-   390 (12.1 %), iPad Air 18 pt of 1180 (1.5 %). The safe-area gap is trimmed in the file
+   390 (12.1 %), iPad Air 18 pt of 1180 (1.5 %). The status-bar gap is settled in the file
    (capture.mjs), never here. */
 .dev { display: block; width: 100%; container-type: inline-size; }
 .dev picture { display: block; overflow: hidden; outline: 1.5px solid color-mix(in srgb, var(--ink) 55%, transparent); outline-offset: -.75px;
@@ -923,19 +612,28 @@ dialog.lb::backdrop { background: rgba(12, 14, 17, .9); }
 .dev img { display: block; width: 100%; height: auto; }
 .dev-ph picture { border-radius: 12.1cqw; }
 .dev-tab picture { border-radius: 1.5cqw; }
+/* KP Rück's desk: the browser window's own corner, about 10 pt of 1500. */
+.dev-desk picture { border-radius: .7cqw; }
 /* A device picture as a lightbox trigger: the focus ring follows the screen's corner. */
 .dev-ph .shot-zoom { border-radius: 12.1cqw; }
 .dev-tab .shot-zoom { border-radius: 1.5cqw; }
+.dev-desk .shot-zoom { border-radius: .7cqw; }
 .narrow-only { display: none; }
 
-/* Hero: centred, the pair below. The tablet carries the height; the phone hangs off its right
-   edge, starting below the tablet's top – so it never covers the lines above the picture. */
+/* Hero: centred, the pair below. The tablet (or the desk) carries the height; the phone hangs
+   off its right edge, starting below its top – so it never covers the lines above the picture. */
 .hero-center { text-align: center; }
 .hero-center h1, .hero-center .lede { margin-left: auto; margin-right: auto; }
 .hero-center .eyebrow, .hero-center .cta-row { justify-content: center; }
 .hero-center .cta-note { display: block; margin-top: 14px; }
 .duo { position: relative; max-width: 1040px; margin: 48px auto 0; padding: 0 11% 14% 0; text-align: left; }
 .duo .dev-ph { position: absolute; right: 0; top: 33%; width: 24%; }
+/* The desk is flatter than the iPad and KP Rück's phone taller (no safe area to trim): the phone
+   starts higher and the pair keeps more room below, so it never hangs out of the hero. */
+@media (min-width: 701px) {
+  .duo:has(.dev-desk) { padding-bottom: 20%; }
+  .duo:has(.dev-desk) .dev-ph { top: 28%; }
+}
 /* the origin line closes the hero, under the picture */
 .hero-center .fit-note { margin: 56px auto 0; }
 
@@ -947,7 +645,7 @@ section.chap {
 }
 #einsatz > section.chap:first-of-type { border-top: 0; }
 section.chap:nth-of-type(even) .chap-txt { order: 2; }
-.chap:not(:has(.dev-tab)) { grid-template-columns: 1.2fr .8fr; }
+.chap:not(:has(.dev-tab, .dev-desk)) { grid-template-columns: 1.2fr .8fr; }
 .chap .dev-ph { max-width: 310px; margin: 0 auto; }
 .chap-was {
   font-family: var(--mono); font-size: 12.5px; color: var(--ink-faint);
@@ -975,6 +673,12 @@ section.chap:nth-of-type(even) .chap-txt { order: 2; }
 .own-card p { color: var(--ink-dim); font-size: .93rem; margin-top: 8px; }
 .own-link { margin-top: 18px; font-size: .95rem; }
 .own-link a { color: var(--ink); font-weight: 600; }
+/* KP Rück's Betrieb: three ways, each with its guide at the card's foot. */
+.own-3 { grid-template-columns: repeat(3, 1fr); }
+.own-3 .own-card { display: flex; flex-direction: column; }
+.own-3 .own-card h3 { margin-top: 8px; }
+.own-3 .own-card .way-tag { margin-top: 0; font-size: 11.5px; color: var(--ink-faint); }
+.own-3 .own-card .own-link { margin-top: auto; padding-top: 16px; font-size: .9rem; }
 
 /* Features and FAQ: heading left, native <details> right. */
 .split { display: grid; grid-template-columns: 1fr 1.35fr; gap: 56px; align-items: start; }
@@ -991,7 +695,7 @@ section.chap:nth-of-type(even) .chap-txt { order: 2; }
 .acc details > p, .acc details > ul { padding: 0 0 22px; color: var(--ink-dim); font-size: .97rem; max-width: 68ch; }
 .acc .flist { margin: 0; padding-left: 18px; display: grid; gap: 8px; }
 
-/* KP Rück: one line, not a section. */
+/* The sister project: one line, not a section. */
 .sib {
   display: flex; gap: 20px; align-items: center; justify-content: space-between;
   background: var(--sibling-bg); border-radius: var(--r-surface); padding: 22px 26px;
@@ -1026,19 +730,20 @@ section.close { text-align: center; }
   .hero .duo { animation: rise-frame .9s cubic-bezier(.22, 1, .36, 1) .32s backwards; }
 }
 @media (max-width: 860px) {
-  section.chap, .chap:not(:has(.dev-tab)) { grid-template-columns: 1fr; gap: 28px; padding-top: 56px; padding-bottom: 56px; }
+  section.chap, .chap:not(:has(.dev-tab, .dev-desk)) { grid-template-columns: 1fr; gap: 28px; padding-top: 56px; padding-bottom: 56px; }
   section.chap:nth-of-type(even) .chap-txt { order: 0; }
   .chap .dev-ph { max-width: 260px; }
   .own { grid-template-columns: 1fr 1fr; }
+  .own-3 { grid-template-columns: 1fr; }
   .close .ways { grid-template-columns: 1fr; }
   .close details.way form { padding-left: 0; }
   .split { grid-template-columns: 1fr; gap: 20px; }
 }
 @media (max-width: 700px) {
-  /* On a phone the phone is the picture: the iPad becomes the backdrop, top-left, and in the
-     chapters the iPad picture gives way to the phone one. */
+  /* On a phone the phone is the picture: the iPad or desk becomes the backdrop, top-left, and
+     in the chapters the wide picture gives way to the phone one. */
   .duo { padding: 0; margin-top: 32px; display: flow-root; }
-  .duo .dev-tab { position: absolute; left: 0; top: 0; width: 74%; }
+  .duo .dev-tab, .duo .dev-desk { position: absolute; left: 0; top: 0; width: 74%; }
   .duo .dev-ph { position: relative; top: auto; width: 42%; margin: 16% 0 0 auto; }
   .hero-center .fit-note { margin-top: 32px; }
   /* the eyebrow wraps here, and its dash would stay behind at the left edge of a centred line */
