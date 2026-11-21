@@ -50,7 +50,8 @@ vi.mock('../lib/ui', async (importOriginal) => {
 })
 
 // the plan renderer is pdf.js / tiles, neither of which jsdom has: stubbed down to what the
-// board hears from it – the pages of a successful load (PdfViewport · onPages), one A3 page
+// board hears from it – the pages of a successful load (PdfViewport · onPages), one A3 page,
+// which a floor-pack sheet passes on (Props · sheetPack)
 vi.mock('./PdfViewport', () => ({
   PdfViewport: ({ onPages }: { onPages?: (pages: { page: number; widthPt: number; heightPt: number }[]) => void }) => {
     const told = useRef(false)
@@ -71,6 +72,8 @@ const mouseDown = (el: Element | Window | Document, init: Parameters<typeof fire
 const tapOn = (el: Element) => { mouseDown(el); fireEvent.pointerUp(el, { pointerType: 'mouse' }) }
 import { replayEmits } from '../lib/replay.test-utils'
 import { endingOf } from '../lib/drawingEdit'
+import { sheetDrawings } from '../lib/floorPackBinding'
+import type { SheetDrawing } from '../lib/floorPackDrawings'
 import { beginZielPick, endZielPick } from '../lib/zielPick'
 import { clearDraft, readDraft } from '../lib/draftKeep'
 
@@ -1358,12 +1361,16 @@ describe('the plan’s selection bar', () => {
   // source drawing's storey
   it('a copy nudged across a storey drawing\'s edge takes that drawing\'s storey', () => {
     const modul6: PlanDocument = { id: 'modul6', code: 'M6', title: 'Modul 6', subtitle: '', imageUrl: '/plans/modul6.pdf', orientation: 'landscape' }
-    const sheetFloors = [
+    const floors = [
       { page: 0, index: 0, name: 'EG', clip: [0, 0, 0.5, 1] as [number, number, number, number] },
       { page: 0, index: 1, name: '1OG', clip: [0.5, 0, 1, 1] as [number, number, number, number] },
     ]
+    const a3 = [{ page: 0, widthPt: 1191, heightPt: 842 }]
+    const sheetPack = { drawings: sheetDrawings({ floors, page: 0 }, a3), onPages: vi.fn() }
     const f: BoardAnno = { id: 'f1', kind: 'symbol', x: 0.49, y: 0.5, symbol: 'VKF Feuer', label: 'Feuer', storey: 0 }
-    const { container, onChange, keysRef } = withKeys([f], { plans: [modul6], activeId: 'modul6', sheetFloors })
+    const { container, onChange, keysRef } = withKeys([f], { plans: [modul6], activeId: 'modul6', sheetPack })
+    // the renderer's pages go back to the workspace, which lays the drawings (useGeorefFits)
+    expect(sheetPack.onPages).toHaveBeenCalledWith('/plans/modul6.pdf', a3)
     mouseDown(container.querySelector('.wb-symbol')!)
     act(() => { keysRef.current!.duplicate() })
     expect(out(onChange).find((a) => a.id !== 'f1')).toMatchObject({ x: 0.51, storey: 1 })
@@ -1371,22 +1378,29 @@ describe('the plan’s selection bar', () => {
 
   // Sol review round 3, S1: the plan loaded (and told its pages once) before the sheet's floor
   // binding came; the binding then arrives with the same PDF URL
+  // #701 round 3, S1: the binding can arrive after the load without changing the URL, and the
+  // renderer tells its pages once – so a sheet with no drawings yet still hands them over, and
+  // the drawings the workspace lays from them later are used without a second load
   it('a sheet whose floors arrive after its pages were told still knows its storey drawings', () => {
     const modul6: PlanDocument = { id: 'modul6', code: 'M6', title: 'Modul 6', subtitle: '', imageUrl: '/plans/modul6.pdf', orientation: 'landscape' }
-    const sheetFloors = [
+    const floors = [
       { page: 0, index: 0, name: 'EG', clip: [0, 0, 0.5, 1] as [number, number, number, number] },
       { page: 0, index: 1, name: '1OG', clip: [0.5, 0, 1, 1] as [number, number, number, number] },
     ]
+    const a3 = [{ page: 0, widthPt: 1191, heightPt: 842 }]
+    const onPages = vi.fn()
     const f: BoardAnno = { id: 'f1', kind: 'symbol', x: 0.49, y: 0.5, symbol: 'VKF Feuer', label: 'Feuer', storey: 0 }
     const keysRef: Keys = { current: null }
     const onChange = vi.fn()
-    const board = (floors?: typeof sheetFloors) => <Whiteboard
-      plans={[modul6]} activeId="modul6" annos={[f]} onChange={onChange} sheetFloors={floors}
+    const board = (drawings: readonly SheetDrawing[]) => <Whiteboard
+      plans={[modul6]} activeId="modul6" annos={[f]} onChange={onChange} sheetPack={{ drawings, onPages }}
       building={null} onSelectBuilding={() => {}} onAddFloor={() => {}} onRemoveFloor={() => {}}
       sym={sym} onRecent={() => {}} log={() => {}} hist={{}} setHist={() => {}} focus={null} keysRef={keysRef}
     />
-    const { container, rerender } = render(board())
-    rerender(board(sheetFloors))
+    const { container, rerender } = render(board([]))
+    expect(onPages).toHaveBeenCalledWith('/plans/modul6.pdf', a3)
+    rerender(board(sheetDrawings({ floors, page: 0 }, a3)))
+    expect(onPages).toHaveBeenCalledTimes(1)
     mouseDown(container.querySelector('.wb-symbol')!)
     act(() => { keysRef.current!.duplicate() })
     expect(out(onChange).find((a) => a.id !== 'f1')).toMatchObject({ x: 0.51, storey: 1 })

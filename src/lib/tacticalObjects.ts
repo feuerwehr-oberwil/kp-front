@@ -5,6 +5,7 @@ import type { GeorefFit } from './georef'
 import { planGroundWidthM, boardSymbolToEntity, entitySharedProps } from './georefTwins'
 import { directionalGlyph, directionalGlyph2, projectOnto, turnedToGround, turnedToSheet } from './planProjection'
 import { normalizeStackEdit } from './stackFloors'
+import { drawingAt, inFrame, JOINED_KINDS, onReference, type SheetDrawing } from './floorPackDrawings'
 
 /**
  * The unified tactical object — ONE record per object, whatever surface it stands on
@@ -152,6 +153,11 @@ export interface PlanFit {
    *  storey vocabulary, Von/Bis, on both surfaces; a span shows as copies on every tile in it). A
    *  map object lands on the tile of its `floorFrom` (its `floor`, else 0). */
   stack?: { floors: number[] }
+  /** a floor pack's own ONE-page sheet (Modul 6): its storey drawings (lib/floorPackBinding ·
+   *  sheetDrawings). `fit` is measured on the reference drawing, so a POINT object (symbol, note,
+   *  Form – floorPackDrawings · JOINED_KINDS) crosses to the ground and back through the drawing
+   *  it is in (floorPackDrawings · onReference). Everything else straight through `fit`. */
+  drawings?: readonly SheetDrawing[]
 }
 
 /** A sheet point's x/y without its optional per-point floor. */
@@ -277,8 +283,11 @@ export function bakeGeoBody(o: TacticalObject, plan: PlanFit | undefined, layer:
   }
   const widthM = planGroundWidthM(plan.fit, plan.aspect)
   const at = (x: number, y: number): LngLat => { const p = plan.fit.toMap({ x, y }); return [p.lng, p.lat] }
+  // a point object (symbol, note, Form) through the drawing it stands in (floorPackDrawings ·
+  // onReference); a Trupp chip and its breadcrumbs, a circle, a line through the fit alone
+  const atPoint = (x: number, y: number): LngLat => { const p = onReference(plan.drawings, { x, y }); return at(p.x, p.y) }
   if (anno.kind === 'symbol' && anno.x != null && anno.y != null) {
-    const born = boardSymbolToEntity(anno, at(anno.x, anno.y), o.entity?.layer ?? layer, widthM)
+    const born = boardSymbolToEntity(anno, atPoint(anno.x, anno.y), o.entity?.layer ?? layer, widthM)
     // ⚠️ …and back out of the paper's frame into north's — see planProjection · turnedToSheet
     const entity = born && {
       ...born,
@@ -290,7 +299,7 @@ export function bakeGeoBody(o: TacticalObject, plan: PlanFit | undefined, layer:
   }
   if (anno.kind === 'text' && anno.x != null && anno.y != null) {
     const entity: Entity = {
-      id: o.id, kind: 'note', layer: o.entity?.layer ?? layer, coord: at(anno.x, anno.y),
+      id: o.id, kind: 'note', layer: o.entity?.layer ?? layer, coord: atPoint(anno.x, anno.y),
       label: anno.text ?? anno.label, rotation: anno.rotation, color: anno.color,
       noteSize: anno.noteSize, noteAutoW: anno.noteAutoW, notePlain: anno.notePlain,
       floor: plan.stack ? undefined : anno.storey,
@@ -300,7 +309,7 @@ export function bakeGeoBody(o: TacticalObject, plan: PlanFit | undefined, layer:
   }
   if (anno.kind === 'shape' && anno.x != null && anno.y != null && anno.shape) {
     const entity: Entity = {
-      id: o.id, kind: 'shape', layer: o.entity?.layer ?? layer, coord: at(anno.x, anno.y),
+      id: o.id, kind: 'shape', layer: o.entity?.layer ?? layer, coord: atPoint(anno.x, anno.y),
       shape: anno.shape, rotation: turnedToGround(anno.rotation, plan.fit, true),
       rotation2: turnedToGround(anno.rotation2, plan.fit, directionalGlyph2(anno)), color: anno.color,
       sizeM: anno.sizeN != null ? anno.sizeN * widthM : undefined,
@@ -405,14 +414,27 @@ function annoAfterMapEdit(
    * live-GPS pass re-routes an attached Leitung on every poll, and read as a placement it would
    * have torn plan-drawn hoses off their sheet with nobody touching anything.
    */
-  const at = (c: LngLat) => plan!.fit.toPlan({ lng: c[0], lat: c[1] })
   const machine = movedBy === 'machine' && plan
-  const point = (c: LngLat | undefined) => (machine && c ? { x: at(c).x, y: at(c).y } : null)
+  const at = (by: PlanFit, c: LngLat) => by.fit.toPlan({ lng: c[0], lat: c[1] })
+  // ⚠️ …and a POINT object (symbol, note, Form) on a floor pack's sheet (PlanFit.drawings) back
+  // into the drawing it stands in, and only to a point that lies IN that drawing (paper: in none –
+  // floorPackDrawings · inFrame, Sol review #703 round 1 S3, round 2 S2). A machine move never
+  // carries it across its drawing's edge – into the drawing next to it, one nested in it, or onto
+  // paper: it would bake back as another storey's point, or a GPS jitter at the wall would swap
+  // the drawing for good. Such a point stays where it was.
+  const own = machine && machine.drawings && JOINED_KINDS.has(anno.kind) && anno.x != null && anno.y != null
+    ? { drawings: machine.drawings, x: anno.x, y: anno.y } : null
+  const point = (c: LngLat | undefined) => {
+    if (!machine || !c) return null
+    const q = at(machine, c)
+    const p = own ? inFrame(own.drawings, q, drawingAt(own.drawings, own.x, own.y)) ?? own : q
+    return { x: p.x, y: p.y }
+  }
   const path = (coords: LngLat[] | undefined): { pts: BoardPoint[] } | null => {
     if (!machine || !coords?.length) return null
     // a per-point storey is the paper's own answer and rides along by index; a machine write
     // moves a line ON the sheet, never between floors
-    return { pts: coords.map((c, i): BoardPoint => { const p = at(c); const f = anno.pts?.[i]?.[2]; return f == null ? [p.x, p.y] : [p.x, p.y, f] }) }
+    return { pts: coords.map((c, i): BoardPoint => { const p = at(machine, c); const f = anno.pts?.[i]?.[2]; return f == null ? [p.x, p.y] : [p.x, p.y, f] }) }
   }
   /** a metre length as a fraction of the sheet's ground width — absent without a fit */
   const asN = (m: number | undefined) => (m != null && widthM ? m / widthM : undefined)
