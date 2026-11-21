@@ -227,11 +227,11 @@ async def test_clearing_a_credential_switches_the_integration_back_off(client, a
     assert (await client.post("/api/alarms", json={"source": "s", "source_id": "2", "title": "t"})).status_code == 403
 
 
-async def test_the_public_config_reflects_a_connection_made_in_the_browser(client, admin_login, blank_env):
+async def test_the_runtime_config_reflects_a_connection_made_in_the_browser(client, admin_login, blank_env):
     """`integrations.diveraConfigured` is what the app reads to decide whether to offer the
     Divera surfaces at all — it used to be frozen at boot."""
-    assert (await client.get("/api/config")).json()["integrations"]["diveraConfigured"] is False
     await admin_login(client)
+    assert (await client.get("/api/config")).json()["integrations"]["diveraConfigured"] is False
     await client.put("/api/integrations/credentials/divera_access_key", json={"value": "divera-key-1"})
     assert (await client.get("/api/config")).json()["integrations"]["diveraConfigured"] is True
 
@@ -251,7 +251,7 @@ async def test_carto_browser_key_reaches_a_session_but_not_an_anonymous_caller(c
     assert (await client.get("/api/config")).json()["integrations"]["cartoBasemapKey"] == key
 
     client.cookies.clear()
-    assert (await client.get("/api/config")).json()["integrations"]["cartoBasemapKey"] is None
+    assert key not in (await client.get("/api/config")).text
 
 
 # --- audit ----------------------------------------------------------------------------

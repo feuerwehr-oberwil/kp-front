@@ -165,8 +165,11 @@ their offline copy already lives in IndexedDB (`lib/api/stationReference`).
   `atemschutz-fix`, the Erfassungs-Poster's `capture`, everyone else's none – a client-sent `via`
   is dropped. A link or the poster may `patchOf` (retract, reword) only a row of its own channel;
   the poster writes no `kind` at all.
-- **`GET /api/config`**: `alarms.webhooks` and `sharepoint.sources` reach an admin session only;
-  `objectVisits.destinations` every PIN session, no anonymous caller, no link
+- **`GET /api/config`**: a caller without a session gets a fixed allow-list – the branding, the
+  demo switch and the Microsoft-login switch (`api/config · PUBLIC_PARTS`); a part added later is
+  withheld until it is listed. The Erfassungs-Poster reads its own parts with its token
+  (`GET /api/capture/config`). With a session: `alarms.webhooks` and `sharepoint.sources` reach
+  an admin session only; `objectVisits.destinations` every PIN session, no link
   (CONFIGURATION.md §1a).
 - **A role change ends the account's sessions** (`revoke_sessions`, like a PIN reset): a device
   learns its role at sign-in. The last active editor cannot be demoted to `el` or `viewer`.

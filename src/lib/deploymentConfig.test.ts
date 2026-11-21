@@ -1,8 +1,8 @@
 import 'fake-indexeddb/auto'
 import { IDBFactory } from 'fake-indexeddb'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { alarmProviderName, atemschutzDoctrine, incidentCategories, atemschutzEquipment, carrySessionOnly, demoNote, getDeploymentConfig, loadDeploymentConfig, bootDeploymentConfig, mapReferenceLayers, moduleAlignment, moduleViewer, offlineRadiusM, personnelProviderName, reportLinks, stripLocality } from './deploymentConfig'
-import { idbSet, __resetIdbForTests } from './idb'
+import { adoptSessionConfig, alarmProviderName, applyCaptureConfig, atemschutzDoctrine, incidentCategories, atemschutzEquipment, demoNote, ensureSessionConfig, getDeploymentConfig, hasStationConfig, loadDeploymentConfig, bootDeploymentConfig, mapReferenceLayers, mergePartial, moduleAlignment, moduleViewer, offlineRadiusM, personnelProviderName, reportLinks, stripLocality } from './deploymentConfig'
+import { idbGet, idbSet, __resetIdbForTests } from './idb'
 
 describe('mapReferenceLayers', () => {
   it('returns [] for missing/empty input', () => {
@@ -142,7 +142,7 @@ describe('bootDeploymentConfig — the launch never waits for /api/config it alr
     await authenticated
     expect(getDeploymentConfig().integrations?.cartoBasemapKey).toBe('session-key')
 
-    resolveAnonymous(json({ identity: { demoMode: true } }))
+    resolveAnonymous(json({ partial: true, identity: { demoMode: true } }))
     await anonymous
     expect(getDeploymentConfig().integrations?.cartoBasemapKey).toBe('session-key')
   })
@@ -378,31 +378,176 @@ describe('reportLinks — what is allowed onto the Rapport', () => {
   })
 })
 
-// `/api/config` withholds the CARTO key and the Rapport links from an anonymous caller without
-// saying so — and the boot fetch IS anonymous whenever the access cookie has expired. An answer
-// that lacks them where the previous one had them is «withheld», never «removed».
-describe('carrySessionOnly — an anonymous answer never downgrades a keyed config', () => {
-  type Cfg = Parameters<typeof carrySessionOnly>[0]
-  const link = { id: 'l1', url: 'https://x' } as unknown as NonNullable<NonNullable<Cfg['report']>['links']>[number]
-  const keyed: Cfg = { integrations: { cartoBasemapKey: 'k1' }, report: { links: [link] } }
+// `/api/config` answers a caller WITHOUT a session with the public parts only (`partial`), and
+// the boot fetch IS such a caller on a new device and whenever the access cookie has expired.
+// What a partial answer does not hold was withheld, never removed.
+describe('a partial answer is merged over the copy on the device, never stored in its place', () => {
+  const CACHE_KEY = 'kp-front-deployment-config'
+  const fetchMock = vi.fn()
+  const json = (body: unknown) =>
+    new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } })
+  const STATION = {
+    identity: { appName: 'Feuerwehr Musterdorf', kommandant: 'Brunner Thomas', accentColor: '#c4161c', assets: { logo: '/old.png' } },
+    fleet: { vehicles: [{ id: 'tlf', label: 'TLF' }] },
+    doctrine: { defaultFunkkanal: 11 },
+    integrations: { cartoBasemapKey: 'k1', diveraConfigured: true, microsoftLoginConfigured: false },
+    version: 'v1',
+  }
+  const PUBLIC = {
+    partial: true as const,
+    identity: { appName: 'Feuerwehr Musterdorf', shortName: null, accentColor: '#0055aa', assets: { logo: '/new.png' }, demoMode: false },
+    integrations: { microsoftLoginConfigured: true },
+  }
 
-  it('carries the key and the links over an answer that withholds them', () => {
-    const out = carrySessionOnly(keyed, { identity: { appName: 'FWO' } })
-    expect(out.integrations?.cartoBasemapKey).toBe('k1')
-    expect(out.report?.links).toHaveLength(1)
-    expect(out.identity?.appName).toBe('FWO')
+  beforeEach(() => {
+    globalThis.indexedDB = new IDBFactory()
+    __resetIdbForTests()
+    vi.stubGlobal('fetch', fetchMock)
+    fetchMock.mockReset()
+  })
+  // the poster's parts live for the page's life: take them off again for the next test
+  afterEach(() => { vi.unstubAllGlobals(); applyCaptureConfig({}) })
+
+  it('mergePartial updates the parts the answer holds and keeps the rest', () => {
+    const out = mergePartial(STATION, PUBLIC)
+    expect(out.identity).toEqual({
+      appName: 'Feuerwehr Musterdorf', kommandant: 'Brunner Thomas', shortName: null,
+      accentColor: '#0055aa', assets: { logo: '/new.png' }, demoMode: false,
+    })
+    expect(out.fleet).toEqual(STATION.fleet)
+    expect(out.doctrine).toEqual(STATION.doctrine)
+    expect(out.integrations).toEqual({ cartoBasemapKey: 'k1', diveraConfigured: true, microsoftLoginConfigured: true })
+    expect(out.version).toBe('v1')
+    expect(out).not.toHaveProperty('partial')
   })
 
-  it('lets a session-bearing answer replace both (a rotated key wins)', () => {
-    const out = carrySessionOnly(keyed, { integrations: { cartoBasemapKey: 'k2' }, report: { links: [] } })
-    expect(out.integrations?.cartoBasemapKey).toBe('k2')
-    // an empty list is indistinguishable from a withheld one, so the previous links stay
-    expect(out.report?.links).toHaveLength(1)
+  it('a boot without a session keeps the fleet, the Funkkanal and the basemap key — also in the offline copy', async () => {
+    fetchMock.mockResolvedValueOnce(json(STATION))
+    await loadDeploymentConfig()
+    expect(hasStationConfig()).toBe(true)
+
+    fetchMock.mockResolvedValueOnce(json(PUBLIC))
+    const cfg = await loadDeploymentConfig()
+    expect(cfg.fleet?.vehicles).toHaveLength(1)
+    expect(atemschutzDoctrine().defaultFunkkanal).toBe(11)
+    expect(getDeploymentConfig().integrations?.cartoBasemapKey).toBe('k1')
+    // …and what the public answer does hold is fresh
+    expect(getDeploymentConfig().identity?.accentColor).toBe('#0055aa')
+    expect(hasStationConfig()).toBe(true)
+    await vi.waitFor(async () => {
+      expect(await idbGet(CACHE_KEY)).toMatchObject({ fleet: STATION.fleet, identity: { accentColor: '#0055aa' } })
+    })
   })
 
-  it('is the identity when nothing was known before', () => {
-    const next: Cfg = { integrations: {} }
-    expect(carrySessionOnly({}, next)).toBe(next)
+  it('a session answer still replaces the copy: a section the station emptied goes away', async () => {
+    fetchMock.mockResolvedValueOnce(json(STATION))
+    await loadDeploymentConfig()
+    fetchMock.mockResolvedValueOnce(json({ identity: { appName: 'Feuerwehr Musterdorf' }, version: 'v2' }))
+    await loadDeploymentConfig()
+    expect(getDeploymentConfig().fleet).toBeUndefined()
+    expect(getDeploymentConfig().version).toBe('v2')
+  })
+
+  it('ensureSessionConfig reads again after a partial answer, and not after a session answer', async () => {
+    fetchMock.mockResolvedValueOnce(json(PUBLIC))
+    await loadDeploymentConfig()
+    fetchMock.mockResolvedValueOnce(json(STATION))
+    await ensureSessionConfig()
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(getDeploymentConfig().fleet?.vehicles).toHaveLength(1)
+
+    await ensureSessionConfig()
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('ensureSessionConfig waits for a read that is still on its way before it decides', async () => {
+    let answer!: (r: Response) => void
+    fetchMock.mockReturnValueOnce(new Promise<Response>((res) => { answer = res }))
+    const boot = loadDeploymentConfig()
+    fetchMock.mockResolvedValueOnce(json(STATION))
+    const ensured = ensureSessionConfig()
+    // the boot read was sent before the session was renewed: its answer is partial, and lands late
+    answer(json(PUBLIC))
+    await boot
+    await ensured
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(getDeploymentConfig().version).toBe('v1')
+  })
+
+  it('a session answer replaces the copy: a removed Formular link and a removed basemap key go away', async () => {
+    fetchMock.mockResolvedValueOnce(json({ ...STATION, report: { links: [{ id: 'l1', title: 'Formular', url: 'https://forms.example.org/x' }] } }))
+    await loadDeploymentConfig()
+    expect(getDeploymentConfig().report?.links).toHaveLength(1)
+    fetchMock.mockResolvedValueOnce(json({ ...STATION, integrations: { diveraConfigured: true }, report: { links: [] }, version: 'v2' }))
+    await loadDeploymentConfig()
+    expect(getDeploymentConfig().report?.links).toEqual([])
+    expect(getDeploymentConfig().integrations?.cartoBasemapKey).toBeUndefined()
+    await vi.waitFor(async () => { expect(await idbGet(CACHE_KEY)).toMatchObject({ version: 'v2', report: { links: [] } }) })
+  })
+
+  it('a late partial answer does not write the snapshot of this tab over a newer document another tab stored', async () => {
+    fetchMock.mockResolvedValueOnce(json({ ...STATION, report: { links: [{ id: 'l1', title: 'Formular', url: 'https://forms.example.org/x' }] } }))
+    await loadDeploymentConfig()
+    await vi.waitFor(async () => { expect(await idbGet(CACHE_KEY)).toMatchObject({ version: 'v1' }) })
+    // another tab reads with its session after the station removed the link, and stores that
+    await idbSet(CACHE_KEY, { ...STATION, report: { links: [] }, version: 'v2' })
+    // …then this tab's partial answer lands
+    fetchMock.mockResolvedValueOnce(json(PUBLIC))
+    await loadDeploymentConfig()
+    await vi.waitFor(async () => { expect(await idbGet(CACHE_KEY)).toMatchObject({ identity: { accentColor: '#0055aa' } }) })
+    expect(await idbGet(CACHE_KEY)).toMatchObject({ version: 'v2', report: { links: [] } })
+  })
+
+  it('a failed read keeps the document the page holds, not a poorer offline copy', async () => {
+    fetchMock.mockResolvedValueOnce(json(PUBLIC))
+    await loadDeploymentConfig() // the offline copy: public parts only
+    adoptSessionConfig({ ...STATION, version: 'admin' }) // /admin read the document itself
+    fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch'))
+    await loadDeploymentConfig()
+    expect(getDeploymentConfig().version).toBe('admin')
+    expect(getDeploymentConfig().fleet?.vehicles).toHaveLength(1)
+  })
+
+  // values no other test holds: the module singleton outlives single tests here
+  const POSTER = { fleet: { vehicles: [{ id: 'poster-adl', label: 'ADL' }] }, report: { partnerOrgs: ['Poster-Partner'] }, identity: { kommandant: 'Poster Kdt' } }
+
+  it('the Erfassungs-Poster parts stay when a slow boot read lands after them, and never reach the offline copy', async () => {
+    let answer!: (r: Response) => void
+    fetchMock.mockReturnValueOnce(new Promise<Response>((res) => { answer = res }))
+    const boot = loadDeploymentConfig()
+    applyCaptureConfig(POSTER)
+    expect(getDeploymentConfig().fleet?.vehicles?.[0]?.id).toBe('poster-adl')
+    answer(json(PUBLIC))
+    await boot
+    expect(getDeploymentConfig().fleet?.vehicles?.[0]?.id).toBe('poster-adl')
+    expect(getDeploymentConfig().report?.partnerOrgs).toEqual(['Poster-Partner'])
+    expect(getDeploymentConfig().identity?.kommandant).toBe('Poster Kdt')
+    expect(getDeploymentConfig().identity?.accentColor).toBe('#0055aa')
+    await vi.waitFor(async () => { expect(await idbGet(CACHE_KEY)).toMatchObject({ identity: { accentColor: '#0055aa' } }) })
+    expect(JSON.stringify(await idbGet(CACHE_KEY))).not.toMatch(/poster/i)
+  })
+
+  it('the Erfassungs-Poster parts stay when the slow boot read fails after them', async () => {
+    let fail!: (e: Error) => void
+    fetchMock.mockReturnValueOnce(new Promise<Response>((_res, rej) => { fail = rej }))
+    const boot = loadDeploymentConfig()
+    applyCaptureConfig(POSTER)
+    fail(new TypeError('Failed to fetch'))
+    await boot
+    expect(getDeploymentConfig().fleet?.vehicles?.[0]?.id).toBe('poster-adl')
+    expect(getDeploymentConfig().report?.partnerOrgs).toEqual(['Poster-Partner'])
+  })
+
+  it('the answer /admin read itself becomes the runtime config, and a boot read still on its way does not land over it', async () => {
+    let answer!: (r: Response) => void
+    fetchMock.mockReturnValueOnce(new Promise<Response>((res) => { answer = res }))
+    const boot = loadDeploymentConfig()
+    adoptSessionConfig({ ...STATION, version: 'admin' })
+    answer(json(PUBLIC))
+    await boot
+    expect(getDeploymentConfig().version).toBe('admin')
+    expect(getDeploymentConfig().identity?.accentColor).toBe('#c4161c')
+    expect(hasStationConfig()).toBe(true)
   })
 })
 

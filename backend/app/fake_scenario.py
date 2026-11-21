@@ -267,13 +267,28 @@ def _read_scenario(path: Path) -> Scenario:
         _fail("\n".join(lines))
 
 
+def _read_config(client) -> dict | None:
+    """The target's deployment config as an admin session reads it, or None if unreadable.
+
+    The fleet and the alarm groups are behind a session (api/config · ``PUBLIC_PARTS``), so
+    this signs in with the ADMIN_SECRET of the local `.env` — the dev stack this tool is made
+    for. Without one the answer is the public part only, and that counts as unreadable.
+    """
+    if settings.admin_secret:
+        client.post("/api/admin/login", json={"secret": settings.admin_secret})
+    r = client.get("/api/config")
+    if r.status_code != 200:
+        return None
+    cfg = r.json()
+    return None if cfg.get("partial") else cfg
+
+
 def _fetch_config_ids(client) -> tuple[set[str], set[str]] | None:
     """(group ids, vehicle ids) from the target's deployment config, or None if unreadable."""
     try:
-        r = client.get("/api/config")
-        if r.status_code != 200:
+        cfg = _read_config(client)
+        if cfg is None:
             return None
-        cfg = r.json()
         groups = {
             str(g["id"]) for g in (cfg.get("alarms") or {}).get("groups", []) if isinstance(g, dict) and g.get("id")
         }
@@ -377,10 +392,9 @@ def _show_config(base: str) -> int:
     import httpx
 
     with httpx.Client(base_url=base.rstrip("/"), timeout=30.0) as c:
-        r = c.get("/api/config")
-        if r.status_code != 200:
-            _fail(f"ERROR: GET /api/config fehlgeschlagen ({r.status_code}): {r.text[:200]}")
-        cfg = r.json()
+        cfg = _read_config(c)
+    if cfg is None:
+        _fail("ERROR: GET /api/config nicht lesbar — braucht eine Admin-Sitzung (.env ADMIN_SECRET des Ziels).")
     groups = (cfg.get("alarms") or {}).get("groups", [])
     vehicles = (cfg.get("fleet") or {}).get("vehicles", [])
     print("alarms.groups:" if groups else "alarms.groups: (leer — Zeiten-Raster ausgeblendet)")

@@ -36,6 +36,10 @@ the latest tagged release (or `main`) and update promptly – see [`docs/DEPLOYM
   pre-login tile endpoint necessarily exposes active login-account display names, roles and
   colours; internet-facing deployments should use functional labels where personal-name
   enumeration is not acceptable. The personnel roster itself is not public.
+- **Deployment config:** a caller without a session reads a fixed allow-list of `GET /api/config`
+  – the branding, the demo switch and the Microsoft-login switch. The fleet, radio channels,
+  alarm groups, map layers and every part added later need a session
+  ([`docs/CONFIGURATION.md`](docs/CONFIGURATION.md) §1a).
 - **Optional «Mit Microsoft anmelden»:** a second door onto the same named accounts – an Entra ID
   sign-in (OIDC code flow + PKCE, single tenant) is accepted only for a Microsoft account the
   admin has listed against an existing username. It never creates a user, never changes a role,

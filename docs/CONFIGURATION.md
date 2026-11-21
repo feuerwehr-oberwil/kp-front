@@ -710,7 +710,10 @@ is rejected, because those alarms would silently file under «Diverse Einsätze�
 **Checking which vocabulary is running**, without opening the database:
 
 ```bash
-curl -s http://localhost:8001/api/config | jq .alarmVocabulary
+# with a session: the summary is not in the public answer (see «Who can read it back» below)
+curl -s -c kp.jar -X POST -H 'Content-Type: application/json' \
+  -d '{"secret":"<ADMIN_SECRET>"}' http://localhost:8001/api/admin/login
+curl -s -b kp.jar http://localhost:8001/api/config | jq .alarmVocabulary
 # { "source": "shipped", "schemaVersion": 1, "titleKeywords": 25,
 #   "highPriorityKeywords": 41, "fallbackCategory": "diverse_einsaetze" }
 ```
@@ -724,25 +727,51 @@ substring – the shipped file records where kp-rueck differs) and the German ca
 which are the app's, not the station's. And `alarmKeywords` is deployment data: unlike the
 shipped file it is never checksummed and never compared against kp-rueck.
 
-**Who can read it back.** `GET /api/config` is public – the login screen needs branding before
-anyone can log in – and `alarmKeywords` is withheld from anonymous callers. The
-words are not secret (the shipped vocabulary is on GitHub), but nothing in the frontend reads
-them: matching is entirely server-side, so publishing a station's wording pre-login would be
-surface for nothing. An **admin session gets the full block**, which is not a detail: the admin
-UI does a full-document `PUT`, so a section the admin never received is a section the next
-unrelated edit would silently delete.
+**Who can read it back.** `GET /api/config` answers every caller, but a caller **without a
+session gets a short, fixed list** (since 20.11.2026) – what the start cover and the login screen
+draw, and nothing else:
 
-Three more are withheld (RBAC audit, 22.10.2026), emptied rather than removed so the answer looks
-like a station that configured none: **`alarms.webhooks`, `sharepoint.sources` and
-`incidentArchive.destinations` reach an admin session only** – addresses the server talks to, and a webhook URL is often a capability (a
-`sig=`, a `?secret=`); no client but `/admin` reads them. **`objectVisits.destinations` reaches
-every PIN session** (the Objektbesuch's «Ablage» line reads it) but no anonymous caller and no
-link, like `report.links`.
+| Without a session | |
+|---|---|
+| `identity.appName`, `identity.shortName`, `identity.locale`, `identity.accentColor`, `identity.assets` | the branding |
+| `identity.demoMode`, `identity.demoNote` | the demo ribbon, the demo's automatic login and its note |
+| `integrations.microsoftLoginConfigured` | draws «Mit Microsoft anmelden» |
 
-What stays public either way is the `alarmVocabulary` **summary** – `source`
-(`shipped` | `deployment`), `schemaVersion` and counts, never the words – so "is my override
-live?" is answerable without a session. The CLI is unaffected: `admin_config` reads the
-database directly rather than through the API.
+That answer carries `"partial": true` and holds no other key – it is not the whole document
+with empty sections. The list is an allow-list in the code (`app/api/config.py` ·
+`PUBLIC_PARTS`), so **a section or field that is added later is withheld until somebody lists
+it**. Before, the route withheld a few named sections and served the rest: the fleet, the radio
+channels, the alarm groups and the Kommandant's name were public.
+
+The **Erfassungs-Poster** has no session either. It reads the parts its form and its
+Rapport-PDF need with the poster token, from `GET /api/capture/config` (`CAPTURE_PARTS`):
+`fleet.vehicles`, `alarms.groups`, `roster.ranks`, `mittel.catalogue`, `report.partnerOrgs`,
+`report.hoursRounding`, `report.attendanceMergeGapMin` and `identity.kommandant`.
+
+**A session of any kind** – PIN login, Einsatz-Link, Stations-Terminal, admin – gets the
+document, minus what that kind of session is refused. A signed-in device whose 8 h access cookie
+has run out still counts as its account, by its refresh cookie: this route never answers 401, so
+nothing renews the session before the app's first read of the day.
+
+- `alarmKeywords` reaches an **admin session only**. The words are not secret (the shipped
+  vocabulary is on GitHub), but nothing in the frontend reads them: matching is entirely
+  server-side. An admin gets the full block, which is not a detail: the admin UI does a
+  full-document `PUT`, so a section the admin never received is a section the next unrelated
+  edit would silently delete.
+- **`alarms.webhooks`, `sharepoint.sources` and `incidentArchive.destinations` reach an admin
+  session only** (RBAC audit, 22.10.2026) – addresses the server talks to, and a webhook URL is
+  often a capability (a `sig=`, a `?secret=`); no client but `/admin` reads them. They are
+  emptied rather than removed, so the answer looks like a station that configured none.
+- **`objectVisits.destinations` and `report.links` reach every PIN session** (the
+  Objektbesuch's «Ablage» line and the Rapport read them) but no link.
+
+Every session also gets the `alarmVocabulary` **summary** – `source` (`shipped` |
+`deployment`), `schemaVersion` and counts, never the words – so "is my override live?" is
+answerable without the admin secret. The CLI is unaffected: `admin_config` reads the database
+directly rather than through the API.
+
+A script that reads the config over HTTP must sign in first (`POST /api/admin/login`, or a PIN
+login), or it sees the public list only.
 
 ---
 
@@ -884,12 +913,11 @@ Use the narrow tokens (`{datum}`, `{stichwort}`, `{wehr}`) for third-party forms
 `{kurzbericht}`, `{ort}` and the two names for forms your own Gemeinde or Kanton hosts. A
 Google Form means Google. See [`PRIVACY.md`](../PRIVACY.md).
 
-**The links are withheld from anonymous callers.** `GET /api/config` is unauthenticated by
-design (the login screen needs the station's branding before anyone logs in), but `report.links`
-is served only to a **signed-in** session – a PIN user or an admin. A prefill URL is a
-capability: whoever holds it can submit to that form. An anonymous caller sees `links: []`,
-byte-identical to a station that has configured none, so the withholding does not announce
-itself either.
+**The links need a signed-in session.** `report.links` is served only to a PIN user or an
+admin – not to a caller without a session (who gets the short public list, §1a «Who can read it
+back») and not to an Einsatz-Link. A prefill URL is a capability: whoever holds it can submit to
+that form. A link session sees `links: []`, byte-identical to a station that has configured
+none, so the withholding does not announce itself either.
 
 The app reads the config at boot, *before* login, so the very first fetch on a fresh device
 comes back without them; the login re-reads it (`lib/auth` · `login`), and every later boot
@@ -1513,8 +1541,8 @@ Four rules, and none of them is optional reading:
    check), and `CARTO_API_KEY`. The CARTO key is the deliberate exception: CARTO requires it in
    every browser tile URL, so domain restrictions in CARTO – not secrecy – prevent use
    elsewhere. **Readable is not public**, though: `/api/config` serves it only to a caller that
-   already holds a session (PIN user, admin, or an incident link) and withholds it from
-   anonymous ones – see the row in the table below. `TRACCAR_EMAIL` is *not* readable – it is
+   already holds a session (PIN user, admin, or an incident link); it is not on the public list
+   (§1a «Who can read it back») – see the row in the table below. `TRACCAR_EMAIL` is *not* readable – it is
    half of a credential pair – and neither is `HEALTHCHECK_PING_URL`, whose one misuse is
    pinging it so the monitor believes a dead station is alive.
 3. **Rotating `SECRET_KEY` now costs more than the PINs.** It is the key the credentials are

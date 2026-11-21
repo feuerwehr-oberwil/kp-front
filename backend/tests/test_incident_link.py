@@ -965,7 +965,7 @@ async def test_a_link_session_receives_the_carto_basemap_key(client, link_key, i
     )
 
     # anonymous first: same endpoint, same station, no key
-    assert (await client.get("/api/config")).json()["integrations"]["cartoBasemapKey"] is None
+    assert "carto-browser-key" not in (await client.get("/api/config")).text
 
     await _open_link(client)
     r = await client.get("/api/config")
@@ -974,7 +974,66 @@ async def test_a_link_session_receives_the_carto_basemap_key(client, link_key, i
 
     # …and it goes away again with the link
     _forget_link(client)
-    assert (await client.get("/api/config")).json()["integrations"]["cartoBasemapKey"] is None
+    assert "carto-browser-key" not in (await client.get("/api/config")).text
+
+
+async def test_a_link_page_gets_the_link_projection_beside_a_login_and_an_admin_cookie(
+    client, link_key, incident, editor, admin_login, put_config
+):
+    """A page that speaks for its link is that link and nothing more. Its guest used to count as
+    a PIN account when the phone was signed in too (`report.links`, the filing destinations),
+    and an admin cookie in the same browser handed it the whole admin projection."""
+    hook = "https://hooks.example.org/alarm?sig=SECRETSIG"
+    form = {"id": "f1", "title": "Formular", "url": "https://forms.example.org/x"}
+    await admin_login(client)
+    r = await put_config(
+        client,
+        {
+            "report": {"links": [form]},
+            "alarms": {"webhooks": [hook]},
+            "objectVisits": {"destinations": [{"id": "sp", "siteUrl": "https://contoso.sharepoint.com/sites/x"}]},
+        },
+    )
+    assert r.status_code == 200, r.text
+    assert (await client.post("/api/auth/login", json={"user_id": str(editor.id), "pin": "135790"})).status_code == 200
+    await _open_link(client)
+
+    r = await client.get("/api/config", headers=LINK_PAGE)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert "partial" not in body and body["version"]  # a session: the document …
+    assert body["report"]["links"] == []  # … as a link reads it
+    assert body["objectVisits"]["destinations"] == []
+    assert body["alarms"]["webhooks"] == []
+    assert "SECRETSIG" not in r.text and "sharepoint.com" not in r.text
+
+    # the ordinary app on the same device is still the account and the admin
+    body = (await client.get("/api/config", headers=BARE_SITE)).json()
+    assert [link["id"] for link in body["report"]["links"]] == ["f1"]
+    assert body["alarms"]["webhooks"] == [hook]
+
+
+async def test_a_link_beside_only_a_refresh_cookie_reads_as_the_link_on_every_route(
+    client, link_key, incident, editor, admin_login, put_config
+):
+    """The phone was signed in, its 8 h access cookie ran out, and somebody taps the alarm link.
+    `/api/auth/me` is then the link's guest — so `/api/config` must be the link's projection too,
+    not the PIN account's (its refresh cookie still lies in the jar)."""
+    await admin_login(client)
+    form = {"id": "f1", "title": "Formular", "url": "https://forms.example.org/x"}
+    assert (await put_config(client, {"report": {"links": [form]}})).status_code == 200
+    client.cookies.clear()
+    assert (await client.post("/api/auth/login", json={"user_id": str(editor.id), "pin": "135790"})).status_code == 200
+    client.cookies.delete(ACCESS_COOKIE)
+    # refresh cookie alone, on the ordinary app: the device's own account, with the Formular links
+    assert [link["id"] for link in (await client.get("/api/config", headers=BARE_SITE)).json()["report"]["links"]] == [
+        "f1"
+    ]
+
+    await _open_link(client)
+    assert (await client.get("/api/auth/me")).json()["link_scoped"] is True
+    body = (await client.get("/api/config")).json()
+    assert "partial" not in body and body["report"]["links"] == []
 
 
 # --- the Rapport's view-only link ---------------------------------------------------------

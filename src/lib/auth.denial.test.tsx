@@ -32,7 +32,6 @@ const wrapper = ({ children }: { children: ReactNode }) => <AuthProvider>{childr
 /** boot straight into a signed-in session, with the config re-read out of the way */
 async function signedIn() {
   vi.spyOn(deploymentConfig, 'isDemoMode').mockReturnValue(false)
-  vi.spyOn(deploymentConfig, 'getDeploymentConfig').mockReturnValue({ integrations: { cartoBasemapKey: 'k' } })
   apiGet.mockResolvedValueOnce(EDITOR_USER)
   const { result } = renderHook(() => useAuth(), { wrapper })
   await waitFor(() => expect(result.current.user).toEqual(EDITOR_USER))
@@ -44,6 +43,9 @@ beforeEach(() => {
   apiGet.mockReset(); apiPost.mockReset(); idbSet.mockReset(); idbDel.mockReset()
   idbGet.mockReset().mockResolvedValue(null) // no cached user unless a test seeds one
   syncMediaCacheAuth.mockReset(); denyWorkspaceCache.mockReset(); setWorkspaceCacheOwner.mockReset()
+  // the config re-read after a live /me is not this file's subject (auth.test.tsx covers it)
+  vi.spyOn(deploymentConfig, 'ensureSessionConfig').mockResolvedValue()
+  vi.spyOn(deploymentConfig, 'hasStationConfig').mockReturnValue(true)
 })
 // ⚠️ No global RTL auto-cleanup in this repo (vite.config · test has no setupFiles), and these
 // tests fire a WINDOW event: a provider left mounted by the previous test would answer it too.
@@ -347,7 +349,6 @@ describe('AuthProvider — a logout during the boot probe is not undone', () => 
 
   it('still logs in on a live /me 200 mid-boot — a real answer legitimately lifts a denial', async () => {
     vi.spyOn(deploymentConfig, 'isDemoMode').mockReturnValue(false)
-    vi.spyOn(deploymentConfig, 'getDeploymentConfig').mockReturnValue({ integrations: { cartoBasemapKey: 'k' } })
     idbGet.mockResolvedValue(EDITOR_USER)
 
     let resolveProbe!: (u: unknown) => void
@@ -415,5 +416,111 @@ describe('AuthProvider — the demo auto-login', () => {
 
     await waitFor(() => expect(result.current.user).toEqual(EDITOR_USER))
     await waitFor(() => expect(result.current.sessionExpired).toBe(false))
+  })
+})
+
+describe('AuthProvider — a logout that lands while a login reads the config', () => {
+  it('wins: the login is refused and the caches stay closed', async () => {
+    vi.spyOn(deploymentConfig, 'isDemoMode').mockReturnValue(false)
+    apiGet.mockRejectedValue(new ApiError(401, 'Nicht angemeldet'))
+    const { result } = renderHook(() => useAuth(), { wrapper })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    let release!: (cfg: object) => void
+    vi.spyOn(deploymentConfig, 'loadDeploymentConfig').mockReturnValue(new Promise((resolve) => { release = resolve }))
+    apiPost.mockResolvedValue(EDITOR_USER)
+    let outcome: unknown
+    let login!: Promise<void>
+    act(() => { login = result.current.login('ed-1', '135790').catch((e: unknown) => { outcome = e }) })
+    await waitFor(() => expect(deploymentConfig.loadDeploymentConfig).toHaveBeenCalled())
+
+    // another tab signs out (the two share the cookies) while the config is still on its way
+    const otherTab = new BroadcastChannel('kp-auth-denial')
+    otherTab.postMessage('denied')
+    await waitFor(() => expect(denyWorkspaceCache).toHaveBeenCalled())
+    setWorkspaceCacheOwner.mockClear()
+
+    await act(async () => { release({}); await login })
+    expect(outcome).toBeInstanceOf(ApiError)
+    expect(result.current.user).toBeNull()
+    expect(setWorkspaceCacheOwner).not.toHaveBeenCalledWith(EDITOR_USER.id)
+    otherTab.close()
+  })
+})
+
+describe('AuthProvider — a logout that lands while the boot probe reads the config', () => {
+  it('wins: the probe does not adopt the user it got before the logout', async () => {
+    vi.spyOn(deploymentConfig, 'isDemoMode').mockReturnValue(false)
+    vi.spyOn(deploymentConfig, 'hasStationConfig').mockReturnValue(false) // the app waits for the read
+    let release!: () => void
+    vi.spyOn(deploymentConfig, 'ensureSessionConfig').mockReturnValue(new Promise<void>((resolve) => { release = resolve }))
+    apiGet.mockResolvedValueOnce(EDITOR_USER) // /me: 200
+    const { result } = renderHook(() => useAuth(), { wrapper })
+    await waitFor(() => expect(deploymentConfig.ensureSessionConfig).toHaveBeenCalled())
+
+    const otherTab = new BroadcastChannel('kp-auth-denial')
+    otherTab.postMessage('denied')
+    await waitFor(() => expect(denyWorkspaceCache).toHaveBeenCalled())
+
+    vi.mocked(deploymentConfig.hasStationConfig).mockReturnValue(true)
+    await act(async () => { release() })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.user).toBeNull()
+    expect(idbSet).not.toHaveBeenCalledWith('kp-front-user', EDITOR_USER)
+    otherTab.close()
+  })
+})
+
+describe('AuthProvider — a session check sent before a sign-in', () => {
+  it('does not end the new session with its late refusal', async () => {
+    vi.spyOn(deploymentConfig, 'isDemoMode').mockReturnValue(false)
+    apiGet.mockRejectedValueOnce(new ApiError(401, 'Nicht angemeldet')) // boot /me
+    const { result } = renderHook(() => useAuth(), { wrapper })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    // the old session's expiry is asked about …
+    let refuse!: (e: unknown) => void
+    apiGet.mockReturnValueOnce(new Promise((_res, rej) => { refuse = rej }))
+    act(() => { window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT)) })
+    await waitFor(() => expect(apiGet).toHaveBeenCalledTimes(2))
+
+    // … and before the answer comes, somebody signs in
+    vi.spyOn(deploymentConfig, 'loadDeploymentConfig').mockResolvedValue({})
+    apiPost.mockResolvedValue(EDITOR_USER)
+    await act(async () => { await result.current.login('ed-1', '135790') })
+    expect(result.current.user).toEqual(EDITOR_USER)
+
+    denyWorkspaceCache.mockClear()
+    await act(async () => { refuse(new ApiError(401, 'Nicht angemeldet')); await Promise.resolve() })
+    expect(denyWorkspaceCache).not.toHaveBeenCalled()
+    expect(result.current.user).toEqual(EDITOR_USER)
+  })
+})
+
+describe('AuthProvider — the new session gets its own check while the old one is still asked about', () => {
+  it('runs a check for the new session and honours its refusal', async () => {
+    vi.spyOn(deploymentConfig, 'isDemoMode').mockReturnValue(false)
+    apiGet.mockRejectedValueOnce(new ApiError(401, 'Nicht angemeldet')) // boot /me
+    const { result } = renderHook(() => useAuth(), { wrapper })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    let refuseOld!: (e: unknown) => void
+    apiGet.mockReturnValueOnce(new Promise((_res, rej) => { refuseOld = rej })) // the old session's check
+    act(() => { window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT)) })
+    await waitFor(() => expect(apiGet).toHaveBeenCalledTimes(2))
+
+    vi.spyOn(deploymentConfig, 'loadDeploymentConfig').mockResolvedValue({})
+    apiPost.mockResolvedValue(EDITOR_USER)
+    await act(async () => { await result.current.login('ed-1', '135790') })
+
+    // the NEW session expires too, while the old check still hangs
+    apiGet.mockRejectedValueOnce(new ApiError(401, 'Nicht angemeldet'))
+    denyWorkspaceCache.mockClear()
+    act(() => { window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT)) })
+    await waitFor(() => expect(apiGet).toHaveBeenCalledTimes(3)) // its own check went out
+    await waitFor(() => expect(denyWorkspaceCache).toHaveBeenCalled()) // …and its refusal counts
+    expect(result.current.user).toBeNull()
+
+    await act(async () => { refuseOld(new ApiError(401, 'Nicht angemeldet')); await Promise.resolve() })
   })
 })

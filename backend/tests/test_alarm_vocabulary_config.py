@@ -215,7 +215,8 @@ async def test_a_row_edited_around_the_validator_degrades_loudly(config_row, cap
 
 
 @pytest.mark.asyncio
-async def test_get_config_says_which_vocabulary_is_running(client):
+async def test_get_config_says_which_vocabulary_is_running(client, editor):
+    assert (await client.post("/api/auth/login", json={"user_id": str(editor.id), "pin": "135790"})).status_code == 200
     r = await client.get("/api/config")
     assert r.status_code == 200
     status = r.json()["alarmVocabulary"]

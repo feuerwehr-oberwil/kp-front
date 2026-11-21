@@ -15,7 +15,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { appConfig } from '../config/appConfig'
-import { getDeploymentConfig } from '../lib/deploymentConfig'
+import { applyCaptureConfig, getDeploymentConfig } from '../lib/deploymentConfig'
 import { scrollBehavior } from '../lib/reducedMotion'
 import { fillTemplate, stripUnprintable, compareText, fmtWhen } from '../lib/format'
 import { Icon, IconSprite } from '../lib/icons'
@@ -206,7 +206,13 @@ export default function CaptureApp() {
   const load = useCallback(async () => {
     if (!token) { setError(appConfig.copy.capture.invalid); return }
     try {
-      const [list, people] = await Promise.all([captureApi.incidents(token), captureApi.roster(token)])
+      const [list, people, parts] = await Promise.all([
+        captureApi.incidents(token), captureApi.roster(token), captureApi.config(token),
+      ])
+      // Before the state below re-renders the form: its pickers (Fahrzeuge, Alarmgruppen,
+      // Material, Partner, rank order) and the Rapport-PDF read these parts off the config, and
+      // this page has no session — `/api/config` gave it the branding only.
+      applyCaptureConfig(parts)
       setIncidents(list)
       setRoster(people)
       setError(null)

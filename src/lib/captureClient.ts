@@ -7,6 +7,7 @@
 import type { AttendanceEntry, AttendanceOrt, MittelEntry, TimelineEvent } from '../types'
 import type { ReportMeta } from './workspace'
 import type { IncidentMeta, Workspace } from './incidents'
+import type { DeploymentConfig } from './deploymentConfig'
 import { closePresence, currentIntervalIndex, isPresent, openPresence, setIntervalTime } from './attendanceIntervals'
 import { ortOf } from './attendanceOrt'
 import { currentLineFor } from './mittel'
@@ -471,6 +472,8 @@ export interface CapturePerson { id: string; display_name: string; rank?: string
 export const captureApi = {
   incidents: (token: string) => req<IncidentMeta[]>(token, '/incidents'),
   roster: (token: string) => req<CapturePerson[]>(token, '/roster'),
+  /** the parts of the deployment config this page reads (backend api/config · CAPTURE_PARTS) */
+  config: (token: string) => req<DeploymentConfig>(token, '/config'),
   /** cross-visibility poll: has the KP tablet opened this incident (latched — once true,
    *  stays true, so the caller stops polling) */
   status: (token: string, id: string) => req<{ kp_active: boolean }>(token, `/incidents/${id}/status`),
