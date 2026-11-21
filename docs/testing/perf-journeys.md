@@ -41,6 +41,13 @@ journey called. When a request count moves, the report shows which routes change
   crash sink – leaves the API request counts and `cold-start.writes` (`harness · isAppApi`): a
   device sends it once per launch or per error, and whether it lands inside a window is timing.
   It still shows in the per-route table.
+- **A browser bump can move a count without the app changing** (21.11.2026). Playwright 1.65
+  brought Chromium 159, which reports the `304` answer of the workspace long poll as a finished
+  request; Chromium 156 reported it as `ERR_ABORTED`, and the harness counts finished requests
+  only. The server's access log showed the same requests and the same `304` answers in both
+  browsers, so `idle` and `trupps` were re-accepted (+3, +9). `edit` counts them too now (it has
+  more room). Before you accept a count after a Playwright bump, compare what the server received
+  in both browsers.
 - **No CPU throttle** by default. Headless Chromium has no GPU, so MapLibre renders through software
   WebGL on the main thread. At 4× throttle a busy Karte fell to 2–10 frames a second and journeys
   hung (2026-10-05). The gate compares a build with its baseline, so relative changes show
@@ -160,6 +167,14 @@ how many walks it was written from (`walks`).
 One run id still works and gives that run's numbers (the mean of its two walks' times, if it has
 two). Use it for a brand-new journey or when a change has only one run. The next accept from
 several runs replaces it.
+
+**Only some numbers moved, for a reason outside the app** (a browser bump, 21.11.2026): move only
+those metrics and their route detail (`details.<journey>.routes`), with the same rule as above
+(counts: best walk of the CI runs), and name the runs and the reason for them in `source`. Leave
+every other number where it is: those stay tied to the walks and the calibration they were
+measured with. Prove it with `node scripts/perf-report.mjs --summary /dev/null <walk dirs>` on
+the CI walks (red with the old baseline, green with the new one). A full `just perf-accept`
+stays the way for a change in the app.
 
 Why (measured 10.11.2026, 43 walks from 34 CI runs): the baseline of 09.11. came from one run, and
 for most times only 0–3 of 25 comparable walks beat it. Unchanged builds read ⚠️ +20–25 %

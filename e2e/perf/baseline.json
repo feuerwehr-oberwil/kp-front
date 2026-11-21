@@ -1,7 +1,7 @@
 {
   "$comment": "Written by `node scripts/perf-report.mjs --update` from CI runs (`just perf-accept <run-id> …`): times are the median of `walks` walks, the rest their best. Hand-edit only `tolerance`. docs/testing/perf-journeys.md",
   "recorded": "2026-11-10",
-  "source": "CI run 42805629593 42805619827 42773242324 42771416256 42771079598 42769156755 42717650281",
+  "source": "CI run 42805629593 42805619827 42773242324 42771416256 42771079598 42769156755 42717650281; idle.api_requests_per_min and trupps.api_requests (+ their routes) from CI run 44909468267 44910709847 on 2026-11-21: Playwright 1.65 / Chromium 159 counts the 304 long-poll answer the earlier browser reported as aborted",
   "walks": 8,
   "calibration": 46.3,
   "tolerance": {},
@@ -115,7 +115,7 @@
       "unit": "count"
     },
     "idle.api_requests_per_min": {
-      "value": 9,
+      "value": 12,
       "unit": "count"
     },
     "idle.dom_node_growth": {
@@ -211,7 +211,7 @@
       "unit": "kb"
     },
     "trupps.api_requests": {
-      "value": 39,
+      "value": 48,
       "unit": "count"
     },
     "trupps.blocking_ms": {
@@ -364,6 +364,7 @@
         "GET /api/incidents": 2,
         "GET /api/incidents/:id/journal": 3,
         "GET /api/incidents/:id/positions": 1,
+        "GET /api/incidents/:id/workspace": 3,
         "GET /api/weather/layer": 1
       }
     },
@@ -372,6 +373,7 @@
         "GET /api/divera/pool": 1,
         "GET /api/incidents": 1,
         "GET /api/incidents/:id/journal": 18,
+        "GET /api/incidents/:id/workspace": 9,
         "POST /api/incidents/:id/events": 1,
         "POST /api/incidents/:id/journal": 9,
         "PUT /api/incidents/:id/workspace/trupps": 9
