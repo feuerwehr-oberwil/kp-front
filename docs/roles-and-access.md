@@ -170,6 +170,10 @@ their offline copy already lives in IndexedDB (`lib/api/stationReference`).
   (CONFIGURATION.md §1a).
 - **A role change ends the account's sessions** (`revoke_sessions`, like a PIN reset): a device
   learns its role at sign-in. The last active editor cannot be demoted to `el` or `viewer`.
+- **A route without an auth dependency is on a list.** `backend/tests/test_route_auth.py` walks
+  every mounted route and fails when one has none of the auth dependencies and is not on its
+  `PUBLIC` list, where each open route stands with its reason (the login door, the probes, the
+  machines that check their own secret in the handler). Opening a route is an edit there.
 - **A viewer's Rapport-PDF embeds its own Einsatz's media only** – the window applies to what
   the composer opens, not just to `GET /api/media`.
 - **The el reads «Anrückend»** (`GET /divera/responses`, `CurrentRecordWriter`): it marks
