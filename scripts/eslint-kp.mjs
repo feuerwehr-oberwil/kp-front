@@ -62,13 +62,13 @@ const callRule = (names, message, { react }) => ({
   },
 })
 
-/** the string pieces an expression renders: a literal, a template's text, either branch of `?:`, the right of `&&` / `??` */
+/** the string pieces an expression renders: a literal, a template's text and interpolations, either branch of `?:`, the right of `&&`, both sides of `||` / `??` */
 function rendered(e) {
   if (!e) return []
   if (e.type === 'Literal') return typeof e.value === 'string' ? [{ node: e, text: e.value }] : []
-  if (e.type === 'TemplateLiteral') return e.quasis.map((q) => ({ node: e, text: q.value.cooked ?? '' }))
+  if (e.type === 'TemplateLiteral') return [...e.quasis.map((q) => ({ node: e, text: q.value.cooked ?? '' })), ...e.expressions.flatMap(rendered)]
   if (e.type === 'ConditionalExpression') return [...rendered(e.consequent), ...rendered(e.alternate)]
-  if (e.type === 'LogicalExpression') return rendered(e.right)
+  if (e.type === 'LogicalExpression') return e.operator === '&&' ? rendered(e.right) : [...rendered(e.left), ...rendered(e.right)]
   return []
 }
 
