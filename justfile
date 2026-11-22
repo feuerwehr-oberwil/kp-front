@@ -357,12 +357,20 @@ test:
 # (Vitest's own dependency graph: a test runs when it imports — directly or not — a file that
 # differs from origin/main, committed or not. The backend has no such graph; `--lf` reruns what
 # failed last, `-n 4` runs the whole suite in a few minutes. A first look, not a gate: `just ci`
-# before you push.)
+# before you push. When nothing failed last, pytest selects no test (exit 5): that says so
+# instead of passing silently, and names the single-file Postgres run.)
 # Only the frontend tests your branch can have affected, then the backend tests that failed last.
 [group('Quality')]
 test-changed:
+    #!/usr/bin/env bash
+    set -euo pipefail
     pnpm exec vitest run --changed origin/main
-    cd backend && uv run pytest -q --lf --lfnf=none || test $? -eq 5
+    cd backend
+    status=0
+    uv run pytest -q --lf --lfnf=none || status=$?
+    [ "$status" -eq 5 ] || exit "$status"
+    echo "Backend: no tests selected – nothing failed last run, so no backend test ran."
+    echo "To prove a backend change on Postgres: just test-backend -n 0 -x tests/<file>.py"
 
 # (For agents that share one machine: one heavy job at a time. Waits up to 9 min for the lock and
 # retries an attempt only when it segfaulted – exit 139, or a crash line in its output, because
