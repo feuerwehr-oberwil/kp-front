@@ -81,7 +81,9 @@ Decided deliberately, not accidental:
 Desktop uses a header button; compact headers group language and appearance in one native
 menu, closed by Escape or a tap outside. Language choices remain real links. The theme
 choice is a local preference (`kp-landing-theme`), shared across language pages on the same
-origin. Keep `theme.js`, `build.mjs` and `landing.css` byte-identical in both repositories.
+origin. `theme.js`, `build.mjs` and `landing.css` are byte-identical in both repositories:
+they are the `landing-runtime` item in [`shared/MANIFEST.json`](../shared/MANIFEST.json), and CI
+fails when the two copies differ. Change them as [`shared/README.md`](../shared/README.md) says.
 The builder embeds the runtime in the page head, including the single-file hand-out.
 KP Front lists it as a Knip entry because the builder reads it as text rather than importing it.
 
@@ -156,10 +158,12 @@ along with them.
 ## Design
 
 The look («Schweizer Plakat × Tageslicht») lives entirely in `landing.css`, and **this file
-is identical in kp-front and kp-rueck**. Whoever changes the design copies it over to the
-other repo – otherwise the two sister pages drift apart. Only template and texts differ:
-content, images and the mutual cross-linking (`kp-front.ch` ⇄ `kp-rueck.ch`, each language page to
-the same language on the other site – `sister` in `content/config.json`).
+is identical in kp-front and kp-rueck** (`landing-runtime` in
+[`shared/MANIFEST.json`](../shared/MANIFEST.json)). Whoever changes the design copies it over to
+the other repo on a branch of the same name – otherwise the shared-files check fails. Only
+template and texts differ: content, images and the mutual cross-linking (`kp-front.ch` ⇄
+`kp-rueck.ch`, each language page to the same language on the other site – `sister` in
+`content/config.json`).
 
 ## Hosting
 

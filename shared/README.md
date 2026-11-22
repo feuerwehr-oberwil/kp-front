@@ -15,6 +15,7 @@ they are shared **by copy**. There is no package and no third repository:
 | `station-index` | one station's `index.json` could resolve to different files in the two products |
 | `alarm-intake` | one dispatch webhook could be accepted by one app and refused by the other |
 | `snail` | the two apps would show a different loading mascot |
+| `landing-runtime` | the two sister landing pages would look, build or switch theme differently |
 | `shared-check` | the two repositories would check different things |
 
 Some neighbours are left out on purpose. Of the telemetry package, only the sanitiser
@@ -22,6 +23,10 @@ Some neighbours are left out on purpose. Of the telemetry package, only the sani
 crash-report forwarder on 09.11.2026, so `envelope.py`, `outbox.py`, `forwarder.py`,
 `consent.py`, `dsn.py` and the package's `__init__.py` are KP Rück's own. Everything that
 decides what a crash entry *contains* is shared.
+
+The landing pages share `site/landing.css`, `site/build.mjs` and `site/theme.js`. The lightbox
+script at the end of `site/index.template.html` is the same in both too, but the template
+around it is not, so the lightbox stays out of the manifest: change it in both by hand.
 
 [`MANIFEST.json`](MANIFEST.json) lists every shared file with its path in each repository,
 the **owner** (the repository where an edit is made first) and its sha256.
