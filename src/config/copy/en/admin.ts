@@ -606,6 +606,7 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
       // keep identical to admin.setup.name — the «Einrichtung» row points straight at this field
       appName: 'Name of the brigade',
       appNameTip: 'Shown in the title bar, login and help. Empty = «KP Front».',
+      appNamePlaceholder: 'KP Front',
       shortName: 'Short name',
       shortNameHint: 'Map menu button, max. 8 characters',
       shortNameTip: 'Shown top left on «Map & objects», on the button that opens the menu – next to the logo if one is uploaded. At most 8 characters, e.g. «FWO». Empty = menu symbol (or just the logo).',
@@ -683,6 +684,7 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
       catKindsTip: 'Only objects of these kinds. None chosen = any kind.',
       catModules: 'Plans',
       catModulesTip: 'Only objects with a plan of this module, comma-separated; * stands for any characters (modul5-pv* matches modul5-pv, modul5-pv15 …). Empty = any plans.',
+      catModulesPlaceholder: 'modul5-pv*, modul5-wasser*',
       catAdd: 'Add category',
     },
     doctrine: {

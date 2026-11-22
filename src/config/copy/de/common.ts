@@ -8,7 +8,7 @@ export const commonCopy = {
   baseMap: 'Basiskarte',
   // floor (Geschoss) short labels — shared by the Plan floor-stack and the report plan labels.
   // ground floor is a literal; upper/basement carry the number via {n}.
-  floor: { eg: 'EG', og: '{n}. OG', ug: '{n}. UG' },
+  floor: { eg: 'EG', og: '{n}. OG', ug: '{n}. UG', ogShort: 'OG', ugShort: 'UG' },
   // hose-count hint for the Messpfeil label (lib/geo · hoseLengthHint), e.g. "~5 Schläuche"
   hoseHint: '~{n} Schläuche',
   symbolSearchPlaceholder: 'Suchen …',

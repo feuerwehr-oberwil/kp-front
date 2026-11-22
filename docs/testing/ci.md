@@ -184,9 +184,9 @@ check` against the models); image, secrets, e2e, visual and perf stay CI's.
   beside it) holds what owner corrections taught: no raw `useEffect`/`useLayoutEffect` or timer
   (`setTimeout`, `setInterval`, `requestAnimationFrame`, `requestIdleCallback`) in product code
   outside `src/lib`, no screen text written into JSX, and a `-- reason` on every `eslint-disable`.
-  They are ratcheted warnings; a rule the code already meets everywhere is an error in
-  `eslint.config.js` instead (the `src/lib/incidents` and `src/lib/overlays` import doors, no
-  `crypto.randomUUID`).
+  A rule starts as a ratcheted warning and becomes an error in `eslint.config.js` once its count
+  reaches 0 (screen text since 22.11.2026, like the `src/lib/incidents` and `src/lib/overlays`
+  import doors and the `crypto.randomUUID` ban).
 - **Ratchets only go down.** The eslint warnings per rule and what `eslint-disable` directives
   silence per rule (`scripts/eslint-baseline.json`, `rules` and `silenced`; `pnpm lint` fails when
   a count goes up, or down without `pnpm lint:update` – a non-null `!` outside the tests counts as

@@ -1,10 +1,9 @@
 // The house eslint plugin: where an owner correction becomes a check (docs/testing/ci.md ·
 // «Corrections become checks»). eslint.config.js registers it as `kp` and scopes each rule.
 //
-// Every rule here is a WARNING that the per-rule ratchet holds (scripts/lint-ratchet.mjs ·
+// A rule starts as a WARNING that the per-rule ratchet holds (scripts/lint-ratchet.mjs ·
 // scripts/eslint-baseline.json): the existing count may only go down, a new occurrence fails
-// `pnpm lint`. A rule that the code already meets everywhere belongs in eslint.config.js as an
-// error instead.
+// `pnpm lint`. Once its count reaches 0 it becomes an error in eslint.config.js.
 import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 
@@ -16,6 +15,10 @@ const GLOBALS = new Set(['window', 'globalThis', 'self'])
 const COPY_ATTRS = new Set(['aria-label', 'aria-description', 'title', 'placeholder', 'alt', 'label', 'sub', 'hint'])
 /** two letters in a row, any script: «OK» counts, «›» or «12» does not */
 const WORDS = /\p{L}{2,}/u
+/** words that read the same in de/en/fr/it: units and coordinate systems (owner pick 22.11.2026) */
+const NEUTRAL = /(?<!\p{L})(?:(?:km\/h|mm\/h|km|bar|min|ppm)(?!\p{L})|(?:LV95|WGS84)(?![\p{L}\p{N}]))/gu
+/** elements whose text is a name in code, not copy: `<code>admin_objects</code>` */
+const CODE_TAGS = new Set(['code', 'kbd'])
 const DIRECTIVE = /^\s*eslint-disable(?:-next-line|-line)?(?=\s|$)/
 /** ESLint's own separator between a directive's rules and its reason */
 const REASON = /\s-{2,}\s/u
@@ -95,14 +98,18 @@ export default {
       create: (context) => {
         // one report per literal (both branches of a `?:` count), one per template
         const reportWords = (pieces) => {
-          for (const node of new Set(pieces.filter((p) => WORDS.test(p.text)).map((p) => p.node))) {
-            context.report({ node, messageId: 'literal' })
-          }
+          const words = pieces.filter((p) => WORDS.test(p.text.replace(NEUTRAL, '')))
+          for (const node of new Set(words.map((p) => p.node))) context.report({ node, messageId: 'literal' })
+        }
+        /** a child of `<code>` / `<kbd>` */
+        const inCode = (node) => {
+          const open = node.parent?.type === 'JSXElement' ? node.parent.openingElement.name : undefined
+          return open?.type === 'JSXIdentifier' && CODE_TAGS.has(open.name)
         }
         return {
-          JSXText(node) { reportWords([{ node, text: node.value }]) },
+          JSXText(node) { if (!inCode(node)) reportWords([{ node, text: node.value }]) },
           'JSXElement > JSXExpressionContainer, JSXFragment > JSXExpressionContainer'(node) {
-            reportWords(rendered(node.expression))
+            if (!inCode(node)) reportWords(rendered(node.expression))
           },
           JSXAttribute(node) {
             const name = node.name.type === 'JSXIdentifier' ? node.name.name : undefined

@@ -8,7 +8,9 @@ AGENTS.md on 2026-10-08 (the wording) and 2026-10-18 (the mechanics), wording un
 
 - **Domain language is German** (Atemschutz, Trupp, Einsatz, Verlauf, …); keep terms
   accurate. **All user-facing strings live in `appConfig.copy.*`** – never hard-code UI text in
-  a component; add a key and reference it.
+  a component; add a key and reference it. Lint enforces it (`kp/no-literal-copy`, an error):
+  units and coordinate systems that read the same in every language (km/h, mm/h, km, bar, min,
+  ppm, LV95, WGS84) and names inside `<code>`/`<kbd>` may stay literal.
 - **Prose language split: technical English, user-facing German.** Everything technical –
   `docs/`, READMEs, `CHANGELOG.md`, code comments, commit messages – is written in English;
   German appears there only as domain terms and as «quoted» UI copy. User-facing text is German
