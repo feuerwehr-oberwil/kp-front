@@ -3,11 +3,24 @@ import globals from 'globals'
 import tseslint from 'typescript-eslint'
 import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
+import kp from './scripts/eslint-kp.mjs'
 
 // Flat config. Mirrors the backend's ruff gate: the build/CI runs `pnpm lint`.
 // The high-value rule for this codebase is react-hooks (rules-of-hooks as an error,
 // exhaustive-deps as a warning so the intentional one-time-init suppressions stay
 // explicit). TS/style findings are warnings — they surface without wedging CI.
+// The UI reaches the backend through ONE door, src/lib/incidents (see its header).
+const API_DOOR = {
+  regex: '/lib/api/(incidents|workspace|workspaceSync|events|media|divera|personnel|geo|objects|reference)$',
+  message: "Import it from 'lib/incidents' – the UI's one entry point to the backend calls.",
+}
+// Base UI is wrapped once, in src/lib/overlays: focus, scroll-lock, Esc and theming live there.
+const OVERLAY_DOOR = {
+  group: ['@base-ui/react', '@base-ui/react/*'],
+  message: 'Use the wrappers in src/lib/overlays (Sheet, Overlay, ConfirmCard, Menu, Popover) – docs/ui-conventions.md · Overlays.',
+}
+const TESTS = ['src/**/*.test.{ts,tsx}', 'src/**/*.setup.tsx']
+
 export default tseslint.config(
   // `.claude` holds transient agent worktrees (full repo copies) that must not be linted.
   // `src/lib/api/schema.d.ts` is generated (`pnpm openapi:types`) and checked by its own test.
@@ -22,6 +35,7 @@ export default tseslint.config(
     plugins: {
       'react-hooks': reactHooks,
       'react-refresh': reactRefresh,
+      kp,
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
@@ -50,7 +64,22 @@ export default tseslint.config(
       // them – the ratchet holds the number (sweep 23.10.2026, B.13). Tests are exempt below.
       '@typescript-eslint/no-non-null-assertion': 'warn',
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+      // every minted id carries its kind and sorts by time – docs/sync-and-offline.md
+      'no-restricted-properties': ['error', { property: 'randomUUID', message: 'Mint ids with newId(prefix) from src/lib/ids.ts – docs/sync-and-offline.md.' }],
+      'kp/disable-reason': 'warn',
     },
+  },
+  // Product code (not src/lib, not tests): effects and timers go through named src/lib helpers,
+  // screen text through appConfig.copy. Ratcheted warnings – scripts/eslint-kp.mjs.
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    ignores: ['src/lib/**', ...TESTS],
+    rules: { 'kp/no-raw-effect': 'warn', 'kp/no-raw-timer': 'warn' },
+  },
+  {
+    files: ['src/**/*.tsx'],
+    ignores: TESTS,
+    rules: { 'kp/no-literal-copy': 'warn' },
   },
   // test files run under node + vitest globals
   {
@@ -59,17 +88,22 @@ export default tseslint.config(
     // a fixture's `!` asserts what the test just arranged; a wrong one fails the test itself
     rules: { '@typescript-eslint/no-non-null-assertion': 'off' },
   },
-  // The UI reaches the backend through ONE door, src/lib/incidents (see its header); src/lib is
-  // the data layer and imports lib/api/* directly. Tests may import a module under test anywhere.
+  // The two doors. src/lib/overlays is the one importer of Base UI, tests included. src/lib is the
+  // data layer and imports lib/api/* directly, and a test may import its module under test from
+  // anywhere. The second block overrides the first (same rule) where both match, so it names both.
   {
     files: ['src/**/*.{ts,tsx}'],
-    ignores: ['src/lib/**', 'src/**/*.test.{ts,tsx}', 'src/**/*.setup.tsx'],
+    ignores: ['src/lib/overlays/**'],
     rules: {
-      'no-restricted-imports': ['error', { patterns: [{
-        regex: '/lib/api/(incidents|workspace|workspaceSync|events|media|divera|personnel|geo|objects|reference)$',
-        message: "Import it from 'lib/incidents' – the UI's one entry point to the backend calls.",
-      }] }],
+      'no-restricted-imports': ['error', { patterns: [OVERLAY_DOOR] }],
+      // no-restricted-imports does not see `import()`
+      'no-restricted-syntax': ['error', { selector: 'ImportExpression[source.value=/^@base-ui\\u002Freact/]', message: OVERLAY_DOOR.message }],
     },
+  },
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    ignores: ['src/lib/**', ...TESTS],
+    rules: { 'no-restricted-imports': ['error', { patterns: [API_DOOR, OVERLAY_DOOR] }] },
   },
   // Playwright e2e: node, and a fixture's `use` callback is Playwright's, not React's hook
   {

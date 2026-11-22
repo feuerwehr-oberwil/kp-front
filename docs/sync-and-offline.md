@@ -174,7 +174,7 @@ the module they concern (`lib/connectivity`, `lib/eventScope`, `lib/jsonEqual`,
   what wrote a row reads the tag (`isPlayerRowId`), never a parsed timestamp. Deliberately
   DERIVED ids (`ght-<markerId>`, `vp-…`, `azal-`/`azcl-`) stay deterministic — two devices
   must mint the same one ([Observed facts get derived ids](#observed-facts-get-derived-ids)).
-  Offline-friendly, no DB roundtrip; don't reach for `crypto.randomUUID()`.
+  Offline-friendly, no DB roundtrip; `crypto.randomUUID()` is a lint error.
 - **Incident records are append-only where it matters.** Verlauf is the human operational journal
   plus selected meaningful system events; audit/events record committed domain actions. Don't add
   mutate/delete shortcuts for production records; lifecycle changes (reminders, media transcripts,

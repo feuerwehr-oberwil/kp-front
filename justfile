@@ -236,6 +236,40 @@ ci:
     gates=$(node scripts/ci-scope.mjs)
     if [ -n "$gates" ]; then just "$gates"; else echo "ci: no gate reads what this branch changes"; fi
 
+# (The pre-push hook's set: only checks that give the same answer on a busy box. The unit suites,
+# pytest and the schema check flaked under load when the hook ran all of `just ci` (22.11.2026:
+# two pushes, six different failures, each green alone) – they stay `just ci`'s and GitHub CI's.)
+# Run the deterministic gates this branch can affect: frontend lint/types/build, ruff + mypy.
+[group('Quality')]
+ci-static:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    gates=$(node scripts/ci-scope.mjs)
+    case "$gates" in ci-all|ci-no-backend) just ci-frontend ;; esac
+    case "$gates" in ci-all|ci-backend)
+      cd backend && uv run ruff format --check . && uv run ruff check . && uv run mypy app ;;
+    esac
+    [ -n "$gates" ] || echo "ci-static: no gate reads what this branch changes"
+
+# (Once per clone; every worktree of it then runs .githooks/. `git push --no-verify` skips it.
+# It stops when .git/hooks holds an installed hook – e.g. `pre-commit install` – that the switch
+# would silently turn off.)
+# Run `just ci-static` before every push (the .githooks/pre-push hook).
+[group('Quality')]
+hooks:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    current=$(git config core.hooksPath || true)
+    if [ "$current" = .githooks ]; then echo "hooks: already on .githooks"; exit 0; fi
+    if [ -n "$current" ]; then echo "hooks: core.hooksPath is $current – set it by hand if .githooks should replace it." >&2; exit 1; fi
+    dir=$(git rev-parse --git-path hooks)
+    installed=$(ls "$dir" 2>/dev/null | grep -v '\.sample$' | tr '\n' ' ' || true)
+    if [ -n "$installed" ]; then
+      echo "hooks: $dir has $installed– core.hooksPath would turn them off in every worktree. Commit an equivalent into .githooks/ (or remove them), then run this again." >&2
+      exit 1
+    fi
+    git config core.hooksPath .githooks
+
 # Run the frontend, coverage and backend gates together (just >=1.56); --jobs 1 runs them serially.
 [group('Quality')]
 [parallel]

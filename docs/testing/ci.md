@@ -174,10 +174,19 @@ Moved here from AGENTS.md on 2026-10-18, wording unchanged.
 **Tests** are Vitest, colocated as `*.test.ts(x)`: pure `src/lib` logic in the default node
 environment, and component and hook tests in jsdom (a `@vitest-environment jsdom` line at the
 top of the file – about half of the files); the backend uses pytest. Pre-commit covers backend Ruff and staged
-frontend ESLint, not the full gate. `just ci` also runs the coverage floor, the bundle budget,
+frontend ESLint, not the full gate. `just hooks` (once per
+clone) points git at `.githooks/`, whose pre-push hook runs `just ci-static` (the deterministic gates; the suites flake under load on a shared box and stay `just ci`'s and CI's); `git push --no-verify`
+skips it for a 3am hotfix. `just ci` also runs the coverage floor, the bundle budget,
 audits, licenses and `just schema-check` (a throwaway Postgres migrated to head, then `alembic
 check` against the models); image, secrets, e2e, visual and perf stay CI's.
 
+- **Corrections become checks.** The house eslint plugin `scripts/eslint-kp.mjs` (rule tests
+  beside it) holds what owner corrections taught: no raw `useEffect`/`useLayoutEffect` or timer
+  (`setTimeout`, `setInterval`, `requestAnimationFrame`, `requestIdleCallback`) in product code
+  outside `src/lib`, no screen text written into JSX, and a `-- reason` on every `eslint-disable`.
+  They are ratcheted warnings; a rule the code already meets everywhere is an error in
+  `eslint.config.js` instead (the `src/lib/incidents` and `src/lib/overlays` import doors, no
+  `crypto.randomUUID`).
 - **Ratchets only go down.** The eslint warnings per rule and what `eslint-disable` directives
   silence per rule (`scripts/eslint-baseline.json`, `rules` and `silenced`; `pnpm lint` fails when
   a count goes up, or down without `pnpm lint:update` – a non-null `!` outside the tests counts as
