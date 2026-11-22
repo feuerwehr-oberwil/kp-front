@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
-# Runs the gates this branch can affect before it leaves the machine: `just ci`, scoped by
-# scripts/ci-scope.mjs. Install once per clone with `just hooks`. A 3am hotfix skips it with
+# Runs the deterministic gates this branch can affect before it leaves the machine: `just
+# ci-static` (lint, types, build; ruff + mypy), scoped by scripts/ci-scope.mjs. The test suites stay
+# GitHub CI's. Install once per clone with `just hooks`. A 3am hotfix skips it with
 # `git push --no-verify`. It checks the working tree, so uncommitted edits count too.
 set -euo pipefail
 
 # git passes one line per ref: <local ref> <local sha> <remote ref> <remote sha>.
 # A push that only deletes remote branches or tags has nothing to check.
-# `just ci` checks the working tree, so a pushed commit other than HEAD would go out unchecked.
+# The gates check the working tree, so a pushed commit other than HEAD would go out unchecked.
 zero=0000000000000000000000000000000000000000
 head=$(git rev-parse HEAD)
 pushing=false
@@ -21,4 +22,4 @@ while read -r local_ref local_sha _ _; do
 done
 $pushing || exit 0
 
-exec just ci
+exec just ci-static

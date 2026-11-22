@@ -40,7 +40,8 @@ Alembic, one service that serves the frontend same-origin – **uv** ([`backend/
 - Before you push, run `just ci` for the stacks your diff can affect, or `just ci-all` for all
   stacks. They run lint, build, the full unit suite + coverage floor and the backend with
   migration drift, in parallel. What each covers and what stays CI's: [`docs/testing/ci.md`](docs/testing/ci.md).
-  `just hooks` (once per clone) makes every `git push` run `just ci` first.
+  `just hooks` (once per clone) makes every `git push` run `just ci-static` first (lint, types,
+  build; ruff + mypy – the test suites stay CI's).
 
 ## Working in this repo
 
