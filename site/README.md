@@ -87,9 +87,11 @@ fails when the two copies differ. Change them as [`shared/README.md`](../shared/
 The builder embeds the runtime in the page head, including the single-file hand-out.
 KP Front lists it as a Knip entry because the builder reads it as text rather than importing it.
 
-The lightbox is shared in the same way: a picture inside a `.shot-zoom` button opens enlarged,
-the styles are in `landing.css`, and the script is the last block of `index.template.html` –
-the same block in both repositories, so change it in both. It reads the caption from the
+The lightbox works in both pages too: a picture inside a `.shot-zoom` button opens enlarged,
+and the styles are in `landing.css`. Its script is the section from `// Lightbox` to the end of
+the last script block in `index.template.html`. That section is identical in both repositories,
+but the manifest does not check it (the rest of the template differs), so change it in both by
+hand. It reads the caption from the
 figure (`.cap-t`, `.cap-s`) or, without one, from the heading of the picture's section. The
 texts are `lightbox.*` in `content/*.json`.
 
