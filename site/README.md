@@ -84,9 +84,9 @@ choice is a local preference (`kp-landing-theme`), shared across language pages 
 origin. `theme.js`, `build.mjs` and `landing.css` are byte-identical in both repositories:
 they are the `landing-runtime` item in [`shared/MANIFEST.json`](../shared/MANIFEST.json), and CI
 fails when the two copies differ. Change them as [`shared/README.md`](../shared/README.md) says.
-The builder embeds the runtime in the page head, including the single-file hand-out, so after a
-change run `node site/build.mjs` in **both** repositories and commit the rebuilt pages –
-otherwise `node site/build.mjs --check` in CI finds them stale.
+The builder embeds `theme.js` in the page head, including the single-file hand-out. After a
+change to the shared runtime, run `node site/build.mjs` in **both** repositories and commit any
+pages it changes – `node site/build.mjs --check` in CI flags stale ones.
 KP Front lists it as a Knip entry because the builder reads it as text rather than importing it.
 
 The lightbox works in both pages too: a picture inside a `.shot-zoom` button opens enlarged,
