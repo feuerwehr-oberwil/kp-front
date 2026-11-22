@@ -16,7 +16,7 @@ const COPY_ATTRS = new Set(['aria-label', 'aria-description', 'title', 'placehol
 /** two letters in a row, any script: «OK» counts, «›» or «12» does not */
 const WORDS = /\p{L}{2,}/u
 /** words that read the same in de/en/fr/it: units and coordinate systems (owner pick 22.11.2026) */
-const NEUTRAL = /(?<!\p{L})(?:km\/h|mm\/h|km|bar|min|ppm|LV95|WGS84)(?!\p{L})/gu
+const NEUTRAL = /(?<!\p{L})(?:(?:km\/h|mm\/h|km|bar|min|ppm)(?!\p{L})|(?:LV95|WGS84)(?![\p{L}\p{N}]))/gu
 /** elements whose text is a name in code, not copy: `<code>admin_objects</code>` */
 const CODE_TAGS = new Set(['code', 'kbd'])
 const DIRECTIVE = /^\s*eslint-disable(?:-next-line|-line)?(?=\s|$)/
