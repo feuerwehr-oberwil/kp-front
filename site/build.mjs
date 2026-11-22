@@ -71,8 +71,8 @@ const merge = (base, over) => {
 // purpose: the images stay German on every language's page (they come from a
 // real instance – restaged ones would be a claim), and the page says so instead
 // of pretending otherwise. Counting those as gaps would bury the real ones.
-// The same goes for a device picture's name (`…img.tablet`, `…img.phone`).
-const STRUCTURAL = [/^shots\.items\[\d+\]\.(file|w|h)$/, /^hero\.frame(FileSmall|File|W|H)$/, /\bimg(\.(tablet|phone))?$/]
+// The same goes for a device picture's name (`…img.tablet`, `…img.phone`, `…img.desktop`).
+const STRUCTURAL = [/^shots\.items\[\d+\]\.(file|w|h)$/, /^hero\.frame(FileSmall|File|W|H)$/, /\bimg(\.(tablet|phone|desktop))?$/]
 const translatable = (path) => !STRUCTURAL.some((re) => re.test(path))
 
 const allLeafPaths = (v, path = '', out = []) => {
