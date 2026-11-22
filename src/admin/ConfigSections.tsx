@@ -321,7 +321,7 @@ export function IdentitySection() {
           type="text"
           value={getPath<string>(draft, ['identity', 'appName']) ?? ''}
           onChange={(e) => set(['identity', 'appName'], e.target.value || null)}
-          placeholder="KP Front"
+          placeholder={C.appNamePlaceholder}
         />
       </SettingRow>
       {/* the Karte's menu button label (review round 5; schemas · SHORT_NAME_MAX). `maxLength`

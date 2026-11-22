@@ -34,6 +34,10 @@ tester.run('no-literal-copy', kp.rules['no-literal-copy'], {
     '<b title={C.close} aria-label={`${n}`} />',
     '<b>{busy ? C.saving : C.save}</b>',
     '<Row variant="primary" sub={C.open} />',
+    '<b>{n} km/h · {p} bar · {m} min</b>',
+    '<b>LV95 {x}<br />WGS84 {y}</b>',
+    "<b>{low ? `${p} bar` : clock}</b>",
+    '<li><code>tafel:{id}</code><kbd>Esc</kbd></li>',
   ],
   invalid: [
     { code: '<b>Schliessen</b>', errors: 1 },
@@ -49,6 +53,8 @@ tester.run('no-literal-copy', kp.rules['no-literal-copy'], {
     { code: "<b>{name ?? 'Unbekannt'}</b>", errors: 1 },
     { code: '<b aria-label={`Menü ${n}`} />', errors: 1 },
     { code: '<Row sub="Offen" />', errors: 1 },
+    { code: '<b>{n} km/h Wind</b>', errors: 1 },
+    { code: '<b>{n} Minuten</b>', errors: 1 },
   ],
 })
 

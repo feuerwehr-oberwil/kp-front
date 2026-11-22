@@ -4,7 +4,6 @@
     "@typescript-eslint/no-explicit-any": 3,
     "@typescript-eslint/no-non-null-assertion": 339,
     "kp/disable-reason": 103,
-    "kp/no-literal-copy": 23,
     "kp/no-raw-effect": 565,
     "kp/no-raw-timer": 157,
     "react-hooks/exhaustive-deps": 19,

@@ -69,8 +69,9 @@ export default tseslint.config(
       'kp/disable-reason': 'warn',
     },
   },
-  // Product code (not src/lib, not tests): effects and timers go through named src/lib helpers,
-  // screen text through appConfig.copy. Ratcheted warnings – scripts/eslint-kp.mjs.
+  // Product code (not src/lib, not tests): effects and timers go through named src/lib helpers
+  // (ratcheted warnings), screen text through appConfig.copy (an error since its count hit 0,
+  // 22.11.2026) – scripts/eslint-kp.mjs.
   {
     files: ['src/**/*.{ts,tsx}'],
     ignores: ['src/lib/**', ...TESTS],
@@ -79,7 +80,7 @@ export default tseslint.config(
   {
     files: ['src/**/*.tsx'],
     ignores: TESTS,
-    rules: { 'kp/no-literal-copy': 'warn' },
+    rules: { 'kp/no-literal-copy': 'error' },
   },
   // test files run under node + vitest globals
   {

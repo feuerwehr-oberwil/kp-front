@@ -107,7 +107,7 @@ export function ObjectCategoriesCard() {
               </span>
             </SettingRow>
             <SettingRow label={C.catModules} tip={C.catModulesTip}>
-              <input className="adm-input adm-input-mono" type="text" value={modules.join(', ')} placeholder="modul5-pv*, modul5-wasser*"
+              <input className="adm-input adm-input-mono" type="text" value={modules.join(', ')} placeholder={C.catModulesPlaceholder}
                 onChange={(e) => patch(i, { match: { ...row.match, modules: e.target.value.split(',').map((m) => m.trim()).filter(Boolean) } })} />
             </SettingRow>
             {problem && <SettingsNote><span className="adm-state adm-state-err">{problem}</span></SettingsNote>}

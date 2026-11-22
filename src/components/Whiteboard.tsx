@@ -2926,9 +2926,9 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
             {stack && !readOnly && !building?.pack && (
               <>
                 <button className="wb-floor-add wb-floor-add-up" style={{ '--folded-h': `${folded.filter((r) => r.seam === 0).length * FOLDED_H}px` } as React.CSSProperties}
-                  onPointerDown={(e) => e.stopPropagation()} onClick={() => onAddFloor(1)} title={appConfig.copy.whiteboard.addFloorUp}><Icon id="plus" />OG</button>
+                  onPointerDown={(e) => e.stopPropagation()} onClick={() => onAddFloor(1)} title={appConfig.copy.whiteboard.addFloorUp}><Icon id="plus" />{appConfig.copy.floor.ogShort}</button>
                 <button className="wb-floor-add wb-floor-add-down" style={{ '--folded-h': `${folded.filter((r) => r.seam >= N).length * FOLDED_H}px` } as React.CSSProperties}
-                  onPointerDown={(e) => e.stopPropagation()} onClick={() => onAddFloor(-1)} title={appConfig.copy.whiteboard.addFloorDown}><Icon id="plus" />UG</button>
+                  onPointerDown={(e) => e.stopPropagation()} onClick={() => onAddFloor(-1)} title={appConfig.copy.whiteboard.addFloorDown}><Icon id="plus" />{appConfig.copy.floor.ugShort}</button>
               </>
             )}
           </div>
@@ -3471,7 +3471,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
                 {here
                   ? <i>{appConfig.copy.whiteboard.truppPlacedHere}</i>
                   : t.status === 'raus' ? <i>{truppStateWord(t)}</i>
-                  : (t.lineNo != null || t.lineNumber) ? <i>Ltg {t.lineNo ?? t.lineNumber}</i> : null}
+                  : (t.lineNo != null || t.lineNumber) ? <i>{fillTemplate(appConfig.copy.atemschutz.lineChip, { n: t.lineNo ?? t.lineNumber ?? '' })}</i> : null}
               </button>
             )
           })}
