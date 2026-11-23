@@ -76,6 +76,8 @@ def _postgres_url(url: str) -> str:
 _BASE_DATABASE_URL = _postgres_url(
     os.environ.setdefault("KPF_TEST_BASE_DATABASE_URL", os.environ.get("DATABASE_URL", ""))
 )
+# What the shell passed in, before a worker redirects it – pytest_configure checks it as well.
+_INCOMING_DATABASE_URL = os.environ.get("DATABASE_URL", "")
 _XDIST_WORKER = os.environ.get("PYTEST_XDIST_WORKER")  # gw0, gw1, … — None when serial
 
 
@@ -112,10 +114,11 @@ def pytest_configure(config) -> None:
     # Before any connection: the suite drops its schema, so a real database must never get here.
     from app.config import Settings, settings
 
-    # The test engine's base and its DATABASE_URL (an inherited KPF_TEST_BASE_DATABASE_URL must not
-    # hide it), and the app's own engine, which also reads `.env` and a lowercase `database_url`.
-    # The app's code default (the dev database) is what a SQLite run has always left it on.
-    checks = {"DATABASE_URL": [_BASE_DATABASE_URL, os.environ.get("DATABASE_URL", "")]}
+    # The test engine's base, the DATABASE_URL that came in and the one in use now (an inherited
+    # KPF_TEST_BASE_DATABASE_URL must not hide either), and the app's own engine, which also reads
+    # `.env` and a lowercase `database_url`. The app's code default (the dev database) is what a
+    # SQLite run has always left it on.
+    checks = {"DATABASE_URL": [_BASE_DATABASE_URL, _INCOMING_DATABASE_URL, os.environ.get("DATABASE_URL", "")]}
     if settings.database_url != Settings.model_fields["database_url"].default:
         checks["the app's database_url (environment or backend/.env)"] = [settings.database_url]
     for source, dsns in checks.items():
