@@ -213,6 +213,17 @@ export function cachedLabelSize(text: string, style: LabelStyle): { w: number; h
   return size
 }
 
+/** Rows a word too wide for its box fills when it breaks between characters, as
+ *  `overflow-wrap: break-word` does: greedy, a character at a time. Only for an overlong line. */
+function charRows(line: string, maxW: number, m: (s: string) => number): number {
+  let rows = 1
+  let cur = ''
+  for (const ch of line) {
+    if (cur && m(cur + ch) > maxW) { rows++; cur = ch } else cur += ch
+  }
+  return rows
+}
+
 export function labelSize(text: string, style: LabelStyle, measure: MeasureText = textWidth): { w: number; h: number } {
   const m = (s: string) => measure(s, style.font)
   let w = 0
@@ -220,8 +231,7 @@ export function labelSize(text: string, style: LabelStyle, measure: MeasureText 
   for (const para of text.split('\n')) {
     for (const line of wrapLine(para, style.maxTextW, m)) {
       const lw = m(line)
-      // a broken word fills its rows to the edge; ceil() is the row count, not the exact breaks
-      rows += style.breakWords && lw > style.maxTextW ? Math.ceil(lw / style.maxTextW) : 1
+      rows += style.breakWords && lw > style.maxTextW ? charRows(line, style.maxTextW, m) : 1
       w = Math.max(w, style.breakWords ? Math.min(lw, style.maxTextW) : lw)
     }
   }
