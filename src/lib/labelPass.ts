@@ -187,6 +187,9 @@ export type LabelStyle = {
   chromeH: number
   /** one text line's height */
   lineH: number
+  /** `overflow-wrap: break-word` (a note box): a word wider than `maxTextW` breaks inside itself
+   *  onto further rows instead of running out of the box */
+  breakWords?: boolean
 }
 
 /**
@@ -201,7 +204,7 @@ const sizeCache = new Map<string, { w: number; h: number }>()
  * canvas measurement is done once per distinct string.
  */
 export function cachedLabelSize(text: string, style: LabelStyle): { w: number; h: number } {
-  const key = `${style.font}|${style.maxTextW}|${style.lineH}|${style.chromeW}|${style.chromeH}|${text}`
+  const key = `${style.font}|${style.maxTextW}|${style.lineH}|${style.chromeW}|${style.chromeH}|${style.breakWords ?? false}|${text}`
   const hit = sizeCache.get(key)
   if (hit) return hit
   const size = labelSize(text, style)
@@ -215,7 +218,12 @@ export function labelSize(text: string, style: LabelStyle, measure: MeasureText 
   let w = 0
   let rows = 0
   for (const para of text.split('\n')) {
-    for (const line of wrapLine(para, style.maxTextW, m)) { w = Math.max(w, m(line)); rows++ }
+    for (const line of wrapLine(para, style.maxTextW, m)) {
+      const lw = m(line)
+      // a broken word fills its rows to the edge; ceil() is the row count, not the exact breaks
+      rows += style.breakWords && lw > style.maxTextW ? Math.ceil(lw / style.maxTextW) : 1
+      w = Math.max(w, style.breakWords ? Math.min(lw, style.maxTextW) : lw)
+    }
   }
   return { w: Math.ceil(w) + style.chromeW, h: Math.round(rows * style.lineH) + style.chromeH }
 }

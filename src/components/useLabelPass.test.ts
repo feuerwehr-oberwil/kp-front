@@ -86,6 +86,12 @@ describe('mapLabelDecisions — a note books the box it draws', () => {
   it('…and one on the note is not', () => {
     expect(mapLabelDecisions(px, scene({ entities: [note], lineDecor: tagBelow(0) })).has('tag:L')).toBe(true)
   })
+
+  it('…and a long word in a narrow note grows it downwards, over the same tag', () => {
+    const narrow: Entity = { ...note, label: 'Atemschutzsammelplatz', noteW: 90 }
+    expect(mapLabelDecisions(px, scene({ entities: [{ ...narrow, label: 'Eingang' }], lineDecor: tagBelow(30) })).has('tag:L')).toBe(false)
+    expect(mapLabelDecisions(px, scene({ entities: [narrow], lineDecor: tagBelow(30) })).has('tag:L')).toBe(true)
+  })
 })
 
 describe('mapLabelDecisions — a trail\'s times', () => {
