@@ -28,7 +28,8 @@ Under pytest-xdist (``-n 4``) each worker gets its OWN database, ``<name>_gw0`` 
 one ``DATABASE_URL`` names, created at session start and dropped at the end. Workers sharing
 one database would be the end of a reliable suite. ``DATABASE_URL`` itself is pointed at the
 worker's database before any app module reads it, so code on the app's own engine lands there
-too. A plain ``uv run pytest`` (no ``-n``) uses ``DATABASE_URL`` as it is.
+too. A plain ``uv run pytest`` (no ``-n``) uses ``DATABASE_URL`` as it is. Either way the run
+stops first unless it is a local throwaway database (``tests/db_guard.py``).
 
 Fixtures:
 - ``engine`` / ``db_session``: a rolled-back async session per test.
@@ -41,6 +42,7 @@ import os
 
 import pytest
 import pytest_asyncio
+from db_guard import refusal
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
@@ -74,11 +76,15 @@ def _postgres_url(url: str) -> str:
 _BASE_DATABASE_URL = _postgres_url(
     os.environ.setdefault("KPF_TEST_BASE_DATABASE_URL", os.environ.get("DATABASE_URL", ""))
 )
+# What the shell passed in, before a worker redirects it – pytest_configure checks it as well.
+_INCOMING_DATABASE_URL = os.environ.get("DATABASE_URL", "")
 _XDIST_WORKER = os.environ.get("PYTEST_XDIST_WORKER")  # gw0, gw1, … — None when serial
 
 
 def _worker_database_url() -> str | None:
-    if not (_XDIST_WORKER and _BASE_DATABASE_URL.startswith("postgresql")):
+    # A refused base is left alone: parsing it could fail with its password in the error, and
+    # pytest_configure stops the run anyway.
+    if not (_XDIST_WORKER and _BASE_DATABASE_URL.startswith("postgresql")) or refusal(_BASE_DATABASE_URL):
         return None
     from sqlalchemy.engine import make_url
 
@@ -102,6 +108,26 @@ async def _admin(*statements: str) -> None:
                 await conn.execute(text(statement))
     finally:
         await eng.dispose()
+
+
+def pytest_configure(config) -> None:
+    # Before any connection: the suite drops its schema, so a real database must never get here.
+    from app.config import Settings, settings
+
+    # The test engine's base, the DATABASE_URL that came in and the one in use now (an inherited
+    # KPF_TEST_BASE_DATABASE_URL must not hide either), and the app's own engine, which also reads
+    # `.env` and a lowercase `database_url`. The app's code default (the dev database) is what a
+    # SQLite run has always left it on.
+    checks = {"DATABASE_URL": [_BASE_DATABASE_URL, _INCOMING_DATABASE_URL, os.environ.get("DATABASE_URL", "")]}
+    if settings.database_url != Settings.model_fields["database_url"].default:
+        checks["the app's database_url (environment or backend/.env)"] = [settings.database_url]
+    for source, dsns in checks.items():
+        for dsn in dsns:
+            if reason := refusal(dsn):
+                raise pytest.UsageError(
+                    f"Refused {source}: {reason}.\nThe tests only run on a throwaway database. Unset "
+                    "it for in-memory SQLite, or use `just test-backend` for a throwaway Postgres."
+                )
 
 
 def pytest_sessionstart(session) -> None:
