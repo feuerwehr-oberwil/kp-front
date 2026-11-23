@@ -10,7 +10,8 @@ import { serverNowIso } from './serverClock'
 import { truppInNotfall, truppLogName, truppStillDeployed, truppStillRegistered } from './atemschutz'
 import { fillTemplate } from './format'
 import { mittelLineCount } from './mittel'
-import { confirmDialog } from './ui'
+import { confirmDialog, toast } from './ui'
+import { isDemoMode } from './deploymentConfig'
 import { einsatzSubject } from './einsatzSubject'
 import type { ConfirmSpec } from './overlays/ConfirmCard'
 
@@ -276,6 +277,10 @@ export function useAbschluss({
       safeAnswer: anyOpen ? ('cancel' as const) : undefined,
     })
     if (!ok) return false
+    // ⚠️ The demo refuses the close (useIncidentLifecycle · completeRapport) – and refuses it HERE,
+    // before anything below is written: the pre-filled Einsatzende used to land first, leaving an
+    // open Einsatz with an Ende and one «offen» fewer in its Rapport (show run, 23.11.2026)
+    if (isDemoMode()) { toast(appConfig.copy.demo.actionBlocked, { icon: 'info' }); return false }
     // the pre-filled Einsatzende becomes the record's with the close — one task for React to
     // commit it, so the handover's flush carries it (useIncidentLifecycle · completeRapport flushes the sync)
     if (pendingEnde) {

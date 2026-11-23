@@ -2,8 +2,9 @@
 import { describe, expect, it, vi } from 'vitest'
 import { renderHook } from '@testing-library/react'
 
-vi.mock('./ui', () => ({ confirmDialog: vi.fn() }))
-import { confirmDialog } from './ui'
+vi.mock('./ui', () => ({ confirmDialog: vi.fn(), toast: vi.fn() }))
+import { confirmDialog, toast } from './ui'
+import * as deploymentConfig from './deploymentConfig'
 import { useAbschluss } from './useAbschluss'
 import type { ReportMeta } from './workspace'
 import type { Trupp } from '../types'
@@ -352,6 +353,22 @@ describe('useAbschluss', () => {
       cancelLabel: appConfig.copy.abschluss.confirmBack,
       safeAnswer: 'cancel',
     })
+  })
+
+  // show run 23.11.2026: «Trotzdem abschliessen» in the demo wrote the pre-filled Einsatzende,
+  // THEN was refused – an open Einsatz with an Ende, and one «offen» fewer in the Rapport
+  it('in the demo a confirmed close is refused before anything is written', async () => {
+    const demo = vi.spyOn(deploymentConfig, 'isDemoMode').mockReturnValue(true)
+    vi.mocked(confirmDialog).mockReset().mockResolvedValue(true)
+    const inside = { id: 'in', no: 1, name: 'Tst', auftrag: 'loeschen', status: 'aktiv',
+      entryTime: '2026-09-25T10:00:00Z', lastContactTime: '2026-09-25T10:04:00Z' } as unknown as Trupp
+    const a = args({ trupps: [inside], patchReportMeta: vi.fn(), noteInsideAtClose: vi.fn(), markClosing: vi.fn(), flushOutboxes: vi.fn(async () => {}) })
+    await expect(renderHook(() => useAbschluss(a)).result.current.confirmAndComplete()).resolves.toBe(false)
+    expect(toast).toHaveBeenCalledWith(appConfig.copy.demo.actionBlocked, expect.anything())
+    for (const write of [a.patchReportMeta, a.noteInsideAtClose, a.markClosing, a.flushOutboxes, a.media.flush, a.onCompleteRapport]) {
+      expect(write).not.toHaveBeenCalled()
+    }
+    demo.mockRestore()
   })
 
   /* The sheet's rows answer themselves and the Einsatzende is pre-filled (3am sweep, 23.10.2026,
