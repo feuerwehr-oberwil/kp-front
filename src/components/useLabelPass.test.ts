@@ -72,6 +72,22 @@ describe('mapLabelDecisions — Leitung end tags', () => {
   })
 })
 
+// show run 23.11.2026: a note booked `noteW` as a square, so a one-line «Eingang» note hid the end
+// tag of a Leitung ending ~100 px below it, on empty map
+describe('mapLabelDecisions — a note books the box it draws', () => {
+  const note: Entity = { id: 'N', kind: 'note', layer: 'taktisch', coord: [0, 0], label: 'Eingang', noteW: 220 }
+  const tagBelow = (dy: number) => [{ d: { id: 'L', kind: 'line', coords: [[0, 0], [0, 0.1]], lineNo: 1 } as Drawing,
+    tagAt: [0, dy / 1000] as LngLat, tagOffset: [0, 0] as const, tone: 'idle' as const }]
+
+  it('an end tag just below a one-line note is drawn', () => {
+    expect(mapLabelDecisions(px, scene({ entities: [note], lineDecor: tagBelow(40) })).has('tag:L')).toBe(false)
+  })
+
+  it('…and one on the note is not', () => {
+    expect(mapLabelDecisions(px, scene({ entities: [note], lineDecor: tagBelow(0) })).has('tag:L')).toBe(true)
+  })
+})
+
 describe('mapLabelDecisions — a trail\'s times', () => {
   // three crumbs 5 px apart: their times would stack into one pile
   const trupp: Entity = { id: 'T', kind: 'team', layer: 'taktisch', coord: [0.5, 0.5], label: 'Trupp Meier',
