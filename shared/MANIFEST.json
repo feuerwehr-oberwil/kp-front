@@ -130,6 +130,26 @@
       ]
     },
     {
+      "id": "landing-runtime",
+      "title": "Landing page design, builder and theme",
+      "owner": "kp-front",
+      "question": "Do the two sister landing pages still look, build and switch theme the same way?",
+      "files": [
+        {
+          "path": "site/landing.css",
+          "sha256": "569108699188e7f89c302c3e481a56d28028cd40d191fbf8c3456552c8abc95b"
+        },
+        {
+          "path": "site/build.mjs",
+          "sha256": "0c130bef21665a82df975e4935f8714aa901b64219bec89a88b218a69748d8a3"
+        },
+        {
+          "path": "site/theme.js",
+          "sha256": "97548aec502fa30eee5956426de865bcdbe67da3b5f87233fc1c9e3922165396"
+        }
+      ]
+    },
+    {
       "id": "shared-check",
       "title": "This check itself",
       "owner": "kp-front",
@@ -141,7 +161,7 @@
         },
         {
           "path": "shared/README.md",
-          "sha256": "6ac1bcf96aaaebedb58300b95234d417e8ac9eadb10df92c66ec27011595dba6"
+          "sha256": "b076f8eb1f1f43e620c8ab953de17d38cca5db35a992a0bcd89519e0e158e833"
         },
         {
           "path": "backend/tests/test_shared_files.py",

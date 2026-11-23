@@ -81,13 +81,19 @@ Decided deliberately, not accidental:
 Desktop uses a header button; compact headers group language and appearance in one native
 menu, closed by Escape or a tap outside. Language choices remain real links. The theme
 choice is a local preference (`kp-landing-theme`), shared across language pages on the same
-origin. Keep `theme.js`, `build.mjs` and `landing.css` byte-identical in both repositories.
-The builder embeds the runtime in the page head, including the single-file hand-out.
+origin. `theme.js`, `build.mjs` and `landing.css` are byte-identical in both repositories:
+they are the `landing-runtime` item in [`shared/MANIFEST.json`](../shared/MANIFEST.json), and CI
+fails when the two copies differ. Change them as [`shared/README.md`](../shared/README.md) says.
+The builder embeds `theme.js` in the page head, including the single-file hand-out. After a
+change to the shared runtime, run `node site/build.mjs` in **both** repositories and commit any
+pages it changes – `node site/build.mjs --check` in CI flags stale ones.
 KP Front lists it as a Knip entry because the builder reads it as text rather than importing it.
 
-The lightbox is shared in the same way: a picture inside a `.shot-zoom` button opens enlarged,
-the styles are in `landing.css`, and the script is the last block of `index.template.html` –
-the same block in both repositories, so change it in both. It reads the caption from the
+The lightbox works in both pages too: a picture inside a `.shot-zoom` button opens enlarged,
+and the styles are in `landing.css`. Its script is the section from `// Lightbox` to the end of
+the last script block in `index.template.html`. That section is identical in both repositories,
+but the manifest does not check it (the rest of the template differs), so change it in both by
+hand. It reads the caption from the
 figure (`.cap-t`, `.cap-s`) or, without one, from the heading of the picture's section. The
 texts are `lightbox.*` in `content/*.json`.
 
@@ -156,10 +162,12 @@ along with them.
 ## Design
 
 The look («Schweizer Plakat × Tageslicht») lives entirely in `landing.css`, and **this file
-is identical in kp-front and kp-rueck**. Whoever changes the design copies it over to the
-other repo – otherwise the two sister pages drift apart. Only template and texts differ:
-content, images and the mutual cross-linking (`kp-front.ch` ⇄ `kp-rueck.ch`, each language page to
-the same language on the other site – `sister` in `content/config.json`).
+is identical in kp-front and kp-rueck** (`landing-runtime` in
+[`shared/MANIFEST.json`](../shared/MANIFEST.json)). Whoever changes the design copies it over to
+the other repo on a branch of the same name – otherwise the shared-files check fails. Only
+template and texts differ: content, images and the mutual cross-linking (`kp-front.ch` ⇄
+`kp-rueck.ch`, each language page to the same language on the other site – `sister` in
+`content/config.json`).
 
 ## Hosting
 
