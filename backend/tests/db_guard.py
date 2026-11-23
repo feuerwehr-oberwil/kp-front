@@ -20,25 +20,23 @@ _LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
 
 
 def refusal(dsn: str) -> str | None:
-    """None when the suite may run on ``dsn``, else why not. Never shows a password."""
+    """None when the suite may run on ``dsn``, else why not. The reason names no part of the URL:
+    an unescaped ``@`` in a password moves the rest of it into the parsed host."""
     if not dsn:
         return None
     try:
         url = make_url(dsn)
     except (ArgumentError, ValueError):  # ValueError: a port that is not a number
-        # Do not echo it: an unparsable value can still hold a password.
-        return "DATABASE_URL is not a database URL"
-    # Without the query: it can carry a password too.
-    shown = url.set(query={}).render_as_string(hide_password=True)
+        return "it is not a database URL"
     if url.get_backend_name() != "postgresql":
-        return f"{shown} is not Postgres (unset DATABASE_URL for in-memory SQLite)"
+        return "it is not Postgres (unset DATABASE_URL for in-memory SQLite)"
     # SQLAlchemy hands query options to asyncpg as connect arguments: `?host=` replaces the host.
-    # (A PGSERVICE host only applies when the URL names none, and that is refused below.)
-    if url.query:
-        return f"{shown} has connection options ({', '.join(sorted(url.query))})"
+    # (A PGSERVICE or PGHOST host only applies when the URL names none, and that is refused below.)
+    if "?" in dsn:
+        return "it has connection options (?...)"
     if url.host not in _LOOPBACK_HOSTS:
-        return f"{shown} is not on this machine (host {url.host!r})"
+        return "it is not on this machine (localhost, 127.0.0.1 or ::1)"
     name = url.database or ""
     if name != TEST_DATABASE and not name.startswith(f"{TEST_DATABASE}_"):
-        return f"{shown} is not a test database ({TEST_DATABASE} or {TEST_DATABASE}_*)"
+        return f"it is not a test database ({TEST_DATABASE} or {TEST_DATABASE}_*)"
     return None

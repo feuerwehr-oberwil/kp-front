@@ -109,13 +109,21 @@ def pytest_configure(config) -> None:
     # Before any connection: the suite drops its schema, so a real database must never get here.
     from db_guard import refusal
 
-    # Both: an inherited KPF_TEST_BASE_DATABASE_URL must not hide the DATABASE_URL a serial run uses.
-    for dsn in (_BASE_DATABASE_URL, os.environ.get("DATABASE_URL", "")):
-        if reason := refusal(dsn):
-            raise pytest.UsageError(
-                f"Refused: {reason}.\nThe tests only run on a throwaway database. Unset DATABASE_URL "
-                "for in-memory SQLite, or use `just test-backend` for a throwaway Postgres."
-            )
+    from app.config import Settings, settings
+
+    # The test engine's base and its DATABASE_URL (an inherited KPF_TEST_BASE_DATABASE_URL must not
+    # hide it), and the app's own engine, which also reads `.env` and a lowercase `database_url`.
+    # The app's code default (the dev database) is what a SQLite run has always left it on.
+    checks = {"DATABASE_URL": [_BASE_DATABASE_URL, os.environ.get("DATABASE_URL", "")]}
+    if settings.database_url != Settings.model_fields["database_url"].default:
+        checks["the app's database_url (environment or backend/.env)"] = [settings.database_url]
+    for source, dsns in checks.items():
+        for dsn in dsns:
+            if reason := refusal(dsn):
+                raise pytest.UsageError(
+                    f"Refused {source}: {reason}.\nThe tests only run on a throwaway database. Unset "
+                    "it for in-memory SQLite, or use `just test-backend` for a throwaway Postgres."
+                )
 
 
 def pytest_sessionstart(session) -> None:

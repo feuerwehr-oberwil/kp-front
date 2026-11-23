@@ -15,6 +15,9 @@ PASSWORD = "s3cret-pw"
         (f"postgresql+asyncpg://kp:{PASSWORD}@127.0.0.1:6543/railway", "not a test database"),
         (f"postgresql+asyncpg://kp:{PASSWORD}@localhost/kpfront_test?host=db.example.com", "connection options"),
         ("postgresql+asyncpg:///kpfront_test", "not on this machine"),
+        # Unescaped `@`: SQLAlchemy parses part of the password as the host.
+        (f"postgresql+asyncpg://kp:x@{PASSWORD}@db.example.com/kpfront_test", "not on this machine"),
+        ("postgresql+asyncpg://kp@localhost/kpfront_test?host=", "connection options"),
         ("sqlite+aiosqlite:///./prod-copy.db", "not Postgres"),
         (f"postgresql+asyncpg://kp:{PASSWORD}@localhost:x/kpfront_test", "not a database URL"),
     ],
