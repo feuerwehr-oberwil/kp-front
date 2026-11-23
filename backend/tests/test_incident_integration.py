@@ -19,7 +19,7 @@ pytestmark = pytest.mark.asyncio
 # ``timezone=True`` round-tripping. SQLite stores datetimes naive (harness artifact, not a
 # code bug), so this runs in CI (DATABASE_URL set) and is skipped on the local SQLite run.
 requires_pg_tz = pytest.mark.skipif(
-    not os.getenv("DATABASE_URL"),
+    not os.getenv("KPF_TEST_BASE_DATABASE_URL"),
     reason="needs timezone=True round-tripping (postgres); set DATABASE_URL to run (CI does)",
 )
 

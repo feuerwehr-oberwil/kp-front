@@ -32,8 +32,10 @@ from alembic import command
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 _URL = os.getenv("DATABASE_URL", "")
 
+# The base, not DATABASE_URL: a SQLite run points DATABASE_URL at a closed port (conftest).
 pytestmark = pytest.mark.skipif(
-    not _URL.startswith("postgresql"), reason="compares against a migrated Postgres; set DATABASE_URL (CI does)"
+    not os.getenv("KPF_TEST_BASE_DATABASE_URL", "").startswith("postgresql"),
+    reason="compares against a migrated Postgres; set DATABASE_URL (CI does)",
 )
 
 
