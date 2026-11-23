@@ -289,7 +289,7 @@ jobs:
         env:
           POSTGRES_USER: kpfront
           POSTGRES_PASSWORD: kpfront
-          POSTGRES_DB: kpfront
+          POSTGRES_DB: kpfront_test
         ports:
           - 5432:5432
         # Wait until Postgres is ready before the job's steps run.
@@ -302,7 +302,7 @@ jobs:
     env:
       # CI secret: 64-hex (>= 32 chars) so config.py accepts it; non-production value.
       SECRET_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef # gitleaks:allow
-      DATABASE_URL: postgresql+asyncpg://kpfront:kpfront@localhost:5432/kpfront
+      DATABASE_URL: postgresql+asyncpg://kpfront:kpfront@localhost:5432/kpfront_test
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -366,14 +366,14 @@ jobs:
         env:
           PGPASSWORD: kpfront
         run: |
-          psql -h localhost -U kpfront -d kpfront -v ON_ERROR_STOP=1 \
+          psql -h localhost -U kpfront -d kpfront_test -v ON_ERROR_STOP=1 \
             -c "ALTER SYSTEM SET fsync = off" \
             -c "ALTER SYSTEM SET synchronous_commit = off" \
             -c "ALTER SYSTEM SET full_page_writes = off" \
             -c "SELECT pg_reload_conf()"
 
       # `-n 4` (pytest-xdist): this step was 14.6 of the job's 15.6 minutes, serially, on a
-      # 4-vCPU runner. Each worker gets its own database (kpfront_gw0 …, tests/conftest.py) and
+      # 4-vCPU runner. Each worker gets its own database (kpfront_test_gw0 …, tests/conftest.py) and
       # builds the schema once instead of per test. `-n` is not in addopts on purpose: a plain
       # `uv run pytest` stays serial. `--durations` keeps the slowest tests in sight — one slow
       # test now holds up a whole worker.

@@ -63,7 +63,8 @@ repo root does the whole thing (Postgres + backend + frontend) in one terminal. 
 ## Tests
 `uv run pytest` needs **no database**: `tests/conftest.py` runs against `DATABASE_URL` when
 set (CI provides a postgres:16 service) and otherwise falls back to an ephemeral in-memory
-SQLite.
+SQLite. The suite drops its schema, so `tests/db_guard.py` refuses any `DATABASE_URL` that is not
+a loopback Postgres named `kpfront_test` or `kpfront_test_*` (`just test-backend` makes one).
 
 ## Fake scenarios for testing (`fake_scenario`)
 

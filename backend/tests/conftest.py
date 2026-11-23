@@ -28,7 +28,8 @@ Under pytest-xdist (``-n 4``) each worker gets its OWN database, ``<name>_gw0`` 
 one ``DATABASE_URL`` names, created at session start and dropped at the end. Workers sharing
 one database would be the end of a reliable suite. ``DATABASE_URL`` itself is pointed at the
 worker's database before any app module reads it, so code on the app's own engine lands there
-too. A plain ``uv run pytest`` (no ``-n``) uses ``DATABASE_URL`` as it is.
+too. A plain ``uv run pytest`` (no ``-n``) uses ``DATABASE_URL`` as it is. Either way the run
+stops first unless it is a local throwaway database (``tests/db_guard.py``).
 
 Fixtures:
 - ``engine`` / ``db_session``: a rolled-back async session per test.
@@ -102,6 +103,19 @@ async def _admin(*statements: str) -> None:
                 await conn.execute(text(statement))
     finally:
         await eng.dispose()
+
+
+def pytest_configure(config) -> None:
+    # Before any connection: the suite drops its schema, so a real database must never get here.
+    from db_guard import refusal
+
+    # Both: an inherited KPF_TEST_BASE_DATABASE_URL must not hide the DATABASE_URL a serial run uses.
+    for dsn in (_BASE_DATABASE_URL, os.environ.get("DATABASE_URL", "")):
+        if reason := refusal(dsn):
+            raise pytest.UsageError(
+                f"Refused: {reason}.\nThe tests only run on a throwaway database. Unset DATABASE_URL "
+                "for in-memory SQLite, or use `just test-backend` for a throwaway Postgres."
+            )
 
 
 def pytest_sessionstart(session) -> None:

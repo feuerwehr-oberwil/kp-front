@@ -37,6 +37,7 @@ Alembic, one service that serves the frontend same-origin – **uv** ([`backend/
 - `just dev` – the full local stack.
 - While you edit, run `just test-changed`. After a batch of edits, run `just check` (incremental
   tsc). For one backend area, run `just test-backend -x tests/test_<area>.py`.
+  pytest refuses a `DATABASE_URL` that is not a local `kpfront_test*` database (`backend/tests/db_guard.py`).
 - Before you push, run `just ci` for the stacks your diff can affect, or `just ci-all` for all
   stacks. They run lint, build, the full unit suite + coverage floor and the backend with
   migration drift, in parallel. What each covers and what stays CI's: [`docs/testing/ci.md`](docs/testing/ci.md).
