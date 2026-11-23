@@ -42,6 +42,7 @@ import os
 
 import pytest
 import pytest_asyncio
+from db_guard import refusal
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
@@ -79,7 +80,9 @@ _XDIST_WORKER = os.environ.get("PYTEST_XDIST_WORKER")  # gw0, gw1, … — None 
 
 
 def _worker_database_url() -> str | None:
-    if not (_XDIST_WORKER and _BASE_DATABASE_URL.startswith("postgresql")):
+    # A refused base is left alone: parsing it could fail with its password in the error, and
+    # pytest_configure stops the run anyway.
+    if not (_XDIST_WORKER and _BASE_DATABASE_URL.startswith("postgresql")) or refusal(_BASE_DATABASE_URL):
         return None
     from sqlalchemy.engine import make_url
 
@@ -107,8 +110,6 @@ async def _admin(*statements: str) -> None:
 
 def pytest_configure(config) -> None:
     # Before any connection: the suite drops its schema, so a real database must never get here.
-    from db_guard import refusal
-
     from app.config import Settings, settings
 
     # The test engine's base and its DATABASE_URL (an inherited KPF_TEST_BASE_DATABASE_URL must not
