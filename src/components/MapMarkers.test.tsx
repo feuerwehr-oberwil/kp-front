@@ -352,3 +352,25 @@ describe('«Position markieren» on a docked Trupp', () => {
     expect(cy).toBeCloseTo(drawn[1], 6)
   })
 })
+
+// hunt 24.11.2026, karte F2 + the owner's rule: a Form is ground-true at every zoom; zoomed out
+// past seeing, it becomes a dot with its name and size – findable and tappable, nothing to grab
+describe('a Form zoomed far out', () => {
+  const at = (zoom: number, entities: Entity[]) => render(
+    <MapMarkers entities={entities} byName={{}} isVisible={() => true} selectedId="sq"
+      zoom={zoom} draggable project={() => ({ x: 0, y: 0 })} unproject={() => [7.6, 47.5]} setDragPan={() => {}}
+      onSelect={() => {}} onMarkerDragStart={() => {}} onMarkerMove={() => {}} onMarkerDragEnd={() => {}}
+      onDelete={() => {}} onShapeTransform={() => {}} />,
+  )
+  it('is a labelled dot with no grips when it would be a speck', () => {
+    const { container } = at(11, [rechteck])
+    expect(container.querySelector('.shape-dot')?.textContent).toBe('Rechteck · 45 m')
+    expect(container.querySelector('.shape-glyph')).toBeNull()
+    expect(container.querySelector('.handle')).toBeNull()
+  })
+  it('is its ground box once it is big enough to see', () => {
+    const { container } = at(18, [rechteck])
+    expect(container.querySelector('.shape-dot')).toBeNull()
+    expect(container.querySelector<HTMLElement>('.shape-glyph')?.style.width).not.toBe('')
+  })
+})

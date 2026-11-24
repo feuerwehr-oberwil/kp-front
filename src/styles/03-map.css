@@ -123,6 +123,17 @@
   content: ''; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 0;
   width: max(calc(var(--gpx) + 20px), 44px); height: max(calc(var(--gpx) + 20px), 44px);
 }
+/* A Form zoomed out past seeing (EntityMarker · shapeDot, hunt 24.11.2026 karte F2, owner pick
+   «labelled dot»): ground-true it would be a speck. A dot in its colour sits ON the coordinate,
+   its name and size hang to the right, and a 44px pad keeps it tappable like any symbol. */
+.shape-dot { position: relative; display: block; width: 12px; height: 12px; }
+.shape-dot i { position: absolute; inset: 0; border-radius: 50%; background: var(--shape-c);
+  box-shadow: 0 0 0 2px var(--surface), var(--e1); }
+.shape-dot b { position: absolute; left: 18px; top: 50%; transform: translateY(-50%); white-space: nowrap;
+  padding: 2px 8px; border-radius: var(--r-xs); background: var(--surface); color: var(--ink);
+  font: var(--fw-bold) 12.5px/1.3 var(--body); box-shadow: var(--e1); pointer-events: none; }
+.shape-dot::after { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px;
+  transform: translate(-50%, -50%); }
 /* Touch edit handles. The anchor box --hbox is the glyph's pixel size but never smaller
    than 56px, so on a tiny symbol the handles still push out to a comfortable, well-spaced
    ring instead of piling up on top of the icon. Handles are a fixed ~34px on screen with
