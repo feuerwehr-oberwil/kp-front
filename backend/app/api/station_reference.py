@@ -405,7 +405,7 @@ async def object_at_address(db: AsyncSession, address: str | None) -> ObjectSite
     at_door = [
         o
         for o in (await db.execute(select(ObjectSite).order_by(ObjectSite.name))).scalars()
-        if _street_of(o.address) == street
+        if _street_of(_split_place(o.address)[0]) == street
     ]
     towns = {t for t in map(town_of, at_door) if t}
     if town:

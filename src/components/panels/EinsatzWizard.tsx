@@ -326,7 +326,9 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
     const failed = (err?: GeolocationPositionError) => setHereFailed({ at: coord, blocked: err?.code === 1 })
     if (!navigator.geolocation) { failed(); return }
     setHereFailed(null)
-    const seq = newPlace()
+    // not a choice yet (no newPlace): a pending dispatch lookup may still land – only the fix the
+    // operator accepts replaces it (applyPicked). Any choice made meanwhile drops this fix.
+    const seq = placeSeq.current
     setLocating(true)
     navigator.geolocation.getCurrentPosition(
       (p) => {
@@ -446,6 +448,7 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
   const demoRef = useRef<HTMLParagraphElement>(null)
   const submit = async () => {
     if (busy || lookupAddress) return
+    placeSeq.current++ // a «Hier» fix still on its way must not open the move confirm after the save
     // Blocked — the Stichwort (an edit with it emptied) or the demo: the button stays tappable
     // and points at what holds it back (lib/pointAtField); a grey «Speichern» with a «*» somewhere
     // above it said nothing. `busy` stays a native disabled: that press is in flight.

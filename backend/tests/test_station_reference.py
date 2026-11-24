@@ -333,7 +333,7 @@ async def test_a_searched_address_matches_when_the_register_has_nothing(client, 
 async def test_a_searched_address_matches_the_object_in_its_own_town(client, db_session, viewer, registers):  # noqa: F811
     registers(identify=_down)
     db_session.add(ObjectSite(name="Depot West", address="Bahnhofstrasse 8", locality="Westdorf"))
-    db_session.add(ObjectSite(name="Depot Ost", address="Bahnhofstrasse 8", locality="Ostdorf"))
+    db_session.add(ObjectSite(name="Depot Ost", address="Bahnhofstrasse 8 9992 Ostdorf"))  # no comma, no locality
     await db_session.commit()
     await _login(client, viewer)
     for town, name in (("9992 Ostdorf", "Depot Ost"), ("9991 Westdorf", "Depot West")):
