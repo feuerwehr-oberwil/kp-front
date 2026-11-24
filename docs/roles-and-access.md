@@ -180,7 +180,10 @@ their offline copy already lives in IndexedDB (`lib/api/stationReference`).
 - **A viewer's Rapport-PDF embeds its own Einsatz's media only** – the window applies to what
   the composer opens, not just to `GET /api/media`.
 - **The el reads «Anrückend»** (`GET /divera/responses`, `CurrentRecordWriter`): it marks
-  attendance like an editor. The rest of `/api/divera` stays editor-only.
+  attendance like an editor. The rest of `/api/divera` stays editor-only, with two exceptions:
+  `POST /divera/pool/refresh` also takes the deployment admin (`EditorOrAdmin` – the
+  «Aktualisieren» in /admin → Alarmierung), and `POST /divera/webhook` takes no session at all
+  but its own webhook secret.
 - **Who a push wakes** (owner's pick): the Atemschutz alarms go to every subscribed browser;
   «Neuer Einsatz» only to `editor` accounts, «Erinnerung fällig» to `editor` and `el`
   (`push.py · role_recipients`, read when the push leaves). A viewer tablet, and a kiosk

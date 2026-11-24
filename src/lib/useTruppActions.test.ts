@@ -1627,6 +1627,8 @@ describe('truppEditChanges (what the Verlauf line says)', () => {
   // Field report 02.09.: only the role was swapped, and the row read «Gruppenführer A → B, B aus
   // dem Trupp genommen, A dazugekommen» — the record asserting a departure and an arrival that
   // never happened, on the same crew, in one sentence.
+  // (…and no «Neu:» either: a pure role swap is the SAME people – the one assertion covers both;
+  // its twin test was dropped as a duplicate, tests-quality F8)
   it('reads a pure role swap as ONE statement — nobody left, nobody joined', () => {
     expect(truppEditChanges(prev, fields({ name: 'Meier Hans', members: ['Keller Anna', 'Frei Nina'] })))
       .toEqual(['Gruppenführer Keller Anna → Meier Hans'])
@@ -1638,13 +1640,6 @@ describe('truppEditChanges (what the Verlauf line says)', () => {
         'Gruppenführer Keller Anna → Meier Hans', 'Frei Nina aus dem Trupp genommen',
         'Neu: Meier Hans / Keller Anna',
       ])
-  })
-
-  // ⚠️ …but a pure role swap is the SAME people, so it gets no «Neu:» — the sentence would answer
-  // a question nobody asked and repeat the crew that just did not change
-  it('says nothing about the composition when only the role moved', () => {
-    expect(truppEditChanges(prev, fields({ name: 'Meier Hans', members: ['Keller Anna', 'Frei Nina'] })))
-      .toEqual(['Gruppenführer Keller Anna → Meier Hans'])
   })
 
   // «Auftrag angepasst» named nothing: read back an hour later it could be a new order, a

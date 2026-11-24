@@ -99,17 +99,30 @@ def _looks_like_isobmff(head: bytes) -> bool:
 # bytes back UNDER that label — so for the types a decoder or viewer will open, the head
 # bytes have to actually be that type. Hand-rolled prefix checks on the first chunk (which
 # is read anyway), deliberately not python-magic. Types without an entry (txt/csv/zip/office)
-# pass unsniffed; audio keeps its own M4A check above.
+# pass unsniffed; M4A keeps its own ISO-BMFF check above.
 _MAGIC_PREFIXES = {
     "image/jpeg": b"\xff\xd8\xff",
     "image/png": b"\x89PNG\r\n\x1a\n",
     "application/pdf": b"%PDF-",
+    # the audio a recorder or a phone hands over (hunt 24.11.2026, access-control F9: any bytes
+    # labelled as one of these were stored, and the player could not open them)
+    "audio/webm": b"\x1a\x45\xdf\xa3",  # EBML (Matroska/WebM) – Chrome's MediaRecorder
+    "audio/ogg": b"OggS",
 }
+
+
+def _looks_like_mpeg_audio(head: bytes) -> bool:
+    """MP3: an ID3 tag first, or straight into an MPEG frame (11 sync bits)."""
+    return head.startswith(b"ID3") or (len(head) >= 2 and head[0] == 0xFF and head[1] & 0xE0 == 0xE0)
 
 
 def _matches_declared_type(content_type: str, head: bytes) -> bool:
     if content_type == "image/webp":  # RIFF container: 'RIFF' <size> 'WEBP'
         return len(head) >= 12 and head[:4] == b"RIFF" and head[8:12] == b"WEBP"
+    if content_type == "audio/wav":  # RIFF container: 'RIFF' <size> 'WAVE'
+        return len(head) >= 12 and head[:4] == b"RIFF" and head[8:12] == b"WAVE"
+    if content_type == "audio/mpeg":
+        return _looks_like_mpeg_audio(head)
     prefix = _MAGIC_PREFIXES.get(content_type)
     return prefix is None or head.startswith(prefix)
 
@@ -533,7 +546,10 @@ async def start_transcription(
 
 
 @router.get("/media/{media_id}/transcription")
-async def get_transcription(media_id: uuid.UUID, _user: CurrentUser, db: AsyncSession = Depends(get_db)) -> dict:
+async def get_transcription(media_id: uuid.UUID, _user: CurrentEditor, db: AsyncSession = Depends(get_db)) -> dict:
+    """The transcription job and its UNREVIEWED segments – editor-only like starting and deciding
+    them (hunt 24.11.2026, access-control F8): an el or viewer read the drafts nobody had checked,
+    and a status read could mark an orphaned job failed."""
     job = (await db.execute(select(SttJob).where(SttJob.media_id == media_id))).scalar_one_or_none()
     if job is None:
         return {"status": "none", "error": None, "segments": None}

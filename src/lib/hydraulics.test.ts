@@ -210,7 +210,7 @@ describe('hoseDefaults — the Ø a Leitung and a Messen relay start on', () => 
   })
 
   it('falls back on a value this build does not know, and never starts a relay on 40', () => {
-    deployment = { doctrine: { defaultLineHose: '90' as never, defaultRelayHose: '40' } }
+    deployment = { doctrine: { defaultLineHose: '90' as never, defaultRelayHose: '40' as never } }
     expect(hoseDefaults()).toEqual({ line: undefined, relay: '75' })
   })
 })

@@ -161,7 +161,8 @@ Personnel comes last, and comes from Divera (`roster.autoSync`), a CSV import, o
 Every one of those CLIs shares the same verbs (`schema`, `example`, `validate`, `load`, `push`,
 `show`) and the same `--base` / `--admin-secret` (`KP_BASE_URL` / `KP_ADMIN_SECRET`) flags –
 except `admin_branding`, whose input is an image rather than a document: it has only `load`,
-`push` and `show`.
+`push` and `show`, and its `push` takes the admin secret as `--secret` (same `KP_ADMIN_SECRET`
+fallback), not `--admin-secret`.
 **The runnable exemplar of the whole sequence is [`examples/demo-data/load.sh`](../examples/demo-data/load.sh)** – a
 complete synthetic station, idempotent, safe against a fresh instance. Read it before writing
 your own loader.

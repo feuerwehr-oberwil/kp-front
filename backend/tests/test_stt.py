@@ -152,7 +152,9 @@ async def test_engine_failure_lands_as_failed(client, editor, stt_configured, mo
     assert body["status"] == "done"
 
 
-async def test_viewer_reads_but_cannot_trigger_or_patch(client, editor, viewer, stt_configured, monkeypatch):
+async def test_viewer_cannot_read_trigger_or_patch(client, editor, viewer, stt_configured, monkeypatch):
+    """Transcription drafts are unreviewed working aids: editor-only end to end – reading them
+    included since hunt 24.11.2026 (access-control F8)."""
     async def fake(_path):
         return [{"start": 0.0, "end": 1.0, "text": "x"}]
 
@@ -163,7 +165,7 @@ async def test_viewer_reads_but_cannot_trigger_or_patch(client, editor, viewer, 
     await _poll_done(client, media_id)
 
     await _login(client, viewer)
-    assert (await client.get(f"/api/media/{media_id}/transcription")).status_code == 200
+    assert (await client.get(f"/api/media/{media_id}/transcription")).status_code == 403
     assert (await client.post(f"/api/media/{media_id}/transcribe")).status_code == 403
     r = await client.patch(f"/api/media/{media_id}/transcription/segments/0", json={"status": "confirmed"})
     assert r.status_code == 403

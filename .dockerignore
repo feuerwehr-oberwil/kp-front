@@ -39,3 +39,9 @@ tmp/
 docs/planning/
 mockups/
 todo.md
+
+# The backend's test suites: CI runs pytest from the checkout (with the dev dependencies), never
+# from the image, and the runtime image installs runtime dependencies only. They added 208 files
+# (~2.7 MB) to every station's image (hunt 24.11.2026, ops-integrations F11).
+backend/tests/
+backend/tests_live/

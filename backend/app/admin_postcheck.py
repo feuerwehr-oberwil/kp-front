@@ -1371,11 +1371,6 @@ def _presence_match(row: dict) -> tuple[str, str] | None:
     return None
 
 
-def _presence_zone(row: dict) -> str | None:
-    match = _presence_match(row)
-    return match[1] if match else None
-
-
 def _presence_name(text: str) -> str:
     for suffix in _ARRIVED_SUFFIXES + _LEFT_SUFFIXES:
         if text.endswith(suffix):

@@ -109,3 +109,20 @@ async def test_a_longer_window_reaches_further_back(client, db_session, viewer, 
     await _login(client, viewer)
     assert len((await client.get("/api/incidents")).json()) == len(einsaetze)
     assert (await client.get(f"/api/incidents/{einsaetze['old'].id}")).status_code == 200
+
+
+async def test_a_print_job_of_an_old_einsatz_does_not_exist_for_a_viewer(client, viewer, einsaetze, db_session):
+    """Hunt 24.11.2026, access-control F4: a viewer who kept a print job's id read its status
+    (with the Einsatz's file name) and could cancel it after the Einsatz left the window."""
+    from app.models import PrintJob
+
+    old, recent = (
+        PrintJob(incident_id=einsaetze[k].id, kind="report", filename=f"{k}.pdf", pdf=b"%PDF-", requested_by=viewer.id)
+        for k in ("old", "running")
+    )
+    db_session.add_all([old, recent])
+    await db_session.commit()
+    await _login(client, viewer)
+    assert (await client.get(f"/api/print-jobs/{old.id}")).status_code == 404
+    assert (await client.delete(f"/api/print-jobs/{old.id}")).status_code == 404
+    assert (await client.get(f"/api/print-jobs/{recent.id}")).status_code == 200

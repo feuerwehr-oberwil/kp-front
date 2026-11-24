@@ -9,8 +9,8 @@ outside that it does not exist for them: 404, never 403, so the tile cannot be u
 which Einsätze there were.
 
 Enforced in ONE place for every route: `get_current_user` calls `enforce_viewer_window` after
-routing, so any route naming an `incident_id` – or a `media_id`, whose row names its incident –
-is checked whatever it reads. `GET /incidents` filters with `viewer_window_clause`, the same
+routing, so any route naming an `incident_id` – or a `media_id` or print `job_id`, whose row
+names its incident – is checked whatever it reads. `GET /incidents` filters with `viewer_window_clause`, the same
 condition in SQL. `editor`, `el`, the deployment admin and link sessions are untouched (links
 have their own scope: auth/incident_link).
 """
@@ -23,7 +23,7 @@ from fastapi import HTTPException, Request, status
 from sqlalchemy import ColumnElement, and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models import INCIDENT_ACTIVE_STATUSES, DeploymentConfig, Incident, Media, User, lifecycle_open
+from ..models import INCIDENT_ACTIVE_STATUSES, DeploymentConfig, Incident, Media, PrintJob, User, lifecycle_open
 from ..schemas import AccessConfig, load_stored_config
 
 logger = logging.getLogger(__name__)
@@ -67,12 +67,21 @@ async def enforce_viewer_window(request: Request, db: AsyncSession, user: User) 
         return
     incident_id = request.path_params.get("incident_id")
     media_id = request.path_params.get("media_id")
+    # a print job names its Einsatz too: its status carries the Einsatz's file name, and a viewer
+    # kept a job id past the window (hunt 24.11.2026, access-control F4)
+    job_id = request.path_params.get("job_id")
     cols = (Incident.is_archived, Incident.status, Incident.last_closed_at, Incident.closed_at, Incident.started_at)
     try:
         if incident_id is not None:
             q = select(*cols).where(Incident.id == uuid.UUID(str(incident_id)))
         elif media_id is not None:
             q = select(*cols).join(Media, Media.incident_id == Incident.id).where(Media.id == uuid.UUID(str(media_id)))
+        elif job_id is not None:
+            q = (
+                select(*cols)
+                .join(PrintJob, PrintJob.incident_id == Incident.id)
+                .where(PrintJob.id == uuid.UUID(str(job_id)))
+            )
         else:
             return
     except ValueError:

@@ -246,10 +246,10 @@ export function subPathInsert(coords: LngLat[], a: number, b: number): { index: 
  *  the un-gestured fix threw the browser's LOCATION dialog at them on arrival — the same
  *  data-protection line as the demo's notification ask, and Musterdorf is nobody's Standort
  *  anyway. «Mein Standort» stays: a tap is intent, demo or not (locateNonce path). */
-export const autoCoarseFixWanted = (staticView: boolean): boolean => !staticView && !isDemoMode()
+export const autoCoarseFixWanted = (): boolean => !isDemoMode()
 
 export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, ref) {
-  const { entities, layers, byName, symMul = 1, captionMode = 'off', onCaptionSuppressionChange, initialCenter, initialZoom = 17.6, initialBearing = 0, fitPoints, staticView = false, locateNonce = 0, preparedOverlays, isVisible, selectedId = VIEWER_TACTICAL.selectedId, onSelect, onMapClick, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, trupps, truppSeverities, onShowTrupp, onTeamTrupp, onTeamNewTrupp, onTeamMark, onTeamRename, onTeamClearTrail, onTeamRemoveWithTrail, ghostTrails, onGhostTrail, onTeamUnlink, onTeamUndock,
+  const { entities, layers, byName, symMul = 1, captionMode = 'off', onCaptionSuppressionChange, initialCenter, initialZoom = 17.6, initialBearing = 0, fitPoints, locateNonce = 0, preparedOverlays, isVisible, selectedId = VIEWER_TACTICAL.selectedId, onSelect, onMapClick, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, trupps, truppSeverities, onShowTrupp, onTeamTrupp, onTeamNewTrupp, onTeamMark, onTeamRename, onTeamClearTrail, onTeamRemoveWithTrail, ghostTrails, onGhostTrail, onTeamUnlink, onTeamUndock,
     readOnly = false, drawings: storedDrawings = VIEWER_TACTICAL.drawings, drawingsVisible = VIEWER_TACTICAL.drawingsVisible, draft = VIEWER_TACTICAL.draft, draftKind = VIEWER_TACTICAL.draftKind, placing, tapsPlace, onDraftDrag, onDraftInsert, onDraftDelete, onDraftPointAttachment, draftStartAttachment, draggable = VIEWER_TACTICAL.draggable, onMarkerDragStart = VIEWER_TACTICAL.onMarkerDragStart, onMarkerMove = VIEWER_TACTICAL.onMarkerMove, onMarkerDragEnd = VIEWER_TACTICAL.onMarkerDragEnd, onRotate, onShapeTransform,
     onView, onBasemapUnavailable, onSettled, picking, onCursor, onPick, pickedPoint, placeMagnet = false, placeAnchor = null, freehand = VIEWER_TACTICAL.freehand, onFreehand = VIEWER_TACTICAL.onFreehand, drawColor = VIEWER_TACTICAL.drawColor, drawWidth = VIEWER_TACTICAL.drawWidth, drawDashed = VIEWER_TACTICAL.drawDashed, selectedDrawingId = VIEWER_TACTICAL.selectedDrawingId, flashDrawingId, onSelectDrawing = VIEWER_TACTICAL.onSelectDrawing, onUnlockDrawing, onUnlockShape, onDelete = VIEWER_TACTICAL.onDelete, measureLabels = [], measurePoints = NO_POINTS, measureKind = null, onMeasureDrag, onMeasureInsert, onMeasureDelete,
     selectedDrawing = null, onDrawingEdit, onDrawingVertexInsert, onDrawingVertexDelete, onDrawingRadius, onLinePumpPin, onDrawingAttachment, onLabelMove,
@@ -553,7 +553,7 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
   // else says try again (lib/permissionPath). `maximumAge` lets a very recent fix answer instantly.
   const [userPos, setUserPos] = useState<LngLat | null>(null)
   useEffect(() => {
-    if (staticView || !locateNonce) return
+    if (!locateNonce) return
     if (!('geolocation' in navigator)) { toast(locateFailedText(null), { icon: 'locate', tone: 'warn' }); return }
     navigator.geolocation.getCurrentPosition(
       (p) => {
@@ -566,7 +566,7 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
       (err) => toast(locateFailedText(err), { icon: 'locate', tone: 'warn' }),
       { enableHighAccuracy: true, maximumAge: 30_000, timeout: 15_000 },
     )
-  }, [locateNonce, staticView])
+  }, [locateNonce])
   // …and the dot is THERE by default (05.09.), rather than only after somebody has thought to ask
   // for it: «wo stehe ich, relativ zum Einsatzort» is the question a phone is pulled out for, and
   // an indicator you must first discover a menu row for is not an indicator. So one COARSE fix is
@@ -577,14 +577,14 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
   // the device's own location permission, and a denial is silently honoured (no dot, no prompt
   // twice, and the «Mein Standort» row still works the moment it is granted).
   useEffect(() => {
-    if (!autoCoarseFixWanted(staticView)) return
+    if (!autoCoarseFixWanted()) return
     if (!('geolocation' in navigator)) return
     navigator.geolocation.getCurrentPosition(
       (p) => setUserPos((prev) => prev ?? [p.coords.longitude, p.coords.latitude]),
       () => { /* denied / unavailable — no dot, and nothing said about it */ },
       { enableHighAccuracy: false, maximumAge: 300_000, timeout: 15_000 },
     )
-  }, [staticView])
+  }, [])
 
   // Frame the incident's existing content — ONCE per incident, not once per map instance.
   // ⚠️ `didFit`, because `mapReady` is not a one-way flag: a lost WebGL context remounts <Map>
@@ -1371,12 +1371,6 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
       // that ends sooner (OSM) then clamps the view. Symbols are pinned by symPx's band and a Form
       // by shapePx's ceiling, so nothing outgrows the screen on the extra step.
       maxZoom={mapMaxZoom(layers.find((l) => l.base && isVisible(l.id)), zoomCapAtBase)}
-      // Only the print/report instance needs its GL back-buffer preserved (it captures the canvas
-      // via getCanvas().toDataURL() — see ReportPrintView / reportPdf). On the always-live field
-      // map keeping the buffer around just raises the per-repaint GPU/memory cost for the whole
-      // shift, so gate it to the static instance. (A WebGL context attribute since MapLibre 5 —
-      // the rest of the object keeps MapLibre's defaults, it is merged, not replaced.)
-      canvasContextAttributes={{ preserveDrawingBuffer: staticView }}
     >
       <QuietAttributionControl />
       <MapImages layers={layers} byName={byName} />

@@ -81,16 +81,15 @@ describe('subPathInsert — the grip sits ON the ink', () => {
 // dot (05.09.) takes its coarse fix un-gestured, on first map paint. Same data-protection
 // line as the demo's notification ask — the demo asks for no permission uninvited.
 describe('autoCoarseFixWanted — the un-gestured own-position fix', () => {
-  it('runs on a station, never on the public demo, never on a static render', async () => {
+  it('runs on a station, never on the public demo', async () => {
     const { autoCoarseFixWanted } = await import('./MapView')
     const cfg = await import('../lib/deploymentConfig')
     const spy = vi.spyOn(cfg, 'isDemoMode')
     try {
       spy.mockReturnValue(false)
-      expect(autoCoarseFixWanted(false)).toBe(true)
-      expect(autoCoarseFixWanted(true)).toBe(false)
+      expect(autoCoarseFixWanted()).toBe(true)
       spy.mockReturnValue(true)
-      expect(autoCoarseFixWanted(false)).toBe(false)
+      expect(autoCoarseFixWanted()).toBe(false)
     } finally {
       spy.mockRestore() // even on a failing assertion — later tests must not inherit the demo
     }

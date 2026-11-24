@@ -108,12 +108,6 @@ def _cover_fraction(block_start: datetime, block_end: datetime | None, band: Zei
     return min(1.0, max(0.0, overlap) / length)
 
 
-def _fmt_count(n: float) -> str:
-    """«8», «7,6» — one decimal only where the pro-rata counting produced one."""
-    r = round(n, 1)
-    return str(int(r)) if r == int(r) else f"{r:.1f}".replace(".", ",")
-
-
 def _cell_block(row: ZeitplanRow, band: ZeitplanBand) -> tuple[ZeitplanBlock | None, bool]:
     """The block one cell is about, and whether it is a stored MEMBER of this band.
 

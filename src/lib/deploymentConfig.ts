@@ -16,6 +16,7 @@
 // mostly-empty objects). This type mirrors the backend response exactly; keep in sync.
 
 import type { ObjectCategoryRule } from './karte/categories'
+import type { In } from './api/wire'
 import { isOpenableUrl, type ReportLink } from './reportLinks'
 
 export interface DeploymentAssets {
@@ -146,80 +147,25 @@ export function legacyFleetToAttributeLists(fleet: DeploymentFleet | null | unde
   return out
 }
 
-export interface DeploymentDoctrine {
-  defaultFunkkanal?: number | null
-  /** default channel for a Trupp OHNE Atemschutz — stations that run their Sektionen on a
-   *  separate channel set it here; unset means «same as defaultFunkkanal» */
-  defaultFunkkanalEinfach?: number | null
-  funkkanalMin?: number | null
-  funkkanalMax?: number | null
-  alarmBar?: number | null
-  /** the lower Alarmdruck while a Trupp is in Rückzug (lib/atemschutz · alarmBarFor) */
-  alarmBarRueckzug?: number | null
-  contactIntervalMin?: number | null
-  contactGraceSec?: number | null
-  defaultPressureBar?: number | null
-  /** the lowest Eingangsdruck taken without a question; 0 = never ask (components/TruppForm) */
-  entryPressureMin?: number | null
-  pressureStep?: number | null
-  pressureMax?: number | null
-  cylinderLiters?: number | null
-  estConsumptionLPerMin?: number | null
-  /** station colour per Auftrag (auftrag id → CSS colour) — what a Trupp with that order starts
-   *  in, still overridable per Trupp. Absent/empty = the automatic one-colour-per-Trupp palette. */
-  auftragColors?: Record<string, string> | null
-  /** the station's Ausrüstung list for a Trupp (types · Trupp.equipment), short labels as they
-   *  print on a card. Absent/empty = the shipped national default (appConfig.atemschutz.equipment). */
-  equipment?: { id: string; label: string }[] | null
-  /** metres the nearest object with plans may lie from the Einsatzadresse before the Plan warns
-   *  «nicht die Einsatzadresse» (useObjectPlans · objectNearbyOnly). Absent = 25. */
-  nearbyObjectWarnM?: number | null
-  /** the Ø a plain Leitung that stores none reads as (lib/hydraulics · hoseDefaults). Absent =
-   *  none: the Leitung has no Ø until one is picked (owner 14.11.2026). */
-  defaultLineHose?: HoseSize | null
-  /** the Ø a Wassertransport in Messen starts on, never 40 (hydraulics · RELAY_HOSE_SIZES).
-   *  Absent = 75. */
-  defaultRelayHose?: HoseSize | null
-}
+// ⚠️ The doctrine, rank, roster and module shapes are the SERVER's (backend schemas · DoctrineConfig,
+// RankConfig, RosterConfig, ModuleConfig, generated into api/schema.d.ts) – not a hand-kept copy
+// (hunt 24.11.2026, simplification F3): the copy accepted `defaultRelayHose: '40'`, which the server
+// refuses, and claimed a module title is never null, which the server serves. The field docs live on
+// the backend models. Only the nulls a cached config of an older build can hold are added back.
+type LegacyNull<T, K extends keyof T> = Omit<T, K> & { [P in K]?: T[P] | null }
 
-/** One Dienstgrad in the station's ordered rank list. Mirrors backend `RankConfig`. Position
- *  in `DeploymentRoster.ranks` is the seniority order (most senior first). */
-export interface RankConfig {
-  key: string
-  label: string
-  abbr?: string
-  tier?: 'officer' | 'nco' | 'crew'
-}
+/** The station's Atemschutz / Funk doctrine (backend `DoctrineConfig`). */
+export type DeploymentDoctrine = LegacyNull<In<'DoctrineConfig'>, 'nearbyObjectWarnM'>
 
-export interface DeploymentRoster {
-  /** Where people come from — a label, not a switch. `'snapshot'` = a roster file another
-   *  system publishes, to the contract in docs/CONFIGURATION.md §4c; what actually reads one is
-   *  the `roster_snapshot_source` credential (backend · roster_snapshot_sync). Nothing in the UI
-   *  branches on this value. */
-  source?: 'manual' | 'divera' | 'snapshot' | null
-  /** Roster-snapshot poll interval in minutes (5–1440, default 60). Mirrors backend
-   *  `schemas.RosterConfig.snapshotIntervalMin`; read only by the server. */
-  snapshotIntervalMin?: number | null
-  /** More than this share (%) of the active people deactivated by one snapshot run is held for
-   *  an admin (default 20; 0 = never unattended, 100 = no cap). Read only by the server. */
-  snapshotMaxDeactivatePct?: number | null
-  /** Ordered ranks, most senior first. Empty/absent → the in-code Swiss default in rank.ts. */
-  ranks?: RankConfig[]
-  /** How a crew member's name reads, station-wide. `'last-first'` («Müller Hans») is the
-   *  default and what Divera already delivers; a station that runs its lists the other way
-   *  round sets `'first-last'`. One order for everybody: the alternative is two operators
-   *  reading the same Trupp card differently, and a Rapport whose spelling depends on which
-   *  device printed it. The backend serves display names already in this order — the frontend
-   *  only needs it to know which token is the SURNAME (see abbreviateName). */
-  nameOrder?: 'last-first' | 'first-last' | null
-  /** How much the NIGHTLY Mannschaftsabgleich may do on its own (Divera only; every other
-   *  source ignores it). `'safe'` is the shipped level: joins, renames and Dienstgrade are
-   *  applied, a member who left is counted and reported («N Abgänge warten») but never
-   *  deactivated — a disappearance is as often a broken feed as a resignation. `'full'` also
-   *  deactivates those (never a deletion: past Einsätze keep their names), `'off'` runs
-   *  nothing unattended. Mirrors backend `schemas.RosterConfig.autoSync`. */
-  autoSync?: 'off' | 'safe' | 'full' | null
-}
+/** One Dienstgrad in the station's ordered rank list (backend `RankConfig`). Position in
+ *  `DeploymentRoster.ranks` is the seniority order (most senior first). */
+export type RankConfig = In<'RankConfig'>
+
+/** Where the people come from and how their names read (backend `RosterConfig`). */
+export type DeploymentRoster = LegacyNull<
+  In<'RosterConfig'>,
+  'nameOrder' | 'autoSync' | 'snapshotIntervalMin' | 'snapshotMaxDeactivatePct'
+>
 
 /** One SharePoint folder this deployment pulls one area's station data from. Addressing only —
  *  ⚠️ no credential lives in the config document (they are in the encrypted credential store).
@@ -378,29 +324,10 @@ export const providerLabel = (slug: string): string =>
 
 /** One configurable Objektplan module: its tile display + the importer's parsing rule.
  *  Mirrors backend `ModuleConfig`. The frontend uses only the display fields. */
-export interface DeploymentModule {
-  id: string
-  code?: string
-  title?: string
-  subtitle?: string
-  orientation?: 'portrait' | 'landscape'
-  order?: number
-  icon?: string
-  match?: string | null
-  combinedWith?: string[] | null
-  family?: boolean
-  /** render this module's PDF as a plain viewer (no drawing) — on a family it applies to all
-   *  its sub-slots (e.g. all Modul 5 - PV documentation sheets) */
-  viewer?: boolean
-  /** how this module's sheets get onto the Karte — see `moduleAlignment` for the default */
-  alignment?: ModuleAlignment
-  /** hide this module's tile in an Einsatz whose object has a floor pack – the Gebäude stack
-   *  shows its pages instead (decided 14.09.2026; FWO sets it on Modul 6). Default off: the
-   *  original sheet keeps sections, legend and title block the stack drops. */
-  hideWhenGebaeude?: boolean
-}
+/** One Objektplan module of the catalogue (backend `ModuleConfig`). */
+export type DeploymentModule = In<'ModuleConfig'>
 
-export type ModuleAlignment = 'auto' | 'manual' | 'none'
+export type ModuleAlignment = NonNullable<DeploymentModule['alignment']>
 
 /** The station's choice for a sheet: `auto` = the server proposes a fit (admin approves it,
  *  the field may ask for one), `manual` = reference points by hand only, `none` = never on the
@@ -540,7 +467,7 @@ import { idbGet, idbSet, idbUpdate } from './idb'
 import { lv95ToWgs84 } from './geo'
 import { appConfig } from '../config/appConfig'
 import { DEFAULT_ATTENDANCE_MERGE_GAP_MIN } from './attendanceIntervals'
-import type { HoseSize, LayerDef, PlanDocument } from '../types'
+import type { LayerDef, PlanDocument } from '../types'
 
 const CACHE_KEY = 'kp-front-deployment-config'
 

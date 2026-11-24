@@ -21,9 +21,8 @@ export interface MapViewBaseProps {
   initialCenter: LngLat
   initialZoom?: number
   initialBearing?: number
-  /** print/static render: fit these points once after load, no geolocation marker */
+  /** fit these points once after load (the incident's own content) */
   fitPoints?: LngLat[]
-  staticView?: boolean
   /** bump to take a single GPS fix and fly to it (the "Mein Standort" dot). On demand — no
    *  continuous watch — so the GPS chip isn't powered all shift. 0 = never located yet. */
   locateNonce?: number

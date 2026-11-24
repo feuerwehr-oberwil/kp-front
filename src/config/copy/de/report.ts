@@ -130,13 +130,6 @@ export const reportCopy = {
     // the export for «Kroki», found a column full of «Lage», and concluded the entries were
     // gone. The word people look for wins over the taxonomy.
     areaLage: 'Kroki',
-    // describeDrawing — short tactical labels for a drawing in the report
-    drawCircle: 'Absperrkreis',
-    drawAreaLabeled: 'Abschnitt «{label}»',
-    drawArea: 'Fläche',
-    drawRescueAxis: 'Rettungsachse',
-    drawMeasureArrow: 'Masspfeil',
-    drawLine: 'Linie',
   },
   // Einsatzrapport drucken — preflight sheet (ReportPreflight)
   wheel: {
