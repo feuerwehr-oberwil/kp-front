@@ -66,6 +66,11 @@ function isOnView(v: CameraView, c: { bearing: number; center: LngLat; zoom: num
   return dLng < 1e-4 && dLat < 1e-4 && Math.abs(v.zoom - c.zoom) < 0.15 && dBear < 2
 }
 
+/** Is the map turned away from north? «Nach Norden» only stands in the menu then (owner's
+ *  iPhone, 24.11.2026: on a north-up map the row does nothing). Half a degree, not zero: a
+ *  keyboard turn back or a flyTo lands near 0, not exactly on it. */
+const isTurned = (bearing: number) => Math.abs(((bearing + 540) % 360) - 180) >= 0.5
+
 function ViewsPopover({ api, readOnly, coordsOn, onToggleCoords, onClose, dockRef }: {
   dockRef: RefObject<HTMLDivElement | null>
   api: ViewsApi
@@ -110,10 +115,12 @@ function ViewsPopover({ api, readOnly, coordsOn, onToggleCoords, onClose, dockRe
           the right tool rail (see .wb-dock / .wb-dock-map); the ⓘ ends the last row. */}
       <div ref={dockRef} className={cx(s.pop, s.dock, "mv-dock")} role="dialog" aria-label={cp.title}
         style={kb > 0 ? { bottom: `calc(${keyboardMargin(kb)} + var(--float-gap))` } : undefined}>
-        <button className={cx(s.row, s.north)} onClick={() => { api.onResetNorth(); onClose() }}>
-          <span className={s.ico}><Icon id="compass" /></span>
-          <span className={s.name}>{cp.north}</span>
-        </button>
+        {isTurned(api.current.bearing) && (
+          <button className={cx(s.row, s.north)} onClick={() => { api.onResetNorth(); onClose() }}>
+            <span className={s.ico}><Icon id="compass" /></span>
+            <span className={s.name}>{cp.north}</span>
+          </button>
+        )}
         <button className={cx(s.row, s.north)} onClick={() => { api.onFit(); onClose() }}>
           <span className={s.ico}><Icon id="cross" /></span>
           <span className={s.name}>{cp.fit}</span>

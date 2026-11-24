@@ -131,9 +131,13 @@
 
 /* read, not ticked (ChecklistReader, 19.10.2026): the items stand in an <ol>, each with its
    number where the box would be, and one quiet line above the first phase says where ticking
-   happens */
-ol.cl-items { list-style: none; padding: 0; margin-bottom: 0; }
-ol.cl-items > .cl-item { padding: var(--sp-3); }
+   happens. The items are the Anleitung's steps (ManualReader.module.css · .mn-step): a hairline
+   between them, not a card each – one surface, read top to bottom (owner's iPhone, 24.11.2026:
+   Führungskreis like Pio). The ticked runner keeps its cards: there each item is a target. */
+ol.cl-items { list-style: none; padding: 0; margin-bottom: 0; gap: 0; }
+ol.cl-items > .cl-item { padding: var(--sp-4) 0; background: none; box-shadow: none; border-radius: 0;
+  border-top: 1px solid var(--border-soft); }
+ol.cl-items > .cl-item:first-child { border-top: 0; padding-top: var(--sp-1); }
 /* THE step number of Nachschlagen = ManualReader.module.css · .mn-num (style sweep T5, 15.11.2026) */
 .cl-num { flex: none; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
   box-shadow: inset 0 0 0 1.5px var(--ink-28); font: var(--fw-heavy) var(--fs-2) var(--body); color: var(--ink);
