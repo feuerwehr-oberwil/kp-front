@@ -51,10 +51,26 @@ it('one request per snapshot interval, however many frames ask', async () => {
 it('the last anchor holds only up to when it was asked for, and fine stamps round up', async () => {
   const bundle = await loadReplay('i', t('09:00'), t('12:00'))
   await bundle.loadSnapshotAt(t('10:40'))
-  await bundle.loadSnapshotAt(t('10:59'))
+  await bundle.loadSnapshotAt(t('10:58'))
   expect(calls.snapshot).toHaveLength(1)
+  // within the last minute before the ask: a save may still be committing there – ask again
+  await bundle.loadSnapshotAt(t('10:59') + 30_000)
+  expect(calls.snapshot).toHaveLength(2)
   // a snapshot another tablet takes later may exist past the moment we asked: ask again
   await bundle.loadSnapshotAt(t('11:30'))
-  expect(calls.snapshot).toHaveLength(2)
+  expect(calls.snapshot).toHaveLength(3)
+})
+
+
+
+it('an ask a newer one overtook while it waited starts no request', async () => {
+  const bundle = await loadReplay('i', t('09:00'), t('12:00'))
+  const first = bundle.loadSnapshotAt(t('10:05')) // request out
+  const dropped = bundle.loadSnapshotAt(t('09:30')) // waits – then overtaken
+  const shown = bundle.loadSnapshotAt(t('10:10')) // covered by the first answer
+  await Promise.all([first, dropped, shown])
+  expect((await shown).occurredMs).toBe(t('10:00'))
+  expect((await dropped).workspace).toBeNull()
+  expect(calls.snapshot).toHaveLength(1)
 })
 
