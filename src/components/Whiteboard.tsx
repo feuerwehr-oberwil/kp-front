@@ -321,6 +321,10 @@ interface Props {
    *  linkLineToAttachedTrupp). The Karte reports the identical fact from its own magnet
    *  (lib/useMapDrawing · onLineAttached). */
   onLineAttached?: (annoId: string, attachment: LineAttachment) => void
+  /** open ONE step on the global ↶ timeline over several writes (lib/undoTimeline · group): a new
+   *  hose and the Trupp link its end makes are one act, and so are a Drehung's re-glued marks and
+   *  its turned footprint. Omitted ⇒ each write is its own step. */
+  historyGroup?: () => () => void
   /** …and the reverse (15.09.): an end let go of its coupling («Lösen», or dragged off) – with
    *  the coupling it had, so the Trupp link that coupling made is dropped too. */
   onLineDetached?: (annoId: string, previous: LineAttachment) => void
@@ -422,7 +426,7 @@ export interface PlanLogExtra {
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
 
-export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange: onChangeAll, building, floorPack, sheetFloors, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, authorName, onStepLabel, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], truppColors, placedTeamNames, teamNameTaken, onLinkTrupp, onShowTrupp, truppFinder, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, buildingInfo, readingsChip, incidentId, incidentAddress, incidentPos, onObjectSwitch, planScale = {}, onCalibrate, live = [], photos = [], liveFacts, onPlanLiveMove, onStepEnd, slimTools: slimToolsProp = false, linkViewer = false, railLabels, tafel, presentation, replay = false }: Props) {
+export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange: onChangeAll, building, floorPack, sheetFloors, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, authorName, onStepLabel, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], truppColors, placedTeamNames, teamNameTaken, onLinkTrupp, onShowTrupp, truppFinder, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, historyGroup, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, buildingInfo, readingsChip, incidentId, incidentAddress, incidentPos, onObjectSwitch, planScale = {}, onCalibrate, live = [], photos = [], liveFacts, onPlanLiveMove, onStepEnd, slimTools: slimToolsProp = false, linkViewer = false, railLabels, tafel, presentation, replay = false }: Props) {
   // ⚠️ RIDERS: what lives on a sheet but is not drawn ON it — the Tafel's pages (kind `form`,
   // lib/boardForm) and any board object this build does not understand (lib/workspace ·
   // isPassengerAnno). Nothing positional may see them: every drawing path below reads `annos` —
@@ -1232,7 +1236,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // --- the draft in the hand, its magnet, the commit funnel, the leave release and the Grundriss
   // presets — components/usePlanDraft ---
   const planDraft = usePlanDraft({
-    tool, setTool, annos, add, log, setSelId, onLineAttached,
+    tool, setTool, annos, add, log, setSelId, onLineAttached, historyGroup,
     sW, sH, mapY, localY, stack, outlinePx: (f) => stackOutlinePx(f),
     planCandidatesAt, planAttachmentFor, planEndpointDragState, prevToolRef: prevTool,
     onContinue: () => setPaletteOpen(false),

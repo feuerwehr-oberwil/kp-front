@@ -546,7 +546,7 @@ export function IncidentWorkspace({
   )
   const {
     objects, doc, board, setDocRaw, setBoard, beginSheetStep, endSheetStep, commit, beginDrag, endDrag, gestureOpen, rebake,
-    undo: undoDoc, redo: redoDoc, rebaseObjects, replaceObjects, liveObjects, stepKeys: storeStepKeys,
+    undo: undoDoc, redo: redoDoc, rebaseObjects, replaceObjects, liveObjects, liveViews, stepKeys: storeStepKeys,
   } = store
   // ⚠️ Through refs: the entry outlives the render that pushed it, and `undoDoc` closes over that
   // render's `past`/`future`. Calling the captured one would step a stack that has moved on.
@@ -1914,6 +1914,7 @@ export function IncidentWorkspace({
     // the Plan makes from its own magnet (Whiteboard · onLineAttached)
     onLineAttached: (lineId, attachment) => { linkLineToAttachedTrupp(lineId, attachment) },
     onLineDetached: (lineId, previous) => { unlinkLineFromDetachedTrupp(lineId, previous) },
+    historyGroup: () => undoHist.group(),
   })
   const {
     setDraft, lineMode, setLineMode, areaMode, setAreaMode, draftActive, draftOpen, selectedDrawing,
@@ -2317,6 +2318,10 @@ export function IncidentWorkspace({
     // ⚠️ …and reads the CURRENT trupps when a step is finally pressed, not the render that
     // recorded it. A merge between the tap and the ↶ is exactly the case that has to decline.
     liveTrupps: () => truppsRef.current,
+    // a link reads the picture as it stands now (a hose drawn in the same gesture is in it), and
+    // lays the picture half of its ↶ step on the store (truppActions/lines · linkStep)
+    livePicture: () => { const v = liveViews(); return { drawings: v.doc.drawings, entities: v.doc.entities, board: v.board } },
+    checkpointStore: asLink ? undefined : () => commit((d) => d),
     counterNames: () => truppCounterNames(),
     placeOf: truppPositionWords,
     // the crew as the roster reads it, for the one-person crew edits (atemschutz · truppCrewWithout);
@@ -3322,7 +3327,7 @@ export function IncidentWorkspace({
         setPickerOpen, symbolScale, symbolCaptions, mapSuppressedCaptions, georefFits, mapActions,
         replayBoard, replayBuilding, store, trails, deleteGhostTrail, armTrailDrop, building, gebaeude, logPlan,
         roster, addRecent, user, emit, planStacks, planFocus, effTrupps, truppCounterNames, teamNameTaken,
-        azAlarm, truppActions, newTruppFromMarker, showTrupp, planScale, calibratePlan: calibratePlanScale, tafel: tafelPendenzen.tafel,
+        azAlarm, truppActions, newTruppFromMarker, showTrupp, planScale, calibratePlan: calibratePlanScale, historyGroup: () => undoHist.group(), tafel: tafelPendenzen.tafel,
         truppFinder: { open: () => setFindTruppOpen(true), disabled: placed.length === 0 },
         readingsChip: replayActive ? null : <ReadingsChip points={readingPoints} compact={isPhone} onGo={goToReading} />,
         presentation: presentation.board,

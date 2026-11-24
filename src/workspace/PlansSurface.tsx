@@ -96,6 +96,8 @@ export interface PlansSurfaceProps {
   /** «Im Atemschutz zeigen»: the board, landed on that Trupp's card */
   showTrupp: (truppId: string) => void
   planScale: PlanScales
+  /** open ONE step on the global ↶ timeline over several writes (Whiteboard · historyGroup) */
+  historyGroup: () => () => void
   /** a hand calibration, as one undo step (workspace/planCalibration) */
   calibratePlan: (planId: string, sc: PlanScale) => () => boolean
   /** the Tafel's pages (workspace/useTafelPages) — absent for a link session */
@@ -110,7 +112,7 @@ export function PlansSurface({
   setPickerOpen, symbolScale, symbolCaptions, mapSuppressedCaptions, readingsChip, georefFits, mapActions,
   replayBoard, replayBuilding, store, trails, deleteGhostTrail, armTrailDrop, building, gebaeude, logPlan,
   roster, addRecent, user, emit, planStacks, planFocus, effTrupps, truppCounterNames, teamNameTaken,
-  azAlarm, truppActions, newTruppFromMarker, showTrupp, planScale, calibratePlan, tafel, truppFinder, presentation,
+  azAlarm, truppActions, newTruppFromMarker, showTrupp, planScale, calibratePlan, historyGroup, tafel, truppFinder, presentation,
   vehicleOverrides,
 }: PlansSurfaceProps) {
   const { activeObjectName, activeObjectAddress, activeObjectNearby } = objectPlans
@@ -251,6 +253,7 @@ export function PlansSurface({
           // a Leitung end snapped onto a Trupp's chip IS the Leitung pick (15.09.) — the same
           // call the Karte makes from its own magnet (lib/useMapDrawing · onLineAttached)
           onLineAttached={tacticalLocked ? undefined : (annoId, attachment) => { linkLineToAttachedTrupp(annoId, attachment) }}
+          historyGroup={historyGroup}
           onLineDetached={tacticalLocked ? undefined : (annoId, previous) => { unlinkLineFromDetachedTrupp(annoId, previous) }}
           onLineRenumber={tacticalLocked ? undefined : syncLineNoToTrupp}
           // the plan chip's twin of the map marker's jump — it points at the card too

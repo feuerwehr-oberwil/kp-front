@@ -136,6 +136,9 @@ export interface ObjectStore {
   stepKeys: (id: string) => RecordKey[] | null
   /** the LIVE store (not this render's snapshot) — what a merge is diffed against */
   liveObjects: () => TacticalObject[]
+  /** …and the two views of it, derived on the call — for a writer that has to read an object
+   *  written earlier in the same tick (a hose drawn and then linked, truppActions/lines) */
+  liveViews: () => { doc: Doc; board: BoardDoc }
   /**
    * Re-derive every baked map body: the georeference of some plan has changed, so every symbol
    * standing on that sheet now stands somewhere else on the ground. Returns HOW MANY objects
@@ -417,8 +420,9 @@ export function useObjectStore(
     // ⚠️ the open plan gesture's step went with the merge: its next sample must lay a new one
     if (steppedStep.current && !keep(steppedStep.current)) { stepped.current = undefined; steppedStep.current = null }
   }
-  const impl = useRef({ setDocRaw, setBoard, beginSheetStep, endSheetStep, commit, beginDrag: store.beginDrag, endDrag: store.endDrag, undo: store.undo, redo: store.redo, rebake, gestureOpen, rebaseObjects, stepKeys: store.stepKeys, liveObjects: store.current })
-  impl.current = { setDocRaw, setBoard, beginSheetStep, endSheetStep, commit, beginDrag: store.beginDrag, endDrag: store.endDrag, undo: store.undo, redo: store.redo, rebake, gestureOpen, rebaseObjects, stepKeys: store.stepKeys, liveObjects: store.current }
+  const liveViews = () => { const live = store.current(); return { doc: docViewOf(live), board: boardViewOf(live, getFits()) } }
+  const impl = useRef({ setDocRaw, setBoard, beginSheetStep, endSheetStep, commit, beginDrag: store.beginDrag, endDrag: store.endDrag, undo: store.undo, redo: store.redo, rebake, gestureOpen, rebaseObjects, stepKeys: store.stepKeys, liveObjects: store.current, liveViews })
+  impl.current = { setDocRaw, setBoard, beginSheetStep, endSheetStep, commit, beginDrag: store.beginDrag, endDrag: store.endDrag, undo: store.undo, redo: store.redo, rebake, gestureOpen, rebaseObjects, stepKeys: store.stepKeys, liveObjects: store.current, liveViews }
   // ⚠️ Every forwarder spreads the WHOLE parameter list, typed off the public signature, and
   // carries no cast: a hand-written `(a) => …` behind an `as` silently dropped `setBoard`'s
   // `{ gesture }` (24.09.2026), and tsc could not say so. Add an option to a writer and it
@@ -437,6 +441,7 @@ export function useObjectStore(
     rebaseObjects: (...args: Parameters<ObjectStore['rebaseObjects']>) => impl.current.rebaseObjects(...args),
     stepKeys: (...args: Parameters<ObjectStore['stepKeys']>) => impl.current.stepKeys(...args),
     liveObjects: () => impl.current.liveObjects(),
+    liveViews: () => impl.current.liveViews(),
     // read by the save path (useIncidentSync) per sample: a drag or an open plan step
     gestureOpen: () => impl.current.gestureOpen(),
   }), [])

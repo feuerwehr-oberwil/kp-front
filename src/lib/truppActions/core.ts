@@ -64,6 +64,14 @@ export interface TruppActionDeps {
    *  can be tapped minutes later, and by then a merge may have taken the card away – that is the
    *  one case the entry has to decline instead of writing a ghost back. */
   liveTrupps?: () => Trupp[]
+  /** The Lage's and the plans' pictures as they stand NOW (lib/useObjectStore · liveViews), not as
+   *  this render drew them — what a link reads, so a hose committed earlier in the same gesture is
+   *  found (hunt 24.11.2026, frontend-state F5). Absent: this render's arrays. */
+  livePicture?: () => { drawings: Drawing[]; entities: Entity[]; board: BoardDoc }
+  /** Lay ONE store undo step at the live state — the picture half of a link step, laid before its
+   *  raw writes so the step's ↶ restores both hose and marker (truppActions/lines · linkStep).
+   *  Absent: the picture half is not undoable (the tests, the Atemschutz-Link). */
+  checkpointStore?: () => void
   /** Every name the ONE counter reads beyond the Trupps (IncidentWorkspace · truppCounterNames:
    *  every chip once, and every ghost trail — a deleted chip that left a Spur used its number).
    *  Absent: the chips of `entities` and `board` alone, as before. */
@@ -183,6 +191,42 @@ export function truppActionCore(deps: Pick<TruppActionDeps, 'trupps' | 'setTrupp
   }
 
   /**
+   * `remember` for an act that writes SEVERAL Trupps (a Leitung link takes the claim off another
+   * crew): each of `ids` goes back whole, as it stood when this was called — so call it BEFORE the
+   * writes. ↷ puts back what ↶ found, the state the act left (the chronology guarantees nothing
+   * newer is standing by then). Declines once `subjectId`'s card is gone, like `remember`.
+   */
+  const rememberTrupps = (subjectId: string, label: string, ids: readonly string[]): (() => void) => {
+    if (!undoTimeline) return () => {}
+    const read = () => (liveTrupps?.() ?? trupps).filter((t) => ids.includes(t.id))
+    const before = read()
+    let after: Trupp[] = []
+    const put = (rows: readonly Trupp[]) => setTrupps((ts) => ts.map((t) => {
+      const row = rows.find((r) => r.id === t.id)
+      return row ? keepCrewFiled(row, t) : t
+    }))
+    const present = () => (liveTrupps?.() ?? trupps).some((t) => t.id === subjectId)
+    return undoTimeline.push({
+      domain: 'trupps',
+      label,
+      touches: () => ids.map((id) => recordKey('trupps', id)),
+      undo: () => {
+        if (!present()) return false
+        after = read()
+        put(before)
+        logStep('undo', label, subjectId)
+        return true
+      },
+      redo: () => {
+        if (!present()) return false
+        put(after)
+        logStep('redo', label, subjectId)
+        return true
+      },
+    })
+  }
+
+  /**
    * What this RENDER has already recorded for a Trupp — the other half of the double-tap guard.
    *
    * ⚠️ The families' state guards («already in that state», «not out») read `trupps` as this
@@ -198,7 +242,7 @@ export function truppActionCore(deps: Pick<TruppActionDeps, 'trupps' | 'setTrupp
   const updateTrupp = (id: string, patch: Partial<Trupp>) =>
     setTrupps((ts) => ts.map((t) => (t.id === id ? { ...t, ...patch } : t)))
 
-  return { logStep, remember, recorded, updateTrupp }
+  return { logStep, remember, rememberTrupps, recorded, updateTrupp }
 }
 
 export type TruppActionCore = ReturnType<typeof truppActionCore>
