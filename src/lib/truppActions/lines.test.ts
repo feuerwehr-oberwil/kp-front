@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { SetStateAction } from 'react'
-import type { BoardDoc, Drawing, Entity, Trupp } from '../../types'
+import type { BoardAnno, BoardDoc, Drawing, Entity, Trupp } from '../../types'
 import { useTruppActions } from '../useTruppActions'
 import { objectAttachment } from '../lineAttachments'
 import { createUndoTimeline } from '../undoTimeline'
@@ -20,9 +20,9 @@ const hose: Drawing = { id: 'H', kind: 'line', coords: [[7.01, 47], [7, 47]], en
  * The Trupp actions over a live picture. `checkpointStore` stands in for the store's step
  * (lib/useObjectStore): ↶ puts the snapshot back, ↷ the state ↶ found.
  */
-function fixture(trupps: Trupp[], drawings: Drawing[], sheetOf?: (id: string) => string | undefined) {
+function fixture(trupps: Trupp[], drawings: Drawing[], sheetOf?: (id: string) => string | undefined, start: { entities?: Entity[]; board?: BoardDoc } = {}) {
   let crews = trupps
-  let pic = { entities: [marker], drawings, board: {} as BoardDoc }
+  let pic = { entities: start.entities ?? [marker], drawings, board: start.board ?? {} }
   const timeline = createUndoTimeline()
   const emit = vi.fn()
   const apply = <T,>(value: T, update: SetStateAction<T>): T =>
@@ -44,7 +44,7 @@ function fixture(trupps: Trupp[], drawings: Drawing[], sheetOf?: (id: string) =>
     setPanel: vi.fn(), setPlanFocus: vi.fn(), mapCenter: () => [7, 47], focusMapEntity: vi.fn(), focusMapDrawing: vi.fn(),
   })
   return {
-    useActions, timeline, emit, marker: () => pic.entities.find((e) => e.id === 'M'), crew: (id = 'C') => crews.find((t) => t.id === id), line: () => pic.drawings.find((d) => d.id === 'H'),
+    useActions, timeline, emit, board: () => pic.board, entities: () => pic.entities, marker: () => pic.entities.find((e) => e.id === 'M'), crew: (id = 'C') => crews.find((t) => t.id === id), line: () => pic.drawings.find((d) => d.id === 'H'),
     /** what the drawing tool's own commit does in the same gesture — after the render that handed out the actions */
     draw: (d: Drawing) => { pic = { ...pic, drawings: [...pic.drawings, d] } },
   }
@@ -105,6 +105,29 @@ describe('a Trupp ⇄ Leitung link', () => {
     f.timeline.undo()
     expect(f.crew()).toMatchObject({ lineId: 'H', lineNo: 2 })
     expect(f.line()?.truppId).toBe('C')
+  })
+
+  // review of #742: the hose a crew moves OFF lost its Trupp only locally — replay kept the crew on
+  // both hoses
+  it('a crew moved to another hose lets go of the old one in replay too', async () => {
+    const old: Drawing = { id: 'H0', kind: 'line', coords: [[7.03, 47], [7.04, 47]], truppId: 'C' }
+    const f = fixture([{ ...crew, lineId: 'H0' }], [old, hose])
+    f.useActions().linkTruppLine('C', 'H')
+    const { drawings } = await replayEmits({ entities: [marker], drawings: [old, hose] }, JSON.parse(JSON.stringify(f.emit.mock.calls)))
+    expect(drawings.find((d) => d.id === 'H0')).not.toHaveProperty('truppId')
+    expect(drawings.find((d) => d.id === 'H')?.truppId).toBe('C')
+  })
+
+  // review of #742: a Lage hose that starts docked on the crew's PLAN chip is already the crew's —
+  // settling placed a new marker at its end and took the chip off the sheet
+  it('a hose starting on the crew\'s chip on a sheet leaves the chip and places no marker', () => {
+    const chip: BoardAnno = { id: 'P1', kind: 'resource', x: 0.5, y: 0.5, floor: 0, truppId: 'C' }
+    const fromChip: Drawing = { id: 'H', kind: 'line', coords: [[7, 47], [7.02, 47]], startAttachment: objectAttachment('P1') }
+    const f = fixture([{ ...crew, entityId: undefined, annoId: 'P1', planId: 'modul6' }], [fromChip], undefined, { entities: [], board: { modul6: [chip] } })
+    expect(f.useActions().linkTruppLine('C', 'H')).toBe(true)
+    expect(f.board().modul6?.map((a) => a.id)).toEqual(['P1'])
+    expect(f.entities()).toEqual([])
+    expect(f.line()?.endAttachment).toBeUndefined()
   })
 
   // F7: «Gehört zu Trupp» wrote both sides raw and laid no step, so ↶ took back an older act

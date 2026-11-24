@@ -148,15 +148,26 @@ export function truppLineActions(deps: LineDeps) {
     // in the step too
     const claims = (t: Trupp) => t.id !== truppId && ((no != null && t.lineNo === no) || (!!t.lineId && t.lineId === lineId)) && !isOutTrupp(t)
     const said = fillTemplate(az.logLineLinked, { name: truppLogName(tr, 'leader'), n: no != null ? String(no) : '–' })
+    // the OTHER hoses this crew is on, as their surfaces hold them — they let go of it (writeLink),
+    // and replay has to hear that: a hose on the Karte as a `draw.edit`, one anchored on a sheet as
+    // that sheet's `board.edit` (a fitted one is both)
+    const released = new Map<string, { map: boolean; sheet?: string }>()
+    for (const d of now.drawings) {
+      if (d.kind === 'line' && d.id !== lineId && d.truppId === truppId) released.set(d.id, { map: true, sheet: now.sheetOf?.(d.id) })
+    }
+    for (const [pid, annos] of Object.entries(now.board)) {
+      for (const a of annos) if (a.kind === 'draw' && a.id !== lineId && a.truppId === truppId && !released.has(a.id)) released.set(a.id, { map: false, sheet: pid })
+    }
     const end = linkStep(truppId, said, [truppId, ...trupps.filter(claims).map((t) => t.id)])
     try {
-      writeLink(tr, lineId, no, onMap ? null : planId!, said, claims)
+      writeLink(tr, lineId, no, onMap ? null : planId!, said, claims, released)
     } finally { end() }
     return true
   }
 
   /** linkTruppLine's writes, inside its step */
-  const writeLink = (tr: Trupp, lineId: string, no: number | null | undefined, planId: string | null, said: string, claims: (t: Trupp) => boolean) => {
+  const writeLink = (tr: Trupp, lineId: string, no: number | null | undefined, planId: string | null, said: string, claims: (t: Trupp) => boolean,
+    released: ReadonlyMap<string, { map: boolean; sheet?: string }>) => {
     const truppId = tr.id
     // the drawing: mirror + number. Any OTHER line that claimed this Trupp lets go, so a Trupp
     // is on exactly one Leitung (re-picking moves it instead of leaving two tagged hoses).
@@ -184,6 +195,12 @@ export function truppLineActions(deps: LineDeps) {
     const sheet = planId ?? picture().sheetOf?.(lineId)
     if (sheet) emit('board.edit', { id: lineId, patch: stamped, planId: sheet })
     if (!planId) emit('draw.edit', { id: lineId, patch: stamped })
+    // ⚠️ …and the hoses it left as a `null` (lib/replay · CLEARABLE): only the local writes
+    // cleared them, and replay kept the crew on its old hose too (review of #742)
+    for (const [id, { map, sheet: on }] of released) {
+      if (map) emit('draw.edit', { id, patch: { truppId: null } })
+      if (on) emit('board.edit', { id, patch: { truppId: null }, planId: on })
+    }
     // no confirm toast (09.09.): the hose wears the Trupp tag the instant the link lands — the
     // ink is the confirmation, and the Verlauf row above is the record
     settleAtHoseEnd(tr, lineId, planId)
@@ -207,14 +224,17 @@ export function truppLineActions(deps: LineDeps) {
   const settleAtHoseEnd = (tr: Trupp, lineId: string, planId: string | null) => {
     // the coupling the endpoint magnet would have written (lib/lineAttachments · DEFAULT_OBJECT_ROUTING)
     const coupling = (id: string): LineAttachment => objectAttachment(id)
-    const hangsOn = (a: LineAttachment | undefined, id: string | undefined) => !!id && a?.target.kind === 'object' && a.target.id === id
     const now = picture()
+    // the crew's markers on BOTH surfaces — a hose may start docked on its chip from the other
+    // document (review of #742)
+    const crewMarkers = new Set(truppMarkers(now).filter((m) => m.truppId === tr.id).map((m) => m.id))
+    const startsOnCrew = (a: LineAttachment | undefined) => a?.target.kind === 'object' && crewMarkers.has(a.target.id)
     if (!planId) {
       const line = now.drawings.find((d) => d.id === lineId && d.kind === 'line')
       if (!line || line.coords.length < 2) return
       const end = line.coords[line.coords.length - 1]
       const marker = now.entities.find((e) => e.kind === 'team' && e.truppId === tr.id)
-      if (hangsOn(line.startAttachment, marker?.id)) return
+      if (startsOnCrew(line.startAttachment)) return
       const a = line.endAttachment
       if (a && (a.target.kind !== 'object' || !marker || a.target.id !== marker.id)) return
       if (a) return
@@ -235,7 +255,7 @@ export function truppLineActions(deps: LineDeps) {
     if (!line?.pts || line.pts.length < 2) return
     const end = line.pts[line.pts.length - 1]
     const chip = annos.find((x) => x.kind === 'resource' && x.truppId === tr.id)
-    if (hangsOn(line.startAttachment, chip?.id)) return
+    if (startsOnCrew(line.startAttachment)) return
     const a = line.endAttachment
     if (a && (a.target.kind !== 'object' || !chip || a.target.id !== chip.id)) return
     if (a) return
