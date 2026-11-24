@@ -12,7 +12,8 @@ import { LABEL_WARM_BYTES, labelWarmUrls } from '../lib/basemapLabels'
 import { fillTemplate, fmtFileSize } from '../lib/format'
 import { isStorageDegraded } from '../lib/idb'
 import { isStandalone } from '../lib/installPrompt'
-import { bulkFetchAllowed, fillTileTemplate, predownloadArea, tilesForBounds } from '../lib/offlineTiles'
+import { bulkFetchAllowed, fillTileTemplate, predownloadArea, tileRequestUrl, tilesForBounds } from '../lib/offlineTiles'
+import { useNightTheme } from '../lib/useNightTheme'
 import { WARM_BYTES, estimateStorage, fittedTileCap, prefetchFit, tileBytesFor } from '../lib/storageBudget'
 import { confirmDialog, toast } from '../lib/ui'
 import { useOnline } from '../lib/useOnline'
@@ -26,7 +27,14 @@ export interface OfflinePrefetchInputs {
   backendPlans: Record<string, string>
 }
 
+/** The tiles the map draws for `base` right now – its dark variant at night, as MapLayers swaps
+ *  it (hunt 24.11.2026, karte F8: the download warmed the daylight style at night). */
+function activeBaseTiles(base: LayerDef | undefined, night: boolean): string[] | undefined {
+  return night && base?.nightTiles?.length ? base.nightTiles : base?.tiles
+}
+
 export function useOfflinePrefetch({ incidentId, center, mapRef, layers, backendPlans }: OfflinePrefetchInputs) {
+  const night = useNightTheme()
   // PWA: pre-download the current map area + plans/symbols/geodata so the base map and
   // reference data render offline at the scene (delivers the `offline`/`cachedTiles` promise).
   // One box around the incident (the STATION's radius, `map.offlineRadiusM`, default 1200 m –
@@ -73,7 +81,8 @@ export function useOfflinePrefetch({ incidentId, center, mapRef, layers, backend
     const base = layers.find((l) => l.base && l.visible)
     // OSM's own servers may be viewed but not bulk-fetched (offlineTiles · bulkFetchAllowed):
     // with OSM as base, Carto is warmed instead — the same OSM data, from a host that allows it.
-    const templates = base?.tiles?.every(bulkFetchAllowed) ? base.tiles : cartoRasterTiles('rastertiles/voyager', ['a'])
+    const active = activeBaseTiles(base, night)
+    const templates = active?.every(bulkFetchAllowed) ? active : cartoRasterTiles('rastertiles/voyager', ['a'])
     const rasterOverlays = layers.filter((l) => !l.base && l.tiles?.length).map((l) => l.tiles as string[])
     const bounds = incidentBounds
     // warm: per-object plan PDFs and the geojson overlays cropped to the box. NOT the symbol
@@ -177,7 +186,7 @@ export function useOfflinePrefetch({ incidentId, center, mapRef, layers, backend
       if (offlineAbort.current === ctrl) offlineAbort.current = null
       setOfflineProgress(null)
     }
-  }, [layers, backendPlans, incidentBounds, withGeoBbox, mapRef])
+  }, [layers, backendPlans, incidentBounds, withGeoBbox, mapRef, night])
   // «Weiterladen» / «Nochmals» re-runs the same download. Through a ref because the action rides
   // on a toast that outlives the render it was made in, and the callback cannot name itself.
   const downloadOfflineRef = useRef(downloadOffline)
@@ -195,7 +204,8 @@ export function useOfflinePrefetch({ incidentId, center, mapRef, layers, backend
   // measures against the CURRENT bbox, so a warm run for the old radius would keep reporting
   // «nicht geladen» forever. Centre and raster-reference ids are explicit too: a corrected
   // Einsatz location or newly configured WMS/WMTS layer owes the device another warm pass.
-  const offlineWarmSig = `${incidentId}|${center.join(',')}|${offlineRadiusM}|${Object.values(backendPlans).sort().join(',')}|${layers.filter((l) => l.geojson || (!l.base && l.tiles?.length)).map((l) => l.id).join(',')}`
+  // …and the style the map shows (day or night): at night the dark tiles are the ones it will ask for
+  const offlineWarmSig = `${incidentId}|${night ? 'night' : 'day'}|${center.join(',')}|${offlineRadiusM}|${Object.values(backendPlans).sort().join(',')}|${layers.filter((l) => l.geojson || (!l.base && l.tiles?.length)).map((l) => l.id).join(',')}`
   const offlineWarmed = useRef('')
   useEffect(() => {
     if (!isStandalone()) return
@@ -211,10 +221,9 @@ export function useOfflinePrefetch({ incidentId, center, mapRef, layers, backend
   // Cache to report REAL offline presence (not a guess) for the runtime-cached resources.
   const offlineProbeUrls = useMemo(() => {
     const base = layers.find((l) => l.base && l.visible)
-    const tpls = base?.tiles ?? []
-    // The downloader cycles tile subdomains (Carto = a/b/c/d), so a given tile lands under ONE
-    // of them. Probe the incident-centre tile across ALL subdomains and pass if any is cached —
-    // checking only [0] gave a false "nicht geladen".
+    const tpls = activeBaseTiles(base, night) ?? []
+    // The incident-centre tile under the URL MapLibre requests (offlineTiles · tileRequestUrl),
+    // plus every subdomain for a tile an older build stored under another host.
     let tiles: string[] = []
     if (tpls.length) {
       const z = 16
@@ -222,15 +231,13 @@ export function useOfflinePrefetch({ incidentId, center, mapRef, layers, backend
       const x = Math.floor(((lng + 180) / 360) * 2 ** z)
       const r = (lat * Math.PI) / 180
       const y = Math.floor(((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2) * 2 ** z)
-      tiles = tpls.map((t) => t.replace('{z}', String(z)).replace('{x}', String(x)).replace('{y}', String(y)))
+      tiles = [tileRequestUrl(tpls, z, x, y), ...tpls.map((t) => fillTileTemplate(t, z, x, y))]
     }
     const z = 16
     const [lng, lat] = center
     const x = Math.floor(((lng + 180) / 360) * 2 ** z)
     const r = (lat * Math.PI) / 180
     const y = Math.floor(((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2) * 2 ** z)
-    const covered = tilesForBounds(incidentBounds, 14, 17).slice(0, 1200)
-    const centreIndex = covered.findIndex((tile) => tile.z === z && tile.x === x && tile.y === y)
     return {
       tiles,
       plan: Object.values(backendPlans)[0] ?? null,
@@ -240,11 +247,10 @@ export function useOfflinePrefetch({ incidentId, center, mapRef, layers, backend
         ...layers.filter((l) => l.geojson).map((l) => withGeoBbox(l.geojson as string)),
         ...layers.filter((l) => !l.base && l.tiles?.length).map((l) => {
           const templates = l.tiles as string[]
-          const template = templates[Math.max(0, centreIndex) % templates.length]
-          return fillTileTemplate(template, z, x, y)
+          return tileRequestUrl(templates, z, x, y)
         }),
       ],
     }
-  }, [layers, center, incidentBounds, backendPlans, withGeoBbox])
+  }, [layers, center, backendPlans, withGeoBbox, night])
   return { incidentBounds, withGeoBbox, online, offlineProgress, cancelOffline, downloadOffline, offlineProbeUrls }
 }

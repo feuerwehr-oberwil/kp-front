@@ -34,23 +34,43 @@ export function tilesForBounds(b: LngLatBounds, minZ: number, maxZ: number): Arr
   return out
 }
 
-const WEB_MERCATOR_HALF_WORLD = 20037508.342789244
+// ⚠️ The service worker answers a tile by its EXACT request URL (public/sw-tile-store.js), so a
+// tile is only offline if it was stored under the URL MapLibre will ask for (hunt 24.11.2026,
+// karte F6 / performance F1: the downloader took the host by its place in the list and its own
+// bbox arithmetic, and 154 of 202 CARTO tiles – every WMS tile – were stored where nothing reads).
+// The two functions below are MapLibre's own (maplibre-gl src/tile/tile_id.ts · url / getTileBBox),
+// digit for digit; warming, readiness and coverage all go through `tileRequestUrl`.
+const EPSG3857_HALF_CIRCUMFERENCE = Math.PI * 6378137
 
-/** EPSG:3857 bounds for one XYZ tile, in the order WMS BBOX expects. */
-export function tileBbox3857(z: number, x: number, y: number): string {
-  const span = (WEB_MERCATOR_HALF_WORLD * 2) / 2 ** z
-  const west = -WEB_MERCATOR_HALF_WORLD + x * span
-  const north = WEB_MERCATOR_HALF_WORLD - y * span
-  return `${west},${north - span},${west + span},${north}`
+function epsg3857(px: number, py: number, z: number): [number, number] {
+  const resolution = (2 * EPSG3857_HALF_CIRCUMFERENCE / 256) / Math.pow(2, z)
+  return [px * resolution - EPSG3857_HALF_CIRCUMFERENCE, py * resolution - EPSG3857_HALF_CIRCUMFERENCE]
 }
 
-/** Fill both ordinary XYZ/WMTS templates and MapLibre's WMS bbox placeholder. */
-export function fillTileTemplate(tpl: string, z: number, x: number, y: number): string {
+/** EPSG:3857 bounds for one XYZ tile, in the order WMS BBOX expects – as MapLibre computes them. */
+export function tileBbox3857(z: number, x: number, y: number): string {
+  const yUp = Math.pow(2, z) - y - 1
+  const min = epsg3857(x * 256, yUp * 256, z)
+  const max = epsg3857((x + 1) * 256, (yUp + 1) * 256, z)
+  return `${min[0]},${min[1]},${max[0]},${max[1]}`
+}
+
+/** Fill one template the way MapLibre does: every placeholder, every occurrence. */
+export function fillTileTemplate(tpl: string, z: number, x: number, y: number, ratio = 1): string {
   return tpl
-    .replace('{z}', String(z))
-    .replace('{x}', String(x))
-    .replace('{y}', String(y))
-    .replace('{bbox-epsg-3857}', tileBbox3857(z, x, y))
+    .replace(/{prefix}/g, (x % 16).toString(16) + (y % 16).toString(16))
+    .replace(/{z}/g, String(z))
+    .replace(/{x}/g, String(x))
+    .replace(/{y}/g, String(y))
+    .replace(/{ratio}/g, ratio > 1 ? '@2x' : '')
+    .replace(/{bbox-epsg-3857}/g, tileBbox3857(z, x, y))
+}
+
+/** The URL MapLibre requests for tile z/x/y of a source with these templates: the host is
+ *  `(x + y) % templates.length`, as in MapLibre. */
+export function tileRequestUrl(templates: readonly string[], z: number, x: number, y: number,
+  ratio = typeof window !== 'undefined' ? window.devicePixelRatio : 1): string {
+  return fillTileTemplate(templates[(x + y) % templates.length], z, x, y, ratio)
 }
 
 /** The OSM Foundation's tile servers forbid bulk pre-fetching in their usage policy
@@ -130,7 +150,7 @@ export async function predownloadArea(opts: PredownloadOpts): Promise<Predownloa
   const capped = tiles.length > cap
   const use = capped ? tiles.slice(0, cap) : tiles
 
-  const urlsFor = (templates: string[]) => use.map((t, i) => fillTileTemplate(templates[i % templates.length], t.z, t.x, t.y))
+  const urlsFor = (templates: string[]) => use.map((t) => tileRequestUrl(templates, t.z, t.x, t.y))
   const tileUrls = [
     ...urlsFor(opts.templates),
     ...(opts.overlayTemplates ?? []).flatMap((templates) => templates.length ? urlsFor(templates) : []),
