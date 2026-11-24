@@ -612,4 +612,18 @@ describe('a hose finished on a marker', () => {
     act(() => { result.current.createLine([[7.7, 47.4], [7.8, 47.5]], { endAttachment: end }) })
     expect(order).toEqual(['open', 'commit', 'attached', 'close'])
   })
+
+  // review of #742: an existing hose's end snapped onto a crew marker took two ↶ presses
+  it('an end snapped onto a marker writes and reports inside one history group', () => {
+    const order: string[] = []
+    const deps = {
+      ...makeDeps(),
+      historyGroup: () => { order.push('open'); return () => { order.push('close') } },
+      onLineAttached: () => { order.push('attached') },
+    }
+    deps.commit.mockImplementation(() => { order.push('commit') })
+    const { result } = renderHook((p) => useMapDrawing(p), { initialProps: deps })
+    act(() => { result.current.setDrawingAttachment('d1', 'end', { target: { kind: 'object', id: 'M' }, routing: 'direct' }, [7.8, 47.5]) })
+    expect(order).toEqual(['open', 'commit', 'attached', 'close'])
+  })
 })

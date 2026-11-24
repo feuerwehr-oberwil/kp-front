@@ -164,6 +164,7 @@ import { useOfflinePrefetch } from './workspace/useOfflinePrefetch'
 import { loadReportPreflight, loadWhiteboard, requestReportStep } from './workspace/lazySurfaces'
 import { useTafelPages } from './workspace/useTafelPages'
 import { calibratePlan } from './workspace/planCalibration'
+import { compoundSteps } from './workspace/compoundStep'
 import type { PlanScale } from './lib/planScale'
 import { useTafelPendenzen } from './workspace/useTafelPendenzen'
 import type { OneShotRows, WorkspaceMode } from './workspace/types'
@@ -478,6 +479,8 @@ export function IncidentWorkspace({
     logHistStep(dir, label, op, icon, kind)
     return true
   }
+  /** ONE compound act on the timeline, with ONE store step (workspace/compoundStep) */
+  const compound = useState(() => compoundSteps(() => undoHist.group()))[0]
 
   // --- THE tactical store (undoable) — one collection of objects, the Karte's `doc` and the
   // plans' `board` as views of it (lib/useObjectStore, schema 2). Every writer below still speaks
@@ -500,6 +503,9 @@ export function IncidentWorkspace({
       onCheckpoint: (step) => {
         const label = stepLabel.current ?? C_HIST.undoDomains.karte
         stepLabel.current = null
+        const { silent } = compound.laid()
+        // a silent step still sends its audit op, it only leaves the counter-row to its act
+        const quiet = (moved: boolean, dir: 'undo' | 'redo') => { if (moved) histSide.current.emit(dir); return moved }
         undoHist.push({
           domain: 'karte',
           label,
@@ -507,8 +513,8 @@ export function IncidentWorkspace({
           // merge keep it when it changed other objects only (lib/undoTimeline · rebase)
           step,
           touches: () => storeStepKeys(step),
-          undo: () => histStep(undoDocRef.current(step), 'undo', label, ''),
-          redo: () => histStep(redoDocRef.current(step), 'redo', label, ''),
+          undo: () => (silent ? quiet(undoDocRef.current(step), 'undo') : histStep(undoDocRef.current(step), 'undo', label, '')),
+          redo: () => (silent ? quiet(redoDocRef.current(step), 'redo') : histStep(redoDocRef.current(step), 'redo', label, '')),
         })
       },
       /**
@@ -764,6 +770,8 @@ export function IncidentWorkspace({
   const planStacks = usePlanStacks({
     undoHist, histStep, beginSheetStep, endSheetStep, setBoard, boardRef, activePlanIdRef, planLabelRef,
     planStepLabelRef: planStepLabel, stepLabelRef: stepLabel, planStepLinkRef: planStepLink,
+    // the act's one store step, laid before the sheet's write lands
+    takeIntoStore: (label) => compound.takeIntoStore(() => { stepLabel.current = label; commit((d) => d) }),
   })
   const { planHistory, setPlanHistory, planFit, planKeys } = planStacks
   // always-fresh keydown dispatcher — assigned every render (below, once all handlers exist) so
@@ -1912,7 +1920,7 @@ export function IncidentWorkspace({
     // the Plan makes from its own magnet (Whiteboard · onLineAttached)
     onLineAttached: (lineId, attachment) => { linkLineToAttachedTrupp(lineId, attachment) },
     onLineDetached: (lineId, previous) => { unlinkLineFromDetachedTrupp(lineId, previous) },
-    historyGroup: () => undoHist.group(),
+    historyGroup: compound.open,
   })
   const {
     setDraft, lineMode, setLineMode, areaMode, setAreaMode, draftActive, draftOpen, selectedDrawing,
@@ -2319,7 +2327,7 @@ export function IncidentWorkspace({
     // a link reads the picture as it stands now (a hose drawn in the same gesture is in it), and
     // lays the picture half of its ↶ step on the store (truppActions/lines · linkStep)
     livePicture: () => { const v = liveViews(); return { drawings: v.doc.drawings, entities: v.doc.entities, board: v.board } },
-    checkpointStore: asLink ? undefined : () => commit((d) => d),
+    checkpointStore: asLink ? undefined : () => compound.linkCheckpoint(() => commit((d) => d)),
     counterNames: () => truppCounterNames(),
     placeOf: truppPositionWords,
     // the crew as the roster reads it, for the one-person crew edits (atemschutz · truppCrewWithout);
@@ -3325,7 +3333,7 @@ export function IncidentWorkspace({
         setPickerOpen, symbolScale, symbolCaptions, mapSuppressedCaptions, georefFits, mapActions,
         replayBoard, replayBuilding, store, trails, deleteGhostTrail, armTrailDrop, building, gebaeude, logPlan,
         roster, addRecent, user, emit, planStacks, planFocus, effTrupps, truppCounterNames, teamNameTaken,
-        azAlarm, truppActions, newTruppFromMarker, showTrupp, planScale, calibratePlan: calibratePlanScale, historyGroup: () => undoHist.group(), tafel: tafelPendenzen.tafel,
+        azAlarm, truppActions, newTruppFromMarker, showTrupp, planScale, calibratePlan: calibratePlanScale, historyGroup: compound.open, tafel: tafelPendenzen.tafel,
         truppFinder: { open: () => setFindTruppOpen(true), disabled: placed.length === 0 },
         readingsChip: replayActive ? null : <ReadingsChip points={readingPoints} compact={isPhone} onGo={goToReading} />,
         presentation: presentation.board,

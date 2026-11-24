@@ -452,16 +452,20 @@ export function useMapDrawing(deps: MapDrawingDeps) {
     if (tacticalLocked) return
     const key = endpoint === 'start' ? 'startAttachment' : 'endAttachment'
     const previous = drawings.find((dr) => dr.id === id)?.[key]
-    commit((d) => ({ ...d, drawings: d.drawings.map((dr) => {
-      if (dr.id !== id || dr.kind !== 'line' || dr.coords.length < 2) return dr
-      const coords = dr.coords.map((p, i) => i === (endpoint === 'start' ? 0 : dr.coords.length - 1) ? fallback : p)
-      return { ...dr, coords, [key]: attachment }
-    }) }))
-    emit(attachment ? 'draw.attach' : 'draw.detach', { id, endpoint, attachment, fallback })
-    // …and an end dragged ONTO a Trupp's marker joins the two, exactly as a fresh stroke's does –
-    // and an end let go of that marker parts them again
-    if (attachment) onLineAttached?.(id, attachment)
-    else if (previous) onLineDetached?.(id, previous)
+    // the end's new coupling and the Trupp link it makes or parts are ONE ↶ step (review of #742)
+    const endStep = historyGroup?.() ?? (() => {})
+    try {
+      commit((d) => ({ ...d, drawings: d.drawings.map((dr) => {
+        if (dr.id !== id || dr.kind !== 'line' || dr.coords.length < 2) return dr
+        const coords = dr.coords.map((p, i) => i === (endpoint === 'start' ? 0 : dr.coords.length - 1) ? fallback : p)
+        return { ...dr, coords, [key]: attachment }
+      }) }))
+      emit(attachment ? 'draw.attach' : 'draw.detach', { id, endpoint, attachment, fallback })
+      // …and an end dragged ONTO a Trupp's marker joins the two, exactly as a fresh stroke's does –
+      // and an end let go of that marker parts them again
+      if (attachment) onLineAttached?.(id, attachment)
+      else if (previous) onLineDetached?.(id, previous)
+    } finally { endStep() }
   }
 
   /**
