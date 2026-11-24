@@ -176,6 +176,11 @@ export function truppLineActions(deps: LineDeps) {
 
     log('drop', said, 'team', undefined, undefined, { subjectId: truppId })
     emit('atemschutz.line.link', { id: truppId, lineId, lineNo: no })
+    // …and the fields it stamped on the hose as the picture's own edit: replay folds that one and
+    // ignores the link event, so a new hose replayed without its number (review of #742)
+    const stamped = { truppId, ...(no != null ? { lineNo: no } : {}) }
+    if (planId) emit('board.edit', { id: lineId, patch: stamped, planId })
+    else emit('draw.edit', { id: lineId, patch: stamped })
     // no confirm toast (09.09.): the hose wears the Trupp tag the instant the link lands — the
     // ink is the confirmation, and the Verlauf row above is the record
     settleAtHoseEnd(tr, lineId, planId)
@@ -192,16 +197,21 @@ export function truppLineActions(deps: LineDeps) {
    * Nothing is written when the end already hangs on this very marker (the snap/drop doors
    * arrive that way), and nothing when it hangs on something ELSE – a crew is not put onto a
    * hydrant because its hose starts there; that end stays the operator's geometry.
+   * ⚠️ …and nothing when the START hangs on the marker: a hose drawn FROM the crew is already
+   * coupled to it. Settling then moved the marker to the free end and hung both ends on it
+   * (hunt 24.11.2026, review of #742).
    */
   const settleAtHoseEnd = (tr: Trupp, lineId: string, planId: string | null) => {
     // the coupling the endpoint magnet would have written (lib/lineAttachments · DEFAULT_OBJECT_ROUTING)
     const coupling = (id: string): LineAttachment => objectAttachment(id)
+    const hangsOn = (a: LineAttachment | undefined, id: string | undefined) => !!id && a?.target.kind === 'object' && a.target.id === id
     const now = picture()
     if (!planId) {
       const line = now.drawings.find((d) => d.id === lineId && d.kind === 'line')
       if (!line || line.coords.length < 2) return
       const end = line.coords[line.coords.length - 1]
       const marker = now.entities.find((e) => e.kind === 'team' && e.truppId === tr.id)
+      if (hangsOn(line.startAttachment, marker?.id)) return
       const a = line.endAttachment
       if (a && (a.target.kind !== 'object' || !marker || a.target.id !== marker.id)) return
       if (a) return
@@ -222,6 +232,7 @@ export function truppLineActions(deps: LineDeps) {
     if (!line?.pts || line.pts.length < 2) return
     const end = line.pts[line.pts.length - 1]
     const chip = annos.find((x) => x.kind === 'resource' && x.truppId === tr.id)
+    if (hangsOn(line.startAttachment, chip?.id)) return
     const a = line.endAttachment
     if (a && (a.target.kind !== 'object' || !chip || a.target.id !== chip.id)) return
     if (a) return

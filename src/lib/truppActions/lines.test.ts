@@ -5,6 +5,7 @@ import { useTruppActions } from '../useTruppActions'
 import { objectAttachment } from '../lineAttachments'
 import { createUndoTimeline } from '../undoTimeline'
 import { truppFieldsOf } from '../atemschutz'
+import { replayEmits } from '../replay.test-utils'
 
 vi.mock('../ui', async (load) => ({ ...await load<typeof import('../ui')>(), confirmDialog: vi.fn(async () => false) }))
 
@@ -23,6 +24,7 @@ function fixture(trupps: Trupp[], drawings: Drawing[]) {
   let crews = trupps
   let pic = { entities: [marker], drawings, board: {} as BoardDoc }
   const timeline = createUndoTimeline()
+  const emit = vi.fn()
   const apply = <T,>(value: T, update: SetStateAction<T>): T =>
     (typeof update === 'function' ? (update as (x: T) => T)(value) : update)
   /** the actions as one render hands them out (a plain factory: no hook inside) */
@@ -38,11 +40,11 @@ function fixture(trupps: Trupp[], drawings: Drawing[]) {
       let later = pic
       timeline.push({ domain: 'karte', label: 'Karte', touches: () => [], undo: () => { later = pic; pic = snap }, redo: () => { pic = later } })
     },
-    undoTimeline: timeline, log: vi.fn(), emit: vi.fn(), logPlan: vi.fn(), setMode: vi.fn(), setActivePlanId: vi.fn(),
+    undoTimeline: timeline, log: vi.fn(), emit, logPlan: vi.fn(), setMode: vi.fn(), setActivePlanId: vi.fn(),
     setPanel: vi.fn(), setPlanFocus: vi.fn(), mapCenter: () => [7, 47], focusMapEntity: vi.fn(), focusMapDrawing: vi.fn(),
   })
   return {
-    useActions, timeline, crew: (id = 'C') => crews.find((t) => t.id === id), line: () => pic.drawings.find((d) => d.id === 'H'),
+    useActions, timeline, emit, marker: () => pic.entities.find((e) => e.id === 'M'), crew: (id = 'C') => crews.find((t) => t.id === id), line: () => pic.drawings.find((d) => d.id === 'H'),
     /** what the drawing tool's own commit does in the same gesture — after the render that handed out the actions */
     draw: (d: Drawing) => { pic = { ...pic, drawings: [...pic.drawings, d] } },
   }
@@ -57,6 +59,29 @@ describe('a Trupp ⇄ Leitung link', () => {
     expect(gesture.linkLineToAttachedTrupp('H', hose.endAttachment)).toBe(true)
     expect(f.crew()?.lineId).toBe('H')
     expect(f.line()?.truppId).toBe('C')
+  })
+
+  // review of #742: a hose drawn FROM the crew's marker is already coupled to it — the marker
+  // stays where it stands, and the free end stays free
+  it('a new hose that starts on the crew marker links the crew without moving the marker', () => {
+    const f = fixture([crew], [])
+    const gesture = f.useActions()
+    const fromMarker: Drawing = { id: 'H', kind: 'line', coords: [[7, 47], [7.02, 47]], startAttachment: objectAttachment('M') }
+    f.draw(fromMarker)
+    expect(gesture.linkLineToAttachedTrupp('H', fromMarker.startAttachment)).toBe(true)
+    expect(f.crew()?.lineId).toBe('H')
+    expect(f.marker()?.coord).toEqual([7, 47])
+    expect(f.line()?.endAttachment).toBeUndefined()
+  })
+
+  // review of #742: replay ignores `atemschutz.line.link`, so the stamped number rides a draw.edit
+  it('the number a link stamps on a new hose is in replay', async () => {
+    const f = fixture([{ ...crew, lineNo: 3 }], [])
+    const gesture = f.useActions()
+    f.draw(hose)
+    gesture.linkLineToAttachedTrupp('H', hose.endAttachment)
+    const { drawings } = await replayEmits({ entities: [marker], drawings: [hose] }, JSON.parse(JSON.stringify(f.emit.mock.calls)))
+    expect(drawings.find((d) => d.id === 'H')).toMatchObject({ lineNo: 3, truppId: 'C' })
   })
 
   // F7: «Gehört zu Trupp» wrote both sides raw and laid no step, so ↶ took back an older act
