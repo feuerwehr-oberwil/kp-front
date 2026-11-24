@@ -370,7 +370,7 @@ Where the data comes from, so nothing new has to be set up:
 | What you see | What happened | What to do |
 |--------------|---------------|------------|
 | Webhook answers **403** | no secret configured – the webhook is off | set the **Divera Webhook-Secret** field – and remember `.env` outranks the stored value |
-| Webhook answers **401** | the secret is missing from the request or does not match | check the secret in the URL / header registered in Divera against the **Divera Webhook-Secret** field |
+| Webhook answers **401** | the secret is missing from the request or does not match | check the secret in the URL / header registered in Divera against the EFFECTIVE secret – the `.env` value when one is set, else the **Divera Webhook-Secret** field |
 | Alarms arrive, but **up to 30 s late** (two minutes while an Einsatz runs) | the webhook is not registered (or the tier does not carry it) and you are running on the poll | Step 3; on FREE, this is the expected behaviour |
 | **HTTP 401 / 403** on the row | the key is wrong, was rotated, or its scope changed | re-enter the accesskey. For the personnel key, the rights of its user are the usual cause |
 | **HTTP 429** | polling too hard, or the tier's rate limit (FREE: one alarm per five minutes) | nothing to fix in KP Front; the next poll succeeds |

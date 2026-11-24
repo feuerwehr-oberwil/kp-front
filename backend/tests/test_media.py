@@ -39,6 +39,17 @@ async def _create_incident(client) -> str:
     return r.json()["id"]
 
 
+def _jpeg_bytes() -> bytes:
+    """A real JPEG (Pillow): its markers carry MPEG-like sync bits past the start."""
+    import io
+
+    from PIL import Image
+
+    buf = io.BytesIO()
+    Image.effect_noise((64, 64), 60).convert("RGB").save(buf, "JPEG")
+    return buf.getvalue()
+
+
 def _photo(name: str = "foto.jpg", content_type: str = "image/jpeg", data: bytes = JPEG):
     return {"file": (name, data, content_type)}
 
@@ -150,6 +161,18 @@ async def test_audio_is_stored_only_when_it_is_that_audio(client, editor, name, 
         data={"kind": "audio"},
     )
     assert fake.status_code == 415
+    if ctype == "audio/mpeg":  # AAC (ADTS) shares the frame sync but is no MP3
+        adts = await client.post(
+            f"/api/incidents/{inc}/media",
+            files={"file": (name, b"\xff\xf1\x50\x80" + b"\x00" * 8, ctype)},
+            data={"kind": "audio"},
+        )
+        assert adts.status_code == 415
+        # …nor a photo labelled MP3, whose bytes hold the sync bits somewhere
+        jpeg = await client.post(
+            f"/api/incidents/{inc}/media", files={"file": (name, _jpeg_bytes(), ctype)}, data={"kind": "audio"}
+        )
+        assert jpeg.status_code == 415
     ok = await client.post(f"/api/incidents/{inc}/media", files={"file": (name, real, ctype)}, data={"kind": "audio"})
     assert ok.status_code == 201, ok.text
 

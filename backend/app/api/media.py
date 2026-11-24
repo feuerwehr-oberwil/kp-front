@@ -111,21 +111,27 @@ _MAGIC_PREFIXES = {
 }
 
 
-#: how far into an MP3 the first frame may lie (leading padding or a foreign tag before it)
+#: how much zero padding may stand before an MP3's first frame
 _MPEG_PROBE = 64 * 1024
 
 
+def _mpeg_frame_at(head: bytes, i: int) -> bool:
+    """An MPEG audio frame header at `i`: the 11 sync bits, a real layer (00 is AAC's ADTS, which
+    shares the sync) and no reserved version."""
+    if i + 1 >= len(head) or head[i] != 0xFF:
+        return False
+    b = head[i + 1]
+    return b & 0xE0 == 0xE0 and bool(b & 0x06) and (b >> 3) & 0x03 != 0x01
+
+
 def _looks_like_mpeg_audio(head: bytes) -> bool:
-    """MP3: an ID3 tag first, or an MPEG frame (11 sync bits) within the first 64 KB."""
+    """MP3: an ID3 tag first, or a frame header at the start or after zero padding (bounded). Not
+    a scan for a frame anywhere – a JPEG holds the sync bits somewhere in its first kilobytes."""
     if head.startswith(b"ID3"):
         return True
     probe = head[:_MPEG_PROBE]
-    i = probe.find(b"\xff")
-    while i != -1 and i + 1 < len(probe):
-        if probe[i + 1] & 0xE0 == 0xE0:
-            return True
-        i = probe.find(b"\xff", i + 1)
-    return False
+    start = len(probe) - len(probe.lstrip(b"\x00"))
+    return _mpeg_frame_at(probe, start)
 
 
 def _matches_declared_type(content_type: str, head: bytes) -> bool:
