@@ -121,16 +121,20 @@ export function normAddress(label: string | null | undefined): string {
   return b ? `${a}, ${b}` : a
 }
 
-/** «9992 Ostdorf», «Ostdorf (BL)», «Ostdorf» → «ostdorf»: the town, folded, without postcode or canton. */
-const townKey = (place: string | null | undefined): string =>
-  foldWords((place ?? '').replace(/\(\w{2}\)|\b\d{4}\b/g, '')).replace(/ /g, '')
+/** «9992 Ostdorf», «4104 Oberwil BL», «Oberwil (BL)», «Oberwil» → «oberwil»: the town, folded,
+ *  without postcode or canton. */
+export const townKey = (place: string | null | undefined): string =>
+  foldWords((place ?? '').replace(/\(\p{Lu}{2}\)|\s\p{Lu}{2}$|\b\d{4}\b/gu, '')).replace(/ /g, '')
 
 /**
  * The catalogue object whose address IS this address — exact street + number, never «close» —
  * ⚠️ in the same town (hunt 24.11.2026, karte F4): two municipalities have a «Bahnhofstrasse 8»,
- * and the street alone flew Ostdorf's search to Westdorf's object. An object without a `locality`
- * stands in the home town (`home`, the deployment's map.geocoder.defaultLocality); an address
- * without a town, or no home town known, matches by street as before.
+ * and the street alone flew Ostdorf's search to Westdorf's object. An object's town is its
+ * `locality`, else the place in its own address, else the home town (`home`, the deployment's
+ * map.geocoder.defaultLocality); unknown when none says it. Only a KNOWN other town rules an
+ * object out – an unknown one may be this town (no home town configured). A search without a town
+ * matches only while the street names ONE town: two known towns at the same door are ambiguous,
+ * and nothing is better than the wrong one.
  * Two candidates → the one with plans, then by name.
  */
 export function objectAtAddress(
@@ -141,8 +145,12 @@ export function objectAtAddress(
   if (!key) return null
   const town = townKey(splitAddress(address)[1])
   const homeTown = townKey(home)
-  const objectTown = (o: StationObject) => townKey(o.locality ?? splitAddress(o.address)[1]) || homeTown
-  const hits = objects.filter((o) => streetKey(o.address) === key && (!town || !objectTown(o) || objectTown(o) === town))
+  const objectTown = (o: StationObject) => townKey(o.locality?.trim() || splitAddress(o.address)[1]) || homeTown
+  const atDoor = objects.filter((o) => streetKey(o.address) === key)
+  const towns = new Set(atDoor.map(objectTown).filter(Boolean))
+  const hits = town
+    ? atDoor.filter((o) => !objectTown(o) || objectTown(o) === town)
+    : towns.size <= 1 ? atDoor : []
   hits.sort((a, b) => Number(b.plans.length > 0) - Number(a.plans.length > 0) || a.name.localeCompare(b.name, 'de'))
   return hits[0] ?? null
 }

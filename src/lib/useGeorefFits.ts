@@ -324,11 +324,17 @@ export function useGeorefFits({
   useEffect(() => {
     if (replayActive) return
     let cancelled = false
+    // only the sheets linked now are kept: a building visited before is the bounded raster cache's
+    // to remember (lib/pdfRaster), not this state's
+    const linked = new Set(linkedPlans.map((p) => previewSource(p.imageUrl)))
     for (const p of linkedPlans) {
       const url = previewSource(p.imageUrl)
       if (!url || !twinPlanImageVisible(twinLayers, p.id) || georefPlanPreviews[url]) continue
       void planPreviewUrl(url, window.innerWidth, window.innerHeight).then((preview) => {
-        if (!cancelled) setGeorefPlanPreviews((cur) => cur[url] ? cur : { ...cur, [url]: preview })
+        if (!cancelled) {
+          setGeorefPlanPreviews((cur) => cur[url] ? cur
+            : { ...Object.fromEntries(Object.entries(cur).filter(([k]) => linked.has(k))), [url]: preview })
+        }
       }).catch(() => {})
     }
     return () => { cancelled = true }

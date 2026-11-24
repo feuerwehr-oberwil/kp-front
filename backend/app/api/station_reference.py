@@ -365,6 +365,20 @@ async def reference_houses(
 # --- the building at a point --------------------------------------------------------------------
 
 
+_PLACE_AFTER_NUMBER = re.compile(r"^(.*?\S)\s+(\d{4}\s+\S.*)$")
+
+
+def _split_place(address: str | None) -> tuple[str, str]:
+    """«Hauptstrasse 10, 4104 Oberwil» / «Hauptstrasse 10 4104 Oberwil» → (street, place) – the
+    same split as the client's (src/lib/karte/places · splitAddress)."""
+    text = (address or "").strip()
+    if "," in text:
+        head, _, tail = text.partition(",")
+        return head.strip(), tail.strip()
+    m = _PLACE_AFTER_NUMBER.match(text)
+    return (m.group(1), m.group(2)) if m else (text, "")
+
+
 async def object_at_address(db: AsyncSession, address: str | None) -> ObjectSite | None:
     """The catalogue object whose street + number IS this address, or None.
 
@@ -372,30 +386,32 @@ async def object_at_address(db: AsyncSession, address: str | None) -> ObjectSite
     NOT the building, and a register hint must never be dressed up as that object's facts. Two
     objects at one door → the one with plans, then by name.
     """
-    street = _street_of(address)
+    street_part, place = _split_place(address)
+    street = _street_of(street_part)
     if not street:
         return None
     # ⚠️ …in the SAME town (hunt 24.11.2026, karte F4): two municipalities have a «Bahnhofstrasse
-    # 8», and the street alone dressed Ostdorf's building in Westdorf's object. An object without a
-    # locality stands in the home town; with no home town configured, it matches as before.
-    place = address.split(",", 1)[1] if address and "," in address else ""
+    # 8», and the street alone dressed Ostdorf's building in Westdorf's object. An object's town is
+    # its locality, else the place in its own address, else the home town; unknown when none says
+    # it. Only a known other town rules an object out; a search without a town matches only while
+    # the street names ONE town (src/lib/karte/places · objectAtAddress).
+    home = (await geocode._resolve_bias())[0]
+    home_town = geocode.town_key(home)
     town = geocode.town_key(place)
-    plz_match = geocode._HAS_PLZ.search(place)
-    plz = plz_match.group(0) if plz_match else None
-    home = (await geocode._resolve_bias())[0] if (town or plz) else ""
 
-    def same_town(o: ObjectSite) -> bool:
-        if not (town or plz):
-            return True
-        if (o.locality or "").strip():
-            return geocode.town_key(o.locality) == town
-        return not home.strip() or geocode.is_home(town, plz, home)
+    def town_of(o: ObjectSite) -> str:
+        return geocode.town_key((o.locality or "").strip() or _split_place(o.address)[1]) or home_town
 
-    matches = [
+    at_door = [
         o
         for o in (await db.execute(select(ObjectSite).order_by(ObjectSite.name))).scalars()
-        if _street_of(o.address) == street and same_town(o)
+        if _street_of(o.address) == street
     ]
+    towns = {t for t in map(town_of, at_door) if t}
+    if town:
+        matches = [o for o in at_door if not town_of(o) or town_of(o) == town]
+    else:
+        matches = at_door if len(towns) <= 1 else []
     if not matches:
         return None
     with_plans = set(

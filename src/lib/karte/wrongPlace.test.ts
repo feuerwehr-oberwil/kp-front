@@ -94,3 +94,17 @@ it('reopening an unchanged reference-map lookup after dark draws the nighttime d
   const expected = ergRingsFor(row, 'small', new Date(), coord).find((r) => r.kind === 'protect')
   expect(radius()).toBe(expected?.radiusM)
 })
+
+it('a home-town object without a town matches its home address, whatever the canton suffix', () => {
+  const o = (id: string, address: string, locality: string | null = null): StationObject => ({
+    id, kind: 'objekt', name: id, address, locality, lat: 47.5, lng: 7.5,
+    aliases: [], plans: [], floors: [], egid: null, footprint: null, lastVisit: null,
+  } as StationObject)
+  expect(objectAtAddress([o('home', 'Hauptstrasse 10')], 'Hauptstrasse 10, 4104 Oberwil', '4104 Oberwil BL')?.id).toBe('home')
+  // the town in the object's own address counts when it has no locality
+  expect(objectAtAddress([o('east', 'Bahnhofstrasse 8, 9992 Ostdorf'), o('west', 'Bahnhofstrasse 8, 9991 Westdorf')],
+    'Bahnhofstrasse 8, 9991 Westdorf', '9999 Musterdorf')?.id).toBe('west')
+  // a search without a town at a door two towns share names neither
+  expect(objectAtAddress([o('east', 'Bahnhofstrasse 8', 'Ostdorf'), o('west', 'Bahnhofstrasse 8', 'Westdorf')],
+    'Bahnhofstrasse 8', '9999 Musterdorf')).toBeNull()
+})

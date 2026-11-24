@@ -339,6 +339,9 @@ async def test_a_searched_address_matches_the_object_in_its_own_town(client, db_
     for town, name in (("9992 Ostdorf", "Depot Ost"), ("9991 Westdorf", "Depot West")):
         params = {"lat": HOME[0], "lng": HOME[1], "address": f"Bahnhofstrasse 8, {town}"}
         assert (await client.get("/api/reference/building", params=params)).json()["object"]["name"] == name
+    # without a town, a door two towns share names neither
+    params = {"lat": HOME[0], "lng": HOME[1], "address": "Bahnhofstrasse 8"}
+    assert (await client.get("/api/reference/building", params=params)).json()["object"] is None
 
 
 async def test_building_switch_box_and_bounds(client, db_session, editor, registers):  # noqa: F811
