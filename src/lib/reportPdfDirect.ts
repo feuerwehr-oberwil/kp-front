@@ -19,7 +19,7 @@ import type { ReportDraft } from './report'
 import {
   annotatedPlans, einsatzleiterSuccession, formatDateTime, hasVisiblePlanAnnotation, journalRows, metaExtrasForPdf, mittelFormForPdf, pendenzRows, personalForPdf, readingBarShown, readingKindLabel, spanAwareClock, truppAuftragLabel, truppCrewHistory, truppEquipmentLabels, truppRunTimes, truppStatusLabel,
 } from './report'
-import { isAtemschutzTrupp, isStandDownExit } from './atemschutz'
+import { isStandDownExit } from './atemschutz'
 import { DEFAULT_HOURS_ROUNDING, fmtHours, hoursRows, hoursSummary } from './attendanceHours'
 import { atemschutzDoctrine, getDeploymentConfig } from './deploymentConfig'
 import { serverNow } from './serverClock'
@@ -27,7 +27,7 @@ import { fillTemplate, formatTime, localeDate } from './format'
 import { buildKrokiPayload, circleSvgString, shapeSvgString } from './krokiPayload'
 import { symbolLegendText } from './symbols'
 import { doneBadge, doneOf, doneWord } from './objectDone'
-import { auswertungForPdf, computeAuswertung } from './auswertung'
+import { auswertungForPdf, computeAuswertung, servedUnderPa } from './auswertung'
 import { fahrzeugRows } from './alarmzeiten'
 import type { ChecklistState, ChecklistTemplate } from './checklists'
 import { formatSymbolName } from './format'
@@ -677,7 +677,9 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
     // empty Druckverlauf under a heading that asserts it was monitored. It is not silently lost:
     // its Verlauf lines (angemeldet / eingerückt / draussen) are on the printed Journal like
     // every other action. (A place of its own in the Rapport is a separate, open question.)
-    trupps: (draft.options.atemschutz ? trupps.filter(isAtemschutzTrupp) : []).map((t) => ({
+    // ⚠️ …«under PA» means EVER, not now (auswertung · servedUnderPa): a crew re-deployed without
+    // PA for the clean-up keeps its first run, readings and all, on the page.
+    trupps: (draft.options.atemschutz ? trupps.filter(servedUnderPa) : []).map((t) => ({
       name: t.name, statusLabel: truppStatusLabel(t), members: t.members ?? [], auftrag: truppAuftragLabel(t.auftrag), ziel: t.ziel,
       // ⚠️ The heading and the crew PER CYCLE (12.09., docs/trupp-naming.md §5): «Trupp 1 – Meier
       // Anna» names the number and the Gruppenführer at registration, and each Eintritt names

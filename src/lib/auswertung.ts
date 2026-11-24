@@ -107,6 +107,26 @@ export interface AuswertungInput {
 
 // ----------------------------------------------------------------------------- Trupps
 
+/** Did the run opened by the Eintritt at `rows[i]` start under PA? See truppStretches for the order. */
+function runStartsWatched(t: Trupp, rows: readonly { r: TruppReading }[], i: number): boolean {
+  const entry = rows[i].r
+  if (typeof entry.pa === 'boolean') return entry.pa
+  let gauge = false
+  for (let j = i + 1; j < rows.length && rows[j].r.kind !== 'exit' && rows[j].r.kind !== 'entry'; j++) {
+    const { kind, bar } = rows[j].r
+    if (kind === 'paOn') return false
+    if (kind === 'paOff') return true
+    if ((kind === 'pressure' || kind === 'alarm') && bar > 0) gauge = true
+  }
+  return gauge || isAtemschutzTrupp(t)
+}
+
+/** Did this Trupp ever work under PA? Today's kind, or a watched run in its log — what puts it
+ *  on the Atemschutz page of the Rapport (reportPdfDirect), with its whole log. */
+export function servedUnderPa(t: Trupp): boolean {
+  return isAtemschutzTrupp(t) || truppStretches(t, Date.now()).watched.length > 0
+}
+
 /** the reading kinds that RESTART the contact clock (lib/atemschutz · lastContactTime) */
 const RESETS = new Set<TruppReading['kind']>(['contact', 'pressure', 'alarm', 'rueckzug', 'resume'])
 
@@ -125,11 +145,12 @@ export interface TruppStretches {
 /**
  * Read one Trupp's deployments off its log.
  *
- * Under PA or not is decided PER RUN: the first `paOn`/`paOff` row inside a run says what the
- * run started as (a `paOn` means it started unwatched), and a run without either is what the
- * Trupp is now. A kind changed between two runs by «Wieder einrücken» leaves no row behind
- * (useTruppActions · reactivateTrupp), so that one case reads as the current kind — the same
- * simplification the Atemschutz page makes by printing only today's PA Trupps.
+ * Under PA or not is decided PER RUN, in this order: the Eintritt's own `pa` (written since
+ * 24.11.2026, types · TruppReading.pa); else the first `paOn`/`paOff` row inside the run (a `paOn`
+ * means it started unwatched); else a pressure read off a gauge during the run (an older log's
+ * evidence of a cylinder); else what the Trupp is now. ⚠️ The current kind used to decide every
+ * run without a switch row (hunt 24.11.2026, records-rapport F2): a PA run followed by a
+ * re-deployment without PA vanished from the watched stretches and from the Atemschutz page.
  */
 export function truppStretches(t: Trupp, openEnd: number): TruppStretches {
   const rows = [...(t.readings ?? [])]
@@ -156,11 +177,7 @@ export function truppStretches(t: Trupp, openEnd: number): TruppStretches {
     } else if (r.kind === 'entry') {
       if (standbyFrom != null) { out.standby.push({ from: standbyFrom, to: at }); standbyFrom = null }
       if (run) closeRun(at, false) // an Eintritt without the Austritt before it: the old run ends here
-      let watched = isAtemschutzTrupp(t)
-      for (let j = i + 1; j < rows.length && rows[j].r.kind !== 'exit' && rows[j].r.kind !== 'entry'; j++) {
-        if (rows[j].r.kind === 'paOn') { watched = false; break }
-        if (rows[j].r.kind === 'paOff') { watched = true; break }
-      }
+      const watched = runStartsWatched(t, rows, i)
       run = { from: at, watched, watchFrom: watched ? at : null }
     } else if (r.kind === 'paOn') {
       if (run && run.watchFrom == null) run.watchFrom = at

@@ -637,7 +637,10 @@ export function truppLifecycleActions(deps: LifecycleDeps) {
           // and the Rapport reads each cycle's crew off the log
           // `measured` when the form's Eingangsdruck was set on purpose (a bottle answer, a
           // dialled value) — the first Druckmeldung then never «corrects» it (entryPressureConfirmed)
+          // `pa` on the Eintritt: the Art of THIS run, which the card's `kind` stops saying once
+          // the next re-entry changes it (types · TruppReading.pa)
           readings: [...(t.readings ?? []), { t: now, bar: f.pressure, kind: standby ? 'registered' : 'entry',
+            ...(standby ? {} : { pa: nowPa }),
             ...(f.pressureMeasured && nowPa ? { measured: true as const } : {}) },
             crewRow({ name: f.name, members: f.members, entryPressureBar: f.pressure }, now)] })
     setTrupps((ts) => ts.map((t) => (t.id === id ? apply(t) : t)))
