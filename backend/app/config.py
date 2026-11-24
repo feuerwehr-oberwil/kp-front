@@ -36,6 +36,25 @@ def is_production() -> bool:
     return any(os.getenv(k) is not None for k in railway_indicators)
 
 
+def is_staging() -> bool:
+    """A staging copy of production (docs/DEPLOYMENT.md · «A staging copy on Railway»):
+    ``ENVIRONMENT``/``APP_ENV`` = staging, or the Railway environment named «staging»."""
+    env = (os.getenv("ENVIRONMENT") or os.getenv("APP_ENV") or "").strip().lower()
+    railway = (os.getenv("RAILWAY_ENVIRONMENT_NAME") or os.getenv("RAILWAY_ENVIRONMENT") or "").strip().lower()
+    return "staging" in (env, railway)
+
+
+def external_delivery_allowed() -> bool:
+    """May this deployment WRITE to an external archive (the Einsatz-Ablage, the Objektbesuche
+    delivery)? Not on staging, unless ``STAGING_EXTERNAL_DELIVERY=1`` says so on purpose.
+
+    ⚠️ Staging runs on a copy of prod's database – its archive destinations and export
+    credentials included (hunt 24.11.2026, ops-integrations F1) – and its own scheduler, with no
+    lease shared with prod: a copied pending delivery could replace a file in prod's SharePoint.
+    The refresh script clears the copies; this gate also holds for a copy made any other way."""
+    return not is_staging() or os.getenv("STAGING_EXTERNAL_DELIVERY", "").strip() == "1"
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",

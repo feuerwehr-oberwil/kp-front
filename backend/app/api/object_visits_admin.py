@@ -26,6 +26,7 @@ from starlette.background import BackgroundTask
 from .. import object_visits as ov
 from .. import storage
 from ..auth.dependencies import CurrentAdmin
+from ..config import external_delivery_allowed
 from ..credentials import load as load_credentials
 from ..database import get_db
 from ..models import ObjectVisit, ObjectVisitDelivery, ObjectVisitRevision, PushSubscription, User
@@ -198,6 +199,12 @@ async def admin_test_destination(
     dest = next((d for d in cfg.destinations if d.id == destination_id), None)
     if dest is None:
         raise ov.not_found("Ablageziel nicht gefunden")
+    if not external_delivery_allowed():
+        return {
+            "ok": False,
+            "status": None,
+            "detail": "Staging: externe Ablage gesperrt (STAGING_EXTERNAL_DELIVERY=1 öffnet sie)",
+        }
     if export_credentials() is None:
         return {"ok": False, "status": None, "detail": "Zugangsdaten «SharePoint-Ablage» fehlen"}
     return await test_destination(dest)
