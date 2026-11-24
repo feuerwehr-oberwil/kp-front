@@ -26,6 +26,7 @@ import type { ObjectStore } from '../lib/useObjectStore'
 import type { useSymbols } from '../lib/useSymbols'
 import type { useTruppActions } from '../lib/useTruppActions'
 import type { PlanScales } from '../lib/workspace'
+import type { PlanScale } from '../lib/planScale'
 import type { PlanDocument, BoardDoc, BuildingDoc, TimelineEvent, Entity, Trupp, CaptionMode } from '../types'
 import { Whiteboard } from './lazySurfaces'
 import type { useGebaeudeActions } from './useGebaeudeActions'
@@ -95,7 +96,8 @@ export interface PlansSurfaceProps {
   /** «Im Atemschutz zeigen»: the board, landed on that Trupp's card */
   showTrupp: (truppId: string) => void
   planScale: PlanScales
-  setPlanScale: Dispatch<SetStateAction<PlanScales>>
+  /** a hand calibration, as one undo step (workspace/planCalibration) */
+  calibratePlan: (planId: string, sc: PlanScale) => () => boolean
   /** the Tafel's pages (workspace/useTafelPages) — absent for a link session */
   tafel: TafelPagesProps | undefined
   /** «Trupp finden» on the plan's Trupp dock, the Karte's finder (UX sweep M9) */
@@ -108,7 +110,7 @@ export function PlansSurface({
   setPickerOpen, symbolScale, symbolCaptions, mapSuppressedCaptions, readingsChip, georefFits, mapActions,
   replayBoard, replayBuilding, store, trails, deleteGhostTrail, armTrailDrop, building, gebaeude, logPlan,
   roster, addRecent, user, emit, planStacks, planFocus, effTrupps, truppCounterNames, teamNameTaken,
-  azAlarm, truppActions, newTruppFromMarker, showTrupp, planScale, setPlanScale, tafel, truppFinder, presentation,
+  azAlarm, truppActions, newTruppFromMarker, showTrupp, planScale, calibratePlan, tafel, truppFinder, presentation,
   vehicleOverrides,
 }: PlansSurfaceProps) {
   const { activeObjectName, activeObjectAddress, activeObjectNearby } = objectPlans
@@ -256,7 +258,7 @@ export function PlansSurface({
           tafel={tafel}
           truppFinder={truppFinder}
           planScale={planScale}
-          onCalibrate={(planId, sc) => { if (tacticalLocked) return; setPlanScale((m) => { if (!sc) { const { [planId]: _drop, ...rest } = m; return rest } return { ...m, [planId]: sc } }) }}
+          onCalibrate={tacticalLocked ? undefined : calibratePlan}
         /></Suspense>
       ))}
     </>

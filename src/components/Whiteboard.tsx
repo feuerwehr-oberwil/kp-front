@@ -357,8 +357,9 @@ interface Props {
   /** per-plan distance calibration (planId → factor). A plan has no inherent scale; the user
    *  calibrates against a printed scale bar so line lengths read in metres. See lib/planScale. */
   planScale?: PlanScales
-  /** persist a plan's calibration (null clears it). Rides the workspace blob via App. */
-  onCalibrate?: (planId: string, scale: PlanScale | null) => void
+  /** persist a plan's hand calibration as one undo step; hands back the toast's «Rückgängig»
+   *  (workspace/planCalibration). Rides the workspace blob. */
+  onCalibrate?: (planId: string, scale: PlanScale) => () => boolean
   /** The Karte's live feed on this sheet — vehicles and shared responder positions, already
    *  projected and clipped by the caller (lib/planProjection · liveOverlay). Everything else
    *  the Karte holds is an OBJECT and arrives in `annos` like the sheet's own work. */

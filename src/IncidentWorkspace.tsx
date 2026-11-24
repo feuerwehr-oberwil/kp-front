@@ -163,6 +163,8 @@ import { useSessionRole, useWorkspaceFlags, viewOnlyReason } from './workspace/a
 import { useOfflinePrefetch } from './workspace/useOfflinePrefetch'
 import { loadReportPreflight, loadWhiteboard, requestReportStep } from './workspace/lazySurfaces'
 import { useTafelPages } from './workspace/useTafelPages'
+import { calibratePlan } from './workspace/planCalibration'
+import type { PlanScale } from './lib/planScale'
 import { useTafelPendenzen } from './workspace/useTafelPendenzen'
 import type { OneShotRows, WorkspaceMode } from './workspace/types'
 import { WorkspaceMeldungen } from './workspace/WorkspaceMeldungen'
@@ -2570,6 +2572,16 @@ export function IncidentWorkspace({
     })
   }
   rememberOneShotRef.current = rememberOneShot
+  /** A plan's hand calibration (Whiteboard · usePlanMeasure), one step on the `planScale:<planId>`
+   *  record; its toast's «Rückgängig» goes through the same step (workspace/planCalibration). */
+  const calibratePlanScale = (planId: string, sc: PlanScale) => {
+    const C = appConfig.copy.whiteboard.scale
+    const said = fillTemplate(C.saved, { m: String(sc.refM) })
+    return calibratePlan(planId, sc, {
+      before: planScale[planId] ?? null, setPlanScale, remember: rememberOneShot, label: said,
+      rows: { undo: () => logPlan('measure', C.undone), redo: () => logPlan('measure', said) },
+    })
+  }
   // the Abschluss's «nicht eingesetzt» door (standDownTrupps above) — read only when the question
   // is answered, long after this commit, so an effect is the place to point it
   // ⚠️ Re-checked against the Trupps as they stand NOW: a Sicherungstrupp sent in while the
@@ -3310,7 +3322,7 @@ export function IncidentWorkspace({
         setPickerOpen, symbolScale, symbolCaptions, mapSuppressedCaptions, georefFits, mapActions,
         replayBoard, replayBuilding, store, trails, deleteGhostTrail, armTrailDrop, building, gebaeude, logPlan,
         roster, addRecent, user, emit, planStacks, planFocus, effTrupps, truppCounterNames, teamNameTaken,
-        azAlarm, truppActions, newTruppFromMarker, showTrupp, planScale, setPlanScale, tafel: tafelPendenzen.tafel,
+        azAlarm, truppActions, newTruppFromMarker, showTrupp, planScale, calibratePlan: calibratePlanScale, tafel: tafelPendenzen.tafel,
         truppFinder: { open: () => setFindTruppOpen(true), disabled: placed.length === 0 },
         readingsChip: replayActive ? null : <ReadingsChip points={readingPoints} compact={isPhone} onGo={goToReading} />,
         presentation: presentation.board,

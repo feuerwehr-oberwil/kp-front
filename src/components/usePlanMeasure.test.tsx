@@ -9,9 +9,10 @@ import { usePlanMeasure } from './usePlanMeasure'
 import type { PlanScale } from '../lib/planScale'
 
 // C9 (rare-user round 17.11.2026): a calibration somebody got wrong makes every metre on the plan
-// wrong, so «Massstab kalibriert» carries «Rückgängig», which puts back what the plan had.
+// wrong, so «Massstab kalibriert» carries «Rückgängig», which takes the calibration's own undo step
+// back (workspace/planCalibration – what it puts back is tested there).
 
-const args = (planScale: Record<string, PlanScale>, onCalibrate = vi.fn(), log = vi.fn(), setTool = vi.fn()) => ({
+const args = (planScale: Record<string, PlanScale>, onCalibrate = vi.fn((): (() => boolean) => () => true), log = vi.fn(), setTool = vi.fn()) => ({
   activeId: 'modul1', stack: false, aspect: 1, tileAR: 1, planScale,
   localY: (y: number) => y, floorAt: () => 0, tool: 'measure' as const, setTool,
   toNorm: () => null, log, onCalibrate, canCalibrate: true,
@@ -20,28 +21,35 @@ const args = (planScale: Record<string, PlanScale>, onCalibrate = vi.fn(), log =
 afterEach(() => vi.clearAllMocks())
 
 describe('usePlanMeasure · commitCalibration', () => {
-  it('opens the length field empty, and «Rückgängig» on the toast restores the previous scale', () => {
+  it('opens the length field empty, and «Rückgängig» on the toast takes the calibration step back', () => {
     const old: PlanScale = { mPerU: 2, refM: 20, ar: 1 }
-    const onCalibrate = vi.fn(), log = vi.fn()
-    const { result } = renderHook(() => usePlanMeasure(args({ modul1: old }, onCalibrate, log)))
+    const takeBack = vi.fn(() => true)
+    const onCalibrate = vi.fn(() => takeBack)
+    const { result } = renderHook(() => usePlanMeasure(args({ modul1: old }, onCalibrate)))
     expect(result.current.lastRefM).toBeNull()
     act(() => { result.current.setCalPrompt({ a: [0, 0], b: [0.5, 0], why: true }) })
     act(() => { result.current.commitCalibration(10) })
+    expect(onCalibrate).toHaveBeenCalledOnce()
     expect(onCalibrate).toHaveBeenLastCalledWith('modul1', expect.objectContaining({ refM: 10 }))
+    expect(result.current.savePrompt).not.toBeNull()
     const [, opts] = vi.mocked(toast).mock.calls[0]
     act(() => { opts!.action!.onClick() })
-    expect(onCalibrate).toHaveBeenLastCalledWith('modul1', old)
+    expect(takeBack).toHaveBeenCalledOnce()
+    expect(onCalibrate).toHaveBeenCalledOnce()
     expect(result.current.savePrompt).toBeNull()
-    expect(log).toHaveBeenLastCalledWith('measure', 'Massstab zurückgenommen')
   })
 
-  it('takes a first calibration back to none', () => {
-    const onCalibrate = vi.fn()
+  // hunt 24.11.2026, frontend-state F9: the toast put the old scale back unconditionally, so a
+  // newer scale another tablet had set meanwhile was deleted
+  it('declines once the step is gone, and writes nothing', () => {
+    const onCalibrate = vi.fn((): (() => boolean) => () => false)
     const { result } = renderHook(() => usePlanMeasure(args({}, onCalibrate)))
     act(() => { result.current.setCalPrompt({ a: [0, 0], b: [0.5, 0] }) })
     act(() => { result.current.commitCalibration(10) })
     act(() => { vi.mocked(toast).mock.calls[0][1]!.action!.onClick() })
-    expect(onCalibrate).toHaveBeenLastCalledWith('modul1', null)
+    expect(onCalibrate).toHaveBeenCalledOnce()
+    expect(vi.mocked(toast)).toHaveBeenLastCalledWith('Nicht mehr rückgängig machbar', { icon: 'warn' })
+    expect(result.current.savePrompt).not.toBeNull()
   })
 })
 
