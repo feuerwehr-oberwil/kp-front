@@ -629,7 +629,12 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Incident */
+        /**
+         * Get Incident
+         * @description The Einsatz. `?workspace=false` leaves the blob out (hunt 24.11.2026, performance F4): the
+         *     link boot only needs the metadata – WorkspaceSync reads the workspace itself right after, and
+         *     a responder's phone downloaded it twice before the Einsatz opened.
+         */
         get: operations["get_incident_api_incidents__incident_id__get"];
         put?: never;
         post?: never;
@@ -7998,6 +8003,8 @@ export interface components {
             workspace?: {
                 [key: string]: unknown;
             } | null;
+            /** Next At */
+            next_at?: string | null;
         };
         /** SubscriptionIn */
         SubscriptionIn: {
@@ -9300,7 +9307,10 @@ export interface operations {
     };
     get_incident_api_incidents__incident_id__get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description false: without the workspace blob */
+                workspace?: boolean;
+            };
             header?: never;
             path: {
                 incident_id: string;

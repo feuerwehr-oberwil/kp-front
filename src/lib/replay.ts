@@ -62,6 +62,8 @@ interface SnapshotResponse {
   occurred_at: string | null
   seq_at: number | null
   workspace: Saved | null
+  /** when the next snapshot was taken – this anchor serves every instant before it */
+  next_at?: string | null
 }
 /** One recorded GPS fix; `device_name` is the tracker's name on the live feed during the
  *  Einsatz (backend `vehicle_presence · names_seen`), null when none was recorded. */
@@ -403,12 +405,35 @@ export async function loadReplay(
   const { startMs, endMs } = activeReplayRange(events, samples, windowStartMs, windowEndMs)
 
   const snapshotCache = new Map<number, Saved | null>()
+  // ⚠️ One request per ANCHOR, not per frame (hunt 24.11.2026, performance F2). The Wiedergabe
+  // asks for a state four times a second and on every drag move; each ask downloaded the whole
+  // snapshot again, and once a reply took longer than a frame the clock outran it and the Karte
+  // stopped updating. An anchor serves every instant up to the next snapshot (`next_at`), and an
+  // ask while one request is out waits for it – its answer usually covers the new instant too.
+  const anchors: { fromMs: number; untilMs: number; workspace: Saved | null; occurredMs: number | null }[] = []
+  let inflight: Promise<unknown> | null = null
+  const covering = (tMs: number) => anchors.find((a) => tMs >= a.fromMs && tMs < a.untilMs)
   const loadSnapshotAt = async (tMs: number) => {
-    const atISO = new Date(tMs).toISOString()
-    const res = await fetchSnapshotAt(incidentId, atISO).catch(() => null)
-    if (!res || !res.found || res.occurred_at == null) return { workspace: null, occurredMs: null }
+    let hit = covering(tMs)
+    if (!hit && inflight) {
+      await inflight
+      hit = covering(tMs)
+    }
+    if (hit) return { workspace: hit.workspace, occurredMs: hit.occurredMs }
+    const req = fetchSnapshotAt(incidentId, new Date(tMs).toISOString()).catch(() => null)
+    inflight = req
+    const res = await req
+    if (inflight === req) inflight = null
+    if (!res) return { workspace: null, occurredMs: null }
+    const untilMs = res.next_at ? ms(res.next_at) : Number.POSITIVE_INFINITY
+    if (!res.found || res.occurred_at == null) {
+      // before the first snapshot: everything up to it folds from the empty start
+      anchors.push({ fromMs: Number.NEGATIVE_INFINITY, untilMs, workspace: null, occurredMs: null })
+      return { workspace: null, occurredMs: null }
+    }
     const occurredMs = ms(res.occurred_at)
     snapshotCache.set(occurredMs, res.workspace)
+    anchors.push({ fromMs: occurredMs, untilMs, workspace: res.workspace, occurredMs })
     return { workspace: res.workspace, occurredMs }
   }
 

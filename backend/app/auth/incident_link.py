@@ -680,39 +680,18 @@ async def _incident_still_open(db: AsyncSession, incident_id: str) -> bool:
     return row is not None and row.is_open
 
 
-async def _surfaced_object_ids(db: AsyncSession, incident_id: str) -> frozenset[uuid.UUID]:
-    """The Einsatzobjekte one incident points at.
-
-    The same set ``GET /api/incidents/{id}/objects`` serves — address match, then 400 m — plus
-    the object an editor picked by hand on the KP tablet, which the workspace carries as
-    ``pickedObjectId`` and which may sit well outside that radius.
-
-    Derived by CALLING the listing handler rather than re-deriving its rule: a second copy of
-    the address/radius logic would drift, and it would drift silently in the worst direction —
-    the Rapport's own Objektplan answering 403 to the person it was sent to.
-    """
-    from ..api.objects import objects_near_incident
-    from ..models import Incident
+async def _surfaces(db: AsyncSession, incident_id: str, object_id: uuid.UUID) -> bool:
+    """Does this incident point at this object – the plan rail's own rule, asked for the ONE
+    object (api/objects · object_surfaced), never a second copy of the address/radius logic: that
+    would drift, and drift silently in the worst direction – the Rapport's own Objektplan
+    answering 403 to the person it was sent to."""
+    from ..api.objects import object_surfaced
 
     try:
         ident = uuid.UUID(incident_id)
     except (ValueError, AttributeError, TypeError):
-        return frozenset()
-
-    try:
-        # `_user` is that handler's auth dependency and is otherwise unused; this caller has
-        # already been authorised by the link session, so there is nobody to pass.
-        rows = await objects_near_incident(ident, None, db)  # type: ignore[arg-type]
-    except HTTPException:  # the incident is gone → it surfaces nothing
-        return frozenset()
-
-    ids = {row.id for row in rows}
-    workspace = (await db.execute(select(Incident.map_workspace_json).where(Incident.id == ident))).scalar_one_or_none()
-    picked = (workspace or {}).get("pickedObjectId") if isinstance(workspace, dict) else None
-    if isinstance(picked, str):
-        with contextlib.suppress(ValueError):
-            ids.add(uuid.UUID(picked))
-    return frozenset(ids)
+        return False
+    return await object_surfaced(db, ident, object_id)
 
 
 async def _link_param_allowed(request: Request, db: AsyncSession, path: str, incident_id: str) -> bool:
@@ -743,7 +722,7 @@ async def _link_param_allowed(request: Request, db: AsyncSession, path: str, inc
             wanted = uuid.UUID(str(got))
         except (ValueError, TypeError):
             return False
-        return wanted in await _surfaced_object_ids(db, incident_id)
+        return await _surfaces(db, incident_id, wanted)
 
     if path in (
         "/api/reference/{dataset_id}",
@@ -766,7 +745,7 @@ async def _link_param_allowed(request: Request, db: AsyncSession, path: str, inc
         # ``object_id is None`` grants nothing on its own: only the genuine station furniture
         # below passes without an object.
         if object_id is not None:
-            return object_id in await _surfaced_object_ids(db, incident_id)
+            return await _surfaces(db, incident_id, object_id)
         # No object behind it → allow ONLY map/report furniture: hydrant/GeoJSON layers, the
         # symbol pack, the Checklisten templates/assets. A PDF or an unknown kind is refused.
         return kind in _LINK_FURNITURE_KINDS

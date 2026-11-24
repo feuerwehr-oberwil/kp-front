@@ -650,3 +650,55 @@ async def test_view_link_reads_its_objects_plans_but_not_their_modul1_notes(clie
 
     r = await client.get(f"/api/incidents/{incident.id}/building", headers=LINK_PAGE)
     assert r.status_code == 403
+
+
+async def test_a_plan_request_reads_one_object_not_the_register(client, editor, incident, db_session):
+    """Hunt 24.11.2026, performance F5: every uncached plan tile on a link re-read every station
+    object (and the incident's whole workspace) to decide one dataset. Now only the dataset's
+    own object is read – the decision is the same."""
+    from sqlalchemy import event
+
+    obj, plan = await _object_with_plan(
+        db_session, name="Schulhaus", address=ADDRESS, dataset_id="plan:schulhaus:modul1"
+    )
+    for i in range(12):
+        db_session.add(ObjectSite(name=f"Anderes {i}", address=f"Weg {i}, 9999 Anderswo"))
+    await db_session.commit()
+    await _open_view_link(client, editor, incident)
+    loaded: list[str] = []
+
+    def count(target, _ctx) -> None:
+        loaded.append(target.name)
+
+    event.listen(ObjectSite, "load", count)
+    try:
+        assert (await client.get(f"/api/reference/{plan}")).status_code == 200
+        assert (await client.get(f"/api/objects/{obj.id}")).status_code == 200
+    finally:
+        event.remove(ObjectSite, "load", count)
+    assert "Schulhaus" in loaded and not [n for n in loaded if n.startswith("Anderes")]
+
+
+async def test_the_link_boot_reads_the_einsatz_without_its_workspace(client, editor, incident, db_session):
+    """Hunt 24.11.2026, performance F4: the link boot fetched the whole workspace with the
+    Einsatz, and WorkspaceSync fetched it again before the Einsatz opened."""
+    incident.map_workspace_json = {"entities": [{"id": "e1"}]}
+    await db_session.commit()
+    await _open_view_link(client, editor, incident)
+    full = (await client.get(f"/api/incidents/{incident.id}")).json()
+    assert full["map_workspace_json"] == {"entities": [{"id": "e1"}]}
+    meta = (await client.get(f"/api/incidents/{incident.id}", params={"workspace": "false"})).json()
+    assert meta["map_workspace_json"] is None and meta["id"] == full["id"] and meta["title"] == full["title"]
+
+
+async def test_the_object_an_editor_picked_by_hand_opens_on_a_link_however_far(client, editor, incident, db_session):
+    """The picked object (`pickedObjectId` in the workspace) surfaces outside the 400 m – read as
+    the one JSON field now, not the whole workspace (performance F5)."""
+    far, plan = await _object_with_plan(
+        db_session, name="Werkhof", address="Industrieweg 1, 9998 Fern", dataset_id="plan:werkhof:modul1"
+    )
+    await _open_view_link(client, editor, incident)
+    assert (await client.get(f"/api/reference/{plan}")).status_code == 403
+    incident.map_workspace_json = {"pickedObjectId": str(far.id)}
+    await db_session.commit()
+    assert (await client.get(f"/api/reference/{plan}")).status_code == 200

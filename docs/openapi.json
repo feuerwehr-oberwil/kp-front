@@ -1746,6 +1746,7 @@
           "incidents"
         ],
         "summary": "Get Incident",
+        "description": "The Einsatz. `?workspace=false` leaves the blob out (hunt 24.11.2026, performance F4): the\nlink boot only needs the metadata – WorkspaceSync reads the workspace itself right after, and\na responder's phone downloaded it twice before the Einsatz opened.",
         "operationId": "get_incident_api_incidents__incident_id__get",
         "parameters": [
           {
@@ -1757,6 +1758,18 @@
               "format": "uuid",
               "title": "Incident Id"
             }
+          },
+          {
+            "name": "workspace",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "false: without the workspace blob",
+              "default": true,
+              "title": "Workspace"
+            },
+            "description": "false: without the workspace blob"
           },
           {
             "name": "access_token",
@@ -25286,6 +25299,18 @@
               }
             ],
             "title": "Workspace"
+          },
+          "next_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next At"
           }
         },
         "type": "object",

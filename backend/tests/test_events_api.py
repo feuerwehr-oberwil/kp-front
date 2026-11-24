@@ -384,7 +384,7 @@ async def test_snapshot_reports_not_found_before_any_save(client, editor):
     inc = await _incident(client)
     r = await client.get(f"/api/incidents/{inc}/snapshot", params={"at": datetime.now(UTC).isoformat()})
     assert r.status_code == 200
-    assert r.json() == {"found": False, "occurred_at": None, "seq_at": None, "workspace": None}
+    assert r.json() == {"found": False, "occurred_at": None, "seq_at": None, "workspace": None, "next_at": None}
 
 
 async def test_snapshot_and_state_pick_the_nearest_save_at_or_before(client, editor, db_session):
@@ -418,6 +418,14 @@ async def test_snapshot_and_state_pick_the_nearest_save_at_or_before(client, edi
     body = r.json()
     assert datetime.fromisoformat(body["occurred_at"].replace("Z", "+00:00")) == t1
     assert body["found"] is True
+    # …and it says where its interval ends – the Wiedergabe reuses it until then (performance F2)
+    assert datetime.fromisoformat(body["next_at"].replace("Z", "+00:00")) == t2
+    early = await client.get(
+        f"/api/incidents/{inc}/snapshot", params={"at": datetime(2020, 1, 1, tzinfo=UTC).isoformat()}
+    )
+    assert datetime.fromisoformat(early.json()["next_at"].replace("Z", "+00:00")) == t1
+    last = await client.get(f"/api/incidents/{inc}/snapshot", params={"at": after.isoformat()})
+    assert last.json()["next_at"] is None
     assert body["seq_at"] == 1
     assert body["workspace"] == {"v": 1}
 

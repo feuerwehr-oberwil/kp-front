@@ -35,7 +35,7 @@ import { ErrorBoundary } from './components/ErrorBoundary'
 import { isAtemschutzLinkKind, useAuth } from './lib/auth'
 import { IncidentWorkspace } from './IncidentWorkspace'
 import {
-  listIncidentsResilient, listIncidentsShared, getIncident,
+  listIncidentsResilient, listIncidentsShared, getIncident, getIncidentMeta,
   migrateLegacyWorkspace, takeDiveraAlarm, attachDiveraAlarm, discardWorkspaceCache,
   isIncidentRunning, showAlarmUpdate, type DiveraAlarm, type IncidentFull, type IncidentMeta, type Workspace,
 } from './lib/incidents'
@@ -486,7 +486,7 @@ function IncidentApp() {
       // and open it. (GET /api/incidents is not on the link allowlist, so listing here would
       // 403 and land a responder on an empty launcher instead of the Einsatz they were sent.)
       if (linkIncidentId) {
-        const inc = await getIncident(linkIncidentId).catch(() => null)
+        const inc = await getIncidentMeta(linkIncidentId).catch(() => null)
         if (!alive) return
         setIncidents(inc ? [inc as IncidentMeta] : [])
         if (inc) await bootOpen(inc as IncidentMeta)

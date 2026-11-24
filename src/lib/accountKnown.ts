@@ -7,12 +7,13 @@
  * chunk, and importing the calibration from it pulled the whole drawing graph in with it
  * (+25 % on the bundle budget).
  */
-let listener: (() => void) | null = null
+const listeners: (() => void)[] = []
 
+/** Run `fn` whenever an account becomes known (the boot's calibration load, the field-app warm-up). */
 export function onAccountKnown(fn: () => void): void {
-  listener = fn
+  listeners.push(fn)
 }
 
 export function notifyAccountKnown(): void {
-  listener?.()
+  for (const fn of listeners) fn()
 }
