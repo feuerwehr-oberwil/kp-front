@@ -121,23 +121,31 @@ export class IncidentTabLock {
   }
 }
 
-/** React binding: editable-here state + take-over action for the active incident. */
-export function useIncidentTabLock(incidentId: string | null): { held: boolean; takeOver: () => void } {
+/** React binding: editable-here state + take-over action for the active incident.
+ *  `heldAtOpen`: the lock's FIRST answer for this incident — true when this tab got it at once
+ *  (or there are no Web Locks), false when it opened behind another tab, null until it answers.
+ *  `held` alone cannot say it: it starts true optimistically. */
+export function useIncidentTabLock(incidentId: string | null): { held: boolean; heldAtOpen: boolean | null; takeOver: () => void } {
   // starts true so the common single-tab case never flashes the read-only banner; the
   // try-acquire settles within milliseconds and corrects this if another tab holds the lock.
   const [held, setHeld] = useState(true)
+  const [heldAtOpen, setHeldAtOpen] = useState<boolean | null>(null)
   const ref = useRef<IncidentTabLock | null>(null)
   useEffect(() => {
     if (!incidentId) { setHeld(true); return }
-    const lock = new IncidentTabLock(`kp-front-incident-${incidentId}`, setHeld)
+    const lock = new IncidentTabLock(`kp-front-incident-${incidentId}`, (now) => {
+      setHeld(now)
+      setHeldAtOpen((first) => first ?? now)
+    })
     ref.current = lock
     lock.start()
     return () => {
       ref.current = null
       lock.stop()
       setHeld(true)
+      setHeldAtOpen(null)
     }
   }, [incidentId])
   const takeOver = useCallback(() => ref.current?.takeOver(), [])
-  return { held, takeOver }
+  return { held, heldAtOpen, takeOver }
 }

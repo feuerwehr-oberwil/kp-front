@@ -1225,6 +1225,14 @@ export class WorkspaceSync {
     return this.flushing
   }
 
+  /** Push what this engine holds unsynced, after the usual debounce — for an editor that opened
+   *  with a restored dirty entry and edits nothing (useIncidentSync). Nothing armed that push
+   *  before (hunt 24.11.2026, offline-sync F4): on a healthy link the badge said «wird
+   *  gespeichert» until the next edit, and the edit stayed on this device. */
+  pushOwed(): void {
+    if (this.entry.dirty && this.sessionActive && !this.timer && !this.flushing) this.armDebounce()
+  }
+
   private async drain(): Promise<void> {
     while (this.entry.dirty && this.sessionActive) {
       if (this.timer) { clearTimeout(this.timer); this.timer = null }

@@ -239,6 +239,8 @@ interface WorkspaceProps {
   forceReadOnly: boolean
   /** another tab of THIS browser is editing the incident → read-only here + take-over banner */
   tabLockLost: boolean
+  /** this tab got the edit lock at once when it opened the incident (lib/tabLock · heldAtOpen) */
+  tabLockHeldAtOpen?: boolean
   onTakeOverTab: () => void
   onSwitchIncident: (i: IncidentMeta) => void
   onOpenHistory: () => void
@@ -293,7 +295,7 @@ interface WorkspaceProps {
 
 
 export function IncidentWorkspace({
-  incidentMeta, incidents, workspace, sync, forceReadOnly, tabLockLost, onTakeOverTab, onCompleteRapport, abschlussRef,
+  incidentMeta, incidents, workspace, sync, forceReadOnly, tabLockLost, tabLockHeldAtOpen = false, onTakeOverTab, onCompleteRapport, abschlussRef,
   onSwitchIncident, onOpenHistory, onOpenObjectVisits, onOpenKarte, onOpenDivera, menuAlarms, menuFolded, onReactivateActive, onBackFromArchive,
   covered = false, onUncover, needsReview, onReviewDone, reviewedLocallyAt, onEditMeta, lifecycleElsewhere, openCover, onOpenCoverDone,
 }: WorkspaceProps) {
@@ -1405,7 +1407,7 @@ export function IncidentWorkspace({
     // on it (canSignRapport); nothing else writes a slice on a closed view — every writer gates
     // on the flags derived from `readOnly`. …and never the blob of a newer build (olderBuild):
     // the Verlauf and audit outboxes still deliver, the workspace is not pushed or flushed.
-    sync, readOnly: outboxReadOnly || olderBuild, incidentId: incidentMeta.id,
+    sync, readOnly: outboxReadOnly || olderBuild, incidentId: incidentMeta.id, lockHeldAtOpen: tabLockHeldAtOpen,
     buildPayload, applyWorkspace, flushEvents, flushEventsBeacon,
     // attendance-divergence note (both sides changed the same person → one Verlauf row)
     // Not for an Atemschutz-Link session: the server refuses every non-«team» row from it (403,
@@ -1570,7 +1572,7 @@ export function IncidentWorkspace({
   const attachmentMediaRef = useRef<(id: string, url: string) => void>(() => {})
   const applyAttachmentMedia = useCallback((id: string, url: string) => attachmentMediaRef.current(id, url), [])
   const {
-    media, flushRecordOutboxes, swapRowMedia, syncStatus, closedRefusedUnexported, baseSyncStatus,
+    media, flushRecordOutboxes, syncStatus, closedRefusedUnexported, baseSyncStatus,
     syncNow,
   } = useMediaOutbox({
     swapPhoto, swapAttachmentMedia: applyAttachmentMedia, overlayRow, patchRow, incidentMeta, canWriteRecord, closedRefusedTotal,
@@ -1669,8 +1671,8 @@ export function IncidentWorkspace({
   // the row media uploads and the Rapport-Beilagen — lib/useRowMediaUpload. ⚠️ The two refs go in
   // as the REF OBJECTS: rememberOneShotRef is assigned much further down, and lastCaptionStep is
   // reset by the remote hydrate above.
-  const { uploadPhotoForRow, uploadMediaForRow, addAttachments, captionAttachment, removeAttachment, swapAttachmentMedia } = useRowMediaUpload({
-    incidentMeta, canWriteRecord, media, swapPhoto, swapRowMedia, attachments, setAttachments, emit,
+  const { uploadPhotoForRow, uploadAudioForRow, addAttachments, captionAttachment, removeAttachment, swapAttachmentMedia } = useRowMediaUpload({
+    canWriteRecord, media, attachments, setAttachments, emit,
     rememberOneShotRef, lastCaptionStepRef: lastCaptionStep,
   })
   // Install before the media queue's passive restore effect can finish its IndexedDB read.
@@ -2276,7 +2278,7 @@ export function IncidentWorkspace({
     building, setJournalOpen, setMode, setPanel, setActivePlanId, setPlanFocus, flyToMapVisible,
     focusEntity, incidentMeta, incidentView, doc, tacticalLocked, replayActive, stepLabelRef: stepLabel, commit, emit,
     log, setSelectedDrawingId, setSelectedId, mode, pushEvent, composerOpenedAtRef: composerOpenedAt, activePlanId,
-    uploadPhotoForRow, uploadMediaForRow, setComposerOpen, setNoteOn, player, timeline, running, undoHist, journal,
+    uploadPhotoForRow, uploadAudioForRow, setComposerOpen, setNoteOn, player, timeline, running, undoHist, journal,
   })
   // …and the Tafel's «Aufträge / Pendenzen» page, a view on those same Wiedervorlagen
   const tafelPendenzen = useTafelPendenzen({
