@@ -112,6 +112,28 @@ describe('OrientSlider – the Gebäude orientation preview', () => {
     expect(commit.mock.calls).toEqual([[7]])
   })
 
+  // review of #742: an unrelated key lifting is no end of the gesture, and a pointer press ends it
+  it('a Shift lifted under a held arrow does not split the gesture into two commits', () => {
+    const commit = vi.fn()
+    render(<Harness onCommit={commit} />)
+    fireEvent.keyDown(slider(), { key: 'ArrowRight' })
+    fireEvent.keyUp(slider(), { key: 'Shift' })
+    fireEvent.keyDown(slider(), { key: 'ArrowRight', repeat: true })
+    fireEvent.keyUp(slider(), { key: 'ArrowRight' })
+    expect(commit.mock.calls).toEqual([[2]])
+  })
+
+  it('a pointer press ends an open key gesture: the key lifting later commits nothing stale', () => {
+    const commit = vi.fn()
+    render(<Harness onCommit={commit} />)
+    fireEvent.keyDown(slider(), { key: 'ArrowRight' })
+    fireEvent.pointerDown(slider(), at(40))
+    fireEvent.pointerUp(slider(), at(40))
+    fireEvent.keyUp(slider(), { key: 'ArrowRight' })
+    expect(commit.mock.calls).toEqual([[1], [40]])
+    expect(shown()).toBe(40)
+  })
+
   it('the popover closing with a preview still live drops it', () => {
     const commit = vi.fn()
     render(<Harness onCommit={commit} />)
