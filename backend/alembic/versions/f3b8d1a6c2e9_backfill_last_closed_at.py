@@ -12,9 +12,9 @@ This repairs exactly those rows, from the audit log:
   models.lifecycle_open) and still stamped with its first close (`last_closed_at = closed_at`);
 - replaying its SERVER-written `status.change` events in `seq` order (source «status»; `archived`
   and the status `to`; the events of ONE transaction – same `recorded_at` – as one step, so a
-  PATCH that writes two rows never looks briefly open), the history PROVES a later close: a
-  second open → closed transition (closed, reopened, closed again), or a close after a FireHub
-  «Einsatzende» that stamped `closed_at` first. The last such close, floored at `closed_at` as
+  PATCH that writes two rows never looks briefly open), the history PROVES a later close: an
+  open → closed transition AFTER an event that stamped `closed_at` (an archive, or a FireHub
+  «Einsatzende»; a close by status alone stamps nothing). The last such close, floored at `closed_at` as
   current_close does, becomes `last_closed_at`. A lone close with no such evidence is left as
   it is, however far its event lies from the stamp.
 `closed_at` (the first close, which marks the Nachträge) is never touched, nor is a row whose
@@ -80,13 +80,18 @@ def _payload(raw: object) -> dict:
 
 
 def later_close(rows: Sequence[tuple[datetime, datetime | None, object]]) -> datetime | None:
-    """The close the history PROVES came after the first one, else None – from (occurred_at,
-    recorded_at, payload) status.change rows in seq order, replayed from an open Einsatz with both
-    lifecycle fields as models.lifecycle_open reads them. Rows sharing a recorded_at are one
-    transaction and one step."""
+    """The close the history PROVES came after the one that stamped `closed_at`, else None – from
+    (occurred_at, recorded_at, payload) status.change rows in seq order, replayed from an open
+    Einsatz with both lifecycle fields as models.lifecycle_open reads them. Rows sharing a
+    recorded_at are one transaction and one step.
+
+    Only an archive (`archived: true`) or a FireHub «Einsatzende» stamps `closed_at`; a close by
+    status alone does not. So a close counts as LATER only once one of those has happened before
+    it – an Einsatz closed by status, reopened and then archived for the first time keeps the
+    archive's own stamp."""
     archived, status = False, ACTIVE[0]
-    closes: list[datetime] = []
-    firehub_first = False
+    stamped = False
+    found: datetime | None = None
     i = 0
     while i < len(rows):
         # one transaction = the rows with this recorded_at (an unknown one is a step of its own)
@@ -94,20 +99,20 @@ def later_close(rows: Sequence[tuple[datetime, datetime | None, object]]) -> dat
         while j < len(rows) and rows[i][1] is not None and rows[j][1] == rows[i][1]:
             j += 1
         was_open = not archived and status in ACTIVE
+        stamps = False
         for _at, _rec, raw in rows[i:j]:
             p = _payload(raw)
+            if p.get("archived") is True or (p.get("source") == "firehub" and p.get("einsatzende")):
+                stamps = True
             if isinstance(p.get("archived"), bool):
                 archived = p["archived"]
             if isinstance(p.get("to"), str):
                 status = p["to"]
-            if p.get("source") == "firehub" and p.get("einsatzende") and not closes:
-                firehub_first = True
-        if was_open and not (not archived and status in ACTIVE):
-            closes.append(rows[j - 1][0])
+        if was_open and not (not archived and status in ACTIVE) and stamped:
+            found = rows[j - 1][0]
+        stamped = stamped or stamps
         i = j
-    if len(closes) >= 2 or (closes and firehub_first):
-        return closes[-1]
-    return None
+    return found
 
 
 def _closed():

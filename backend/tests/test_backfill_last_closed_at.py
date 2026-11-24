@@ -125,6 +125,19 @@ ROWS = {
         [("2026-08-01 08:05:00", {"archived": True, "auto": True}, "status")],
         FIRST,
     ),
+    # closed by status (stamps nothing), reopened, then archived for the FIRST time: its own stamp
+    "status-then-archive": (
+        True,
+        "offen",
+        SECOND,
+        SECOND,
+        [
+            (FIRST, {"from": "offen", "to": "abgeschlossen"}, "status"),
+            (REOPEN, {"from": "abgeschlossen", "to": "offen"}, "status"),
+            ("2026-08-02 18:04:00", {"archived": True, "auto": True}, "status"),
+        ],
+        SECOND,
+    ),
 }
 
 
@@ -171,4 +184,4 @@ def test_the_later_close_is_backfilled_from_the_server_lifecycle_and_nothing_els
         _upgrade(conn)  # idempotent: a second run changes nothing
         assert _stamps(conn, "last_closed_at") == expected
         # the first close (it marks the Nachträge) is never touched
-        assert set(_stamps(conn, "closed_at").values()) == {FIRST}
+        assert _stamps(conn, "closed_at") == {inc: row[2] for inc, row in ROWS.items()}
