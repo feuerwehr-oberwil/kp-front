@@ -230,6 +230,19 @@ async def test_a_reopen_also_reopens_a_status_close(client, editor):
     assert r.status_code == 201, r.text
 
 
+async def test_a_reopen_also_reopens_an_einsatz_closed_by_its_status_alone(client, editor):
+    """Sol review (K10): closed by `status` only, «Wieder öffnen» (is_archived=false) changed nothing."""
+    await _login(client, editor)
+    inc = await _incident(client)
+    url = f"/api/incidents/{inc}"
+    assert (await client.patch(url, json={"status": "abgeschlossen"})).status_code == 200
+    r = await client.patch(url, json={"is_archived": False})
+    assert r.status_code == 200 and r.json()["status"] == "in_arbeit"
+    rows = (await client.get(url + "/journal")).json()["entries"]
+    assert rows[-1]["row"]["lifecycle"] == "reopened"
+    assert (await client.post(f"{url}/journal", json={"entries": [KONTAKT_ROW]})).status_code == 201
+
+
 async def test_an_open_einsatz_is_untouched(client, editor):
     await _login(client, editor)
     inc = await _incident(client)

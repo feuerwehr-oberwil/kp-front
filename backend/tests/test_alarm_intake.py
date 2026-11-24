@@ -582,3 +582,33 @@ async def test_the_intakes_own_events_do_not_count_as_touching_an_alarm(db_sessi
     )
     await db_session.commit()
     assert await auto_archive_sweep(db_session) == 1
+
+
+async def test_an_alarm_update_row_is_no_touch_but_an_atemschutz_link_write_is(db_session):
+    """Sol review (K10): the server's «Alarm aktualisiert» Verlauf row kept an unused alarm open;
+    an Atemschutz link's event (written without a user) is a person working it."""
+    from app import audit
+
+    await _set_alarms_config(db_session, {"autoArchiveDays": 7, "staleIncidentDays": 0})
+    old = datetime.now(UTC) - timedelta(days=8)
+    quiet = _incident(auto_opened=True, workspace_rev=0, started_at=old, source_ref="q1")
+    worked = _incident(auto_opened=True, workspace_rev=0, started_at=old, source_ref="w1")
+    db_session.add_all([quiet, worked])
+    await db_session.flush()
+    db_session.add(
+        JournalEntry(incident_id=quiet.id, client_id="sys0123456789ab", seq=1, row_json={"text": "Alarm aktualisiert"})
+    )
+    await audit.append_event(
+        db_session,
+        incident_id=worked.id,
+        op_type="atemschutz.contact",
+        source="atemschutz-link",
+        user_id=None,
+        payload={},
+    )
+    await db_session.commit()
+    assert await auto_archive_sweep(db_session) == 1
+    await db_session.commit()
+    await db_session.refresh(quiet)
+    await db_session.refresh(worked)
+    assert quiet.is_archived is True and worked.is_archived is False

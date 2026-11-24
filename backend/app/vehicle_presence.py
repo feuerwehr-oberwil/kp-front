@@ -364,10 +364,11 @@ async def last_activity(
 ) -> datetime:
     """The last HUMAN write to an Einsatz: its start, its newest journal row or audit event that
     is not one of the observers' own. An observer's writes never count — otherwise the sweep
-    would keep every never-closed Einsatz observed forever. `humans_only`: count only audit
-    events a signed-in user wrote – the intake's own (incident.create, a Divera update) are
-    nobody touching an untouched alarm."""
-    from sqlalchemy import and_, not_
+    would keep every never-closed Einsatz observed forever. `humans_only`: count only what a
+    person wrote – audit events with a user or from an Atemschutz link (which writes without
+    one), and no server-authored Verlauf row (`sys…`): the intake's own writes (incident.create,
+    a Divera update and its «Alarm aktualisiert» row) are nobody touching an untouched alarm."""
+    from sqlalchemy import and_, not_, or_
 
     from .models import IncidentEvent, JournalEntry
 
@@ -375,7 +376,12 @@ async def last_activity(
         await db.execute(
             select(func.max(JournalEntry.created_at)).where(
                 JournalEntry.incident_id == incident_id,
-                and_(*[not_(JournalEntry.client_id.like(f"{p}%")) for p in SERVER_ROW_PREFIXES]),
+                and_(
+                    *[
+                        not_(JournalEntry.client_id.like(f"{p}%"))
+                        for p in (*SERVER_ROW_PREFIXES, *(("sys",) if humans_only else ()))
+                    ]
+                ),
             )
         )
     ).scalar_one_or_none()
@@ -384,7 +390,11 @@ async def last_activity(
             select(func.max(IncidentEvent.recorded_at)).where(
                 IncidentEvent.incident_id == incident_id,
                 IncidentEvent.source.not_in(OBSERVER_SOURCES),
-                *([IncidentEvent.user_id.is_not(None)] if humans_only else []),
+                *(
+                    [or_(IncidentEvent.user_id.is_not(None), IncidentEvent.source.like("atemschutz%"))]
+                    if humans_only
+                    else []
+                ),
             )
         )
     ).scalar_one_or_none()
