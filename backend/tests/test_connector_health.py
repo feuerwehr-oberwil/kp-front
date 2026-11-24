@@ -301,14 +301,14 @@ async def test_a_refused_or_unsafe_poll_is_a_failure_not_zero_alarms(db_session,
     recorded as a healthy poll with no new alarms – the System card showed the intake online."""
     import httpx
 
-    monkeypatch.setattr(settings, "divera_access_key", "k")
+    monkeypatch.setattr(settings, "divera_access_key", "DIVERA_SECRET_SENTINEL")
     monkeypatch.setattr(settings, "divera_api_url", url)
     transport = httpx.MockTransport(lambda _req: httpx.Response(200, json=body))
     real = httpx.AsyncClient
     monkeypatch.setattr(divera_mod.httpx, "AsyncClient", lambda **kw: real(transport=transport, **kw))
     with pytest.raises(divera_mod.DiveraApiError) as err:
         await divera_mod.fetch_and_upsert(db_session)
-    assert "k" not in str(err.value).split()  # the key never rides in the message
+    assert "DIVERA_SECRET_SENTINEL" not in str(err.value)  # the key never rides in the message
 
 
 async def test_an_empty_alarm_list_is_still_zero(db_session, monkeypatch):
