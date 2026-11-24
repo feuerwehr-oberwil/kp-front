@@ -75,6 +75,12 @@ interface MediaQueueEntry {
   rev?: string
   /** Absent for journal media; Rapport-Beilagen restore/swap only the attachment with rowId. */
   target?: MediaTarget
+  /** A journal photo's index in its row's list AS CAPTURED. The stored row lists only uploaded
+   *  pictures (journalStore · stripSessionUrls) and its `photoGeo` stays aligned by the captured
+   *  index, so a capture restored after a reload, or a receipt linked then, goes back to its own
+   *  place instead of the end of the list (hunt 24.11.2026, offline-sync F3: the Karte marker of
+   *  photo 1 showed photo 2). Absent on entries queued before, and on audio and Beilagen. */
+  slot?: number
 }
 /** Still to upload: the bytes ride along. Every entry stored before 26.10.2026 is one. */
 export interface MediaCapture extends MediaQueueEntry { status: MediaStatus; blob: Blob }
@@ -190,13 +196,14 @@ export async function enqueueMedia(
   localUrl?: string,
   target?: MediaTarget,
   uploadId?: string,
+  slot?: number,
 ): Promise<boolean> {
   const id = mediaQueueId(rowId, kind, localUrl)
   const rev = uploadId ?? newId('mq')
   return laneFor(incidentId).edit(async () => {
     const { items, known } = await readQueue(incidentId)
     const next = items.filter((i) => i.id !== id)
-    next.push({ id, incidentId, rowId, kind, blob, filename, createdAt, attempts: 0, status: 'pending', rev, ...(localUrl ? { localUrl } : {}), ...(target ? { target } : {}) })
+    next.push({ id, incidentId, rowId, kind, blob, filename, createdAt, attempts: 0, status: 'pending', rev, ...(localUrl ? { localUrl } : {}), ...(target ? { target } : {}), ...(slot != null ? { slot } : {}) })
     return storeQueue(incidentId, next, known)
   })
 }

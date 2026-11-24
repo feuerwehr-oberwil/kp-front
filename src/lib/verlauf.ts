@@ -185,12 +185,23 @@ export function rowText(e: { text: string; photoUrl?: string; photoUrls?: string
   return e.text.trim() || appConfig.copy.journal.photoNote
 }
 
+/** Where a picture goes back into its row once its old URL is gone (mediaQueue · slot): its index
+ *  as captured, and the server URLs of the row's lower-slot pictures whose upload receipts are not
+ *  linked yet — they come before it in the captured order but the list does not hold them. */
+export interface PhotoSlot { slot: number; ahead?: readonly string[] }
+
 /** Replace one URL in a row's photo list, keeping the others and the order. Used when one of
  *  several attached pictures finishes uploading: the row's other photos (still local blob:
- *  URLs, or already uploaded) must survive that patch untouched. */
-export function swapUrl(list: string[] | undefined, from: string, to: string): string[] {
+ *  URLs, or already uploaded) must survive that patch untouched. A `from` the list does not hold
+ *  (a reload dropped its session URL) goes to its captured place (`place`) — exact as long as the
+ *  row's lower slots come back first (useMediaQueue works a row in slot order) — else to the end. */
+export function swapUrl(list: string[] | undefined, from: string, to: string, place?: PhotoSlot): string[] {
   const arr = list ?? []
-  return arr.includes(from) ? arr.map((u) => (u === from ? to : u)) : [...arr, to]
+  if (arr.includes(from)) return arr.map((u) => (u === from ? to : u))
+  if (!place) return [...arr, to]
+  const notYet = (place.ahead ?? []).filter((u) => !arr.includes(u)).length
+  const at = Math.max(0, place.slot - notYet)
+  return [...arr.slice(0, at), to, ...arr.slice(at)]
 }
 
 /**

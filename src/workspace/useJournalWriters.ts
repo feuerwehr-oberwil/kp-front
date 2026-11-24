@@ -59,8 +59,9 @@ export interface UseJournalWritersInputs {
   pushEvent: (ev: Omit<TimelineEvent, 'id' | 't' | 'at'> & { at?: string }, id?: string) => void
   composerOpenedAtRef: RefObject<string | null>
   activePlanId: string
-  uploadPhotoForRow: (rowId: string, localUrl: string) => Promise<void>
-  uploadMediaForRow: (rowId: string, localUrl: string, kind: 'photo' | 'audio') => Promise<void>
+  /** queue picture `slot` of a row's list for upload (useRowMediaUpload) */
+  uploadPhotoForRow: (rowId: string, localUrl: string, slot: number) => Promise<void>
+  uploadAudioForRow: (rowId: string, localUrl: string) => Promise<void>
   setComposerOpen: Dispatch<SetStateAction<boolean>>
   setNoteOn: Dispatch<SetStateAction<{ id: string; text: string } | null>>
   player: { row: TimelineEvent; seekSec?: number } | null
@@ -74,7 +75,7 @@ export function useJournalWriters({
   building, setJournalOpen, setMode, setPanel, setActivePlanId, setPlanFocus, flyToMapVisible,
   focusEntity, incidentMeta, incidentView, doc, tacticalLocked, replayActive, stepLabelRef, commit, emit,
   log, setSelectedDrawingId, setSelectedId, mode, pushEvent, composerOpenedAtRef, activePlanId,
-  uploadPhotoForRow, uploadMediaForRow, setComposerOpen, setNoteOn, player, timeline, running,
+  uploadPhotoForRow, uploadAudioForRow, setComposerOpen, setNoteOn, player, timeline, running,
   undoHist, journal,
 }: UseJournalWritersInputs) {
   // navigate from a Verlauf row back to wherever the event happened, then close
@@ -232,11 +233,12 @@ export function useJournalWriters({
         }
       })
     }
-    // one upload per picture; each swaps ITS OWN blob: URL for the server URL when it lands
-    for (const url of photoUrls) void uploadPhotoForRow(rowId, url)
+    // one queued upload per picture, with its place in the row; each swaps ITS OWN blob: URL for
+    // the server URL when it lands
+    photoUrls.forEach((url, slot) => { void uploadPhotoForRow(rowId, url, slot) })
     // an imported memo's audioUrl is already the server URL (uploaded during save) — only a
     // session blob: URL (in-app recording) still needs the upload/queue path
-    if (d.audioUrl?.startsWith('blob:')) void uploadMediaForRow(rowId, d.audioUrl, 'audio')
+    if (d.audioUrl?.startsWith('blob:')) void uploadAudioForRow(rowId, d.audioUrl)
     emit('journal.add', { id: rowId, kind })
     // the Pendenz lifecycle goes into the hash-chained audit too, like create/done/snooze already do
     if (pendenzId) emit('reminder.create', { id: pendenzId, ...(d.dueAt ? { dueAt: d.dueAt } : {}) })
@@ -358,7 +360,7 @@ export function useJournalWriters({
       audioMeta: { source: 'recorded', startedAt: new Date(Date.now() - secs * 1000).toISOString(), durationSec: secs },
       surface: onPlan ? 'plan' : 'map', planId: onPlan ? planId : undefined,
     }, rowId)
-    void uploadMediaForRow(rowId, url, 'audio')
+    void uploadAudioForRow(rowId, url)
     emit('journal.add', { id: rowId, kind: 'audio' })
   })
   const startVoiceMemo = () => { voiceStartCtx.current = { onPlan: mode === 'plans', planId: activePlanId }; void voice.start() }

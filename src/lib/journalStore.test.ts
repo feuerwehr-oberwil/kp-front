@@ -15,7 +15,8 @@ import * as idb from './idb'
 import { chronological, JournalStore, persistedPendingRows } from './journalStore'
 import { onIncidentClosed } from './incidentClosed'
 import { simulatedDevice } from './devices.test-utils'
-import type { TimelineEvent } from '../types'
+import { resolvePhotoUrl } from './photoGeo'
+import type { Entity, TimelineEvent } from '../types'
 
 const INC = 'inc-1'
 const row = (id: string, over: Partial<TimelineEvent> = {}): TimelineEvent =>
@@ -660,6 +661,39 @@ describe('JournalStore — enrichment patches + session overlay', () => {
     // and the record carries only persistent URLs, never a session blob:
     const persisted = apiPost.mock.calls.flatMap((c) => c[1].entries).flatMap((e: TimelineEvent) => e.photoUrls ?? [])
     expect(persisted.some((u: string) => u.startsWith('blob:'))).toBe(false)
+  })
+
+  // offline-sync F3 (hunt 24.11.2026): photo 2 uploaded, photo 1 still queued, then a reload —
+  // the restore used to append photo 1 behind photo 2, and the Karte marker of photo 1 (aligned
+  // by its captured index, lib/photoGeo) showed photo 2, and so did the record once both landed
+  it('a picture restored after a reload goes back to its own place in the row', async () => {
+    fakeServer()
+    const geo = [{ lat: 47.5, lng: 7.5, source: 'exif' as const }, { lat: 47.6, lng: 7.6, source: 'exif' as const }]
+    const first = new JournalStore(INC, false)
+    await first.init([])
+    first.append(row('a', { kind: 'photo', photoUrls: ['blob:one', 'blob:two'], photoGeo: geo }))
+    first.swapPhoto('a', 'blob:two', '/api/media/2', { slot: 1 })
+    await settle(); await settle()
+
+    const second = new JournalStore(INC, false)
+    await second.init([])
+    expect(second.display()[0].photoUrls).toEqual(['/api/media/2'])
+    second.swapPhoto('a', 'blob:one', 'blob:restored', { slot: 0 }) // useMediaQueue's restore
+    const marker = { id: 'ph-a-0', kind: 'photo', layer: 'l', coord: [7.5, 47.5], photoOf: { row: 'a', i: 0 } } as unknown as Entity
+    expect(resolvePhotoUrl(marker, new Map(second.display().map((r) => [r.id, r])))).toBe('blob:restored')
+    second.swapPhoto('a', 'blob:restored', '/api/media/1', { slot: 0 }) // its upload lands
+    await settle(); await settle()
+    expect(second.display()[0].photoUrls).toEqual(['/api/media/1', '/api/media/2'])
+  })
+
+  it('a voice memo\'s server URL replaces its session blob: on screen', async () => {
+    fakeServer()
+    const s = new JournalStore(INC, false)
+    await s.init([])
+    s.append(row('a', { kind: 'audio' }))
+    s.overlaySession('a', { audioUrl: 'blob:restored' }) // useMediaQueue's restore after a reload
+    s.appendPatch('a', { audioUrl: '/api/media/memo' })
+    expect(s.display()[0].audioUrl).toBe('/api/media/memo')
   })
 
   it('once every picture has uploaded the session overlay stops winning', async () => {
