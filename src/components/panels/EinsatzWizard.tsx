@@ -308,20 +308,28 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
       confirmLabel: ix.moveConfirmBtn,
     })
   }
+  // ⚠️ Every choice of the Einsatzort gets a number, and an answer that arrives for an older one
+  // is dropped (hunt 24.11.2026, frontend-state F2): «Hier» pressed, then an object picked while
+  // the GPS was still looking – the late fix replaced the object's coordinate, and the Einsatz
+  // opened where the phone stood. A newer choice also ends the «sucht…» state of the old one.
+  const placeSeq = useRef(0)
+  const newPlace = () => { setLocating(false); return ++placeSeq.current }
   const useHere = () => {
     if (locating) return
     // blocked says where to allow it (lib/permissionPath, rare-user round F9)
     const failed = (err?: GeolocationPositionError) => setHereFailed({ at: coord, blocked: err?.code === 1 })
     if (!navigator.geolocation) { failed(); return }
     setHereFailed(null)
+    const seq = newPlace()
     setLocating(true)
     navigator.geolocation.getCurrentPosition(
       (p) => {
+        if (seq !== placeSeq.current) return
         setLocating(false)
         const c: [number, number] = [p.coords.longitude, p.coords.latitude]
-        void confirmMove(c).then((ok) => { if (ok) applyPicked(c) })
+        void confirmMove(c).then((ok) => { if (ok && seq === placeSeq.current) applyPicked(c) })
       },
-      (err) => { setLocating(false); failed(err) },
+      (err) => { if (seq !== placeSeq.current) return; setLocating(false); failed(err) },
       { enableHighAccuracy: true, timeout: 10_000, maximumAge: 30_000 },
     )
   }
@@ -329,12 +337,13 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
   // a coordinate from the map picker → set it and reverse-geocode the address (so a
   // map-click fills the nearest registered address, not just bare coords)
   const applyPicked = (c: [number, number]) => {
+    const seq = newPlace()
     setLookupAddress(null); setCoord(c); setMapOpen(false); closeMenu()
     // ⚠️ Fills a BLANK address only — the same rule the Rapport uses for the Kroki-seeded
     // Einsatzleiter. A nudge of the map pin used to overwrite an address somebody had just
     // typed by hand, and a typed address is a statement; a reverse-geocode is a guess.
     geocodeReverse(c[1], c[0])
-      .then((hit) => { if (hit?.label) setAddress((a) => (a.trim() ? a : hit.label)) })
+      .then((hit) => { if (hit?.label && seq === placeSeq.current) setAddress((a) => (a.trim() ? a : hit.label)) })
       .catch(() => {})
   }
 
@@ -400,9 +409,11 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
   }, [edit?.id])
 
   const pickHit = (h: GeoHit) => {
+    newPlace()
     setLookupAddress(null); setAddress(h.label); setCoord([h.lng, h.lat]); closeMenu(); setHits([])
   }
   const pickObject = (o: ObjectWithPlans) => {
+    newPlace()
     setLookupAddress(null)
     if (!title.trim()) setTitle(o.name)
     if (o.address) setAddress(o.address)

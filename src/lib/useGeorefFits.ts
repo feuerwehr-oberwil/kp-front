@@ -77,6 +77,13 @@ interface Args {
  * declaration order (see Args · histSide), and the step-label ref's local name (`…Ref`, as the
  * hooks linter reads refs by name). No memo or dependency list changed.
  */
+/** A sheet's image URL as the browser fetches it (absolute, or under the app's base) – the key of
+ *  its rendered preview. */
+function previewSource(imageUrl: string | undefined): string | undefined {
+  if (!imageUrl) return undefined
+  return imageUrl.startsWith('/') || /^https?:/.test(imageUrl) ? imageUrl : `${import.meta.env.BASE_URL}${imageUrl}`
+}
+
 export function useGeorefFits({
   planDocs, planScale, building, setBuilding, planBindings, activeObjectId, board, objects, rebake,
   planFitsRef, fitsVersion, setFitsVersion, stepLabelRef, histSide, readOnly, canWriteBlob, tacticalLocked, replayActive,
@@ -310,23 +317,25 @@ export function useGeorefFits({
     setGeorefLinkedHandler((georefKey, pairs) => handLinked.current(georefKey, pairs))
     return () => setGeorefLinkedHandler(null)
   }, [])
+  // The rendered previews, keyed by the sheet's SOURCE URL – ⚠️ not by `p.id` (hunt 24.11.2026,
+  // karte F1): the id is the module slot («Modul 2»), which another building's Modul 2 shares, so
+  // after «Anderes Objekt» the previous building's drawing stood on the new one's footprint.
   const [georefPlanPreviews, setGeorefPlanPreviews] = useState<Record<string, string>>({})
   useEffect(() => {
     if (replayActive) return
     let cancelled = false
     for (const p of linkedPlans) {
-      if (!p.imageUrl || !twinPlanImageVisible(twinLayers, p.id) || georefPlanPreviews[p.id]) continue
-      const url = p.imageUrl.startsWith('/') || /^https?:/.test(p.imageUrl)
-        ? p.imageUrl
-        : `${import.meta.env.BASE_URL}${p.imageUrl}`
+      const url = previewSource(p.imageUrl)
+      if (!url || !twinPlanImageVisible(twinLayers, p.id) || georefPlanPreviews[url]) continue
       void planPreviewUrl(url, window.innerWidth, window.innerHeight).then((preview) => {
-        if (!cancelled) setGeorefPlanPreviews((cur) => cur[p.id] ? cur : { ...cur, [p.id]: preview })
+        if (!cancelled) setGeorefPlanPreviews((cur) => cur[url] ? cur : { ...cur, [url]: preview })
       }).catch(() => {})
     }
     return () => { cancelled = true }
   }, [replayActive, linkedPlans, twinLayers, georefPlanPreviews])
   const georefPlanRasters = useMemo(() => replayActive ? [] : linkedPlans.flatMap((p) => {
-    const url = georefPlanPreviews[p.id]
+    const source = previewSource(p.imageUrl)
+    const url = source ? georefPlanPreviews[source] : undefined
     if (!url || !twinPlanImageVisible(twinLayers, p.id)) return []
     const points = ([{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }] as const)
       .map((pt) => { const c = p.fit.toMap(pt); return [c.lng, c.lat] as [number, number] })

@@ -375,10 +375,26 @@ async def object_at_address(db: AsyncSession, address: str | None) -> ObjectSite
     street = _street_of(address)
     if not street:
         return None
+    # ⚠️ …in the SAME town (hunt 24.11.2026, karte F4): two municipalities have a «Bahnhofstrasse
+    # 8», and the street alone dressed Ostdorf's building in Westdorf's object. An object without a
+    # locality stands in the home town; with no home town configured, it matches as before.
+    place = address.split(",", 1)[1] if address and "," in address else ""
+    town = geocode.town_key(place)
+    plz_match = geocode._HAS_PLZ.search(place)
+    plz = plz_match.group(0) if plz_match else None
+    home = (await geocode._resolve_bias())[0] if (town or plz) else ""
+
+    def same_town(o: ObjectSite) -> bool:
+        if not (town or plz):
+            return True
+        if (o.locality or "").strip():
+            return geocode.town_key(o.locality) == town
+        return not home.strip() or geocode.is_home(town, plz, home)
+
     matches = [
         o
         for o in (await db.execute(select(ObjectSite).order_by(ObjectSite.name))).scalars()
-        if _street_of(o.address) == street
+        if _street_of(o.address) == street and same_town(o)
     ]
     if not matches:
         return None

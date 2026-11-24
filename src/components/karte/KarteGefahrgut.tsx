@@ -24,13 +24,15 @@ import type { LngLat } from '../../types'
 import { KarteKeySheet } from './KarteKeySheet'
 import s from './Karte.module.css'
 
-export function KarteGefahrgut({ un, onUn, mode, onMode, center, onClose, phone = false, focusOnOpen = false }: {
+export function KarteGefahrgut({ un, onUn, mode, onMode, center, at, onClose, phone = false, focusOnOpen = false }: {
   un: string
   onUn: (v: string) => void
   mode: ErgRingMode
   onMode: (m: ErgRingMode) => void
   /** where the rings stand — null until the map is tapped (or a place is selected) */
   center: LngLat | null
+  /** the moment the rings are drawn for – the panel's «Tag/Nacht» reads the same one */
+  at: Date
   onClose: () => void
   /** the phone's slide-up instead of the tablet's card */
   phone?: boolean
@@ -52,7 +54,7 @@ export function KarteGefahrgut({ un, onUn, mode, onMode, center, onClose, phone 
           can be moved */}
       {un && mode !== 'off' && !!lookupErg(un)?.tih?.length && <div className={s.toolHint}><Icon id="pin" /><span>{center ? C.ergCenter : C.ergCenterFirst}</span></div>}
       {un && (
-        <UnHazardSection un={un} ringMode={mode} onRingMode={onMode} ergCoord={center ?? undefined} nameHero />
+        <UnHazardSection un={un} ringMode={mode} onRingMode={onMode} ergCoord={center ?? undefined} ergAt={at} nameHero />
       )}
     </>
   )

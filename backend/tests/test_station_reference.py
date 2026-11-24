@@ -328,6 +328,19 @@ async def test_a_searched_address_matches_when_the_register_has_nothing(client, 
     assert body["visit"] is None  # module off
 
 
+# hunt 24.11.2026, karte F4: two towns have a «Bahnhofstrasse 8» – the street alone dressed
+# Ostdorf's building in Westdorf's object
+async def test_a_searched_address_matches_the_object_in_its_own_town(client, db_session, viewer, registers):  # noqa: F811
+    registers(identify=_down)
+    db_session.add(ObjectSite(name="Depot West", address="Bahnhofstrasse 8", locality="Westdorf"))
+    db_session.add(ObjectSite(name="Depot Ost", address="Bahnhofstrasse 8", locality="Ostdorf"))
+    await db_session.commit()
+    await _login(client, viewer)
+    for town, name in (("9992 Ostdorf", "Depot Ost"), ("9991 Westdorf", "Depot West")):
+        params = {"lat": HOME[0], "lng": HOME[1], "address": f"Bahnhofstrasse 8, {town}"}
+        assert (await client.get("/api/reference/building", params=params)).json()["object"]["name"] == name
+
+
 async def test_building_switch_box_and_bounds(client, db_session, editor, registers):  # noqa: F811
     calls = registers(identify=_gwr_ok, find=_pv_ok)
     await _login(client, editor)
