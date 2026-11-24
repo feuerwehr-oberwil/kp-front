@@ -279,3 +279,12 @@ def test_other_sql_failures_still_abort_restore(restore_command):
     result, calls = restore_command(failure="sql")
     assert result.returncode != 0
     assert not any("tar xzf" in call or "up -d" in call for call in calls)
+
+
+# hunt 24.11.2026, ops-integrations F2: a valid dump whose 20 000-line prefix outgrew the pipe
+# buffer was refused as «not a PostgreSQL dump» – the match itself made pipefail fail
+def test_restore_accepts_a_valid_dump_with_a_large_prefix(restore_command, tmp_path):
+    header = b"-- PostgreSQL database dump\nCREATE TABLE alembic_version (version_num varchar(32));\n"
+    (tmp_path / "db-example.sql.gz").write_bytes(gzip.compress(header + b"-- row data padding\n" * 30_000))
+    result, _ = restore_command("--dry-run")
+    assert result.returncode == 0, result.stderr
