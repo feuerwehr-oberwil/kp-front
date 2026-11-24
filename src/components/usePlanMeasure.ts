@@ -6,6 +6,7 @@ import { resolvePlanScale } from '../lib/stationPlanScale'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { toast } from '../lib/ui'
+import { jsonEqual } from '../lib/jsonEqual'
 import { useNodeHold } from '../lib/nodeHold'
 import { useFreshPoint } from '../lib/useFreshPoint'
 import type { BoardTool } from '../types'
@@ -92,6 +93,9 @@ export function usePlanMeasure({ activeId, stack, aspect, tileAR, planScale, loc
   // calibration for this incident still wins; a stale candidate falls through.
   const workspaceScale: PlanScale | undefined = planScale[activeId]
   const validWorkspaceScale = workspaceScale && !isStale(workspaceScale, measureAR) ? workspaceScale : undefined
+  /** «merken?» offers the calibration that STANDS: once ↶ took it back or another device's
+   *  replaced it, there is nothing left to make a station default of (review of #742) */
+  const standingSavePrompt = savePrompt && workspaceScale && jsonEqual(savePrompt, workspaceScale) ? savePrompt : null
   /**
    * ⚠️ …with ONE surface where that order is inverted: the Gebäude floor-stack.
    *
@@ -207,7 +211,7 @@ export function usePlanMeasure({ activeId, stack, aspect, tileAR, planScale, loc
   }
 
   return {
-    calNodes, setCalNodes, calPrompt, setCalPrompt, calWhyRef, lastRefM, refMInput, setRefMInput, savePrompt, setSavePrompt,
+    calNodes, setCalNodes, calPrompt, setCalPrompt, calWhyRef, lastRefM, refMInput, setRefMInput, savePrompt: standingSavePrompt, setSavePrompt,
     measMode, setMeasMode, measLine, setMeasLine, measArea, setMeasArea,
     measureAR, activeScale, scaleAuto, scaleStale, calibrated, planMetres, toMeasurePt,
     measPath, setMeasPath, measFresh, measMpts, measLenM, measAreaM2, measPerimM, measReset, resetEphemeral,

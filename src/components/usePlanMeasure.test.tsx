@@ -12,7 +12,7 @@ import type { PlanScale } from '../lib/planScale'
 // wrong, so «Massstab kalibriert» carries «Rückgängig», which takes the calibration's own undo step
 // back (workspace/planCalibration – what it puts back is tested there).
 
-const args = (planScale: Record<string, PlanScale>, onCalibrate = vi.fn((): (() => boolean) => () => true), log = vi.fn(), setTool = vi.fn()) => ({
+const args = (planScale: Record<string, PlanScale>, onCalibrate: (planId: string, sc: PlanScale) => () => boolean = () => () => true, log = vi.fn(), setTool = vi.fn()) => ({
   activeId: 'modul1', stack: false, aspect: 1, tileAR: 1, planScale,
   localY: (y: number) => y, floorAt: () => 0, tool: 'measure' as const, setTool,
   toNorm: () => null, log, onCalibrate, canCalibrate: true,
@@ -24,11 +24,13 @@ describe('usePlanMeasure · commitCalibration', () => {
   it('opens the length field empty, and «Rückgängig» on the toast takes the calibration step back', () => {
     const old: PlanScale = { mPerU: 2, refM: 20, ar: 1 }
     const takeBack = vi.fn(() => true)
-    const onCalibrate = vi.fn(() => takeBack)
-    const { result } = renderHook(() => usePlanMeasure(args({ modul1: old }, onCalibrate)))
+    let scales: Record<string, PlanScale> = { modul1: old }
+    const onCalibrate = vi.fn((planId: string, sc: PlanScale) => { scales = { ...scales, [planId]: sc }; return takeBack })
+    const { result, rerender } = renderHook(() => usePlanMeasure(args(scales, onCalibrate)))
     expect(result.current.lastRefM).toBeNull()
     act(() => { result.current.setCalPrompt({ a: [0, 0], b: [0.5, 0], why: true }) })
     act(() => { result.current.commitCalibration(10) })
+    rerender()
     expect(onCalibrate).toHaveBeenCalledOnce()
     expect(onCalibrate).toHaveBeenLastCalledWith('modul1', expect.objectContaining({ refM: 10 }))
     expect(result.current.savePrompt).not.toBeNull()
@@ -42,14 +44,33 @@ describe('usePlanMeasure · commitCalibration', () => {
   // hunt 24.11.2026, frontend-state F9: the toast put the old scale back unconditionally, so a
   // newer scale another tablet had set meanwhile was deleted
   it('declines once the step is gone, and writes nothing', () => {
-    const onCalibrate = vi.fn((): (() => boolean) => () => false)
-    const { result } = renderHook(() => usePlanMeasure(args({}, onCalibrate)))
+    let scales: Record<string, PlanScale> = {}
+    const onCalibrate = vi.fn((planId: string, sc: PlanScale) => { scales = { ...scales, [planId]: sc }; return () => false })
+    const { result, rerender } = renderHook(() => usePlanMeasure(args(scales, onCalibrate)))
     act(() => { result.current.setCalPrompt({ a: [0, 0], b: [0.5, 0] }) })
     act(() => { result.current.commitCalibration(10) })
+    rerender()
     act(() => { vi.mocked(toast).mock.calls[0][1]!.action!.onClick() })
     expect(onCalibrate).toHaveBeenCalledOnce()
     expect(vi.mocked(toast)).toHaveBeenLastCalledWith('Nicht mehr rückgängig machbar', { icon: 'warn' })
     expect(result.current.savePrompt).not.toBeNull()
+  })
+})
+
+// review of #742: «merken?» must not make a calibration a station default once ↶ (or another
+// device) has replaced it
+describe('usePlanMeasure · the «merken?» offer', () => {
+  it('stands while its calibration stands, and goes when the plan\'s scale changes', () => {
+    let scales: Record<string, PlanScale> = {}
+    const onCalibrate = vi.fn((planId: string, sc: PlanScale) => { scales = { ...scales, [planId]: sc }; return () => true })
+    const { result, rerender } = renderHook(() => usePlanMeasure(args(scales, onCalibrate)))
+    act(() => { result.current.setCalPrompt({ a: [0, 0], b: [0.5, 0] }) })
+    act(() => { result.current.commitCalibration(10) })
+    rerender()
+    expect(result.current.savePrompt).not.toBeNull()
+    scales = {} // the header's ↶
+    rerender()
+    expect(result.current.savePrompt).toBeNull()
   })
 })
 
