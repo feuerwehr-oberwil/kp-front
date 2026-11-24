@@ -460,6 +460,8 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     logRestored: 'Binôme {name} rétabli',
     logInsideAtClose: 'Binôme {name} encore engagé à la clôture',
     cycleEndAtClose: '{t} (encore engagé à la clôture)',
+    // un engagement terminé par une nouvelle annonce ou entrée sans sortie saisie
+    cycleNoExit: 'sortie non saisie',
     logClockRestart: 'Binôme {name} : horloge de contact redémarrée – intervention rouverte',
     cardMenuWord: 'Plus',
     // the Trupps head's «⋯ Mehr», where its rare tiles go on a crowded head (lib/pageHeadFit)

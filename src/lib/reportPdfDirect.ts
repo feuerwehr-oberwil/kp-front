@@ -701,7 +701,9 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
             // (staging r3 F4): «19:37 – 19:52 (beim Abschluss noch drin)», not an open «19:37»
             // that reads as a crew still inside today. No Austritt is invented — the words say
             // nobody reported one. While the Einsatz is open (or open again) it stays open.
+            // …and one a later Anmeldung or Eintritt ended with no Austritt written says exactly that
             exit: c.exit ? formatDateTime(c.exit)
+              : c.cut ? appConfig.copy.atemschutz.cycleNoExit
               : closedAt ? fillTemplate(appConfig.copy.atemschutz.cycleEndAtClose, { t: formatDateTime(closedAt) }) : undefined,
             crew: c.crew.join(' / '),
             changes: c.changes.map((ch) => ({ t: formatDateTime(ch.t), text: ch.text })),

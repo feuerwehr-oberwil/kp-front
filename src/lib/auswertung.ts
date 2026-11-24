@@ -111,9 +111,15 @@ export interface AuswertungInput {
 function runStartsWatched(t: Trupp, rows: readonly { r: TruppReading }[], i: number): boolean {
   const entry = rows[i].r
   if (typeof entry.pa === 'boolean') return entry.pa
+  // the Art set while the crew waited (a «ohne Atemschutz» before going in) – the latest switch
+  // since the previous run decides; the old Eintritt writer copied the cylinder pressure anyway
+  for (let j = i - 1; j >= 0 && rows[j].r.kind !== 'entry' && rows[j].r.kind !== 'exit'; j--) {
+    if (rows[j].r.kind === 'paOff') return false
+    if (rows[j].r.kind === 'paOn') return true
+  }
   // a cylinder read at the Eintritt, during the run, or at its Austritt (a measured Restdruck)
   let gauge = entry.bar > 0
-  for (let j = i + 1; j < rows.length && rows[j].r.kind !== 'entry'; j++) {
+  for (let j = i + 1; j < rows.length && rows[j].r.kind !== 'entry' && rows[j].r.kind !== 'registered'; j++) {
     const { kind, bar, measured } = rows[j].r
     if (kind === 'exit') { if (measured && bar > 0) gauge = true; break }
     if (kind === 'paOn') return false
@@ -175,7 +181,9 @@ export function truppStretches(t: Trupp, openEnd: number): TruppStretches {
   for (let i = 0; i < rows.length; i++) {
     const { r, at } = rows[i]
     if (r.kind === 'registered') {
-      if (!run && standbyFrom == null) standbyFrom = at
+      // a fresh Anmeldung ends a run whose Austritt was never written (report · truppRuns)
+      if (run) closeRun(at, false)
+      if (standbyFrom == null) standbyFrom = at
     } else if (r.kind === 'entry') {
       if (standbyFrom != null) { out.standby.push({ from: standbyFrom, to: at }); standbyFrom = null }
       if (run) closeRun(at, false) // an Eintritt without the Austritt before it: the old run ends here

@@ -749,7 +749,7 @@ export function truppRunTimes(
 export function truppRuns(
   readings: readonly Pick<TruppReading, 't' | 'kind'>[] | undefined,
   fallback: { entryTime?: string; exitTime?: string },
-): { entry: string; exit?: string }[] {
+): { entry: string; exit?: string; cut?: true }[] {
   const rows = (readings ?? [])
     .map((r, i) => ({ r, i }))
     .filter(({ r }) => !!r.t && (r.kind === 'entry' || r.kind === 'exit' || r.kind === 'registered'))
@@ -757,16 +757,16 @@ export function truppRuns(
   if (!rows.some(({ r }) => r.kind === 'entry')) {
     return fallback.entryTime ? [{ entry: fallback.entryTime, ...(fallback.exitTime ? { exit: fallback.exitTime } : {}) }] : []
   }
-  const runs: { entry: string; exit?: string }[] = []
+  const runs: { entry: string; exit?: string; cut?: true }[] = []
   let open: { entry: string; exit?: string } | null = null
   for (const { r } of rows) {
     if (r.kind === 'entry') {
-      if (open) runs.push(open)
+      if (open) runs.push({ ...open, cut: true })
       open = { entry: r.t }
     } else if (r.kind === 'registered') {
-      // a fresh Anmeldung ends a run whose Austritt was never written: its exit stays unknown,
-      // and the stand-down that may follow is not dated onto it
-      if (open) runs.push(open)
+      // a fresh Anmeldung ends a run whose Austritt was never written: its exit stays unknown
+      // (`cut`), and the stand-down that may follow is not dated onto it
+      if (open) runs.push({ ...open, cut: true })
       open = null
     } else if (open) {
       runs.push({ ...open, exit: r.t })
@@ -784,7 +784,9 @@ export function truppRuns(
 export interface TruppCrewChange { t: string; text: string }
 /** One deployment cycle of a Trupp: its Eintritt/Austritt, the crew that went in, and what
  *  changed about that crew while it ran. */
-export interface TruppCycle { entry: string; exit?: string; crew: string[]; changes: TruppCrewChange[] }
+export interface TruppCycle { entry: string; exit?: string; crew: string[]; changes: TruppCrewChange[]
+  /** ended by a later Anmeldung or Eintritt with no Austritt written (truppRuns) – not still inside */
+  cut?: true }
 
 /** everybody a `crew` row names, leader first, blanks dropped */
 const crewNames = (c: { name: string; members: string[] }): string[] =>
@@ -829,7 +831,7 @@ export function truppCrewHistory(t: Trupp, all: readonly Trupp[] = []): { leader
     for (const r of rows) if (ms(r.t) <= ms(at)) best = r
     return best ? crewNames(best.crew) : crewNames({ name: t.name, members: t.members ?? [] })
   }
-  const cycles: TruppCycle[] = runs.map(({ entry, exit }) => ({ entry, exit, crew: crewAt(entry), changes: [] }))
+  const cycles: TruppCycle[] = runs.map(({ entry, exit, cut }) => ({ entry, exit, crew: crewAt(entry), changes: [], ...(cut ? { cut } : {}) }))
   if (!cycles.length) return { leader, cycles }
 
   const C = appConfig.copy.atemschutz.crewChange

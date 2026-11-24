@@ -1,5 +1,6 @@
 import { expect, it } from 'vitest'
 import type { Trupp } from '../types'
+import { appConfig } from '../config/appConfig'
 import { truppStretches } from './auswertung'
 import { defaultReportOptions, formatDateTime, truppCrewHistory } from './report'
 import { buildDirectReportPayload, type DirectReportArgs } from './reportPdfDirect'
@@ -112,4 +113,31 @@ it('a new Anmeldung ends a run whose Austritt was never written; a later stand-d
     ],
   })
   expect(truppCrewHistory(t).cycles.map((c) => [c.entry, c.exit])).toEqual([[time(5), undefined]])
+})
+
+it('the sheet says the Austritt is missing for a run a new Anmeldung ended, and the watch stops there', () => {
+  const t = trupp({
+    readings: [
+      { kind: 'entry', t: time(5), bar: 300 },
+      { kind: 'registered', t: time(30), bar: 300 },
+      { kind: 'exit', t: time(35), bar: 300 },
+    ],
+  })
+  expect(report([t]).trupps).toEqual([expect.objectContaining({ cycles: [expect.objectContaining({ entry: formatDateTime(time(5)), exit: appConfig.copy.atemschutz.cycleNoExit })] })])
+  const s = truppStretches(t, Date.parse(time(55)))
+  expect(s.watched).toEqual([{ from: Date.parse(time(5)), to: Date.parse(time(30)), open: false }])
+  expect(s.standby[0]?.from).toBe(Date.parse(time(30)))
+})
+
+it('a crew switched to «ohne Atemschutz» while waiting goes in unwatched, whatever pressure the old Eintritt copied', () => {
+  const t = trupp({
+    kind: 'einfach',
+    readings: [
+      { kind: 'registered', t: time(5), bar: 300 },
+      { kind: 'paOff', t: time(8), bar: 300 },
+      { kind: 'entry', t: time(10), bar: 300 },
+      { kind: 'exit', t: time(20), bar: 300 },
+    ],
+  })
+  expect(truppStretches(t, Date.parse(time(55))).watched).toEqual([])
 })

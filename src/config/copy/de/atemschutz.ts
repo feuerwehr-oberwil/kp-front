@@ -977,6 +977,9 @@ export const atemschutzCopy = {
     // wird NICHT erfunden. Auf dem Rapport endet der Einsatz des Trupps mit dem Zusatz unten.
     logInsideAtClose: 'Trupp {name} beim Abschluss noch drin',
     cycleEndAtClose: '{t} (beim Abschluss noch drin)',
+    // ein Einsatz, den eine neue Anmeldung oder ein neuer Eintritt beendet hat, ohne dass ein Austritt
+    // geschrieben wurde: nichts erfinden, sagen, dass es fehlt
+    cycleNoExit: 'Austritt nicht erfasst',
     // Nach «Wieder öffnen»: die Kontaktuhr eines Trupps, der noch drin steht, läuft ab dem
     // Wiederöffnen neu – die geschlossene Zeit zählt nicht als Zeit ohne Kontakt (r3, F4).
     logClockRestart: 'Trupp {name}: Kontaktuhr neu gestartet – Einsatz wieder geöffnet',
