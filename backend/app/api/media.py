@@ -111,16 +111,28 @@ _MAGIC_PREFIXES = {
 }
 
 
+#: how far into an MP3 the first frame may lie (leading padding or a foreign tag before it)
+_MPEG_PROBE = 64 * 1024
+
+
 def _looks_like_mpeg_audio(head: bytes) -> bool:
-    """MP3: an ID3 tag first, or straight into an MPEG frame (11 sync bits)."""
-    return head.startswith(b"ID3") or (len(head) >= 2 and head[0] == 0xFF and head[1] & 0xE0 == 0xE0)
+    """MP3: an ID3 tag first, or an MPEG frame (11 sync bits) within the first 64 KB."""
+    if head.startswith(b"ID3"):
+        return True
+    probe = head[:_MPEG_PROBE]
+    i = probe.find(b"\xff")
+    while i != -1 and i + 1 < len(probe):
+        if probe[i + 1] & 0xE0 == 0xE0:
+            return True
+        i = probe.find(b"\xff", i + 1)
+    return False
 
 
 def _matches_declared_type(content_type: str, head: bytes) -> bool:
     if content_type == "image/webp":  # RIFF container: 'RIFF' <size> 'WEBP'
         return len(head) >= 12 and head[:4] == b"RIFF" and head[8:12] == b"WEBP"
-    if content_type == "audio/wav":  # RIFF container: 'RIFF' <size> 'WAVE'
-        return len(head) >= 12 and head[:4] == b"RIFF" and head[8:12] == b"WAVE"
+    if content_type == "audio/wav":  # RIFF / RIFX (big-endian) / RF64 container: <id> <size> 'WAVE'
+        return len(head) >= 12 and head[:4] in (b"RIFF", b"RIFX", b"RF64") and head[8:12] == b"WAVE"
     if content_type == "audio/mpeg":
         return _looks_like_mpeg_audio(head)
     prefix = _MAGIC_PREFIXES.get(content_type)

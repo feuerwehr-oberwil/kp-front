@@ -134,6 +134,9 @@ async def test_m4a_without_isobmff_signature_rejected(client, editor):
         ("memo.wav", "audio/wav", b"RIFF\x24\x00\x00\x00WAVEfmt "),
         ("memo.mp3", "audio/mpeg", b"ID3\x04\x00\x00\x00\x00\x00\x00"),
         ("memo.mp3", "audio/mpeg", b"\xff\xfb\x90\x64" + b"\x00" * 8),
+        ("memo.mp3", "audio/mpeg", b"\x00" * 300 + b"\xff\xfb\x90\x64"),  # padding before the first frame
+        ("memo.wav", "audio/wav", b"RF64\xff\xff\xff\xffWAVEds64"),
+        ("memo.wav", "audio/wav", b"RIFX\x00\x00\x00\x24WAVEfmt "),
     ],
 )
 async def test_audio_is_stored_only_when_it_is_that_audio(client, editor, name, ctype, real):

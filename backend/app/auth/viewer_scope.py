@@ -29,6 +29,8 @@ from ..schemas import AccessConfig, load_stored_config
 logger = logging.getLogger(__name__)
 
 _not_found = HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Einsatz nicht gefunden")
+#: the print routes' own «no such job» (api/print_relay)
+_job_not_found = HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Druckauftrag nicht gefunden")
 
 
 def is_viewer(user: User) -> bool:
@@ -93,4 +95,6 @@ async def enforce_viewer_window(request: Request, db: AsyncSession, user: User) 
     if lifecycle_open(archived, state):
         return
     if _ended(last_closed, closed, started) < datetime.now(UTC) - await viewer_history(db):
-        raise _not_found
+        # a print job answers as a missing job – the route's own 404 – so the two bodies cannot
+        # tell a viewer which ids exist
+        raise _job_not_found if incident_id is None and media_id is None and job_id is not None else _not_found

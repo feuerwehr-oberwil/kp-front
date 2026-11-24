@@ -3872,6 +3872,7 @@
           "media"
         ],
         "summary": "Get Transcription",
+        "description": "The transcription job and its UNREVIEWED segments – editor-only like starting and deciding\nthem (hunt 24.11.2026, access-control F8): an el or viewer read the drafts nobody had checked,\nand a status read could mark an orphaned job failed.",
         "operationId": "get_transcription_api_media__media_id__transcription_get",
         "parameters": [
           {

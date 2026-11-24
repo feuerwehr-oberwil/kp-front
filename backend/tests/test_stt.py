@@ -155,6 +155,7 @@ async def test_engine_failure_lands_as_failed(client, editor, stt_configured, mo
 async def test_viewer_cannot_read_trigger_or_patch(client, editor, viewer, stt_configured, monkeypatch):
     """Transcription drafts are unreviewed working aids: editor-only end to end – reading them
     included since hunt 24.11.2026 (access-control F8)."""
+
     async def fake(_path):
         return [{"start": 0.0, "end": 1.0, "text": "x"}]
 

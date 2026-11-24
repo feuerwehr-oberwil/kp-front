@@ -123,6 +123,8 @@ async def test_a_print_job_of_an_old_einsatz_does_not_exist_for_a_viewer(client,
     db_session.add_all([old, recent])
     await db_session.commit()
     await _login(client, viewer)
-    assert (await client.get(f"/api/print-jobs/{old.id}")).status_code == 404
-    assert (await client.delete(f"/api/print-jobs/{old.id}")).status_code == 404
+    missing = await client.get("/api/print-jobs/00000000-0000-0000-0000-000000000000")
+    for r in (await client.get(f"/api/print-jobs/{old.id}"), await client.delete(f"/api/print-jobs/{old.id}")):
+        # the same answer as a job that does not exist: the window tells nothing about which do
+        assert (r.status_code, r.json()) == (missing.status_code, missing.json()) == (404, missing.json())
     assert (await client.get(f"/api/print-jobs/{recent.id}")).status_code == 200
