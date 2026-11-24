@@ -107,3 +107,15 @@ describe('the views dock · Escape', () => {
     }
   })
 })
+
+// «Nach Norden» on a north-up map did nothing (owner's iPhone, 24.11.2026): the row stands only
+// while the map is turned.
+describe('the views dock · Nach Norden', () => {
+  beforeEach(() => pinViewport(false))
+  const openAt = (bearing: number) => render(<MapViewsButton api={{ ...api(), current: { bearing, center: [7.5, 47.5], zoom: 16 } }}
+    bearing={bearing} readOnly={false} variant="util" btnClassName="tu" open onOpenChange={() => {}} glyphClassName="g" />)
+  const north = () => screen.queryByRole('button', { name: appConfig.copy.mapViews.north })
+
+  it.each([0, 0.3, -0.3, 360])('is gone at %s°', (b) => { openAt(b); expect(north()).toBeNull() })
+  it.each([12, -40, 179])('stands at %s°', (b) => { openAt(b); expect(north()).toBeTruthy() })
+})

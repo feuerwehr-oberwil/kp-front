@@ -838,8 +838,8 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
           />
         )}
 
-        {/* the phone: Karte · Checkliste │ Messen · Gefahrgut · Ebenen at the foot (owner, 19.10.2026 ·
-            variant A — the bar never changes: a tool tapped on the Checkliste goes back to the Karte
+        {/* the phone: Karte · Checkliste · Messen · Gefahrgut · Ebenen at the foot (owner, 19.10.2026 ·
+            variant A; no │ between the surfaces and the tools since 24.11.2026, owner's iPhone) — the bar never changes: a tool tapped on the Checkliste goes back to the Karte
             with it armed, setTool), pin + compass above it on the map. No «Pläne» tab (owner,
             17.10.2026): an object's plans are rows in its sheet, and an open plan goes back with its
             «Zur Karte» chip or the Karte tab */}
@@ -855,8 +855,6 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
                 <button type="button" className={cx('nav-item', onLibrary && 'on')} aria-pressed={onLibrary} aria-label={appConfig.copy.modes.checklists} onClick={openLibrary} data-karte-library="">
                   <span className="nav-glyph"><Icon id="checklist" /></span><span className="nav-label">{appConfig.copy.modes.checklists}</span>
                 </button>
-                {/* the surfaces │ the map's tools */}
-                <div className={cx('nav-sep', s.barSep)} aria-hidden />
                 {/* Messen and Gefahrgut are tools (pressed); Ebenen OPENS a panel, so open it wears the
                     open look of every opener – the wash + blue, `aria-expanded` (ELEM.6, button round
                     17.11.2026 CHROME.10) – not the ink pill that says «you are here» */}

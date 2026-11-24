@@ -806,14 +806,12 @@ describe('KarteApp', () => {
   })
 
   // owner, 19.10.2026 (Checkliste on the Karte home, variant A): the bar never changes — the two
-  // surfaces │ the map's tools; a tool tapped on the Checkliste goes back to the Karte with it armed
-  it('on a phone: Karte · Checkliste │ tools, the bar field feeds the library, a tool goes back armed', async () => {
+  // surfaces, then the map's tools; a tool tapped on the Checkliste goes back to the Karte with it armed
+  it('on a phone: Karte · Checkliste · tools, the bar field feeds the library, a tool goes back armed', async () => {
     rec.phone = true
     mount()
     const nav = await screen.findByRole('navigation', { name: 'Karte & Objekte' })
-    const sep = nav.querySelector('.nav-sep')!
-    expect(sep.previousElementSibling?.textContent).toBe('Checkliste')
-    expect(sep.nextElementSibling?.textContent).toBe('Messen')
+    expect([...nav.querySelectorAll('.nav-item')].map((b) => b.getAttribute('aria-label'))).toEqual(['Karte', 'Checkliste', 'Messen', 'Gefahrgut', 'Ebenen'])
     fireEvent.click(within(nav).getByRole('button', { name: 'Checkliste' }))
     expect(screen.getByTestId('library')).toBeTruthy()
     // the map's round search button, the pin and the compass are the map's

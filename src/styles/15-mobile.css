@@ -1182,6 +1182,11 @@
   }
   :root { --float-base: var(--float-bars); }
   :root:has(.phone-tools .wb-dock):not(:has(.phone-tools .wb-tafel-page)) { --float-base: calc(var(--rail-h) * 3 + 8px + 2 * var(--float-gap)); }
+  /* ⚠️ …but the Karte's dock stands ON its one bar (Karte.module · «Messen on the phone»), so a
+     dock alone (Punkt setzen's ✕ Abbrechen) is two rails: the pin hint floated one rail above the
+     dock (owner's iPhone, 24.11.2026). Messen's readout over the dock keeps the 3-rail figure. */
+  :root:has(.phone-tools[data-karte] .wb-dock):not(:has(.phone-tools[data-karte] [data-float-stack])) {
+    --float-base: calc(var(--rail-h) * 2 + 8px + var(--float-gap)); }
   :root { --float-bottom: calc(var(--float-base) + var(--float-gap) + env(safe-area-inset-bottom));
     --float-floor: calc(var(--float-bars) + var(--float-gap) + env(safe-area-inset-bottom)); }
   /* the row is OCCUPIED while any of its pieces is on screen: a FAB, the plan's chip row, the
