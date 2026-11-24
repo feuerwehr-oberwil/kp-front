@@ -52,11 +52,11 @@ export const correctEntryPressure = (t: Trupp, bar: number): Partial<Trupp> => {
   return { entryPressureBar: bar, readings, lowestBar }
 }
 
-type ClockDeps = Pick<TruppActionDeps, 'trupps' | 'setTrupps' | 'log' | 'emit' | 'placeOf'>
+type ClockDeps = Pick<TruppActionDeps, 'trupps' | 'setTrupps' | 'log' | 'emit' | 'placeOf' | 'liveTrupps'>
   & Pick<TruppActionCore, 'remember' | 'recorded'>
 
 export function truppClockActions(deps: ClockDeps) {
-  const { trupps, setTrupps, log, emit, placeOf, remember, recorded } = deps
+  const { trupps, setTrupps, log, emit, placeOf, remember, recorded, liveTrupps } = deps
 
   // record a Funkkontakt: resets the contact clock (the core FKS safety signal) and appends a
   // log row carrying the current pressure (so the Verlauf shows the trend even at radio checks)
@@ -174,7 +174,9 @@ export function truppClockActions(deps: ClockDeps) {
    * (types · TruppReading.measured) and the Trupp's pressure state takes it like a Druckmeldung —
    * without touching the contact clock, which stops at the Austritt anyway. */
   const setTruppStatus = (id: string, status: Trupp['status'], exitBar?: number) => {
-    const tr = trupps.find((t) => t.id === id)
+    // LIVE, not this render's copy: a confirm answered late runs the transition from an old
+    // render, and its guard and ↶ snapshot must see what another tablet wrote since (askTruppEntry)
+    const tr = (liveTrupps?.() ?? trupps).find((t) => t.id === id)
     const measuredExit = status === 'raus' && exitBar != null && exitBar > 0 && !!tr?.entryTime
     const az = appConfig.copy.atemschutz
     /* ⚠️ A transition INTO the state the Trupp is already in does nothing at all (04.09.,
@@ -214,7 +216,7 @@ export function truppClockActions(deps: ClockDeps) {
     // action instead would stamp `now` a second time and move a safety clock forward.
     const apply = (t: Trupp): Trupp => {
       if (status === 'aktiv' && !t.entryTime) {
-        return { ...t, status, entryTime: now, lastContactTime: now, readings: [...(t.readings ?? []), { t: now, bar: t.entryPressureBar, kind: 'entry' }] }
+        return { ...t, status, entryTime: now, lastContactTime: now, readings: [...(t.readings ?? []), { t: now, bar: t.entryPressureBar, kind: 'entry', pa: isAtemschutzTrupp(t) }] }
       }
       // ⚠️ The Austritt is a ROW too (19.08.). It lived only in the sheet's header, so the
       // printed pressure log simply stopped mid-Einsatz and the reader had to look up to find
