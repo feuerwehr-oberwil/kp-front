@@ -35,6 +35,11 @@ on:
     - cron: "40 */2 * * *"   # every 2 hours, offset off the hour so it never races the reset
   workflow_dispatch: {}
 
+# Reads one file of the repository. Without this block the workflow token gets the repository
+# default, which is read AND write here.
+permissions:
+  contents: read
+
 concurrency:
   group: demo-watchdog
   cancel-in-progress: true
@@ -44,9 +49,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # ONE file, and only so the step below can tell «this repo has no demo» from «this repo's
-      # demo secret has gone missing». The CHECK itself is still an unauthenticated curl of the
-      # public config — the whole point is to see the demo exactly as a visitor does, and a
-      # checkout does not change that.
+      # demo secret has gone missing». The CHECK itself still sees the demo exactly as a visitor
+      # does, and a checkout does not change that: it signs in the way the demo page signs a
+      # visitor in (the first editor of the public roster, the public demo PIN) and reads the
+      # config with that session. Without a session `/api/config` gives the branding only
+      # (backend api/config · PUBLIC_PARTS), not the sections this job watches.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           sparse-checkout: .github/demo-enabled
@@ -72,13 +79,38 @@ jobs:
             echo "DEMO_BASE_URL not set and no .github/demo-enabled marker — this repo has no demo."
             exit 0
           fi
-          cfg=$(curl -fsS --retry 3 --retry-delay 10 "${DEMO_URL%/}/api/config") || {
-            echo "::error::Could not read ${DEMO_URL%/}/api/config — the demo may be down."
+          base="${DEMO_URL%/}"
+          jar=$(mktemp)
+          roster=$(curl -fsS --retry 3 --retry-delay 10 "$base/api/auth/roster") || {
+            echo "::error::Could not read $base/api/auth/roster — the demo may be down."
+            exit 1
+          }
+          user=$(echo "$roster" | python3 -c '
+          import json, sys
+          roster = json.load(sys.stdin)
+          editors = [u for u in roster if u.get("role") == "editor"] or roster
+          print(editors[0]["id"] if editors else "")
+          ')
+          if [ -z "$user" ]; then
+            echo "::error::The demo has no login account — a visitor cannot get in. Re-run «Demo reset»."
+            exit 1
+          fi
+          curl -fsS --retry 3 --retry-delay 10 -c "$jar" -o /dev/null \
+            -H 'Content-Type: application/json' -d "{\"user_id\":\"$user\",\"pin\":\"000000\"}" \
+            "$base/api/auth/login" || {
+            echo "::error::Could not sign in to the demo with the public demo PIN — a visitor cannot get in."
+            exit 1
+          }
+          cfg=$(curl -fsS --retry 3 --retry-delay 10 -b "$jar" "$base/api/config") || {
+            echo "::error::Could not read $base/api/config — the demo may be down."
             exit 1
           }
           echo "$cfg" | python3 -c '
           import json, sys
           d = json.load(sys.stdin)
+          if d.get("partial"):
+              print("::error::The demo answered as to a caller without a session: the sign-in above did not hold.")
+              sys.exit(1)
 
           def n(*path):
               cur = d

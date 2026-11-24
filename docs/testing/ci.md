@@ -174,10 +174,19 @@ Moved here from AGENTS.md on 2026-10-18, wording unchanged.
 **Tests** are Vitest, colocated as `*.test.ts(x)`: pure `src/lib` logic in the default node
 environment, and component and hook tests in jsdom (a `@vitest-environment jsdom` line at the
 top of the file – about half of the files); the backend uses pytest. Pre-commit covers backend Ruff and staged
-frontend ESLint, not the full gate. `just ci` also runs the coverage floor, the bundle budget,
+frontend ESLint, not the full gate. `just hooks` (once per
+clone) points git at `.githooks/`, whose pre-push hook runs `just ci-static` (the deterministic gates; the suites flake under load on a shared box and stay `just ci`'s and CI's); `git push --no-verify`
+skips it for a 3am hotfix. `just ci` also runs the coverage floor, the bundle budget,
 audits, licenses and `just schema-check` (a throwaway Postgres migrated to head, then `alembic
 check` against the models); image, secrets, e2e, visual and perf stay CI's.
 
+- **Corrections become checks.** The house eslint plugin `scripts/eslint-kp.mjs` (rule tests
+  beside it) holds what owner corrections taught: no raw `useEffect`/`useLayoutEffect` or timer
+  (`setTimeout`, `setInterval`, `requestAnimationFrame`, `requestIdleCallback`) in product code
+  outside `src/lib`, no screen text written into JSX, and a `-- reason` on every `eslint-disable`.
+  A rule starts as a ratcheted warning and becomes an error in `eslint.config.js` once its count
+  reaches 0 (screen text since 22.11.2026, like the `src/lib/incidents` and `src/lib/overlays`
+  import doors and the `crypto.randomUUID` ban).
 - **Ratchets only go down.** The eslint warnings per rule and what `eslint-disable` directives
   silence per rule (`scripts/eslint-baseline.json`, `rules` and `silenced`; `pnpm lint` fails when
   a count goes up, or down without `pnpm lint:update` – a non-null `!` outside the tests counts as
@@ -243,7 +252,7 @@ The required checks retain their names, so branch protection needs no migration:
 | Image (hadolint + build + smoke) | Requires the image build and all three isolated browser suites. Builds the real production image once, then drives every e2e spec against it except the journeys and screenshots – among them the white-screen smoke (`e2e/smoke.spec.ts`) and the field scenario of the Übung on 23.09.2026 (`e2e/field-scenario.spec.ts`: a parked vehicle sending GPS, a coupled Leitung, a tapped Trupp, and then three devices on one login). |
 | Visual (screenshots vs baseline) | Loads that run's image into its own stack; unchanged screenshot thresholds. Advisory: a difference warns and uploads the pictures, only a failed stack fails it. |
 | Performance (user journeys vs baseline) | Loads that run's image into its own stack; unchanged journeys, calibration, confirmation and budgets. Reports without failing on a Dependabot PR. |
-| Secrets (gitleaks) | Scans the tracked tree. |
+| Secrets (gitleaks) | Scans the tracked tree. On a pull request it also scans the commits of that pull request, so a secret that one commit adds and a later one removes is found. |
 | Shared files match KP Rück | Compares the shared manifest against the paired/default sibling branch. |
 
 The two aggregate checks run even after a dependency fails and accept only `success` from

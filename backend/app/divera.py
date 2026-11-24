@@ -587,6 +587,6 @@ async def store_responses(db: AsyncSession, responses: dict[int, dict[str, str]]
                 em.responses_at = now
                 changed += 1
         return changed
-    except Exception:  # noqa: BLE001 — see the docstring
+    except Exception:  # see the docstring
         logger.warning("Storing Divera Rückmeldungen failed", exc_info=True)
         return 0

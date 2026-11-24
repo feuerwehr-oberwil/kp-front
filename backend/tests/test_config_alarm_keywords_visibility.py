@@ -1,13 +1,12 @@
-"""`alarmKeywords` is withheld from anonymous GET — and MUST NOT be withheld from an admin.
+"""`alarmKeywords` reaches an admin session only — and MUST NOT be withheld from an admin.
 
 WHY BOTH HALVES ARE HERE
 ------------------------
-`GET /api/config` is public on purpose: the login screen needs branding before anyone can log
-in. Every section of the document therefore ships to unauthenticated callers, and one of them
-should not: a station's whole alarm vocabulary. Matching happens server-side and nothing in the
-frontend reads it, so publishing it is surface for nothing. The `alarmVocabulary` *summary*
-(source, schema version, counts) stays public, because "is my override live?" has to be
-answerable without a session.
+A station's whole alarm vocabulary has no reader in the frontend: matching happens server-side,
+so publishing it is surface for nothing. A caller without a session gets the short public list
+(`test_config_public_parts.py`), a PIN or link session the document without this block. The
+`alarmVocabulary` *summary* (source, schema version, counts) goes to every session, because
+"is my override live?" has to be answerable without the admin secret.
 
 The second half is the one that actually bites, and it is the reason this is a flag on the
 projection rather than a blanket drop. **The admin UI does a full-document PUT**
@@ -50,8 +49,9 @@ async def test_anonymous_get_does_not_expose_the_vocabulary(client, admin_login,
 
 
 @pytest.mark.asyncio
-async def test_anonymous_still_learns_which_vocabulary_is_active(client, admin_login, put_config):
-    """The summary is deliberately public: counts and source, never the words."""
+async def test_a_session_still_learns_which_vocabulary_is_active(client, admin_login, put_config, editor):
+    """The summary goes to every session: counts and source, never the words. A caller without a
+    session gets neither (20.11.2026: the public answer is a short list)."""
     await admin_login(client)
     await put_config(
         client,
@@ -65,8 +65,12 @@ async def test_anonymous_still_learns_which_vocabulary_is_active(client, admin_l
         },
     )
     client.cookies.clear()
+    assert "alarmVocabulary" not in (await client.get("/api/config")).json()
 
-    summary = (await client.get("/api/config")).json()["alarmVocabulary"]
+    assert (await client.post("/api/auth/login", json={"user_id": str(editor.id), "pin": "135790"})).status_code == 200
+    body = (await client.get("/api/config")).json()
+    assert body.get("alarmKeywords") is None, "the words reached a PIN session"
+    summary = body["alarmVocabulary"]
     assert summary["source"] == "deployment"
     assert summary["titleKeywords"] == 1
     assert summary["fallbackCategory"] == "diverse_einsaetze"
@@ -113,12 +117,12 @@ async def test_admin_get_round_trips_the_vocabulary(client, admin_login, put_con
 
 
 @pytest.mark.asyncio
-async def test_the_kategorien_labels_are_served_to_everyone_in_picker_order(client):
+async def test_the_kategorien_labels_are_served_to_every_session_in_picker_order(client, editor):
     """Sweep B.9: the wizard's Kategorie picker reads the server's labels – there is no second
-    list in the frontend to drift. Public like the summary: the login screen precedes every
-    session, and a category label is no secret."""
+    list in the frontend to drift. The wizard is behind the login, so the labels are too."""
     from app.divera import CATEGORY_LABELS
 
+    assert (await client.post("/api/auth/login", json={"user_id": str(editor.id), "pin": "135790"})).status_code == 200
     served = (await client.get("/api/config")).json()["categoryLabels"]
     assert list(served.items()) == list(CATEGORY_LABELS.items())
     assert next(iter(served.values())) == "Brandbekämpfung"  # the wizard's default

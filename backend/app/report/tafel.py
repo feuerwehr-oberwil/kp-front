@@ -61,7 +61,7 @@ def _board_map_png(pk: KrokiIn | None) -> bytes | None:
             max_tile_z=pk.maxTileZoom or 19,
             attribution=pk.attribution,
         )
-    except Exception:  # noqa: BLE001 — a failed map must not sink the rapport; the box stays blank
+    except Exception:  # a failed map must not sink the rapport; the box stays blank
         logger.warning("Tafel Lagekarte could not be rendered; box left blank", exc_info=True)
         return None
     b = io.BytesIO()

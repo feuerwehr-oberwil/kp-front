@@ -21,6 +21,7 @@ export const sessionCopy: Localizable<Pick<Copy, Keys>> = {
     unsentMore: 'and {n} more',
     unsentBody: 'They exist only on this device and are synced once this account signs in here.',
     loginFailed: 'Not signed in – enter the PIN again',
+    configFailed: 'Station data not loaded – enter the PIN again',
     pleaseWait: 'Please wait a moment…',
     clearDigit: 'Remove last digit',
     submitPin: 'Sign in',

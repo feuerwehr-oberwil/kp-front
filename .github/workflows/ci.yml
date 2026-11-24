@@ -33,7 +33,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Install pnpm
-        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6; pnpm from packageManager
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6; pnpm from packageManager
 
       - name: Setup Node
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
@@ -116,7 +116,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: 24
@@ -161,6 +161,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0 # the commit scan below reads the pull request's own commits
       # CLI via container (not gitleaks-action, which needs a license key for org repos).
       # Scans exactly the TRACKED tree at HEAD (git archive), so local .env files and
       # node_modules never enter the picture; deliberate test values carry inline
@@ -174,6 +176,29 @@ jobs:
           docker run --rm -v /tmp/scan:/repo \
             ghcr.io/gitleaks/gitleaks@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f \
             detect --source /repo --no-git --redact --exit-code 1
+      # ⚠️ The step above sees only the tree as it is at the END. A secret that one commit adds
+      # and a later commit takes out again passes it — and a merge commit carries both commits
+      # into main's history, where the secret stays readable. So a pull request's own commits
+      # are scanned too (same image, same rules, same `gitleaks:allow` comments).
+      #
+      # The range comes from the checkout itself: on a pull request HEAD is GitHub's merge of
+      # the base (first parent) and the PR head (second parent). A HEAD that is no such merge
+      # fails the step — it never scans an empty range. `--diff-merges=first-parent` makes
+      # `git log -p` show a merge commit INSIDE the pull request as its change against its first
+      # parent (what it brought in, a conflict resolution included); without it a merge commit
+      # shows no patch at all.
+      # `safe.directory`: the container's user is not the owner of the checkout.
+      - name: Scan the pull request's commits for secrets
+        if: github.event_name == 'pull_request'
+        run: |
+          set -euo pipefail
+          base=$(git rev-parse --verify --quiet 'HEAD^1')
+          head=$(git rev-parse --verify --quiet 'HEAD^2')
+          echo "scanning $(git rev-list --count "$base..$head") commit(s): $base..$head"
+          docker run --rm -v "$PWD":/repo \
+            -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0='*' \
+            ghcr.io/gitleaks/gitleaks@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f \
+            detect --source /repo --log-opts "--diff-merges=first-parent $base..$head" --redact --exit-code 1
 
   # --- Shared files: the copies KP Front and KP Rück hold of the same files ------------
   # shared/MANIFEST.json lists every file the two products share by copy (telemetry sanitiser,
@@ -264,7 +289,7 @@ jobs:
         env:
           POSTGRES_USER: kpfront
           POSTGRES_PASSWORD: kpfront
-          POSTGRES_DB: kpfront
+          POSTGRES_DB: kpfront_test
         ports:
           - 5432:5432
         # Wait until Postgres is ready before the job's steps run.
@@ -277,7 +302,7 @@ jobs:
     env:
       # CI secret: 64-hex (>= 32 chars) so config.py accepts it; non-production value.
       SECRET_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef # gitleaks:allow
-      DATABASE_URL: postgresql+asyncpg://kpfront:kpfront@localhost:5432/kpfront
+      DATABASE_URL: postgresql+asyncpg://kpfront:kpfront@localhost:5432/kpfront_test
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -341,14 +366,14 @@ jobs:
         env:
           PGPASSWORD: kpfront
         run: |
-          psql -h localhost -U kpfront -d kpfront -v ON_ERROR_STOP=1 \
+          psql -h localhost -U kpfront -d kpfront_test -v ON_ERROR_STOP=1 \
             -c "ALTER SYSTEM SET fsync = off" \
             -c "ALTER SYSTEM SET synchronous_commit = off" \
             -c "ALTER SYSTEM SET full_page_writes = off" \
             -c "SELECT pg_reload_conf()"
 
       # `-n 4` (pytest-xdist): this step was 14.6 of the job's 15.6 minutes, serially, on a
-      # 4-vCPU runner. Each worker gets its own database (kpfront_gw0 …, tests/conftest.py) and
+      # 4-vCPU runner. Each worker gets its own database (kpfront_test_gw0 …, tests/conftest.py) and
       # builds the schema once instead of per test. `-n` is not in addopts on purpose: a plain
       # `uv run pytest` stays serial. `--durations` keeps the slowest tests in sight — one slow
       # test now holds up a whole worker.
@@ -457,7 +482,7 @@ jobs:
       # Catches the catastrophic class the curl check can't see: a surface that throws on
       # mount, a wedged session, a build that loads blank.
       - name: Install pnpm
-        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6; pnpm from packageManager
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6; pnpm from packageManager
 
       - name: Setup Node
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
@@ -552,7 +577,7 @@ jobs:
           image-artifact: production-image
 
       - name: Install pnpm
-        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6; pnpm from packageManager
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6; pnpm from packageManager
 
       - name: Setup Node
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
@@ -646,7 +671,7 @@ jobs:
           image-artifact: production-image
 
       - name: Install pnpm
-        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6; pnpm from packageManager
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6; pnpm from packageManager
 
       - name: Setup Node
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7

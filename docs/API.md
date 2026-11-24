@@ -62,7 +62,7 @@ PIN-kiosk flow issuing JWTs as **httpOnly cookies** (single-origin, so no tokens
 | `/api/auth/microsoft/*` | optional «Mit Microsoft anmelden»: `start` redirects to the tenant, `callback` sets an ordinary account session – never an admin one ([`microsoft-login.md`](microsoft-login.md)) | public · 404 until configured |
 | `/api/admin/*` | admin-session login / logout | secret |
 | `/api/admin/session` | whether admin is configured at all and whether this browser holds an admin session – never the secret | public |
-| `/api/config`, `/api/branding`, `/api/system` | deployment config (`PUT` needs `If-Match`; `POST /validate` is the dry run; a write that would empty a populated section is 409 unless `?force=true`; `/history` lists earlier saves and `…/{id}/restore` brings one back), branding assets, maintenance status incl. connector states and the `setup` block | read public (config) · admin (writes) |
+| `/api/config`, `/api/branding`, `/api/system` | deployment config (`PUT` needs `If-Match`; `POST /validate` is the dry run; a write that would empty a populated section is 409 unless `?force=true`; `/history` lists earlier saves and `…/{id}/restore` brings one back), branding assets, maintenance status incl. connector states and the `setup` block | read: a short public list without a session (`partial: true` – branding, demo switch, Microsoft-login switch), the document with one (config) · admin (writes) |
 | `/api/integrations/credentials*` | integration credentials + their audit trail (see below) | admin |
 | `/api/integrations/*` (the rest) | the Objektbesuche organizer API: catalogue, objects by the organizer's own ids, visit programmes and lists, the change feed, visits, reports and photos ([`object-visits.md`](object-visits.md)) | organizer key (`Authorization: Bearer`, fail-closed) |
 | `/api/station-workbook/*` | the station-data `.xlsx` – export, preview, import (see below) | admin |
@@ -78,7 +78,7 @@ PIN-kiosk flow issuing JWTs as **httpOnly cookies** (single-origin, so no tokens
 | `/api/overpass/*` | building outlines for «Umrisse», proxied to the Overpass mirrors | auth |
 | `/api/push/*` | VAPID public key, Web-Push subscribe / unsubscribe | auth |
 | `/api/alarms`, `/api/firehub/*` | generic alarm intake (`POST /api/alarms`, `…/milestones`) and the FireHub webhook – each auto-opens an incident ([`ALARM-INTEGRATIONS.md`](ALARM-INTEGRATIONS.md)) | `ALARM_WEBHOOK_SECRET` (`?secret=` or `X-Webhook-Secret`, fail-closed) |
-| `/api/capture/*` | the Erfassungs-Poster: reachable incidents, roster, the attendance part of the workspace, journal, Rapport-Beilage; `/secret` mints, rotates or disables the poster token | poster token (fail-closed) · admin (`/secret`) |
+| `/api/capture/*` | the Erfassungs-Poster: reachable incidents, roster (names and ranks, no Divera id), the config parts its form reads (`/config`), the attendance part of the workspace, journal, Rapport-Beilage; `/secret` mints, rotates or disables the poster token | poster token (fail-closed) · admin (`/secret`) |
 | `/api/stats/*` | `GET /incidents` – the read-only statistics export ([`STATS-EXPORT.md`](STATS-EXPORT.md)); `/secret` manages its token | stats token (fail-closed) · admin (`/secret`) |
 | `/api/object-visits/*` | Objektbesuche field API: catalogue, visits, attachments, revisions, report PDF | auth (writes per `objectVisits.captureRoles`; never a link session) · admin (read) |
 | `/api/admin/object-visits/*` | Objektbesuche admin view: every visit, the delivery outbox and retry, notify settings, destination test, ZIP export | admin |

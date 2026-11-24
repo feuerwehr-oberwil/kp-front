@@ -13,7 +13,7 @@
 // backend leaves the long-lived device cookie behind), then rewrites the address to /terminal
 // and lives on the cookie — the secret leaves the address bar, the bookmark, the history.
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { appConfig } from '../config/appConfig'
 import { deploymentName } from '../lib/deploymentConfig'
 import { fmtWhen, formatTime, formatLocale } from '../lib/format'
@@ -42,9 +42,22 @@ type State =
 
 /** Session established: the normal app, which the backend has narrowed to the resolved
  *  Einsatz. A vanished session is NOT an error state here — the poll outside owns liveness
- *  and will re-exchange or fall back to idle on its next tick — so this only ever waits. */
-function StandingSession() {
-  const { user, loading } = useAuth()
+ *  and will re-exchange or fall back to idle on its next tick — so this waits.
+ *
+ *  ⚠️ One state does not mend itself: the probe ended WITHOUT a user because the server or the
+ *  station's config could not be read (lib/auth · `probeUnreachable`). The provider is keyed by
+ *  the Einsatz and probes once, so the poll's next good answer changes nothing. `onRetry` starts
+ *  the exchange again, which remounts the provider — by hand, and by itself after one poll
+ *  interval: a depot screen has nobody to tap it. */
+function StandingSession({ terminal, onRetry }: { terminal: boolean; onRetry: () => void }) {
+  const { user, loading, probeUnreachable } = useAuth()
+  const stuck = !loading && !user && probeUnreachable
+  useEffect(() => {
+    if (!stuck) return
+    const timer = window.setTimeout(onRetry, STANDING_POLL_MS)
+    return () => clearTimeout(timer)
+  }, [stuck, onRetry])
+  if (stuck) return <FailedCard reason="offline" terminal={terminal} onRetry={onRetry} />
   if (loading || !user) return <Splash />
   return <App />
 }
@@ -188,6 +201,8 @@ export default function StandingApp({ token }: { token: string | null }) {
   // poll loop reads it between renders and a stale closure would un-make a made choice.
   const boundRef = useRef<string | null>(null)
   const [tick, setTick] = useState(0) // manual retry / chooser pick → poll now
+  /** start the exchange again: back to the splash, poll now (which remounts the session) */
+  const retry = useCallback(() => { setState({ phase: 'opening' }); setTick((n) => n + 1) }, [])
   /* When the poll last got an answer — the «Zuletzt geprüft» the idle screen closes with.
    * ⚠️ Stamped in the IDLE branch only, deliberately. Every other phase either has a screen of
    * its own to say it or, in the `ok` case, is a mounted app: the branch above goes to lengths
@@ -246,12 +261,12 @@ export default function StandingApp({ token }: { token: string | null }) {
   if (state.phase === 'ok') {
     // Keyed by the Einsatz: a new resolution is a new session cookie, and the AuthProvider
     // probes /me once on mount — remounting is what makes it probe again.
-    return <AuthProvider key={state.incidentId}><StandingSession /></AuthProvider>
+    return <AuthProvider key={state.incidentId}><StandingSession terminal={terminal} onRetry={retry} /></AuthProvider>
   }
   if (state.phase === 'opening') return <Splash />
   if (state.phase === 'idle') return <IdleScreen terminal={terminal} checkedAt={checkedAt} />
   if (state.phase === 'choose') {
     return <Chooser candidates={state.candidates} onPick={(id) => { boundRef.current = id; setTick((n) => n + 1) }} />
   }
-  return <FailedCard reason={state.reason} terminal={terminal} onRetry={() => { setState({ phase: 'opening' }); setTick((n) => n + 1) }} />
+  return <FailedCard reason={state.reason} terminal={terminal} onRetry={retry} />
 }

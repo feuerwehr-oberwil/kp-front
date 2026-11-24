@@ -4,6 +4,7 @@
 and `sharepoint.sources` are addresses the SERVER talks to; no client but /admin reads them, so
 only an admin session gets them. `objectVisits.destinations` is read by the signed-in app (the
 Objektbesuch's «Ablage» line), so it follows `report.links`: every PIN session, nobody without.
+A caller without a session gets none of the three sections at all (`test_config_public_parts.py`).
 """
 
 import pytest
@@ -34,7 +35,9 @@ def _shown(cfg: dict) -> tuple[list, list, list]:
 
 
 async def test_anonymous_gets_none_of_them(client, configured):
-    assert _shown((await client.get("/api/config")).json()) == ([], [], [])
+    r = await client.get("/api/config")
+    assert not {"alarms", "sharepoint", "objectVisits"} & set(r.json())
+    assert "SECRETSIG" not in r.text and "sharepoint.com" not in r.text
 
 
 @pytest.mark.parametrize("role", ["editor", "el", "viewer"])

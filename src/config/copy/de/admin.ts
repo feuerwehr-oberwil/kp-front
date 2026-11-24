@@ -699,6 +699,7 @@ export const adminCopy = {
       // und eine Zeile, die auf ein anders benanntes Feld zeigt, lässt einen suchen.
       appName: 'Name der Wehr',
       appNameTip: 'Wird in Titelleiste, Login und Hilfe angezeigt. Leer = «KP Front».',
+      appNamePlaceholder: 'KP Front',
       shortName: 'Kurzname',
       shortNameHint: 'Menüknopf der Karte, max. 8 Zeichen',
       shortNameTip: 'Steht oben links auf «Karte & Objekte» auf dem Knopf, der das Menü öffnet – neben dem Logo, falls eines hochgeladen ist. Höchstens 8 Zeichen, z. B. «FWO». Leer = Menü-Symbol (bzw. nur das Logo).',
@@ -793,6 +794,7 @@ export const adminCopy = {
       catKindsTip: 'Nur Objekte dieser Arten. Keine gewählt = jede Art.',
       catModules: 'Pläne',
       catModulesTip: 'Nur Objekte mit einem Plan dieses Moduls, durch Komma getrennt; * steht für beliebig viele Zeichen (modul5-pv* trifft modul5-pv, modul5-pv15 …). Leer = egal welche Pläne.',
+      catModulesPlaceholder: 'modul5-pv*, modul5-wasser*',
       catAdd: 'Kategorie hinzufügen',
     },
     journal: {

@@ -482,7 +482,7 @@ The importer's credentials are never used for writing. Admin labels: group `obje
 
 Validation: destination `id` lower-case `[a-z0-9_-]`, unique; `siteUrl` https; `root`,
 `objectFolder`, `visitFolder` plain paths (no `..`); `captureRoles` ⊆ `editor, el, viewer`;
-`lockAfterHours` an integer 0…8760 or `null`; proposal field ids unique. Nothing in the section is secret — `GET /api/config` is public.
+`lockAfterHours` an integer 0…8760 or `null`; proposal field ids unique. Nothing in the section is secret, but it needs a session: `GET /api/config` gives a caller without one the branding only (CONFIGURATION.md §1a).
 
 **Filing folders.** `objects.filing_folder` is set by the SharePoint plan pull — on every run,
 for every folder it lists: objects the pull created follow the folder name (a rename in

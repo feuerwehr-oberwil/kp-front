@@ -135,7 +135,7 @@ async def ov_config(db: AsyncSession) -> ObjectVisitsConfig:
     raw = row.config_json if (row and row.config_json) else {}
     try:
         return load_stored_config(raw).objectVisits
-    except Exception:  # noqa: BLE001 — a bad stored row must not 500 the module
+    except Exception:  # a bad stored row must not 500 the module
         logger.warning("deployment config failed validation — Objektbesuche read as off", exc_info=True)
         return ObjectVisitsConfig()
 

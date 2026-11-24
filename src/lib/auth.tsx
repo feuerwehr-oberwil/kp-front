@@ -2,11 +2,12 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 import { apiGet, apiPost, ApiError, isDenial, isUnverifiable, SESSION_EXPIRED_EVENT, SESSION_RESTORED_EVENT } from './api'
 import { onReachable } from './connectivity'
 import { idbGet, idbSet, idbDel } from './idb'
-import { getDeploymentConfig, isDemoMode, loadDeploymentConfig } from './deploymentConfig'
+import { ensureSessionConfig, hasStationConfig, isDemoMode, loadDeploymentConfig } from './deploymentConfig'
 import { notifyAccountKnown } from './accountKnown'
 import { syncMediaCacheAuth } from './authMediaCache'
 import { denyWorkspaceCache, setWorkspaceCacheOwner } from './api/workspaceSync'
 import { linkPageOwnsSession } from './linkMode'
+import { appConfig } from '../config/appConfig'
 
 // The demo's public PIN (shown to every visitor) — used to auto-sign-in on demo instances so
 // there's no login screen. Only ever sent when isDemoMode() is true; real stations never use it.
@@ -105,7 +106,9 @@ function writeCachedUser(u: AuthUser | null) {
  *  a request open for long; the next poll corrects a slow-but-alive server. */
 const CACHED_PROBE_TIMEOUT_MS = 7_000
 
-/** how long the boot probe waits for the session-bearing config re-read before mounting the app */
+/** How long the boot probe waits for the session-bearing config re-read before mounting the app,
+ *  on a device that already holds the station's config. One that holds only the public parts
+ *  waits for the read itself (bounded by the request's own timeout). */
 const SESSION_CONFIG_BUDGET_MS = 4_000
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -135,6 +138,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    *  WHILE the probe is in flight must win, so the offline-fallback restore cannot resurrect the
    *  very session that was just ended (SEC-10 — denial resurrection). */
   const denialEpoch = useRef(0)
+  /** Bumped by every successful sign-in (PIN, demo). A session check (`/me` after
+   *  `kp:session-expired`) sent BEFORE it asked about the old session: its refusal must not
+   *  end the new one. */
+  const signInEpoch = useRef(0)
 
   /** The local half of a denial: lock the workspace cache, drop the view to the kiosk login, and
    *  forbid an offline restore. Shared by a locally-detected refusal and one another tab broadcast.
@@ -181,10 +188,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const editor = roster.find((r) => r.role === 'editor') ?? roster[0]
       if (!editor) return null
       const demoUser = await apiPost<AuthUser>('/api/auth/login', { user_id: editor.id, pin: DEMO_PIN })
-      // Boot fetched the anonymous config before this session existed. That response deliberately
-      // withholds browser capabilities such as the CARTO key; mount the map only after the
-      // authenticated refresh or a first-time visitor sees watermarked tiles until reloading.
+      signInEpoch.current++
+      // Boot fetched the config before this session existed, so it got the public parts only
+      // (no fleet, no map layers, no CARTO key). Mount the app only after the read with the
+      // session, or a first-time visitor sees a station without its data until reloading.
+      const epoch = denialEpoch.current
       try { await loadDeploymentConfig() } catch { /* keep the booted config */ }
+      // …and without it there is no app to land in: the login screen instead (see `login`).
+      // The same when another tab signed out while the config was read.
+      if (!hasStationConfig() || denialEpoch.current !== epoch) return null
       return demoUser
     } catch { return null }
   }
@@ -215,26 +227,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // to it — see the isUnverifiable branch.
       const denialEpochAtStart = denialEpoch.current
       const cached = await readCachedUser()
-      if (cached && alive && denialEpoch.current === denialEpochAtStart) {
+      // At once only on a device that also holds the station's config (the boot seeded it from
+      // the offline copy). One that holds the public parts alone waits for the read below.
+      const openAtOnce = !!cached && hasStationConfig()
+      if (cached && openAtOnce && alive && denialEpoch.current === denialEpochAtStart) {
         adoptUser(cached)
         setLoading(false)
       }
       const probe = () => apiGet<AuthUser>('/api/auth/me', cached ? { timeoutMs: CACHED_PROBE_TIMEOUT_MS } : undefined)
       try {
         const u: AuthUser = await probe()
-        // The boot config was fetched BEFORE this probe, and `/api/config` is public: with the
-        // access cookie expired and only the refresh cookie alive it answered as an ANONYMOUS
-        // caller — no 401, so no refresh — and silently withheld the CARTO key and the Rapport
-        // links (backend api/config · get_config). The probe above is what refreshed the session,
-        // so re-read now, before the app mounts and the map builds its tile URLs; the basemap
-        // used to print «API key required» for the whole session (field report 02.09.). Only
-        // when the booted config shows the withholding, and bounded: a slow link must not hold
-        // the splash twice — a late answer still lands in the singleton and the offline cache.
-        // Not awaited when the app is already open on the cached user: there is no splash to hold.
-        if (!getDeploymentConfig().integrations?.cartoBasemapKey) {
-          const reread = loadDeploymentConfig().catch(() => {})
-          if (!cached) await Promise.race([reread, new Promise((r) => setTimeout(r, SESSION_CONFIG_BUDGET_MS))])
+        // A live 200 lifts a denial that landed BEFORE it; one that lands while the config is
+        // read below (a logout in another tab) wins, as it does for a login (see `login`).
+        const epochAtAnswer = denialEpoch.current
+        // The boot config was fetched BEFORE this probe. With the access cookie expired and only
+        // the refresh cookie alive — and on an Einsatz-Link page, whose session did not exist
+        // yet — `/api/config` answered a caller without a session: no 401, so no refresh, and
+        // only the public parts (backend api/config · get_config). The probe above is what
+        // refreshed the session, so read again now (only when the last answer had no session),
+        // before the app mounts and reads the fleet, the Atemschutz numbers and the map layers.
+        // Not awaited when the app is already open on the cached user: there is no splash to
+        // hold. A device that holds the station's config from an earlier session waits a
+        // bounded time — a slow link must not hold the splash twice, and a late answer still
+        // lands in the singleton and the offline cache. A device that holds only the public
+        // parts waits for the answer: the app is not this station's without it.
+        const reread = ensureSessionConfig()
+        if (!openAtOnce) {
+          await (hasStationConfig()
+            ? Promise.race([reread, new Promise((r) => setTimeout(r, SESSION_CONFIG_BUDGET_MS))])
+            : reread)
+          // The session is good but the config read failed: no app without the station's data.
+          // Say «not reachable» (the login screen and the link page offer the retry); the
+          // session cookie stays, so the next start or a new login reads again.
+          if (!hasStationConfig()) {
+            if (alive) setProbeUnreachable(true)
+            return
+          }
         }
+        if (denialEpoch.current !== epochAtAnswer) return
         if (alive) { adoptUser(u); writeCachedUser(u) }
       } catch (e) {
         if (!alive) return
@@ -244,7 +274,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // silently reversing the logout. Only a live 200 above may lift a denial; the offline
           // fallback may not. Stay locked and require a fresh login.
           if (denialEpoch.current !== denialEpochAtStart) return
-          // unverifiable, not refused — the cached session (adopted above) stays usable
+          // unverifiable, not refused — the cached session stays usable (adopted above, or
+          // here when the device holds no station config: offline there is nothing to wait for)
+          if (cached && !openAtOnce) adoptUser(cached)
           if (!cached) setProbeUnreachable(true)
         } else if (isDenial(e)) {
           // A reachable refusal, 401 OR 403, clears the cached identity — or a later OFFLINE boot
@@ -286,26 +318,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   //   · a live /me, or a refresh that succeeded meanwhile (SESSION_RESTORED_EVENT) → the session
   //     works: withdraw the warning (sweep 09.11.2026, UX.1 — it used to stand until a sign-in).
   //
-  // Single-flight: every failing request re-fires the event, and one answer settles all of them.
+  // Single-flight PER SESSION: every failing request re-fires the event, and one answer settles
+  // all of them. A check sent before a sign-in asked about the old session: its answer, 200 or
+  // refusal, is not about the new one and is dropped — and it does not stand in for a check of
+  // the new session either.
   useEffect(() => {
     let alive = true
-    let asking = false
+    /** the sign-in epoch the check in flight asks about, or null */
+    let askingFor: number | null = null
     let standing = false
     const withdraw = () => { standing = false; setSessionExpired(false) }
     const ask = () => {
-      if (asking) return
-      asking = true
+      const signInAtAsk = signInEpoch.current
+      if (askingFor === signInAtAsk) return
+      askingFor = signInAtAsk
+      const current = () => alive && signInEpoch.current === signInAtAsk
       void (async () => {
         try {
           const u = await apiGet<AuthUser>('/api/auth/me', { timeoutMs: CACHED_PROBE_TIMEOUT_MS })
-          if (!alive) return
+          if (!current()) return
           adoptUser(u)
           writeCachedUser(u)
           withdraw()
         } catch (e) {
-          if (alive && isDenial(e)) { standing = false; denySession() }
+          if (current() && isDenial(e)) { standing = false; denySession() }
         } finally {
-          asking = false
+          if (askingFor === signInAtAsk) askingFor = null
         }
       })()
     }
@@ -343,19 +381,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // the backend's German `detail` (and disable the pad on a Retry-After).
   const login = async (userId: string, pin: string) => {
     const u = await apiPost<AuthUser>('/api/auth/login', { user_id: userId, pin })
+    signInEpoch.current++
+    // ⚠️ Re-read the deployment config now that there IS a session, and BEFORE the user is
+    // adopted: adopting mounts the app. A caller without a session gets the public parts only
+    // (backend api/config · get_config), and the boot fetch necessarily ran before this login —
+    // on a device that never held a session the app would mount without fleet, map layers and
+    // the station's Atemschutz numbers. A later boot re-reads too (probe effect above).
+    // A device that already holds the station's config goes on with it when the read fails.
+    // One that holds only the public parts does not get an app with the shipped defaults in
+    // place of its station: the login screen says so and the PIN is entered again.
+    const epoch = denialEpoch.current
+    try { await loadDeploymentConfig() } catch { /* keep the booted config */ }
+    if (!hasStationConfig()) throw new ApiError(503, appConfig.copy.login.configFailed)
+    // A logout or a refusal that landed during that read (another tab shares the cookies) wins:
+    // adopting now would reopen the caches it has just closed.
+    if (denialEpoch.current !== epoch) throw new ApiError(401, appConfig.copy.login.loginFailed)
     // The account is back: this is what lifts a denial and hands the offline cache — including
     // any edit that never reached the server — to the user who left it there.
     adoptUser(u)
     setSessionExpired(false)
     writeCachedUser(u)
-    // ⚠️ Re-read the deployment config now that there IS a session. Parts of it are withheld
-    // from anonymous callers (`report.links` — the station's own Formulare, whose URLs are
-    // capabilities; see backend api/config · get_config), and the boot fetch necessarily ran
-    // before this login. A later boot re-reads too when its config shows the withholding — the
-    // boot fetch is anonymous whenever the access cookie has expired (probe effect above).
-    // Best-effort: a station that cannot re-read still has the config it booted with, and
-    // failing the login over a config refresh would be the worse trade at 3am.
-    try { await loadDeploymentConfig() } catch { /* keep the booted config */ }
   }
 
   const logout = async () => {

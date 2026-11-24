@@ -146,7 +146,7 @@ async def record_failure(db: AsyncSession, name: str, exc: BaseException, *, thr
     try:
         await record(db, name, ok=False, error=safe_error(exc), throttle_seconds=throttle_seconds)
         await db.commit()
-    except Exception:  # noqa: BLE001 — reporting a failure must never become a second one
+    except Exception:  # reporting a failure must never become a second one
         await db.rollback()
         logger.warning("Could not record the %s connector failure", name, exc_info=True)
 

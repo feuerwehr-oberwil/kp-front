@@ -55,7 +55,7 @@ async def _database_ok(db: AsyncSession) -> dict:
     try:
         await db.execute(text("SELECT 1"))
         return {"ok": True}
-    except Exception:  # noqa: BLE001
+    except Exception:
         logger.warning("system: SELECT 1 probe failed", exc_info=True)
         return {"ok": False}
 
@@ -64,7 +64,7 @@ async def _count(db: AsyncSession, stmt) -> int | None:
     """Run a COUNT, returning None on failure so one bad query can't sink the section."""
     try:
         return int((await db.execute(stmt)).scalar_one())
-    except Exception:  # noqa: BLE001
+    except Exception:
         logger.warning("system: count query failed", exc_info=True)
         return None
 
@@ -310,7 +310,7 @@ async def _setup(db: AsyncSession, counts: dict | None) -> dict:
     personnel_active = (counts or {}).get("personnel_active") or 0
     try:
         sharepoint_configured = bool((await sharepoint_status(db)).get("configured"))
-    except Exception:  # noqa: BLE001 — one unreadable connector must not sink the whole card
+    except Exception:  # one unreadable connector must not sink the whole card
         logger.warning("system: SharePoint setup row failed", exc_info=True)
         sharepoint_configured = False
 
@@ -358,7 +358,7 @@ async def get_system(
     """
     try:
         version = _version()
-    except Exception:  # noqa: BLE001
+    except Exception:
         logger.warning("system: version section failed", exc_info=True)
         version = None
 
@@ -366,32 +366,32 @@ async def get_system(
 
     try:
         counts = await _counts(db)
-    except Exception:  # noqa: BLE001
+    except Exception:
         logger.warning("system: counts section failed", exc_info=True)
         counts = None
 
     try:
         storage = _storage()
-    except Exception:  # noqa: BLE001
+    except Exception:
         logger.warning("system: storage section failed", exc_info=True)
         storage = None
 
     try:
         await load_credentials(db)
         integrations = provider_integrations().model_dump()
-    except Exception:  # noqa: BLE001
+    except Exception:
         logger.warning("system: integrations section failed", exc_info=True)
         integrations = None
 
     try:
         connectors = await _connectors(db)
-    except Exception:  # noqa: BLE001
+    except Exception:
         logger.warning("system: connectors section failed", exc_info=True)
         connectors = None
 
     try:
         setup = await _setup(db, counts)
-    except Exception:  # noqa: BLE001
+    except Exception:
         logger.warning("system: setup section failed", exc_info=True)
         setup = None
 

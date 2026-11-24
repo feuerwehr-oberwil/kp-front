@@ -31,7 +31,8 @@
     "demo": "Demo",
     "githubAria": "KP Front sin GitHub",
     "languageAria": "Lingua",
-    "options": "Lingua ed apparientscha"
+    "options": "Lingua ed apparientscha",
+    "skip": "Siglir al cuntegn"
   },
   "theme": {
     "label": "Apparientscha stgira"
@@ -321,6 +322,13 @@
       "privacyLink": "Protecziun da datas"
     }
   },
+  "lightbox": {
+    "close": "Serrar",
+    "prev": "Maletg precedent",
+    "next": "Proxim maletg",
+    "zoom": "Engrondir",
+    "hint": "Stritgar per spustar il maletg"
+  },
   "footer": {
     "origin": "Nascì dal manaschi d’acziun dals <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">pumpiers d’Oberwil BL</a> –\n      perquai che nus avain adina puspè vesì las medemas funtaunas d’errurs: attribuziuns dublas, infurmaziuns\n      sparpagliadas ed errurs da transcripziun a maun.\n      Mintga corps da pumpiers maina ses agen KP Front cun atgnas chartas, agens plans ed atgnas datas.",
     "demo": "Demo",
@@ -331,6 +339,7 @@
       "notes": "Notizias da la versiun",
       "dateFormat": "DD.MM.YYYY"
     },
-    "security": "Segirezza"
+    "security": "Segirezza",
+    "privacy": "Protecziun da datas"
   }
 }

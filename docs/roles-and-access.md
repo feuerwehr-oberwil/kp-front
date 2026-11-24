@@ -165,11 +165,18 @@ their offline copy already lives in IndexedDB (`lib/api/stationReference`).
   `atemschutz-fix`, the Erfassungs-Poster's `capture`, everyone else's none – a client-sent `via`
   is dropped. A link or the poster may `patchOf` (retract, reword) only a row of its own channel;
   the poster writes no `kind` at all.
-- **`GET /api/config`**: `alarms.webhooks` and `sharepoint.sources` reach an admin session only;
-  `objectVisits.destinations` every PIN session, no anonymous caller, no link
+- **`GET /api/config`**: a caller without a session gets a fixed allow-list – the branding, the
+  demo switch and the Microsoft-login switch (`api/config · PUBLIC_PARTS`); a part added later is
+  withheld until it is listed. The Erfassungs-Poster reads its own parts with its token
+  (`GET /api/capture/config`). With a session: `alarms.webhooks` and `sharepoint.sources` reach
+  an admin session only; `objectVisits.destinations` every PIN session, no link
   (CONFIGURATION.md §1a).
 - **A role change ends the account's sessions** (`revoke_sessions`, like a PIN reset): a device
   learns its role at sign-in. The last active editor cannot be demoted to `el` or `viewer`.
+- **A route without an auth dependency is on a list.** `backend/tests/test_route_auth.py` walks
+  every mounted route and fails when one has none of the auth dependencies and is not on its
+  `PUBLIC` list, where each open route stands with its reason (the login door, the probes, the
+  machines that check their own secret in the handler). Opening a route is an edit there.
 - **A viewer's Rapport-PDF embeds its own Einsatz's media only** – the window applies to what
   the composer opens, not just to `GET /api/media`.
 - **The el reads «Anrückend»** (`GET /divera/responses`, `CurrentRecordWriter`): it marks

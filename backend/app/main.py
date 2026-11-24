@@ -432,7 +432,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
     server log, nothing internal leaks to the client. HTTPExceptions never reach this
     (they're handled above), so the normal error flow is untouched.
     """
-    logger.exception("Unhandled error on %s %s", request.method, request.url.path, exc_info=exc)
+    logger.error("Unhandled error on %s %s", request.method, request.url.path, exc_info=exc)
     return JSONResponse({"detail": translate_detail("Interner Fehler")}, status_code=500)
 
 

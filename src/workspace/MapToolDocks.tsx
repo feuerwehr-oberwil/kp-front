@@ -13,6 +13,7 @@ import { ToolDock } from '../components/ToolDock'
 import { RailKey, ToolRail } from '../components/ToolRail'
 import { appConfig } from '../config/appConfig'
 import { armedReadout } from '../lib/armedTool'
+import { fillTemplate } from '../lib/format'
 import { isAtemschutzTrupp } from '../lib/atemschutz'
 import { truppStateWord } from '../components/truppCardText'
 import { PANEL_KEY } from '../lib/hotkeys'
@@ -328,7 +329,7 @@ export function MapToolDocks({
                 {here
                   ? <i>{appConfig.copy.whiteboard.truppPlacedHere}</i>
                   : t.status === 'raus' ? <i>{truppStateWord(t)}</i>
-                  : t.lineNumber ? <i>Ltg {t.lineNumber}</i> : null}
+                  : t.lineNumber ? <i>{fillTemplate(appConfig.copy.atemschutz.lineChip, { n: t.lineNumber })}</i> : null}
               </button>
             )
           })}

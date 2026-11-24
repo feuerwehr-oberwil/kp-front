@@ -467,7 +467,8 @@ combined sheet, `family` for a generative sub-slot). The same list drives **both
   tiles from it (falling back to the bundled module entries; OSM/Tafel surfaces stay app-defined,
   Modul 4/5 sub-sheets still synthesize data-driven tiles from the backend).
 - **Importer** (`import_einsatzplaene.py`) loads the **same** `modules` – via `--modules <file>`,
-  else the live deployment (`KP_BASE_URL` → `GET /api/config`), else its `BUILTIN_MODULES` default
+  else the live deployment (`KP_BASE_URL` → `GET /api/config`, read with an admin session:
+  `modules` is not in the answer a caller without a session gets), else its `BUILTIN_MODULES` default
   – and parses filenames with the `match`/`combinedWith`/`family` rules. The built-in reproduces
   the canonical mapping exactly (verified: 0 slot mismatches over 154 objects).
 

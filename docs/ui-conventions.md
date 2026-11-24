@@ -256,7 +256,7 @@ while the head's subtitle says when («Schadenlage · erledigt 10:57»).
   `Menu`, `Popover`/`PopoverClose`) – thin wrappers over **Base UI** (`@base-ui/react`, headless)
   that supply focus trap/restore, scroll-lock, Esc, backdrop/outside-click dismissal, and ARIA,
   painted with the existing `.ip-*`/token CSS. That package is imported **only** inside
-  `src/lib/overlays/` – every surface uses the wrappers, so behaviour/theming/a11y live in one
+  `src/lib/overlays/` (a lint error anywhere else) – every surface uses the wrappers, so behaviour/theming/a11y live in one
   place. Base UI portals Backdrop+Popup as siblings, so scrim = `.ui-backdrop` and centering =
   `.ip-sheet.ui-dialog` (13-incident.css). Every `Menu` and `Popover` is modal (an invisible
   backdrop, no scrim); a `Menu` that keeps a composer field's caret (`keepFocusRef`) is the one

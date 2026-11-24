@@ -1233,6 +1233,20 @@ class PersonnelOut(BaseModel):
     updated_at: datetime
 
 
+class CapturePersonOut(BaseModel):
+    """One row of the Erfassungs-Poster's roster: what its form reads, and nothing else.
+
+    The poster ticks names off and sorts them by rank (src/lib/captureClient · CapturePerson).
+    No Divera id, no external identities, no name parts: the token goes to people outside the
+    command post.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    display_name: str
+    rank: str | None = None
+
+
 class PersonnelCreate(BaseModel):
     """Manually add a crew member. ``divera_id`` is normally null (hand entry); a bare
     name is enough."""

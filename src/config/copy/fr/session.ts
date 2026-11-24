@@ -21,6 +21,7 @@ export const sessionCopy: Localizable<Pick<Copy, Keys>> = {
     unsentMore: 'et {n} autres',
     unsentBody: 'Elles ne se trouvent que sur cet appareil et ne sont synchronisées que lorsque ce compte se connecte ici.',
     loginFailed: 'Non connecté – saisir à nouveau le PIN',
+    configFailed: 'Données du corps non chargées – saisir à nouveau le PIN',
     pleaseWait: 'Un instant, s’il te plaît…',
     clearDigit: 'Retirer le dernier chiffre',
     submitPin: 'Se connecter',

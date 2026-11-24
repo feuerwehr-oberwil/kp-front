@@ -140,7 +140,7 @@ async def archive_config(db: AsyncSession) -> IncidentArchiveConfig:
     raw = row.config_json if (row and row.config_json) else {}
     try:
         return load_stored_config(raw).incidentArchive
-    except Exception:  # noqa: BLE001 – a bad stored row must not break a close
+    except Exception:  # a bad stored row must not break a close
         logger.warning("deployment config failed validation – Einsatz-Ablage read as off", exc_info=True)
         return IncidentArchiveConfig()
 

@@ -607,6 +607,7 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
       // mantenere identico a admin.setup.name — la riga «Configurazione» porta a questo campo
       appName: 'Nome del corpo',
       appNameTip: 'Mostrato nella barra del titolo, nel login e nell’aiuto. Vuoto = «KP Front».',
+      appNamePlaceholder: 'KP Front',
       shortName: 'Nome breve',
       shortNameHint: 'Pulsante menu della mappa, max. 8 caratteri',
       shortNameTip: 'Mostrato in alto a sinistra su «Mappa & oggetti», sul pulsante che apre il menu – accanto al logo, se caricato. Al massimo 8 caratteri, p. es. «FWO». Vuoto = simbolo del menu (o solo il logo).',
@@ -684,6 +685,7 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
       catKindsTip: 'Solo oggetti di questi tipi. Nessuno scelto = tutti.',
       catModules: 'Piani',
       catModulesTip: 'Solo oggetti con un piano di questo modulo, separati da virgole; * sta per qualsiasi carattere (modul5-pv* trova modul5-pv, modul5-pv15 …). Vuoto = qualsiasi piano.',
+      catModulesPlaceholder: 'modul5-pv*, modul5-wasser*',
       catAdd: 'Aggiungi categoria',
     },
     doctrine: {

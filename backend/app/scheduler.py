@@ -60,7 +60,7 @@ async def _refresh_credentials() -> None:
 
     try:
         await load(force=True)
-    except Exception:  # noqa: BLE001 — a stale snapshot is survivable, a wedged scheduler is not
+    except Exception:  # a stale snapshot is survivable, a wedged scheduler is not
         logger.warning("Credential refresh failed (keeping the previous snapshot)", exc_info=True)
 
 
@@ -155,7 +155,7 @@ async def _prune_divera_responses() -> None:
             await db.commit()
             if cleared:
                 logger.info("Divera Rückmeldungen cleared on %d alarm(s) (Einsatz over or past retention)", cleared)
-        except Exception:  # noqa: BLE001 — a failed sweep is retried on the next one
+        except Exception:  # a failed sweep is retried on the next one
             await db.rollback()
             logger.warning("Clearing Divera Rückmeldungen failed", exc_info=True)
 
@@ -178,7 +178,7 @@ async def _divera_tick() -> None:
             # …except while the crew is still answering the alarm (divera · RESPONSE_WINDOW_SECONDS)
             if running and await response_window_open(db, now):
                 running = False
-        except Exception:  # noqa: BLE001 — unsure is «running»: the slower, cheaper cadence
+        except Exception:  # unsure is «running»: the slower, cheaper cadence
             logger.warning("Divera cadence check failed; polling at the running cadence", exc_info=True)
             running = True
     due = max(settings.divera_poll_interval_seconds, DIVERA_IDLE_POLL_SECONDS) if running else DIVERA_IDLE_POLL_SECONDS
@@ -1152,7 +1152,7 @@ async def _release_scheduler_lock() -> None:
             {"lock_id": SCHEDULER_ADVISORY_LOCK_ID},
         )
         await conn.commit()
-    except Exception:  # noqa: BLE001 — cleanup must tolerate any broken-driver failure
+    except Exception:  # cleanup must tolerate any broken-driver failure
         # A dead connection has already caused PostgreSQL to release its session locks.
         logger.warning("Scheduler leadership connection was lost during release", exc_info=True)
     finally:
@@ -1166,7 +1166,7 @@ async def _leadership_loop() -> None:
         if _scheduler_leader_connection is None:
             try:
                 _scheduler_leader_connection = await _acquire_scheduler_lock()
-            except Exception:  # noqa: BLE001 — election is retried; app serving must continue
+            except Exception:  # election is retried; app serving must continue
                 logger.warning("Scheduler leadership election failed; retrying", exc_info=True)
             if _scheduler_leader_connection is not None:
                 _start_scheduler_jobs()
@@ -1195,7 +1195,7 @@ async def start_scheduler(app: FastAPI) -> None:
     # every process, before (and whatever the outcome of) the election — see _start_process_jobs
     try:
         _start_process_jobs()
-    except Exception:  # noqa: BLE001 — the weather layer must never keep the app from starting
+    except Exception:  # the weather layer must never keep the app from starting
         logger.warning("Weather layer jobs failed to start", exc_info=True)
 
     # Tests and the reloadable dev server run jobs in-process directly. Leadership is a
@@ -1207,7 +1207,7 @@ async def start_scheduler(app: FastAPI) -> None:
 
     try:
         _scheduler_leader_connection = await _acquire_scheduler_lock()
-    except Exception:  # noqa: BLE001 — election is retried; app serving must continue
+    except Exception:  # election is retried; app serving must continue
         logger.warning("Initial scheduler leadership election failed; entering standby", exc_info=True)
     if _scheduler_leader_connection is not None:
         _start_scheduler_jobs()

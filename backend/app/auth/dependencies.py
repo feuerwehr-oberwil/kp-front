@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..config import settings
 from ..database import get_db
 from ..models import User
-from .incident_link import link_page_owns_session, read_link_session
+from .incident_link import LINK_MODE_HEADER, link_page_owns_session, read_link_session
 from .security import admin_token_is_current, decode_token
 from .token_blocklist import token_blocklist
 from .viewer_scope import enforce_viewer_window
@@ -275,6 +275,52 @@ async def get_optional_user(
         return None
 
 
+async def get_device_user(
+    request: Request,
+    access_token: Annotated[str | None, Cookie()] = None,
+    refresh_token: Annotated[str | None, Cookie()] = None,
+    db: AsyncSession = Depends(get_db),
+) -> User | None:
+    """The account this DEVICE is signed in as, for a read that never answers 401: the access
+    cookie's user, else the user of a refresh cookie that is still good. None otherwise.
+
+    The access cookie lives 8 h, so a tablet's first requests of the day carry only the refresh
+    cookie. A route with a 401 gets its session renewed by the client and is asked again;
+    ``GET /api/config`` answers everybody, so nothing renews before it. Read as «nobody», such a
+    device would get the short public config in place of its station's — and a bundle from
+    before 20.11.2026 stores that answer over its offline copy.
+
+    The refresh cookie is only CHECKED here, with the conditions ``POST /auth/refresh`` sets —
+    a refresh token, not revoked or already rotated, the account active, its session generation
+    current — and never consumed: this mints nothing and rotates nothing. Whoever holds it can
+    mint an access token with it anyway, so a read it allows is no wider than the token.
+
+    ⚠️ Only for a page that says it is the ordinary app (``LINK_MODE_HEADER`` = "off": the
+    field app, /admin, the login screen and the capture poster send it, lib/linkMode). A link page
+    sends "use" or nothing, and its session is the link's or nobody's: before its exchange a link
+    page asks as nobody, and once the link cookie exists `/api/auth/me` answers as the link's
+    guest — so this must never answer as the account whose refresh cookie lies beside it. A
+    script sends no header either and signs in instead.
+    """
+    user = await get_optional_user(request, access_token, db)
+    if user is not None or not refresh_token or request.headers.get(LINK_MODE_HEADER) != "off":
+        return user
+    try:
+        payload = decode_token(refresh_token)
+        if payload.get("type") != "refresh":
+            return None
+        jti = payload.get("jti")
+        if not isinstance(jti, str) or not jti or await token_blocklist.is_revoked(jti):
+            return None
+        user_id = uuid.UUID(payload["sub"])
+    except (JWTError, KeyError, TypeError, ValueError):
+        return None
+    user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
+    if user is None or not user.is_active or token_generation(payload) != user.auth_generation:
+        return None
+    return user
+
+
 async def get_current_admin(admin_session: Annotated[str | None, Cookie()] = None) -> None:
     """Gate the deployment-admin surface on the shared ADMIN_SECRET session, NOT the
     incident editor role. Fail-closed: with no secret configured the surface is off (403)."""
@@ -377,6 +423,7 @@ CurrentRecordWriter = Annotated[User, Depends(get_record_writer)]
 CurrentAppendWriter = Annotated[User, Depends(get_append_writer)]
 CurrentAtemschutzWriter = Annotated[User, Depends(get_atemschutz_writer)]
 OptionalUser = Annotated[User | None, Depends(get_optional_user)]
+DeviceUser = Annotated[User | None, Depends(get_device_user)]
 CurrentAdmin = Annotated[None, Depends(get_current_admin)]
 UserOrAdmin = Annotated[User | None, Depends(get_user_or_admin)]
 EditorOrAdmin = Annotated[User | None, Depends(get_editor_or_admin)]

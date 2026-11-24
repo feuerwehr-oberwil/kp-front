@@ -13,7 +13,7 @@ type Keys =
 
 export const commonCopy: Localizable<Pick<Copy, Keys>> = {
   baseMap: 'Carte de base',
-  floor: { eg: 'RDC', og: '+{n}', ug: '-{n}' },
+  floor: { eg: 'RDC', og: '+{n}', ug: '-{n}', ogShort: 'Haut', ugShort: 'Bas' },
   hoseHint: '~{n} tuyaux',
   symbolSearchPlaceholder: 'Rechercher un symbole tactique …',
   closeDialog: 'Fermer',
