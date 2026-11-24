@@ -697,12 +697,14 @@ async def deliver(
             return "gone"  # the Einsatz was deleted; its row went with it (CASCADE)
 
         async def reserve() -> None:
-            # under the lease only: a pass that lost it must neither write its view back nor PUT
+            # under a live lease only, renewed for the PUT that follows: a pass whose lease is gone
+            # or about to go (another may claim it) must neither write its view back nor PUT
+            at = now()
             async with factory() as db:
                 result = await db.execute(
                     update(T)
-                    .where(T.id == c.id, T.lease_owner == c.lease)
-                    .values(remote_items=dict(c.remote_items))
+                    .where(T.id == c.id, T.lease_owner == c.lease, T.lease_until > at)
+                    .values(remote_items=dict(c.remote_items), lease_until=at + LEASE)
                     .returning(T.id)
                 )
                 kept = result.one_or_none() is not None

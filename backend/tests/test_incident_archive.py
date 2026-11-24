@@ -682,8 +682,9 @@ def test_a_lost_try_of_the_same_rapport_keeps_its_version():
     assert archive.next_report_version(legacy, "b") == 4
 
 
+@pytest.mark.parametrize("lost", ["taken", "expired"])
 async def test_a_pass_that_lost_its_lease_sends_no_rapport(
-    client, editor, drive, session_factory, db_session, monkeypatch
+    client, editor, drive, session_factory, db_session, monkeypatch, lost
 ):
     inc = await _incident(client, editor, address="")
     await _report(client, inc)
@@ -699,7 +700,12 @@ async def test_a_pass_that_lost_its_lease_sends_no_rapport(
 
     async def steal_lease(writer, dest, c, p, reserve=None):
         async with session_factory() as db:
-            await db.execute(archive.update(archive.T).where(archive.T.id == c.id).values(lease_owner="another-pass"))
+            gone = (
+                {"lease_owner": "another-pass"}
+                if lost == "taken"
+                else {"lease_until": datetime.now(UTC) - timedelta(seconds=1)}
+            )
+            await db.execute(archive.update(archive.T).where(archive.T.id == c.id).values(**gone))
             await db.commit()
         return await real_write(writer, dest, c, p, reserve)
 
