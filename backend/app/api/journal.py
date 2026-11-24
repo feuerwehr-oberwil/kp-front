@@ -180,7 +180,9 @@ async def append_system_row(
     the one place that catches them all.
 
     `at`: the moment the row records, when that is not now (an alarm milestone reported late,
-    records-rapport F7) – the arrival is kept as `writtenAt` (types · TimelineEvent.writtenAt)."""
+    records-rapport F7) – the arrival is kept as `writtenAt` (types · TimelineEvent.writtenAt),
+    and a row that arrives while the Einsatz is closed is a Nachtrag like any late device row
+    (`receivedAfterClose`, see append_journal)."""
     if lifecycle == "closed":
         from .. import presentation
 
@@ -195,6 +197,8 @@ async def append_system_row(
     }
     if at is not None:
         row["writtenAt"] = now.isoformat()
+        if not (await incident_lifecycle(db, incident_id, lock=True)).is_open:
+            row["receivedAfterClose"] = True
     # `lifecycle` ("closed" | "reopened") names the boundary for the clients, which must not parse
     # the German sentence: after a reopen the Atemschutz clocks of the crews still inside restart
     # from THIS row's `at` (lib/reopenClocks), and they hold the alarm until it has arrived.

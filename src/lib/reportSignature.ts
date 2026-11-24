@@ -62,11 +62,11 @@ const isRosterRow = (v: unknown): v is RosterRow =>
  */
 export function signedRoster(live: Partial<Record<SignatureRole, ReportSignature>>, closed: boolean, active: RosterRow[]): RosterRow[] {
   if (!closed) return active
-  const frozen = SIGNATURE_ROLES.flatMap((r) => {
-    const s = live[r]
-    return s && Array.isArray(s.roster) && s.roster.every(isRosterRow) ? [s] : []
-  })
-  return frozen.sort((a, b) => b.at.localeCompare(a.at))[0]?.roster ?? active
+  // the NEWEST live signature decides – one from before 24.11.2026 has no roster and was signed
+  // against the active one, so an older signature's snapshot must not stand in for it
+  const newest = SIGNATURE_ROLES.flatMap((r) => live[r] ?? []).sort((a, b) => b.at.localeCompare(a.at))[0]
+  const roster = newest?.roster
+  return Array.isArray(roster) && roster.every(isRosterRow) ? roster : active
 }
 
 /** The live signature per role: the newest one that was not voided. Older ones stay in the list

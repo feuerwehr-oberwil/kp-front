@@ -380,5 +380,11 @@ def test_the_export_departs_with_the_first_vehicle_like_the_rapport():
     for rm in ({"fahrzeuge": fz}, {"fahrzeuge": fz, "ausgeruecktAt": "2026-11-24T08:30:00+00:00"}):
         assert _record(_incident(map_workspace_json={"reportMeta": rm}))["ausgeruecktAt"] == "2026-11-24T08:10:00+00:00"
     # no vehicle time: the hand-entered value stands
+    # an offsetless departure (stored before intake normalised it) is station time, and counts
+    naive = [*fz, {"id": "mtf", "ausgerueckt": "2026-11-24T09:05:00"}]  # 08:05 UTC in Zurich winter
+    assert (
+        _record(_incident(map_workspace_json={"reportMeta": {"fahrzeuge": naive}}))["ausgeruecktAt"]
+        == "2026-11-24T09:05:00"
+    )
     manual = {"reportMeta": {"ausgeruecktAt": "2026-11-24T08:30:00+00:00"}}
     assert _record(_incident(map_workspace_json=manual))["ausgeruecktAt"] == "2026-11-24T08:30:00+00:00"

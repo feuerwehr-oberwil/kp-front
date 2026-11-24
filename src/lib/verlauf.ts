@@ -302,7 +302,8 @@ export function repeatRuns(events: TimelineEvent[], closedAt?: string | null): {
     // NUL joins the two halves so an object id can never run into the text and fake a match.
     // ⚠️ …and a Nachtrag never folds into a row that was on the record in time (hunt 24.11.2026,
     // records-rapport F9): «Kontakt 2×» hid that the second one reached the record after the close.
-    const key = `${obj}\u0000${text}\u0000${isNachtrag(e, closedAt) ? 'n' : ''}`
+    const late = isNachtrag(e, closedAt)
+    const key = `${obj}\u0000${text}\u0000${late ? 'n' : ''}`
     const ms = Date.parse(e.at!)
     if (!Number.isFinite(ms)) continue
     // ⚠️ A ↶ / ↷ row ends EVERY open run (staging walk-through 25.09.2026, F2c). It names no
@@ -322,6 +323,8 @@ export function repeatRuns(events: TimelineEvent[], closedAt?: string | null): {
     // a fresh run under the same key REPLACES the closed one, so the second Austritt keeps its own
     // row rather than joining a run the Eintritt between them had already ended
     open.set(key, { id: e.id, lastMs: ms })
+    // …and it ENDS the same line's run of the other kind: in time, Nachtrag, in time is three rows
+    open.delete(`${obj}\u0000${text}\u0000${late ? '' : 'n'}`)
     if (obj) openOf.set(obj, key)
   }
   return { counts, hidden, lastAt }

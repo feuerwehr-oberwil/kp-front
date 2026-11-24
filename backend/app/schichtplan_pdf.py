@@ -23,7 +23,8 @@ goes.
 from __future__ import annotations
 
 import io
-from datetime import datetime
+import math
+from datetime import datetime, timedelta
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
@@ -60,7 +61,13 @@ _MARK_AVAILABLE = "o"
 
 
 def _hhmm(dt: datetime) -> str:
-    return dt.strftime("%H:%M")
+    """«07:00»; in the hour the autumn change shows twice, with its zone – «02:15 MESZ» /
+    «02:15 MEZ» – or a watch across the change reads «02:15–02:15»."""
+    naive = dt.replace(tzinfo=None)
+    twice = naive.replace(tzinfo=TZ, fold=0).utcoffset() != naive.replace(tzinfo=TZ, fold=1).utcoffset()
+    if not twice or dt.tzinfo is None:
+        return dt.strftime("%H:%M")
+    return dt.strftime("%H:%M") + (" MESZ" if dt.utcoffset() == timedelta(hours=2) else " MEZ")
 
 
 def _range(a: datetime, b: datetime) -> str:
@@ -188,12 +195,41 @@ def _deckung(rows: list[ZeitplanRow], band: ZeitplanBand) -> str:
     return f"{len(shares)}·" if any(x < 1 for x in shares) else str(len(shares))
 
 
+#: a row is 7.4mm – one «slot». A cell with several stretches sets them at 6.5pt on 7.5pt lines
+#: and its row grows by whole slots (_slots), so nothing overprints the row below.
+ROW_MM = 7.4
+STACK_PT, STACK_LEAD = 6.5, 7.5
+CELL_PAD_PT = 6  # Table's default 3pt top + 3pt bottom
+
+
+def _slots(row: ZeitplanRow, bands: list[ZeitplanBand]) -> int:
+    """How many 7.4mm slots this person's row needs, over EVERY band – so the row has the same
+    height and the same page on each sheet of columns."""
+    lines = max((_cell(row, b).count("\n") + 1 for b in bands), default=1)
+    return 1 if lines == 1 else max(1, math.ceil((lines * STACK_LEAD + CELL_PAD_PT) / (ROW_MM * mm)))
+
+
+def _pages(rows: list[ZeitplanRow], bands: list[ZeitplanBand]) -> list[list[ZeitplanRow]]:
+    """The names dealt onto sheets of MAX_ROWS slots each – a tall row takes more than one."""
+    pages: list[list[ZeitplanRow]] = [[]]
+    used = 0
+    for row in rows:
+        need = min(_slots(row, bands), MAX_ROWS)
+        if used + need > MAX_ROWS and pages[-1]:
+            pages.append([])
+            used = 0
+        pages[-1].append(row)
+        used += need
+    return pages
+
+
 def _page(
     rows: list[ZeitplanRow],
     bands: list[ZeitplanBand],
     width: float,
     with_deckung: bool,
     deckung_rows: list[ZeitplanRow] | None = None,
+    all_bands: list[ZeitplanBand] | None = None,
 ) -> Table:
     """One sheet: the ``bands`` columns against the ``rows`` names, padded rows and all.
 
@@ -208,20 +244,23 @@ def _page(
         f"{_band_title(b)}\n{_range(b.start, b.end)}" if b.label.strip() else _band_title(b) for b in bands
     ]
     data: list[list[str]] = [head]
-    #: cells with more than one stretch, set smaller so every line fits the row (see below)
-    stacked: list[tuple[int, int, int]] = []
+    #: cells with more than one stretch, set smaller (see _slots)
+    stacked: list[tuple[int, int]] = []
+    heights = [11 * mm]
     for r, row in enumerate(rows, start=1):
         label = f"{row.rank} {row.name}".strip() if row.rank else row.name
         cells = [_cell(row, b) for b in bands]
-        stacked += [(c, r, text.count("\n") + 1) for c, text in enumerate(cells, start=1) if "\n" in text]
+        stacked += [(c, r) for c, text in enumerate(cells, start=1) if "\n" in text]
         data.append([label[:34], *cells])
+        heights.append(_slots(row, all_bands or bands) * ROW_MM * mm)
     if with_deckung:
         counted = rows if deckung_rows is None else deckung_rows
         data.append(["EINGETEILT"] + [_deckung(counted, b) for b in bands])
 
     name_w = 62 * mm
     cell_w = (width - name_w) / max(1, len(bands))
-    t = Table(data, colWidths=[name_w] + [cell_w] * len(bands), rowHeights=[11 * mm] + [7.4 * mm] * (len(data) - 1))
+    heights += [ROW_MM * mm] * (len(data) - len(heights))  # the EINGETEILT line
+    t = Table(data, colWidths=[name_w] + [cell_w] * len(bands), rowHeights=heights)
     style = [
         ("GRID", (0, 0), (-1, -1), 0.4, _RULE),
         ("BOX", (0, 0), (-1, -1), 0.7, _RULE),
@@ -237,10 +276,8 @@ def _page(
         ("FONT", (1, 1), (-1, -1), "Helvetica", 10),
         ("TEXTCOLOR", (1, 1), (-1, -1), _INK),
     ]
-    # two or more stretches in one cell: smaller, so every one of them fits the 7.4mm row
-    for c, r, n in stacked:
-        size = 6.5 if n == 2 else 4.5
-        style.append(("FONT", (c, r), (c, r), "Helvetica", size, size * 1.15))
+    for c, r in stacked:
+        style.append(("FONT", (c, r), (c, r), "Helvetica", STACK_PT, STACK_LEAD))
     if with_deckung:
         style += [
             ("FONT", (0, -1), (-1, -1), "Helvetica-Bold", 7.5),
@@ -346,7 +383,7 @@ def compose_schichtplan_pdf(payload: ZeitplanPayload, logo: bytes | None = None)
 
     # a page per ~28 names, every one padded out to full height: the sheet is meant to be written
     # on, and an empty row is where the pen goes
-    pages = [rows[i : i + MAX_ROWS] for i in range(0, max(len(rows), 1), MAX_ROWS)] or [[]]
+    pages = _pages(rows, bands)
     # …and a sheet per 8 watches, the same way round: too many columns continue on the next sheet
     # instead of falling off the edge. EVERY chunk carries the SAME names — the roster was chosen
     # against all the bands — so a person's row is on each sheet even where their columns are
@@ -358,12 +395,13 @@ def compose_schichtplan_pdf(payload: ZeitplanPayload, logo: bytes | None = None)
             if started:
                 story.append(PageBreak())
             started = True
-            padded = list(page_rows) + [ZeitplanRow(name="") for _ in range(MAX_ROWS - len(page_rows))]
+            free = MAX_ROWS - sum(min(_slots(r, bands), MAX_ROWS) for r in page_rows)
+            padded = list(page_rows) + [ZeitplanRow(name="") for _ in range(max(0, free))]
             last = i == len(pages) - 1
             # the Deckung line counts the WHOLE crew, not the names on this sheet — a per-page
             # total would say something true about the page and false about the Einsatz. It sits
             # under the last names of EVERY chunk, because it is a figure per column.
-            story.append(_page(padded, chunk, inner_w, with_deckung=last, deckung_rows=rows))
+            story.append(_page(padded, chunk, inner_w, with_deckung=last, deckung_rows=rows, all_bands=bands))
             if not last:
                 continue
             first_no = c * MAX_BANDS + 1

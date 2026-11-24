@@ -36,14 +36,22 @@ it('a repeat that reached the record after the close keeps its own row and Nacht
     { id: 'b', t: '', at: '2026-11-24T08:02:10Z', kind: 'team', icon: 'radio', text: 'Trupp 1: Kontakt', subjectId: '1', receivedAfterClose: true },
   ], [], undefined, '2026-11-24T08:02:20Z')
   expect(rows.map((r) => [r.id, r.nachtrag])).toEqual([['a', false], ['b', true]])
+  // …and a Nachtrag ends the in-time run: in time, late, in time again are three rows
+  const three = journalRows([
+    { id: 'a', t: '', at: '2026-11-24T08:01:00Z', kind: 'journal', icon: 'type', text: 'Pumpe läuft' },
+    { id: 'b', t: '', at: '2026-11-24T08:01:30Z', kind: 'journal', icon: 'type', text: 'Pumpe läuft', receivedAfterClose: true },
+    { id: 'c', t: '', at: '2026-11-24T08:02:00Z', kind: 'journal', icon: 'type', text: 'Pumpe läuft' },
+  ], [], undefined, '2026-11-24T08:05:00Z')
+  expect(three.map((r) => r.id)).toEqual(['a', 'b', 'c'])
 })
 
 describe('the autumn clock change', () => {
   const first = '2026-10-25T00:15:00.000Z' // 02:15 summer time
   const second = '2026-10-25T01:15:00.000Z' // 02:15 winter time
 
-  it('prints the two 02:15 apart', () => {
-    expect(formatDateTime(first)).not.toBe(formatDateTime(second))
+  it('prints the two 02:15 apart in the Journal, and leaves the signed times as they were', () => {
+    // the Haupt-Rapport's times are signed: a suffix there would void every signature in that hour
+    expect(formatDateTime(first)).toBe(formatDateTime(second))
     const { journal } = report([
       { id: 'a', t: '', at: first, kind: 'journal', icon: 'type', text: 'Kontakt' },
       { id: 'b', t: '', at: second, kind: 'journal', icon: 'type', text: 'Rückzug' },
@@ -69,4 +77,7 @@ it('a closed Rapport prints the roster its signature froze, an open one today’
   expect(signedRoster({ el: sig }, false, today)).toEqual(today)
   // a signature from before the roster was frozen: today's roster, as before
   expect(signedRoster({ el: { ...sig, roster: undefined } }, true, today)).toEqual(today)
+  // …and when such a signature is the NEWEST, it decides – not an older one's snapshot
+  const legacyKdt = { ...sig, id: 'k', role: 'kdt', at: time(52), roster: undefined } satisfies ReportSignature
+  expect(signedRoster({ el: sig, kdt: legacyKdt }, true, today)).toEqual(today)
 })

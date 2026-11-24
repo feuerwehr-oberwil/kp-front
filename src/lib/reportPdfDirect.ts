@@ -503,7 +503,9 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
   // ⚠️ The Verlauf as it READS (journalStore · foldJournalRows), whoever hands it over: the
   // QR-Erfassung passed the raw server rows and printed corrected and withdrawn statements (hunt
   // 24.11.2026, records-rapport F4). Folding rows that are already folded changes nothing.
-  const events = foldJournalRows(args.events)
+  // Only for what prints: the signed part (scopeOnly, recomputed on every render of a signed
+  // Rapport) reads no Journal, and the Rapport's own rows arrive folded already.
+  const events = args.scopeOnly ? args.events : foldJournalRows(args.events)
   const meta = draft.meta
   // the moment a CLOSED Einsatz was closed — ends the sorties nobody reported out (see trupps).
   // ⚠️ The LATEST close (closeTimeOf): after a reopen and a second close the crew was still in
@@ -525,7 +527,10 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
   const journalDay = oneDay(journalPrint.map((r) => r.iso))
   const journal = journalPrint
     .map((r) => ({
-      timeLabel: journalDay && r.iso ? formatTime(new Date(r.iso)) + zoneIfTwice(new Date(r.iso)) : r.timeLabel, area: r.area, text: r.text, markup: r.markup, transcript: r.transcript || undefined,
+      // the autumn change shows 02:15 twice – the zone tells the two apart (records-rapport F6).
+      // ⚠️ The Journal only: it is not signed. A suffix on the Haupt-Rapport's times would change
+      // the signed part of every Rapport already signed with a time in that hour.
+      timeLabel: (journalDay && r.iso ? formatTime(new Date(r.iso)) : r.timeLabel) + (r.iso ? zoneIfTwice(new Date(r.iso)) : ''), area: r.area, text: r.text, markup: r.markup, transcript: r.transcript || undefined,
       transcriptLines: r.transcriptLines,
       repeats: r.repeats,
       // a corrected line prints its first wording beside the latest — the paper says the same

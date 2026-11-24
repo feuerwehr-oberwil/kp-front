@@ -180,8 +180,8 @@ def _ausgerueckt_at(rm: dict) -> str | None:
             at = datetime.fromisoformat(raw)
         except ValueError:
             continue
-        if at.tzinfo is not None:
-            times.append((at, raw))
+        # offsetless (stored before intake normalised it): the station's clock, as the app reads it
+        times.append((at if at.tzinfo else at.replace(tzinfo=TZ), raw))
     if times:
         return min(times)[1]
     manual = rm.get("ausgeruecktAt")
