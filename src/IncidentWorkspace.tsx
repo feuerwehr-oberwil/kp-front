@@ -545,6 +545,7 @@ export function IncidentWorkspace({
         }
       },
       onForeignStep: () => planStepLink.current?.foreignTaken(),
+      holdsStep: () => compound.holds(),
       onForeignSheetEdit: (events) => {
         for (const event of events) histSide.current.emit(event.op, event.payload)
       },

@@ -196,6 +196,10 @@ export interface ObjectStoreOptions {
    * step. Fired once per open plan step, outside the store's updater.
    */
   onForeignStep?: () => void
+  /** A compound act already holds its ONE store step (workspace/compoundStep): a foreign edit
+   *  inside it folds into that step and lays none of its own — a second one wrote a second
+   *  Verlauf row for one ↶ (review of #742). */
+  holdsStep?: () => boolean
 }
 
 export interface ForeignSheetEditEvent {
@@ -206,7 +210,7 @@ export interface ForeignSheetEditEvent {
 export function useObjectStore(
   init: TacticalObject[],
   readOnly: boolean,
-  { getFits, defaultLayer, fitsVersion, onCheckpoint, onAnchorChange, onForeignSheetEdit, onForeignStep }: ObjectStoreOptions,
+  { getFits, defaultLayer, fitsVersion, onCheckpoint, onAnchorChange, onForeignSheetEdit, onForeignStep, holdsStep }: ObjectStoreOptions,
 ): ObjectStore {
   const store = useUndoableDoc<TacticalObject[]>(init, readOnly, onCheckpoint, OBJECT_RECORDS)
   const { setDocRaw: setObjects } = store
@@ -367,7 +371,7 @@ export function useObjectStore(
       }
       const gesture = sheetStep.current
       // no gesture open ⇒ a discrete write, and every one of those is its own step
-      if (out !== objects && foreignEdit && (gesture === null || stepped.current !== gesture)) {
+      if (out !== objects && foreignEdit && (gesture === null || stepped.current !== gesture) && !holdsStep?.()) {
         steppedStep.current = store.checkpoint(objects)
         stepped.current = gesture ?? undefined // …the gesture's remaining samples fold into it
         tookPlanStep = gesture !== null

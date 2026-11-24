@@ -10,6 +10,8 @@
  *   writes no Verlauf row of its own.
  * - `takeIntoStore` — a plan step is being laid (usePlanStacks · takeIntoStore): inside an act
  *   the act's store step takes it, laid now through `lay` if none stands yet.
+ * - `holds` — an act is open and its store step stands (useObjectStore · holdsStep): a foreign
+ *   sheet edit inside it lays no second one.
  * - `linkCheckpoint` — the picture half of a Trupp link (truppActions/core · checkpointStore):
  *   none inside an act whose store step stands, else a SILENT one — the link's Trupp half writes
  *   the counter-row.
@@ -40,6 +42,7 @@ export function compoundSteps(group: () => () => void) {
       if (current) current.stored = true
       return { silent }
     },
+    holds: (): boolean => !!current?.stored,
     takeIntoStore: (lay: () => void): boolean => {
       if (!current) return false
       if (!current.stored) lay()
