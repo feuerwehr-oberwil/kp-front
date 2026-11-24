@@ -472,3 +472,46 @@ async def test_sweep_closes_an_exercise_twelve_hours_after_its_last_human_change
         .all()
     )
     assert any(r.get("text") == "Automatisch abgeschlossen (Übung)" and r.get("lifecycle") == "closed" for r in texts)
+
+
+@pytest.mark.parametrize("auto_opened,age_days,rev", [(True, 8, 0), (False, 40, 1)])
+async def test_a_fresh_verlauf_note_keeps_an_old_einsatz_open(db_session, auto_opened, age_days, rev):
+    """Hunt 24.11.2026, data-consistency F2: a note bumps neither the workspace nor
+    `updated_at`, and the sweep archived the Einsatz the crew was writing in."""
+    await _set_alarms_config(db_session, {"autoArchiveDays": 7, "staleIncidentDays": 30})
+    old = datetime.now(UTC) - timedelta(days=age_days)
+    inc = _incident(source="manual", auto_opened=auto_opened, started_at=old, updated_at=old, workspace_rev=rev)
+    db_session.add(inc)
+    await db_session.flush()
+    db_session.add(JournalEntry(incident_id=inc.id, client_id="note-1", seq=1, row_json={"text": "Nachkontrolle"}))
+    await db_session.commit()
+    assert await auto_archive_sweep(db_session) == 0
+
+
+async def test_an_einsatz_closed_while_the_sweep_decides_gets_no_second_close(db_session, session_factory):
+    """Hunt 24.11.2026, data-consistency F3: the editor closed the idle drill after the sweep had
+    picked it, and the sweep appended «Automatisch abgeschlossen» to the editor's close."""
+    await _set_alarms_config(db_session, {"autoArchiveDays": 0, "staleIncidentDays": 0, "exerciseAutoCloseHours": 12})
+    inc = _incident(
+        source="manual", is_exercise=True, workspace_rev=4, started_at=datetime.now(UTC) - timedelta(hours=20)
+    )
+    db_session.add(inc)
+    await db_session.commit()
+    execute = db_session.execute
+
+    async def close_first(stmt, *args, **kwargs):
+        # the editor's close lands between the sweep's pick and its locked re-read
+        if getattr(stmt, "_for_update_arg", None) is not None:
+            async with session_factory() as other:
+                (await other.get(Incident, inc.id)).is_archived = True
+                await other.commit()
+        return await execute(stmt, *args, **kwargs)
+
+    db_session.execute = close_first
+    try:
+        assert await auto_archive_sweep(db_session) == 0
+    finally:
+        db_session.execute = execute
+    await db_session.commit()
+    rows = (await db_session.execute(select(JournalEntry).where(JournalEntry.incident_id == inc.id))).scalars().all()
+    assert rows == []

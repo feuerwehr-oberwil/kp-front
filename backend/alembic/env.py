@@ -17,7 +17,11 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-config.set_main_option("sqlalchemy.url", settings.database_url)
+# ⚠️ `%` doubled: the option goes through ConfigParser interpolation, and a valid URL with a
+# percent escape («incident%2Dtest», a password with «%40») raised «invalid interpolation syntax»
+# – with the whole URL, credentials included, in the startup log (hunt 24.11.2026,
+# ops-integrations F4). ConfigParser hands the original URL back to the engine.
+config.set_main_option("sqlalchemy.url", settings.database_url.replace("%", "%%"))
 target_metadata = Base.metadata
 
 

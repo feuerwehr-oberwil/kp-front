@@ -19,6 +19,7 @@ import pytest
 from sqlalchemy import select
 
 from app import connector_state, scheduler
+from app import divera as divera_mod
 from app.config import settings
 from app.models import ConnectorState, Incident
 from app.traccar import VehiclePosition
@@ -286,3 +287,36 @@ async def test_the_system_card_reads_what_the_poll_recorded(db_session, client, 
     assert divera["lastSuccess"] is None
     assert divera["lastAttempt"] is not None
     assert divera["counts"] == {"new": 0}
+
+
+@pytest.mark.parametrize(
+    "url,body",
+    [
+        ("https://divera.example.invalid/api/v2", {"success": False, "message": "refused"}),
+        ("http://divera.example.invalid/api/v2", {"success": True, "data": {"items": {}}}),
+    ],
+)
+async def test_a_refused_or_unsafe_poll_is_a_failure_not_zero_alarms(db_session, monkeypatch, url, body):
+    """Hunt 24.11.2026, ops-integrations F3: «success: false» (and an http:// API address) were
+    recorded as a healthy poll with no new alarms – the System card showed the intake online."""
+    import httpx
+
+    monkeypatch.setattr(settings, "divera_access_key", "k")
+    monkeypatch.setattr(settings, "divera_api_url", url)
+    transport = httpx.MockTransport(lambda _req: httpx.Response(200, json=body))
+    real = httpx.AsyncClient
+    monkeypatch.setattr(divera_mod.httpx, "AsyncClient", lambda **kw: real(transport=transport, **kw))
+    with pytest.raises(divera_mod.DiveraApiError) as err:
+        await divera_mod.fetch_and_upsert(db_session)
+    assert "k" not in str(err.value).split()  # the key never rides in the message
+
+
+async def test_an_empty_alarm_list_is_still_zero(db_session, monkeypatch):
+    import httpx
+
+    monkeypatch.setattr(settings, "divera_access_key", "k")
+    monkeypatch.setattr(settings, "divera_api_url", "https://divera.example.invalid/api/v2")
+    transport = httpx.MockTransport(lambda _req: httpx.Response(200, json={"success": True, "data": {"items": {}}}))
+    real = httpx.AsyncClient
+    monkeypatch.setattr(divera_mod.httpx, "AsyncClient", lambda **kw: real(transport=transport, **kw))
+    assert await divera_mod.fetch_and_upsert(db_session) == 0

@@ -260,10 +260,11 @@ async def auto_archive_sweep(db: AsyncSession) -> int:
     """
     cfg = await get_alarms_config(db)
     now = datetime.now(UTC)
-    # (incident, why) — one list so a single pass writes the audit trail for both clocks, and
-    # so an untouched incident old enough for BOTH is archived once, by the clock that names it
-    # most precisely (`seen` keeps the first, i.e. the untouched one).
-    rows: list[tuple[Incident, str]] = []
+    # (incident, why, cutoff) — one list so a single pass writes the audit trail for every clock,
+    # and so an untouched incident old enough for BOTH is archived once, by the clock that names
+    # it most precisely (`seen` keeps the first, i.e. the untouched one). `cutoff` is that clock's:
+    # the last human write must lie before it (checked again under the lock, below).
+    rows: list[tuple[Incident, str, datetime]] = []
     seen: set[uuid.UUID] = set()
     if cfg.autoArchiveDays > 0:
         cutoff = now - timedelta(days=cfg.autoArchiveDays)
@@ -279,7 +280,7 @@ async def auto_archive_sweep(db: AsyncSession) -> int:
         ).scalars()
         for inc in untouched:
             seen.add(inc.id)
-            rows.append((inc, "Einsatz automatisch archiviert (nicht verwendet)"))
+            rows.append((inc, "Einsatz automatisch archiviert (nicht verwendet)", cutoff))
     if cfg.exerciseAutoCloseHours > 0:
         cutoff = now - timedelta(hours=cfg.exerciseAutoCloseHours)
         # started before the cutoff narrows it in SQL (nothing started since can be due); the
@@ -298,10 +299,10 @@ async def auto_archive_sweep(db: AsyncSession) -> int:
             .all()
         )
         for inc in drills:
-            if inc.id in seen or await last_activity(db, inc.id, inc.started_at) >= cutoff:
+            if inc.id in seen:
                 continue
             seen.add(inc.id)
-            rows.append((inc, "Automatisch abgeschlossen (Übung)"))
+            rows.append((inc, "Automatisch abgeschlossen (Übung)", cutoff))
     if cfg.staleIncidentDays > 0:
         # `updated_at`, not `started_at`: the question is when anybody last did anything with
         # this Einsatz, not how long ago it was alarmed. A month-old Einsatz that somebody
@@ -319,12 +320,36 @@ async def auto_archive_sweep(db: AsyncSession) -> int:
             if inc.id in seen:
                 continue
             seen.add(inc.id)
-            rows.append((inc, f"Einsatz automatisch archiviert ({cfg.staleIncidentDays} Tage ohne Bearbeitung)"))
+            rows.append(
+                (inc, f"Einsatz automatisch archiviert ({cfg.staleIncidentDays} Tage ohne Bearbeitung)", cutoff)
+            )
     if not rows:
         return 0
     from .api.journal import append_system_row  # lazy — service module must not pull the API layer at import
 
-    for inc, why in rows:
+    archived = 0
+    # ⚠️ Decided again UNDER the incident lock, one Einsatz at a time in id order (the order every
+    # other locker walks them, vehicle_presence · _open_incidents). Hunt 24.11.2026:
+    # - data-consistency F3: an editor closing the drill between the read above and this write
+    #   got a second close («Automatisch abgeschlossen» after «Einsatz abgeschlossen»);
+    # - data-consistency F2: a Verlauf note neither bumps the workspace nor `updated_at`, so a
+    #   crew writing into an old Einsatz was archived under its hands. Every clock now also asks
+    #   for the last HUMAN write (journal row or audit event, observers excluded).
+    for candidate, why, cutoff in sorted(rows, key=lambda r: str(r[0].id)):
+        locked = (
+            await db.execute(
+                select(Incident)
+                .where(Incident.id == candidate.id)
+                .with_for_update()
+                .execution_options(populate_existing=True)
+            )
+        ).scalar_one_or_none()
+        if locked is None or locked.is_archived:
+            continue
+        inc = locked
+        if await last_activity(db, inc.id, inc.started_at) >= cutoff:
+            continue
+        archived += 1
         inc.is_archived = True
         if inc.closed_at is None:
             inc.closed_at = now
@@ -340,5 +365,5 @@ async def auto_archive_sweep(db: AsyncSession) -> int:
         await append_system_row(db, inc.id, icon="flag", text=why, lifecycle="closed")
         # the devices following it hear the close at once, as for a hand close (lib/incidentClosed)
         live_wait.notify_after_commit(db, live_wait.workspace_topic(inc.id))
-    logger.info("Auto-archive sweep: %d incident(s) archived", len(rows))
-    return len(rows)
+    logger.info("Auto-archive sweep: %d incident(s) archived", archived)
+    return archived

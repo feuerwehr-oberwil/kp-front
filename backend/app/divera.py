@@ -502,13 +502,17 @@ async def fetch_and_upsert(db: AsyncSession) -> int:
     url = f"{settings.divera_api_url}/alarms"
     # SSRF defence-in-depth: divera_api_url is config-driven (not user input), but pin it to
     # https so a mis-set value can't be aimed at an internal endpoint with our access key.
+    # ⚠️ Both refusals RAISE (hunt 24.11.2026, ops-integrations F3): returning 0 here was
+    # recorded as a healthy poll with no new alarms, and the System card showed the intake online
+    # while it imported nothing. A successful, empty alarm list is the only «0».
     if urlsplit(url).scheme != "https":
-        logger.warning("Divera API URL is not https; skipping fetch")
-        return 0
+        raise DiveraApiError("Divera-API-Adresse ist nicht https – Abruf übersprungen")
     async with httpx.AsyncClient(timeout=30.0) as client:
         r = await client.get(url, params={"accesskey": credential("divera_access_key")})
         check_response(r)
         data = r.json()
+    if not isinstance(data, dict) or not data.get("success"):
+        raise DiveraApiError("Divera hat den Abruf abgelehnt (success=false)")
     # The Rückmeldungen ride in this same response. Their status NAMES come from /pull/all, and
     # that fetch (≤ once per 6 h) happens HERE — before the upserts take their per-alarm locks,
     # never while holding them.

@@ -216,6 +216,20 @@ async def test_reopening_makes_the_live_writes_land_again(client, editor):
     assert r.status_code == 200, r.text
 
 
+async def test_a_reopen_also_reopens_a_status_close(client, editor):
+    """Hunt 24.11.2026, data-consistency F4: archived AND «abgeschlossen» – «Wieder öffnen»
+    answered 200 and wrote «wiedereröffnet», but the status kept the Einsatz closed."""
+    await _login(client, editor)
+    inc = await _incident(client)
+    url = f"/api/incidents/{inc}"
+    assert (await client.patch(url, json={"status": "abgeschlossen", "is_archived": True})).status_code == 200
+    r = await client.patch(url, json={"is_archived": False})
+    assert r.status_code == 200 and r.json()["status"] == "in_arbeit"
+    assert (await client.get(url + "/workspace")).headers["X-Incident-Open"] == "1"
+    r = await client.post(f"{url}/journal", json={"entries": [KONTAKT_ROW]})
+    assert r.status_code == 201, r.text
+
+
 async def test_an_open_einsatz_is_untouched(client, editor):
     await _login(client, editor)
     inc = await _incident(client)

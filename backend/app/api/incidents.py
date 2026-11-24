@@ -640,6 +640,13 @@ async def patch_incident(
         )
         if lifecycle_change:
             raise HTTPException(status_code=403, detail="In der Demo kann der Einsatz nicht abgeschlossen werden.")
+    # «Wieder öffnen» on an Einsatz that was ALSO closed by its status (abgeschlossen) answered 200
+    # and wrote «wiedereröffnet», but the status kept it closed and read-only (hunt 24.11.2026,
+    # data-consistency F4). A reopen reopens: the status goes back to «in Arbeit» with it, and is
+    # recorded like any other status change below.
+    reopen = data.get("is_archived") is False and inc.is_archived and "status" not in data
+    if reopen and inc.status not in INCIDENT_ACTIVE_STATUSES:
+        data["status"] = "in_arbeit"
     status_before = inc.status
     archived_before = inc.is_archived
     exercise_before = inc.is_exercise
