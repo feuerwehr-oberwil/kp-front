@@ -145,6 +145,7 @@ export function useIncidentTabLock(incidentId: string | null): { held: boolean; 
       ref.current = null
       lock.stop()
       setHeld(true)
+      setFirstAnswer(null) // a reopen asks again: another tab may hold it by then
     }
   }, [incidentId])
   const takeOver = useCallback(() => ref.current?.takeOver(), [])

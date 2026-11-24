@@ -124,13 +124,15 @@ export function useMediaQueue({ incidentId, readOnly, onUploaded, onRestore }: O
   const mounted = useRef(false)
   useEffect(() => { mounted.current = true; return () => { mounted.current = false } }, [])
 
-  // Until the start-up restore has put every queued capture back on its row, no receipt links: a
+  // A replay waits for the start-up restore to put every queued capture back on its row: a
   // receipt placed first would miss a lower slot that is still coming back (verlauf · swapUrl).
-  const restoring = useRef(true)
+  const restored = useRef<Promise<void>>(Promise.resolve())
 
   // Hand every receipt to its row (or Beilage) and retire the ones whose link is acknowledged.
   const replay = useCallback(async () => {
-    if (readOnly || !mounted.current || restoring.current) return
+    if (readOnly || !mounted.current) return
+    await restored.current
+    if (!mounted.current) return
     const receipts = inSlotOrder((await listMediaQueue(incidentId)).filter(isReceipt))
     if (!mounted.current) return
     // after a reload the row shows the object URL we minted at restore, not the one the
@@ -163,10 +165,11 @@ export function useMediaQueue({ incidentId, readOnly, onUploaded, onRestore }: O
   // On mount / incident switch: reattach any queued captures to their rows, then try to drain.
   useEffect(() => {
     let alive = true
-    restoring.current = true
+    let done = () => {}
+    restored.current = new Promise<void>((resolve) => { done = resolve })
     void (async () => {
       const q = await listMediaQueue(incidentId)
-      if (!alive) return
+      if (!alive) { done(); return }
       // a row's pictures in their captured order, each back at exactly its own place (placeOf)
       for (const item of inSlotOrder(q)) {
         // a receipt has no bytes left to show — the replay links its server copy instead
@@ -179,17 +182,17 @@ export function useMediaQueue({ incidentId, readOnly, onUploaded, onRestore }: O
         // time: every pending photo re-minted at full size on every launch is what killed the
         // tab of an offline phone, again on each reopen for as long as it stayed offline.
         if (item.kind === 'photo') await mintLocalThumb(url, item.blob)
-        if (!alive) { forgetLocalThumb(url); URL.revokeObjectURL(url); return }
+        if (!alive) { forgetLocalThumb(url); URL.revokeObjectURL(url); done(); return }
         // the queued-with URL died with the previous session; hand it over so the restore
         // replaces that dead entry instead of appending a duplicate picture to the row
         cb.current.onRestore(item.rowId, item.kind, url, item.localUrl, item.target, placeOf(item, q))
       }
-      restoring.current = false
+      done()
       status.current = mediaSyncStatus(q, isMediaQueueDurable(incidentId))
       setDurable(isMediaQueueDurable(incidentId))
       setItems(q)
       void flush()
-    })()
+    })().catch(() => done()) // a restore that failed must not hold every later replay
     return () => {
       alive = false
       for (const url of restoredUrls.current.values()) { forgetLocalThumb(url); URL.revokeObjectURL(url) }
