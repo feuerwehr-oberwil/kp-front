@@ -515,3 +515,70 @@ async def test_an_einsatz_closed_while_the_sweep_decides_gets_no_second_close(db
     await db_session.commit()
     rows = (await db_session.execute(select(JournalEntry).where(JournalEntry.incident_id == inc.id))).scalars().all()
     assert rows == []
+
+
+async def test_a_save_between_pick_and_lock_keeps_an_untouched_alarm_open(db_session, session_factory):
+    """Sol review (K10): a workspace save after the sweep's first read bumps workspace_rev with no
+    journal row – the clock is re-asked on the locked row, not on the first read."""
+    await _set_alarms_config(db_session, {"autoArchiveDays": 7, "staleIncidentDays": 0})
+    inc = _incident(
+        auto_opened=True, workspace_rev=0, started_at=datetime.now(UTC) - timedelta(days=8), source_ref="s1"
+    )
+    db_session.add(inc)
+    await db_session.commit()
+    execute = db_session.execute
+
+    async def save_first(stmt, *args, **kwargs):
+        if getattr(stmt, "_for_update_arg", None) is not None:
+            async with session_factory() as other:
+                (await other.get(Incident, inc.id)).workspace_rev = 1
+                await other.commit()
+        return await execute(stmt, *args, **kwargs)
+
+    db_session.execute = save_first
+    try:
+        assert await auto_archive_sweep(db_session) == 0
+    finally:
+        db_session.execute = execute
+
+
+async def test_an_old_alarm_turned_ubung_closes_by_the_ubung_clock(db_session):
+    """Sol review (K10): the untouched clock no longer hides the others – an auto-opened alarm
+    somebody wrote in two days ago is not «nicht verwendet», but as an idle Übung it closes."""
+    await _set_alarms_config(db_session, {"autoArchiveDays": 7, "staleIncidentDays": 0, "exerciseAutoCloseHours": 12})
+    now = datetime.now(UTC)
+    inc = _incident(
+        auto_opened=True, is_exercise=True, workspace_rev=0, started_at=now - timedelta(days=8), source_ref="u1"
+    )
+    db_session.add(inc)
+    await db_session.flush()
+    db_session.add(
+        JournalEntry(
+            incident_id=inc.id, client_id="n1", seq=1, row_json={"text": "Übung"}, created_at=now - timedelta(days=2)
+        )
+    )
+    await db_session.commit()
+    assert await auto_archive_sweep(db_session) == 1
+    await db_session.commit()
+    texts = (
+        await db_session.execute(select(JournalEntry.row_json).where(JournalEntry.incident_id == inc.id))
+    ).scalars()
+    assert any(t.get("text") == "Automatisch abgeschlossen (Übung)" for t in texts)
+
+
+async def test_the_intakes_own_events_do_not_count_as_touching_an_alarm(db_session):
+    """Sol review (K10): a late-delivered alarm writes its incident.create event now – that is
+    nobody touching it; the untouched clock still archives it."""
+    from app import audit
+
+    await _set_alarms_config(db_session, {"autoArchiveDays": 7, "staleIncidentDays": 0})
+    inc = _incident(
+        auto_opened=True, workspace_rev=0, started_at=datetime.now(UTC) - timedelta(days=8), source_ref="i1"
+    )
+    db_session.add(inc)
+    await db_session.flush()
+    await audit.append_event(
+        db_session, incident_id=inc.id, op_type="incident.create", source="status", user_id=None, payload={"auto": True}
+    )
+    await db_session.commit()
+    assert await auto_archive_sweep(db_session) == 1

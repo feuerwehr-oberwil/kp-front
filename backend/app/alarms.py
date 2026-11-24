@@ -16,11 +16,11 @@ Einsatz-Link responder is one). Unconfirmed incidents stay out of the stats expo
 
 import asyncio
 import logging
-import uuid
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from weakref import WeakValueDictionary
 
-from sqlalchemy import func, select
+from sqlalchemy import ColumnElement, and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from . import audit, live_wait
@@ -240,6 +240,13 @@ async def create_incident_from_alarm(
     return inc
 
 
+def _aware(dt: datetime | None) -> datetime:
+    """A stored stamp as an aware UTC instant (SQLite hands them back naive); none = long ago."""
+    if dt is None:
+        return datetime.min.replace(tzinfo=UTC)
+    return dt if dt.tzinfo else dt.replace(tzinfo=UTC)
+
+
 async def auto_archive_sweep(db: AsyncSession) -> int:
     """Archive the incidents nobody is coming back to. Three clocks, deliberately separate.
 
@@ -260,94 +267,91 @@ async def auto_archive_sweep(db: AsyncSession) -> int:
     """
     cfg = await get_alarms_config(db)
     now = datetime.now(UTC)
-    # (incident, why, cutoff) — one list so a single pass writes the audit trail for every clock,
-    # and so an untouched incident old enough for BOTH is archived once, by the clock that names
-    # it most precisely (`seen` keeps the first, i.e. the untouched one). `cutoff` is that clock's:
-    # the last human write must lie before it (checked again under the lock, below).
-    rows: list[tuple[Incident, str, datetime]] = []
-    seen: set[uuid.UUID] = set()
+    # The clocks, in the order that names an Einsatz most precisely (an untouched alarm old enough
+    # for every clock is «nicht verwendet»): (Verlauf row, cutoff, does it apply to this row, the
+    # SQL that pre-selects it, count only writes with a user). The last human write must lie
+    # before the cutoff too – asked under the lock, below.
+    clocks: list[tuple[str, datetime, Callable[[Incident, datetime], bool], ColumnElement[bool], bool]] = []
     if cfg.autoArchiveDays > 0:
-        cutoff = now - timedelta(days=cfg.autoArchiveDays)
-        untouched = (
-            await db.execute(
-                select(Incident).where(
-                    Incident.is_archived.is_(False),
-                    Incident.auto_opened.is_(True),
-                    Incident.workspace_rev == 0,
-                    Incident.started_at < cutoff,
-                )
-            )
-        ).scalars()
-        for inc in untouched:
-            seen.add(inc.id)
-            rows.append((inc, "Einsatz automatisch archiviert (nicht verwendet)", cutoff))
-    if cfg.exerciseAutoCloseHours > 0:
-        cutoff = now - timedelta(hours=cfg.exerciseAutoCloseHours)
-        # started before the cutoff narrows it in SQL (nothing started since can be due); the
-        # last human change is then asked per candidate — a station has a handful of Übungen open
-        drills = (
+        cut = now - timedelta(days=cfg.autoArchiveDays)
+        clocks.append(
             (
-                await db.execute(
-                    select(Incident).where(
-                        Incident.is_archived.is_(False),
-                        Incident.is_exercise.is_(True),
-                        Incident.started_at < cutoff,
-                    )
-                )
+                "Einsatz automatisch archiviert (nicht verwendet)",
+                cut,
+                lambda i, cut: bool(i.auto_opened) and i.workspace_rev == 0 and _aware(i.started_at) < cut,
+                and_(Incident.auto_opened.is_(True), Incident.workspace_rev == 0, Incident.started_at < cut),
+                # the intake's own events (incident.create, a Divera update) are nobody touching it
+                True,
             )
-            .scalars()
-            .all()
         )
-        for inc in drills:
-            if inc.id in seen:
-                continue
-            seen.add(inc.id)
-            rows.append((inc, "Automatisch abgeschlossen (Übung)", cutoff))
+    if cfg.exerciseAutoCloseHours > 0:
+        cut = now - timedelta(hours=cfg.exerciseAutoCloseHours)
+        clocks.append(
+            (
+                "Automatisch abgeschlossen (Übung)",
+                cut,
+                lambda i, cut: bool(i.is_exercise) and _aware(i.started_at) < cut,
+                and_(Incident.is_exercise.is_(True), Incident.started_at < cut),
+                False,
+            )
+        )
     if cfg.staleIncidentDays > 0:
         # `updated_at`, not `started_at`: the question is when anybody last did anything with
         # this Einsatz, not how long ago it was alarmed. A month-old Einsatz that somebody
         # corrected yesterday is still being worked on.
-        cutoff = now - timedelta(days=cfg.staleIncidentDays)
-        stale = (
+        cut = now - timedelta(days=cfg.staleIncidentDays)
+        clocks.append(
+            (
+                f"Einsatz automatisch archiviert ({cfg.staleIncidentDays} Tage ohne Bearbeitung)",
+                cut,
+                lambda i, cut: _aware(i.updated_at) < cut,
+                Incident.updated_at < cut,
+                False,
+            )
+        )
+    if not clocks:
+        return 0
+    ids = (
+        (
             await db.execute(
-                select(Incident).where(
-                    Incident.is_archived.is_(False),
-                    Incident.updated_at < cutoff,
-                )
+                select(Incident.id).where(Incident.is_archived.is_(False), or_(*(sql for *_, sql, _h in clocks)))
             )
-        ).scalars()
-        for inc in stale:
-            if inc.id in seen:
-                continue
-            seen.add(inc.id)
-            rows.append(
-                (inc, f"Einsatz automatisch archiviert ({cfg.staleIncidentDays} Tage ohne Bearbeitung)", cutoff)
-            )
-    if not rows:
+        )
+        .scalars()
+        .all()
+    )
+    if not ids:
         return 0
     from .api.journal import append_system_row  # lazy — service module must not pull the API layer at import
 
     archived = 0
-    # ⚠️ Decided again UNDER the incident lock, one Einsatz at a time in id order (the order every
-    # other locker walks them, vehicle_presence · _open_incidents). Hunt 24.11.2026:
-    # - data-consistency F3: an editor closing the drill between the read above and this write
-    #   got a second close («Automatisch abgeschlossen» after «Einsatz abgeschlossen»);
+    # ⚠️ Decided UNDER the incident lock, on the row as it is now, one Einsatz at a time in id
+    # order. Hunt 24.11.2026:
+    # - data-consistency F3: an editor closing the drill between a first read and this write got
+    #   a second close («Automatisch abgeschlossen» after «Einsatz abgeschlossen»); a save in
+    #   between could likewise bump the workspace – every clock is re-asked on the locked row;
     # - data-consistency F2: a Verlauf note neither bumps the workspace nor `updated_at`, so a
     #   crew writing into an old Einsatz was archived under its hands. Every clock now also asks
     #   for the last HUMAN write (journal row or audit event, observers excluded).
-    for candidate, why, cutoff in sorted(rows, key=lambda r: str(r[0].id)):
-        locked = (
+    # SKIP LOCKED: the Divera poll locks its Einsätze in its own order; an Einsatz somebody holds
+    # right now is busy by definition and is simply looked at again on the next pass.
+    for inc_id in sorted(ids, key=str):
+        inc = (
             await db.execute(
                 select(Incident)
-                .where(Incident.id == candidate.id)
-                .with_for_update()
+                .where(Incident.id == inc_id)
+                .with_for_update(skip_locked=True)
                 .execution_options(populate_existing=True)
             )
         ).scalar_one_or_none()
-        if locked is None or locked.is_archived:
+        if inc is None or inc.is_archived:
             continue
-        inc = locked
-        if await last_activity(db, inc.id, inc.started_at) >= cutoff:
+        why = None
+        for text, cut, applies, _sql, humans_only in clocks:
+            if applies(inc, cut) and await last_activity(db, inc.id, inc.started_at, humans_only=humans_only) < cut:
+                why = text
+                break
+        if why is None:
             continue
         archived += 1
         inc.is_archived = True

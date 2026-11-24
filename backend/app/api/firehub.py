@@ -129,11 +129,14 @@ async def _handle_end(db: AsyncSession, source_id: str) -> dict:
     # ⚠️ Read `closed_at` UNDER the incident lock (hunt 24.11.2026, access-control F2): two
     # concurrent deliveries both read it empty before either reached the first lock (in
     # audit.append_event), and the second overwrote the first stamp and wrote a second end row.
-    inc = (
+    locked = (
         await db.execute(
             select(Incident).where(Incident.id == inc.id).with_for_update().execution_options(populate_existing=True)
         )
-    ).scalar_one()
+    ).scalar_one_or_none()
+    if locked is None:  # deleted meanwhile: nothing to stamp, as for an unknown operation
+        return {"ok": True, "action": "end", "stamped": False, "incident_id": None, "ended_at": None}
+    inc = locked
 
     if inc.closed_at is not None:
         logger.info("FireHub end for firehub:%s — Einsatzende already stamped", source_id)
