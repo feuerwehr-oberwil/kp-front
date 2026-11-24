@@ -23,6 +23,9 @@ vi.mock('./api', () => ({
   },
 }))
 
+// the server's «now» when the last anchor is fetched: it serves up to here, no further
+vi.mock('./serverClock', () => ({ serverNow: () => Date.parse('2026-11-24T11:00:00Z') }))
+
 const { loadReplay } = await import('./replay')
 const t = (hhmm: string) => Date.parse(`2026-11-24T${hhmm}:00Z`)
 
@@ -44,3 +47,14 @@ it('one request per snapshot interval, however many frames ask', async () => {
   await bundle.loadSnapshotAt(t('09:40'))
   expect(calls.snapshot).toHaveLength(3)
 })
+
+it('the last anchor holds only up to when it was asked for, and fine stamps round up', async () => {
+  const bundle = await loadReplay('i', t('09:00'), t('12:00'))
+  await bundle.loadSnapshotAt(t('10:40'))
+  await bundle.loadSnapshotAt(t('10:59'))
+  expect(calls.snapshot).toHaveLength(1)
+  // a snapshot another tablet takes later may exist past the moment we asked: ask again
+  await bundle.loadSnapshotAt(t('11:30'))
+  expect(calls.snapshot).toHaveLength(2)
+})
+

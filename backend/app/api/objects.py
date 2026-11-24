@@ -1,5 +1,6 @@
 """Einsatzobjekte + per-object module plans; proximity auto-surface on incidents."""
 
+import contextlib
 import hashlib
 import re
 import unicodedata
@@ -561,8 +562,10 @@ async def object_surfaced(db: AsyncSession, incident_id: uuid.UUID, object_id: u
             select(Incident.map_workspace_json["pickedObjectId"].as_string()).where(Incident.id == incident_id)
         )
     ).scalar_one_or_none()
-    if picked == str(object_id):
-        return True
+    # parsed, not compared as text: an older workspace may hold it upper-case or without hyphens
+    with contextlib.suppress(ValueError, TypeError, AttributeError):
+        if picked is not None and uuid.UUID(str(picked)) == object_id:
+            return True
     o = await db.get(ObjectSite, object_id)
     if o is None:
         return False

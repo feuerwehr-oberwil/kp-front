@@ -702,3 +702,7 @@ async def test_the_object_an_editor_picked_by_hand_opens_on_a_link_however_far(c
     incident.map_workspace_json = {"pickedObjectId": str(far.id)}
     await db_session.commit()
     assert (await client.get(f"/api/reference/{plan}")).status_code == 200
+    # an older workspace's spelling of the same id (upper case, no hyphens) still counts
+    incident.map_workspace_json = {"pickedObjectId": far.id.hex.upper()}
+    await db_session.commit()
+    assert (await client.get(f"/api/reference/{plan}")).status_code == 200
