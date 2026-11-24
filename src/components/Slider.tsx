@@ -54,11 +54,16 @@ export function Slider({ value, min = 0, max = 100, step = 1, onChange, onCommit
     if (next !== value) { moved.current = next; onChange(next) }
   }
 
+  // ⚠️ A held key steps from the RAW value it last moved to, not the one shown: a caller that
+  // snaps its preview (the Drehung's 0° catch) showed 0 again after each repeat, so every repeat
+  // stepped from 0 and the key got stuck at the snap (review of #742). The caller snaps the
+  // preview and the commit.
   const nudge = (by: number) => {
-    const next = clamp(snapToStep(value + by, min, step))
-    if (next !== value) { keyed.current = next; onChange(next) }
+    const from = keyed.current ?? value
+    const next = clamp(snapToStep(from + by, min, step))
+    if (next !== from) { keyed.current = next; onChange(next) }
   }
-  /** the last value a key gesture moved to — committed when the key lifts (or focus leaves) */
+  /** the last raw value a key gesture moved to — committed when the key lifts (or focus leaves) */
   const keyed = useRef<number | null>(null)
   const commitKeyed = () => {
     const v = keyed.current

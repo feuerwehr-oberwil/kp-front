@@ -17,7 +17,7 @@ beforeEach(() => {
 
 /** The Whiteboard's wiring in miniature: a committed angle, a live preview on top of it, and
  *  the popover (`open`) the slider lives in. `shown` is what the backdrop would be turned to. */
-function Harness({ onCommit }: { onCommit: (deg: number) => void }) {
+function Harness({ onCommit, snap = (d) => d }: { onCommit: (deg: number) => void; snap?: (deg: number) => number }) {
   const [committed, setCommitted] = useState(0)
   const [preview, setPreview] = useState<number | null>(null)
   const [open, setOpen] = useState(true)
@@ -29,7 +29,7 @@ function Harness({ onCommit }: { onCommit: (deg: number) => void }) {
         <OrientSlider
           value={preview ?? committed}
           label="Drehung"
-          onPreview={setPreview}
+          onPreview={(deg) => setPreview(snap(deg))}
           onCommit={(deg) => { setPreview(null); setCommitted(deg); onCommit(deg) }}
           onAbandon={() => setPreview(null)}
         />
@@ -99,6 +99,17 @@ describe('OrientSlider – the Gebäude orientation preview', () => {
     fireEvent.keyDown(slider(), { key: 'ArrowLeft' })
     fireEvent.keyUp(slider(), { key: 'ArrowLeft' })
     expect(commit.mock.calls).toEqual([[3], [2]])
+  })
+
+  // review of #742: the Whiteboard snaps the preview within 5° of 0° — a held arrow stepped from
+  // the snapped value and never got past the catch
+  it('a held arrow walks past a snap point: it steps from its own value, not the snapped one', () => {
+    const commit = vi.fn()
+    render(<Harness onCommit={commit} snap={(d) => (Math.abs(d) <= 5 ? 0 : d)} />)
+    for (let i = 0; i < 7; i++) fireEvent.keyDown(slider(), { key: 'ArrowRight', repeat: i > 0 })
+    expect(shown()).toBe(7)
+    fireEvent.keyUp(slider(), { key: 'ArrowRight' })
+    expect(commit.mock.calls).toEqual([[7]])
   })
 
   it('the popover closing with a preview still live drops it', () => {
