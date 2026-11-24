@@ -104,7 +104,9 @@ export function useOfflinePrefetch({ incidentId, center, mapRef, layers, backend
     const rasterSourceCount = 1 + rasterOverlays.length
     const tileCount = coverageTileCount * rasterSourceCount
     // a retina base costs ~3× per tile (lib/storageBudget · tileBytesFor): the mean over the stack
-    const bytesPerTile = [templates, ...rasterOverlays].reduce((sum, t) => sum + tileBytesFor(t), 0) / rasterSourceCount
+    // priced as fetched: a `{ratio}` template is the @2x tile on a retina screen (offlineTiles)
+    const asFetched = (t: string[]) => t.map((u) => fillTileTemplate(u, 0, 0, 0, window.devicePixelRatio))
+    const bytesPerTile = [templates, ...rasterOverlays].reduce((sum, t) => sum + tileBytesFor(asFetched(t)), 0) / rasterSourceCount
     const extraBytes = (warmUrls.length - labelUrls.length) * WARM_BYTES + labelUrls.length * LABEL_WARM_BYTES
     const budget = await estimateStorage()
     const fit = prefetchFit(budget, tileCount, extraBytes, bytesPerTile)
@@ -132,6 +134,8 @@ export function useOfflinePrefetch({ incidentId, center, mapRef, layers, backend
       cap = reduced
     }
     setOfflineProgress({ done: 0, total: 1 })
+    // one run at a time: a new one (the night style coming on mid-download) replaces the old
+    offlineAbort.current?.abort()
     const ctrl = new AbortController()
     offlineAbort.current = ctrl
     // throttle progress to whole-percent changes so we don't re-render this (huge) component
@@ -150,7 +154,7 @@ export function useOfflinePrefetch({ incidentId, center, mapRef, layers, backend
         signal: ctrl.signal,
         onProgress: (done, total) => {
           const pct = total ? Math.floor((done / total) * 100) : 0
-          if (pct !== lastPct) { lastPct = pct; setOfflineProgress({ done, total }) }
+          if (pct !== lastPct && offlineAbort.current === ctrl) { lastPct = pct; setOfflineProgress({ done, total }) }
         },
       })
       // ⚠️ FOUR OUTCOMES, FOUR MESSAGES — not one message with different numbers. The bar
@@ -183,8 +187,10 @@ export function useOfflinePrefetch({ incidentId, center, mapRef, layers, backend
       // a cancel is not a failure: the operator (or the unmount) asked for it, nothing to report
       if (!quiet && !ctrl.signal.aborted) toast(appConfig.copy.offline.dlFailed, { icon: 'map', tone: 'warn' })
     } finally {
-      if (offlineAbort.current === ctrl) offlineAbort.current = null
-      setOfflineProgress(null)
+      if (offlineAbort.current === ctrl) {
+        offlineAbort.current = null
+        setOfflineProgress(null)
+      }
     }
   }, [layers, backendPlans, incidentBounds, withGeoBbox, mapRef, night])
   // «Weiterladen» / «Nochmals» re-runs the same download. Through a ref because the action rides
@@ -204,8 +210,10 @@ export function useOfflinePrefetch({ incidentId, center, mapRef, layers, backend
   // measures against the CURRENT bbox, so a warm run for the old radius would keep reporting
   // «nicht geladen» forever. Centre and raster-reference ids are explicit too: a corrected
   // Einsatz location or newly configured WMS/WMTS layer owes the device another warm pass.
-  // …and the style the map shows (day or night): at night the dark tiles are the ones it will ask for
-  const offlineWarmSig = `${incidentId}|${night ? 'night' : 'day'}|${center.join(',')}|${offlineRadiusM}|${Object.values(backendPlans).sort().join(',')}|${layers.filter((l) => l.geojson || (!l.base && l.tiles?.length)).map((l) => l.id).join(',')}`
+  // …and the tiles the map shows (its dark variant at night): only a style that asks for other
+  // tiles owes another pass
+  const warmBase = activeBaseTiles(layers.find((l) => l.base && l.visible), night)?.join(' ') ?? ''
+  const offlineWarmSig = `${incidentId}|${warmBase}|${center.join(',')}|${offlineRadiusM}|${Object.values(backendPlans).sort().join(',')}|${layers.filter((l) => l.geojson || (!l.base && l.tiles?.length)).map((l) => l.id).join(',')}`
   const offlineWarmed = useRef('')
   useEffect(() => {
     if (!isStandalone()) return
@@ -216,14 +224,14 @@ export function useOfflinePrefetch({ incidentId, center, mapRef, layers, backend
       void downloadOfflineRef.current({ quiet: true })
     }, 30_000)
     return () => clearTimeout(t)
-  }, [offlineWarmSig])
+  }, [offlineWarmSig, online]) // a warm owed while offline re-arms when the link is back
   // Offline-readiness: the representative URLs the readiness sheet probes against the SW
   // Cache to report REAL offline presence (not a guess) for the runtime-cached resources.
   const offlineProbeUrls = useMemo(() => {
     const base = layers.find((l) => l.base && l.visible)
     const tpls = activeBaseTiles(base, night) ?? []
-    // The incident-centre tile under the URL MapLibre requests (offlineTiles · tileRequestUrl),
-    // plus every subdomain for a tile an older build stored under another host.
+    // The incident-centre tile under the URL MapLibre requests (offlineTiles · tileRequestUrl) –
+    // the only one the worker serves; a copy under another host is no offline map.
     let tiles: string[] = []
     if (tpls.length) {
       const z = 16
@@ -231,7 +239,7 @@ export function useOfflinePrefetch({ incidentId, center, mapRef, layers, backend
       const x = Math.floor(((lng + 180) / 360) * 2 ** z)
       const r = (lat * Math.PI) / 180
       const y = Math.floor(((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2) * 2 ** z)
-      tiles = [tileRequestUrl(tpls, z, x, y), ...tpls.map((t) => fillTileTemplate(t, z, x, y))]
+      tiles = [tileRequestUrl(tpls, z, x, y)]
     }
     const z = 16
     const [lng, lat] = center

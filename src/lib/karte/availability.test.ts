@@ -149,14 +149,18 @@ describe('the base map of a view', () => {
     expect(viewTiles({ west: 5.9, south: 45.8, east: 10.5, north: 47.8 }, 12)).toBeNull()
   })
 
-  it('a tile may be stored under any subdomain template', () => {
-    expect(tileUrls(TPL, t(16, 34, 22))).toEqual(['https://a.tiles.example/16/34/22.png', 'https://b.tiles.example/16/34/22.png'])
+  // the host MapLibre asks: (x + y) % n (hunt 24.11.2026, karte F6) – a copy under another
+  // subdomain is one the worker never serves
+  it('a tile is stored under the one URL the map asks for', () => {
+    expect(tileUrls(TPL, t(16, 34, 22))).toEqual(['https://a.tiles.example/16/34/22.png'])
+    expect(tileUrls(TPL, t(16, 34, 23))).toEqual(['https://b.tiles.example/16/34/23.png'])
   })
 
-  it('a tile counts as covered when it or a parent within reach is stored, under any template', async () => {
+  it('a tile counts as covered when it or a parent within reach is stored under its URL', async () => {
     const stored = new Set([
-      'https://b.tiles.example/16/100/200.png', // the tile itself, under the second host
-      'https://a.tiles.example/14/25/50.png', // the grandparent of 16/101/201 (and of 16/100/200)
+      'https://a.tiles.example/16/100/200.png', // the tile itself, under its host ((100 + 200) % 2 = 0)
+      'https://b.tiles.example/14/25/50.png', // the grandparent of 16/101/201 ((25 + 50) % 2 = 1)
+      'https://b.tiles.example/16/400/400.png', // under the WRONG host: not there for the map
     ])
     const has = async (u: string) => stored.has(u)
     const tiles = [t(16, 100, 200), t(16, 101, 201), t(16, 400, 400)]

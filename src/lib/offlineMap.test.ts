@@ -98,3 +98,10 @@ it('offline preparation downloads the basemap that the night map shows', async (
   expect(probes.every((url) => cached.has(url))).toBe(true)
   expect([...cached].filter((url) => url.includes('/night/')).length).toBeGreaterThan(0)
 })
+
+it('a tile stored under another host does not count as there – the map never asks for it', async () => {
+  const wrongShard = new Set(tiles.map(({ z, x, y }) => shards[(x + y + 1) % shards.length].replace('{z}', String(z)).replace('{x}', String(x)).replace('{y}', String(y))))
+  const missing = await missingTiles(tiles, shards, async (key) => wrongShard.has(key))
+  expect(missing.length).toBeGreaterThan(0)
+})
+
