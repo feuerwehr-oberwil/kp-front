@@ -25,7 +25,8 @@ function fixture(trupps: Trupp[], drawings: Drawing[]) {
   const timeline = createUndoTimeline()
   const apply = <T,>(value: T, update: SetStateAction<T>): T =>
     (typeof update === 'function' ? (update as (x: T) => T)(value) : update)
-  const render = () => useTruppActions({
+  /** the actions as one render hands them out (a plain factory: no hook inside) */
+  const useActions = () => useTruppActions({
     trupps: crews, drawings: pic.drawings, entities: pic.entities, board: pic.board, objects: [], building: null,
     setTrupps: (u) => { crews = apply(crews, u) },
     setDocRaw: (u) => { const d = apply({ entities: pic.entities, drawings: pic.drawings }, u); pic = { ...pic, ...d } },
@@ -41,7 +42,7 @@ function fixture(trupps: Trupp[], drawings: Drawing[]) {
     setPanel: vi.fn(), setPlanFocus: vi.fn(), mapCenter: () => [7, 47], focusMapEntity: vi.fn(), focusMapDrawing: vi.fn(),
   })
   return {
-    render, timeline, crew: (id = 'C') => crews.find((t) => t.id === id), line: () => pic.drawings.find((d) => d.id === 'H'),
+    useActions, timeline, crew: (id = 'C') => crews.find((t) => t.id === id), line: () => pic.drawings.find((d) => d.id === 'H'),
     /** what the drawing tool's own commit does in the same gesture — after the render that handed out the actions */
     draw: (d: Drawing) => { pic = { ...pic, drawings: [...pic.drawings, d] } },
   }
@@ -51,7 +52,7 @@ describe('a Trupp ⇄ Leitung link', () => {
   // F5: the actions of the render before the hose existed looked for it in that render's arrays
   it('a new hose finished on the crew marker links that crew, in the same gesture', () => {
     const f = fixture([crew], [])
-    const gesture = f.render()
+    const gesture = f.useActions()
     f.draw(hose)
     expect(gesture.linkLineToAttachedTrupp('H', hose.endAttachment)).toBe(true)
     expect(f.crew()?.lineId).toBe('H')
@@ -61,7 +62,7 @@ describe('a Trupp ⇄ Leitung link', () => {
   // F7: «Gehört zu Trupp» wrote both sides raw and laid no step, so ↶ took back an older act
   it('«Gehört zu Trupp» on an existing hose is one ↶ step over the crew and the hose', () => {
     const f = fixture([crew], [hose])
-    expect(f.render().linkTruppLine('C', 'H')).toBe(true)
+    expect(f.useActions().linkTruppLine('C', 'H')).toBe(true)
     expect(f.timeline.entries().past).toHaveLength(1)
     expect(f.timeline.peekUndo()?.domain).toBe('trupps')
     f.timeline.undo()
@@ -75,7 +76,7 @@ describe('a Trupp ⇄ Leitung link', () => {
   it('…and a crew that claimed the same number gets it back with the same ↶', () => {
     const other: Trupp = { ...crew, id: 'D', name: 'Other', entityId: undefined, lineNo: 4, status: 'aktiv' }
     const f = fixture([{ ...crew, lineNo: 4 }, other], [hose])
-    f.render().linkTruppLine('C', 'H')
+    f.useActions().linkTruppLine('C', 'H')
     expect(f.crew('D')?.lineNo).toBeUndefined()
     expect(f.timeline.peekUndo()?.touches?.()).toEqual(expect.arrayContaining(['trupps:C', 'trupps:D']))
     f.timeline.undo()
@@ -87,7 +88,7 @@ describe('a Trupp ⇄ Leitung link', () => {
   it('a hose-number change lets go of the hose, and ↶ / ↷ move crew and hose together', () => {
     const linked: Trupp = { ...crew, lineId: 'H', lineNo: 1 }
     const f = fixture([linked], [{ ...hose, lineNo: 1, truppId: 'C' }])
-    f.render().editTrupp('C', truppFieldsOf(linked, { lineNo: 2 }))
+    f.useActions().editTrupp('C', truppFieldsOf(linked, { lineNo: 2 }))
     expect(f.crew()?.lineId).toBeUndefined()
     expect(f.line()?.truppId).toBeUndefined()
     expect(f.timeline.entries().past).toHaveLength(1)
