@@ -1949,14 +1949,20 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     // on the Karte — projected through the stack's fit — swung with the building. The same
     // re-glue drew the live preview while the slider was held (`previewAnnos`).
     const remapped = reorientAnnos(annos, { src: orientSrc, fromDeg, toDeg, layout, toLayout })
-    commit(remapped) // re-glued annotations go through undo/redo + sync
-    // `northUp` stays in sync (0° IS north-up) so pre-dial clients keep their binary read — on a
-    // PACK it would be a lie (0° is the page as drawn, which is north-up only by luck), and the
-    // rings would be the frame rectangle, which a pack deliberately has none of. Only the aspect
-    // crosses over: it is what makes the tile box follow the turned frame.
-    onReorient(building.pack
-      ? { ...building, viewDeg: toDeg, ringAspect: view.aspect, tileAR: nextTileAR }
-      : { ...building, viewDeg: toDeg, northUp: toDeg === 0, rings: view.rings, ring: view.rings[0], ringAspect: view.aspect })
+    // ⚠️ the re-glued marks and the turned footprint are ONE ↶ step: one ↶ used to put the
+    // footprint back under marks still turned for the new view (hunt 24.11.2026,
+    // frontend-state F3). The group also holds the store's step, where a mark is the Karte's.
+    const endStep = historyGroup?.() ?? (() => {})
+    try {
+      commit(remapped) // re-glued annotations go through undo/redo + sync
+      // `northUp` stays in sync (0° IS north-up) so pre-dial clients keep their binary read — on a
+      // PACK it would be a lie (0° is the page as drawn, which is north-up only by luck), and the
+      // rings would be the frame rectangle, which a pack deliberately has none of. Only the aspect
+      // crosses over: it is what makes the tile box follow the turned frame.
+      onReorient(building.pack
+        ? { ...building, viewDeg: toDeg, ringAspect: view.aspect, tileAR: nextTileAR }
+        : { ...building, viewDeg: toDeg, northUp: toDeg === 0, rings: view.rings, ring: view.rings[0], ringAspect: view.aspect })
+    } finally { endStep() }
     emit('building.reorient', { northUp: toDeg === 0, deg: toDeg, planId: activeId })
     // …and the VIEW is re-glued too. The board keeps its size through a rotation (a stack's
     // aspect is the floor count, not the footprint's — see effAspect), so the storey cards stay

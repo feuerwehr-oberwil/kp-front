@@ -99,7 +99,7 @@ Two rules that fall out of it: a surface that persists on every **keystroke** cl
 writes so a burst of typing is ONE step and a value/row appearing or disappearing is its own
 (`lib/reportUndo`, `UndoableSlice.set`'s `coalesce`); and a remote hydrate closes the open
 fold windows — the Rapport's typing burst (`lastReportStep`), the Bildlegende
-(`lastCaptionStep`), the Gebäude-Drehung (`lastReorient`) — and re-opens a plan gesture whose
+(`lastCaptionStep`) — and re-opens a plan gesture whose
 step the merge took: the store's sheet-step token (`useObjectStore · rebaseObjects`) and the
 Whiteboard's first-movement checkpoint (`useBoardDoc · set`) each lay a fresh step at the
 gesture's next sample.

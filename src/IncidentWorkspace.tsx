@@ -1373,8 +1373,6 @@ export function IncidentWorkspace({
   /** the Bildlegende step that stands — a caption is typed, so it is ONE step and not one per
    *  letter (same window and the same reason as the Rapportangaben). */
   const lastCaptionStep = useRef<{ key: string; at: number; from: string | undefined; drop: () => void } | null>(null)
-  /** …and the Gebäude-Drehung, which is a slider: one drag is one step (workspace/useGebaeudeActions · reorient). */
-  const lastReorient = useRef<{ at: number; from: BuildingDoc; drop: () => void } | null>(null)
 
   // The blob both ways — the load gate's toast, applyWorkspace (merge in) and buildPayload (save
   // out), and this device's own Ebenen (workspace/useWorkspaceBlob)
@@ -1384,7 +1382,7 @@ export function IncidentWorkspace({
     setReportMeta, setAttachments, setReportSignatures, setIncidentSettings, setPlanBindings, setPickedObjectId,
     setIntakeReviewedAt, undoHist, setUndoTopLost, liveWs, liveObjects, boardRef, getFits, rebaseObjects, replaceObjects,
     setPlanHistory, lastReportStepRef: lastReportStep, lastCaptionStepRef: lastCaptionStep,
-    lastReorientRef: lastReorient, setSelectedId, setSelectedDrawingId, setSelectedDrawIds, objects, recent,
+    setSelectedId, setSelectedDrawingId, setSelectedDrawIds, objects, recent,
     activePlanId, pickedObjectId, building, vehicleOverrides, checklists, allTrupps, attendance, mittel,
     shifts, bands, cameraViews, trails, planScale, reportMeta, attachments, reportSignatures, incidentSettings, planBindings,
     intakeReviewedAt, layers,
@@ -2627,7 +2625,7 @@ export function IncidentWorkspace({
   // the Gebäude's own acts on the Plan — pick, storeys, Drehung (workspace/useGebaeudeActions)
   const gebaeude = useGebaeudeActions({
     tacticalLocked, building, setBuilding, board, setBoard, objects, objectsRef, boardRef, floorPack: georefFits.floorPack,
-    planBindings, activeObjectId, setActivePlanId, rememberGebaeudeStep, logPlan, lastReorient,
+    planBindings, activeObjectId, setActivePlanId, rememberGebaeudeStep, logPlan,
   })
 
   /* ── «Spur»: der abgesuchte Bereich überlebt seinen Marker (18.09.2026) ─────────────────────
