@@ -150,6 +150,51 @@ export function chronological(rows: readonly TimelineEvent[]): TimelineEvent[] {
     .map((d) => d.row)
 }
 
+/**
+ * The Verlauf as it reads: enrichment patches folded onto their rows (corrections with their
+ * first wording, transcripts, media URLs), patch rows hidden, retracted rows gone – in the order
+ * given. The KP's store (`display`) and every other reader of raw rows go through this ONE fold;
+ * ⚠️ the QR-Erfassung printed the raw rows and so put corrected and withdrawn statements on
+ * paper (hunt 24.11.2026, records-rapport F4).
+ */
+export function foldJournalRows(out: readonly TimelineEvent[]): TimelineEvent[] {
+  // fold enrichment patches onto their targets, hide the patch rows
+  const patched = new Map(out.filter((r) => !r.patchOf).map((r) => [r.id, r]))
+  for (const p of out) {
+    if (!p.patchOf) continue
+    const target = patched.get(p.patchOf)
+    if (!target || target.id.startsWith('sys')) continue // server boundaries cannot be corrected by a client patch
+    const { id: _i, t: _t, at: _a, icon: _ic, text: _tx, patchOf: _p, textEdit, transcriptSection, transcriptSectionEdit, ...fields } = p
+    const folded = patched.get(p.patchOf)!
+    patched.set(target.id, {
+      ...folded,
+      ...fields,
+      // a text correction rides in `textEdit` (patch rows carry a filler text: '') — and the
+      // patch's own time comes along as `correctedAt`, so the Verlauf can say the line was
+      // corrected instead of silently showing different words than were written (see types).
+      // `textOriginal` keeps the FIRST wording across any number of corrections — the printed
+      // rapport shows original + latest and skips the intermediates.
+      ...(textEdit ? { text: textEdit, correctedAt: p.at, textOriginal: folded.textOriginal ?? folded.text } : {}),
+      // transcript sections ACCUMULATE (each patch carries one; its id addresses the section),
+      // sorted by offset so the subtitle list reads in recording order however they arrived
+      ...(transcriptSection
+        ? { transcriptSections: [...(folded.transcriptSections ?? []), { id: p.id, ...transcriptSection }].sort((a, b) => a.at - b.at) }
+        : {}),
+      // …and an edit REPLACES one section's words in place (empty text removes it). No
+      // «korrigiert» mark: the recording is the original; its transcription may be fixed.
+      ...(transcriptSectionEdit
+        ? {
+            transcriptSections: (folded.transcriptSections ?? [])
+              .map((s) => (s.id === transcriptSectionEdit.id ? { ...s, text: transcriptSectionEdit.text } : s))
+              .filter((s) => s.text.trim() !== ''),
+          }
+        : {}),
+    })
+  }
+  // retracted rows fold out entirely (the record keeps original + retraction)
+  return out.filter((r) => !r.patchOf).map((r) => patched.get(r.id)!).filter((r) => !r.retracted)
+}
+
 export class JournalStore {
   private state: Persisted = { rows: [], latestSeq: 0, outbox: [], dead: [], refused: [] }
   /** legacy blob rows in CHRONOLOGICAL (oldest-first) order — the blob stores newest-first */
@@ -599,41 +644,7 @@ export class JournalStore {
     for (const r of this.legacy) push(r)
     for (const r of this.state.outbox) push(r)
     for (const r of this.state.dead ?? []) push(r)
-    // fold enrichment patches onto their targets, hide the patch rows
-    const patched = new Map(out.filter((r) => !r.patchOf).map((r) => [r.id, r]))
-    for (const p of out) {
-      if (!p.patchOf) continue
-      const target = patched.get(p.patchOf)
-      if (!target || target.id.startsWith('sys')) continue // server boundaries cannot be corrected by a client patch
-      const { id: _i, t: _t, at: _a, icon: _ic, text: _tx, patchOf: _p, textEdit, transcriptSection, transcriptSectionEdit, ...fields } = p
-      const folded = patched.get(p.patchOf)!
-      patched.set(target.id, {
-        ...folded,
-        ...fields,
-        // a text correction rides in `textEdit` (patch rows carry a filler text: '') — and the
-        // patch's own time comes along as `correctedAt`, so the Verlauf can say the line was
-        // corrected instead of silently showing different words than were written (see types).
-        // `textOriginal` keeps the FIRST wording across any number of corrections — the printed
-        // rapport shows original + latest and skips the intermediates.
-        ...(textEdit ? { text: textEdit, correctedAt: p.at, textOriginal: folded.textOriginal ?? folded.text } : {}),
-        // transcript sections ACCUMULATE (each patch carries one; its id addresses the section),
-        // sorted by offset so the subtitle list reads in recording order however they arrived
-        ...(transcriptSection
-          ? { transcriptSections: [...(folded.transcriptSections ?? []), { id: p.id, ...transcriptSection }].sort((a, b) => a.at - b.at) }
-          : {}),
-        // …and an edit REPLACES one section's words in place (empty text removes it). No
-        // «korrigiert» mark: the recording is the original; its transcription may be fixed.
-        ...(transcriptSectionEdit
-          ? {
-              transcriptSections: (folded.transcriptSections ?? [])
-                .map((s) => (s.id === transcriptSectionEdit.id ? { ...s, text: transcriptSectionEdit.text } : s))
-                .filter((s) => s.text.trim() !== ''),
-            }
-          : {}),
-      })
-    }
-    // retracted rows fold out of display entirely (the record keeps original + retraction)
-    const rows = out.filter((r) => !r.patchOf).map((r) => patched.get(r.id)!).filter((r) => !r.retracted)
+    const rows = foldJournalRows(out)
     // session overlay last (blob: URLs beat everything for display)
     const withOverlay = rows.map((r) => (this.overlay.has(r.id) ? { ...r, ...this.overlay.get(r.id) } : r))
     // reverse first (newest-first, `seq` within), then order by written time — the reverse is

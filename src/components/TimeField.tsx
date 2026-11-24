@@ -33,7 +33,8 @@
 
 import { useRef, useState } from 'react'
 import { WheelPopover, type WheelValue } from './WheelPicker'
-import { FIELD_CLOCK_EMPTY, FIELD_DAY_EMPTY, FIELD_WHEN_EMPTY, fieldDay, hhmm, pad2 } from '../lib/format'
+import { FIELD_CLOCK_EMPTY, FIELD_DAY_EMPTY, FIELD_WHEN_EMPTY, fieldDay, hhmm, pad2, wallInstant } from '../lib/format'
+import { appConfig } from '../config/appConfig'
 import { serverNow } from '../lib/serverClock'
 import { dayRange, RECENT_DAYS } from '../lib/zeitplanFormat'
 
@@ -238,9 +239,14 @@ export function DateTimeField({ value, onCommit, disabled, ariaLabel, className,
           initial={at}
           days={offered(at)} dayAlways
           onClose={() => setOpen(false)}
+          // the clock changes (records-rapport F6): an unchanged «OK» on the second 02:15 keeps
+          // it, and a time the spring change skips is refused with a note instead of moving on
+          note={(v: WheelValue) => wallInstant(v) ? null : { text: appConfig.copy.wheel.skippedTime, blocks: true }}
           onCommit={(v: WheelValue) => {
+            const iso = wallInstant(v, at)
+            if (!iso) return
             setOpen(false)
-            onCommit(new Date(v.y, v.mo - 1, v.d, v.h, v.mi, 0, 0).toISOString())
+            onCommit(iso.toISOString())
           }}
           onClear={!required && (valid || clearLabel) ? () => { setOpen(false); onCommit(null) } : undefined}
           clearLabel={clearLabel}

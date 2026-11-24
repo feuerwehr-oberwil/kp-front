@@ -229,3 +229,31 @@ async def test_concurrent_milestone_is_not_lost(client, db_session, session_fact
     # BOTH survive: the racer's «vor Ort» and our «ausgerückt».
     assert pio["vorOrt"] == "2026-07-13T01:18:00+00:00"
     assert pio["ausgerueckt"] == "2026-07-13T01:16:00+00:00"
+
+
+async def test_a_late_milestone_stands_at_its_own_minute_and_a_moved_one_says_so(client, db_session):
+    """Hunt 24.11.2026, records-rapport F7: a departure reported half an hour late was dated by
+    its arrival – sorted and printed at 09:46 while it read «ausgerückt 09:16»."""
+    inc = await _incident(db_session)
+    body = {"divera_id": 4711, "vehicles": [{"id": "tlf", "ausgerueckt": "2026-07-13T01:16:00Z"}]}
+    assert (
+        await client.post("/api/alarms/milestones", json=body, headers={"X-Webhook-Secret": SECRET})
+    ).status_code == 200
+    moved = {"divera_id": 4711, "vehicles": [{"id": "tlf", "ausgerueckt": "2026-07-13T01:18:00Z"}]}
+    assert (
+        await client.post("/api/alarms/milestones", json=moved, headers={"X-Webhook-Secret": SECRET})
+    ).status_code == 200
+
+    rows = (
+        (
+            await db_session.execute(
+                select(JournalEntry).where(JournalEntry.incident_id == inc.id).order_by(JournalEntry.seq)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    first, fix = (r.row_json for r in rows)
+    assert first["text"] == "TLF ausgerückt 03:16" and first["at"] == "2026-07-13T01:16:00+00:00"
+    assert first["writtenAt"] != first["at"]  # the arrival is kept beside it
+    assert fix["text"] == "TLF ausgerückt 03:18 (korrigiert, zuvor 03:16)" and fix["at"] == "2026-07-13T01:18:00+00:00"

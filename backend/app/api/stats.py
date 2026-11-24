@@ -166,6 +166,28 @@ def _iso(dt: datetime | None) -> str | None:
     return dt.isoformat() if dt else None
 
 
+def _ausgerueckt_at(rm: dict) -> str | None:
+    """The Rapport's «Ausgerückt»: the first physical departure once any vehicle time exists, else
+    the hand-entered value – the rule of the form and the PDF (src/lib/alarmzeiten ·
+    deriveAusgerueckt). The export passed only the stored scalar through, which the webhook never
+    writes: null, or an older manual value (hunt 24.11.2026, records-rapport F8)."""
+    times: list[tuple[datetime, str]] = []
+    for v in rm.get("fahrzeuge") or []:
+        raw = v.get("ausgerueckt") if isinstance(v, dict) else None
+        if not isinstance(raw, str):
+            continue
+        try:
+            at = datetime.fromisoformat(raw)
+        except ValueError:
+            continue
+        if at.tzinfo is not None:
+            times.append((at, raw))
+    if times:
+        return min(times)[1]
+    manual = rm.get("ausgeruecktAt")
+    return manual if isinstance(manual, str) else None
+
+
 def _alarmiert_at(inc: Incident, rm: dict) -> str | None:
     """The effective Alarmierungszeit, or null when this record does not know one.
 
@@ -260,7 +282,7 @@ def _record(inc: Incident, alarm_ref: str | None = None) -> dict:
         "report_done_at": _iso(inc.report_done_at),
         # reportMeta slices (ISO strings maintained by the app; passed through verbatim)
         "alarmiertAt": _alarmiert_at(inc, rm),
-        "ausgeruecktAt": rm.get("ausgeruecktAt"),
+        "ausgeruecktAt": _ausgerueckt_at(rm),
         "endedAt": rm.get("endedAt"),
         "einsatzleiter": rm.get("einsatzleiter"),
         "kontaktperson": rm.get("kontaktperson"),

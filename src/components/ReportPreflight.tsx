@@ -16,7 +16,7 @@ import { cx } from '../lib/cx'
 import { parseAlarmText } from '../lib/alarmText'
 import { confirmDialog, openPhoto, toast, type ToastAction } from '../lib/ui'
 import { buildDirectReportPayload, downloadDirectReportPdf, readyDirectReportPayload, signedPartOf, usedStackFloors } from '../lib/reportPdfDirect'
-import { activeSignatures, sha256Hex, SIGNATURE_ROLES, type ReportSignature } from '../lib/reportSignature'
+import { activeSignatures, sha256Hex, SIGNATURE_ROLES, signedRoster, type ReportSignature } from '../lib/reportSignature'
 import { newId } from '../lib/ids'
 import { serverNowIso } from '../lib/serverClock'
 import type { SignSubmit } from './SignatureSheet'
@@ -709,18 +709,21 @@ export function ReportPreflight({
   }
   // The ONE argument list both the PDF and the signature scope are built from — so «what is
   // signed» is «what prints», field for field.
+  const liveSigs = useMemo(() => activeSignatures(reportSignatures), [reportSignatures])
+  // the roster a signature froze, on a closed Einsatz (lib/reportSignature · signedRoster)
+  const roster = useMemo(() => signedRoster(liveSigs, closed,
+    personnel.filter((p) => p.active).map((p) => ({ id: p.id, name: p.displayName }))), [liveSigs, closed, personnel])
   const pdfArgs = (draft: ReportDraft) => ({
     incident, draft, trupps, contactIntervalMin, contactGraceSec, attendance, events, plans, mittel, attachments, scene: effScene, board, building, checklists, checklistTemplates,
     // the printed journal marks the same terms the app marks (lib/journalLinks) — the Trupps
     // included, or the paper would mark every name in a row except the crew it is about
     vocab: journalVocabulary(personnel, attendance, undefined, trupps),
-    roster: personnel.filter((p) => p.active).map((p) => ({ id: p.id, name: p.displayName })),
+    roster,
   })
   // ── Unterschriften (15.10.2026) ──────────────────────────────────────────────────────────
   // The signed part as it stands in THIS render, from the very arguments the PDF is built from –
   // only while a signature exists, the one time there is anything to check (signing hashes for
   // itself, doSign). useSignatureLock hashes it whenever it changes.
-  const liveSigs = useMemo(() => activeSignatures(reportSignatures), [reportSignatures])
   const hasSigs = SIGNATURE_ROLES.some((r) => liveSigs[r])
   const signedPart = hasSigs ? signedPartOf(pdfArgs(buildDraft())) : ''
   const { sigState, anyValid, signedLock } = useSignatureLock(liveSigs, signedPart, closed)
@@ -749,7 +752,7 @@ export function ReportPreflight({
       const scope = await sha256Hex(signedPartOf(pdfArgs({ ...buildDraft(), meta: m })))
       onSign({
         id: newId('sig'), role, name: slot.name, ...(slot.personId ? { personId: slot.personId } : {}),
-        ...(signPlace ? { place: signPlace } : {}), at: serverNowIso(), scope, strokes,
+        ...(signPlace ? { place: signPlace } : {}), at: serverNowIso(), scope, strokes, roster,
       })
       return true
     } catch {

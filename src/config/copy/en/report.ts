@@ -109,6 +109,7 @@ export const reportCopy: Localizable<Pick<Copy, 'auswertung' | 'report' | 'print
   },
   wheel: {
     invalidTime: 'Enter a valid time (00:00–23:59).',
+    skippedTime: 'This time does not exist (clocks go forward) – pick 03:00 or later.',
     day: 'Day',
     hour: 'Hour',
     minute: 'Minute',

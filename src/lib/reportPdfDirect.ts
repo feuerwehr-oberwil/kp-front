@@ -7,6 +7,7 @@
 // catalogue always travel in the payload so the server can print tick-off rows and amount
 // stubs for everything not (yet) recorded digitally — printing never blocks on missing data.
 
+import { foldJournalRows } from './journalStore'
 import { appConfig } from '../config/appConfig'
 import type { AttendanceState, BoardAnno, BoardDoc, BuildingDoc, CaptionMode, Drawing, Entity, LayerDef, LngLat, MittelEntry, PlanDocument, ReportAttachment, TimelineEvent, Trupp } from '../types'
 import { floorLabel, floorSections, pdfPageOf, tileAspectOf } from './whiteboard'
@@ -23,7 +24,7 @@ import { isAtemschutzTrupp, isStandDownExit } from './atemschutz'
 import { DEFAULT_HOURS_ROUNDING, fmtHours, hoursRows, hoursSummary } from './attendanceHours'
 import { atemschutzDoctrine, getDeploymentConfig } from './deploymentConfig'
 import { serverNow } from './serverClock'
-import { fillTemplate, formatTime, localeDate } from './format'
+import { fillTemplate, formatTime, localeDate, zoneIfTwice } from './format'
 import { buildKrokiPayload, circleSvgString, shapeSvgString } from './krokiPayload'
 import { symbolLegendText } from './symbols'
 import { doneBadge, doneOf, doneWord } from './objectDone'
@@ -498,7 +499,11 @@ function oneDay(isos: readonly (string | null)[]): string | undefined {
 /** The ONE payload builder — shared by the PDF download and the station-printer enqueue
  *  (src/lib/printRelay.ts), so both always produce the identical document. */
 export function buildDirectReportPayload(args: DirectReportArgs): Record<string, unknown> {
-  const { incident, draft, trupps, attendance, events, plans, mittel = [], roster = [], attachments = [], scene, board, building } = args
+  const { incident, draft, trupps, attendance, plans, mittel = [], roster = [], attachments = [], scene, board, building } = args
+  // ⚠️ The Verlauf as it READS (journalStore · foldJournalRows), whoever hands it over: the
+  // QR-Erfassung passed the raw server rows and printed corrected and withdrawn statements (hunt
+  // 24.11.2026, records-rapport F4). Folding rows that are already folded changes nothing.
+  const events = foldJournalRows(args.events)
   const meta = draft.meta
   // the moment a CLOSED Einsatz was closed — ends the sorties nobody reported out (see trupps).
   // ⚠️ The LATEST close (closeTimeOf): after a reopen and a second close the crew was still in
@@ -520,7 +525,7 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
   const journalDay = oneDay(journalPrint.map((r) => r.iso))
   const journal = journalPrint
     .map((r) => ({
-      timeLabel: journalDay && r.iso ? formatTime(new Date(r.iso)) : r.timeLabel, area: r.area, text: r.text, markup: r.markup, transcript: r.transcript || undefined,
+      timeLabel: journalDay && r.iso ? formatTime(new Date(r.iso)) + zoneIfTwice(new Date(r.iso)) : r.timeLabel, area: r.area, text: r.text, markup: r.markup, transcript: r.transcript || undefined,
       transcriptLines: r.transcriptLines,
       repeats: r.repeats,
       // a corrected line prints its first wording beside the latest — the paper says the same

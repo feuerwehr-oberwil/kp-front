@@ -284,3 +284,34 @@ async def test_a_payload_without_a_sheet_still_gets_the_availability_form(client
     r = await client.post(f"/api/incidents/{inc}/zeitplan/pdf", data={"payload": json.dumps(body)})
     assert r.status_code == 200, r.text
     assert "Verfuegbarkeiten_" in r.headers["content-disposition"]
+
+
+def test_two_assigned_stretches_in_one_watch_both_print_and_count_once():
+    """Hunt 24.11.2026, simplification F8: the tablet showed 08–09 and 10–12 inside a 07–12
+    watch, the paper only 10–12 – the first hour of the assignment was lost on the posted sheet."""
+    p = _payload(
+        [
+            _row(
+                "Alex",
+                [
+                    {"from": _h(1), "to": _h(2), "confirmed": True, "bandId": "bd1"},
+                    {"from": _h(3), "to": _h(5), "confirmed": True, "bandId": "bd1"},
+                ],
+            )
+        ]
+    )
+    assert _cell(p.rows[0], p.bands[0]) == "10:00–11:00\n12:00–14:00"  # Zurich summer time
+    assert _deckung(list(p.rows), p.bands[0]) == "1·"
+    assert compose_schichtplan_pdf(p)[:5] == b"%PDF-"
+
+
+def test_a_watch_across_the_autumn_clock_change_counts_its_person():
+    """Hunt 24.11.2026, data-consistency F6: 02:15 CEST to 02:15 CET is one hour, but the local
+    wall times subtracted to zero and the assigned person dropped out of EINGETEILT."""
+    band = {"id": "n", "label": "Nacht", "from": "2026-10-25T00:15:00Z", "to": "2026-10-25T01:15:00Z"}
+    p = _payload(
+        [_row("Meier Anna", [{"from": band["from"], "to": band["to"], "confirmed": True, "bandId": "n"}])], bands=[band]
+    )
+    assert _is_assigned(p.rows[0], list(p.bands))
+    assert _deckung(list(p.rows), p.bands[0]) == "1"
+    assert _cell(p.rows[0], p.bands[0]) == _MARK_CONFIRMED

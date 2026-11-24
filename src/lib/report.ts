@@ -10,7 +10,7 @@ import type { AttendanceState, BoardDoc, Drawing, Entity, LngLat, MittelEntry, P
 import type { FahrzeugZeit, GruppeZeit, PartnerContact, ReportMeta } from './workspace'
 import { allAuftragTypes, appConfig } from '../config/appConfig'
 import { fmtDistance } from './geo'
-import { fillTemplate, fmtDuration, hhmm, pad2, restoreUmlauts, unitLabel, compareText, formatLocale } from './format'
+import { fillTemplate, fmtDuration, hhmm, pad2, restoreUmlauts, unitLabel, compareText, formatLocale, zoneIfTwice } from './format'
 import { fahrzeugRows, gruppenRows } from './alarmzeiten'
 import { fahrtenText } from './vehiclePresence'
 import { intervalsOf, mergeCloseBlocks } from './attendanceIntervals'
@@ -419,7 +419,7 @@ export function journalRows(
 ): JournalPrintRow[] {
   // …and a line the app repeated while nothing changed prints ONCE, with its count — the same
   // rule the Verlauf reads by, so paper and screen tell the same story (lib/verlauf).
-  const repeats = repeatRuns(events)
+  const repeats = repeatRuns(events, closedAt)
   return events
     .filter((e) => {
       if (repeats.hidden.has(e.id)) return false
@@ -597,7 +597,8 @@ export function formatDateTime(iso: string): string {
   if (Number.isNaN(d.getTime())) return iso
   const date = d.toLocaleDateString(formatLocale(), { day: '2-digit', month: '2-digit', year: 'numeric' })
   const time = d.toLocaleTimeString(formatLocale(), { hour: '2-digit', minute: '2-digit' })
-  return `${date} ${time}`
+  // the autumn change shows 02:15 twice – the zone tells the two apart (records-rapport F6)
+  return `${date} ${time}${zoneIfTwice(d)}`
 }
 
 export function proofLabel(proof: AuditProof): string {

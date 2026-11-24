@@ -32,7 +32,7 @@ from reportlab.lib.units import mm
 from reportlab.platypus import BaseDocTemplate, Frame, PageBreak, PageTemplate, Paragraph, Spacer, Table, TableStyle
 
 from .report.styles import _esc, _logo_flowable, _NumberedCanvas, _styles
-from .zeitplan_pdf import TZ, ZeitplanBand, ZeitplanBlock, ZeitplanPayload, ZeitplanRow
+from .zeitplan_pdf import TZ, ZeitplanBand, ZeitplanPayload, ZeitplanRow, wall
 
 #: rows per sheet — as many names as fit UNDER the heading and ABOVE the Deckung line at a height
 #: you can still write in. Measured, not guessed: 297mm less the margins, the title block and the
@@ -95,72 +95,74 @@ def _band_chunks(bands: list[ZeitplanBand]) -> list[list[ZeitplanBand]]:
     return [bands[i : i + MAX_BANDS] for i in range(0, len(bands), MAX_BANDS)]
 
 
-def _cover_fraction(block_start: datetime, block_end: datetime | None, band: ZeitplanBand) -> float:
-    """How much of a band one block covers, as 0..1 of the BAND's length.
-
-    Mirrors ``bandCoverFraction`` in the frontend, on purpose: the Deckung line on paper must say
-    the same number the column head on the tablet says, or the sheet and the screen argue.
-    """
-    length = (band.end - band.start).total_seconds()
-    if length <= 0 or block_end is None or block_end <= block_start:
-        return 0.0
-    overlap = (min(block_end, band.end) - max(block_start, band.start)).total_seconds()
-    return min(1.0, max(0.0, overlap) / length)
-
-
 def _fmt_count(n: float) -> str:
     """«8», «7,6» — one decimal only where the pro-rata counting produced one."""
     r = round(n, 1)
     return str(int(r)) if r == int(r) else f"{r:.1f}".replace(".", ",")
 
 
-def _cell_block(row: ZeitplanRow, band: ZeitplanBand) -> tuple[ZeitplanBlock | None, bool]:
-    """The block one cell is about, and whether it is a stored MEMBER of this band.
+Segment = tuple[datetime, datetime, bool]  # (from, to, confirmed), clamped to one band
 
-    Mirrors ``bandCell`` in the frontend, and for the same reason the screen has it: **availability
-    is a fact about time, assignment is a decision.** Somebody who drew 10:00–20:00 on the axis is
-    available for a 12:00–17:00 watch whether or not anybody has filed them under it, so the sheet
-    says so. Being ASSIGNED is only ever what somebody stored (``bandId`` + ``confirmed``).
 
-    A stored member always wins the cell; failing that, the offer covering most of the window does.
-    """
+def _merge(spans: list[tuple[datetime, datetime]]) -> list[tuple[datetime, datetime]]:
+    out: list[tuple[datetime, datetime]] = []
+    for a, b in sorted(spans):
+        if out and a <= out[-1][1]:
+            out[-1] = (out[-1][0], max(out[-1][1], b))
+        else:
+            out.append((a, b))
+    return out
+
+
+def _subtract(
+    spans: list[tuple[datetime, datetime]], cut: list[tuple[datetime, datetime]]
+) -> list[tuple[datetime, datetime]]:
+    out: list[tuple[datetime, datetime]] = []
+    for a, b in spans:
+        pieces = [(a, b)]
+        for c0, c1 in cut:
+            pieces = [p for x0, x1 in pieces for p in ((x0, min(x1, c0)), (max(x0, c1), x1)) if p[1] > p[0]]
+        out.extend(pieces)
+    return out
+
+
+def _segments(row: ZeitplanRow, band: ZeitplanBand) -> list[Segment]:
+    """How this person's time lies across one band, in time order – the paper twin of
+    ``bandCellSegments`` on the tablet (src/lib/shifts.ts), so the sheet shows what the screen
+    shows (hunt 24.11.2026, simplification F8: two assigned stretches in one watch printed as
+    the later one only). Assigned wins wherever it reaches; what is left of the offers fills the
+    gaps; whatever neither covers is the hole. Availability is a fact about time, so an offer
+    counts whether or not anybody filed it under this band. A block with no end covers nothing."""
+    confirmed: list[tuple[datetime, datetime]] = []
+    offered: list[tuple[datetime, datetime]] = []
     for b in row.blocks:
-        # …but only while it still TOUCHES the window. A member can end up wholly outside its own
-        # band (the band was re-timed and nobody was dragged along, or the bar was moved on the
-        # axis), and it then printed hours contradicting the column heading above them — «20:30–21»
-        # inside a 12–17 watch, counted as one assigned person covering none of it.
-        if b.band_id == band.id and _cover_fraction(b.start, b.end, band) > 0:
-            return b, True
-    # failing that: an assignment outranks an availability, and only then the wider overlap wins
-    best: ZeitplanBlock | None = None
-    best_key = (0, 0.0)
-    for b in row.blocks:
-        cover = _cover_fraction(b.start, b.end, band)
-        if cover <= 0:
+        if b.end is None:
             continue
-        key = (1 if b.confirmed else 0, cover)
-        if best is None or key > best_key:
-            best, best_key = b, key
-    return best, False
+        a, z = max(b.start, band.start), min(b.end, band.end)
+        if z > a:
+            (confirmed if b.confirmed else offered).append((a, z))
+    conf = _merge(confirmed)
+    segs = [(a, z, True) for a, z in conf] + [(a, z, False) for a, z in _subtract(_merge(offered), conf)]
+    return sorted(segs)
+
+
+def _assigned_share(row: ZeitplanRow, band: ZeitplanBand) -> float:
+    """How much of the band this person is ASSIGNED for, 0..1 (all assigned stretches together)."""
+    length = (band.end - band.start).total_seconds()
+    if length <= 0:
+        return 0.0
+    return min(1.0, sum((z - a).total_seconds() for a, z, c in _segments(row, band) if c) / length)
 
 
 def _cell(row: ZeitplanRow, band: ZeitplanBand) -> str:
-    """What one cell prints: a mark where the window is wholly covered, otherwise the hours —
-    CLAMPED to this column, exactly as on the screen. «05–08» in a watch that ends at 06:00 is
-    05–06 as far as this column is concerned; the full stretch belongs on «Verfügbarkeiten»."""
-    block, member = _cell_block(row, band)
-    if block is None:
-        return ""
-    exact = member and block.end is not None and block.start == band.start and block.end == band.end
-    if not exact and _cover_fraction(block.start, block.end, band) < 1:
-        start = max(block.start, band.start)
-        end = min(block.end or band.end, band.end)
-        # every cell overlaps its band by construction (_cell_block drops one that no longer
-        # does), so there is always a slice; the fallback is for unreadable stamps only
-        return _range(start, end) if end > start else _range(block.start, block.end or band.end)
-    # `confirmed` is the SHIFT's own state, read wherever the shift lies: somebody geplant
-    # 10:00–20:00 is geplant for every watch those hours reach, filed under one or not
-    return _MARK_CONFIRMED if block.confirmed else _MARK_AVAILABLE
+    """What one cell prints, one line per stretch: a mark where one stretch covers the whole
+    window, otherwise each stretch's hours CLAMPED to this column, exactly as on the screen – an
+    offer marked « o» behind its hours. «05–08» in a watch that ends at 06:00 is 05–06 as far as
+    this column is concerned; the full stretch belongs on «Verfügbarkeiten»."""
+    segs = _segments(row, band)
+    if len(segs) == 1 and segs[0][0] == band.start and segs[0][1] == band.end:
+        return _MARK_CONFIRMED if segs[0][2] else _MARK_AVAILABLE
+    return "\n".join(_range(a, z) + ("" if c else f" {_MARK_AVAILABLE}") for a, z, c in segs)
 
 
 def _is_assigned(row: ZeitplanRow, bands: list[ZeitplanBand]) -> bool:
@@ -168,7 +170,7 @@ def _is_assigned(row: ZeitplanRow, bands: list[ZeitplanBand]) -> bool:
     what the sheet would show: somebody geplant 10:00–20:00 is on the 12:00–17:00 watch whether or
     not anybody filed them under it. Merely being available is not, and belongs on the other
     sheet."""
-    return any((b := _cell_block(row, band))[0] is not None and b[0].confirmed for band in bands)
+    return any(_assigned_share(row, band) > 0 for band in bands)
 
 
 def _deckung(rows: list[ZeitplanRow], band: ZeitplanBand) -> str:
@@ -178,20 +180,12 @@ def _deckung(rows: list[ZeitplanRow], band: ZeitplanBand) -> str:
 
     Whole, not pro rata: «0,8» is not a headcount, and this line has to be checkable by counting
     the marks in the column above it — which is the only thing that makes a printed figure
-    trustworthy once the tablet is out of battery.
+    trustworthy once the tablet is out of battery. Two stretches of one person are one person.
 
     A «·» is appended when at least one of them does NOT cover the watch end to end: «2» alone
     would say two people are on it, when the first hours may have one."""
-    n = 0
-    partial = False
-    for row in rows:
-        block, _member = _cell_block(row, band)
-        if block is None or not block.confirmed:
-            continue
-        n += 1
-        if _cover_fraction(block.start, block.end, band) < 1:
-            partial = True
-    return f"{n}·" if partial else str(n)
+    shares = [x for x in (_assigned_share(row, band) for row in rows) if x > 0]
+    return f"{len(shares)}·" if any(x < 1 for x in shares) else str(len(shares))
 
 
 def _page(
@@ -214,9 +208,13 @@ def _page(
         f"{_band_title(b)}\n{_range(b.start, b.end)}" if b.label.strip() else _band_title(b) for b in bands
     ]
     data: list[list[str]] = [head]
-    for row in rows:
+    #: cells with more than one stretch, set smaller so every line fits the row (see below)
+    stacked: list[tuple[int, int, int]] = []
+    for r, row in enumerate(rows, start=1):
         label = f"{row.rank} {row.name}".strip() if row.rank else row.name
-        data.append([label[:34]] + [_cell(row, b) for b in bands])
+        cells = [_cell(row, b) for b in bands]
+        stacked += [(c, r, text.count("\n") + 1) for c, text in enumerate(cells, start=1) if "\n" in text]
+        data.append([label[:34], *cells])
     if with_deckung:
         counted = rows if deckung_rows is None else deckung_rows
         data.append(["EINGETEILT"] + [_deckung(counted, b) for b in bands])
@@ -239,6 +237,10 @@ def _page(
         ("FONT", (1, 1), (-1, -1), "Helvetica", 10),
         ("TEXTCOLOR", (1, 1), (-1, -1), _INK),
     ]
+    # two or more stretches in one cell: smaller, so every one of them fits the 7.4mm row
+    for c, r, n in stacked:
+        size = 6.5 if n == 2 else 4.5
+        style.append(("FONT", (c, r), (c, r), "Helvetica", size, size * 1.15))
     if with_deckung:
         style += [
             ("FONT", (0, -1), (-1, -1), "Helvetica-Bold", 7.5),
@@ -277,7 +279,7 @@ def compose_schichtplan_pdf(payload: ZeitplanPayload, logo: bytes | None = None)
     doc.addPageTemplates([PageTemplate(id="schichtplan", frames=[frame], pagesize=A4)])
     inner_w = pw - 2 * margin
 
-    printed = payload.printedAt or datetime.now(TZ)
+    printed = payload.printedAt or wall(datetime.now(TZ))
     subtitle = " · ".join(
         x
         for x in (
