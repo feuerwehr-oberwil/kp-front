@@ -3,7 +3,7 @@ import type { Map as MlMap } from 'maplibre-gl'
 import type { CaptionMode, Drawing, Entity, LayerId, LngLat, Trupp } from '../types'
 import { dockSlots } from '../lib/docking'
 import { boxesOverlap, cachedLabelSize, LABEL_RANK, placeLabels, type LabelBox, type LabelCandidate, type LabelStyle } from '../lib/labelPass'
-import { CRUMB_LABEL_DX, CRUMB_LABEL_STYLE, effectiveLayer, END_TAG_LABEL_STYLE, READOUT_LABEL_STYLE, READOUT_WORDS_STYLE, groundShapePx, SHAPE_DOT_BELOW_PX, symPx, SYM_CAPTION_GAP, SYM_CAPTION_STYLE, SYM_PILL_STYLE, teamDockAnchor, teamNameAtZoom, TEAM_DOT_PX, TEAM_LABEL_STYLE, TEAM_NAME_MIN_ZOOM, TEAM_PLATE_TUCK } from '../lib/mapView'
+import { CRUMB_LABEL_DX, CRUMB_LABEL_STYLE, effectiveLayer, END_TAG_LABEL_STYLE, READOUT_LABEL_STYLE, READOUT_WORDS_STYLE, groundShapePx, shapeSizeM, SHAPE_DOT_BELOW_PX, symPx, SYM_CAPTION_GAP, SYM_CAPTION_STYLE, SYM_PILL_STYLE, teamDockAnchor, teamNameAtZoom, TEAM_DOT_PX, TEAM_LABEL_STYLE, TEAM_NAME_MIN_ZOOM, TEAM_PLATE_TUCK } from '../lib/mapView'
 import { noteWPx } from '../lib/notes'
 import { shapeAspect } from '../lib/shapes'
 import { endTagLabel } from '../lib/endTagSpots'
@@ -118,7 +118,7 @@ export function mapLabelDecisions(px: (c: LngLat) => { x: number; y: number }, s
     const dock = teamDockAnchor(e, entities, dockedSlots, zoom, symMul)
     const own = px(dock?.host.coord ?? e.coord)
     const p = dock ? { x: own.x + dock.dx, y: own.y + dock.dy } : own
-    const g = e.kind === 'shape' ? Math.max(groundShapePx(e.sizeM, e.coord[1], zoom), SHAPE_DOT_BELOW_PX)
+    const g = e.kind === 'shape' ? Math.max(groundShapePx(shapeSizeM(e), e.coord[1], zoom), SHAPE_DOT_BELOW_PX)
       : e.kind === 'photo' ? 56
       : e.kind === 'note' ? noteWPx(e.noteW)
       : e.kind === 'team' ? TEAM_DOT_PX

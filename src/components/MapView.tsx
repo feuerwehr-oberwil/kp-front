@@ -28,7 +28,7 @@ import { centroid, rotateAround, turnedBy } from '../lib/selectionTransform'
 import { SelectionBar } from './SelectionBar'
 import { SelectionTurn } from './SelectionTurn'
 import { useArmedTransform } from '../lib/useArmedTransform'
-import { EMPTY_STYLE, END_TAG_LABEL_STYLE, mapMaxZoom, vis, fc, lineFeat, polyFeat, pathSegmentCount, resumeViewState, groundShapePx, symPx, effectiveLayer, nativeDrawingChromeVisible, lineLabelAction } from '../lib/mapView'
+import { EMPTY_STYLE, END_TAG_LABEL_STYLE, mapMaxZoom, vis, fc, lineFeat, polyFeat, pathSegmentCount, resumeViewState, groundShapePx, shapeSizeM, symPx, effectiveLayer, nativeDrawingChromeVisible, lineLabelAction } from '../lib/mapView'
 import { TeilstueckFork, EndTag, hasLineDecor } from '../lib/lineDecor'
 import { WAND_MAP_PX } from '../lib/grundriss'
 import { cachedLabelSize, MARKER_Z } from '../lib/labelPass'
@@ -493,7 +493,7 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
       center = guarded.point as LngLat
     }
     const c = map.project(center), t = map.project(toward)
-    const size = e.kind === 'shape' ? groundShapePx(e.sizeM, e.coord[1], zoom)
+    const size = e.kind === 'shape' ? groundShapePx(shapeSizeM(e), e.coord[1], zoom)
       : e.kind === 'team' ? 56 : e.kind === 'note' || e.kind === 'photo' ? 56 : symPx(e.kind, e.coord[1], zoom, symMul)
     // negative padding = the endpoint lands just INSIDE the glyph, so the stroke disappears
     // under the marker instead of stopping short of it (see attachInsetPx)

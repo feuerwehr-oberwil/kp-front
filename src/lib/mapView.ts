@@ -1,7 +1,8 @@
 // Pure helpers extracted from MapView: world-scaled symbol/shape sizing, GeoJSON
 // feature builders, and the symbol-kind predicates. No React — safe to unit-test.
 import type { Feature, FeatureCollection, LineString, Polygon } from 'geojson'
-import type { Entity, LayerId, LngLat } from '../types'
+import type { Entity, LayerId, LngLat, ShapeKind } from '../types'
+import { SHAPE_DEFS } from './shapes'
 import { appConfig } from '../config/appConfig'
 import { VEHICLE_SYMBOLS } from '../lib/symbols'
 import { lookbackPoint } from './lineStyle'
@@ -141,6 +142,10 @@ export const SHAPE_DOT_BELOW_PX = 16
 /** A metre-sized shape's width on the LIVE map: ground-true at every zoom, no floor and no ceiling
  *  (owner, 24.11.2026: «georeferenced things are ground-true at every zoom»). */
 export const groundShapePx = (sizeM: number | undefined, lat: number, z: number) => (sizeM ?? 40) * groundPxPerM(lat, z)
+/** A shape's width in ground metres: the stored one, else its kind's default (an unknown kind:
+ *  40 m). ONE answer for every live-map reader – the box, the dot, the grips, the label pass. */
+export const shapeSizeM = (e: { sizeM?: number; shape?: string }): number =>
+  e.sizeM ?? SHAPE_DEFS[(e.shape ?? 'square') as ShapeKind]?.defaultSizeM ?? 40
 export const symPx = (kind: string, lat: number, z: number, mul = 1) =>
   Math.max(SYM_MIN_KIND[kind] ?? SYM_MIN, Math.min(SYM_MAX, (SIZE_M[kind] ?? 8) * pxPerM(lat, z))) * mul
 

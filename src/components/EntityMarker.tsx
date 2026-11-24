@@ -17,7 +17,7 @@ import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
 import { LockChip } from './LockChip'
 import { TwinTeamPill } from './TwinTeamPill'
 import { truppMarkerTone } from '../lib/truppLines'
-import { SHAPE_AXIS_GRIPS, SHAPE_DEFS, SHAPE_TWO_POINT, ShapeGlyph, rotationGripOffPx, shapeAspect } from '../lib/shapes'
+import { SHAPE_AXIS_GRIPS, SHAPE_TWO_POINT, ShapeGlyph, rotationGripOffPx, shapeAspect } from '../lib/shapes'
 import { DEFAULT_INK } from '../lib/lineStyle'
 import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import { placardSvgForSymbol } from '../lib/placard'
@@ -27,7 +27,7 @@ import { symbolCaptionText, symbolOriginText, isMeasuredSymbol } from '../lib/sy
 import { softHyphenateText } from '../lib/symbolWrap'
 import { markerZ } from '../lib/labelPass'
 import { noteScale, noteWPx } from '../lib/notes'
-import { groundPxPerM, groundShapePx, SHAPE_DOT_BELOW_PX, symPx, isRotatableSym, isVehicleSym, teamDockAnchor, TEAM_DOT_PX, TEAM_PILL_CAP_PX } from '../lib/mapView'
+import { groundPxPerM, groundShapePx, shapeSizeM, SHAPE_DOT_BELOW_PX, symPx, isRotatableSym, isVehicleSym, teamDockAnchor, TEAM_DOT_PX, TEAM_PILL_CAP_PX } from '../lib/mapView'
 import { dockRingPx, type dockSlots } from '../lib/docking'
 import type { MapMarkersProps } from './MapMarkers'
 
@@ -160,10 +160,11 @@ export function EntityMarker({
   // size (`shapeDot`), which stays findable and selectable. A SELECTED shape never turns into the
   // dot: its grips own the pointer of a resize in progress, and unmounting them mid-drag would
   // leave the gesture open. Its metres are resolved once, the kind's default when none is stored.
-  const shapeM = e.kind === 'shape' ? e.sizeM ?? SHAPE_DEFS[e.shape ?? 'square']?.defaultSizeM ?? 40 : 0
+  const shapeM = e.kind === 'shape' ? shapeSizeM(e) : 0
   const shpW = e.kind === 'shape' ? groundShapePx(shapeM, e.coord[1], zoom) : 0
   const shpH = e.kind === 'shape' ? shpW * shapeAspect(e.shape ?? 'square', e.aspect) : 0
-  const shapeDot = e.kind === 'shape' && selectedId !== e.id && Math.max(shpW, shpH) < SHAPE_DOT_BELOW_PX
+  const shapeDot = e.kind === 'shape' && Math.max(shpW, shpH) < SHAPE_DOT_BELOW_PX
+    && !(selectedId === e.id && !e.locked && onShapeTransform)
   const gpx = shapeDot ? 28 : e.kind === 'shape' ? Math.max(shpW, shpH)
     : e.kind === 'note' || e.kind === 'photo' || e.kind === 'team' ? 56
     : symPx(e.kind, e.coord[1], zoom, symMul)
@@ -633,9 +634,9 @@ export function EntityMarker({
         // Hubretter cage tip: ONE handle at the boom end. Dragging it sets both the boom bearing
         // (rotation2) and the reach (reachM). Positioned at the tip = centre + reach·(bearing).
         const rad = (((e.rotation2 ?? 0) - bearing) * Math.PI) / 180
-        const len = (e.reachM ?? 18) * groundPxPerM(e.coord[1], zoom)
-        // zoomed far out the cage would sit on the truck and catch the drag meant to move it
-        if (len < gpx / 2 + 22) return null
+        // zoomed far out the cage stands clear of the truck (it would catch the drag meant to move
+        // it); never hidden – a drag that crosses that line must keep its grip to the end
+        const len = Math.max((e.reachM ?? 18) * groundPxPerM(e.coord[1], zoom), gpx / 2 + 22)
         return (
           <div className="cage-handle" style={{ left: `calc(50% + ${(Math.cos(rad) * len).toFixed(1)}px)`, top: `calc(50% + ${(Math.sin(rad) * len).toFixed(1)}px)` }}>
             <TransformHandle
