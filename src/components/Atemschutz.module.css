@@ -2477,7 +2477,7 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
   .rowListIn { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); align-items: start;
     margin-right: var(--fab-safe); }
   .rowListIn .trowCard { grid-column: 1 / -1; }
-  .rowListIn .trow.trowTwo { padding-block: 5px; row-gap: var(--sp-1); }
+  .rowListIn .trow.trowTwo { padding-block: var(--sp-1); row-gap: var(--sp-1); }
   .rowListIn .trow.trowTwo .trowSub { display: none; }
   .rowListIn .trow.trowTwo .trowClockVal { font-size: 24px; }
   /* the chevron is a glyph inside the row's button, not a target of its own: 32px tall, not 44 */
