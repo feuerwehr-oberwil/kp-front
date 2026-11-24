@@ -108,10 +108,13 @@ class ParkedAlarm:
     running: list[Incident]
 
 
-async def open_pooled_alarm(db: AsyncSession, *, source: str, ref: str) -> Incident | ParkedAlarm | None:
+async def open_pooled_alarm(
+    db: AsyncSession, *, source: str, ref: str, may_open: bool = True
+) -> Incident | ParkedAlarm | None:
     """Resolve an alarm still sitting in an intake pool to its incident, opening it if nobody
     has yet. Returns None when no pool row matches — the caller decides what that means – and a
-    `ParkedAlarm` while it waits for the EL beside running Einsätze.
+    `ParkedAlarm` while it waits for the EL beside running Einsätze. `may_open=False` (a responder's
+    pick from that list) never opens the alarm itself.
 
     This is the Einsatz-Link's rescue path. A link names the alarm (`src`/`ref`), never our
     incident UUID, so a responder could tap it before the alarm had become an Einsatz here and
@@ -159,6 +162,8 @@ async def open_pooled_alarm(db: AsyncSession, *, source: str, ref: str) -> Incid
     if running:
         logger.info("Einsatz-Link für Divera %s: wartet auf Zuordnung (%d laufend)", em.divera_id, len(running))
         return ParkedAlarm(running)
+    if not may_open:
+        return None  # a pick made on a list that has since emptied opens nothing of its own
 
     return await open_emergency(db, em)
 

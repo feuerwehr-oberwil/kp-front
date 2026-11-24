@@ -373,9 +373,9 @@ async def running_real_incident(db: AsyncSession) -> Incident | None:
 
 
 async def running_real_incidents(db: AsyncSession) -> list[Incident]:
-    """Every real Einsatz still running inside :data:`SPLIT_DISPATCH_WINDOW`, OLDEST first – the
-    first is the one a Nachalarm is merged onto. The Einsatz-Link offers them while its alarm
-    waits for the EL (api/incident_link · the «awaiting» answer)."""
+    """Every real Einsatz still running inside :data:`SPLIT_DISPATCH_WINDOW`, OLDEST first (the
+    same predicate as `running_real_incident`). The Einsatz-Link offers them while its alarm waits
+    for the EL (api/incident_link · the «awaiting» answer), the oldest marked as the first."""
     return list(
         (
             await db.execute(

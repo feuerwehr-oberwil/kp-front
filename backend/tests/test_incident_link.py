@@ -860,7 +860,13 @@ async def test_a_link_during_running_einsaetze_waits_for_the_assignment(client, 
     assignment and is shown every running Einsatz, the oldest (where a Nachalarm is merged) marked;
     a tapped one opens there, and once the EL assigns the alarm the poll opens that Einsatz."""
     now = datetime.now(UTC)
-    older = Incident(title="Zimmerbrand", source="divera", source_ref="999000", status="offen", started_at=now - timedelta(minutes=40))
+    older = Incident(
+        title="Zimmerbrand",
+        source="divera",
+        source_ref="999000",
+        status="offen",
+        started_at=now - timedelta(minutes=40),
+    )
     newer = Incident(title="Ölspur", source="manual", status="offen", started_at=now - timedelta(minutes=5))
     db_session.add_all([older, newer])
     await db_session.commit()
@@ -868,10 +874,12 @@ async def test_a_link_during_running_einsaetze_waits_for_the_assignment(client, 
     await db_session.refresh(newer)
 
     before = len(await _incidents(db_session))
-    r = await client.post("/api/incident-link/session", json={"token": _mint_divera()})
+    token = _mint_divera()
+    r = await client.post("/api/incident-link/session", json={"token": token})
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["status"] == "awaiting" and "incident_id" not in body, "no Einsatz is guessed"
+    assert LINK_COOKIE not in r.cookies, "and no session while it waits"
     assert [c["id"] for c in body["candidates"]] == [str(older.id), str(newer.id)]
     assert body["original"] == str(older.id)
     assert len(await _incidents(db_session)) == before, "no second Einsatz may be created"
@@ -879,19 +887,31 @@ async def test_a_link_during_running_einsaetze_waits_for_the_assignment(client, 
     assert pooled_alarm.is_taken is False, "the pool row stays, so the EL can still attach it"
 
     # the responder taps the second card: that Einsatz opens on this phone
-    picked = await client.post("/api/incident-link/session", json={"token": _mint_divera(), "incident_id": str(newer.id)})
+    picked = await client.post("/api/incident-link/session", json={"token": token, "incident_id": str(newer.id)})
     assert picked.json() == {"incident_id": str(newer.id)}
+    assert (await client.get(f"/api/incidents/{newer.id}")).status_code == 200, "the session is the chosen Einsatz's"
     _forget_link(client)
     # an id that is not a running candidate opens nothing
-    stray = await client.post("/api/incident-link/session", json={"token": _mint_divera(), "incident_id": str(uuid.uuid4())})
+    stray = await client.post("/api/incident-link/session", json={"token": token, "incident_id": str(uuid.uuid4())})
     assert stray.json()["status"] == "awaiting"
 
     # the EL attaches the alarm to the first Einsatz: the next poll opens it
     pooled_alarm.taken_incident_id = older.id
     pooled_alarm.is_taken = True
     await db_session.commit()
-    assigned = await client.post("/api/incident-link/session", json={"token": _mint_divera()})
+    assigned = await client.post("/api/incident-link/session", json={"token": token})
     assert assigned.json() == {"incident_id": str(older.id)}
+
+
+async def test_a_pick_from_a_list_that_emptied_opens_nothing_of_its_own(client, link_key, pooled_alarm, db_session):
+    """The responder tapped a running Einsatz that closed in the meantime: no new Einsatz is opened
+    from the alarm on that tap – the next plain poll decides as usual."""
+    before = len(await _incidents(db_session))
+    r = await client.post(
+        "/api/incident-link/session", json={"token": _mint_divera(), "incident_id": str(uuid.uuid4())}
+    )
+    assert r.status_code == 404
+    assert len(await _incidents(db_session)) == before
 
 
 @pytest.mark.parametrize(

@@ -10,7 +10,7 @@ import { ShellLoader } from '../components/ShellLoader'
 // resolve itself, and otherwise a single calm card that says what to do next. Which state we
 // are in is decided in lib/incidentLink.ts — this renders it.
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { appConfig } from '../config/appConfig'
 import { Icon, IconSprite } from '../lib/icons'
 import { Splash } from '../components/Splash'
@@ -112,12 +112,14 @@ function AwaitingCard({ candidates, original, onPick }: { candidates: LinkCandid
   return (
     <div className="cv-shell">
       <IconSprite />
-      <div className="cv-card cv-center" role="status">
-        <ShellLoader size="surface" />
-        <p>{C.awaitingTitle}</p>
-        <p className="cv-hint">{C.awaitingHint}</p>
-        <p className="cv-hint">{C.awaitingChoose}</p>
-        <ListCard className="sl-choose">
+      <div className="cv-card cv-center">
+        <div role="status">
+          <ShellLoader size="surface" />
+          <p>{C.awaitingTitle}</p>
+          <p className="cv-hint">{C.awaitingHint}</p>
+        </div>
+        <p className="cv-hint" id="link-awaiting-choose">{C.awaitingChoose}</p>
+        <ListCard className="sl-choose" aria-labelledby="link-awaiting-choose">
           {ordered.map((c) => (
             <EinsatzRow key={c.id} incident={c} when={fmtWhen(c.started_at, { todayShort: true })}
               tag={c.id === original ? C.awaitingOriginal : undefined}
@@ -132,6 +134,11 @@ function AwaitingCard({ candidates, original, onPick }: { candidates: LinkCandid
 function LinkBoot({ token }: { token: string }) {
   const [state, setState] = useState<State>({ phase: 'opening' })
   const [attempt, setAttempt] = useState(0) // «Nochmals versuchen» re-runs the exchange
+  // ⚠️ ONE exchange at a time while the alarm waits: every answer may set the session cookie, so a
+  // poll answering «assigned to A» after the responder picked B would switch the board under them.
+  // A pick waits for the poll in flight, and no poll starts – or is listened to – during a pick.
+  const inFlight = useRef<Promise<unknown>>(Promise.resolve())
+  const picking = useRef(false)
 
   useEffect(() => {
     let alive = true
@@ -155,11 +162,15 @@ function LinkBoot({ token }: { token: string }) {
     if (!following) return
     let alive = true
     const ask = () => {
-      void exchangeLinkToken(token).then((r) => {
-        if (!alive) return
+      if (picking.current) return
+      const asked = exchangeLinkToken(token).then((r) => {
+        if (!alive || picking.current) return
         if (r.ok) setState({ phase: 'ok' })
         else if (r.reason === 'closed' || r.reason === 'awaiting') setState(stateOf(r))
+        // the alarm went away (archived), the link expired or was switched off: say so, stop asking
+        else if (awaiting && r.reason !== 'offline' && r.reason !== 'error') setState(stateOf(r))
       })
+      inFlight.current = asked
     }
     const timer = window.setInterval(ask, awaiting ? LINK_AWAITING_POLL_MS : LINK_CLOSED_FOLLOW_MS)
     const onVisible = () => { if (document.visibilityState === 'visible') ask() }
@@ -196,7 +207,14 @@ function LinkBoot({ token }: { token: string }) {
 
   if (state.phase === 'awaiting') {
     // a tapped Einsatz opens here: the same exchange, naming the one the responder picked
-    const pick = (id: string) => { void exchangeLinkToken(token, id).then((r) => setState(stateOf(r))) }
+    const pick = (id: string) => {
+      if (picking.current) return
+      picking.current = true
+      void inFlight.current.then(() => exchangeLinkToken(token, id)).then((r) => {
+        picking.current = r.ok // an open board needs no further exchange; anything else resumes the wait
+        setState(stateOf(r))
+      })
+    }
     return <AwaitingCard candidates={state.candidates} original={state.original} onPick={pick} />
   }
   if (state.reason === 'closed') return <ClosedCard closedAt={state.closedAt} />

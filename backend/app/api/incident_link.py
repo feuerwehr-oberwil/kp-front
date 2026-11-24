@@ -569,7 +569,7 @@ async def open_link_session(body: LinkTokenIn, response: Response, db: AsyncSess
             # is the whole point of the exchange: the link must not depend on someone else having
             # picked the alarm up on a tablet first (production, 2026-08-02). The lookup is
             # source-agnostic and lives in `alarms`, so nothing here learns what Divera is.
-            pooled = await open_pooled_alarm(db, source=src, ref=str(ref))
+            pooled = await open_pooled_alarm(db, source=src, ref=str(ref), may_open=body.incident_id is None)
             if isinstance(pooled, ParkedAlarm):
                 return _awaiting_answer(pooled, body.incident_id, response, key)
             inc = pooled
