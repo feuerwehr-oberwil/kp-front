@@ -129,13 +129,15 @@ export function useIncidentTabLock(incidentId: string | null): { held: boolean; 
   // starts true so the common single-tab case never flashes the read-only banner; the
   // try-acquire settles within milliseconds and corrects this if another tab holds the lock.
   const [held, setHeld] = useState(true)
-  const [heldAtOpen, setHeldAtOpen] = useState<boolean | null>(null)
+  // keyed by the incident it answers for: on a switch the previous Einsatz's answer must not
+  // stand for the next one through the render before the effect resets it
+  const [firstAnswer, setFirstAnswer] = useState<{ id: string; held: boolean } | null>(null)
   const ref = useRef<IncidentTabLock | null>(null)
   useEffect(() => {
     if (!incidentId) { setHeld(true); return }
     const lock = new IncidentTabLock(`kp-front-incident-${incidentId}`, (now) => {
       setHeld(now)
-      setHeldAtOpen((first) => first ?? now)
+      setFirstAnswer((first) => (first?.id === incidentId ? first : { id: incidentId, held: now }))
     })
     ref.current = lock
     lock.start()
@@ -143,9 +145,9 @@ export function useIncidentTabLock(incidentId: string | null): { held: boolean; 
       ref.current = null
       lock.stop()
       setHeld(true)
-      setHeldAtOpen(null)
     }
   }, [incidentId])
   const takeOver = useCallback(() => ref.current?.takeOver(), [])
+  const heldAtOpen = firstAnswer && firstAnswer.id === incidentId ? firstAnswer.held : null
   return { held, heldAtOpen, takeOver }
 }
