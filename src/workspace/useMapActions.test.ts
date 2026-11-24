@@ -5,6 +5,10 @@ import { useMapActions, type UseMapActionsInputs } from './useMapActions'
 import { replayEmits } from '../lib/replay.test-utils'
 import type { Doc } from '../lib/workspace'
 import type { Drawing, Entity, LineAttachment } from '../types'
+import type { SetStateAction } from 'react'
+import type { VehicleOverrides } from '../lib/useVehicleLayer'
+import { createUndoTimeline, type UndoDomain } from '../lib/undoTimeline'
+import type { RecordKey } from '../lib/undoKeys'
 
 vi.mock('../lib/ui', () => ({ toast: vi.fn(), confirmDialog: vi.fn(async () => true), undoToast: vi.fn() }))
 
@@ -155,5 +159,43 @@ describe('delete — the joined-lines card', () => {
     expect(live()).toMatchObject({ entities: [], drawings: [] })
     expect(given.stepLabelRef.current).toBe('3 Objekte und 2 Leitungen entfernt')
     expect(ui.toast).not.toHaveBeenCalled()
+  })
+})
+
+// hunt 24.11.2026, frontend-state F4: «Zurück auf GPS» dropped the vehicle's whole override row –
+// Fahrer and Herkunft with it – and laid no undo step
+describe('resetVehicleGps', () => {
+  it('takes only the hand position, keeps Fahrer and Herkunft, as one ↶ step', () => {
+    let overrides: VehicleOverrides = { v1: { coord: [7, 47], rotation: 0, fahrer: 'Meier', herkunft: 'Oberwil' }, v2: { coord: [8, 47] } }
+    const timeline = createUndoTimeline()
+    const { deps } = makeDeps([], [])
+    Object.assign(deps, {
+      vehicleOverrides: overrides,
+      setVehicleOverrides: (u: SetStateAction<VehicleOverrides>) => { overrides = typeof u === 'function' ? u(overrides) : u },
+      rememberOneShotRef: { current: (domain: UndoDomain, label: string, restore: () => void, reapply: () => void, touches: () => readonly RecordKey[] | null) =>
+        timeline.push({ domain, label, touches, undo: () => { restore() }, redo: () => { reapply() } }) },
+    })
+    const { result } = renderHook(() => useMapActions(deps))
+    act(() => { result.current.resetVehicleGps('v1', 'TLF') })
+    expect(overrides).toEqual({ v1: { fahrer: 'Meier', herkunft: 'Oberwil' }, v2: { coord: [8, 47] } })
+    expect(timeline.peekUndo()?.label).toBe('TLF zurück auf GPS')
+    expect(timeline.peekUndo()?.touches?.()).toEqual(['vehicleOverrides:v1'])
+    timeline.undo()
+    expect(overrides.v1).toEqual({ coord: [7, 47], rotation: 0, fahrer: 'Meier', herkunft: 'Oberwil' })
+    timeline.redo()
+    expect(overrides.v1).toEqual({ fahrer: 'Meier', herkunft: 'Oberwil' })
+  })
+
+  it('a row with nothing but the hand position goes whole', () => {
+    let overrides: VehicleOverrides = { v1: { coord: [7, 47] } }
+    const { deps } = makeDeps([], [])
+    Object.assign(deps, {
+      vehicleOverrides: overrides,
+      setVehicleOverrides: (u: SetStateAction<VehicleOverrides>) => { overrides = typeof u === 'function' ? u(overrides) : u },
+      rememberOneShotRef: { current: () => Object.assign(() => {}, { standing: () => true }) },
+    })
+    const { result } = renderHook(() => useMapActions(deps))
+    act(() => { result.current.resetVehicleGps('v1', 'TLF') })
+    expect(overrides).toEqual({})
   })
 })

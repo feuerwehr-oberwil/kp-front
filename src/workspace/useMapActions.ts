@@ -40,7 +40,7 @@ import { useMeasure } from '../lib/useMeasure'
 import { useNotePanelClosing } from '../lib/useNotePanelClosing'
 import { useShareMyPosition } from '../lib/useShareMyPosition'
 import { useSymbols } from '../lib/useSymbols'
-import type { VehicleOverrides } from '../lib/useVehicleLayer'
+import { positionOverride, withVehiclePosition, type VehicleOverrides } from '../lib/useVehicleLayer'
 import type { ShareLinkKind } from '../lib/viewLink'
 import type { Doc } from '../lib/workspace'
 import type { CameraView, Drawing, Entity, LayerId, Incident, LineAttachment, LineEndpoint, LngLat, ShapeKind, TimelineEvent, Trupp, PlanDocument, NoteSize, MapTool } from '../types'
@@ -147,6 +147,7 @@ export interface UseMapActionsInputs {
   endDrag: () => void
   flyToMapVisible: (center: LngLat, zoom: number) => void
   setVehicleOverrides: Dispatch<SetStateAction<VehicleOverrides>>
+  vehicleOverrides: VehicleOverrides
   trupps: Trupp[]
   linkTruppLine: (truppId: string, lineId: string) => boolean
   patchEntity: (id: string, patch: Partial<Entity>) => void
@@ -172,7 +173,7 @@ export function useMapActions({
   shareLink, composerOpen, georefActive, georefMode, replayActive, readOnly, linkScoped, goToNav,
   planFit, stepHistory, planKeys, setJournalOpen, setComposerOpen, togglePanel, setSettingsOpen,
   setHelpOpen, coord, notePanelId, notePlacedId, mapWorkRect, drawings, drawTap, beginDrag, setDocRaw,
-  endDrag, flyToMapVisible, setVehicleOverrides, trupps, linkTruppLine, patchEntity, objectsRef,
+  endDrag, flyToMapVisible, setVehicleOverrides, vehicleOverrides, trupps, linkTruppLine, patchEntity, objectsRef,
   objects, setPlanFocus, focusEntity, editNoteId, user, stepLabelRef,
 }: UseMapActionsInputs) {
   // Every path through here ends the "I am reading this object" state — reaching for a tool means
@@ -764,6 +765,20 @@ export function useMapActions({
     // none of those were placed by the hand that dragged this (lib/tacticalObjects · movedIds).
     }), { movedIds: [id] })
   }
+  /**
+   * «Zurück auf GPS» on a live vehicle: the hand position and heading go, the Fahrer and the
+   * Herkunft stay, and ONE ↶ step puts the position back (that vehicle's override record). The
+   * reset writes no Verlauf row, so its step writes none either.
+   * ⚠️ It used to drop the whole override row, unrecorded (hunt 24.11.2026, frontend-state F4).
+   */
+  const resetVehicleGps = (id: string, name: string) => {
+    const pos = positionOverride(vehicleOverrides[id])
+    if (tacticalLocked || !pos) return
+    const put = (p: typeof pos | null) => setVehicleOverrides((m) => withVehiclePosition(m, id, p))
+    put(null)
+    rememberOneShotRef.current('karte', fillTemplate(appConfig.copy.contextPanel.resetGpsStep, { name }),
+      () => put(pos), () => put(null), () => [recordKey('vehicleOverrides', id)], 'silent')
+  }
   const finishEntityMove = (id: string, c: LngLat, join?: { lineId: string; endpoint: LineEndpoint } | null, dock?: { hostId: string } | null) => {
     if (tacticalLocked) return
     if (liveIds.has(id)) setVehicleOverrides((m) => ({ ...m, [id]: { ...m[id], coord: c } }))
@@ -999,5 +1014,5 @@ export function useMapActions({
     patchEntity(ent.id, { ...(again ? {} : { fields }), ...(act && { readings: act.readings }) })
     if (act) log(READING_ICON, act.text, 'symbol', undefined, ent.id)
   }
-  return { deleteGroup, deleteEntity, duplicateSelection, placed, goToModule, finishSelection, onMapClick, startEntityMove, streamEntityMove, finishEntityMove, onMarquee, transformGroup, goToTrupp, viewsApi, toggleViews, selected, undockTeam, setEntityDone, commitEntityFields, focusDrawing, noteEntity, pick, pickShape, moveLiveOnSheet }
+  return { deleteGroup, deleteEntity, duplicateSelection, placed, goToModule, finishSelection, onMapClick, startEntityMove, streamEntityMove, finishEntityMove, onMarquee, transformGroup, goToTrupp, viewsApi, toggleViews, selected, undockTeam, setEntityDone, commitEntityFields, focusDrawing, noteEntity, pick, pickShape, moveLiveOnSheet, resetVehicleGps }
 }

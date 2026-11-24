@@ -27,6 +27,7 @@ export const editorsCopy: Localizable<Pick<Copy, Keys>> = {
     toOriginal: 'Vers l\'original',
     resetGps: 'Retour au GPS',
     resetGpsTitle: 'Retour au GPS – le véhicule suit à nouveau sa position en direct',
+    resetGpsStep: '{name} de retour au GPS',
     pinGps: 'Fixer ici',
     pinGpsTitle: 'Fixer ici – reste en place, même si le véhicule repart',
     logPinned: '{name} fixé',
