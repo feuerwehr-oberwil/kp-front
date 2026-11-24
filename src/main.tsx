@@ -11,6 +11,7 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 import './fonts.css'
 import './app.css'
 import { onAccountKnown } from './lib/accountKnown'
+import { hasCachedUser } from './lib/userCache'
 import { AuthProvider, useAuth } from './lib/auth'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { LoginScreen } from './components/LoginScreen'
@@ -89,11 +90,17 @@ const bootPath = window.location.pathname
 /** the main route: everything but the capture poster, /admin and the link door */
 const fieldRoute = !bootPath.startsWith('/e/') && !bootPath.startsWith('/admin') && !bootPath.startsWith('/l/') && bootPath !== '/terminal'
 // ⚠️ …and only once an account is known (hunt 24.11.2026, performance F3). A signed-in device
-// knows it from its cached user within milliseconds of the boot, so the chunk still loads beside
+// knows it from its cached user, read here at once (lib/userCache), so the chunk still loads beside
 // the awaits below; a kiosk with nobody signed in renders its PIN pad first instead of sharing
 // the line with ~2 MB of field app. The link door loads the app itself, after its exchange
 // (link/LinkApp). Offline launch is unaffected: the service worker holds the chunks.
-if (fieldRoute) onAccountKnown(() => { void loadApp() })
+// The warm-up's own failure (a navigation cutting its CSS preload short, offline without the chunk)
+// is nobody's error: `lazy()` asks again when the app actually mounts.
+const warmApp = () => { loadApp().catch(() => { /* lazy() retries on mount */ }) }
+if (fieldRoute) {
+  void hasCachedUser().then((known) => { if (known) warmApp() })
+  onAccountKnown(warmApp)
+}
 
 // Admin surface: an unlinked /admin route loaded as its OWN lazy chunk so field
 // users (the overwhelming majority of loads) never download any admin code. The
