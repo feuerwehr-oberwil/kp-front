@@ -77,6 +77,7 @@ import { ARROW_BOX, ARROW_STOP_BAR, arrowHeadPoints } from '../lib/mapImages'
 import { attachInsetPx, lineJoints, boundaryPoint, DETACH_SHOW_PROGRESS, dwellFor, forkPortPoint, gpsGuard, moveLineBody, relationshipNetwork, resolveLinePoints, TRUPP_AIM_DWELL_MS, type AttachableLine, type MagneticTarget } from '../lib/lineAttachments'
 import { toast } from '../lib/ui'
 import { locateFailedText } from '../lib/permissionPath'
+import { trailingClickGuard } from '../lib/trailingClick'
 
 /** The ink a ghost «Spur» is drawn in — neutral grey, not the Trupp's colour: colour means
  *  IDENTITY on this map (lib/teamColors), and a trail whose marker is gone must not claim that a
@@ -290,14 +291,15 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
   const vertexPress = useNodeHold()
   // A long-press vertex-delete fires mid-gesture; the finger's release then lands a map click on
   // the reshaped background, which would deselect and close the editor. This swallows that one
-  // click so the line stays selected and more nodes can be deleted in a row.
-  const suppressClick = useRef(false)
-  const deleteVertexKeepSelection = (id: string, i: number) => { suppressClick.current = true; onDrawingVertexDelete?.(id, i) }
+  // click so the line stays selected and more nodes can be deleted in a row – that one click
+  // only: a hold that leaves none must not eat the next real tap (lib/trailingClick).
+  const [holdClick] = useState(trailingClickGuard)
+  const deleteVertexKeepSelection = (id: string, i: number) => { holdClick.arm(); onDrawingVertexDelete?.(id, i) }
   // ⚠️ …and the same for the Messung and the draft. Their delete used to be the ONLY one that
   // did not swallow the release: the finger came up where the node had been, the map read it as
   // a tap, and the Messen/Zeichnen tool put a fresh point back at exactly that spot — so a
   // deleted node reappeared and the hold looked broken (19.08.).
-  const deletePointKeepTool = (fn?: (i: number) => void) => (i: number) => { suppressClick.current = true; fn?.(i) }
+  const deletePointKeepTool = (fn?: (i: number) => void) => (i: number) => { holdClick.arm(); fn?.(i) }
   // ⚠️ A tap on a node pad is the pad's, never the map's. The pad's click bubbles from its Marker
   // to maplibre's listener on the canvas container, which fires the map click with the path's hit
   // band under it – and handleClick inserted a node right on the tapped one (a selected Linie
@@ -307,7 +309,7 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
   // `onClick` on the pad would run too late (React delegates at the root, above the container).
   // The click a hold-delete leaves can land on a pad too (a duplicate under the finger) – it is
   // used up here, so the flag must not wait for the next real tap.
-  const keepClickOnPad = (e: MarkerEvent<MouseEvent>) => { e.originalEvent.stopPropagation(); suppressClick.current = false }
+  const keepClickOnPad = (e: MarkerEvent<MouseEvent>) => { e.originalEvent.stopPropagation(); holdClick.drop() }
   const [mapReady, setMapReady] = useState(false)
   // MapLibre paint specs can't read CSS vars, so the two TRANSIENT overlays drawn in the UI blue —
   // the draft shape and the measure path — resolve `--blue` off the live theme (lib/themeToken)
@@ -1177,7 +1179,7 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
 
   const handleClick = (e: MapLayerMouseEvent) => {
     // swallow the click that trails a long-press vertex delete (keeps the line selected)
-    if (suppressClick.current) { suppressClick.current = false; return }
+    if (holdClick.take()) return
     // …and the one that trails a pan/pinch (see panGesture): moving the map is not a tap on it,
     // so it may neither deselect, nor place, nor pick.
     if (clickTrailsPan()) return
