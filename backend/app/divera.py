@@ -372,6 +372,26 @@ async def running_real_incident(db: AsyncSession) -> Incident | None:
     ).scalar_one_or_none()
 
 
+async def running_real_incidents(db: AsyncSession) -> list[Incident]:
+    """Every real Einsatz still running inside :data:`SPLIT_DISPATCH_WINDOW`, OLDEST first – the
+    first is the one a Nachalarm is merged onto. The Einsatz-Link offers them while its alarm
+    waits for the EL (api/incident_link · the «awaiting» answer)."""
+    return list(
+        (
+            await db.execute(
+                select(Incident)
+                .where(
+                    Incident.is_archived.is_(False),
+                    Incident.status.in_(INCIDENT_ACTIVE_STATUSES),
+                    Incident.is_exercise.is_(False),
+                    Incident.started_at > datetime.now(UTC) - SPLIT_DISPATCH_WINDOW,
+                )
+                .order_by(Incident.started_at.asc())
+            )
+        ).scalars()
+    )
+
+
 async def maybe_auto_open(db: AsyncSession, em: DiveraEmergency) -> Incident | None:
     """Open a NEW pool alarm into an incident. Unconditional — the split guard is the one no.
 

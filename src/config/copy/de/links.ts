@@ -12,6 +12,13 @@ export const linksCopy = {
     // This is the only state that resolves itself.
     pendingTitle: 'Einsatz noch nicht verfügbar',
     pendingHint: 'Der Alarm ist eben erst eingetroffen. Wird automatisch nochmals versucht …',
+    // der Alarm wartet beim EL auf die Zuordnung, weil schon Einsätze laufen (Splitalarm-Sperre):
+    // das Handy wartet und zeigt die laufenden Einsätze; der erste ist der, auf den ein Nachalarm
+    // zusammengeführt wird (Owner, KP-Hunt 24.11.2026)
+    awaitingTitle: 'Warten auf die Zuordnung',
+    awaitingHint: 'Sobald die Einsatzleitung diesen Alarm einem Einsatz zuordnet, öffnet er sich hier von selbst.',
+    awaitingChoose: 'Laufende Einsätze – antippen, um einen schon jetzt anzusehen:',
+    awaitingOriginal: 'Erster Einsatz',
     notReadyTitle: 'Dieser Einsatz ist nicht abrufbar.',
     notReadyHint: 'Der Link gilt nur, solange der Einsatz läuft. Kam der Alarm eben erst, ist der Einsatz vielleicht noch nicht bereit – sonst bei der Einsatzleitung melden.',
     invalidTitle: 'Dieser Link gilt nicht mehr.',

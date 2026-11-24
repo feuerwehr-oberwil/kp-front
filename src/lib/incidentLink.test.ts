@@ -26,6 +26,17 @@ describe('exchangeLinkToken', () => {
     expect(apiPost).toHaveBeenCalledWith('/api/incident-link/session', { token: TOKEN })
   })
 
+  // hunt 24.11.2026, access-control F1: a pooled alarm beside running Einsätze waits for the EL;
+  // the phone is shown the candidates and may name the one it picks
+  it('«awaiting» → the running Einsätze to choose from, and a pick names its Einsatz', async () => {
+    const candidates = [{ id: 'a', title: 'Zimmerbrand', address: null, started_at: null, is_exercise: false }]
+    apiPost.mockResolvedValue({ status: 'awaiting', candidates, original: 'a' })
+    await expect(exchangeLinkToken(TOKEN)).resolves.toEqual({ ok: false, reason: 'awaiting', candidates, original: 'a' })
+    apiPost.mockResolvedValue({ incident_id: 'a' })
+    await expect(exchangeLinkToken(TOKEN, 'a')).resolves.toEqual({ ok: true, incidentId: 'a' })
+    expect(apiPost).toHaveBeenLastCalledWith('/api/incident-link/session', { token: TOKEN, incident_id: 'a' })
+  })
+
   it('403 → the station has Einsatz-Links switched off', async () => {
     apiPost.mockRejectedValue(new ApiError(403, 'nope'))
     await expect(exchangeLinkToken(TOKEN)).resolves.toEqual({ ok: false, reason: 'disabled' })

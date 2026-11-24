@@ -16,8 +16,10 @@ import { Icon, IconSprite } from '../lib/icons'
 import { Splash } from '../components/Splash'
 import { AuthProvider, useAuth } from '../lib/auth'
 import App from '../App'
-import { LINK_CLOSED_FOLLOW_MS, exchangeLinkToken, openIncidentLink, type LinkFailure } from '../lib/incidentLink'
-import { fillTemplate, hhmm } from '../lib/format'
+import { LINK_AWAITING_POLL_MS, LINK_CLOSED_FOLLOW_MS, exchangeLinkToken, openIncidentLink, type LinkCandidate, type LinkExchange, type LinkFailure } from '../lib/incidentLink'
+import { EinsatzRow } from '../components/EinsatzRow'
+import { ListCard } from '../components/ListRow'
+import { fillTemplate, fmtWhen, hhmm } from '../lib/format'
 import { TERMINAL_PATH, linkKindFromToken, linkTokenFromPath } from '../lib/linkMode'
 import StandingApp from './StandingApp'
 
@@ -27,6 +29,8 @@ type State =
   | { phase: 'pending' }
   | { phase: 'ok' }
   | { phase: 'failed'; reason: LinkFailure; closedAt?: string | null }
+  /** the alarm waits for the EL's assignment while Einsätze run – see AwaitingCard */
+  | { phase: 'awaiting'; candidates: LinkCandidate[]; original: string }
 
 /** One card, one instruction. Retry is offered only where waiting or tapping can change the
  *  answer — an expired link and a station that never enabled the feature will not fix
@@ -88,6 +92,43 @@ function LinkSession() {
   return <App />
 }
 
+/** The screen state an exchange answer leads to. */
+function stateOf(r: LinkExchange): State {
+  if (r.ok) return { phase: 'ok' }
+  if (r.reason === 'awaiting') return { phase: 'awaiting', candidates: r.candidates, original: r.original }
+  return { phase: 'failed', reason: r.reason, closedAt: r.closedAt }
+}
+
+/**
+ * The alarm waits for the EL's assignment (owner pick «ask on the phone», 24.11.2026): Einsätze
+ * already run, and which one this alarm belongs to – or none, a second call side by side – is the
+ * EL's to say. The phone waits and opens the Einsatz itself once assigned; meanwhile every running
+ * Einsatz is a card, the FIRST one (where a Nachalarm is merged) marked and on top, and a tap
+ * opens one now.
+ */
+function AwaitingCard({ candidates, original, onPick }: { candidates: LinkCandidate[]; original: string; onPick: (id: string) => void }) {
+  const C = appConfig.copy.incidentLink
+  const ordered = [...candidates.filter((c) => c.id === original), ...candidates.filter((c) => c.id !== original)]
+  return (
+    <div className="cv-shell">
+      <IconSprite />
+      <div className="cv-card cv-center" role="status">
+        <ShellLoader size="surface" />
+        <p>{C.awaitingTitle}</p>
+        <p className="cv-hint">{C.awaitingHint}</p>
+        <p className="cv-hint">{C.awaitingChoose}</p>
+        <ListCard className="sl-choose">
+          {ordered.map((c) => (
+            <EinsatzRow key={c.id} incident={c} when={fmtWhen(c.started_at, { todayShort: true })}
+              tag={c.id === original ? C.awaitingOriginal : undefined}
+              className={c.id === original ? 'link-original' : undefined} onClick={() => onPick(c.id)} />
+          ))}
+        </ListCard>
+      </div>
+    </div>
+  )
+}
+
 function LinkBoot({ token }: { token: string }) {
   const [state, setState] = useState<State>({ phase: 'opening' })
   const [attempt, setAttempt] = useState(0) // «Nochmals versuchen» re-runs the exchange
@@ -95,7 +136,7 @@ function LinkBoot({ token }: { token: string }) {
   useEffect(() => {
     let alive = true
     void openIncidentLink(token, { onPending: () => { if (alive) setState({ phase: 'pending' }) } })
-      .then((r) => { if (alive) setState(r.ok ? { phase: 'ok' } : { phase: 'failed', reason: r.reason, closedAt: r.closedAt }) })
+      .then((r) => { if (alive) setState(stateOf(r)) })
     return () => { alive = false }
   }, [token, attempt])
 
@@ -106,7 +147,10 @@ function LinkBoot({ token }: { token: string }) {
   // stay there after «Wieder öffnen» until somebody tapped «Erneut versuchen». Once a minute —
   // and at once when the phone is looked at again — the exchange is asked quietly; a reopen
   // opens the board, anything else (no signal, still closed) keeps the card as it is.
-  const following = state.phase === 'failed' && state.reason === 'closed'
+  // …and an alarm WAITING for the EL's assignment is followed the same way, every few seconds: the
+  // moment the EL attaches it, the Einsatz opens here by itself (hunt 24.11.2026, access-control F1).
+  const awaiting = state.phase === 'awaiting'
+  const following = awaiting || (state.phase === 'failed' && state.reason === 'closed')
   useEffect(() => {
     if (!following) return
     let alive = true
@@ -114,10 +158,10 @@ function LinkBoot({ token }: { token: string }) {
       void exchangeLinkToken(token).then((r) => {
         if (!alive) return
         if (r.ok) setState({ phase: 'ok' })
-        else if (r.reason === 'closed') setState({ phase: 'failed', reason: 'closed', closedAt: r.closedAt })
+        else if (r.reason === 'closed' || r.reason === 'awaiting') setState(stateOf(r))
       })
     }
-    const timer = window.setInterval(ask, LINK_CLOSED_FOLLOW_MS)
+    const timer = window.setInterval(ask, awaiting ? LINK_AWAITING_POLL_MS : LINK_CLOSED_FOLLOW_MS)
     const onVisible = () => { if (document.visibilityState === 'visible') ask() }
     document.addEventListener('visibilitychange', onVisible)
     window.addEventListener('online', ask)
@@ -127,7 +171,7 @@ function LinkBoot({ token }: { token: string }) {
       document.removeEventListener('visibilitychange', onVisible)
       window.removeEventListener('online', ask)
     }
-  }, [following, token])
+  }, [following, awaiting, token])
 
   // The AuthProvider mounts only AFTER the exchange: it probes /me once on mount, so mounting
   // it earlier would have it settle on "logged out" before the session cookie exists.
@@ -150,6 +194,11 @@ function LinkBoot({ token }: { token: string }) {
     )
   }
 
+  if (state.phase === 'awaiting') {
+    // a tapped Einsatz opens here: the same exchange, naming the one the responder picked
+    const pick = (id: string) => { void exchangeLinkToken(token, id).then((r) => setState(stateOf(r))) }
+    return <AwaitingCard candidates={state.candidates} original={state.original} onPick={pick} />
+  }
   if (state.reason === 'closed') return <ClosedCard closedAt={state.closedAt} />
   return <LinkMessage reason={state.reason} onRetry={retry} />
 }

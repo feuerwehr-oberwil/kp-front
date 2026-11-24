@@ -853,32 +853,45 @@ async def test_deleting_the_key_ends_sessions_that_are_already_open(client, db_s
     _forget_link(client)
 
 
-async def test_a_link_during_a_running_einsatz_joins_it_instead_of_forking(client, link_key, pooled_alarm, db_session):
-    """The interaction between auto-open and the split-dispatch guard.
-
-    A Nachalarm to a second group is parked in the pool on purpose: an Einsatz is already
-    running and a second incident for it would split the Lage, the Zeiten and the GPS
-    milestones in two. The guard covers the poller — but the link bypasses it, and the link
-    is the likeliest way to trip it, because the re-dispatched group taps it within seconds
-    while the EL is still working the first alarm.
-
-    Joining the running Einsatz is not a lesser answer than opening one: a Nachalarm wants
-    that Einsatz's Lage, not a fresh empty one. The pool row is deliberately left alone so
-    the EL can still attach it properly afterwards.
-    """
-    running = Incident(title="Zimmerbrand", source="divera", source_ref="999000", status="offen")
-    db_session.add(running)
+async def test_a_link_during_running_einsaetze_waits_for_the_assignment(client, link_key, pooled_alarm, db_session):
+    """The split-dispatch guard parks a Nachalarm while an Einsatz runs – a second incident would
+    split the Lage. But «the» running Einsatz is a guess (hunt 24.11.2026, access-control F1): a
+    second, unrelated call landed its responders on the first one. So the phone WAITS for the EL's
+    assignment and is shown every running Einsatz, the oldest (where a Nachalarm is merged) marked;
+    a tapped one opens there, and once the EL assigns the alarm the poll opens that Einsatz."""
+    now = datetime.now(UTC)
+    older = Incident(title="Zimmerbrand", source="divera", source_ref="999000", status="offen", started_at=now - timedelta(minutes=40))
+    newer = Incident(title="Ölspur", source="manual", status="offen", started_at=now - timedelta(minutes=5))
+    db_session.add_all([older, newer])
     await db_session.commit()
-    await db_session.refresh(running)
+    await db_session.refresh(older)
+    await db_session.refresh(newer)
 
     before = len(await _incidents(db_session))
     r = await client.post("/api/incident-link/session", json={"token": _mint_divera()})
     assert r.status_code == 200, r.text
-    assert r.json()["incident_id"] == str(running.id), "the link must land on the running Einsatz"
-
+    body = r.json()
+    assert body["status"] == "awaiting" and "incident_id" not in body, "no Einsatz is guessed"
+    assert [c["id"] for c in body["candidates"]] == [str(older.id), str(newer.id)]
+    assert body["original"] == str(older.id)
     assert len(await _incidents(db_session)) == before, "no second Einsatz may be created"
     await db_session.refresh(pooled_alarm)
     assert pooled_alarm.is_taken is False, "the pool row stays, so the EL can still attach it"
+
+    # the responder taps the second card: that Einsatz opens on this phone
+    picked = await client.post("/api/incident-link/session", json={"token": _mint_divera(), "incident_id": str(newer.id)})
+    assert picked.json() == {"incident_id": str(newer.id)}
+    _forget_link(client)
+    # an id that is not a running candidate opens nothing
+    stray = await client.post("/api/incident-link/session", json={"token": _mint_divera(), "incident_id": str(uuid.uuid4())})
+    assert stray.json()["status"] == "awaiting"
+
+    # the EL attaches the alarm to the first Einsatz: the next poll opens it
+    pooled_alarm.taken_incident_id = older.id
+    pooled_alarm.is_taken = True
+    await db_session.commit()
+    assigned = await client.post("/api/incident-link/session", json={"token": _mint_divera()})
+    assert assigned.json() == {"incident_id": str(older.id)}
 
 
 @pytest.mark.parametrize(
