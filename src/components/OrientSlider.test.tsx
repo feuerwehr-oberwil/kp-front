@@ -85,12 +85,20 @@ describe('OrientSlider – the Gebäude orientation preview', () => {
     expect(commit).not.toHaveBeenCalled()
   })
 
-  it('the keyboard commits once per step', () => {
+  // review of #742: a held arrow commits ONCE, when it lifts — one «Gebäude drehen» step, not
+  // one per repeat
+  it('the keyboard previews each step and commits once per key gesture', () => {
     const commit = vi.fn()
     render(<Harness onCommit={commit} />)
-    for (let i = 0; i < 3; i++) fireEvent.keyDown(slider(), { key: 'ArrowRight' })
-    expect(commit.mock.calls).toEqual([[1], [2], [3]])
+    for (let i = 0; i < 3; i++) fireEvent.keyDown(slider(), { key: 'ArrowRight', repeat: i > 0 })
     expect(shown()).toBe(3)
+    expect(commit).not.toHaveBeenCalled()
+    fireEvent.keyUp(slider(), { key: 'ArrowRight' })
+    expect(commit.mock.calls).toEqual([[3]])
+    // two separate taps are two gestures
+    fireEvent.keyDown(slider(), { key: 'ArrowLeft' })
+    fireEvent.keyUp(slider(), { key: 'ArrowLeft' })
+    expect(commit.mock.calls).toEqual([[3], [2]])
   })
 
   it('the popover closing with a preview still live drops it', () => {

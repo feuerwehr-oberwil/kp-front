@@ -18,7 +18,9 @@ import { snapToStep } from '../lib/sliderStep'
  *
  * Preview vs. commit: `onChange` fires on every step the thumb moves. A value that is costly to
  * apply – an undo step («Gebäude drehen»), a reconstruction (the Kroki's «Stand») – previews there
- * and lands in `onCommit`, called ONCE when the finger lifts (and once per key step). A drag the
+ * and lands in `onCommit`, called ONCE when the finger lifts (and once when the key lifts — a
+ * held arrow repeats its preview, not its commit: a commit per repeat filled the ↶ history with
+ * one «Gebäude drehen» per degree, review of #742). A drag the
  * browser takes away (`pointercancel`) commits nothing and calls `onCancel`, so a preview never
  * stays standing with nothing in the record to say so.
  */
@@ -54,7 +56,14 @@ export function Slider({ value, min = 0, max = 100, step = 1, onChange, onCommit
 
   const nudge = (by: number) => {
     const next = clamp(snapToStep(value + by, min, step))
-    if (next !== value) { onChange(next); onCommit?.(next) }
+    if (next !== value) { keyed.current = next; onChange(next) }
+  }
+  /** the last value a key gesture moved to — committed when the key lifts (or focus leaves) */
+  const keyed = useRef<number | null>(null)
+  const commitKeyed = () => {
+    const v = keyed.current
+    keyed.current = null
+    if (v != null) onCommit?.(v)
   }
 
   return (
@@ -89,6 +98,8 @@ export function Slider({ value, min = 0, max = 100, step = 1, onChange, onCommit
         else return
         e.preventDefault()
       }}
+      onKeyUp={commitKeyed}
+      onBlur={commitKeyed}
     >
       <span className="uslider-track" ref={trackRef}>
         <span className="uslider-fill" style={{ width: `${pct}%` }} />
