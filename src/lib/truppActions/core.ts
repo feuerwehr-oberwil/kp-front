@@ -66,8 +66,9 @@ export interface TruppActionDeps {
   liveTrupps?: () => Trupp[]
   /** The Lage's and the plans' pictures as they stand NOW (lib/useObjectStore · liveViews), not as
    *  this render drew them — what a link reads, so a hose committed earlier in the same gesture is
-   *  found (hunt 24.11.2026, frontend-state F5). Absent: this render's arrays. */
-  livePicture?: () => { drawings: Drawing[]; entities: Entity[]; board: BoardDoc }
+   *  found (hunt 24.11.2026, frontend-state F5). `sheetOf` names the sheet an object is anchored
+   *  on, if any. Absent: this render's arrays. */
+  livePicture?: () => { drawings: Drawing[]; entities: Entity[]; board: BoardDoc; sheetOf?: (id: string) => string | undefined }
   /** Lay ONE store undo step at the live state — the picture half of a link step, laid before its
    *  raw writes so the step's ↶ restores both hose and marker (truppActions/lines · linkStep).
    *  Absent: the picture half is not undoable (the tests, the Atemschutz-Link). */

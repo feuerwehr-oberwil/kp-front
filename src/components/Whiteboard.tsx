@@ -1745,10 +1745,14 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     const off: BoardPoint = [here[0] + (dx / len) * 0.02, here[1] + (dy / len) * 0.02, here[2] ?? selDraw.floor ?? 0]
     const pts = selDraw.pts.map((p, i): BoardPoint => (i === idx ? off : p))
     const patch = { pts, ...(endpoint === 'start' ? { startAttachment: undefined } : { endAttachment: undefined }) }
-    // ⚠️ the audit row carries the freed end as `null` (lineAttachments · wireFreed): JSON drops
-    // the live `undefined`, and replay kept the coupling (hunt 24.11.2026, frontend-state F8)
-    patchCommit(selDraw.id, patch, { patch: wireFreed(patch) })
-    onLineDetached?.(selDraw.id, a)
+    // the freed end and the Trupp link it parts are ONE ↶ step, as on the Lage (review of #742)
+    const endStep = historyGroup?.() ?? (() => {})
+    try {
+      // ⚠️ the audit row carries the freed end as `null` (lineAttachments · wireFreed): JSON drops
+      // the live `undefined`, and replay kept the coupling (hunt 24.11.2026, frontend-state F8)
+      patchCommit(selDraw.id, patch, { patch: wireFreed(patch) })
+      onLineDetached?.(selDraw.id, a)
+    } finally { endStep() }
   }
   // a selected generic shape — colour via the same ShapeEditor sheet as the Lage map
   const selShape = annos.find((a) => a.id === selId && a.kind === 'shape')

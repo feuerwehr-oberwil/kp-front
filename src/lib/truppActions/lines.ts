@@ -178,9 +178,12 @@ export function truppLineActions(deps: LineDeps) {
     emit('atemschutz.line.link', { id: truppId, lineId, lineNo: no })
     // …and the fields it stamped on the hose as the picture's own edit: replay folds that one and
     // ignores the link event, so a new hose replayed without its number (review of #742)
+    // A hose drawn on a fitted sheet is found as its baked Lage copy first: its OWNING sheet's
+    // replay needs the stamp as well (review of #742)
     const stamped = { truppId, ...(no != null ? { lineNo: no } : {}) }
-    if (planId) emit('board.edit', { id: lineId, patch: stamped, planId })
-    else emit('draw.edit', { id: lineId, patch: stamped })
+    const sheet = planId ?? picture().sheetOf?.(lineId)
+    if (sheet) emit('board.edit', { id: lineId, patch: stamped, planId: sheet })
+    if (!planId) emit('draw.edit', { id: lineId, patch: stamped })
     // no confirm toast (09.09.): the hose wears the Trupp tag the instant the link lands — the
     // ink is the confirmation, and the Verlauf row above is the record
     settleAtHoseEnd(tr, lineId, planId)
@@ -289,7 +292,10 @@ export function truppLineActions(deps: LineDeps) {
       ?? Object.values(board).flat().find((a) => a.id === lineId && a.kind === 'draw')
     const tr = line ? truppForLine(line, trupps) : undefined
     if (!tr || tr.id !== truppId) return false
-    unlinkTruppLine(tr.id)
+    // ⚠️ the crew's Leitung fields are in the detach's ↶ step too: «Lösen» undone put the hose
+    // back and left the crew without its Leitung (review of #742)
+    const end = linkStep(tr.id, fillTemplate(appConfig.copy.atemschutz.logLineUnlinked, { name: truppLogName(tr, 'leader') }), [tr.id])
+    try { unlinkTruppLine(tr.id) } finally { end() }
     return true
   }
 

@@ -2327,7 +2327,10 @@ export function IncidentWorkspace({
     liveTrupps: () => truppsRef.current,
     // a link reads the picture as it stands now (a hose drawn in the same gesture is in it), and
     // lays the picture half of its ↶ step on the store (truppActions/lines · linkStep)
-    livePicture: () => { const v = liveViews(); return { drawings: v.doc.drawings, entities: v.doc.entities, board: v.board } },
+    livePicture: () => {
+      const v = liveViews()
+      return { drawings: v.doc.drawings, entities: v.doc.entities, board: v.board, sheetOf: (id: string) => liveObjects().find((o) => o.id === id)?.sheet?.planId }
+    },
     checkpointStore: asLink ? undefined : () => compound.linkCheckpoint(() => commit((d) => d)),
     counterNames: () => truppCounterNames(),
     placeOf: truppPositionWords,

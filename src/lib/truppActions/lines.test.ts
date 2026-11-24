@@ -20,7 +20,7 @@ const hose: Drawing = { id: 'H', kind: 'line', coords: [[7.01, 47], [7, 47]], en
  * The Trupp actions over a live picture. `checkpointStore` stands in for the store's step
  * (lib/useObjectStore): ↶ puts the snapshot back, ↷ the state ↶ found.
  */
-function fixture(trupps: Trupp[], drawings: Drawing[]) {
+function fixture(trupps: Trupp[], drawings: Drawing[], sheetOf?: (id: string) => string | undefined) {
   let crews = trupps
   let pic = { entities: [marker], drawings, board: {} as BoardDoc }
   const timeline = createUndoTimeline()
@@ -34,7 +34,7 @@ function fixture(trupps: Trupp[], drawings: Drawing[]) {
     setDocRaw: (u) => { const d = apply({ entities: pic.entities, drawings: pic.drawings }, u); pic = { ...pic, ...d } },
     setBoard: (u) => { pic = { ...pic, board: apply(pic.board, u) } },
     liveTrupps: () => crews,
-    livePicture: () => pic,
+    livePicture: () => ({ ...pic, sheetOf }),
     checkpointStore: () => {
       const snap = pic
       let later = pic
@@ -82,6 +82,29 @@ describe('a Trupp ⇄ Leitung link', () => {
     gesture.linkLineToAttachedTrupp('H', hose.endAttachment)
     const { drawings } = await replayEmits({ entities: [marker], drawings: [hose] }, JSON.parse(JSON.stringify(f.emit.mock.calls)))
     expect(drawings.find((d) => d.id === 'H')).toMatchObject({ lineNo: 3, truppId: 'C' })
+  })
+
+  // review of #742: a hose drawn on a fitted sheet is found as its baked Lage copy; its owning
+  // sheet's replay needs the stamp too
+  it('the stamp on a sheet-anchored hose goes out for its sheet as well as for the Karte', () => {
+    const f = fixture([{ ...crew, lineNo: 3 }], [], (id) => (id === 'H' ? 'modul6' : undefined))
+    const gesture = f.useActions()
+    f.draw(hose)
+    gesture.linkLineToAttachedTrupp('H', hose.endAttachment)
+    const edits = f.emit.mock.calls.filter(([op, p]) => (op === 'board.edit' || op === 'draw.edit') && p.id === 'H' && 'lineNo' in p.patch)
+    expect(edits.map(([op, p]) => [op, p.planId])).toEqual([['board.edit', 'modul6'], ['draw.edit', undefined]])
+  })
+
+  // review of #742: «Lösen» of the hose end on the crew's marker, undone, gave the hose back but
+  // left the crew without its Leitung
+  it('a hose end let go of the crew marker is one ↶ step over the crew as well', () => {
+    const linked: Trupp = { ...crew, lineId: 'H', lineNo: 2 }
+    const f = fixture([linked], [{ ...hose, truppId: 'C', lineNo: 2 }])
+    expect(f.useActions().unlinkLineFromDetachedTrupp('H', hose.endAttachment)).toBe(true)
+    expect(f.crew()?.lineId).toBeUndefined()
+    f.timeline.undo()
+    expect(f.crew()).toMatchObject({ lineId: 'H', lineNo: 2 })
+    expect(f.line()?.truppId).toBe('C')
   })
 
   // F7: «Gehört zu Trupp» wrote both sides raw and laid no step, so ↶ took back an older act
