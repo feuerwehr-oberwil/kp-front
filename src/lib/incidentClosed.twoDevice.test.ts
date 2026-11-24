@@ -333,11 +333,15 @@ describe('«Wieder öffnen» on phone A reaches phone B the same way back', () =
     })
     const hook = renderHook(useLifecycle, { initialProps: false })
     hook.rerender(true)
-    await waitFor(() => expect([sync.refusedCount, journal.refusedCount, audit.closedCount]).toEqual([0, 0, 0]))
+    // …until the SERVER holds all three and the hook's resend has settled (its count of what went
+    // is set only after every requeue resolved) — the parked counts clear before delivery does
+    await waitFor(() => {
+      expect(server.rows.map((r) => r.id)).toContain('r-kontakt')
+      expect(server.events.map((e) => e.client_id)).toContain('ev-kontakt')
+      expect((server.ws.trupps as typeof TRUPP[])[0].lastContactTime).toBe(LATE)
+      expect(hook.result.current.lifecycleRefused).toBe(3)
+    })
     hook.unmount()
-    expect(server.rows.map((r) => r.id)).toContain('r-kontakt')
-    expect(server.events.map((e) => e.client_id)).toContain('ev-kontakt')
-    expect((server.ws.trupps as typeof TRUPP[])[0].lastContactTime).toBe(LATE)
     expect([sync.refusedCount, journal.refusedCount, audit.closedCount]).toEqual([0, 0, 0])
     // …and a reload finds nothing parked any more (the slots were emptied)
     const again = new WorkspaceSync(INC)
