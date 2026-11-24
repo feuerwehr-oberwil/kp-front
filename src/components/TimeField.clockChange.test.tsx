@@ -36,3 +36,15 @@ it('a time the spring change skips is refused with a note', () => {
   expect(onCommit).not.toHaveBeenCalled()
   expect(screen.getByText(appConfig.copy.wheel.skippedTime)).toBeTruthy()
 })
+
+it('«Jetzt» in the second 02:15 saves that instant, not the first 02:15 the field opened on', () => {
+  vi.useFakeTimers({ toFake: ['Date'] })
+  try {
+    vi.setSystemTime(new Date('2026-10-25T01:20:00.000Z')) // 02:20 winter time
+    const onCommit = openTime('2026-10-25T00:15:00.000Z', true) // opened on 02:15 summer time
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.wheel.now }))
+    expect(onCommit).toHaveBeenCalledWith('2026-10-25T01:20:00.000Z')
+  } finally {
+    vi.useRealTimers()
+  }
+})

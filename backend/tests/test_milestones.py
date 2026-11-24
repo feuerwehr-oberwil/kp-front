@@ -253,4 +253,4 @@ async def test_a_late_milestone_stands_at_its_own_minute_and_is_a_nachtrag_after
     assert first.row_json["writtenAt"] != first.row_json["at"] and "receivedAfterClose" not in first.row_json
     assert back.row_json["text"] == "TLF zurück 02:40" and back.row_json["receivedAfterClose"] is True
     await db_session.refresh(inc)
-    assert inc.map_workspace_json["reportMeta"]["fahrzeuge"][0]["zurueck"] == "2026-07-13T02:40:00+02:00"
+    assert inc.map_workspace_json["reportMeta"]["fahrzeuge"][0]["zurueck"] == "2026-07-13T00:40:00+00:00"

@@ -124,7 +124,7 @@ function parseTyped(raw: string): [number, number] | null {
 }
 
 /** The popover itself. A day column appears when `days` holds more than one day (`dayAlways`: one). */
-export function WheelPopover({ anchor, initial, onCommit, onClose, onClear, shortcut, clearLabel, clearActive, days, dayAlways = false, title, note, noNow }: {
+export function WheelPopover({ anchor, initial, onCommit, onClose, onClear, shortcut, clearLabel, clearActive, days, dayAlways = false, title, note, noNow, onNow }: {
   anchor: DOMRect
   initial: Date
   onCommit: (v: WheelValue) => void
@@ -166,6 +166,9 @@ export function WheelPopover({ anchor, initial, onCommit, onClose, onClear, shor
   note?: (v: WheelValue) => { text: string; blocks?: boolean } | null
   /** no «Jetzt»: for a time that has to lie AHEAD, «now» is never the answer */
   noNow?: boolean
+  /** «Jetzt» as an INSTANT, not as wheel values – in the hour the autumn change shows twice the
+   *  wheels cannot say which 02:15 is now (DateTimeField) */
+  onNow?: () => void
 }) {
   usePopoverGuard(true)
   const errorId = useId()
@@ -233,6 +236,7 @@ export function WheelPopover({ anchor, initial, onCommit, onClose, onClear, shor
   }
 
   const stampNow = () => {
+    if (onNow) { onNow(); return }
     // the server's «now», like every «Jetzt» on the Rapport's form (docs/rapport.md › Times): a
     // tablet running four minutes fast must not stamp a different Einsatzende from the button
     // beside the field than from the one inside it

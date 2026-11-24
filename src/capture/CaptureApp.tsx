@@ -642,7 +642,9 @@ export default function CaptureApp() {
   const captureReportArgs = async (token: string, incident: IncidentMeta) => {
     const { defaultReportOptions } = await import('../lib/report')
     let events: import('../types').TimelineEvent[] = []
-    try { events = (await captureApi.journal(token, incident.id)).entries.map((e) => e.row) } catch { /* PDF without Verlauf beats no PDF */ }
+    // newest first, as the Rapport's own Verlauf hands it over – the report reads the Pendenzen
+    // walking it backwards (lib/report), and the API lists oldest first (Sol review, K8)
+    try { events = (await captureApi.journal(token, incident.id)).entries.map((e) => e.row).reverse() } catch { /* PDF without Verlauf beats no PDF */ }
     return {
       incident,
       draft: {

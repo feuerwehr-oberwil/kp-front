@@ -248,6 +248,7 @@ export function DateTimeField({ value, onCommit, disabled, ariaLabel, className,
             setOpen(false)
             onCommit(iso.toISOString())
           }}
+          onNow={() => { setOpen(false); onCommit(new Date(serverNow()).toISOString()) }}
           onClear={!required && (valid || clearLabel) ? () => { setOpen(false); onCommit(null) } : undefined}
           clearLabel={clearLabel}
           clearActive={clearActive}

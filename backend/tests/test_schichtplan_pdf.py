@@ -340,4 +340,21 @@ def test_a_watch_across_the_clock_change_names_its_zone():
     band = {"id": "n", "label": "", "from": "2026-10-25T00:15:00Z", "to": "2026-10-25T01:15:00Z"}
     from app.schichtplan_pdf import _band_title
 
-    assert _band_title(_payload([], bands=[band]).bands[0]) == "02:15 MESZ–02:15 MEZ"
+    p = _payload(
+        [_row("Meier Anna", [{"from": band["from"], "to": "2026-10-25T00:45:00Z", "confirmed": True}])], bands=[band]
+    )
+    assert _band_title(p.bands[0]) == "02:15 MESZ–\n02:15 MEZ"  # broken after the dash to fit a column
+    assert _cell(p.rows[0], p.bands[0]) == "02:15 MESZ–\n02:45 MESZ"
+    assert compose_schichtplan_pdf(p)[:5] == b"%PDF-"
+
+
+def test_a_cell_lists_six_stretches_at_most_so_a_row_always_fits_a_sheet():
+    """Sol review K8 r2: 110 stretches in one watch raised a LayoutError and no sheet printed."""
+    many = [
+        {"from": _iso(T0 + timedelta(minutes=2 * i)), "to": _iso(T0 + timedelta(minutes=2 * i + 1)), "confirmed": True}
+        for i in range(110)
+    ]
+    p = _payload([_row("Viele Stücke", many)])
+    lines = _cell(p.rows[0], p.bands[0]).split("\n")
+    assert len(lines) == 6 and lines[-1] == "+105 weitere"
+    assert compose_schichtplan_pdf(p)[:5] == b"%PDF-"

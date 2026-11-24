@@ -832,7 +832,11 @@ def _station_time(v: datetime | None) -> datetime | None:
     """A milestone without an offset is the station's wall clock (Europe/Zurich), as every
     browser on the station reads it – stored WITH its offset, so the stats export and the
     Rapport agree on it (hunt 24.11.2026, records-rapport F8)."""
-    return v.replace(tzinfo=ZoneInfo("Europe/Zurich")) if v is not None and v.tzinfo is None else v
+    if v is None or v.tzinfo is not None:
+        return v
+    # through UTC, so a wall time the spring change skips (02:15) becomes the real instant (03:15)
+    # and the Verlauf's «ausgerückt 03:15» says what its row's time says
+    return v.replace(tzinfo=ZoneInfo("Europe/Zurich")).astimezone(ZoneInfo("UTC"))
 
 
 class MilestoneGroup(BaseModel):

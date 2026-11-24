@@ -41,6 +41,8 @@ from .zeitplan_pdf import TZ, ZeitplanBand, ZeitplanPayload, ZeitplanRow, wall
 MAX_ROWS = 28
 #: columns beyond this and the cells stop being writable; the rest go to a second sheet
 MAX_BANDS = 8
+#: stretches one cell lists before it says «+N weitere» – keeps every row on one sheet
+MAX_STRETCHES = 6
 
 _INK = colors.HexColor("#1b2330")
 _DIM = colors.HexColor("#8a94a3")
@@ -78,9 +80,11 @@ def _range(a: datetime, b: datetime) -> str:
     A band that crosses midnight says which day it lands on: «22:00–06:00» is the shape a night
     shift has, and on a wall sheet whose whole purpose is a multi-day rota there is nothing else
     to read it against. Same treatment the Zeitplan axis already gives its midnight tick."""
-    if a.date() == b.date():
-        return f"{_hhmm(a)}–{_hhmm(b)}"
-    return f"{_hhmm(a)}–{b.strftime('%d.%m.')} {_hhmm(b)}"
+    end = _hhmm(b) if a.date() == b.date() else f"{b.strftime('%d.%m.')} {_hhmm(b)}"
+    # a zone makes the range too wide for a column: it breaks after the dash (a line of its own,
+    # counted like any other by _slots)
+    zoned = _hhmm(a) != a.strftime("%H:%M") or _hhmm(b) != b.strftime("%H:%M")
+    return f"{_hhmm(a)}–{chr(10) if zoned else ''}{end}"
 
 
 def _band_title(b: ZeitplanBand) -> str:
@@ -169,7 +173,11 @@ def _cell(row: ZeitplanRow, band: ZeitplanBand) -> str:
     segs = _segments(row, band)
     if len(segs) == 1 and segs[0][0] == band.start and segs[0][1] == band.end:
         return _MARK_CONFIRMED if segs[0][2] else _MARK_AVAILABLE
-    return "\n".join(_range(a, z) + ("" if c else f" {_MARK_AVAILABLE}") for a, z, c in segs)
+    lines = [_range(a, z) + ("" if c else f" {_MARK_AVAILABLE}") for a, z, c in segs]
+    if len(lines) > MAX_STRETCHES:
+        # a cell is a box to read across a room, not a log: the rest is on «Verfügbarkeiten»
+        lines = [*lines[: MAX_STRETCHES - 1], f"+{len(lines) - MAX_STRETCHES + 1} weitere"]
+    return "\n".join(lines)
 
 
 def _is_assigned(row: ZeitplanRow, bands: list[ZeitplanBand]) -> bool:
@@ -246,7 +254,8 @@ def _page(
     data: list[list[str]] = [head]
     #: cells with more than one stretch, set smaller (see _slots)
     stacked: list[tuple[int, int]] = []
-    heights = [11 * mm]
+    # a zoned range in a heading breaks onto a line of its own (_range): the head grows for it
+    heights = [(14 if any(h.count("\n") >= 2 for h in head) else 11) * mm]
     for r, row in enumerate(rows, start=1):
         label = f"{row.rank} {row.name}".strip() if row.rank else row.name
         cells = [_cell(row, b) for b in bands]
