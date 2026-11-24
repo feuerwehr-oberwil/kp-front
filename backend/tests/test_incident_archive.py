@@ -650,6 +650,50 @@ async def test_a_lost_rapport_upload_never_hands_its_name_to_a_newer_rapport(
     ]
 
 
+# hunt 24.11.2026, records-rapport F1: v2 filed after the lost try was forgotten, so the third
+# Rapport counted two filed reports and replaced v2 – the station lost that copy
+async def test_a_third_rapport_after_a_lost_upload_keeps_the_second(client, editor, drive, session_factory, db_session):
+    inc = await _incident(client, editor, address="")
+    await _report(client, inc, summary="A")
+    await _close(client, inc)
+    drive.lose("PUT", "Einsatzrapport.pdf")
+    assert await archive.run_once(session_factory, transport=drive.transport) == "retry"
+    filed: dict[str, bytes] = {}
+    for minutes, summary in enumerate(("B", "C"), start=1):
+        await _report(client, inc, summary=summary)
+        later = datetime.now(UTC) + timedelta(minutes=minutes * 2)
+        assert await archive.run_once(session_factory, transport=drive.transport, now=lambda t=later: t) == "delivered"
+        filed.update({p: b for p, b in drive.files().items() if p not in filed})
+    row = await _row(db_session, inc)
+    assert [r["version"] for r in row.remote_items["reports"]] == [2, 3]
+    [v2] = [p for p in filed if p.endswith(" v2.pdf")]
+    assert drive.files()[v2] == filed[v2]
+
+
+def test_a_lost_try_of_the_same_rapport_keeps_its_version():
+    items = {"reports": [{"sha": "a", "version": 1}], "reportTry": {"sha": "b", "version": 2}, "reportHigh": 2}
+    assert archive.next_report_version(items, "b") == 2  # the same bytes again under the same name
+    assert archive.next_report_version(items, "c") == 3
+
+
+# hunt 24.11.2026, data-consistency F1: the upload read «open» before its bytes arrived; the close
+# and a finished Ablage pass in between left the photo out of the off-site copy, marked delivered
+async def test_an_upload_spanning_the_close_is_still_filed(
+    client, editor, drive, session_factory, db_session, monkeypatch
+):
+    inc = await _incident(client, editor, address="")
+    put_bytes = storage_mod.put_astream
+
+    async def close_during_upload(*args, **kwargs):
+        await _close(client, inc)
+        assert await archive.run_once(session_factory, transport=drive.transport) == "delivered"
+        return await put_bytes(*args, **kwargs)
+
+    monkeypatch.setattr(storage_mod, "put_astream", close_during_upload)
+    await _upload(client, inc)
+    assert (await _row(db_session, inc)).state == "pending"
+
+
 # --- a Rapport printed before the Ablage existed --------------------------------------------
 
 

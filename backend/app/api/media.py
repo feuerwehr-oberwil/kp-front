@@ -173,6 +173,18 @@ async def upload_media(
             detail=f"Datei zu gross (Maximum {MAX_UPLOAD_BYTES // (1024 * 1024)} MB)",
         ) from None
 
+    # ⚠️ The lifecycle again, now, under the incident lock (hunt 24.11.2026, data-consistency F1):
+    # the read above is as old as the upload, and a close plus a finished Ablage pass in between
+    # left the photo out of the off-site copy, marked delivered. Held to the commit, so either the
+    # close sees this row or this upload sees the close and owes the Ablage a pass.
+    inc = (
+        await db.execute(
+            select(Incident.is_archived, Incident.is_exercise).where(Incident.id == incident_id).with_for_update()
+        )
+    ).one_or_none()
+    if inc is None:  # deleted during the upload: its bytes go with it
+        storage.delete(key)
+        raise HTTPException(status_code=404, detail=INCIDENT_NOT_FOUND)
     # The DB row exists only after a complete, size-checked write — an aborted upload leaves
     # neither a partial blob (put_astream cleans up) nor a dangling Media record.
     media = Media(
