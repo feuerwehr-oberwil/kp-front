@@ -52,5 +52,3 @@ export function compoundSteps(group: () => () => void) {
     },
   }
 }
-
-export type CompoundSteps = ReturnType<typeof compoundSteps>
