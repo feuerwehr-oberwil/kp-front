@@ -383,6 +383,15 @@ tapped for a turnout that never happened never reaches the statistics. Still sen
 (§1) before or with the alert: an alarm neither the incident table nor any pool knows answers
 «nicht (mehr) verfügbar», and works on the next tap.
 
+While real Einsätze already run (within the split-dispatch window), the pooled alarm is NOT
+opened – it may be a Nachalarm for one of them or a second call beside them, and that is the
+EL's call (24.11.2026; before, the link silently opened the newest running Einsatz). The
+exchange then answers `{"status": "awaiting", "candidates": [...], "original": "<id>"}` and
+sets no cookie: the phone shows the running Einsätze, the oldest (`original`, where a Nachalarm
+is merged) marked, and keeps asking. Once the EL attaches the alarm
+(`POST /api/divera/pool/{divera_id}/attach/{incident_id}`) the next answer opens that Einsatz.
+The responder may also tap one: the same request with `incident_id` set to a candidate opens it.
+
 ```python
 # in the alerting system, at alarm time — no call to KP Front
 import jwt, time
