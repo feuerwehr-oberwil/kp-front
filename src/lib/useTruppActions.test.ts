@@ -642,7 +642,7 @@ describe('useTruppActions — Rückzug / Fortsetzen count as a Funkkontakt', () 
     const t = state.trupps[0]
     expect(t.entryTime).toBeTruthy()
     expect(t.lastContactTime).toBe(t.entryTime)
-    expect(t.readings).toEqual([{ t: t.entryTime, bar: 300, kind: 'entry' }])
+    expect(t.readings).toEqual([{ t: t.entryTime, bar: 300, kind: 'entry', pa: true }])
   })
 
   it('re-deploy as Reserve keeps the Trupp out of the field: no entryTime, no running clock', () => {
@@ -671,7 +671,7 @@ describe('useTruppActions — Rückzug / Fortsetzen count as a Funkkontakt', () 
     expect(t.status).toBe('aktiv')
     expect(t.entryTime).toBeTruthy()
     expect(t.lastContactTime).toBe(t.entryTime)
-    expect(t.readings).toEqual([{ t: t.entryTime, bar: 300, kind: 'entry' }, { t: expect.any(String), bar: 300, kind: 'crew', crew: { name: 'Keller Anna', members: [] } }])
+    expect(t.readings).toEqual([{ t: t.entryTime, bar: 300, kind: 'entry', pa: true }, { t: expect.any(String), bar: 300, kind: 'crew', crew: { name: 'Keller Anna', members: [] } }])
   })
 
   it('a Trupp put on standby starts its clock only on the later «Eingerückt»', () => {
@@ -687,7 +687,7 @@ describe('useTruppActions — Rückzug / Fortsetzen count as a Funkkontakt', () 
     expect(t.readings).toEqual([
       { t: expect.any(String), bar: 300, kind: 'registered' },
       { t: expect.any(String), bar: 300, kind: 'crew', crew: { name: 'Keller Anna', members: [] } },
-      { t: t.entryTime, bar: 300, kind: 'entry' },
+      { t: t.entryTime, bar: 300, kind: 'entry', pa: true },
     ])
   })
 

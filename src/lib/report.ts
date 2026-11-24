@@ -743,7 +743,7 @@ export function truppRunTimes(
  * Sicherungstrupp that stood down at 09:20 and later went in 09:40–09:49 has two `exit` rows, and
  * zipping the lists printed «09:40 – 09:20». An Austritt closes the running Eintritt; one with no
  * Eintritt running is a stand-down (atemschutz · isStandDownExit) and opens nothing. An Eintritt
- * while one runs leaves that one open. A log with no `entry` row falls back to the scalars; one
+ * or a new Anmeldung while one runs leaves that one without an Austritt. A log with no `entry` row falls back to the scalars; one
  * with no `exit` row at all (before 19.08.) closes its last run with the scalar Austritt.
  */
 export function truppRuns(
@@ -752,7 +752,7 @@ export function truppRuns(
 ): { entry: string; exit?: string }[] {
   const rows = (readings ?? [])
     .map((r, i) => ({ r, i }))
-    .filter(({ r }) => !!r.t && (r.kind === 'entry' || r.kind === 'exit'))
+    .filter(({ r }) => !!r.t && (r.kind === 'entry' || r.kind === 'exit' || r.kind === 'registered'))
     .sort((a, b) => (Date.parse(a.r.t) || 0) - (Date.parse(b.r.t) || 0) || a.i - b.i)
   if (!rows.some(({ r }) => r.kind === 'entry')) {
     return fallback.entryTime ? [{ entry: fallback.entryTime, ...(fallback.exitTime ? { exit: fallback.exitTime } : {}) }] : []
@@ -763,6 +763,11 @@ export function truppRuns(
     if (r.kind === 'entry') {
       if (open) runs.push(open)
       open = { entry: r.t }
+    } else if (r.kind === 'registered') {
+      // a fresh Anmeldung ends a run whose Austritt was never written: its exit stays unknown,
+      // and the stand-down that may follow is not dated onto it
+      if (open) runs.push(open)
+      open = null
     } else if (open) {
       runs.push({ ...open, exit: r.t })
       open = null

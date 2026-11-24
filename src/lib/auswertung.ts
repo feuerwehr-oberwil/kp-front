@@ -111,9 +111,11 @@ export interface AuswertungInput {
 function runStartsWatched(t: Trupp, rows: readonly { r: TruppReading }[], i: number): boolean {
   const entry = rows[i].r
   if (typeof entry.pa === 'boolean') return entry.pa
-  let gauge = false
-  for (let j = i + 1; j < rows.length && rows[j].r.kind !== 'exit' && rows[j].r.kind !== 'entry'; j++) {
-    const { kind, bar } = rows[j].r
+  // a cylinder read at the Eintritt, during the run, or at its Austritt (a measured Restdruck)
+  let gauge = entry.bar > 0
+  for (let j = i + 1; j < rows.length && rows[j].r.kind !== 'entry'; j++) {
+    const { kind, bar, measured } = rows[j].r
+    if (kind === 'exit') { if (measured && bar > 0) gauge = true; break }
     if (kind === 'paOn') return false
     if (kind === 'paOff') return true
     if ((kind === 'pressure' || kind === 'alarm') && bar > 0) gauge = true

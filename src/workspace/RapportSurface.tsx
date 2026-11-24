@@ -6,7 +6,7 @@ import { type ReactNode, type Dispatch, type SetStateAction, Suspense } from 're
 import type { JSX } from 'react/jsx-runtime'
 import { LoadingStatus } from '../components/ShellLoader'
 import { appConfig } from '../config/appConfig'
-import { isAtemschutzTrupp } from '../lib/atemschutz'
+import { servedUnderPa } from '../lib/auswertung'
 import type { OpenConflict } from '../lib/attendanceConflict'
 import type { ChecklistState } from '../lib/checklists'
 import type { IncidentMeta } from '../lib/incidents'
@@ -105,8 +105,9 @@ export function RapportSurface({
           // ⚠️ …and PA only: this number decides whether the Atemschutz page is offered at all and
           // is printed in its own toggle («Atemschutz (3)»). A plain work squad never appears on
           // that page (lib/reportPdfDirect), so counting it would offer an empty page on an
-          // Einsatz where nobody went under PA.
-          truppCount={allTrupps.filter(isAtemschutzTrupp).length}
+          // Einsatz where nobody went under PA. «Under PA» is EVER, not now (auswertung ·
+          // servedUnderPa, hunt 24.11.2026): a crew re-deployed without PA keeps the page.
+          truppCount={allTrupps.filter(servedUnderPa).length}
           attendanceCount={Object.keys(attendance).length}
           mittelCount={mittelLineCount(mittel)}
           mittel={mittel}

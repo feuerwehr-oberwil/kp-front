@@ -87,3 +87,29 @@ it('a run recorded with its Art keeps it, in either direction', () => {
     { from: Date.parse(time(40)), to: Date.parse(time(49)), open: false },
   ])
 })
+
+it('an older PA run known only by its Eingangsdruck stays watched after a plain re-entry', () => {
+  const t = trupp({
+    kind: 'einfach',
+    readings: [
+      { kind: 'entry', t: time(10), bar: 300 },
+      { kind: 'exit', t: time(20), bar: 300 },
+      { kind: 'entry', t: time(40), bar: 0, pa: false },
+      { kind: 'exit', t: time(49), bar: 0 },
+    ],
+  })
+  expect(truppStretches(t, Date.parse(time(55))).watched).toEqual([
+    { from: Date.parse(time(10)), to: Date.parse(time(20)), open: false },
+  ])
+})
+
+it('a new Anmeldung ends a run whose Austritt was never written; a later stand-down is not its exit', () => {
+  const t = trupp({
+    readings: [
+      { kind: 'entry', t: time(5), bar: 300 },
+      { kind: 'registered', t: time(30), bar: 300 },
+      { kind: 'exit', t: time(35), bar: 300 },
+    ],
+  })
+  expect(truppCrewHistory(t).cycles.map((c) => [c.entry, c.exit])).toEqual([[time(5), undefined]])
+})
