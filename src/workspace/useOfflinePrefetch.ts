@@ -75,9 +75,10 @@ export function useOfflinePrefetch({ incidentId, center, mapRef, layers, backend
   // no toasts — the Offline-Bereitschaft sheet is where the resulting truth is read. A tight
   // storage budget silently takes the reduced download instead of asking; the manual button
   // remains the place where that trade is offered as a question.
-  const downloadOffline = useCallback(async ({ quiet = false } = {}) => {
+  /** Resolves true when everything fetchable came back (no retryable failure), else false. */
+  const downloadOffline = useCallback(async ({ quiet = false } = {}): Promise<boolean> => {
     const map = mapRef.current?.getMap()
-    if (!map) return
+    if (!map) return false
     const base = layers.find((l) => l.base && l.visible)
     // OSM's own servers may be viewed but not bulk-fetched (offlineTiles · bulkFetchAllowed):
     // with OSM as base, Carto is warmed instead — the same OSM data, from a host that allows it.
@@ -118,7 +119,7 @@ export function useOfflinePrefetch({ incidentId, center, mapRef, layers, backend
       if (reduced === 0) {
         // not even the plans fit — nothing useful to offer but the honest refusal
         if (!quiet) toast(fillTemplate(co.dlNoSpace, { free: fmtFileSize(budget.free) }), { icon: 'map', tone: 'warn' })
-        return
+        return false
       }
       if (!quiet) {
         const ok = await confirmDialog({
@@ -129,7 +130,7 @@ export function useOfflinePrefetch({ incidentId, center, mapRef, layers, backend
           confirmLabel: co.dlTightConfirm,
           cancelLabel: appConfig.copy.cancel,
         })
-        if (!ok) return
+        if (!ok) return false
       }
       cap = reduced
     }
@@ -171,7 +172,8 @@ export function useOfflinePrefetch({ incidentId, center, mapRef, layers, backend
       const co = appConfig.copy.offline
       const got = res.fetched + res.warmFetched
       const retry = { label: co.dlRetry, onClick: () => { void downloadOfflineRef.current() } }
-      if (quiet) return // self-warm: the Offline-Bereitschaft sheet reports the resulting truth
+      const complete = res.failed === 0
+      if (quiet) return complete // self-warm: the Offline-Bereitschaft sheet reports the resulting truth
       if (got === 0 && res.failed > 0) {
         toast(co.dlNone, { icon: 'map', tone: 'warn', action: retry })
       } else if (got === 0 && res.notFound > 0) {
@@ -183,9 +185,11 @@ export function useOfflinePrefetch({ incidentId, center, mapRef, layers, backend
         toast(fillTemplate(res.capped ? co.dlPartialCapped : co.dlPartial, { n: got, total: got + res.failed }), { icon: 'map', tone: 'warn', action: { ...retry, label: co.dlContinue } })
       }
       // a full load says nothing here: the sheet's own ✓ «bereit» shows it (panels/OfflineReadiness)
+      return complete
     } catch {
       // a cancel is not a failure: the operator (or the unmount) asked for it, nothing to report
       if (!quiet && !ctrl.signal.aborted) toast(appConfig.copy.offline.dlFailed, { icon: 'map', tone: 'warn' })
+      return false
     } finally {
       if (offlineAbort.current === ctrl) {
         offlineAbort.current = null
@@ -221,7 +225,10 @@ export function useOfflinePrefetch({ incidentId, center, mapRef, layers, backend
     const t = setTimeout(() => {
       if (!navigator.onLine || isStorageDegraded()) return // this round stays owed — the ref is only stamped on a start
       offlineWarmed.current = offlineWarmSig
-      void downloadOfflineRef.current({ quiet: true })
+      // a pass cut short (the link dropped mid-way) stays owed: the next reconnect re-arms it
+      void downloadOfflineRef.current({ quiet: true }).then((complete) => {
+        if (!complete && offlineWarmed.current === offlineWarmSig) offlineWarmed.current = ''
+      })
     }, 30_000)
     return () => clearTimeout(t)
   }, [offlineWarmSig, online]) // a warm owed while offline re-arms when the link is back
