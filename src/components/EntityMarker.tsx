@@ -157,10 +157,13 @@ export function EntityMarker({
   // takes the LARGER side so the ring always encloses the rectangle
   // ⚠️ GROUND-true (lib/mapView · groundShapePx): the metres say how much ground the shape covers,
   // at every zoom. Too small to see or tap when zoomed far out, it becomes a dot with its name and
-  // size (`shapeDot`), which stays findable and selectable; zoom in to move or resize it.
-  const shpW = e.kind === 'shape' ? groundShapePx(e.sizeM, e.coord[1], zoom) : 0
+  // size (`shapeDot`), which stays findable and selectable. A SELECTED shape never turns into the
+  // dot: its grips own the pointer of a resize in progress, and unmounting them mid-drag would
+  // leave the gesture open. Its metres are resolved once, the kind's default when none is stored.
+  const shapeM = e.kind === 'shape' ? e.sizeM ?? SHAPE_DEFS[e.shape ?? 'square']?.defaultSizeM ?? 40 : 0
+  const shpW = e.kind === 'shape' ? groundShapePx(shapeM, e.coord[1], zoom) : 0
   const shpH = e.kind === 'shape' ? shpW * shapeAspect(e.shape ?? 'square', e.aspect) : 0
-  const shapeDot = e.kind === 'shape' && Math.max(shpW, shpH) < SHAPE_DOT_BELOW_PX
+  const shapeDot = e.kind === 'shape' && selectedId !== e.id && Math.max(shpW, shpH) < SHAPE_DOT_BELOW_PX
   const gpx = shapeDot ? 28 : e.kind === 'shape' ? Math.max(shpW, shpH)
     : e.kind === 'note' || e.kind === 'photo' || e.kind === 'team' ? 56
     : symPx(e.kind, e.coord[1], zoom, symMul)
@@ -328,8 +331,13 @@ export function EntityMarker({
           <i aria-hidden="true" />
           <b>{fillTemplate(appConfig.copy.shapes.dotLabel, {
             name: e.label?.trim() || (appConfig.copy.shapes.names[e.shape ?? 'square'] ?? appConfig.copy.shapes.kindLabel),
-            m: String(Math.round(e.sizeM ?? SHAPE_DEFS[e.shape ?? 'square'].defaultSizeM)),
+            m: String(Math.round(shapeM)),
           })}</b>
+          {lockedShape && onUnlockShape && (
+            <span className="shape-lock-anchor">
+              <LockChip onUnlock={() => onUnlockShape(e.id)} onOpen={() => onSelect(e)} />
+            </span>
+          )}
         </span>
       ) : e.kind === 'shape' ? (
         <>
@@ -496,7 +504,7 @@ export function EntityMarker({
           onEnd={rotUp}
         />
       )}
-      {selectedId === e.id && e.kind === 'shape' && !shapeDot && !e.locked && onShapeTransform && (() => {
+      {selectedId === e.id && e.kind === 'shape' && !e.locked && onShapeTransform && (() => {
         // rotor rotates with the shape so the handles stay attached to it: a tethered
         // knob (top) for rotation, a corner grip for resize. The CSS anchors assume a
         // SQUARE --hbox; a stretched shape overrides them inline so the knob rides the
@@ -626,6 +634,8 @@ export function EntityMarker({
         // (rotation2) and the reach (reachM). Positioned at the tip = centre + reach·(bearing).
         const rad = (((e.rotation2 ?? 0) - bearing) * Math.PI) / 180
         const len = (e.reachM ?? 18) * groundPxPerM(e.coord[1], zoom)
+        // zoomed far out the cage would sit on the truck and catch the drag meant to move it
+        if (len < gpx / 2 + 22) return null
         return (
           <div className="cage-handle" style={{ left: `calc(50% + ${(Math.cos(rad) * len).toFixed(1)}px)`, top: `calc(50% + ${(Math.sin(rad) * len).toFixed(1)}px)` }}>
             <TransformHandle
