@@ -2492,6 +2492,19 @@ describe('Plan line ends in replay', () => {
     expect(board.tafel[0]).not.toHaveProperty('endAttachment')
   })
 
+  // hunt 24.11.2026, frontend-state F8: the detach went out as the live `undefined` patch, which
+  // JSON drops — replay kept the old coupling (the Lage's `draw.detach` always cleared it)
+  it('«Verbindung lösen»: a detached end is free in replay', async () => {
+    const coupled: BoardAnno = { ...line, endAttachment: onChip }
+    const emit = vi.fn()
+    const { container } = renderPlan([chip, coupled], { emit })
+    mouseDown(hitShape(container))
+    fireEvent.click(screen.getAllByRole('button', { name: appConfig.copy.drawingEditor.detachConnection })[0])
+    const wire = JSON.parse(JSON.stringify(emit.mock.calls)) as typeof emit.mock.calls
+    const { board } = await replayEmits({ board: { tafel: [chip, coupled] } }, wire)
+    expect(board.tafel.find((a) => a.id === 'l1')).not.toHaveProperty('endAttachment')
+  })
+
   it('deleting what a line hangs on leaves the line free in replay', async () => {
     const target: BoardAnno = { id: 't1', kind: 'draw', pts: [[0.6, 0.1, 0], [0.9, 0.1, 0]], floor: 0 }
     const hanging: BoardAnno = { ...line, endAttachment: { target: { kind: 'line', id: 't1', endpoint: 'start' }, routing: 'direct' } }
