@@ -674,6 +674,38 @@ def test_a_lost_try_of_the_same_rapport_keeps_its_version():
     items = {"reports": [{"sha": "a", "version": 1}], "reportTry": {"sha": "b", "version": 2}, "reportHigh": 2}
     assert archive.next_report_version(items, "b") == 2  # the same bytes again under the same name
     assert archive.next_report_version(items, "c") == 3
+    # an older build's try at a version already filed with other content is never reused
+    legacy = {
+        "reports": [{"sha": "a", "version": 1}, {"sha": "c", "version": 3}],
+        "reportTry": {"sha": "b", "version": 3},
+    }
+    assert archive.next_report_version(legacy, "b") == 4
+
+
+async def test_a_pass_that_lost_its_lease_sends_no_rapport(
+    client, editor, drive, session_factory, db_session, monkeypatch
+):
+    inc = await _incident(client, editor, address="")
+    await _report(client, inc)
+    await _close(client, inc)
+    upload_into = archive.GraphWriter.upload_into
+
+    async def taken_over_first(self, drive_id, folder, name, data, content_type):
+        if name.startswith(archive.REPORT_STEM):
+            raise AssertionError("PUT after the lease was lost")
+        return await upload_into(self, drive_id, folder, name, data, content_type)
+
+    real_write = archive.write_remote
+
+    async def steal_lease(writer, dest, c, p, reserve=None):
+        async with session_factory() as db:
+            await db.execute(archive.update(archive.T).where(archive.T.id == c.id).values(lease_owner="another-pass"))
+            await db.commit()
+        return await real_write(writer, dest, c, p, reserve)
+
+    monkeypatch.setattr(archive.GraphWriter, "upload_into", taken_over_first)
+    monkeypatch.setattr(archive, "write_remote", steal_lease)
+    assert await archive.run_once(session_factory, transport=drive.transport) == "lost_lease"
 
 
 # hunt 24.11.2026, data-consistency F1: the upload read «open» before its bytes arrived; the close

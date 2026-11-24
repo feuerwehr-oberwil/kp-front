@@ -53,6 +53,12 @@ for arg in "$@"; do
   esac
 done
 
+# the name goes into a SQL string literal (railway-staging-cuts.sql); refuse it before anything moves
+if [[ $STAGING_APP_NAME == *"'"* ]]; then
+  echo "refusing: STAGING_APP_NAME must not contain an apostrophe." >&2
+  exit 2
+fi
+
 if [ "$TARGET_ENV" = "production" ] || [ "$TARGET_ENV" = "$SOURCE_ENV" ]; then
   echo "refusing: the target environment is '$TARGET_ENV'." >&2
   exit 2
@@ -66,7 +72,8 @@ on()    { local env="$1"; shift; railway ssh -e "$env" -s "$SERVICE" -- "$*" 2> 
 # we delete below, so a copied HEALTHCHECK_PING_URL would undo the cut.
 # …nor carry the archive's write registration or open the app's staging gate (config ·
 # external_delivery_allowed): those would hand staging prod's SharePoint again.
-target_vars="$(railway variables -e "$TARGET_ENV" -s "$SERVICE" --kv 2>/dev/null || true)"
+target_vars="$(railway variables -e "$TARGET_ENV" -s "$SERVICE" --kv 2>/dev/null)" \
+  || { echo "refusing: could not read the variables of '$TARGET_ENV' – nothing was changed." >&2; exit 2; }
 if grep -q '^HEALTHCHECK_PING_URL=.' <<<"$target_vars"; then
   echo "refusing: HEALTHCHECK_PING_URL is set in '$TARGET_ENV' – it would ping prod's monitor." >&2
   exit 2

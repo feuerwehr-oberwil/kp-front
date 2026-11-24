@@ -529,6 +529,10 @@ async def folder_id(
     return str(entry["id"])
 
 
+class LeaseLostError(Exception):
+    """The claim's lease went to another pass before the Rapport PUT – stop, send nothing."""
+
+
 def next_report_version(items: dict[str, Any], sha: str) -> int:
     """The version a Rapport of content ``sha`` is filed under (``reportTry`` / ``reportHigh`` in
     ``remote_items``). A try whose answer was lost may have landed: its name is reused only for the
@@ -537,9 +541,13 @@ def next_report_version(items: dict[str, Any], sha: str) -> int:
     Rapport took v2, the lost try was forgotten, and the Rapport after that counted two filed
     reports and replaced v2 (hunt 24.11.2026, records-rapport F1)."""
     tried = items.get("reportTry")
+    filed = {int(r.get("version") or 0): r.get("sha") for r in items.get("reports") or []}
     if isinstance(tried, dict) and tried.get("sha") == sha and int(tried.get("version") or 0) > 0:
-        return int(tried["version"])
-    seen = [int(r.get("version") or 0) for r in items.get("reports") or []]
+        version = int(tried["version"])
+        # an older build could try a version already filed with other content: never again
+        if filed.get(version, sha) == sha:
+            return version
+    seen = [*filed]
     if isinstance(tried, dict):
         seen.append(int(tried.get("version") or 0))
     seen.append(int(items.get("reportHigh") or 0))
@@ -689,15 +697,23 @@ async def deliver(
             return "gone"  # the Einsatz was deleted; its row went with it (CASCADE)
 
         async def reserve() -> None:
-            # under the lease only: a pass that lost it must not write its view back
+            # under the lease only: a pass that lost it must neither write its view back nor PUT
             async with factory() as db:
-                await db.execute(
-                    update(T).where(T.id == c.id, T.lease_owner == c.lease).values(remote_items=dict(c.remote_items))
+                result = await db.execute(
+                    update(T)
+                    .where(T.id == c.id, T.lease_owner == c.lease)
+                    .values(remote_items=dict(c.remote_items))
+                    .returning(T.id)
                 )
+                kept = result.one_or_none() is not None
                 await db.commit()
+            if not kept:
+                raise LeaseLostError
 
         async with httpx.AsyncClient(transport=transport, timeout=120.0) as client:
             more = await write_remote(export_writer(client), dest, c, p, reserve)
+    except LeaseLostError:
+        return "lost_lease"  # another pass owns the row now; it files what is owed
     except Exception as e:
         if not isinstance(e, (GraphError, MissingFileError, AmbiguousArchiveFolderError)):
             logger.exception("Einsatz %s → %s: Ablage crashed", c.incident_id, c.destination)

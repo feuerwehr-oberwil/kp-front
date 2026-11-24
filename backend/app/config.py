@@ -39,9 +39,8 @@ def is_production() -> bool:
 def is_staging() -> bool:
     """A staging copy of production (docs/DEPLOYMENT.md · «A staging copy on Railway»):
     ``ENVIRONMENT``/``APP_ENV`` = staging, or the Railway environment named «staging»."""
-    env = (os.getenv("ENVIRONMENT") or os.getenv("APP_ENV") or "").strip().lower()
-    railway = (os.getenv("RAILWAY_ENVIRONMENT_NAME") or os.getenv("RAILWAY_ENVIRONMENT") or "").strip().lower()
-    return "staging" in (env, railway)
+    names = ("ENVIRONMENT", "APP_ENV", "RAILWAY_ENVIRONMENT_NAME", "RAILWAY_ENVIRONMENT")
+    return any((os.getenv(n) or "").strip().lower() == "staging" for n in names)
 
 
 def external_delivery_allowed() -> bool:

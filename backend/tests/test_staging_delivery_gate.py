@@ -27,6 +27,8 @@ def env(monkeypatch):
         ({"RAILWAY_ENVIRONMENT": "staging"}, False),
         ({"ENVIRONMENT": "staging"}, False),
         ({"RAILWAY_ENVIRONMENT_NAME": "staging", "STAGING_EXTERNAL_DELIVERY": "1"}, True),
+        ({"ENVIRONMENT": "production", "APP_ENV": "staging"}, False),  # every name counts on its own
+        ({"RAILWAY_ENVIRONMENT_NAME": "production", "RAILWAY_ENVIRONMENT": "staging"}, False),
     ],
 )
 def test_staging_closes_external_delivery(env, variables, allowed):
