@@ -23,7 +23,7 @@ import { SHAPE_MIN_M, SHAPE_MAX_M, SHAPE_DEFS, rotationRun, ROTATION_MAX_M, rota
 import { symbolControls, symbolTitleOptions, symbolFieldOptions, symbolPresetFieldKeys, vehicleOriginOptions } from '../lib/symbols'
 import { truppForLine, truppIsOut } from '../lib/truppLines'
 import type { useSymbols } from '../lib/useSymbols'
-import { positionOverride, type VehicleOverrides } from '../lib/useVehicleLayer'
+import { positionOverride, type VehicleOverrides, type VehiclePosition } from '../lib/useVehicleLayer'
 import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import type { TacticalObject } from '../lib/tacticalObjects'
 import type { Doc } from '../lib/workspace'
@@ -70,6 +70,8 @@ export interface MapDetailPanelsProps {
   setVehicleOverrides: Dispatch<SetStateAction<VehicleOverrides>>
   /** «Zurück auf GPS» – the hand position goes, as one ↶ step (useMapActions · resetVehicleGps) */
   resetVehicleGps: (id: string, name: string) => void
+  /** a hand places a live vehicle (useMapActions · placeVehicle) */
+  placeVehicle: (id: string, pos: VehiclePosition) => void
   log: (icon: string, text: string, kind?: TimelineEvent['kind'], audioUrl?: string, entityId?: string, opts?: { rowId?: string; subjectId?: string }) => void
   assignTypedName: (name: string, role: AssignableRole, note?: string) => string | undefined
   drawings: Drawing[]
@@ -118,7 +120,7 @@ export function MapDetailPanels({
   timeline, sym, entityTypedAt, titleLiveRef, beginDrag,
   setDocRaw, endDrag, emit, patchEntity, linkRosterFields, createCircle, doc, undockTeam, effTrupps,
   symbolCaptions, rosterNames, rosterRank, personStatus, rosterFieldHints, setEntityDone, commitEntityFields,
-  vehicleOverrides, canEditIncident, readOnly, stopPersonSharing, setVehicleOverrides, resetVehicleGps, log,
+  vehicleOverrides, canEditIncident, readOnly, stopPersonSharing, setVehicleOverrides, resetVehicleGps, placeVehicle, log,
   assignTypedName, drawings, entities, focusDrawing, noteEntity, notePlacedId, setNotePanelId,
   noteTextLive, setNoteDefaults, selectedDrawing, patchDrawing,
   selectedDrawingId, patchDrawingLabelLive, commitDrawingLabel,
@@ -318,7 +320,7 @@ export function MapDetailPanels({
             && Array.isArray(selected.coord) && vehicleOverrides[selected.id]?.coord == null
             ? () => {
               const coord = selected.coord as LngLat
-              setVehicleOverrides((m) => ({ ...m, [selected.id]: { ...m[selected.id], coord } }))
+              placeVehicle(selected.id, { coord })
               log('truck', fillTemplate(appConfig.copy.contextPanel.logPinned, { name: selected.label ?? '' }), 'symbol', undefined, selected.id)
             }
             : undefined}

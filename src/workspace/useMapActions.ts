@@ -40,7 +40,7 @@ import { useMeasure } from '../lib/useMeasure'
 import { useNotePanelClosing } from '../lib/useNotePanelClosing'
 import { useShareMyPosition } from '../lib/useShareMyPosition'
 import { useSymbols } from '../lib/useSymbols'
-import { positionOverride, withVehiclePosition, type VehicleOverrides } from '../lib/useVehicleLayer'
+import { positionOverride, withVehiclePosition, type VehicleOverrides, type VehiclePosition } from '../lib/useVehicleLayer'
 import type { ShareLinkKind } from '../lib/viewLink'
 import type { Doc } from '../lib/workspace'
 import type { CameraView, Drawing, Entity, LayerId, Incident, LineAttachment, LineEndpoint, LngLat, ShapeKind, TimelineEvent, Trupp, PlanDocument, NoteSize, MapTool } from '../types'
@@ -745,7 +745,7 @@ export function useMapActions({
   const startEntityMove = (id: string) => { if (!tacticalLocked && !liveIds.has(id)) beginDrag() }
   const streamEntityMove = (id: string, c: LngLat) => {
     if (tacticalLocked) return
-    if (liveIds.has(id)) { setVehicleOverrides((m) => ({ ...m, [id]: { ...m[id], coord: c } })); return }
+    if (liveIds.has(id)) { placeVehicle(id, { coord: c }); return }
     setDocRaw((d) => ({
       ...d,
       // an angedockte Gefahrentafel rides along mid-drag too (lib/docking), keeping the
@@ -776,12 +776,24 @@ export function useMapActions({
     if (tacticalLocked || !pos) return
     const put = (p: typeof pos | null) => setVehicleOverrides((m) => withVehiclePosition(m, id, p))
     put(null)
-    rememberOneShotRef.current('karte', fillTemplate(appConfig.copy.contextPanel.resetGpsStep, { name }),
-      () => put(pos), () => put(null), () => [recordKey('vehicleOverrides', id)], 'silent')
+    gpsResets.current.set(id, rememberOneShotRef.current('karte', fillTemplate(appConfig.copy.contextPanel.resetGpsStep, { name }),
+      () => put(pos), () => put(null), () => [recordKey('vehicleOverrides', id)], 'silent'))
+  }
+  /** the reset step standing per vehicle (above) — a later hand placement takes it off the timeline */
+  const gpsResets = useRef(new Map<string, Dropper>())
+  /**
+   * A hand places a live vehicle — a drag, «Hier festhalten», the heading handle. That makes a
+   * standing «Zurück auf GPS» step permanent: its ↶ / ↷ would write the older position over this
+   * one, and the placement itself lays no step (review of #742).
+   */
+  const placeVehicle = (id: string, pos: VehiclePosition) => {
+    gpsResets.current.get(id)?.()
+    gpsResets.current.delete(id)
+    setVehicleOverrides((m) => ({ ...m, [id]: { ...m[id], ...pos } }))
   }
   const finishEntityMove = (id: string, c: LngLat, join?: { lineId: string; endpoint: LineEndpoint } | null, dock?: { hostId: string } | null) => {
     if (tacticalLocked) return
-    if (liveIds.has(id)) setVehicleOverrides((m) => ({ ...m, [id]: { ...m[id], coord: c } }))
+    if (liveIds.has(id)) placeVehicle(id, { coord: c })
     else {
       // Andocken (lib/docking, Feldtest Manuel 07.09.): a Gefahrentafel dropped beside a
       // dockable object becomes its placard; dropped in the open, an existing bond lets go.
@@ -1014,5 +1026,5 @@ export function useMapActions({
     patchEntity(ent.id, { ...(again ? {} : { fields }), ...(act && { readings: act.readings }) })
     if (act) log(READING_ICON, act.text, 'symbol', undefined, ent.id)
   }
-  return { deleteGroup, deleteEntity, duplicateSelection, placed, goToModule, finishSelection, onMapClick, startEntityMove, streamEntityMove, finishEntityMove, onMarquee, transformGroup, goToTrupp, viewsApi, toggleViews, selected, undockTeam, setEntityDone, commitEntityFields, focusDrawing, noteEntity, pick, pickShape, moveLiveOnSheet, resetVehicleGps }
+  return { deleteGroup, deleteEntity, duplicateSelection, placed, goToModule, finishSelection, onMapClick, startEntityMove, streamEntityMove, finishEntityMove, onMarquee, transformGroup, goToTrupp, viewsApi, toggleViews, selected, undockTeam, setEntityDone, commitEntityFields, focusDrawing, noteEntity, pick, pickShape, moveLiveOnSheet, resetVehicleGps, placeVehicle }
 }

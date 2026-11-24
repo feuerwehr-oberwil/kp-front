@@ -28,7 +28,7 @@ import type { useSymbols } from '../lib/useSymbols'
 import type { useTacticalSelection } from '../lib/useTacticalSelection'
 import type { useTeamMarkerActions } from '../lib/useTeamMarkerActions'
 import type { useTruppActions } from '../lib/useTruppActions'
-import type { VehicleOverrides } from '../lib/useVehicleLayer'
+import type { VehiclePosition } from '../lib/useVehicleLayer'
 import type { Entity, LayerDef, Incident, LngLat, Trupp, PreparedMapOverlay, LayerId, Drawing, CaptionMode } from '../types'
 
 export interface MapStageProps {
@@ -82,7 +82,8 @@ export interface MapStageProps {
   rotStart: LngLat | null
   flashDrawingId: string | null
   setDrawTap: Dispatch<SetStateAction<{ id: string; x: number; y: number } | null>>
-  setVehicleOverrides: Dispatch<SetStateAction<VehicleOverrides>>
+  /** a hand places a live vehicle (useMapActions · placeVehicle) */
+  placeVehicle: (id: string, pos: VehiclePosition) => void
 }
 
 export function MapStage({
@@ -91,7 +92,7 @@ export function MapStage({
   initialFitPoints, locateReq, setView, onBasemapUnavailable, onMapSettled, selection, store, mapDrawing,
   mapActions, truppActions, teamMarkers, patchEntity, editNoteId, setEditNoteId, noteTextLive,
   noteTextCommit, setNotePanelId, effTrupps, azAlarm, showTrupp, newTruppFromMarker, removeTeamWithTrail,
-  trails, deleteGhostTrail, measure, coord, rotStart, flashDrawingId, setDrawTap, setVehicleOverrides,
+  trails, deleteGhostTrail, measure, coord, rotStart, flashDrawingId, setDrawTap, placeVehicle,
 }: MapStageProps) {
   const {
     tool, pendingShape, selectedId, setSelectedId, selectedDrawingId, setSelectedDrawingId,
@@ -225,7 +226,7 @@ export function MapStage({
           onMarkerDragEnd={finishEntityMove}
           // a locked session gets no rotate / resize handles at all (MapMarkers draws one only
           // where its writer is wired) — the Plan's parity (RBAC audit 22.10.2026)
-          onRotate={tacticalLocked ? undefined : (id, deg) => { setVehicleOverrides((m) => ({ ...m, [id]: { ...m[id], rotation: deg } })) }}
+          onRotate={tacticalLocked ? undefined : (id, deg) => { placeVehicle(id, { rotation: deg }) }}
           onShapeTransform={tacticalLocked ? undefined : (id, patch, phase) => {
             if (phase === 'start') { beginDrag(); return }
             if (phase === 'move') { setDocRaw((d) => ({ ...d, entities: d.entities.map((e) => (e.id === id ? { ...e, ...patch } : e)) })); return }

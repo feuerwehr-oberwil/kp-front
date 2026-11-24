@@ -186,6 +186,26 @@ describe('resetVehicleGps', () => {
     expect(overrides.v1).toEqual({ fahrer: 'Meier', herkunft: 'Oberwil' })
   })
 
+  // review of #742: a drag after the reset lays no step, so the reset's ↶ wrote the older
+  // coordinate over it — the hand placement makes the reset permanent instead
+  it('a vehicle dragged after the reset keeps the drag: the reset step is off the timeline', () => {
+    let overrides: VehicleOverrides = { v1: { coord: [7, 47], fahrer: 'Meier' } }
+    const timeline = createUndoTimeline()
+    const { deps } = makeDeps([], [])
+    Object.assign(deps, {
+      vehicleOverrides: overrides, liveIds: new Set(['v1']),
+      setVehicleOverrides: (u: SetStateAction<VehicleOverrides>) => { overrides = typeof u === 'function' ? u(overrides) : u },
+      rememberOneShotRef: { current: (domain: UndoDomain, label: string, restore: () => void, reapply: () => void, touches: () => readonly RecordKey[] | null) =>
+        timeline.push({ domain, label, touches, undo: () => { restore() }, redo: () => { reapply() } }) },
+    })
+    const { result } = renderHook(() => useMapActions(deps))
+    act(() => { result.current.resetVehicleGps('v1', 'TLF') })
+    act(() => { result.current.finishEntityMove('v1', [8, 46]) })
+    expect(timeline.canUndo()).toBe(false)
+    timeline.undo()
+    expect(overrides.v1).toEqual({ fahrer: 'Meier', coord: [8, 46] })
+  })
+
   it('a row with nothing but the hand position goes whole', () => {
     let overrides: VehicleOverrides = { v1: { coord: [7, 47] } }
     const { deps } = makeDeps([], [])
