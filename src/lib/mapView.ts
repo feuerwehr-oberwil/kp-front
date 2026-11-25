@@ -1,7 +1,8 @@
 // Pure helpers extracted from MapView: world-scaled symbol/shape sizing, GeoJSON
 // feature builders, and the symbol-kind predicates. No React — safe to unit-test.
 import type { Feature, FeatureCollection, LineString, Polygon } from 'geojson'
-import type { Entity, LayerId, LngLat } from '../types'
+import type { Entity, LayerId, LngLat, ShapeKind } from '../types'
+import { SHAPE_DEFS } from './shapes'
 import { appConfig } from '../config/appConfig'
 import { VEHICLE_SYMBOLS } from '../lib/symbols'
 import { lookbackPoint } from './lineStyle'
@@ -127,7 +128,24 @@ export const SYM_MIN = 28
 // and has no reason to grow, and a wider band would clump the Magazin cluster together.
 const SYM_MIN_KIND: Record<string, number> = { vehicle: 34 }
 const SYM_MAX = 48
+/** CSS px per metre on a 256-px tile grid – the symbols' screen-size curve (symPx) and the Kroki's
+ *  print grid (lib/krokiPayload) read it. ⚠️ Not the live map's ground scale: see groundPxPerM. */
 export const pxPerM = (lat: number, z: number) => Math.pow(2, z) / (156543.03392 * Math.cos((lat * Math.PI) / 180))
+/** CSS px per metre on the LIVE map. MapLibre's zoom counts 512-px tiles, so it is `pxPerM` one
+ *  zoom up (lib/karte/arrival does the same). ⚠️ Metre-sized things on the map read this (hunt
+ *  24.11.2026, karte F2): with `pxPerM` a 40 m Absperrung covered 20 m of ground, the Hubretter
+ *  reach likewise, and their grips converted the drag back with the same half scale. */
+export const groundPxPerM = (lat: number, z: number) => pxPerM(lat, z + 1)
+/** Below this many px a metre-sized shape is drawn as a labelled dot (EntityMarker): ground-true it
+ *  would be too small to see or tap when zoomed far out. */
+export const SHAPE_DOT_BELOW_PX = 16
+/** A metre-sized shape's width on the LIVE map: ground-true at every zoom, no floor and no ceiling
+ *  (owner, 24.11.2026: «georeferenced things are ground-true at every zoom»). */
+export const groundShapePx = (sizeM: number | undefined, lat: number, z: number) => (sizeM ?? 40) * groundPxPerM(lat, z)
+/** A shape's width in ground metres: the stored one, else its kind's default (an unknown kind:
+ *  40 m). ONE answer for every live-map reader – the box, the dot, the grips, the label pass. */
+export const shapeSizeM = (e: { sizeM?: number; shape?: string }): number =>
+  e.sizeM ?? SHAPE_DEFS[(e.shape ?? 'square') as ShapeKind]?.defaultSizeM ?? 40
 export const symPx = (kind: string, lat: number, z: number, mul = 1) =>
   Math.max(SYM_MIN_KIND[kind] ?? SYM_MIN, Math.min(SYM_MAX, (SIZE_M[kind] ?? 8) * pxPerM(lat, z))) * mul
 
@@ -150,10 +168,9 @@ export function teamDockAnchor(
   const hostPx = symPx(host.kind, host.coord[1], zoom, symMul)
   return { host, hostPx, ...dockSlotOffset(hostPx, slots.get(e.id) ?? 0) }
 }
-// shapes are sized in real-world metres so they grow/shrink with zoom like a
-// ground footprint (a smoke cloud covering an area, an arrow spanning a street)
-// `maxPx` is the per-kind ceiling (lib/shapes · SHAPE_MAX_PX) — the general 900 stops a stray
-// value producing a mile-wide DOM box, but a Rotation is meant to span the map and needs its own.
+// A shape on the KROKI (print and its preview, 256-px grid): sized in real-world metres, clamped
+// to 24 px and a per-kind ceiling (lib/shapes · SHAPE_MAX_PX) so the raster stays bounded. The live
+// map draws shapes ground-true instead (groundShapePx).
 export const shapePx = (sizeM: number | undefined, lat: number, z: number, maxPx = 900) => Math.max(24, Math.min(maxPx, (sizeM ?? 40) * pxPerM(lat, z)))
 // directional tactical symbols that support drag-to-rotate, and the generic placed vehicle —
 // one pair of predicates for the Karte and the Plan, defined beside ROTATABLE (lib/symbols)

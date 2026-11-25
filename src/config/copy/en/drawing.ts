@@ -102,6 +102,8 @@ export const drawingCopy: Localizable<Pick<Copy, Keys>> = {
     cornersRound: 'Rounded',
     cornersSharp: 'Square',
     names: { arrow: 'Arrow', cloud: 'Smoke', square: 'Rectangle', rotation: 'Shuttle run' },
+    // zoomed far out: a shape too small to see or tap, as a dot with its name and size
+    dotLabel: '{name} · {m} m',
 
     size: 'Size',
     sizeSmaller: 'Smaller',

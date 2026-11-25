@@ -18,7 +18,7 @@ import { ConnectRing } from './NodeDeleteChip'
 import { EntityMarker, type ShapeGripMode } from './EntityMarker'
 import { useHazardData } from '../lib/useHazardData'
 import { fanOffsets, pileAt } from '../lib/labelPass'
-import { pxPerM, symPx, effectiveLayer } from '../lib/mapView'
+import { groundPxPerM, symPx, effectiveLayer } from '../lib/mapView'
 import { dockSlots, teamDockHost } from '../lib/docking'
 import { freeResizeLocal, rotationEnd, rotationEndDeg, rotorDeg } from '../lib/rotorMath'
 
@@ -397,7 +397,7 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
     let toCont = { x: 0, y: 0 }
     if ((mode === 'endA' || mode === 'endB') && ent) {
       const size = ent.sizeM ?? SHAPE_DEFS.rotation.defaultSizeM
-      const ppm = pxPerM(lat, zoom)
+      const ppm = groundPxPerM(lat, zoom)
       const half = (rotationRun(size, ent.aspect) * ppm) / 2
       const rad = (((ent.rotation ?? 0) - bearing) * Math.PI) / 180
       const away = mode === 'endA' ? 1 : -1 // the end that stays put is the far one
@@ -437,7 +437,7 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
       let { x: ex, y: ey } = rotationEnd({ x: clientX, y: clientY }, f, st.gripOffPx)
       const snap = trackEndMagnet(st.id, { x: ex, y: ey }, st.toCont)
       if (snap) { ex = snap.x; ey = snap.y }
-      const ppm = pxPerM(st.lat, zoom)
+      const ppm = groundPxPerM(st.lat, zoom)
       const runM = Math.max(SHAPE_MIN_M, Math.min(ROTATION_MAX_M, Math.hypot(ex - f.x, ey - f.y) / ppm))
       const { size, aspect } = rotationBox(runM, ROTATION_W_M)
       const c = unproject({ x: (f.x + ex) / 2 + st.toCont.x, y: (f.y + ey) / 2 + st.toCont.y })
@@ -457,7 +457,7 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
       // angle is the boom direction directly.
       const rotation2 = rotorDeg({ x: clientX, y: clientY }, { x: st.cx, y: st.cy }, 'aim', bearing)
       const dist = Math.hypot(clientX - st.cx, clientY - st.cy)
-      const reachM = Math.max(5, Math.min(120, Math.round(dist / pxPerM(st.lat, zoom))))
+      const reachM = Math.max(5, Math.min(120, Math.round(dist / groundPxPerM(st.lat, zoom))))
       onShapeTransform?.(st.id, { rotation2, reachM }, 'move')
     } else if (st.mode === 'rotate' || st.mode === 'rotate2') {
       // the body knob sits at the top (+90 → 0°); the fan knob sits at the BOTTOM (−90), so the two
@@ -470,7 +470,7 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
       // shape's own frame, sets width from |dx| and height from |dy| independently. Same
       // maths as the Plan's resize (Whiteboard · rotMove), so the two surfaces feel identical.
       const { lx, ly } = freeResizeLocal({ x: clientX, y: clientY }, { x: st.cx, y: st.cy }, st.rot)
-      const ppm = pxPerM(st.lat, zoom)
+      const ppm = groundPxPerM(st.lat, zoom)
       // ⚠️ GROUND metres, not screen px (lib/shapes · SHAPE_MIN_M): a pixel floor would store a
       // different real-world size depending on the zoom the drag happened at, and one zoom step
       // in would let the same drag continue past it.
@@ -502,7 +502,7 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
       const aspect = Math.max(0.2, Math.min(5, Math.round((heightM / sizeM) * 100) / 100))
       onShapeTransform?.(st.id, { sizeM, aspect }, 'move')
     } else {
-      const ppm = pxPerM(st.lat, zoom)
+      const ppm = groundPxPerM(st.lat, zoom)
       const dist = Math.hypot(clientX - st.cx, clientY - st.cy)
       const sizeM = (dist * Math.SQRT2) / ppm // corner handle = half-diagonal
       // …and the same ground floor for a proportional shape (the Pfeil)

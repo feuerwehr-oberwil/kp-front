@@ -28,8 +28,7 @@ import { centroid, rotateAround, turnedBy } from '../lib/selectionTransform'
 import { SelectionBar } from './SelectionBar'
 import { SelectionTurn } from './SelectionTurn'
 import { useArmedTransform } from '../lib/useArmedTransform'
-import { SHAPE_MAX_PX } from '../lib/shapes'
-import { EMPTY_STYLE, END_TAG_LABEL_STYLE, mapMaxZoom, vis, fc, lineFeat, polyFeat, pathSegmentCount, resumeViewState, shapePx, symPx, effectiveLayer, nativeDrawingChromeVisible, lineLabelAction } from '../lib/mapView'
+import { EMPTY_STYLE, END_TAG_LABEL_STYLE, mapMaxZoom, vis, fc, lineFeat, polyFeat, pathSegmentCount, resumeViewState, groundShapePx, shapeSizeM, symPx, effectiveLayer, nativeDrawingChromeVisible, lineLabelAction } from '../lib/mapView'
 import { TeilstueckFork, EndTag, hasLineDecor } from '../lib/lineDecor'
 import { WAND_MAP_PX } from '../lib/grundriss'
 import { cachedLabelSize, MARKER_Z } from '../lib/labelPass'
@@ -494,7 +493,7 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
       center = guarded.point as LngLat
     }
     const c = map.project(center), t = map.project(toward)
-    const size = e.kind === 'shape' ? shapePx(e.sizeM, e.coord[1], zoom, SHAPE_MAX_PX[e.shape ?? 'square'])
+    const size = e.kind === 'shape' ? groundShapePx(shapeSizeM(e), e.coord[1], zoom)
       : e.kind === 'team' ? 56 : e.kind === 'note' || e.kind === 'photo' ? 56 : symPx(e.kind, e.coord[1], zoom, symMul)
     // negative padding = the endpoint lands just INSIDE the glyph, so the stroke disappears
     // under the marker instead of stopping short of it (see attachInsetPx)
@@ -1368,8 +1367,8 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
       // beats a soft base there (owner on #383). The raster SOURCES keep their own native `maxzoom`
       // (MapLayers), so past it MapLibre stretches the last tile level. The Karte asks for the
       // visible base's last SHARP level instead (`zoomCapAtBase`, lib/mapView · mapMaxZoom); a base
-      // that ends sooner (OSM) then clamps the view. Symbols are pinned by symPx's band and a Form
-      // by shapePx's ceiling, so nothing outgrows the screen on the extra step.
+      // that ends sooner (OSM) then clamps the view. Symbols are pinned by symPx's band; a Form is
+      // ground-true (lib/mapView · groundShapePx) and grows with the ground it covers.
       maxZoom={mapMaxZoom(layers.find((l) => l.base && isVisible(l.id)), zoomCapAtBase)}
       // Only the print/report instance needs its GL back-buffer preserved (it captures the canvas
       // via getCanvas().toDataURL() — see ReportPrintView / reportPdf). On the always-live field

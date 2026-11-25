@@ -8,6 +8,7 @@ import {
   pathSegmentCount,
   polyFeat,
   pxPerM,
+  groundShapePx,
   resumeViewState,
   shapePx,
   effectiveLayer,
@@ -95,6 +96,19 @@ describe('pxPerM / symPx / shapePx — world-scaled sizing', () => {
   it('symPx falls back to 8 m for an unknown kind', () => {
     const z = 17
     expect(symPx('mystery', 47, z)).toBe(symPx('symbol', 47, z)) // both default to 8m
+  })
+
+  // hunt 24.11.2026, karte F2: a 40 m Absperrung covered 20 m of ground – the live map's zoom
+  // counts 512-px tiles, and the shape was sized on the 256-px scale
+  it('groundShapePx is ground-true on the live map: 40 m are 40 m of MapLibre Mercator at any zoom', () => {
+    const lat = 47.5
+    for (const z of [12, 18, 22]) {
+      // MapLibre: world = 512 · 2^z CSS px; one metre = 1 / (2π · 6371008.8 · cos lat) Mercator units
+      // (maplibre-gl src/geo/mercator_coordinate.ts · meterInMercatorCoordinateUnits)
+      const perM = (512 * 2 ** z) / (2 * Math.PI * 6371008.8 * Math.cos((lat * Math.PI) / 180))
+      // within 0.25 %: the tiles' Web-Mercator radius (6378137) against MapLibre's mean one (6371008.8)
+      expect(Math.abs(groundShapePx(40, lat, z) / perM - 40)).toBeLessThan(0.1)
+    }
   })
 
   it('shapePx clamps to the [24, 900] px range and defaults size to 40 m', () => {
