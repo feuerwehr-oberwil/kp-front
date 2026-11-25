@@ -2589,6 +2589,7 @@ describe('the relationship halo on the Plan', () => {
   it('…while a selected symbol still lights its hose and what hangs on it', () => {
     const { container } = renderPlan([chip, hyd, hose])
     mouseDown(container.querySelector('.wb-symbol')!)
-    expect(container.querySelectorAll('.wb-anno.network').length).toBeGreaterThan(0)
+    // the halo sits on a networked object that is NOT the selected one: the chip at the far end
+    expect(container.querySelectorAll('.wb-resource.network .network-halo')).toHaveLength(1)
   })
 })
