@@ -1191,7 +1191,8 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     return [port[0] / sW, localY(port[1] / sH, floor), floor]
   }
   for (const l of attachmentLines) resolvedPts.set(l.id, resolveLinePoints(l, { lines: attachmentLines, objectPoint, linePoint }))
-  const relationship = relationshipNetwork(attachmentLines, selId && attachmentLines.some((l) => l.id === selId) ? [selId] : [], selId && annos.some((a) => a.id === selId && (a.kind === 'symbol' || a.kind === 'resource')) ? [selId] : [])
+  // ⚠️ seeded from a selected symbol, never a Trupp chip – the Lage's rule (MapView · relationship)
+  const relationship = relationshipNetwork(attachmentLines, selId && attachmentLines.some((l) => l.id === selId) ? [selId] : [], selId && annos.some((a) => a.id === selId && a.kind === 'symbol') ? [selId] : [])
   // resolvedPts already carries the dragged endpoint at the finger position (attachmentLines injects
   // it above), so the anno list needs no second override.
   const renderAnnos = shownAnnos.map((a) => (resolvedPts.has(a.id) ? { ...a, pts: resolvedPts.get(a.id)! } : a))

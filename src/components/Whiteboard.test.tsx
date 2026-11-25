@@ -2571,3 +2571,24 @@ describe('a single Objekt plan on a phone', () => {
     expect(within(row as HTMLElement).getByRole('button', { name: /^Gebäude/ })).toBeTruthy()
   })
 })
+
+// sweep 25.11.2026 #12: the Lage's seed rule (MapView · relationship, 15.09.) – a selected Trupp
+// chip lit the water source at the far end of its hose, which read as «that is selected too»
+describe('the relationship halo on the Plan', () => {
+  const hyd: BoardAnno = { id: 's2', kind: 'symbol', symbol: 'FW Hydrant', label: 'H-142', x: 0.8, y: 0.8, floor: 0 }
+  const hose = { id: 'l9', kind: 'draw', pts: [[0.5, 0.5, 0], [0.8, 0.8, 0]], floor: 0,
+    startAttachment: { target: { kind: 'object', id: 'c1' } }, endAttachment: { target: { kind: 'object', id: 's2' } } } as BoardAnno
+
+  it('is not seeded from a selected Trupp chip', () => {
+    const { container } = renderPlan([chip, hyd, hose])
+    mouseDown(screen.getByText('Trupp 1'))
+    expect(container.querySelectorAll('.network-halo')).toHaveLength(0)
+    expect(container.querySelectorAll('.wb-anno.network')).toHaveLength(0)
+  })
+
+  it('…while a selected symbol still lights its hose and what hangs on it', () => {
+    const { container } = renderPlan([chip, hyd, hose])
+    mouseDown(container.querySelector('.wb-symbol')!)
+    expect(container.querySelectorAll('.wb-anno.network').length).toBeGreaterThan(0)
+  })
+})
