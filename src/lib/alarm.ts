@@ -6,10 +6,10 @@
 // sound until it is resumed inside a real user gesture (tap/click/keydown). So
 // `primeAudio()` must run inside such a gesture once. The first tap ANYWHERE in the app does
 // it (`armOnAnyTap`, mounted by App; owner pick UX journeys M·3, 25.11.2026), with a short
-// «Alarmton an» toast. It replaces the rule that only «Einsatz starten / öffnen», the
-// Trupp-Formular and a tap on the Tafel unlocked it (App · selectIncident, 2026-08): after a
-// reload of a running Einsatz an überfällig alarm stayed silent until somebody happened to touch
-// one of those. After that the `Alarm` can sound later without interaction. Whether it worked is
+// «Alarmton an» toast once that tap is over (the tap still does its own job). It replaces the
+// rule that only «Einsatz starten / öffnen», the Trupp-Formular and a tap on the Tafel unlocked
+// it (App · selectIncident, 2026-08): after a reload of a running Einsatz an überfällig alarm
+// stayed silent until somebody happened to touch one of those. After that the `Alarm` can sound later without interaction. Whether it worked is
 // readable via `audioUnlocked()`, so the bell can say "Ton nicht freigegeben" instead of
 // claiming to be armed.
 //
@@ -137,8 +137,13 @@ export function unlockAlarm() {
 
 /** The events that count as a user gesture for audio. `pointerdown` alone is not enough: for a
  *  finger, the HTML spec's user activation comes with `pointerup` / `touchend`, not with the
- *  press, so a tablet needs those too. Each one primes only while the tone is still off. */
-const GESTURES = ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown'] as const
+ *  press, so a tablet needs those too. Each one primes only while the tone is still off.
+ *  `pointercancel` is no gesture: it only ends a press (a drag the browser took over). */
+const GESTURES = ['pointerdown', 'pointerup', 'pointercancel', 'touchend', 'click', 'keydown'] as const
+
+/** How long `onArmed` waits after the finger lifts. A touch's `click` comes after its
+ *  `pointerup`, and whatever appears under the finger before that takes the tap. */
+const SETTLE_MS = 300
 
 /**
  * Arm the tone with the first tap anywhere in the app (owner pick UX journeys M·3, 25.11.2026).
@@ -146,22 +151,37 @@ const GESTURES = ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown'] as
  * gesture while the tone is off primes it; `onArmed` runs each time the context reaches
  * `running` because of such a prime (App shows «Alarmton an»). It keeps listening after that: an
  * interruption (a call, Siri) stops the context again, and the next tap brings it back.
- * Returns the uninstall.
+ * ⚠️ `onArmed` runs only once the arming tap is over (no pointer down, SETTLE_MS after the
+ * last lift): the first tap must still do its own job. A toast shown on the `pointerdown` stood
+ * under the finger, took the `pointerup`, and the tap's `click` never reached the Karte search
+ * row it was meant for (PR #752's CI, 25.11.2026). Returns the uninstall.
  */
 export function armOnAnyTap(onArmed: () => void): () => void {
   // a prime was sent and the context has not reported `running` yet (resume is async)
   let waiting = false
-  const onGesture = () => {
+  // the context is running; `onArmed` waits for the tap to end
+  let due = false
+  let pressed = false
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const settle = () => {
+    clearTimeout(timer)
+    if (due && !pressed) timer = setTimeout(() => { due = false; onArmed() }, SETTLE_MS)
+  }
+  const armed = () => { waiting = false; due = true; settle() }
+  const onGesture = (e: Event) => {
+    if (e.type === 'pointerdown') { pressed = true; clearTimeout(timer) }
+    if (e.type === 'pointerup' || e.type === 'pointercancel') { pressed = false; settle() }
     if (audioUnlocked() || !primeAudio()) return
     // a context created inside the gesture can be running at once, with no statechange to follow
-    if (audioUnlocked()) { waiting = false; onArmed() } else waiting = true
+    if (audioUnlocked()) armed(); else waiting = true
   }
   const off = onAudioState(() => {
-    if (waiting && audioUnlocked()) { waiting = false; onArmed() }
+    if (waiting && audioUnlocked()) armed()
   })
   for (const e of GESTURES) document.addEventListener(e, onGesture, { capture: true, passive: true })
   return () => {
     off()
+    clearTimeout(timer)
     for (const e of GESTURES) document.removeEventListener(e, onGesture, { capture: true })
   }
 }

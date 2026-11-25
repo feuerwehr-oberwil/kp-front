@@ -122,8 +122,10 @@ describe('alarm — an interrupted context', () => {
     const off = fresh.armOnAnyTap(armed)
     document.body.dispatchEvent(new Event('pointerup', { bubbles: true }))
     expect(fresh.audioUnlocked()).toBe(true)
+    vi.advanceTimersByTime(300)
     expect(armed).toHaveBeenCalledTimes(1)
     document.body.dispatchEvent(new Event('click', { bubbles: true }))
+    vi.advanceTimersByTime(300)
     expect(lastCtx.resume).toHaveBeenCalledTimes(1)
     expect(armed).toHaveBeenCalledTimes(1)
     off()
@@ -139,11 +141,13 @@ describe('alarm — an interrupted context', () => {
     c.resume.mockImplementation(async () => {})
     c.state = 'interrupted'
     c.dispatch()
+    vi.advanceTimersByTime(300)
     expect(armed).toHaveBeenCalledTimes(1)
     document.body.dispatchEvent(new Event('keydown', { bubbles: true }))
     expect(armed).toHaveBeenCalledTimes(1) // not running yet
     c.state = 'running'
     c.dispatch()
+    vi.advanceTimersByTime(300)
     expect(armed).toHaveBeenCalledTimes(2)
     off()
     c.state = 'interrupted'
@@ -151,7 +155,32 @@ describe('alarm — an interrupted context', () => {
     document.body.dispatchEvent(new Event('pointerup', { bubbles: true }))
     c.state = 'running'
     c.dispatch()
+    vi.advanceTimersByTime(300)
     expect(armed).toHaveBeenCalledTimes(2) // uninstalled: nothing listens any more
+  })
+
+  // PR #752's CI (25.11.2026): «Alarmton an» shown on the pointerdown stood under the finger,
+  // took the pointerup, and the Karte search row never got its click – the first tap was lost.
+  it('armOnAnyTap: the arming tap ends before onArmed runs – no pointer down, the click landed', async () => {
+    const fresh = await import('./alarm')
+    const armed = vi.fn()
+    const off = fresh.armOnAnyTap(armed)
+    document.body.dispatchEvent(new Event('pointerdown', { bubbles: true }))
+    expect(fresh.audioUnlocked()).toBe(true)
+    vi.advanceTimersByTime(1000) // a long press: the finger is still down
+    expect(armed).not.toHaveBeenCalled()
+    document.body.dispatchEvent(new Event('pointerup', { bubbles: true }))
+    vi.advanceTimersByTime(200)
+    // the next tap starts before the first one settled: wait for that one too
+    document.body.dispatchEvent(new Event('pointerdown', { bubbles: true }))
+    vi.advanceTimersByTime(1000)
+    expect(armed).not.toHaveBeenCalled()
+    document.body.dispatchEvent(new Event('pointercancel', { bubbles: true }))
+    vi.advanceTimersByTime(299)
+    expect(armed).not.toHaveBeenCalled()
+    vi.advanceTimersByTime(1)
+    expect(armed).toHaveBeenCalledTimes(1)
+    off()
   })
 })
 
