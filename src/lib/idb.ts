@@ -400,7 +400,8 @@ export async function idbSet(key: string, value: unknown): Promise<boolean> {
  *  current value or null to delete it. A failed read is never treated as an empty record.
  *  As with idbSet, a failed commit can fall back to JSON; a fallback deletion leaves a null
  *  tombstone so a surviving older IndexedDB value cannot reappear on the next read.
- *  `fence`: as in idbSetFenced – a fence held by another token refuses the change (false). */
+ *  `fence`: as in idbSetFenced – a fence held by another token refuses the change (false), and a
+ *  fenced change that failed in IndexedDB is not written to the fallback. */
 export async function idbUpdate<T>(key: string, update: (current: T | null) => T | null | undefined, fence?: IdbFence): Promise<boolean> {
   let readSucceeded = false
   let refused = false
@@ -440,7 +441,8 @@ export async function idbUpdate<T>(key: string, update: (current: T | null) => T
       return cleared
     } catch { /* an answered read still permits the same JSON fallback as idbSet */ }
   }
-  if (fence && idbUnavailable) {
+  if (fence && !idbUnavailable) { setDegraded(true); return false }
+  if (fence) {
     const fb = lsRead<unknown>(FB_PREFIX + fence.key)
     const token = fb.found ? fb.value : lsGet(fence.key)
     if (token != null && token !== fence.token) return false
@@ -462,11 +464,13 @@ export interface IdbFence { key: string; token: string }
  * readwrite transaction as the put, so it holds across tabs. The tab that takes over a slot writes
  * its own token there first (a plain `idbSet` of the fence key); every write the previous holder
  * has not yet started is then refused, however late it runs (lib/api/workspaceSync · the edit
- * lock). Resolves false when refused or not durable, like idbSet. The JSON fallback is written
- * only when the fence was read and matched in this transaction, or when IndexedDB is unavailable
- * for the whole session (then the fence lives in the fallback too).
+ * lock). Resolves false when refused or not durable, like idbSet. ⚠️ No JSON fallback after a
+ * failed transaction: published later, it would outrank a newer draft the next holder committed
+ * meanwhile (Sol r1, 25.11.2026). Only a session without IndexedDB at all writes the fallback
+ * (then the fence lives there too). `refused` is told whether the FENCE said no, so the caller
+ * does not evict map tiles for it.
  */
-export async function idbSetFenced(key: string, value: unknown, fence: IdbFence): Promise<boolean> {
+export async function idbSetFenced(key: string, value: unknown, fence: IdbFence, refused: () => void = () => {}): Promise<boolean> {
   const mine = (held: unknown) => held == null || held === fence.token
   let fenceMatched = false
   if (!idbUnavailable) {
@@ -481,19 +485,15 @@ export async function idbSetFenced(key: string, value: unknown, fence: IdbFence)
         })
         return read
       })
-      if (!fenceMatched) return false
+      if (!fenceMatched) { refused(); return false }
       const cleared = clearFallback(key) && lsDel(key)
       setDegraded(!cleared)
       return cleared
-    } catch { /* falls back below, only over a fence this transaction read */ }
+    } catch { /* not durable – see above */ }
   }
-  if (idbUnavailable) {
-    const fb = lsRead<unknown>(FB_PREFIX + fence.key)
-    if (!mine(fb.found ? fb.value : lsGet(fence.key))) return false
-  } else if (!fenceMatched) {
-    setDegraded(true)
-    return false
-  }
+  if (!idbUnavailable) { setDegraded(true); return false }
+  const fb = lsRead<unknown>(FB_PREFIX + fence.key)
+  if (!mine(fb.found ? fb.value : lsGet(fence.key))) { refused(); return false }
   const stored = writeFallback(key, value)
   setDegraded(!stored)
   return stored

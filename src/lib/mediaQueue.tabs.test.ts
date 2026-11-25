@@ -11,6 +11,11 @@ async function tabModule(): Promise<Queue> {
   vi.resetModules()
   return import('./mediaQueue')
 }
+/** …with that tab's own storage module, to make one of its writes fail */
+async function tabWithStorage() {
+  const queue = await tabModule()
+  return { queue, idb: await import('./idb') }
+}
 
 afterEach(() => { Reflect.deleteProperty(globalThis.navigator, 'locks') })
 
@@ -30,4 +35,24 @@ it('a receipt retired in one tab while the other stores a capture keeps the capt
   ])
   const stored = await (await tabModule()).listMediaQueue(id)
   expect(stored.map((i) => i.rowId)).toEqual(['r2'])
+})
+
+it('a tab whose write failed does not undo a voice memo the other tab re-recorded since', async () => {
+  Object.defineProperty(globalThis.navigator, 'locks', { value: new FakeLocks(), configurable: true })
+  const a = await tabWithStorage()
+  const b = await tabModule()
+  const id = 'memo-inc'
+  await a.queue.enqueueMedia(id, 'r1', 'audio', new Blob(['old']), 'old.webm', '2026-11-25T10:00:00Z')
+  // A's flush answers «offline» and its write-back fails: A now holds the queue in memory
+  vi.spyOn(a.idb, 'idbSet').mockResolvedValueOnce(false).mockResolvedValueOnce(false)
+  await a.queue.flushMediaQueue(id, async () => { throw new Error('offline') })
+  expect(a.queue.isMediaQueueDurable(id)).toBe(false)
+  vi.restoreAllMocks()
+  // the edit lock moved: B re-records the memo of the same row
+  await b.enqueueMedia(id, 'r1', 'audio', new Blob(['new']), 'new.webm', '2026-11-25T10:05:00Z')
+  const sent: string[] = []
+  await a.queue.flushMediaQueue(id, async (_i, blob) => { sent.push(await blob.text()); return { url: '/api/media/9' } })
+  expect(sent).toEqual(['new'])
+  const stored = await (await tabModule()).listMediaQueue(id)
+  expect(stored).toEqual([expect.objectContaining({ createdAt: '2026-11-25T10:05:00Z' })])
 })

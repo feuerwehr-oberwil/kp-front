@@ -74,17 +74,24 @@ export function useMediaOutbox({
     else patchRow(rowId, { audioUrl: url })
   }, [swapPhoto, swapAttachmentMedia, overlayRow, patchRow])
 
-  // `rowId url` of every link this session made — the rows of a render can lag the store
-  const linked = useRef(new Set<string>())
+  // `rowId url` of every link this session made — the rows of a render can lag the store. Per
+  // ENGINE: a link made into an engine that then lost the edit lock never reached the slot, so a
+  // fresh engine (the lock came back, lib/incidentSelection) must be linked again (Sol r1).
+  const linkedBy = useRef<{ engine: unknown; keys: Set<string> }>({ engine: sync, keys: new Set() })
+  const linkedIn = (engine: unknown) => {
+    if (linkedBy.current.engine !== engine) linkedBy.current = { engine, keys: new Set() }
+    return linkedBy.current.keys
+  }
   const { rows, getStatus: journalStatus, rowShown } = journal
   /** A receipt's replay (useMediaQueue · onUploaded): link once, retire once delivered. */
   const linkUploaded = useCallback((rowId: string, kind: 'photo' | 'audio', url: string, replaces?: string, target?: MediaTarget, place?: PhotoSlot): boolean => {
     const key = `${target ?? 'row'} ${rowId} ${url}`
+    const linked = linkedIn(sync)
     if (target === 'attachment') {
-      if (!linked.current.has(key)) {
+      if (!linked.has(key)) {
         // committed now, with the workspace's save effect: a check after it sees that save
         flushSync(() => swapAttachmentMedia(rowId, url))
-        linked.current.add(key)
+        linked.add(key)
       }
       return !sync.hasUnsynced
     }
@@ -96,9 +103,9 @@ export function useMediaOutbox({
     const row = rows.find((r) => r.id === rowId)
     if (!row) return false // shown, but this render predates it: the next render replays
     const carried = kind === 'photo' ? rowPhotos(row).includes(url) : row.audioUrl === url
-    if (!carried && !linked.current.has(key)) {
+    if (!carried && !linked.has(key)) {
       swapRowMedia(rowId, kind, url, replaces, undefined, place)
-      linked.current.add(key)
+      linked.add(key)
     }
     return journalStatus() === 'synced'
   }, [rows, journalStatus, rowShown, swapRowMedia, swapAttachmentMedia, sync])

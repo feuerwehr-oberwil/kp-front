@@ -52,10 +52,12 @@ async function dropLegacyTiles(): Promise<number> {
  *
  * One retry, not a loop: if a single 500-tile eviction didn't help, the pressure is not coming
  * from tiles and hammering the cache would only destroy the operator's prefetched area for
- * nothing. The caller still gets `false` and surfaces the degraded state.
+ * nothing. The caller still gets `false` and surfaces the degraded state. `full`: asked after a
+ * failed write – false when the failure was not about space (a fenced write another tab refused,
+ * api/workspaceSync), so no tiles are evicted for it.
  */
-export async function withTileEviction(write: () => Promise<boolean>): Promise<boolean> {
+export async function withTileEviction(write: () => Promise<boolean>, full: () => boolean = () => true): Promise<boolean> {
   if (await write()) return true
-  if ((await evictOldTiles()) === 0) return false
+  if (!full() || (await evictOldTiles()) === 0) return false
   return write()
 }
