@@ -30,7 +30,7 @@ import { isErgAdopted } from '../lib/ergAdopt'
  * only a number (Gefahrnummer 33, ERG-Leitfaden 128) stays bare. The ERG distances keep their
  * key/value rows: each carries «Absperrkreis übernehmen», which a tile has no room for.
  */
-export function UnHazardSection({ un, ringMode, onRingMode, ergCoord, onAdoptRadius, adoptedRadii = [], nameHero = false }: {
+export function UnHazardSection({ un, ringMode, onRingMode, ergCoord, ergAt, onAdoptRadius, adoptedRadii = [], nameHero = false }: {
   un: string
   /** the substance's name as the card's hero line (lib/unHazard · substanceName) */
   nameHero?: boolean
@@ -39,6 +39,9 @@ export function UnHazardSection({ un, ringMode, onRingMode, ergCoord, onAdoptRad
   onRingMode?: (mode: ErgRingMode) => void
   /** where the rings stand, for the day/night note (lib/ergRings · ergDayNote) */
   ergCoord?: [number, number]
+  /** the moment the rings were drawn for, so the note and the ring cannot disagree (hunt
+   *  24.11.2026, karte F3) — absent ⇒ now */
+  ergAt?: Date
   /** «Absperrkreis übernehmen» beside each distance — absent ⇒ no button */
   onAdoptRadius?: (metres: number) => void
   /** the radii already standing as an Absperrkreis around this placard (lib/ergAdopt): their row
@@ -185,7 +188,7 @@ export function UnHazardSection({ un, ringMode, onRingMode, ergCoord, onAdoptRad
                   Sonnenuntergang 16:42» (B1, 08.10.2026 — it was a silent 07–19 h clock) */}
               <span className="un-haz-k">
                 {C.ergRingsLabel}
-                <span className="un-erg-day">{ergDayNote(new Date(), ergCoord)}</span>
+                <span className="un-erg-day">{ergDayNote(ergAt ?? new Date(), ergCoord)}</span>
               </span>
               {/* …and on a locked panel the answer alone, in the read-out recipe (RBAC audit
                   22.10.2026 — it was a live switch whose taps went nowhere) */}

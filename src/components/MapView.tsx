@@ -1384,10 +1384,13 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
 
       {/* Literal georeferenced Modul sheets are separate from their symbol projections. Ebenen
           owns visibility + transparency; they sit above the basemap and below every tactical
-          object, exactly like a reference raster rather than like an editable surface. */}
-      {!georefOn && georefPlanRasters.map((p, i) => (
-        <Source key={p.id} id={`s-georef-plan-${i}`} type="image" url={p.url} coordinates={p.coordinates}>
-          <Layer id={`l-georef-plan-${i}`} type="raster"
+          object, exactly like a reference raster rather than like an editable surface.
+          ⚠️ The MapLibre ids follow the SHEET, like the React key (hunt 24.11.2026, karte F5): by
+          array index, hiding the first of two sheets renamed the second's source under the same
+          key, and react-maplibre throws «source id changed» – the workspace crashed. */}
+      {!georefOn && georefPlanRasters.map((p) => (
+        <Source key={p.id} id={`s-georef-plan-${p.id}`} type="image" url={p.url} coordinates={p.coordinates}>
+          <Layer id={`l-georef-plan-${p.id}`} type="raster"
             paint={{ 'raster-opacity': p.opacity, 'raster-fade-duration': 0 }} />
         </Source>
       ))}
