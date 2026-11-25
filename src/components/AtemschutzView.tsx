@@ -1453,7 +1453,8 @@ export function AtemschutzView({
     if (p.kind === 'new') { safetyPickNew(); return }
     const x = trupps.find((t) => t.id === p.id)
     if (!x) return
-    if (p.kind === 'redeploy') { openForm('redeploy', { ...x, auftrag: 'sichern' }); return }
+    // a crew that is out needs a fresh bottle: the re-entry form, never a bare «Sichern»
+    if (x.status === 'raus') { openForm('redeploy', { ...x, auftrag: 'sichern' }); return }
     freezeOrder()
     if (forId && designateSafety) designateSafety(x.id, forId)
     else editTrupp(x.id, truppFieldsOf(x, { auftrag: 'sichern' }))

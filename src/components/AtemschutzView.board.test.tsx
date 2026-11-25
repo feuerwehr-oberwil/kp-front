@@ -850,7 +850,7 @@ describe('the Reihenfolge menu', () => {
 describe('a Sicherungstrupp picked from the Meldeleiste', () => {
   it('turns a waiting crew «Sichern» once the board is in front, and answers the pick only once', async () => {
     const waiting: Trupp = { ...aktivTrupp(), id: 'w', name: 'Graf Eva', status: 'angemeldet', entryTime: '', lastContactTime: '', auftrag: 'loeschen' }
-    requestSafetyPick({ kind: 'designate', id: 'w' })
+    requestSafetyPick({ kind: 'crew', id: 'w' })
     const editTrupp = vi.fn()
     mount({ trupps: [aktivTrupp(), waiting], editTrupp })
     await waitFor(() => expect(editTrupp).toHaveBeenCalledOnce())
@@ -860,6 +860,16 @@ describe('a Sicherungstrupp picked from the Meldeleiste', () => {
     cleanup()
     mount({ trupps: [aktivTrupp(), waiting], editTrupp })
     expect(editTrupp).toHaveBeenCalledOnce()
+  })
+
+  it('a crew that went out before the board answered gets the re-entry form, not a bare «Sichern»', async () => {
+    const out: Trupp = { ...aktivTrupp(), id: 'w', name: 'Graf Eva', status: 'raus', exitTime: iso(60_000), auftrag: 'loeschen' }
+    requestSafetyPick({ kind: 'crew', id: 'w' })
+    const editTrupp = vi.fn()
+    mount({ trupps: [aktivTrupp(), out], editTrupp })
+    await screen.findByRole('button', { name: az.reenterSubmit })
+    expect(within(screen.getByRole('group', { name: az.auftragLabel })).getByRole('button', { name: 'Sichern' }).getAttribute('aria-pressed')).toBe('true')
+    expect(editTrupp).not.toHaveBeenCalled()
   })
 
   it('opens the form on «Sichern» for a new Trupp', async () => {

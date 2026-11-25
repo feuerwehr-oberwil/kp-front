@@ -44,7 +44,7 @@ describe('SafetyMissingMeldung', () => {
     expect(screen.getByRole('menuitem', { name: appConfig.copy.atemschutz.safetyPickNew })).toBeTruthy()
     fireEvent.click(item)
     expect(go).toHaveBeenCalledOnce()
-    expect(board).toHaveBeenCalledWith({ kind: 'designate', id: 'w' })
+    expect(board).toHaveBeenCalledWith({ kind: 'crew', id: 'w' })
   })
 
   it('clears itself the moment a Sicherungstrupp is ready, and offers no way to the board it is on', () => {

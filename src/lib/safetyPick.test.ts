@@ -15,10 +15,10 @@ describe('requestSafetyPick', () => {
   })
 
   it('waits for the board the row brought forward, and is answered once', () => {
-    requestSafetyPick({ kind: 'designate', id: 'w' })
+    requestSafetyPick({ kind: 'crew', id: 'w' })
     const first = vi.fn()
     const r = renderHook(() => useSafetyPickAnswer(first))
-    expect(first).toHaveBeenCalledWith({ kind: 'designate', id: 'w' })
+    expect(first).toHaveBeenCalledWith({ kind: 'crew', id: 'w' })
     r.unmount()
     const second = vi.fn()
     renderHook(() => useSafetyPickAnswer(second))

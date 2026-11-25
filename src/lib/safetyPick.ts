@@ -16,9 +16,11 @@ import type { Trupp } from '../types'
 // never takes it, and an old pick must not act minutes later). A module store, not a prop through
 // IncidentWorkspace: the board mounts AFTER the row's tap switched to it.
 
-/** what the pick asks of the board: a crew bereit or inside turns «Sichern», a crew that is out
- *  re-enters on «Sichern», `new` registers a Trupp on «Sichern» */
-export type SafetyPick = { kind: 'designate' | 'redeploy'; id: string } | { kind: 'new' }
+/** what the pick asks of the board: `crew` – that crew on «Sichern», `new` – a Trupp registered
+ *  on «Sichern». HOW a crew gets there (turned «Sichern», or the re-entry form for a crew that is
+ *  out) the board decides from the crew as it stands when it answers: a pick can wait, and the
+ *  crew can go out meanwhile (AtemschutzView · answerSafetyPick). */
+export type SafetyPick = { kind: 'crew'; id: string } | { kind: 'new' }
 
 const PICK_WAIT_MS = 10_000
 let answer: ((p: SafetyPick) => void) | null = null
@@ -61,7 +63,7 @@ export function safetyPickItems(trupps: readonly Trupp[], pick: (p: SafetyPick) 
       { kind: 'head' as const, label: head },
       ...list.map((x) => ({
         label: [x.name, ...(x.members ?? [])].map((n) => n.trim()).filter(Boolean).join(' / '),
-        onClick: () => pick(x.status === 'raus' ? { kind: 'redeploy', id: x.id } : { kind: 'designate', id: x.id }),
+        onClick: () => pick({ kind: 'crew', id: x.id }),
       })),
     ]),
     { kind: 'sep' as const },
