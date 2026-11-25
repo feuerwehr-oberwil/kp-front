@@ -249,6 +249,10 @@ export interface ContextPanelProps {
   /** …and its «Herkunft» (05.11.2026), the row under the Fahrer: same reason, same override map,
    *  `options` = the station's `fleet.origins`. Without `onChange` a read-out. */
   origin?: { value: string; options?: string[]; onChange?: (v: string) => void }
+  /** A placed Fahrzeug named like a GPS vehicle beside it (lib/gpsTwin, owner picks UX journeys
+   *  B3·33/34): the hint under «Bezeichnung», and `onHold` – the symbol goes, the GPS vehicle is
+   *  held at its spot. Without `onHold` (a locked session) the hint alone. */
+  gpsTwin?: { name: string; distM: number; onHold?: () => void }
   connectedLines?: { id: string; label: string }[]
   /** Angedockte Gefahrentafel (SymbolProps.dockedTo, lib/docking): the host's display name.
    *  Rendered with a «Lösen» action when `onUndock` is wired — the panel is the one place the
@@ -315,7 +319,7 @@ function LinkBtn({ onClick, text }: { onClick: () => void; text: string }) {
   )
 }
 
-export function ContextPanel({ entity, svg, onClose, onCenter, onOriginal, originalLabel, onTitle, onTitleLive, onFields, onNotes, onReadingAgain, onFloorFrom, onFloorTo, onSpread, onCount, onRotate, onErgRings, ergCoord, onAdoptRadius, ergAdopted, onRotate2, onCaption, captionDefault = 'auto', onAirflow, controls, titleOptions, fieldOptions, rosterRank, protectedKeys, onDelete, onDone, onStopSharing, readOnly, allowDelete = false, hasOverride, onPinGps, onResetGps, driver, origin, personStatus, fieldHints, connectedLines = [], onFocusLine, dockedToLabel, onUndock, dockedTeams = [], onNoteSize, autoFocusNote = false, onNotePlain, onColor }: ContextPanelProps) {
+export function ContextPanel({ entity, svg, onClose, onCenter, onOriginal, originalLabel, onTitle, onTitleLive, onFields, onNotes, onReadingAgain, onFloorFrom, onFloorTo, onSpread, onCount, onRotate, onErgRings, ergCoord, onAdoptRadius, ergAdopted, onRotate2, onCaption, captionDefault = 'auto', onAirflow, controls, titleOptions, fieldOptions, rosterRank, protectedKeys, onDelete, onDone, onStopSharing, readOnly, allowDelete = false, hasOverride, onPinGps, onResetGps, driver, origin, gpsTwin, personStatus, fieldHints, connectedLines = [], onFocusLine, dockedToLabel, onUndock, dockedTeams = [], onNoteSize, autoFocusNote = false, onNotePlain, onColor }: ContextPanelProps) {
   // read per-render (not module-load) so the resolved locale is applied — see config/copy
   const C = appConfig.copy.contextPanel
   const N = appConfig.copy.notes
@@ -1042,6 +1046,17 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
               />
             </label>
           ))}
+          {/* …and the double it makes beside the GPS vehicle of that name: THE amber form warning,
+              its one action the way out (lib/gpsTwin). Under the name it is about, on every device. */}
+          {labelled && gpsTwin && (
+            <div className="form-warn form-warn-amber ctx-gps-twin" role="note">
+              <Icon id="warn" />
+              <span className="form-warn-text"><b>{gpsTwin.name}</b> {fillTemplate(C.gpsTwinHint, { m: Math.max(1, Math.round(gpsTwin.distM)) })}</span>
+              {gpsTwin.onHold && (
+                <button type="button" className="form-warn-act" onClick={gpsTwin.onHold}>{fillTemplate(C.gpsTwinHold, { name: gpsTwin.name })}</button>
+              )}
+            </div>
+          )}
 
           {/* labelled key/value detail rows: the symbol's preset, plus any free row an older record
               carries. No new free rows (31.10.2026, «+ Feld» is gone) – what is worth saying about

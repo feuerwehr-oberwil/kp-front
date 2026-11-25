@@ -161,6 +161,8 @@ export interface UseMapActionsInputs {
   editNoteId: string | null
   user: AuthUser | null
   stepLabelRef: RefObject<string | null>
+  /** ONE act on the undo timeline across domains (workspace/compoundStep · open) */
+  historyGroup: () => () => void
 }
 
 export function useMapActions({
@@ -177,7 +179,7 @@ export function useMapActions({
   planFit, stepHistory, planKeys, setJournalOpen, setComposerOpen, togglePanel, setSettingsOpen,
   setHelpOpen, coord, notePanelId, notePlacedId, mapWorkRect, drawings, drawTap, beginDrag, setDocRaw,
   endDrag, flyToMapVisible, setVehicleOverrides, vehicleOverrides, trupps, linkTruppLine, patchEntity, objectsRef,
-  objects, setPlanFocus, focusEntity, editNoteId, user, stepLabelRef,
+  objects, setPlanFocus, focusEntity, editNoteId, user, stepLabelRef, historyGroup,
 }: UseMapActionsInputs) {
   // Every path through here ends the "I am reading this object" state — reaching for a tool means
   // you are done with the detail panel, exactly as it has always worked for a note (see the
@@ -794,6 +796,29 @@ export function useMapActions({
     gpsResets.current.delete(id)
     setVehicleOverrides((m) => ({ ...m, [id]: { ...m[id], ...pos } }))
   }
+  /**
+   * «Stattdessen GPS-TLF hier festhalten» (owner picks UX journeys B3·33/34, 25.11.2026): a placed
+   * Fahrzeug named like the GPS vehicle beside it (lib/gpsTwin) goes, and the GPS vehicle is held
+   * at the symbol's spot – «Festhalten» is the ONE vehicle behaviour (copy · editors · pinGps).
+   * ONE ↶ step brings the symbol back and gives the vehicle back to where it was (its feed, or
+   * its earlier hand position). The removal is `deleteEntity`'s, Leitungen question included; the
+   * hold writes the «… festgehalten» row like the sheet's «Festhalten».
+   */
+  const holdGpsInstead = (symbolId: string, vehicleId: string, name: string) => {
+    const ent = doc.entities.find((e) => e.id === symbolId)
+    if (tacticalLocked || !ent) return
+    const was = positionOverride(vehicleOverrides[vehicleId])
+    const at: VehiclePosition = { coord: ent.coord }
+    const put = (p: VehiclePosition | null) => setVehicleOverrides((m) => withVehiclePosition(m, vehicleId, p))
+    const label = fillTemplate(appConfig.copy.contextPanel.gpsTwinStep, { name })
+    const end = historyGroup()
+    void deleteEntity(symbolId, label).then((gone) => {
+      if (!gone) return
+      placeVehicle(vehicleId, at)
+      rememberOneShotRef.current('karte', label, () => put(was), () => put(at), () => [recordKey('vehicleOverrides', vehicleId)], 'silent')
+      log('truck', fillTemplate(appConfig.copy.contextPanel.logPinned, { name }), 'symbol', undefined, vehicleId)
+    }).finally(end)
+  }
   const finishEntityMove = (id: string, c: LngLat, join?: { lineId: string; endpoint: LineEndpoint } | null, dock?: { hostId: string } | null) => {
     if (tacticalLocked) return
     if (liveIds.has(id)) placeVehicle(id, { coord: c })
@@ -1029,5 +1054,5 @@ export function useMapActions({
     patchEntity(ent.id, { ...(again ? {} : { fields }), ...(act && { readings: act.readings }) })
     if (act) log(READING_ICON, act.text, 'symbol', undefined, ent.id)
   }
-  return { deleteGroup, deleteEntity, duplicateSelection, placed, goToModule, finishSelection, onMapClick, startEntityMove, streamEntityMove, finishEntityMove, onMarquee, transformGroup, goToTrupp, viewsApi, toggleViews, selected, undockTeam, setEntityDone, commitEntityFields, focusDrawing, noteEntity, pick, pickShape, moveLiveOnSheet, resetVehicleGps, placeVehicle }
+  return { deleteGroup, deleteEntity, duplicateSelection, placed, goToModule, finishSelection, onMapClick, startEntityMove, streamEntityMove, finishEntityMove, onMarquee, transformGroup, goToTrupp, viewsApi, toggleViews, selected, undockTeam, setEntityDone, commitEntityFields, focusDrawing, noteEntity, pick, pickShape, moveLiveOnSheet, resetVehicleGps, placeVehicle, holdGpsInstead }
 }

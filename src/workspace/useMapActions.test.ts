@@ -219,3 +219,37 @@ describe('resetVehicleGps', () => {
     expect(overrides).toEqual({})
   })
 })
+
+// owner picks UX journeys B3·33/34 (25.11.2026): «Stattdessen GPS-TLF hier festhalten» – the
+// symbol goes, the GPS vehicle is held at its spot, and ONE ↶ gives both back
+describe('holdGpsInstead', () => {
+  it('removes the symbol and holds the vehicle there, as one ↶ step', async () => {
+    let overrides: VehicleOverrides = {}
+    const timeline = createUndoTimeline()
+    const { deps, given, live } = makeDeps([{ ...ent('p', [7.5, 47.5]), label: 'TLF' }], [])
+    let doc = live()
+    Object.assign(deps, {
+      vehicleOverrides: overrides,
+      setVehicleOverrides: (u: SetStateAction<VehicleOverrides>) => { overrides = typeof u === 'function' ? u(overrides) : u },
+      // the store's commit as one karte step on the timeline, the way IncidentWorkspace lays it
+      commit: (u: (d: Doc) => Doc) => {
+        const before = doc
+        const after = u(doc)
+        doc = after
+        timeline.push({ domain: 'karte', label: given.stepLabelRef.current ?? '', undo: () => { doc = before }, redo: () => { doc = after } })
+      },
+      rememberOneShotRef: { current: (domain: UndoDomain, label: string, restore: () => void, reapply: () => void, touches: () => readonly RecordKey[] | null) =>
+        timeline.push({ domain, label, touches, undo: () => { restore() }, redo: () => { reapply() } }) },
+      historyGroup: () => timeline.group(),
+    })
+    const { result } = renderHook(() => useMapActions(deps))
+    await act(async () => { result.current.holdGpsInstead('p', 'gps-7', 'TLF') })
+    expect(doc.entities).toEqual([])
+    expect(overrides).toEqual({ 'gps-7': { coord: [7.5, 47.5] } })
+    expect(timeline.peekUndo()?.label).toBe('GPS-TLF statt Symbol festgehalten')
+    timeline.undo()
+    expect(doc.entities.map((e) => e.id)).toEqual(['p'])
+    expect(overrides).toEqual({})
+    expect(timeline.canUndo()).toBe(false)
+  })
+})

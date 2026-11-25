@@ -148,6 +148,9 @@ export const editorsCopy: Localizable<Pick<Copy, Keys>> = {
     ergSource: 'Fonte: {v} (PHMSA) – ausilio alla pianificazione, non validato',
     ergCameoLabel: 'CAMEO Chemicals (dettagli ERG)',
     spreadBoundedWhat: 'propagazione fermata qui',
+    gpsTwinHint: 'è già sulla carta via GPS, a {m} m. Due simboli = due veicoli?',
+    gpsTwinHold: 'Fissa invece qui il GPS-{name}',
+    gpsTwinStep: 'GPS-{name} fissato al posto del simbolo',
   },
   drawingEditor: {
     area: 'Superficie',

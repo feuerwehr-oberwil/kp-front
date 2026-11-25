@@ -27,6 +27,7 @@ import { positionOverride, type VehicleOverrides, type VehiclePosition } from '.
 import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import type { TacticalObject } from '../lib/tacticalObjects'
 import type { Doc } from '../lib/workspace'
+import { gpsTwin } from '../lib/gpsTwin'
 import type { Entity, LngLat, TimelineEvent, Trupp, Drawing, NoteSize, Person, LineEndpoint, LineAttachment, LayerId, CaptionMode, MapTool } from '../types'
 import type { WorkspaceMode } from './types'
 
@@ -72,6 +73,8 @@ export interface MapDetailPanelsProps {
   resetVehicleGps: (id: string, name: string) => void
   /** a hand places a live vehicle (useMapActions · placeVehicle) */
   placeVehicle: (id: string, pos: VehiclePosition) => void
+  /** a placed Fahrzeug goes and its GPS twin is held there instead (useMapActions · holdGpsInstead) */
+  holdGpsInstead: (symbolId: string, vehicleId: string, name: string) => void
   log: (icon: string, text: string, kind?: TimelineEvent['kind'], audioUrl?: string, entityId?: string, opts?: { rowId?: string; subjectId?: string }) => void
   assignTypedName: (name: string, role: AssignableRole, note?: string) => string | undefined
   drawings: Drawing[]
@@ -120,7 +123,7 @@ export function MapDetailPanels({
   timeline, sym, entityTypedAt, titleLiveRef, beginDrag,
   setDocRaw, endDrag, emit, patchEntity, linkRosterFields, createCircle, doc, undockTeam, effTrupps,
   symbolCaptions, rosterNames, rosterRank, personStatus, rosterFieldHints, setEntityDone, commitEntityFields,
-  vehicleOverrides, canEditIncident, readOnly, stopPersonSharing, setVehicleOverrides, resetVehicleGps, placeVehicle, log,
+  vehicleOverrides, canEditIncident, readOnly, stopPersonSharing, setVehicleOverrides, resetVehicleGps, placeVehicle, holdGpsInstead, log,
   assignTypedName, drawings, entities, focusDrawing, noteEntity, notePlacedId, setNotePanelId,
   noteTextLive, setNoteDefaults, selectedDrawing, patchDrawing,
   selectedDrawingId, patchDrawingLabelLive, commitDrawingLabel,
@@ -356,6 +359,18 @@ export function MapDetailPanels({
               })),
             }
             : undefined}
+          // a placed Fahrzeug named like the GPS vehicle beside it: «Zwei Symbole = zwei
+          // Fahrzeuge?» and the way out (lib/gpsTwin, owner picks UX journeys B3·33/34)
+          gpsTwin={selected.symbol === appConfig.symbols.vehicleName ? (() => {
+            const twin = gpsTwin(selected, entities)
+            if (!twin) return undefined
+            const name = twin.vehicle.label ?? ''
+            return {
+              name,
+              distM: twin.distM,
+              onHold: tacticalLocked || !canEditIncident ? undefined : () => holdGpsInstead(selected.id, twin.vehicle.id, name),
+            }
+          })() : undefined}
           // each row says what tells the lines apart — «Linie · 42 m → Hydrant H-142» (K11)
           connectedLines={drawings.filter((d) => [d.startAttachment, d.endAttachment].some((a) => a?.target.kind === 'object' && a.target.id === selected.id)).map((d) => ({
             id: d.id,

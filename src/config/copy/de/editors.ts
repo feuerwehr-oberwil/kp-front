@@ -226,6 +226,13 @@ export const editorsCopy = {
     } as Record<string, string>,
     kemlerDoubled: 'Verstärkte Gefahr (verdoppelte Ziffer)',
     spreadBoundedWhat: 'Ausbreitung hier gestoppt',
+    /** Ein von Hand gesetztes Fahrzeug, das so heisst wie ein GPS-Fahrzeug daneben (lib/gpsTwin,
+     *  Owner-Pick UX-Journeys B3·33/34, 25.11.2026): «Zwei Symbole = zwei Fahrzeuge?» – ein Tipp
+     *  nimmt das Symbol weg und hält das GPS-Fahrzeug an seiner Stelle fest (↶ nimmt beides zurück).
+     *  `gpsTwinHint` steht hinter dem fetten Namen. */
+    gpsTwinHint: 'ist schon per GPS auf der Karte, {m} m daneben. Zwei Symbole = zwei Fahrzeuge?',
+    gpsTwinHold: 'Stattdessen GPS-{name} hier festhalten',
+    gpsTwinStep: 'GPS-{name} statt Symbol festgehalten',
   },
   drawingEditor: {
     area: 'Fläche',

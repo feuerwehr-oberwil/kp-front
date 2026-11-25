@@ -231,6 +231,11 @@
 /* the untitled run of label+control rows (steppers, Bezeichnung, the symbol's own fields) — it
    continues the rows above it rather than starting something, so it opens no gap of its own */
 .ctx-rows { display: block; }
+/* «TLF ist schon per GPS auf der Karte» under the Bezeichnung (ContextPanel · gpsTwin, owner picks
+   UX journeys B3·33/34): the form warning, its one way out a full-width row under the sentence
+   (the mock's «Stattdessen GPS-TLF hier festhalten»). */
+.ctx-gps-twin { margin: 4px 0 8px; }
+.ctx-gps-twin .form-warn-act { flex: 1 0 100%; min-height: var(--tap); }
 .ctx-section-label {
   display: block; margin-bottom: 8px;
   font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint);
