@@ -1632,7 +1632,7 @@ export function IncidentWorkspace({
   // the Pendenzen still open – a point of the close's «Noch offen», whose row opens the Verlauf on
   // it (owner pick UX journeys B2·9, 25.11.2026)
   const openPendenzen = useMemo(() => deriveReminders(timeline).map((r) => ({ rowId: r.rowId, text: r.text })), [timeline])
-  const showVerlaufRow = useCallback((rowId: string) => { setJournalOpen(true); setJournalLandOn({ id: rowId, nonce: Date.now() }) }, [])
+  const showVerlaufRow = useCallback((rowId: string) => { setJournalOpen(true); setJournalLandOn({ id: rowId, nonce: Date.now() }) }, [setJournalOpen, setJournalLandOn])
   // after «Wieder öffnen» any change makes the paper old (lib/reportNachtrag, UX pick B3·18)
   const paperBeforeNachtrag = useMemo(() => reportBeforeNachtrag(reportMeta.reportMadeAt, timeline), [reportMeta.reportMadeAt, timeline])
   const { abschlussMissing, azFrozenAt, azMonitoring, confirmAndComplete } = useAbschluss({
