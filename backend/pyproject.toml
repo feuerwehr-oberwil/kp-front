@@ -53,6 +53,8 @@ dev = [
     "pytest-asyncio>=0.23.0",
     "pytest-xdist>=3.6.0",
     "aiosqlite>=0.20.0",
+    "vulture==2.16",
+    "deptry==0.25.1",
 ]
 
 [build-system]
@@ -151,6 +153,40 @@ extend-immutable-calls = [
 "app/zeitplan_pdf.py" = ["N815"]
 # Scenario fields mirror the milestone webhook's camelCase contract (alarmedAt, vorOrt)
 "app/fake_scenario.py" = ["N815"]
+# The vulture baseline is bare names that vulture parses and nothing runs.
+"vulture_whitelist.py" = ["F821", "B018"]
+
+# Dead code (vulture): `uv run vulture` – CI's static-analysis job runs it (`just lint-dead`).
+# At 60 % it also finds unused functions and classes; framework hooks are ignored by decorator,
+# and every other known finding is in vulture_whitelist.py (the baseline of 2026-11-25) with
+# its reason.
+[tool.vulture]
+paths = ["app", "vulture_whitelist.py"]
+min_confidence = 60
+ignore_decorators = [
+    "@router.*",
+    "@*_router.*",
+    "@app.*",
+    "@field_validator",
+    "@model_validator",
+    "@event.listens_for",
+]
+ignore_names = ["model_config"]
+
+# Unused and missing dependencies (deptry): `uv run deptry .` – also in the static-analysis job.
+[tool.deptry]
+# The `dev` extra is tooling, not something app/ imports.
+optional_dependencies_dev_groups = ["dev"]
+# The `georef` extra is optional, so its module name must be known without it installed.
+package_module_name_map = { "opencv-python-headless" = "cv2" }
+
+[tool.deptry.per_rule_ignores]
+# Imported straight from FastAPI's Starlette and pywebpush's requests and cryptography. A second
+# pin could only drift; cryptography is worth a direct pin one day (app/credentials.py).
+DEP003 = ["starlette", "requests", "cryptography"]
+# uvicorn is the server start.sh runs, asyncpg the driver DATABASE_URL names, python-multipart
+# what FastAPI parses forms with: none is imported by name.
+DEP002 = ["uvicorn", "asyncpg", "python-multipart"]
 
 [tool.mypy]
 python_version = "3.12"

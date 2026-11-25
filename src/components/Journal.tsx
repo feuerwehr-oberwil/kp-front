@@ -237,6 +237,11 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
   // actions it is the one that happens mid-incident under time pressure, so it keeps (and
   // grows) its one-tap spot.
   const [detailId, setDetailId] = useState<string | null>(null)
+  // The sheet's «Text bearbeiten» / «Transkript» close it INTO a field under the row. The sheet's
+  // focus return (to the row that opened it) lands a microtask after that field's autoFocus and
+  // took the caret away from it – so such a close tells the sheet to leave focus where it is.
+  const intoEditor = useRef(false)
+  const openEditor = (open: () => void) => { intoEditor.current = true; setDetailId(null); open() }
   // the sheet's title is the row's message, capped at five lines (10-journal · .jr-detail-title);
   // a capped one stands whole in the body too, so no word of the record is out of reach
   const [detailClamped, setDetailClamped] = useState(false)
@@ -1026,6 +1031,7 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
           ]
           return (
             <Sheet open onClose={() => setDetailId(null)} fit sheetClassName="jr-detail"
+              finalFocus={() => { const back = !intoEditor.current; intoEditor.current = false; return back }}
               title={(
                 <span className="jr-detail-title ui-selectable" ref={(el) => { if (el) setDetailClamped(el.scrollHeight > el.clientHeight + 1) }}>
                   {marked(title, e.subjectId)}
@@ -1093,13 +1099,13 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
                 )}
                 {e.audioUrl && onTranscript && (
                   <Button block className={hasTx ? undefined : 'jr-da-miss'} icon={<Icon id={hasTx ? 'type' : 'warn'} />}
-                    onClick={() => { setDetailId(null); setEditTx({ id: e.id, value: e.transcript ?? '' }) }}>
+                    onClick={() => openEditor(() => setEditTx({ id: e.id, value: e.transcript ?? '' }))}>
                     {hasTx ? C.transcriptEdit : C.transcriptAdd}
                   </Button>
                 )}
                 {onEditText && isHandWritten(e) && !e.audioUrl && (
                   <Button block icon={<Icon id="pen" />}
-                    onClick={() => { setDetailId(null); setEditRow({ id: e.id, value: e.text }) }}>
+                    onClick={() => openEditor(() => setEditRow({ id: e.id, value: e.text }))}>
                     {C.editEntry}
                   </Button>
                 )}

@@ -75,9 +75,7 @@ Printable/manual verification material for internal release checks and training-
 
 ## Historical
 
-- [`../mockups/`](../mockups/) – early look-and-feel explorations (HTML mockups). Kept for
-  reference; the chosen direction was "Karte Minimal". Not maintained. Only `app-lage.html` and
-  `nav-concepts.html` are tracked – the rest of the folder is deliberately local (`.gitignore`).
+- [Early HTML mockups](https://github.com/feuerwehr-oberwil/kp-front/tree/6916e6940ba97148c8354073cd3c888f7fae006d/mockups) – look-and-feel explorations, retired; the link is their last revision. The chosen direction was "Karte Minimal".
   The former `docs/design-concepts/` directory is gone – superseded by the React app itself.
 
 ## Not in this repository
