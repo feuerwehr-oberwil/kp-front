@@ -27,6 +27,8 @@ import { MeasuredField, ReadingAgain, ReadingHistory, ReadingInfo, ReadingOverHe
 import { sanitizeSvg } from '../lib/sanitizeSvg'
 import { bearing360 } from '../lib/planProjection'
 import { doneStatusText } from '../lib/objectDone'
+import { floorLabel } from '../lib/whiteboard'
+import { cx } from '../lib/cx'
 
 // note ink colours = the drawing palette, so a red warning note matches a red line
 const NOTE_COLORS = appConfig.drawing.colors
@@ -275,8 +277,10 @@ export interface ContextPanelProps {
    *  marker that is bound to a Trupp — it writes the TRUPP's colour, not just this marker. */
 }
 
-// signed storey label for the badge / stepper readout: +2, -1, 0 (EG)
-const floorStr = (f: number) => (f > 0 ? `+${f}` : `${f}`)
+// The Von/Bis steppers read a storey in the plan's own words – «EG», «1. OG», «2. UG»
+// (lib/whiteboard · floorLabel, as the Verlauf rows and the stack's labels say it). It was a signed
+// number («+1»), which the walkers had to map to the plan's «1. OG» (owner pick UX journeys,
+// 25.11.2026 · B3·43). Typing still takes the number («-1»): only the read-out changed.
 const FLOOR_MIN = -9
 const FLOOR_MAX = 40
 const COUNT_MAX = 999
@@ -295,9 +299,9 @@ type Row = { k: string; v: string }
 const toRows = (fields?: Record<string, string>): Row[] => Object.entries(fields ?? {}).map(([k, v]) => ({ k, v }))
 
 // a labelled row wrapping the shared ±Stepper (hold-repeat · tap-to-type · always-visible greyed ✕)
-function LabeledStepper({ label, ...rest }: { label: string } & React.ComponentProps<typeof Stepper>) {
+function LabeledStepper({ label, className, ...rest }: { label: string; className?: string } & React.ComponentProps<typeof Stepper>) {
   return (
-    <div className="field">
+    <div className={cx('field', className)}>
       <span>{label}</span>
       <Stepper {...rest} />
     </div>
@@ -929,10 +933,10 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
                   takes «-1» directly. Both ends of the von/bis span step independently. */}
               {showFloorRange && (
                 <>
-                  <LabeledStepper label={C.floorFrom} value={entity.floorFrom ?? entity.floor ?? null} format={floorStr} placeholder={C.floorNone} seed={0} seedOnDec
+                  <LabeledStepper className="field-floor" label={C.floorFrom} value={entity.floorFrom ?? entity.floor ?? null} format={floorLabel} placeholder={C.floorNone} seed={0} seedOnDec
                     onChange={(v) => onFloorFrom!(v)} onClear={() => onFloorFrom!(null)} canClear={entity.floorFrom != null || entity.floor != null}
                     min={FLOOR_MIN} max={FLOOR_MAX} readOnly={readOnly} ariaLabel={C.floorFrom} />
-                  <LabeledStepper label={C.floorTo} value={entity.floorTo ?? entity.floor ?? null} format={floorStr} placeholder={C.floorNone} seed={0} seedOnDec
+                  <LabeledStepper className="field-floor" label={C.floorTo} value={entity.floorTo ?? entity.floor ?? null} format={floorLabel} placeholder={C.floorNone} seed={0} seedOnDec
                     onChange={(v) => onFloorTo!(v)} onClear={() => onFloorTo!(null)} canClear={entity.floorTo != null || entity.floor != null}
                     min={FLOOR_MIN} max={FLOOR_MAX} readOnly={readOnly} ariaLabel={C.floorTo} />
                 </>
