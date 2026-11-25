@@ -39,7 +39,7 @@ import mimetypes
 import os
 import re
 import uuid
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
@@ -529,9 +529,42 @@ async def folder_id(
     return str(entry["id"])
 
 
-async def write_remote(writer: GraphWriter, dest: IncidentArchiveDestination, c: Claim, p: Plan) -> bool:
+class LeaseLostError(Exception):
+    """The claim's lease went to another pass before the Rapport PUT – stop, send nothing."""
+
+
+def next_report_version(items: dict[str, Any], sha: str) -> int:
+    """The version a Rapport of content ``sha`` is filed under (``reportTry`` / ``reportHigh`` in
+    ``remote_items``). A try whose answer was lost may have landed: its name is reused only for the
+    SAME content (then it is the same bytes again). Any other content takes one more than the
+    highest version ever tried – ⚠️ not ``len(reports) + 1``: after a lost response the next
+    Rapport took v2, the lost try was forgotten, and the Rapport after that counted two filed
+    reports and replaced v2 (hunt 24.11.2026, records-rapport F1)."""
+    tried = items.get("reportTry")
+    filed = {int(r.get("version") or 0): r.get("sha") for r in items.get("reports") or []}
+    if isinstance(tried, dict) and tried.get("sha") == sha and int(tried.get("version") or 0) > 0:
+        version = int(tried["version"])
+        # an older build could try a version already filed with other content: never again
+        if filed.get(version, sha) == sha:
+            return version
+    seen = [*filed]
+    if isinstance(tried, dict):
+        seen.append(int(tried.get("version") or 0))
+    seen.append(int(items.get("reportHigh") or 0))
+    return max(seen) + 1
+
+
+async def write_remote(
+    writer: GraphWriter,
+    dest: IncidentArchiveDestination,
+    c: Claim,
+    p: Plan,
+    reserve: Callable[[], Awaitable[None]] | None = None,
+) -> bool:
     """Step 3 of the module docstring. Mutates ``c.remote_items`` as it goes (the caller persists
-    it either way). Returns True when the file budget ran out and more is owed."""
+    it either way). ``reserve`` persists ``c.remote_items`` before the Rapport PUT, so a worker
+    that dies mid-request still knows the version it may have filed. Returns True when the file
+    budget ran out and more is owed."""
     items = c.remote_items
     filed: dict[str, Any] = items.setdefault("media", {})
     counters: dict[str, int] = items.setdefault("counters", {})
@@ -554,13 +587,11 @@ async def write_remote(writer: GraphWriter, dest: IncidentArchiveDestination, c:
         except OSError as e:
             # replaced by a newer compose a moment ago – the next pass files that one
             raise GraphError("Rapport-PDF wurde eben ersetzt – nächster Versuch legt den neuen ab") from e
-        version = len(reports) + 1
-        # A try whose answer was lost may have landed: its name is reused only for the SAME
-        # content (then it is the same bytes again), never for a newer Rapport.
-        tried = items.get("reportTry")
-        if isinstance(tried, dict) and tried.get("sha") != sha and int(tried.get("version") or 0) >= version:
-            version = int(tried["version"]) + 1
+        version = next_report_version(items, sha)
         items["reportTry"] = {"sha": sha, "version": version}
+        items["reportHigh"] = max(int(items.get("reportHigh") or 0), version)
+        if reserve is not None:
+            await reserve()
         item = await writer.upload_into(drive, folder, report_name(version), data, "application/pdf")
         del data
         items.pop("reportTry", None)
@@ -664,8 +695,27 @@ async def deliver(
             p = await plan(db, c)
         if p is None:
             return "gone"  # the Einsatz was deleted; its row went with it (CASCADE)
+
+        async def reserve() -> None:
+            # under a live lease only, renewed for the PUT that follows: a pass whose lease is gone
+            # or about to go (another may claim it) must neither write its view back nor PUT
+            at = now()
+            async with factory() as db:
+                result = await db.execute(
+                    update(T)
+                    .where(T.id == c.id, T.lease_owner == c.lease, T.lease_until > at)
+                    .values(remote_items=dict(c.remote_items), lease_until=at + LEASE)
+                    .returning(T.id)
+                )
+                kept = result.one_or_none() is not None
+                await db.commit()
+            if not kept:
+                raise LeaseLostError
+
         async with httpx.AsyncClient(transport=transport, timeout=120.0) as client:
-            more = await write_remote(export_writer(client), dest, c, p)
+            more = await write_remote(export_writer(client), dest, c, p, reserve)
+    except LeaseLostError:
+        return "lost_lease"  # another pass owns the row now; it files what is owed
     except Exception as e:
         if not isinstance(e, (GraphError, MissingFileError, AmbiguousArchiveFolderError)):
             logger.exception("Einsatz %s → %s: Ablage crashed", c.incident_id, c.destination)
