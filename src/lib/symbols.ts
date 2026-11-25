@@ -381,7 +381,7 @@ export function symbolReading(props: SymbolProps, now = Date.now()): SymbolReadi
   if (!keys.length) return null
   const fields = props.fields ?? {}
   const worst = worstRated(props)
-  const rs = props.readings; const at = rs?.length ? rs[rs.length - 1].t : null
+  const at = lastReading(props)?.t ?? null
   const ageMin = at != null ? Math.max(0, Math.floor((now - at) / 60_000)) : null
   const staleMin = props.symbol ? presets.byName[props.symbol]?.staleMin : undefined
   return {
@@ -440,6 +440,19 @@ export function symbolReadoutText(props: SymbolProps): string | null {
   return symbolReading(props)?.text ?? null
 }
 
+/** A Messpunkt reading a reader can use: an object with its values (`v`). No gate checks the
+ *  stored rows – the merge unions them off the server's raw blob – and the history panel, the
+ *  map's pill and the next recording read every gas of `v`. So they read through this; a row it
+ *  rejects stays in the stored history. */
+const isUsableReading = (r: unknown): r is Reading =>
+  typeof r === 'object' && r !== null && 'v' in r && typeof r.v === 'object' && r.v !== null
+/** the newest usable reading */
+function lastReading(props: SymbolProps): Reading | undefined {
+  const rs = props.readings ?? []
+  for (let i = rs.length - 1; i >= 0; i--) if (isUsableReading(rs[i])) return rs[i]
+  return undefined
+}
+
 /** The measured fields of `fields` that hold a value – one history row's `v`. */
 const measuredValues = (props: SymbolProps, fields: Record<string, string>) =>
   Object.fromEntries(readoutKeys(props).flatMap((k) => (fields[k]?.trim() ? [[k, fields[k].trim()]] : [])))
@@ -455,7 +468,7 @@ const measuredValues = (props: SymbolProps, fields: Record<string, string>) =>
 export function recordReading(props: SymbolProps, fields: Record<string, string>, now = Date.now(), again = false): Reading[] | undefined {
   if (!readoutKeys(props).length) return props.readings
   const v = measuredValues(props, fields)
-  const last = props.readings?.[props.readings.length - 1]
+  const last = lastReading(props)
   const same = (a: Record<string, string>, b: Record<string, string>) =>
     Object.keys(a).length === Object.keys(b).length && Object.entries(a).every(([k, x]) => b[k] === x)
   if (!Object.keys(v).length || (!again && last && same(last.v, v))) return props.readings
@@ -466,11 +479,9 @@ export function recordReading(props: SymbolProps, fields: Record<string, string>
 export const READING_BURST_MS = 2 * 60_000
 
 /** The history as the panel lists it: newest first, each burst of edits (one report typed gas by
- *  gas, a typo fixed) folded into its last row. A stored row that is no object or has no values
- *  (`v`) is not listed: no gate checks the rows (the merge unions them off the server's raw blob), and the
- *  panel and the Rapport read every gas of `v`. The row itself stays in the history. */
+ *  gas, a typo fixed) folded into its last row. Only usable rows (isUsableReading). */
 export function readingRows(props: SymbolProps): Reading[] {
-  const rs = (props.readings ?? []).filter((r: unknown) => typeof r === 'object' && r !== null && 'v' in r && typeof r.v === 'object' && r.v !== null)
+  const rs = (props.readings ?? []).filter(isUsableReading)
   return rs.filter((r, i) => !(i + 1 < rs.length && rs[i + 1].t - r.t < READING_BURST_MS)).reverse()
 }
 
