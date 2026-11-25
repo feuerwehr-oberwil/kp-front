@@ -348,6 +348,17 @@ describe('the handed-over board on a phone (focus mode)', () => {
     })
   })
 
+  // owner pick UX journeys M·18 (25.11.2026): ↶ ↷ are glyphs on the link phone head, so the
+  // Einsatz title keeps its room – their words broke «Brand Wohnhaus» into «Wohnha / us»
+  it('draws ↶ ↷ without words on the link phone head, the words staying their names', () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    mount({ lite: { subtitle: 'Brand' }, trupps: [aktivTrupp()], onUndo: noop, onRedo: noop, canUndo: true, canRedo: false })
+    for (const btn of [screen.getByRole('button', { name: /^Rückgängig/ }), screen.getByRole('button', { name: /^Wiederherstellen/ })]) {
+      expect(btn.textContent).toBe('')
+      expect(btn.hasAttribute('data-fold')).toBe(false)
+    }
+  })
+
   /* ── The Notfall on the link board (R1, 30.10.2026: «red and notfall is already enough») ────
    * Its own tab: the page IS the Notfall — the red name, both clocks named, no «Notfall seit …»
    * eyebrow, and the Sicherungstrupp act with «Anderer ⌄» down in the page's controls, first of them

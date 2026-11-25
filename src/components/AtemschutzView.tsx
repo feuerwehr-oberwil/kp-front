@@ -1590,14 +1590,19 @@ export function AtemschutzView({
             be taken back. */}
         {lite && canEdit && onUndo && onRedo && (
           <>
-            {/* …worded like the tiles beside it, folding with them (pick 24a, 17.11.2026) */}
-            <button type="button" className={s.orderBtn} onClick={onUndo} disabled={!canUndo} data-fold={HEAD_FOLD.tiles}
+            {/* …worded like the tiles beside it, folding with them (pick 24a, 17.11.2026) – on the
+                wide link Tafel. On the link PHONE head (`focusMode`) they are 44px glyphs without
+                words, like the bell beside them (owner pick UX journeys M·18, 25.11.2026, as in
+                redesign R1): the title there is `data-fit-free` and wraps anywhere, so the fold
+                never saw a lack of room and «Brand Wohnhaus» broke as «Wohnha / us» beside
+                «Rückgängig». The word stays the button's name (`undoWord`). */}
+            <button type="button" className={s.orderBtn} onClick={onUndo} disabled={!canUndo} data-fold={focusMode ? undefined : HEAD_FOLD.tiles}
               aria-label={undoWord} title={undoWord}>
-              <Icon id="undo" /><span className="fold-long">{appConfig.copy.undo}</span>
+              <Icon id="undo" />{!focusMode && <span className="fold-long">{appConfig.copy.undo}</span>}
             </button>
-            <button type="button" className={s.orderBtn} onClick={onRedo} disabled={!canRedo} data-fold={HEAD_FOLD.tiles}
+            <button type="button" className={s.orderBtn} onClick={onRedo} disabled={!canRedo} data-fold={focusMode ? undefined : HEAD_FOLD.tiles}
               aria-label={redoWord} title={redoWord}>
-              <Icon id="redo" /><span className="fold-long">{appConfig.copy.redo}</span>
+              <Icon id="redo" />{!focusMode && <span className="fold-long">{appConfig.copy.redo}</span>}
             </button>
           </>
         )}

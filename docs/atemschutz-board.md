@@ -189,7 +189,9 @@ good but we don't need the triangle thing. red and notfall is already enough»):
   stamp's bare time is back now that it has a line of its own) — still the door to the ⌄ popover
   (title, address, the long «Gespeichert um …», and the link's way back «Der Link führt zurück …»
   as one line; it was a once-per-device toast until the link dropped toasts, sweep #23). ↶ ↷ 🔔
-  without frames; a muted or blocked bell keeps its tint.
+  without frames and without words, 44px glyphs (owner pick UX journeys M·18, 25.11.2026: pick 24a's
+  worded ↶ ↷ never folded here, because the title is `data-fit-free` and wraps anywhere – «Wohnha /
+  us»); a muted or blocked bell keeps its tint. The wide link Tafel keeps the worded, folding pair.
 - *No card*: the open Trupp is a flat PAGE — no frame, tint or edge; the tier is on its tab and in
   its clock's colour — and the page scrolls (`.focusCard` is the port; sweep #21 found the card
   clipped). Every page opens with the NAME at 32px (`--fs-6`) and the clock at 40px with what it counts
