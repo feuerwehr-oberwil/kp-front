@@ -85,3 +85,17 @@ it('a capture whose cross-tab lock is refused waits in memory, never written unl
   Reflect.deleteProperty(globalThis.navigator, 'locks')
   expect(await (await tabModule()).listMediaQueue(id)).toEqual([])
 })
+
+it('a memo held after a refused lock does not replace the newer one the other tab stored', async () => {
+  const refuse = { request: () => Promise.reject(new DOMException('Document is not fully active', 'InvalidStateError')) }
+  Object.defineProperty(globalThis.navigator, 'locks', { value: refuse, configurable: true })
+  const a = await tabModule()
+  const b = await tabModule()
+  const id = 'held-memo-inc'
+  await a.enqueueMedia(id, 'r1', 'audio', new Blob(['old']), 'old.webm', '2026-11-25T10:00:00Z')
+  Object.defineProperty(globalThis.navigator, 'locks', { value: new FakeLocks(), configurable: true })
+  await b.enqueueMedia(id, 'r1', 'audio', new Blob(['new']), 'new.webm', '2026-11-25T10:05:00Z')
+  const sent: string[] = []
+  await a.flushMediaQueue(id, async (_i, blob) => { sent.push(await blob.text()); return { url: '/api/media/3' } })
+  expect(sent).toEqual(['new'])
+})

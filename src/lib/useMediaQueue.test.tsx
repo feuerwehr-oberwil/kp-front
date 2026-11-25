@@ -98,3 +98,17 @@ it('the tab that gets the edit lock puts back a Beilage the other tab queued aft
   await waitFor(() => expect(onRestore).toHaveBeenCalledWith('att1', 'photo', 'blob:here', 'blob:other-tab', 'attachment', undefined))
   await waitFor(() => expect(upload).toHaveBeenCalledOnce())
 })
+
+it('the tab that gets the edit lock plays the voice memo the other tab re-recorded, not the one it restored', async () => {
+  let minted = 0
+  vi.stubGlobal('URL', { createObjectURL: () => `blob:here-${++minted}`, revokeObjectURL: vi.fn() })
+  upload.mockReset().mockImplementation(() => new Promise(() => {})) // offline: nothing lands
+  await enqueueMedia('memo', 'row', 'audio', new Blob(['old']), 'old.webm', '2026-11-25T10:00:00.000Z')
+  const onRestore = vi.fn()
+  const view = renderHook(({ readOnly }: { readOnly: boolean }) => useMediaQueue({ incidentId: 'memo', readOnly, onUploaded: () => true, onRestore }), { initialProps: { readOnly: true } })
+  await waitFor(() => expect(onRestore).toHaveBeenCalledWith('row', 'audio', 'blob:here-1', undefined, undefined, undefined))
+  // the other tab, still holding the lock, records the memo again
+  await enqueueMedia('memo', 'row', 'audio', new Blob(['new']), 'new.webm', '2026-11-25T10:05:00.000Z')
+  view.rerender({ readOnly: false })
+  await waitFor(() => expect(onRestore).toHaveBeenLastCalledWith('row', 'audio', 'blob:here-2', 'blob:here-1', undefined, undefined))
+})

@@ -99,7 +99,8 @@ export class IncidentSelection {
     const answers = seat.answers
     let again = false
     seat.promoting = (async () => {
-      const fresh = new WorkspaceSync(seat.id, { ...seat.options, lock: 'editor' })
+      const holdsLock = () => seat.granted === true && seat.answers === answers
+      const fresh = new WorkspaceSync(seat.id, { ...seat.options, lock: 'editor', holdsLock })
       try {
         await fresh.init()
       } catch {
@@ -180,7 +181,9 @@ export class IncidentSelection {
           if (seat.released) throw new Error('Incident selection cancelled')
           // without Web Locks nothing orders the tabs: no fence either, as before (Sol r1)
           const lock = seat.lock.coordinated ? (held ? 'editor' : 'follower') : undefined
-          seat.engine = new WorkspaceSync(id, { ...seat.options, lock })
+          const answers = seat.answers
+          const holdsLock = () => seat.granted === true && seat.answers === answers
+          seat.engine = new WorkspaceSync(id, { ...seat.options, lock, holdsLock })
           return seat.engine.init()
         })
         this.pending = { seat, loaded }

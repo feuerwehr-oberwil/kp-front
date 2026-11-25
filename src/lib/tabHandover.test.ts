@@ -129,11 +129,14 @@ it('hole 3: a holder that loses the lock mid-merge pushes nothing more', async (
   expect(put.mock.calls.filter((c) => c[4] === first.writerId).length).toBe(putsBefore)
 })
 
-it('a PUT the old holder still had on its way does not bring back what the new holder deleted', async () => {
-  const id = `inflight-${n}`
-  const server = { rev: 1, workspace: baseline as Saved }
-  get.mockImplementation(async () => ({ workspace: server.workspace, workspace_rev: server.rev }))
-  let landA!: () => void
+/** A server whose FIRST PUT is slow: it lands only when the test says so. */
+function slowFirstPut() {
+  const server = { rev: 1, workspace: baseline as Saved, reachable: true }
+  get.mockImplementation(async () => {
+    if (!server.reachable) throw offline
+    return { workspace: server.workspace, workspace_rev: server.rev }
+  })
+  let landFirst: (() => void) | null = null
   put.mockImplementation((_id, ws, baseRev) => {
     const land = () => {
       if (baseRev !== server.rev) throw new ApiError(409, 'conflict')
@@ -141,23 +144,38 @@ it('a PUT the old holder still had on its way does not bring back what the new h
       server.workspace = ws as Saved
       return { workspace: null, workspace_rev: server.rev }
     }
-    // A's first PUT is slow: it reaches the server only after B took over
-    if (!landA) return new Promise((resolve, reject) => { landA = () => { try { resolve(land()) } catch (e) { reject(e) } } })
+    if (!landFirst) return new Promise((resolve, reject) => { landFirst = () => { try { resolve(land()) } catch (e) { reject(e) } } })
+    if (!server.reachable) return Promise.reject(offline)
     return Promise.resolve().then(land)
   })
+  return { server, land: () => landFirst?.() }
+}
+const marker = { id: 'x', type: 'symbol', lngLat: [7.5, 47.5] }
+
+it.each([
+  ['the new holder deletes it', false, false],
+  ['the new holder deletes it, opened offline', true, false],
+  ['the old holder had deleted it already', false, true],
+])('a PUT the old holder still had on its way does not bring back a marker – %s', async (_case, offlineOpen, deletedInA) => {
+  const id = `inflight-${n}`
+  const net = slowFirstPut()
   const a = await tab(id)
   const b = await tab(id)
-  const marker = { id: 'x', type: 'symbol', lngLat: [7.5, 47.5] }
   edit(a, { entities: [marker] as unknown as Saved['entities'] })
-  await vi.advanceTimersByTimeAsync(1_100) // A's PUT is on its way
-  expect(landA).toBeTypeOf('function')
+  await vi.advanceTimersByTimeAsync(1_100) // A's PUT with the marker is on its way
+  if (deletedInA) { edit(a, { entities: [] }); await settle() }
+  if (offlineOpen) net.server.reachable = false
   b.takeOver()
   await vi.waitFor(() => expect(b.editing).toBe(true))
-  expect(engine(b).workspace.entities).toEqual([marker])
-  edit(b, { entities: [] })
-  landA() // A's PUT lands now, with the marker
-  await vi.advanceTimersByTimeAsync(5_000) // B pushes, 409, merges, pushes again
-  expect(server.workspace.entities).toEqual([])
+  if (!deletedInA) {
+    expect(engine(b).workspace.entities).toEqual([marker])
+    edit(b, { entities: [] })
+  }
+  net.server.reachable = true
+  net.land() // A's PUT lands now, with the marker
+  await engine(b).flush()
+  await vi.advanceTimersByTimeAsync(70_000) // B pushes, 409, merges, pushes again
+  expect(net.server.workspace.entities).toEqual([])
   expect((await slot(id))?.workspace.entities).toEqual([])
 })
 
@@ -183,4 +201,16 @@ it('a promotion overtaken by a steal back does not fence the thief out of its sl
   edit(a, { reportMeta: { remarks: 'A again' } })
   await settle()
   expect((await slot(id))?.workspace.reportMeta).toEqual({ remarks: 'A again' })
+})
+
+it('an engine whose tab lost the edit lock before its claim’s turn claims nothing', async () => {
+  const id = `late-grant-${n}`
+  const a = await tab(id)
+  const holder = engine(a).writerId
+  // a grant that ran late: another tab already stole the lock back when this claim's turn came
+  const { WorkspaceSync } = await import('./api/workspaceSync')
+  const late = new WorkspaceSync(id, { lock: 'editor', holdsLock: () => false })
+  await late.init()
+  expect(await idbGet(`kp-front-ws-${id}::__writer__`)).toBe(holder)
+  late.dispose()
 })
