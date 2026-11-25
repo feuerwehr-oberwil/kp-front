@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Trupp } from '../types'
-import { notfallStrips } from './notfall'
+import { notfallStrips, notfallTerms } from './notfall'
 
 const t = (id: string): Trupp => ({ id, name: id, entryPressureBar: 300, entryTime: '', lastContactTime: '', status: 'aktiv', notfallAt: '2026-10-30T12:00:00Z' })
 
@@ -15,5 +15,12 @@ describe('notfallStrips — which red strips the link board shows', () => {
   })
   it('from three on, ONE strip that counts them and goes to the first', () => {
     expect(notfallStrips([t('a'), t('b'), t('c')], 'x')).toEqual([{ kind: 'many', count: 3, goTo: 'a' }])
+  })
+})
+
+describe('notfallTerms — how a sentence names a Trupp in Notfall', () => {
+  it('the number, the term before 12.09. and the lead, of Trupps in Notfall only', () => {
+    expect(notfallTerms([{ ...t('Weber Fabian'), no: 2 }, { ...t('Roth Simon'), notfallAt: undefined }]))
+      .toEqual(['Trupp 2', 'Trupp Weber Fabian', 'Weber Fabian'])
   })
 })

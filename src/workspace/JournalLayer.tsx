@@ -74,6 +74,9 @@ export interface JournalLayerProps {
   openTafelPendenzen?: () => void
   /** «Trupp N» in a row: the Atemschutz board at that Trupp's card (IncidentWorkspace · showTrupp) */
   showTrupp?: (truppId: string) => void
+  /** the Trupps in Notfall as a sentence names them (lib/notfall · notfallTerms) – the composer
+   *  offers no open Pendenz on a sentence that names one */
+  notfallNames: readonly string[]
 }
 
 export function JournalLayer({
@@ -82,7 +85,7 @@ export function JournalLayer({
   setJournalOpen, setJournalLandOn, journalFromRapport, setJournalFromRapport, openRapport, readOnly,
   enterReplay, reminders, setNoteOn, setComposerOpen, reRaisePendenz, media, setPlayer, photoOnMap,
   tacticalLocked, placePhotos, showPhotoOnMap, player, isEditor, addPlayerEntry, composerOpen, roleReadOnly,
-  addJournal, noteOn, linkScoped, openTafelPendenzen, showTrupp,
+  addJournal, noteOn, linkScoped, openTafelPendenzen, showTrupp, notfallNames,
 }: JournalLayerProps) {
   return (
     <>
@@ -194,6 +197,7 @@ export function JournalLayer({
           // sentence already names, and holds a picker for the rest.
           openPendenzen={reminders.open.map((r) => ({ id: r.id, text: r.text, urgent: !!r.urgent, createdAt: r.createdAt }))}
           onLinkPendenz={(pdz) => setNoteOn(pdz)}
+          quietTerms={notfallNames}
           incidentStartAt={incidentMeta.started_at}
           uploadAudio={(blob, filename) => uploadMedia(incidentMeta.id, blob, 'audio', filename)}
           // generic Beilagen (PDF & Co.) ride the same endpoint under kind 'file' — the server

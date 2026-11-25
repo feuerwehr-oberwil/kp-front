@@ -262,6 +262,32 @@ describe('suggestPendenzen', () => {
     expect(suggestPendenzen('a', open)).toEqual([])
     expect(suggestPendenzen('', open)).toEqual([])
   })
+  // owner pick UX journeys B2·45: «Trupp» offered to file a Mayday under an old Pendenz
+  describe('no offer on an everyday word or an emergency', () => {
+    const busy = deriveReminders([
+      row('r3', 'Gebäude Trupp Kontrolle Werkhof', { op: 'created', id: 'c', text: 'Gebäude Trupp Kontrolle Werkhof' }, '2026-06-24T03:20:00.000Z'),
+    ])
+
+    it('a word that names an app thing is no hit, typed or in the item', () => {
+      expect(suggestPendenzen('Trupp 3 eingerückt', busy)).toEqual([])
+      expect(suggestPendenzen('Tru', busy)).toEqual([])
+      expect(suggestPendenzen('Gebäude Nord geräumt', busy)).toEqual([])
+    })
+
+    it('a real hit still offers', () => {
+      expect(suggestPendenzen('Trupp meldet: Werkhof erreicht', busy).map((r) => r.id)).toEqual(['c'])
+    })
+
+    it('a Mayday never gets an offer', () => {
+      expect(suggestPendenzen('Mayday Trupp Weber: Werkhof', busy)).toEqual([])
+      expect(suggestPendenzen('MAYDAY, Werkhof', busy)).toEqual([])
+    })
+
+    it('a sentence naming a Trupp in Notfall never gets an offer', () => {
+      expect(suggestPendenzen('Trupp Weber Fabian beim Werkhof', busy, 2, ['Trupp Weber Fabian'])).toEqual([])
+      expect(suggestPendenzen('Trupp 2 beim Werkhof', busy, 2, ['Trupp 1'])).toEqual(busy)
+    })
+  })
 })
 
 // The Tafel's «Aufträge / Pendenzen» page (05.11.2026): every item, open and done, and the page's

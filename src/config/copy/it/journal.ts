@@ -220,6 +220,8 @@ export const journalCopy: Localizable<Pick<Copy, 'journal' | 'tafelPendenzen' | 
     openCountDoor: 'Diario – {n} pendenze aperte',
     openCountDoorOne: 'Diario – 1 pendenza aperta',
     filterRingHead: 'Pendenze – cosa dice l’anello',
+    pendenzWeakWords: ['Squadra', 'Situazione', 'Condotta', 'Edificio', 'Intervento', 'Pendenza', 'Messaggio', 'Ordine', 'Info', 'Carta', 'Piano', 'Lavagna', 'Diario', 'Protezione', 'Contatto', 'Emergenza', 'Rapporto', 'Mezzi', 'Veicolo', 'Locale', 'Settore', 'Persona', 'Persone'] as string[],
+    pendenzNeverWords: ['Mayday'] as string[],
   },
   tafelPendenzen: {
     createdLog: 'Pendenza dalla lavagna ({page}): {text}',

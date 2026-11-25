@@ -149,7 +149,7 @@ function dayLabel(day: string): string {
 // coordinate, which is the weak version of what the Wiedergabe does — scrub to the moment and
 // the entire picture is the one from back then. The row still records its surface; that is
 // addJournal's business, not this sheet's.
-export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudio, uploadFile, vocab = [], timeline = [], noteOn, onClearNote, openPendenzen = [], onLinkPendenz }: {
+export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudio, uploadFile, vocab = [], timeline = [], noteOn, onClearNote, openPendenzen = [], onLinkPendenz, quietTerms }: {
   onSubmit: (d: JournalDraft) => void
   onClose: () => void
   /** opened from a Pendenz row: everything written here becomes a Meldung ON that item rather
@@ -165,6 +165,9 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
   openPendenzen?: Pick<OpenReminder, 'id' | 'text' | 'urgent' | 'createdAt'>[]
   /** attach the entry being written to one of them (the workspace owns `noteOn`) */
   onLinkPendenz?: (p: { id: string; text: string }) => void
+  /** the Trupps in Notfall, as a sentence names them (lib/notfall · notfallTerms): a sentence
+   *  naming one is offered no open Pendenz (lib/reminders · suggestPendenzen) */
+  quietTerms?: readonly string[]
   /** this incident's own rows, for the chips offered while the field is still empty (see
    *  lib/startChips). Absent ⇒ the station's list is offered as it stands. */
   timeline?: TimelineEvent[]
@@ -289,8 +292,8 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
   // …and the open Pendenzen this sentence already names. Offered only while writing an ordinary
   // entry: once it IS a Meldung the question is answered.
   const pendenzHits = useMemo(
-    () => (noteOn ? [] : suggestPendenzen(text, openPendenzen)),
-    [text, openPendenzen, noteOn],
+    () => (noteOn ? [] : suggestPendenzen(text, openPendenzen, 2, quietTerms)),
+    [text, openPendenzen, noteOn, quietTerms],
   )
   const canLink = openPendenzen.length > 0 && !!onLinkPendenz
   // ── the ○ opens a menu; it no longer cycles ───────────────────────────────────────────────

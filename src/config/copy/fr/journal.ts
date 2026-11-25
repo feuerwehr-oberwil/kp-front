@@ -220,6 +220,8 @@ export const journalCopy: Localizable<Pick<Copy, 'journal' | 'tafelPendenzen' | 
     openCountDoor: 'Journal – {n} en-suspens ouverts',
     openCountDoorOne: 'Journal – 1 en-suspens ouvert',
     filterRingHead: 'Points en suspens – ce que dit l’anneau',
+    pendenzWeakWords: ['Équipe', 'Situation', 'Conduite', 'Bâtiment', 'Intervention', 'Point', 'Message', 'Ordre', 'Info', 'Carte', 'Plan', 'Tableau', 'Journal', 'Protection', 'Contact', 'Urgence', 'Rapport', 'Moyens', 'Véhicule', 'Étage', 'Pièce', 'Secteur', 'Personne', 'Personnes'] as string[],
+    pendenzNeverWords: ['Mayday'] as string[],
   },
   tafelPendenzen: {
     createdLog: 'Point en suspens du tableau ({page}) : {text}',

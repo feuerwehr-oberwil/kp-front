@@ -374,6 +374,12 @@ export const journalCopy = {
     openCountDoorOne: 'Verlauf – 1 Pendenz offen',
     // the heading over the ring key at the end of the «Art» menu (pick 25 B)
     filterRingHead: 'Pendenzen – was der Ring sagt',
+    // the open-Pendenz offer in «Neuer Eintrag» (lib/reminders · suggestPendenzen): words that name
+    // the app's own things match half the Verlauf, so they never count as a hit (owner pick UX
+    // journeys B2·45, 25.11.2026 – «Trupp» offered to file a Mayday under an old Pendenz)
+    pendenzWeakWords: ['Trupp', 'Lage', 'Leitung', 'Gebäude', 'Einsatz', 'Pendenz', 'Meldung', 'Auftrag', 'Info', 'Karte', 'Plan', 'Tafel', 'Verlauf', 'Atemschutz', 'Kontakt', 'Notfall', 'Rapport', 'Mittel', 'Fahrzeug', 'Geschoss', 'Raum', 'Sektor', 'Abschnitt', 'Person', 'Personen'] as string[],
+    // …and a sentence with one of these is an emergency: no Pendenz offer at all
+    pendenzNeverWords: ['Mayday'] as string[],
   },
   // ── The Tafel's «Aufträge / Pendenzen» page (05.11.2026, lib/pendenzenPage) ────────────────
   // A view on the Verlauf's Pendenzen and Erinnerungen: every act on the page appends a Verlauf

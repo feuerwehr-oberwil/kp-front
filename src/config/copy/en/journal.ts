@@ -221,6 +221,8 @@ export const journalCopy: Localizable<Pick<Copy, 'journal' | 'tafelPendenzen' | 
     openCountDoor: 'Log – {n} open items',
     openCountDoorOne: 'Log – 1 open item',
     filterRingHead: 'Open items – what the ring says',
+    pendenzWeakWords: ['Team', 'Situation', 'Line', 'Building', 'Incident', 'Open', 'Item', 'Report', 'Order', 'Info', 'Map', 'Plan', 'Board', 'Log', 'Breathing', 'Contact', 'Emergency', 'Resources', 'Vehicle', 'Floor', 'Room', 'Sector', 'Section', 'Person', 'People'] as string[],
+    pendenzNeverWords: ['Mayday'] as string[],
   },
   tafelPendenzen: {
     createdLog: 'Item from the board ({page}): {text}',

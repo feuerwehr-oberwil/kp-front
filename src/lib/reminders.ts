@@ -274,19 +274,35 @@ export function isDue(r: OpenReminder, nowMs: number, closedAt?: string | null):
  * ⚠️ Matched against the WHOLE typed text, not the word under the cursor: «Werkhof meldet Fahrzeug
  * unterwegs» is a Meldung on «Absperrmaterial Kreuzung, Werkhof Oberwil», and the word that says so
  * («Werkhof») is nowhere near the caret by the time the sentence is finished.
+ *
+ * ⚠️ A word that names one of the app's own things («Trupp», «Lage», «Leitung», «Gebäude» …,
+ * copy · journal.pendenzWeakWords) is never a hit, typed or in the item: half the Verlauf says it.
+ * And an emergency gets no offer at all – a sentence with «Mayday» (journal.pendenzNeverWords) or
+ * naming a Trupp in Notfall (`quiet`, lib/notfall · notfallTerms). Owner pick UX journeys B2·45,
+ * 25.11.2026: «Trupp» offered to file a Mayday under an old Pendenz.
  */
-export function suggestPendenzen<T extends Pick<OpenReminder, 'text' | 'createdAt'>>(text: string, open: readonly T[], limit = 2): T[] {
-  const words = norm(text).split(/[\s]+/).filter((w) => w.length >= 2)
+export function suggestPendenzen<T extends Pick<OpenReminder, 'text' | 'createdAt'>>(
+  text: string, open: readonly T[], limit = 2, quiet: readonly string[] = [],
+): T[] {
+  const C = appConfig.copy.journal
+  const said = norm(text)
+  const words = said.split(/[\s]+/).filter((w) => w.length >= 2)
   if (!words.length) return []
+  const never = C.pendenzNeverWords.map(norm)
+  if (words.some((w) => never.some((n) => w.startsWith(n)))) return []
+  if (quiet.some((q) => q.trim() && said.includes(norm(q.trim())))) return []
+  const weak = new Set(C.pendenzWeakWords.map(norm))
+  const strong = words.filter((w) => !weak.has(w.replace(/[^\p{L}\p{N}]+$/u, '')))
   return open
-    .map((r) => ({ r, score: Math.max(...words.map((w) => (startsAWord(w, r.text) ? fuzzyScore(w, r.text) : 0))) }))
+    .map((r) => ({ r, score: Math.max(0, ...strong.map((w) => (startsAWord(w, r.text, weak) ? fuzzyScore(w, r.text) : 0))) }))
     .filter((m) => m.score > 0)
     .sort((a, b) => b.score - a.score || a.r.createdAt.localeCompare(b.r.createdAt))
     .slice(0, limit)
     .map((m) => m.r)
 }
 
-/** …the same «must begin one of the target's words» rule the name suggestions use. */
-function startsAWord(word: string, target: string): boolean {
-  return norm(target).split(/[\s(/,.-]+/).some((w) => w.startsWith(word))
+/** …the same «must begin one of the target's words» rule the name suggestions use – never one of
+ *  the `weak` words (see suggestPendenzen). */
+function startsAWord(word: string, target: string, weak: ReadonlySet<string>): boolean {
+  return norm(target).split(/[\s(/,.:;!?-]+/).some((w) => !weak.has(w) && w.startsWith(word))
 }
