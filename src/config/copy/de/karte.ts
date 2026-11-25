@@ -212,6 +212,8 @@ export const karteCopy = {
         role: 'Konto',
         // the fifth row for an account «Neuer Einsatz» does not wake (el, viewer – rare-user round M2, 17.11.2026)
         roleSub: '{r} · nur Atemschutz-Alarme, kein «Neuer Einsatz»',
+        // the first tap anywhere armed the alarm tone (lib/alarm · armOnAnyTap, owner pick M·3, 25.11.2026)
+        toneArmed: 'Alarmton an',
       },
       leadOffline: 'Offline. Karte & Objekte zeigt, was wirklich auf diesem Gerät liegt.',
       leadOnline: 'Was ohne Netz zur Verfügung stünde.',

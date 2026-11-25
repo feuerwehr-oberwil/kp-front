@@ -3,12 +3,15 @@
 // time/pressure warnings, but generic: any feature can prime + start + stop it.
 //
 // AUTOPLAY UNLOCK: browsers start an AudioContext "suspended" and refuse to make
-// sound until it is resumed inside a real user gesture (tap/click/keydown). So the
-// caller must invoke `primeAudio()` from such a gesture once — which is why App does
-// it on "Einsatz starten / öffnen" (the first touch of every Einsatz), not only when
-// somebody happens to open a Trupp-Formular. After that the `Alarm` can sound later
-// without interaction. Whether it worked is readable via `audioUnlocked()`, so the
-// bell can say "Ton nicht freigegeben" instead of claiming to be armed.
+// sound until it is resumed inside a real user gesture (tap/click/keydown). So
+// `primeAudio()` must run inside such a gesture once. The first tap ANYWHERE in the app does
+// it (`armOnAnyTap`, mounted by App; owner pick UX journeys M·3, 25.11.2026), with a short
+// «Alarmton an» toast. It replaces the rule that only «Einsatz starten / öffnen», the
+// Trupp-Formular and a tap on the Tafel unlocked it (App · selectIncident, 2026-08): after a
+// reload of a running Einsatz an überfällig alarm stayed silent until somebody happened to touch
+// one of those. After that the `Alarm` can sound later without interaction. Whether it worked is
+// readable via `audioUnlocked()`, so the bell can say "Ton nicht freigegeben" instead of
+// claiming to be armed.
 //
 // THE ONE ALARM LAYER: time-based alerts (Atemschutz
 // clock, reminders) go through this shared layer, not ad-hoc timers. Two voices, one per level
@@ -113,6 +116,37 @@ export function chime() {
  *  named for the Atemschutz call sites that "unlock" the alarm on the first wizard tap). */
 export function unlockAlarm() {
   primeAudio()
+}
+
+/** The events that count as a user gesture for audio. `pointerdown` alone is not enough: for a
+ *  finger, the HTML spec's user activation comes with `pointerup` / `touchend`, not with the
+ *  press, so a tablet needs those too. Each one primes only while the tone is still off. */
+const GESTURES = ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown'] as const
+
+/**
+ * Arm the tone with the first tap anywhere in the app (owner pick UX journeys M·3, 25.11.2026).
+ * Listens on the document in the capture phase, so no surface can swallow the tap first. Every
+ * gesture while the tone is off primes it; `onArmed` runs each time the context reaches
+ * `running` because of such a prime (App shows «Alarmton an»). It keeps listening after that: an
+ * interruption (a call, Siri) stops the context again, and the next tap brings it back.
+ * Returns the uninstall.
+ */
+export function armOnAnyTap(onArmed: () => void): () => void {
+  // a prime was sent and the context has not reported `running` yet (resume is async)
+  let waiting = false
+  const onGesture = () => {
+    if (audioUnlocked() || !primeAudio()) return
+    // a context created inside the gesture can be running at once, with no statechange to follow
+    if (audioUnlocked()) { waiting = false; onArmed() } else waiting = true
+  }
+  const off = onAudioState(() => {
+    if (waiting && audioUnlocked()) { waiting = false; onArmed() }
+  })
+  for (const e of GESTURES) document.addEventListener(e, onGesture, { capture: true, passive: true })
+  return () => {
+    off()
+    for (const e of GESTURES) document.removeEventListener(e, onGesture, { capture: true })
+  }
 }
 
 // --- OS notification delivery (shared by Atemschutz + Wiedervorlagen) ---------------------

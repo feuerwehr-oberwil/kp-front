@@ -173,6 +173,7 @@ export const karteCopy: Localizable<Pick<Copy, 'karte'>> = {
         state: { ok: 'en ordre', warn: 'remarque', red: 'manque' },
         role: 'Compte',
         roleSub: '{r} · alarmes Atemschutz seulement, pas de «Neuer Einsatz»',
+        toneArmed: 'Son d’alarme activé',
       },
       leadOffline: 'Hors ligne. Carte & objets montre ce qui est vraiment sur cet appareil.',
       leadOnline: 'Ce qui serait disponible sans connexion.',
