@@ -43,6 +43,12 @@ const STATES: State[] = [
   // changes none of the states above (UI sweep 09.11.2026)
   { name: 'trupps-phone-night', device: PHONE, surface: 'atemschutz', theme: 'night' },
   { name: 'rapport-phone-night', device: PHONE, surface: 'rapport', theme: 'night', then: rapportOpen },
+  // the Beteiligte rows under the fold: Kontaktperson and Verursacher (25.11.2026), each with its
+  // Telefon and «Entfällt» – the two states above stop at the Kurzbericht
+  { name: 'rapport-beteiligte-phone', device: PHONE, surface: 'rapport', then: async (page) => {
+    await rapportOpen(page)
+    await page.locator('[data-sync="verursacher"]').scrollIntoViewIfNeeded()
+  } },
   { name: 'trupp-anmelden-phone', device: PHONE, surface: 'atemschutz', then: truppAnmelden },
   { name: 'trupp-anmelden-phone-night', device: PHONE, surface: 'atemschutz', theme: 'night', then: truppAnmelden },
   { name: 'symbol-editor-tablet', device: TABLET, surface: 'map', then: async (page) => {
