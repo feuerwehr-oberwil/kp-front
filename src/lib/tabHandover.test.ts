@@ -9,6 +9,7 @@ import { ApiError } from './api'
 import type { IncidentMeta } from './api/incidents'
 import * as workspaceApi from './api/workspace'
 import { CACHE_DEBOUNCE_MS, setWorkspaceCacheOwner, type WorkspaceSync } from './api/workspaceSync'
+import * as idb from './idb'
 import { idbGet } from './idb'
 import { IncidentSelection } from './incidentSelection'
 import { FakeLocks } from './webLocks.test-utils'
@@ -126,4 +127,60 @@ it('hole 3: a holder that loses the lock mid-merge pushes nothing more', async (
   answer()
   await vi.advanceTimersByTimeAsync(70_000)
   expect(put.mock.calls.filter((c) => c[4] === first.writerId).length).toBe(putsBefore)
+})
+
+it('a PUT the old holder still had on its way does not bring back what the new holder deleted', async () => {
+  const id = `inflight-${n}`
+  const server = { rev: 1, workspace: baseline as Saved }
+  get.mockImplementation(async () => ({ workspace: server.workspace, workspace_rev: server.rev }))
+  let landA!: () => void
+  put.mockImplementation((_id, ws, baseRev) => {
+    const land = () => {
+      if (baseRev !== server.rev) throw new ApiError(409, 'conflict')
+      server.rev++
+      server.workspace = ws as Saved
+      return { workspace: null, workspace_rev: server.rev }
+    }
+    // A's first PUT is slow: it reaches the server only after B took over
+    if (!landA) return new Promise((resolve, reject) => { landA = () => { try { resolve(land()) } catch (e) { reject(e) } } })
+    return Promise.resolve().then(land)
+  })
+  const a = await tab(id)
+  const b = await tab(id)
+  const marker = { id: 'x', type: 'symbol', lngLat: [7.5, 47.5] }
+  edit(a, { entities: [marker] as unknown as Saved['entities'] })
+  await vi.advanceTimersByTimeAsync(1_100) // A's PUT is on its way
+  expect(landA).toBeTypeOf('function')
+  b.takeOver()
+  await vi.waitFor(() => expect(b.editing).toBe(true))
+  expect(engine(b).workspace.entities).toEqual([marker])
+  edit(b, { entities: [] })
+  landA() // A's PUT lands now, with the marker
+  await vi.advanceTimersByTimeAsync(5_000) // B pushes, 409, merges, pushes again
+  expect(server.workspace.entities).toEqual([])
+  expect((await slot(id))?.workspace.entities).toEqual([])
+})
+
+it('a promotion overtaken by a steal back does not fence the thief out of its slot', async () => {
+  const id = `claim-${n}`
+  const a = await tab(id)
+  const b = await tab(id)
+  // B's claim is slow to reach IndexedDB; A steals editing back meanwhile
+  const realSet = idb.idbSet
+  let release!: () => void
+  const slow = new Promise<void>((resolve) => { release = resolve })
+  let claims = 0
+  vi.spyOn(idb, 'idbSet').mockImplementation(async (key, value) => {
+    if (key.endsWith('::__writer__') && ++claims === 1) await slow // B's claim, the first after the spy
+    return realSet(key, value)
+  })
+  b.takeOver()
+  await vi.advanceTimersByTimeAsync(0)
+  a.takeOver()
+  await vi.advanceTimersByTimeAsync(0)
+  release()
+  await vi.waitFor(() => expect(a.editing).toBe(true))
+  edit(a, { reportMeta: { remarks: 'A again' } })
+  await settle()
+  expect((await slot(id))?.workspace.reportMeta).toEqual({ remarks: 'A again' })
 })

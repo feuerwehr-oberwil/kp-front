@@ -126,8 +126,8 @@ export const sameQueue = (a: MediaQueueItem[], b: MediaQueueItem[]): boolean =>
  *  orders the TABS – two tabs of one browser share the one stored queue, and a tab that lost the
  *  Einsatz's edit lock can still be finishing a flush while the tab that took it stores a capture
  *  (hunt 24.11.2026). No Web Locks, or a lock the browser refuses before the grant (an inactive
- *  document): `refused` answers, or – without one – the job runs unlocked, as
- *  objectVisits/store · withRecordLock (a capture is never dropped for want of a lock). */
+ *  document): `refused` answers – every caller passes one, nothing runs unlocked over another
+ *  tab's queue (Sol r2) – or, without one, the job runs unlocked. */
 async function acrossTabs<T>(name: string, job: () => Promise<T>, refused?: () => T): Promise<T> {
   const locks = typeof navigator !== 'undefined' ? navigator.locks : undefined
   if (!locks?.request) return job()
@@ -205,13 +205,15 @@ async function readQueue(incidentId: string): Promise<{ items: MediaQueueItem[];
   // `known`: the whole queue whose write failed – newer than the store for what THIS tab did. But
   // another tab can have written the store since (the Einsatz's edit lock moved, hunt 24.11.2026):
   // an entry only the store has is kept (a receipt this tab had retired comes back as a receipt,
-  // whose link is idempotent), and under one id the later CAPTURE wins – a voice memo re-recorded
-  // there is not undone by this tab's older one; this tab's own status changes keep `createdAt`.
+  // whose link is idempotent), and under one id the store wins with a later CAPTURE – a voice
+  // memo re-recorded there is not undone by this tab's older one – or with a RECEIPT of the same
+  // capture: its bytes are on the server, a held attempt of it would only send them again.
   const storedById = new Map(stored.map((i) => [i.id, i]))
   const heldIds = new Set(held.items.map((i) => i.id))
   const merged = held.items.map((h) => {
     const s = storedById.get(h.id)
-    return s && s.createdAt > h.createdAt ? s : h
+    if (!s) return h
+    return s.createdAt > h.createdAt || (sameCapture(s, h) && isReceipt(s) && !isReceipt(h)) ? s : h
   })
   return { items: [...merged, ...stored.filter((i) => !heldIds.has(i.id))], known: true }
 }
@@ -260,11 +262,18 @@ export async function enqueueMedia(
 ): Promise<boolean> {
   const id = mediaQueueId(rowId, kind, localUrl)
   const rev = uploadId ?? newId('mq')
+  const entry: MediaQueueItem = { id, incidentId, rowId, kind, blob, filename, createdAt, attempts: 0, status: 'pending', rev, ...(localUrl ? { localUrl } : {}), ...(target ? { target } : {}), ...(slot != null ? { slot } : {}) }
   return laneFor(incidentId).edit(async () => {
     const { items, known } = await readQueue(incidentId)
     const next = items.filter((i) => i.id !== id)
-    next.push({ id, incidentId, rowId, kind, blob, filename, createdAt, attempts: 0, status: 'pending', rev, ...(localUrl ? { localUrl } : {}), ...(target ? { target } : {}), ...(slot != null ? { slot } : {}) })
+    next.push(entry)
     return storeQueue(incidentId, next, known)
+  }, () => {
+    // the cross-tab lock was refused (an inactive document): never an unlocked read-modify-write
+    // over another tab's queue – the capture waits in memory for the next write that lands
+    const held = unstored.get(incidentId)
+    unstored.set(incidentId, { items: [...(held?.items ?? []).filter((i) => i.id !== id), entry], known: held?.known ?? false })
+    return false
   })
 }
 
@@ -272,7 +281,7 @@ export const listMediaQueue = async (incidentId: string): Promise<MediaQueueItem
 
 /** Drop the whole queue for an incident (called when an incident is archived/closed). */
 export const clearIncidentMedia = (incidentId: string): Promise<void> =>
-  laneFor(incidentId).edit(() => { unstored.delete(incidentId); return idbDel(keyFor(incidentId)) })
+  laneFor(incidentId).edit(() => { unstored.delete(incidentId); return idbDel(keyFor(incidentId)) }, () => undefined)
 
 /**
  * Drop an archived incident's queue — UNLESS something is still waiting in it.
@@ -296,7 +305,7 @@ export function clearUploadedMedia(incidentId: string): Promise<number> {
     // a queue that could not be read may still hold captures: leave it for the next open
     if (known) await idbDel(keyFor(incidentId)).catch(() => {})
     return 0
-  })
+  }, () => 0) // refused: nothing is deleted, the queue is drained on the next open
 }
 
 export type MediaUploader = (
@@ -395,7 +404,7 @@ export function flushMediaQueue(incidentId: string, upload: MediaUploader, { ret
       const next = current.map((cur) => settled.find((x) => sameCapture(x.item, cur))?.next ?? cur)
       await storeQueue(incidentId, next, known)
       return next
-    })
+    }, () => items) // a refused lock writes nothing: what landed is sent again (same upload id)
     return { uploaded, remaining, ...(deferredUntil != null ? { deferredUntil } : {}) }
   }, () => ({ uploaded: [], remaining: [] }))
 }
