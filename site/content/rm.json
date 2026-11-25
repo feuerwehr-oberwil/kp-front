@@ -107,7 +107,7 @@
       {
         "was": "Fegls da notizias e memoria",
         "h2": "Decurs che vegn manà cuntinuadamain.",
-        "p": "Scriver u discurrer. Il decurs vegn mo cumplettà e mai surscrit – correcturas vegnan fatgas cun novas endataziuns. Pendenzas avertas As fan endament sezzas.",
+        "p": "Scriver u discurrer. Il decurs vegn mo cumplettà e mai surscrit – correcturas vegnan fatgas cun novas endataziuns. Pendenzas avertas sa fan endament sezzas.",
         "li": [
           "Notizias vocalas – cun in servetsch da transcripziun er sco text",
           "Pendenzas cun promemoria",
@@ -191,7 +191,7 @@
           "Dar vinavant l’access ad in’acziun cun in link; l’access è visibel e po vegnir\n            revocà",
           "<strong>Modus da preschentaziun</strong>: tgi che ha averta l’acziun suonda il visur da la persuna che preschenta – tuts pon mussar, nagut vegn memorisà",
           "Material cun inventari e consum",
-          "Glistas da controlla adattablas cun access direct als instruments correspundents",
+          "Glistas da controlla per il sustegn da direcziun e la direcziun d’acziun",
           "Rolla da direcziun d’acziun: administrar preschientscha, meds, glistas da controlla e rapport – leger charta e gruppas senza dretg da modifitgar"
         ]
       },
@@ -240,7 +240,7 @@
     "items": [
       {
         "q": "Pertge midar?",
-        "a": "Tuts vesan il medem maletg a medem temp. Nagina annunzia va a perder. La surveglianza\n          avertescha automaticamain, il traffic da radio diminuescha ed il rapport è quasi terminà al return."
+        "a": "Tuts vesan il medem maletg da la situaziun a medem temp – en il vehichel da commando, sin il tablet e tar il manader d’acziun. Nagina annunzia va a perder sin in fegl da notizias. La surveglianza da la protecziun respiratorica avertescha automaticamain avant che la situaziun daventia critica. Quai reducescha il traffic da radio per dumondas che vegnan gia respundidas dal maletg da la situaziun – ed il rapport è quasi terminà al return, empè pir la fin d’emna suenter. KP Front sustegna la direcziun d’acziun da tegnair la situaziun senza cuntradicziuns e da render visiblas divergenzas: ina gruppa senza contact da radio, in vehichel senza posiziun attribuida u ina annunzia che n’è mai arrivada."
       },
       {
         "q": "Per tge corps da pumpiers e tge intervenziuns è KP Front fatg?",
@@ -276,7 +276,7 @@
       },
       {
         "q": "Funcziuna KP Front mo en Svizra?",
-        "a": "Na. Sco software open source è KP Front liberamain accessibla e po vegnir adattada a las circumstanzas localas en l’entir mund. Da fabrica è l’applicaziun preconfigurada per la Svizra – cun chartas da swisstopo, segns tactics tenor las convenziuns FKS ed ils models FKS per la direcziun da l’acziun. Ordaifer la Svizra pon vegnir configuradas autras basas da chartas; la tschertga d’adressas sustegna oz mo l’interfatscha da swisstopo e sto vegnir adattada là."
+        "a": "Na. Sco software open source è KP Front accessibel libramain e po vegnir adattà a las circumstanzas localas en l’entir mund. Da fabrica è l’applicaziun preconfigurada per la Svizra – cun chartas da swisstopo, segns tactics tenor las convenziuns FKS ed ils models FKS per la direcziun da l’acziun. Ordaifer la Svizra pon vegnir configuradas autras basas da chartas; la tschertga d’adressas sustegna oz mo l’interfatscha da swisstopo e sto vegnir adattada là."
       },
       {
         "q": "En tge linguas è KP Front disponibel?",

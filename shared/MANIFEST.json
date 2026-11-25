@@ -137,11 +137,11 @@
       "files": [
         {
           "path": "site/landing.css",
-          "sha256": "569108699188e7f89c302c3e481a56d28028cd40d191fbf8c3456552c8abc95b"
+          "sha256": "86e4079b1e82f3586ec5530724d49f7a73fb93e61749b2474a13c49653f28401"
         },
         {
           "path": "site/build.mjs",
-          "sha256": "0c130bef21665a82df975e4935f8714aa901b64219bec89a88b218a69748d8a3"
+          "sha256": "517989ed794cc106b21ab8c824157b930b7a5a727ece8bc317ae11acca8a7913"
         },
         {
           "path": "site/theme.js",

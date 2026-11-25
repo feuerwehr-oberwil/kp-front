@@ -169,7 +169,7 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
       rueckzug: 'Repli',
       // ⚠️ le repli a été annulé — personne n’est rentré (voir la base allemande)
       exit: 'Sortie', resume: 'Repli annulé',
-      paOn: 'Sous ARI', paOff: 'Surveillance ARI terminée',
+      paOn: 'Sous ARI', paOff: 'Surveillance PR terminée',
       notfall: 'Urgence déclenchée', notfallEnde: 'Urgence terminée',
       // a `crew` row prints its names (AtemschutzView · readingLabel); this is the fallback word
       crew: 'Équipe',
@@ -325,7 +325,7 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
       logSafetyDesignated: 'Binôme {name} : désigné équipe de sécurité – urgence binôme {target}',
       logSafetyWas: 'auparavant {auftrag}',
       logAtClose: 'Binôme {name} : urgence non terminée à la clôture',
-      notifyTitle: 'Urgence ARI – {name}',
+      notifyTitle: 'Urgence PR – {name}',
       notifyBody: 'Urgence depuis {time} – engager l’équipe de sécurité.',
       noSafetyHint: 'Aucune équipe de sécurité prête',
       abschlussTitle: 'Urgence en cours',
@@ -407,7 +407,7 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     alarmRowReadOnly: 'lecture seule',
     foreign: {
       mark: 'Alarme ARI',
-      markNotfall: 'Urgence ARI',
+      markNotfall: 'Urgence PR',
       markTitle: 'ARI : {names}',
       rowTitle: '{einsatz} · {title}',
       notfallSub: 'Engager l’équipe de sécurité.',
@@ -450,7 +450,7 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     changePressureSet: 'Pression d\'entrée {n} bar',
     changeKindPa: 'désormais sous ARI',
     changeKindPlain: 'plus sous ARI',
-    kindOffTitle: '{name} : terminer la surveillance ARI ?',
+    kindOffTitle: '{name} : terminer la surveillance PR ?',
     kindOffMsg: 'Le binôme est engagé. Sans ARI, l’horloge de contact et la pression '
       + 's’arrêtent, et il n’y a plus d’alarme pour lui. Tout ce qui a été saisi reste dans le '
       + 'journal et sur le rapport.',

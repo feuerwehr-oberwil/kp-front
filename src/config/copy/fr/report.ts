@@ -78,7 +78,7 @@ export const reportCopy: Localizable<Pick<Copy, 'auswertung' | 'report' | 'print
     remarks: 'Remarques',
     kroki: 'Croquis',
     krokiState: '{title} · état {at}',
-    atemschutz: 'Surveillance ARI',
+    atemschutz: 'Surveillance PR',
     truppEntry: 'Entrée',
     mittel: 'Matériel (indiquer la quantité)',
     journal: 'Journal d’intervention',
@@ -216,7 +216,7 @@ export const reportCopy: Localizable<Pick<Copy, 'auswertung' | 'report' | 'print
     toggleTafelPage: '{title} ({n})',
     toggleTafelSkizze: 'Tableau – croquis',
     plansAll: 'Tous les plans',
-    toggleAtemschutz: 'Surveillance ARI ({n})',
+    toggleAtemschutz: 'Surveillance PR ({n})',
     toggleAttendance: 'Présence ({n})',
     toggleJournal: 'Journal d’intervention',
     togglePendenzen: 'Ordres / en-suspens ({n})',
@@ -278,7 +278,7 @@ export const reportCopy: Localizable<Pick<Copy, 'auswertung' | 'report' | 'print
       + 'un binôme, contact, pression, repli, sorti. Pas de carte, pas de journal. Valable jusqu’à '
       + 'la clôture de l’intervention.',
     shareAsLiveLede: 'Valable jusqu’à la clôture.',
-    shareAsWarn: 'Ce qui y est saisi figure au rapport sous «Surveillance ARI». Ne donnez le lien qu’à la '
+    shareAsWarn: 'Ce qui y est saisi figure au rapport sous «Surveillance PR». Ne donnez le lien qu’à la '
       + 'personne qui surveille.',
     shareAsRevokeTitle: 'Révoquer le lien binômes ?',
     shareAsRevokeBody: 'L’adresse cessera de fonctionner. Qui a les binômes ouverts ne peut plus rien saisir. Un '

@@ -4,7 +4,7 @@
 import type { Copy, Localizable } from '../index'
 
 export const symbolsCopy: Localizable<Pick<Copy, 'symbolNames' | 'symbolAliases' | 'symbolCategories'>> = {
-  // Etichette di VISUALIZZAZIONE dei simboli tattici, indicizzate per nome FireGIS grezzo.
+  // Etichette di VISUALIZZAZIONE dei segni convenzionali, indicizzate per nome FireGIS grezzo.
   // L'identità memorizzata resta il nome grezzo; solo l'etichetta viene tradotta.
   symbolNames: {
     'VKF Feuer': 'Incendio',
