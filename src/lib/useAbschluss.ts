@@ -72,6 +72,10 @@ interface Args {
    *  the pre-filled Einsatzende. Absent (a caller that may not edit the Rapport) ⇒ nothing is
    *  pre-filled. */
   patchReportMeta?: (over: Partial<ReportMeta>) => void
+  /** the Einsatzleiter the Kroki names (lib/report · einsatzleiterFromScene) – what the Rapport's
+   *  field SHOWS while the Rapport has none of its own. Counted as given, and written with the
+   *  close; opening the Rapport no longer stores it (owner, UX journeys sign-off, 25.11.2026). */
+  shownEinsatzleiter?: string
 }
 
 /**
@@ -87,13 +91,17 @@ interface Args {
 export function useAbschluss({
   reportMeta, attendance, mittel, openConflictCount, trupps, openPendenzen, showVerlaufRow, reportBeforeNachtrag, incidentMeta, replayActive, media, onCompleteRapport,
   setMode, setPanel, setOfflineReadyOpen, requestReportStep, standDownTrupps, noteInsideAtClose, noteNotfallAtClose, flushOutboxes, markClosing,
-  patchReportMeta,
+  patchReportMeta, shownEinsatzleiter,
 }: Args) {
   // the Rapport's own «closed» (RapportSurface · `!running`), so its chip and every door count alike
   const closedNow = !isIncidentRunning(incidentMeta)
+  /** the Kroki's Einsatzleiter while the Rapport names none – the field shows it, so every door
+   *  counts it as the Rapport's own form does (ReportPreflight · `meta`), and the close stores it */
+  const pendingEl = (!reportMeta.einsatzleiter?.trim() && shownEinsatzleiter?.trim()) || undefined
   const abschlussMissing = useMemo(
-    () => missingSteps(abschlussFacts(reportMeta, Object.keys(attendance).length, mittelLineCount(mittel), openConflictCount, closedNow)),
-    [reportMeta, attendance, mittel, openConflictCount, closedNow],
+    () => missingSteps(abschlussFacts(pendingEl ? { ...reportMeta, einsatzleiter: pendingEl } : reportMeta,
+      Object.keys(attendance).length, mittelLineCount(mittel), openConflictCount, closedNow)),
+    [reportMeta, pendingEl, attendance, mittel, openConflictCount, closedNow],
   )
   /** How many Trupps are still recorded as being out there (lib/atemschutz · truppStillDeployed).
    *  NOT an ABSCHLUSS_STEP: those are the Rapport's Mindestangaben, and this is a state of the
@@ -304,10 +312,15 @@ export function useAbschluss({
       safeAnswer: anyOpen ? ('cancel' as const) : undefined,
     })
     if (!ok) return false
-    // the pre-filled Einsatzende becomes the record's with the close — one task for React to
-    // commit it, so the handover's flush carries it (useIncidentLifecycle · completeRapport flushes the sync)
-    if (pendingEnde) {
-      patchReportMeta!({ endedAt: pendingEnde })
+    // the pre-filled Einsatzende and the shown Einsatzleiter become the record's with the close —
+    // one write, one task for React to commit it, so the handover's flush carries it
+    // (useIncidentLifecycle · completeRapport flushes the sync)
+    const fill: Partial<ReportMeta> = {
+      ...(pendingEnde ? { endedAt: pendingEnde } : {}),
+      ...(patchReportMeta && pendingEl ? { einsatzleiter: pendingEl } : {}),
+    }
+    if (patchReportMeta && Object.keys(fill).length) {
+      patchReportMeta(fill)
       await new Promise((r) => setTimeout(r, 0))
     }
     // From the confirm to the close's answer, every row this device writes is the Abschluss's
@@ -350,7 +363,7 @@ export function useAbschluss({
       reportMadeAt: reportBeforeNachtrag ? undefined : reportMeta.reportMadeAt,
     }).finally(() => markClosing?.(false))
   // requestReportStep is a module-level loader of the caller's — stable, so naming it changes nothing
-  }, [abschlussMissing, incidentMeta, reportMeta.endedAt, reportMeta.reportMadeAt, reportBeforeNachtrag, truppsStillOut, showVerlaufRow, media, onCompleteRapport, setMode, setPanel, setOfflineReadyOpen, requestReportStep, standDownTrupps, noteInsideAtClose, noteNotfallAtClose, flushOutboxes, markClosing, patchReportMeta])
+  }, [abschlussMissing, incidentMeta, reportMeta.endedAt, reportMeta.reportMadeAt, reportBeforeNachtrag, truppsStillOut, showVerlaufRow, media, onCompleteRapport, setMode, setPanel, setOfflineReadyOpen, requestReportStep, standDownTrupps, noteInsideAtClose, noteNotfallAtClose, flushOutboxes, markClosing, patchReportMeta, pendingEl])
 
   return { abschlussMissing, truppsStillOut, azFrozenAt, azMonitoring, confirmAndComplete }
 }

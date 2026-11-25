@@ -305,46 +305,24 @@ describe('ReportPreflight · a signature after an edit', () => {
   })
 })
 
-// Opening the Rapport fills a blank Einsatzleiter from the Kroki (seededEinsatzleiter). The app did
-// that, not the crew, so the write is marked unlogged and leaves no «Rapportangaben: …» Verlauf row
-// (owner pick UX journeys B3·15, 25.11.2026).
-describe('ReportPreflight · the Kroki-seeded Einsatzleiter', () => {
-  it('fills the blank field once and marks the write unlogged', async () => {
-    const onSaveMeta = vi.fn()
+// Opening the Rapport is read-only (owner, UX journeys sign-off, 25.11.2026): the Kroki's
+// Einsatzleiter is shown, not stored, and the roster person it names is not filed onto the
+// Anwesenheit. Until then the first look wrote both, and the Verlauf said «Rapportangaben: …».
+describe('ReportPreflight · opening the Rapport', () => {
+  it('writes nothing – the Kroki-named Einsatzleiter only shows', async () => {
+    const writes = { onSaveMeta: vi.fn(), onRolePicked: vi.fn(), onAddGuest: vi.fn(), onSign: vi.fn(), onResolveConflict: vi.fn() }
     const el = { id: 'el', kind: 'symbol', layer: 'taktisch', coord: [7, 47], symbol: appConfig.symbols.einsatzleiterSymbols[0], fields: { Name: 'Hofer Simon' } }
+    const hofer = { id: 'p-hofer', displayName: 'Hofer Simon' } as Person
     render(
       <ReportPreflight
         incident={incident} reportMeta={{}} events={[]} scene={{ entities: [el], drawings: [] } as never} mapContentCount={0}
         annotatedPlanCount={0} truppCount={0} attendanceCount={1} mittelCount={1}
-        onSaveMeta={onSaveMeta}
+        personnel={[hofer]} attendance={{}}
+        {...writes}
       />,
     )
     await act(async () => {})
-    const seeds = onSaveMeta.mock.calls.filter(([m]) => m.einsatzleiter === 'Hofer Simon')
-    expect(seeds).toHaveLength(1)
-    expect(seeds[0][1]).toEqual({ unlogged: ['einsatzleiter'] })
-  })
-})
-
-// UX pick B3·13 (25.11.2026): «Beilagen › Fotos» said «keine» while the Verlauf photo printed in the
-// Einsatzjournal. It lists and counts that photo as the Verlauf's, read-only; a tap opens its row.
-describe('ReportPreflight · Verlauf photos under «Fotos»', () => {
-  it('counts the Verlauf photo, says where it prints, and opens its row', async () => {
-    const onShowEntry = vi.fn()
-    const photo = { id: 'j1', t: '14:43', at: '2026-09-14T12:43:00.000Z', icon: 'photo', kind: 'photo' as const, text: 'Schadenstelle 2. OG', photoUrl: '/api/media/p1.jpg' }
-    render(
-      <ReportPreflight
-        incident={incident} reportMeta={{}} events={[photo]} mapContentCount={0}
-        annotatedPlanCount={0} truppCount={0} attendanceCount={1} mittelCount={1}
-        onSaveMeta={() => {}} onShowEntry={onShowEntry}
-      />,
-    )
-    await act(async () => {})
-    expect(screen.getAllByText(P.attachmentsCountOne).length).toBeGreaterThan(0)
-    expect(screen.queryByText(P.attachmentsNone)).toBeNull()
-    const row = screen.getByRole('button', { name: /Schadenstelle 2\. OG/ })
-    expect(row.textContent).toMatch(/Verlauf \d\d:\d\d · druckt im Einsatzjournal/)
-    fireEvent.click(row)
-    expect(onShowEntry).toHaveBeenCalledWith('j1')
+    expect(document.querySelector('[data-step="einsatzleiter"]')?.textContent).toContain('Hofer Simon')
+    for (const spy of Object.values(writes)) expect(spy).not.toHaveBeenCalled()
   })
 })

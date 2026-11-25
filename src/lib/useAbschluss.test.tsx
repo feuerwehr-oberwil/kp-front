@@ -55,6 +55,29 @@ describe('useAbschluss', () => {
     expect(r.truppsStillOut).toBe(0)
   })
 
+  // Opening the Rapport stores nothing (owner, UX journeys sign-off, 25.11.2026): the Kroki's
+  // Einsatzleiter the field shows counts as given on every door, and the close writes it
+  it('counts the shown Einsatzleiter and writes it with the close, once, beside the Einsatzende', async () => {
+    const shown = renderHook(() => useAbschluss(args({ shownEinsatzleiter: 'Hofer Simon' }))).result.current
+    expect(shown.abschlussMissing).not.toContain('einsatzleiter')
+    expect(renderHook(() => useAbschluss(args())).result.current.abschlussMissing).toContain('einsatzleiter')
+
+    vi.mocked(confirmDialog).mockReset().mockResolvedValueOnce(true)
+    const patchReportMeta = vi.fn()
+    await renderHook(() => useAbschluss(args({ shownEinsatzleiter: 'Hofer Simon', patchReportMeta }))).result.current.confirmAndComplete()
+    expect(patchReportMeta).toHaveBeenCalledTimes(1)
+    expect(patchReportMeta).toHaveBeenCalledWith({ endedAt: expect.any(String), einsatzleiter: 'Hofer Simon' })
+
+    // a Rapport that names its own Einsatzleiter keeps it
+    vi.mocked(confirmDialog).mockResolvedValueOnce(true)
+    const own = vi.fn()
+    await renderHook(() => useAbschluss(args({
+      reportMeta: { einsatzleiter: 'Muster Leo', endedAt: '2026-11-25T14:27:00Z' } as ReportMeta,
+      shownEinsatzleiter: 'Hofer Simon', patchReportMeta: own,
+    }))).result.current.confirmAndComplete()
+    expect(own).not.toHaveBeenCalled()
+  })
+
   // review of #235
   it('drains the Verlauf and audit outboxes BEFORE the handover', async () => {
     // after the archive they would be judged against a closed Einsatz

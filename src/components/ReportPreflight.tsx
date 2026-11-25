@@ -36,7 +36,7 @@ import { trackPrintJob } from '../lib/printJobToast'
 import { appConfig } from '../config/appConfig'
 import { fieldWhen, fillTemplate, fmtSpanShort, hhmm, stripUnprintable, telHref, unitLabel } from '../lib/format'
 import { closeTimeOf, getIncident, type IncidentMeta } from '../lib/incidents'
-import type { FahrzeugZeit, GruppeZeit, PartnerContact, ReportMeta, SaveMetaOpts } from '../lib/workspace'
+import type { FahrzeugZeit, GruppeZeit, PartnerContact, ReportMeta } from '../lib/workspace'
 import { deriveAusgerueckt, fahrzeugRows, gruppenRows, setFahrzeugZeit, setGruppeZeit, zeitIssues } from '../lib/alarmzeiten'
 import { fahrtenText } from '../lib/vehiclePresence'
 import type { ZeitKind } from '../lib/alarmzeiten'
@@ -346,9 +346,8 @@ export function ReportPreflight({
   onAddAttachments?: (files: File[]) => void
   onCaptionAttachment?: (id: string, caption: string) => void
   onRemoveAttachment?: (id: string) => void
-  /** persist the inline Rapportangaben edits (after-arrival fields) into the workspace; `opts`
-   *  names fields the app filled, which write no Verlauf row (lib/workspace · SaveMetaOpts) */
-  onSaveMeta: (next: ReportMeta, opts?: SaveMetaOpts) => void
+  /** persist the inline Rapportangaben edits (after-arrival fields) into the workspace */
+  onSaveMeta: (next: ReportMeta) => void
   /** does this session keep this Rapport (workspace/access · canEditRapport || canSignRapport)?
    *  False for a viewer: the fields render, filled in and readable, but nothing in them can be
    *  changed. On a CLOSED Einsatz the fields are read-only for everybody and a keeper only signs
@@ -557,7 +556,8 @@ export function ReportPreflight({
   const [verursacherTel, setVerursacherTel, verursacherTelDirty] = useSyncedField('verursacherTel', remote.verursacherTel, normText, blurTick)
   // Seeded from the Kroki when the Rapport has none of its own: the EL was already named on the
   // map (Einsatzleiter glyph / KP Front), so typing it a second time is pure duplication. A
-  // pre-fill only — the picker stays editable and the typed value wins from then on.
+  // pre-fill only — SHOWN, not stored (see «writes nothing» below); the picker stays editable
+  // and the typed value wins from then on.
   const [einsatzleiter, setEinsatzleiter, einsatzleiterDirty] = useSyncedField('einsatzleiter', remote.einsatzleiter, normText, blurTick)
   const [endedAt, setEndedAt, endedAtDirty] = useSyncedField('endedAt', remote.endedAt, normIso, blurTick)
   const [ausgerueckt, setAusgerueckt, ausgeruecktDirty] = useSyncedField('ausgerueckt', remote.ausgerueckt, normIso, blurTick)
@@ -657,44 +657,20 @@ export function ReportPreflight({
   // the green close, as if the Rapport were current – after «Wieder öffnen» + a corrected time
   // the green «Abschliessen» stood there at once over the old paper. Only the operator's fields
   // count (lib/reportUndo · reportStep): the app's bookkeeping (the Kroki framing) does not.
-  const persist = (over: Partial<ReportMeta>, opts?: SaveMetaOpts) => {
+  const persist = (over: Partial<ReportMeta>) => {
     if (!canEdit) return false
     const next: ReportMeta = { ...metaRef.current, ...dirtyMeta(), ...over }
     if (next.reportMadeAt && reportStep(metaRef.current, next)) delete next.reportMadeAt
-    return onSaveMeta(next, opts)
+    return onSaveMeta(next)
   }
 
-  // Commit the Kroki-seeded Einsatzleiter to the blob once, so the Abschluss-Checkliste and a
-  // rapport printed from another device see the same name this field shows — a value that only
-  // lives in local state would leave the checklist nagging about an Einsatzleiter that is on
-  // screen. Fills a BLANK field only, never overwrites, and only while the sheet is mounted.
-  // ⚠️ …and writes NO Verlauf row (owner pick UX journeys B3·15, 25.11.2026: «Fill, no row»): the
-  // app filled it on the first look, and «Rapportangaben: Einsatzleiter «…»» at that minute read
-  // as an edit of the crew's. Until then the seed went through the logged save like a typed name.
-  const seededEinsatzleiter = useRef(false)
-  useEffect(() => {
-    if (seededEinsatzleiter.current || reportMeta.einsatzleiter?.trim() || !einsatzleiter.trim()) return
-    seededEinsatzleiter.current = true
-    persist({ einsatzleiter: einsatzleiter.trim() }, { unlogged: ['einsatzleiter'] })
-    // `persist` is re-created every render (it closes over the live field state); depending on it
-    // would re-run this on every keystroke — the ref guard is what makes it once-only.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reportMeta.einsatzleiter, einsatzleiter])
-
-  // …and put that Einsatzleiter on the ANWESENHEIT, once.
-  //
-  // ⚠️ The EL is the one person a rapport names on its front page — and until 10.08. that name
-  // was only ever a string on `reportMeta` (or on the Kroki symbol it was seeded from). Nothing
-  // guaranteed a matching Anwesenheits-Zeile, so an Einsatz could be led by somebody who
-  // appeared on NO list: not on the Anwesenheit, not in the Trupp picker's «schon: Einsatzleiter»
-  // hint, and not on the printed Personalblatt — which is also the Soldblatt. The interactive
-  // pick already writes it (onRolePicked · lib/roleAssignment); this covers every other route a
-  // name arrives by (seeded data, a sync from another device, the symbol).
-  //
-  // Only when the name RESOLVES to a roster row. A name that arrives this way was NOT typed
-  // here — it comes from seeded data, another device's sync or the Kroki symbol — and minting a
-  // Gast for one would put people on the Soldblatt that nobody recorded on this screen. Typing a
-  // name into the picker itself is the deliberate act, and that path files a Gast (onAddGuest).
+  // ⚠️ OPENING THE RAPPORT WRITES NOTHING (owner, sign-off of UX journeys, 25.11.2026 – «Opening
+  // is read-only»). Until then two effects wrote on the first look: the Kroki's Einsatzleiter into
+  // the blob (with a «Rapportangaben: Einsatzleiter …» Verlauf row at a minute nobody typed – owner
+  // pick B3·15 had only muted the row) and that person onto the Anwesenheit. Both went. The Kroki's
+  // name is SHOWN in the field (reportForm · remoteForm) and printed, the checklist counts it
+  // (useAbschluss · shownEinsatzleiter), and it is stored when somebody saves it: a pick or a typed
+  // name in the field, the EL's signature (both also file the Anwesenheit), or the close.
   /** person id → the job they already hold, off their Anwesenheits-Bemerkung — shown on every
    *  option of the two person pickers below (lib/roleAssignment writes these notes). Same shape
    *  the Atemschutz board's pickers use; a roster that reads differently depending on which
@@ -707,17 +683,6 @@ export function ReportPreflight({
     ),
     [attendance],
   )
-  const linkedEinsatzleiter = useRef(false)
-  useEffect(() => {
-    if (linkedEinsatzleiter.current || !onRolePicked) return
-    const name = (reportMeta.einsatzleiter ?? einsatzleiter).trim()
-    if (!name) return
-    const p = personnel.find((x) => x.displayName.trim().toLowerCase() === name.toLowerCase())
-    if (!p || attendance[p.id]) return
-    linkedEinsatzleiter.current = true
-    onRolePicked(p.id, 'el', appConfig.copy.anwesenheit.roleEinsatzleiter)
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per mount, guarded by the ref
-  }, [reportMeta.einsatzleiter, einsatzleiter, personnel, attendance])
 
   const meta: ReportMeta = {
     ...reportMeta,

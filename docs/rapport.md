@@ -36,7 +36,11 @@ chip's popover. The fast tap was often the wrong answer («Entfällt» for a Rü
 given). An empty **Einsatzende is pre-filled with «jetzt»** on the deployment clock
 (`serverNowIso`), shown as a done row in the step's own place on the list (a tap opens the field
 and writes nothing – it wrote «jetzt» first until 25.11.2026); the close writes it before the handover, so «Einsatzende» (the step `zeiten`) is only open on a sheet
-that may not write the Rapport. No toast: the launcher's Meldeleiste carries the receipt «Einsatz
+that may not write the Rapport. **The Kroki's Einsatzleiter is written with it**: opening the
+Rapport is read-only (owner, UX journeys sign-off, 25.11.2026 – until then the first look stored
+the Kroki's name, with a «Rapportangaben: Einsatzleiter …» Verlauf row, and filed that person on
+the Anwesenheit). The field shows the name, the paper prints it and every door counts it as given
+(`useAbschluss · shownEinsatzleiter`); a pick, a typed name or the EL's signature stores it earlier. No toast: the launcher's Meldeleiste carries the receipt «Einsatz
 abgeschlossen» – title · Einsatzende, «Einsatzrapport erstellt 14:30» (or «Rapport noch nicht
 erstellt»), «Rapport öffnen» (read-only, on the Rapport) – until «Ausblenden» or until the Einsatz
 runs again (`components/ClosedReceiptMeldung`, owner pick UX journeys B2·13, 25.11.2026; it

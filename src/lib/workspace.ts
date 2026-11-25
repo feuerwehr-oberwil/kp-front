@@ -136,13 +136,6 @@ export interface ReportMeta {
   linksDone?: Record<string, string>
 }
 
-/** How one Rapport write is recorded (IncidentWorkspace · saveReportMeta). `unlogged` names fields
- *  the APP filled rather than the crew – the Kroki-seeded Einsatzleiter – which write no
- *  «Rapportangaben: …» Verlauf row (owner pick UX journeys B3·15, 25.11.2026). */
-export interface SaveMetaOpts {
-  unlogged?: readonly (keyof ReportMeta)[]
-}
-
 export interface GruppeZeit {
   id: string
   alarmedAt?: string
