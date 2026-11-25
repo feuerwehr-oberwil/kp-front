@@ -1,5 +1,5 @@
 import type { Locator, Page } from '@playwright/test'
-import { EINSATZ_RAIL, dismissFirstViewGebaeude, expect, expectNoCrash, login, openApp, test } from './helpers'
+import { EINSATZ_RAIL, dismissFirstViewGebaeude, expect, expectNoCrash, login, openApp, rememberIncident, test } from './helpers'
 
 // The Wand's grips on the Gebäude stack, with a real mouse (owner, round 3 of the Gebäude
 // drawing, 27.10.2026). Two things jsdom cannot see, so the browser measures them:
@@ -45,10 +45,7 @@ test.beforeEach(async ({ page, context, browserName }, testInfo) => {
   const created = await page.request.post('/api/incidents', { data: { title: `E2E ${testInfo.title.slice(0, 40)}`, lat: AT[1], lng: AT[0] } })
   expect(created.status(), 'creating the Einsatz').toBe(201)
   incidentId = (await created.json() as { id: string }).id
-  await context.addCookies([{
-    name: 'kp-front-prefs', url: new URL(page.url()).origin,
-    value: encodeURIComponent(JSON.stringify({ incidentId, incidentChosenAt: Date.now() })),
-  }])
+  await rememberIncident(page, incidentId)
   await openApp(page, '/')
   await expect(page.locator(EINSATZ_RAIL)).toBeVisible()
   // the card a fresh device opens by itself is a layer: a tap on the chip beside it would only close it

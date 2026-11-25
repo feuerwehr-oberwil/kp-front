@@ -80,7 +80,9 @@ export async function login(page: Page) {
 
   // «Name dieses Geräts» asks once at the first login on a device (components/DeviceName, on home
   // only). A spec is a fresh device every time, so answer it as «Später» would: mark it asked in the
-  // prefs cookie and tell the open holders (lib/deviceName · skipDeviceNameAsk).
+  // prefs cookie and tell the open holders (lib/deviceName · skipDeviceNameAsk). ⚠️ A spec that
+  // writes the cookie after this merges into it (`rememberIncident`) – written whole, it drops the
+  // mark and the sheet covers home again.
   await page.evaluate(() => {
     const raw = document.cookie.split('; ').find((c) => c.startsWith('kp-front-prefs='))?.slice('kp-front-prefs='.length)
     let prefs: Record<string, unknown> = {}
@@ -88,6 +90,20 @@ export async function login(page: Page) {
     document.cookie = `kp-front-prefs=${encodeURIComponent(JSON.stringify({ ...prefs, deviceNameAsked: true }))}; path=/; samesite=lax`
     window.dispatchEvent(new Event('kp:device-name'))
   })
+}
+
+/** Make this device open `incidentId` next, as the Einsatz it picked by hand (lib/prefs ·
+ *  incidentChosenAt). Call it after `login()`: it MERGES into the prefs cookie, so login's
+ *  «Name dieses Geräts» mark stays (the Einsatz menu spec on home, CI 25.11.2026). */
+export async function rememberIncident(page: Page, incidentId: string) {
+  const url = new URL(page.url()).origin
+  const raw = (await page.context().cookies(url)).find((c) => c.name === 'kp-front-prefs')?.value
+  let prefs: Record<string, unknown> = {}
+  try { prefs = raw ? JSON.parse(decodeURIComponent(raw)) as Record<string, unknown> : {} } catch { /* none yet */ }
+  await page.context().addCookies([{
+    name: 'kp-front-prefs', url,
+    value: encodeURIComponent(JSON.stringify({ ...prefs, incidentId, incidentChosenAt: Date.now() })),
+  }])
 }
 
 // After login the app shows either home (no open incident: «Karte & Objekte») or, if one is
