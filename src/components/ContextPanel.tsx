@@ -250,7 +250,8 @@ export interface ContextPanelProps {
    *  `options` = the station's `fleet.origins`. Without `onChange` a read-out. */
   origin?: { value: string; options?: string[]; onChange?: (v: string) => void }
   /** A vehicle's Einsatz clocks («Ausgerückt 13:40», «Vor Ort 13:48») – automatic, read-only rows
-   *  from the Rapport's vehicle times (lib/vehicleTimes, owner 25.11.2026: «Sheet only»). */
+   *  from the Rapport's vehicle times (lib/vehicleTimes, owner 25.11.2026: «Sheet only»), shown
+   *  after the editable rows, below «Herkunft» (owner sign-off note, 25.11.2026). */
   vehicleTimes?: { label: string; value: string }[]
   /** A placed Fahrzeug named like a GPS vehicle beside it (lib/gpsTwin, owner picks UX journeys
    *  B3·33/34): the hint under «Bezeichnung», and `onHold` – the symbol goes, the GPS vehicle is
@@ -885,11 +886,6 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
           {/* The glyph-affecting steppers — grouped, only the ones this symbol declares. View
               state keeps the literal same row/chrome and disables it: removing unset controls
               made the mirrored object's sidebar a different, mostly empty object. */}
-          {/* the vehicle's Einsatz clocks first: «is it vor Ort?» is the radio's question
-              (lib/vehicleTimes). Automatic, so a read-out on every session. */}
-          {vehicleTimes.map((t) => (
-            <div key={t.label} className="field"><span className="kv-key-ro">{t.label}</span><b className="kv-val-ro">{t.value}</b></div>
-          ))}
           {driver && !driver.onChange && (
             // the locked session's read-out: the same row, the value as every read-only field shows it
             <div className="field"><span className="kv-key-ro">{C.driverLabel}</span><b className="kv-val-ro">{driver.value || '–'}</b></div>
@@ -1162,6 +1158,13 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
               )}
             </div>
           )}
+          {/* the vehicle's Einsatz clocks (lib/vehicleTimes): automatic, so a read-out on every
+              session – and LAST, under every row one can edit, below «Herkunft» (owner sign-off
+              note, 25.11.2026; it opened the sheet before: «is it vor Ort?» is the radio's
+              question, but the inputs come first). */}
+          {vehicleTimes.map((t) => (
+            <div key={t.label} className="field"><span className="kv-key-ro">{t.label}</span><b className="kv-val-ro">{t.value}</b></div>
+          ))}
 
           {/* a Messpunkt's «Gleich gemessen», its limits behind an ⓘ, then its readings, one row per
               radio report (ReadingParts). A value still in a box is committed first: the button's
