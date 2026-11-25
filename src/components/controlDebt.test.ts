@@ -87,7 +87,7 @@ export function countControls(src: string): Counts {
 // 17.11.2026 (button sweep SHEETS.12): the «Verbindungen» jump rows of ContextPanel (1), DrawEditor
 // (its jumps to a target and to the Trupp, 2) and PlanAnno (1) are COUNTED now, not new – their typed ›
 // became the `chevron` icon the ratchet reads; they wait for ListRow with the rest. The foot
-// toggles (Erledigt, Sperren) went onto <Button>.
+// toggle (Sperren) went onto <Button>; the symbol's «Erledigt» became a Segmented «Zustand» row (M·6, 25.11.2026).
 const BASELINE: Record<string, Counts> = {
   'src/capture/BeilagenSection.tsx': { field: 1 },
   'src/capture/CaptureApp.tsx': { row: 2 },

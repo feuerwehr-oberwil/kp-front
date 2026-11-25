@@ -527,9 +527,11 @@
    <Button> (13-incident · `.ip-btn`), like every sheet footer – it was the dense dock's `.btn`, a
    translucent fill on another edge that a change to THE button skipped. This only PLACES it: the
    tiles share the row by their words (`auto`, never cut: nowrap), wrapping only when they must,
-   on a tighter 8px inset so [Zentrieren · Erledigt · Entfernen] stands on one phone row.
-   ONE foot on every map card, [Zentrieren · its toggle · delete] (owner, SHEETS.9): the symbol's
-   toggle is «Erledigt», a Linie's / Fläche's / Absperrkreis' / Form's «Sperren».
+   on a tighter 8px inset so [Zentrieren · Sperren · Entfernen] stands on one phone row.
+   ONE foot on every map card, [Zentrieren · its toggle · delete] (owner, SHEETS.9): a Linie's /
+   Fläche's / Absperrkreis' / Form's toggle is «Sperren». A symbol's foot is [Zentrieren ·
+   Entfernen] – its «Erledigt» became the «Zustand» row above (owner pick UX journeys M·6,
+   25.11.2026, replaces SHEETS.9 of 17.11.2026 for symbols).
    The delete is bin + «Entfernen», THE delete look (owner, SHEETS.1, 17.11.2026 – the symbol's bin
    SQUARE of 27.09.2026 went: on the next card the same act was worded, and a red square on one
    card and a red word on the next read as two different acts at 3am). */
@@ -539,22 +541,17 @@
    there at the far left like a sheet footer's danger – never a full-width red band (removal is rare,
    27.09.2026, and should not be the widest target on the card) */
 .ctx-actions > .ip-btn.danger { flex: 0 1 auto; }
-/* «Erledigt» is the quiet middle: no colour of its own, it only greys the symbol.
-   ⚠️ It wears the same ink as «Zentrieren» (29.09.2026, sweep K12): it was --ink-dim, which is
-   the look of «not available» – the one thing an action must not say.
-   SET, it is the same tile pressed (31.10.2026, ONE toggle in one spot), its ✓ in both states
-   (SHEETS.8), and a tap takes it back. */
-/* ONE pressed look for a foot toggle (duck sweep ELEM.5 + ELEM.2, 17.11.2026): «Erledigt» SET and
-   «Sperren» SET (DrawEditor, ShapeEditor – reached by a tap on a locked drawing's 🔒 chip) are the
-   choice fill, `--sel` – a pressed toggle, like `.wb-dock-tog.on`. «Erledigt» wore a green outline
-   and «Sperren» a blue one: an outline-only «selected» the buttons spec bans, and green for «done»
-   beside the Pendenz tick's blue (TickRow). Done is blue, everywhere. */
-.ip-btn:is(.ctx-done, .de-lock)[aria-pressed='true'] { color: var(--on-sel); border-color: var(--sel);
+/* ONE pressed look for a foot toggle (duck sweep ELEM.5 + ELEM.2, 17.11.2026): «Sperren» SET
+   (DrawEditor, ShapeEditor – reached by a tap on a locked drawing's 🔒 chip) is the choice fill,
+   `--sel` – a pressed toggle, like `.wb-dock-tog.on`; an outline-only «selected» is what the
+   buttons spec bans. (A symbol's «Erledigt» was the other foot toggle until the «Zustand» row
+   replaced it, owner pick UX journeys M·6, 25.11.2026.) */
+.ip-btn.de-lock[aria-pressed='true'] { color: var(--on-sel); border-color: var(--sel);
   background: var(--sel); box-shadow: var(--sel-shadow); }
 @media (hover: hover) {
-  .ip-btn:is(.ctx-done, .de-lock)[aria-pressed='true']:hover { background: var(--sel); border-color: var(--sel); }
+  .ip-btn.de-lock[aria-pressed='true']:hover { background: var(--sel); border-color: var(--sel); }
 }
-.ip-btn:is(.ctx-done, .de-lock)[aria-pressed='true'] svg { stroke-width: 2.6; }
+.ip-btn.de-lock[aria-pressed='true'] svg { stroke-width: 2.6; }
 /* A DOOR to the object's original («Zum Original») takes a row of its own, above the foot's acts
    (30.09.2026, owner: «fix this» – in a shared row, a door's label ran out of its share of the
    row and over «Zentrieren»). Its label is cut, never spilled (ContextPanel · LinkBtn). */

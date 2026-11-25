@@ -1,6 +1,8 @@
 /*
  * **A symbol whose matter is over is marked, never deleted** (24.09.2026, review item 21b,
- * `lib/objectDone`). «Erledigt», a toggle in the foot of the symbol's editor sheet, sets
+ * `lib/objectDone`). The «Zustand» row of the symbol's editor sheet («[Brennt | Gelöscht]» on a
+ * Feuer, «[Aktiv | Erledigt]» else – owner pick UX journeys M·6, 25.11.2026; until then a toggle
+ * tile «Erledigt» in the foot) sets
  * `done {at, by?}` — a SymbolProps prop, so both bodies share it and every write-through and bake
  * carries it (never `BAKE_PRESERVED`: that list would re-add a cleared value from the map body).
  * ⚠️ It is offered ONLY where being over means something — the damage and hazard categories
@@ -11,7 +13,7 @@
  * (`doneAct` refuses).
  * The symbol stays, greyed with its HH:MM top-left, by ONE rule on the Karte, the Plan and the
  * Gebäude (`TacticalSymbol` · `.ts-done`, the `--done-*` tokens) and on paper (`kroki ·
- * _place_symbol`, `DONE_ALPHA`). The pressed tile tapped again («wieder aktiv») clears it; the
+ * _place_symbol`, `DONE_ALPHA`). The row's first half («Brennt» / «Aktiv») clears it; the
  * editor's head says when it was set («Schadenlage · erledigt 20:40»). Both are ordinary undoable
  * prop edits, audited with `done: null` for the clear (JSON drops `undefined`, and the replay would keep it
  * grey). A Feuer is «gelöscht», everything else «erledigt» (`appConfig.symbols.fireFamily`, one

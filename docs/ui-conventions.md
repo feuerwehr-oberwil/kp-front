@@ -165,14 +165,16 @@ framed «Abbrechen», then the primary. Trupp Auftrag, Trupp Mannschaft, the Kan
 Schichtband edit and the Mittel pencil wear it; a live sheet has no Abbrechen / primary, so its
 footer is the danger alone (TimeBlockSheet `danger` — the Anwesenheit's «Person entfernen»).
 A save / send / confirm primary is the WORD only (button sweep SHEETS.7, 17.11.2026: a ✓ there
-read as «already saved» – ✓ is «done», the DoneChip's and the Erledigt tile's); a glyph only names
+read as «already saved» – ✓ is «done», the DoneChip's); a glyph only names
 a verb that is not a commit (Drucken, Herunterladen, Orten).
 **A map card's foot is the same family** (button sweep SHEETS.2 + SHEETS.9, 17.11.2026): the
 symbol panel, the Linien-/Flächen-/Absperrkreis-Editor and the Form's sheet render `<Button>` in
 `.ctx-actions` (06-contextpanel only places them, sharing the row by their words), in ONE order on
-the Lage and the Plan: **[Zentrieren · its toggle · bin + «Entfernen»]** – the symbol's toggle is
-«Erledigt», a drawing's and a Form's «Sperren»; a toggle keeps its glyph in both states and only
-its fill says «set» (`--sel`). «Zentrieren» frames a drawing's whole extent on the Karte and
+the Lage and the Plan: **[Zentrieren · its toggle · bin + «Entfernen»]** – a drawing's and a
+Form's toggle is «Sperren»; a toggle keeps its glyph in both states and only its fill says «set»
+(`--sel`). A symbol's foot is **[Zentrieren · Entfernen]**: its «Gelöscht / erledigt» is a
+«Zustand [Brennt | Gelöscht]» row like «Beschriftung» (owner pick UX journeys M·6, 25.11.2026 –
+the tile «Erledigt» read like «close the panel»; replaces SHEETS.9 of 17.11.2026 for symbols). «Zentrieren» frames a drawing's whole extent on the Karte and
 centres the board on it on a Plan; a locked panel keeps it.
 
 **Every row of an editor sheet is a label column and a control edge** (owner pick 27B, sweep
