@@ -557,9 +557,10 @@ export function pendenzRows(events: TimelineEvent[], bounds?: IncidentBounds): P
   // order, which is a working order for a list you act on. By the instant, never the printed
   // text; the undated rows stay in the slots they hold in the record.
   const instant = (e: TimelineEvent) => Date.parse(e.at ?? '')
-  const dated = items.filter(([, e]) => e.at).sort(([, a], [, b]) => instant(a) - instant(b))
+  const isDated = (e: TimelineEvent) => Number.isFinite(instant(e))
+  const dated = items.filter(([, e]) => isDated(e)).sort(([, a], [, b]) => instant(a) - instant(b))
   let next = 0
-  return items.map((item) => (item[1].at ? dated[next++] : item)).map(([id, e]) => ({
+  return items.map((item) => (isDated(item[1]) ? dated[next++] : item)).map(([id, e]) => ({
     // the BARE text — the row's own text carries the «Auftrag · » tag or the «Erinnerung gesetzt
     // für …» lead-in, and the section's own heading already says what these are
     text: edits.get(id)?.text || e.reminder?.text?.trim() || e.text,
