@@ -122,3 +122,41 @@ describe('the Trupps say «Uhr» after a time of day', () => {
     expect(strings.filter((x) => x.includes('{time}')).length).toBeGreaterThan(5)
   })
 })
+
+// …and outside the Trupps (B2·43, extended 25.11.2026): the Verlauf rows, the Rapport and the
+// banners say «Uhr» after a time of day that is framed by their own words. A cell under a «Zeit»
+// head, the Verlauf's time column and the bare clocks that `lib/format · timeOfDay` fills (the
+// bell's due time, the alarm banners) carry no template of their own, so they are not listed.
+describe('the Verlauf, the Rapport and the banners say «Uhr» after a time of day', () => {
+  it('every listed German template follows its time with «Uhr»', async () => {
+    await applyLocale('de-CH')
+    const c = getCopy()
+    const framed = {
+      'journal.corrected': c.journal.corrected,
+      'journal.detailRepeatedN': c.journal.detailRepeatedN,
+      'photoGeo.takenAt': c.photoGeo.takenAt,
+      'photoGeo.markerTaken': c.photoGeo.markerTaken,
+      'archived.closedElsewhere': c.archived.closedElsewhere,
+      'archived.reopenedElsewhere': c.archived.reopenedElsewhere,
+      'signature.zeiten': c.signature.zeiten,
+      'preflight.zeitBeforeAlarm': c.preflight.zeitBeforeAlarm,
+      'preflight.zeitBeforeAusgerueckt': c.preflight.zeitBeforeAusgerueckt,
+      'preflight.metaRueckmeldung': c.preflight.metaRueckmeldung,
+      'preflight.metaRueckmeldungTime': c.preflight.metaRueckmeldungTime,
+      'preflight.metaGruppe': c.preflight.metaGruppe,
+      'preflight.metaFahrzeugAus': c.preflight.metaFahrzeugAus,
+      'preflight.metaFahrzeugVorOrt': c.preflight.metaFahrzeugVorOrt,
+      'preflight.metaFahrzeugZurueck': c.preflight.metaFahrzeugZurueck,
+      'preflight.linksDoneAt': c.preflight.linksDoneAt,
+      'drawingEditor.gpsBackSub': c.drawingEditor.gpsBackSub,
+      'drawingEditor.gpsBackSubMany': c.drawingEditor.gpsBackSubMany,
+      'drawingEditor.gpsRevertAt': c.drawingEditor.gpsRevertAt,
+      'drawingEditor.gpsFollowingHead': c.drawingEditor.gpsFollowingHead,
+      'log.gpsReverted': c.log.gpsReverted,
+      'log.gpsRevertedBare': c.log.gpsRevertedBare,
+    }
+    const bare = Object.entries(framed).filter(([, s]) => !/\{(t|time|at|from)\} Uhr/.test(s) || /\{(t|time|at|from|to)\}(?! Uhr)/.test(s))
+    expect(bare.map(([k]) => k)).toEqual([])
+    expect(c.timeOfDay).toBe('{time} Uhr')
+  })
+})

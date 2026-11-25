@@ -1013,8 +1013,6 @@ export const atemschutzCopy = {
     // pick UX journeys M·12, 25.11.2026 – lib/atemschutz · contactViaLink); die lange Form ist ihr Name
     contactViaLink: '{time} Uhr · über Link',
     contactViaLinkLong: 'letzter Kontakt {time} Uhr über Link',
-    // eine Uhrzeit als Wert (der Verlauf des Trupps: «Letzter Kontakt 22:10 Uhr») – B2·43
-    timeOfDay: '{time} Uhr',
   },
   // FKS hose-line device-letter labels (line decoration editor + tooltips)
   lineDecor: {

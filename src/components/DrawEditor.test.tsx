@@ -43,9 +43,9 @@ describe('shared magnetic connection controls', () => {
       attachmentLabels={{ end: 'TLF' }}
       gpsInfo={{ end: { line: 'Leitung 1', vehicle: 'TLF', since: '20:31', distance: '1.1 km', onSite: true } }}
       onRouting={onRouting} onDetach={onDetach} onRevertGps={onRevertGps} onDetachHere={onDetachHere} />)
-    expect(screen.getByText('Leitung 1 · folgt TLF seit 20:31')).toBeTruthy()
+    expect(screen.getByText('Leitung 1 · folgt TLF seit 20:31 Uhr')).toBeTruthy()
     expect(screen.getByText('jetzt 1.1 km entfernt')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: 'Zurück auf Stand am Einsatzort (20:31)' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Zurück auf Stand am Einsatzort (20:31 Uhr)' }))
     fireEvent.click(screen.getByRole('button', { name: 'Folgen stoppen' }))
     fireEvent.click(screen.getByRole('button', { name: 'Am Einsatzort lösen' }))
     fireEvent.click(screen.getByRole('button', { name: 'Hier lösen (Spur behalten)' }))

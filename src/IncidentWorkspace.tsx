@@ -2031,7 +2031,7 @@ export function IncidentWorkspace({
   const releaseHere = (drawing: Drawing, endpoint: 'start' | 'end') => {
     setDrawingAttachment(drawing.id, endpoint, undefined, resolvedEndOf(drawing, endpoint))
   }
-  /** «Zurück auf Stand am Einsatzort (hh:mm)»: one ↶ (named), one Verlauf row, snapshots cleared. */
+  /** «Zurück auf Stand am Einsatzort (hh:mm Uhr)»: one ↶ (named), one Verlauf row, snapshots cleared. */
   const revertAll = (ends: readonly GpsEnd[]) => {
     const kept = ends.filter((e) => e.before)
     if (!kept.length) return

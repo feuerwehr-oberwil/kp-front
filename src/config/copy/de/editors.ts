@@ -374,14 +374,14 @@ export const editorsCopy = {
     gpsStoppedSubMany: 'Folgen gestoppt. {lines} zeigen die Fahrt.',
     /** the vehicle is on site again while the line still follows it (TLF went to refill) */
     gpsBackTitle: '{vehicle} wieder am Einsatzort',
-    gpsBackSub: '{lines} zeigt die Fahrt seit {time}.',
-    gpsBackSubMany: '{lines} zeigen die Fahrt seit {time}.',
+    gpsBackSub: '{lines} zeigt die Fahrt seit {time} Uhr.',
+    gpsBackSubMany: '{lines} zeigen die Fahrt seit {time} Uhr.',
     gpsRevert: 'Zurück auf Stand am Einsatzort',
-    gpsRevertAt: 'Zurück auf Stand am Einsatzort ({time})',
+    gpsRevertAt: 'Zurück auf Stand am Einsatzort ({time} Uhr)',
     /** the ↶ bubble's word for that step */
     gpsRevertStep: '{name} zurück auf Stand am Einsatzort',
     // ── The line editor while an end follows (DrawEditor · the GPS block at the top) ──
-    gpsFollowingHead: '{line} · folgt {vehicle} seit {time}',
+    gpsFollowingHead: '{line} · folgt {vehicle} seit {time} Uhr',
     gpsFollowingHeadBare: '{line} · folgt {vehicle}',
     gpsStoppedHead: '{line} · Folgen gestoppt · {vehicle}',
     gpsDistanceNow: 'jetzt {distance} entfernt',

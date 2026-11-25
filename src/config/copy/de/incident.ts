@@ -116,7 +116,7 @@ export const incidentCopy = {
     reactivateNeedsServer: 'Wieder öffnen nicht bestätigt – Netz und Einsatzstatus prüfen.',
     // N3 (25.09.2026): das Einsatz wurde auf einem ANDEREN Gerät abgeschlossen, während es hier
     // offen war — die Meldeleiste sagt, warum der Bildschirm eben nur-lesend geworden ist.
-    closedElsewhere: 'Einsatz wurde auf einem anderen Gerät abgeschlossen ({t})',
+    closedElsewhere: 'Einsatz wurde auf einem anderen Gerät abgeschlossen ({t} Uhr)',
     closedElsewhereSub: 'Zum Bearbeiten wieder öffnen.',
     // …und was dieses Gerät danach noch schicken wollte (ein Kontakt, eine Tafel-Änderung von
     // offline): nicht übernommen, aber nicht verloren.
@@ -125,7 +125,7 @@ export const incidentCopy = {
     closedExport: 'Einträge herunterladen',
     closedDismiss: 'Ausblenden',
     // …und der Weg zurück: auf einem anderen Gerät «Wieder öffnen» — der Bildschirm ist wieder live
-    reopenedElsewhere: 'Einsatz wurde auf einem anderen Gerät wieder geöffnet ({t})',
+    reopenedElsewhere: 'Einsatz wurde auf einem anderen Gerät wieder geöffnet ({t} Uhr)',
     // …und der Rapport eines abgeschlossenen Einsatzes sagt es, mit «Wieder öffnen» daneben
     rapportClosedHint: 'Einsatz abgeschlossen – zum Bearbeiten wieder öffnen.',
     rapportClosedViewOnly: 'Einsatz abgeschlossen – nur ansehen.',

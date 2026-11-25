@@ -168,10 +168,16 @@ follow with their own word for each idea.
 - **A time of day ends on «Uhr», a duration never** (owner pick UX journeys B2·43, 25.11.2026: a
   walker read the Notfall banner's «00:15» as the Einsatz clock's «5:00»): «Notfall seit 00:15 Uhr»,
   «drin seit 00:15 Uhr», «letzter Kontakt 22:10 Uhr» – «5:00», «drin 10:00 min» stay bare. The
-  heads stay wordless (the Einsatz clock's ⌛ and the save stamp «✓ 22:09», 13.11.2026). The Trupps
-  copy holds it (`copy.test` · every German `{time}` is followed by «Uhr»); a column of times under
-  a «Zeit» head (the Rapport's tables, the Trupp's own log) needs no word per cell. Open: the
-  Verlauf rows, the Rapport and the banners outside the Trupps.
+  heads stay wordless (the Einsatz clock's ⌛ and the save stamp «✓ 22:09», 13.11.2026). A bare
+  clock that stands alone in a line takes `lib/format · timeOfDay` («22:10 Uhr»: the bell's due
+  time `dueClock`, the alarm banners' «Adresse · 00:15 Uhr»); a template that frames the time says
+  «{t} Uhr» in its own words. Outside the Trupps that is the Verlauf rows' «Korrigiert 22:10 Uhr»,
+  «fällig 06:30 Uhr», the Rapportangaben's rows («TLF ausgerückt … Uhr», «Alarmzeit …»), the
+  photo's «aufgenommen», the GPS return, the «anderen Gerät abgeschlossen (14:45 Uhr)» banner and
+  the Rapport screen's hints and signature line. `copy.test` holds both lists. A column of times
+  (the Verlauf's and the Pendenzen block's time column, the Rapport's tables under «Zeit», the
+  Trupp's own log, the Anwesenheit's «bis 09:00» column) needs no word per cell, and the PDF keeps
+  its own formats (docs/rapport.md › Times).
 
 ## Failure, clear and search copy
 

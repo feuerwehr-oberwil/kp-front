@@ -209,7 +209,7 @@ interface Props {
    *  GPS block at the head of the panel. `since` exists only when the line kept its on-site state
    *  (`gps.before`), and that is also what offers «Zurück auf Stand am Einsatzort». */
   gpsInfo?: Partial<Record<LineEndpoint, { line: string; vehicle: string; since?: string; distance?: string; stopped?: boolean; onSite?: boolean }>>
-  /** «Zurück auf Stand am Einsatzort (hh:mm)» */
+  /** «Zurück auf Stand am Einsatzort (hh:mm Uhr)» */
   onRevertGps?: (endpoint: LineEndpoint) => void
   /** «Hier lösen (Spur behalten)»: let go where the end stands now, the drive kept as the hose */
   onDetachHere?: (endpoint: LineEndpoint) => void
