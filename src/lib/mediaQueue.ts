@@ -198,24 +198,22 @@ async function readQueue(incidentId: string): Promise<{ items: MediaQueueItem[];
   if (!read.ok) return held ?? { items: [], known: false }
   const stored = read.value ?? []
   if (!held) return { items: stored, known: true }
-  if (!held.known) {
-    const heldIds = new Set(held.items.map((i) => i.id))
-    return { items: [...stored.filter((i) => !heldIds.has(i.id)), ...held.items], known: true }
-  }
-  // `known`: the whole queue whose write failed – newer than the store for what THIS tab did. But
-  // another tab can have written the store since (the Einsatz's edit lock moved, hunt 24.11.2026):
-  // an entry only the store has is kept (a receipt this tab had retired comes back as a receipt,
-  // whose link is idempotent), and under one id the store wins with a later CAPTURE – a voice
-  // memo re-recorded there is not undone by this tab's older one – or with a RECEIPT of the same
-  // capture: its bytes are on the server, a held attempt of it would only send them again.
+  // What this page holds is newer than the store for what THIS tab did – a whole queue whose write
+  // failed (`known`), or captures it could not store. But another tab can have written the store
+  // since (the Einsatz's edit lock moved, hunt 24.11.2026): an entry only the store has is kept
+  // (a receipt this tab had retired comes back as a receipt, whose link is idempotent), and under
+  // one id the store wins with a later CAPTURE – a voice memo re-recorded there is not undone by
+  // this tab's older one – or with a RECEIPT of the same capture: its bytes are on the server, a
+  // held attempt of it would only send them again.
   const storedById = new Map(stored.map((i) => [i.id, i]))
   const heldIds = new Set(held.items.map((i) => i.id))
-  const merged = held.items.map((h) => {
+  const mine = held.items.map((h) => {
     const s = storedById.get(h.id)
     if (!s) return h
     return s.createdAt > h.createdAt || (sameCapture(s, h) && isReceipt(s) && !isReceipt(h)) ? s : h
   })
-  return { items: [...merged, ...stored.filter((i) => !heldIds.has(i.id))], known: true }
+  const others = stored.filter((i) => !heldIds.has(i.id))
+  return { items: held.known ? [...mine, ...others] : [...others, ...mine], known: true }
 }
 /** Returns whether the queue is durably stored. A queued photo/voice memo is an incident record
  *  that exists ONLY here until it uploads, so a full device evicts map tiles to make room rather

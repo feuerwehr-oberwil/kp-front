@@ -59,14 +59,21 @@ type CacheEntry = {
    *  that opens unsynced work of a WIDER shape parks a copy first (see `parkForRole`). Absent on
    *  entries written before 22.10.2026 — read as «unknown», never parked. */
   shape?: 'all' | Slice
-  /** The unsynced draft this engine OPENED from the slot – another tab's (the edit lock moved) or
-   *  an earlier page's – with the server copy it was built on. That tab may still have a PUT of it
-   *  on its way (Sol r2, 25.11.2026): landing after this engine's open, it would make an object
-   *  this engine deleted since look like a fresh server addition, and the 409 merge would bring it
-   *  back. So a merge applies this draft to both sides first (resolveConflict). The OLDEST one
-   *  not yet pushed is kept; a successful push clears it. */
-  handed?: { workspace: Workspace; base: Workspace }
+  /** The save this entry's engine has ON ITS WAY to the server (a PUT or a teardown beacon), with
+   *  the server copy it was built on – stored before it is sent, cleared by a later success or a
+   *  409. Another tab (the edit lock moved) or a later page opens it as `handed`. */
+  sending?: SentSave
+  /** A save of the engine this one opened the slot from, maybe still on its way (Sol r2/r3,
+   *  25.11.2026): landing after this engine's open, it would make an object deleted since look
+   *  like a fresh server addition, and a merge would bring it back. So every merge applies it to
+   *  both sides first (withSent) – it reads the same whether it landed or not. The newest one is
+   *  taken (that engine's own save on its way, else what it had been handed); kept until this
+   *  engine's own save succeeds: from then on the old one can only 409. */
+  handed?: SentSave
 }
+type SentSave = { workspace: Workspace; base: Workspace }
+/** `ws` with `sent`'s changes applied – the same whether that save reached the server or not. */
+const withSent = (sent: SentSave | undefined, ws: Workspace): Workspace => (sent ? mergeWorkspace(sent.base, sent.workspace, ws) : ws)
 const cacheKey = (id: string) => `kp-front-ws-${id}`
 // Which engine may write the main slot (opts.lock): the writerId of the tab that last took the
 // edit lock. Checked inside every main-slot write's own transaction (idb · idbSetFenced), so a
@@ -75,15 +82,15 @@ const fenceKey = (id: string) => `kp-front-ws-${id}::__writer__`
 /** Write `fence.token` into the slot's fence under a cross-tab claim lock, REQUESTED AT ONCE: the
  *  edit lock's grant opens the engine synchronously (lib/incidentSelection), so claims land in the
  *  order the tabs were granted – a promotion overtaken by a steal cannot claim after the thief and
- *  fence it out of its own slot (Sol r2, 25.11.2026). A lock refused before the grant (an inactive
- *  document) claims without it. */
-function claimFence(id: string, fence: IdbFence): Promise<boolean> {
-  const claim = () => idbSet(fence.key, fence.token)
+ *  fence it out of its own slot (Sol r2, 25.11.2026). */
+function claimFence(id: string, fence: IdbFence, holds: () => boolean): Promise<boolean> {
+  const claim = () => (holds() ? idbSet(fence.key, fence.token) : Promise.resolve(false))
   const locks = typeof navigator !== 'undefined' ? navigator.locks : undefined
   if (!locks?.request) return claim()
-  let granted = false
-  return locks.request(`kp-front-ws-claim-${id}`, () => { granted = true; return claim() })
-    .catch((e: unknown) => { if (granted) throw e; return claim() })
+  // ⚠️ …and the claimant asks, under that lock, whether it still holds the edit lock: a grant
+  // runs on its tab's own event loop and can be late, after another tab stole the lock back and
+  // claimed (Sol r3). A steal reaches this tab before this claim's turn. Refused: no claim.
+  return locks.request(`kp-front-ws-claim-${id}`, claim).catch(() => false)
 }
 // A fallback slot, one per (incident, owner). Another user's UNSYNCED work is parked here so the
 // main slot can be reused without destroying it, and so its owner recovers it on their next
@@ -360,6 +367,9 @@ export interface WorkspaceSyncOptions {
    * (tests, the harness).
    */
   lock?: 'editor' | 'follower'
+  /** Asked inside the fence claim's lock (claimFence): does this tab still hold the edit lock it
+   *  opened the engine for? Omitted → yes. */
+  holdsLock?: () => boolean
 }
 
 /** The trupp slice of an opaque workspace blob. The engine treats the blob as data it only
@@ -1131,7 +1141,7 @@ export class WorkspaceSync {
     if (fence) {
       // a claim that did not land leaves the slot to the tab that holds the fence: this session
       // runs from memory and says the cache is not durable (mainSlotBlocked), never writes blind
-      if (!(await claimFence(this.incidentId, fence))) { this.mainSlotBlocked = true; this.cacheDurable = false }
+      if (!(await claimFence(this.incidentId, fence, this.opts.holdsLock ?? (() => true)))) { this.mainSlotBlocked = true; this.cacheDurable = false }
       this.requireOpeningOwner()
     }
     const opened = this.opts.lock === 'follower' ? await this.openFollower() : await this.open()
@@ -1228,15 +1238,16 @@ export class WorkspaceSync {
         // instead of the local ones being silently dropped. The merge result stays dirty and a
         // later flush pushes it at the new rev.
         if (cached.baseRev === workspace_rev) {
-          this.entry = { ...cached, handed: cached.handed ?? { workspace: cached.workspace, base: cached.base ?? {} } }
+          this.entry = { ...cached, handed: cached.sending ?? cached.handed, sending: undefined }
           this.setStatus('pending')
           return { workspace: cached.workspace, rev: workspace_rev, fromCache: true }
         }
         const server = workspace ?? {}
-        const merged = this.mergeReporting(cached.base ?? {}, cached.workspace, server)
+        const handed = cached.sending ?? cached.handed
+        const merged = this.mergeReporting(withSent(handed, cached.base ?? {}), cached.workspace, withSent(handed, server))
         // the offline work was written (and its Verlauf rows with it) under the cached numbers
         this.reportRenumbered(cached.workspace, merged)
-        this.entry = { workspace: merged, base: server, baseRev: workspace_rev, dirty: true, lastSyncedAt: cached.lastSyncedAt, owner: this.sessionOwner ?? cached.owner, requeuedRefused: cached.requeuedRefused, quotaReceipt: cached.quotaReceipt, shape: this.shape, handed: cached.handed ?? { workspace: merged, base: server } }
+        this.entry = { workspace: merged, base: server, baseRev: workspace_rev, dirty: true, lastSyncedAt: cached.lastSyncedAt, owner: this.sessionOwner ?? cached.owner, requeuedRefused: cached.requeuedRefused, quotaReceipt: cached.quotaReceipt, shape: this.shape, handed }
         this.writeCache()
         this.opts.onRev?.(workspace_rev)
         this.setStatus('pending')
@@ -1260,7 +1271,7 @@ export class WorkspaceSync {
         throw e
       }
       if (cached && mayRead(cached)) {
-        this.entry = cached
+        this.entry = { ...cached, handed: cached.sending ?? cached.handed, sending: undefined }
         this.setStatus(cached.dirty ? 'pending' : 'synced')
         return { workspace: cached.workspace, rev: cached.baseRev, fromCache: true }
       }
@@ -1353,7 +1364,11 @@ export class WorkspaceSync {
           await this.flushCache()
           if (!this.sessionActive) return
         } else {
-          this.flushCache() // the cache must carry what is about to become the ancestor
+          // the cache must carry what is about to become the ancestor – and that it is on its way
+          // (CacheEntry.sending), before it is
+          this.entry = { ...this.entry, sending: { workspace: this.entry.workspace, base: this.entry.base ?? {} } }
+          this.writeCache()
+          this.flushCache()
         }
         await this.pushCurrent()
       } catch (e) {
@@ -1410,6 +1425,13 @@ export class WorkspaceSync {
    * starved the Trupp and Verlauf beacons beside it. A whole-document edit waits in the cache
    * for the next open (15.11.2026). */
   flushKeepalive(): void {
+    const beacon = this.entry.dirty && this.sessionActive &&
+      (this.opts.slice != null || onlyTruppsChanged(this.entry.base, this.entry.workspace))
+    // the beacon is on its way once the cache has it (CacheEntry.sending)
+    if (beacon) {
+      this.entry = { ...this.entry, sending: { workspace: this.entry.workspace, base: this.entry.base ?? {} } }
+      this.writeCache()
+    }
     this.flushCache() // the page is dying — the debounce would never fire
     if (!this.entry.dirty || !this.sessionActive) return
     const v = versionOf(this.entry.workspace)
@@ -1463,12 +1485,12 @@ export class WorkspaceSync {
     const landed = this.opts.slice ? landedSlice(serverHad, pushed, this.opts.slice) : pushed
     // a predecessor's PUT of the handed draft can no longer land after this one: it 409s
     if (this.saveSeq === seqAtStart) {
-      this.entry = { ...this.entry, base: landed, baseRev: workspace_rev, dirty: false, lastSyncedAt: Date.now(), handed: undefined }
+      this.entry = { ...this.entry, base: landed, baseRev: workspace_rev, dirty: false, lastSyncedAt: Date.now(), handed: undefined, sending: undefined }
       this.setStatus('synced')
     } else {
       // a newer edit arrived mid-flush — keep it dirty (rebased) and schedule another flush.
       // The ancestor is still what we just pushed (the part the server has).
-      this.entry = { ...this.entry, base: landed, baseRev: workspace_rev, lastSyncedAt: Date.now(), handed: undefined }
+      this.entry = { ...this.entry, base: landed, baseRev: workspace_rev, lastSyncedAt: Date.now(), handed: undefined, sending: undefined }
       this.setStatus('pending')
       this.armDebounce()
     }
@@ -1505,14 +1527,14 @@ export class WorkspaceSync {
       try {
         const server = await getWorkspace(this.incidentId)
         if (!this.sessionActive) return false
-        // A handed draft (CacheEntry.handed) may or may not be on the server yet: apply it to
-        // the ancestor AND to the server copy, so it reads the same either way – what this engine
+        // A handed save (CacheEntry.handed) may or may not be on the server yet: apply it to the
+        // ancestor AND to the server copy, so it reads the same either way – what this engine
         // deleted of it stays deleted, what of it never landed is not taken for a remote delete.
         const handed = this.entry.handed
-        const withHanded = (ws: Workspace) => (handed ? this.merge(handed.base, handed.workspace, ws) : ws)
-        const merged = this.mergeReporting(withHanded(this.entry.base ?? {}), this.entry.workspace, withHanded(server.workspace ?? {}))
+        const merged = this.mergeReporting(withSent(handed, this.entry.base ?? {}), this.entry.workspace, withSent(handed, server.workspace ?? {}))
         this.pendingViewMerge = { view: this.viewState, merged }
-        this.entry = { ...this.entry, workspace: merged, base: server.workspace ?? {}, baseRev: server.workspace_rev, dirty: true }
+        // the merge's own PUT is on its way once the cache below has it (CacheEntry.sending)
+        this.entry = { ...this.entry, workspace: merged, base: server.workspace ?? {}, baseRev: server.workspace_rev, dirty: true, sending: { workspace: merged, base: server.workspace ?? {} } }
         this.writeCache()
         this.flushCache() // persist this dirty ancestor before the PUT, as drain() does on the first attempt
         const seqAtStart = this.saveSeq
@@ -1528,12 +1550,12 @@ export class WorkspaceSync {
         this.reportRenumbered(server.workspace ?? {}, merged)
         const landed = this.opts.slice ? landedSlice(server.workspace ?? {}, merged, this.opts.slice) : merged
         if (this.saveSeq === seqAtStart) {
-          this.entry = { ...this.entry, base: landed, baseRev: workspace_rev, dirty: false, lastSyncedAt: Date.now(), handed: undefined }
+          this.entry = { ...this.entry, base: landed, baseRev: workspace_rev, dirty: false, lastSyncedAt: Date.now(), handed: undefined, sending: undefined }
           this.writeCache()
           this.setStatus('synced')
         } else {
           // save() already rebased the newer draft onto this merge. Only its ancestor advances.
-          this.entry = { ...this.entry, base: landed, baseRev: workspace_rev, dirty: true, lastSyncedAt: Date.now(), handed: undefined }
+          this.entry = { ...this.entry, base: landed, baseRev: workspace_rev, dirty: true, lastSyncedAt: Date.now(), handed: undefined, sending: undefined }
           this.writeCache()
           this.setStatus('pending')
           this.armDebounce()

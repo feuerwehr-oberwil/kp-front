@@ -115,6 +115,8 @@ export function useMediaQueue({ incidentId, readOnly, writable, onUploaded, onRe
   const mayWrite = useCallback(() => !readOnly && (cb.current.writable?.() ?? true), [readOnly])
   // object URLs we minted for restored rows, so we can revoke them once uploaded/cleared
   const restoredUrls = useRef(new Map<string, string>())
+  /** which capture (mediaQueue · rev) each restored URL shows – a re-recorded memo keeps its id */
+  const restoredRevs = useRef(new Map<string, string | undefined>())
 
   const refresh = useCallback(async () => {
     const next = await listMediaQueue(incidentId)
@@ -157,7 +159,7 @@ export function useMediaQueue({ incidentId, readOnly, writable, onUploaded, onRe
       const old = restoredUrls.current.get(r.id)
       const local = old ?? r.localUrl
       if (local) forgetLocalThumb(local)
-      if (old) { URL.revokeObjectURL(old); restoredUrls.current.delete(r.id) }
+      if (old) { URL.revokeObjectURL(old); restoredUrls.current.delete(r.id); restoredRevs.current.delete(r.id) }
     }
   }, [incidentId, mayWrite])
 
@@ -189,21 +191,31 @@ export function useMediaQueue({ incidentId, readOnly, writable, onUploaded, onRe
       // a receipt has no bytes left to show — the replay links its server copy instead
       if (isReceipt(item)) continue
       if (!(item.blob instanceof Blob)) continue // retain corrupt legacy metadata, without throwing on restore
-      const had = restoredUrls.current.get(item.id)
+      const shown = restoredUrls.current.get(item.id)
+      // the same capture as this page restored – else a newer one under the id (Sol r3)
+      const had = shown && restoredRevs.current.get(item.id) === item.rev ? shown : undefined
       if (had && (!again || item.target !== 'attachment')) continue
       const url = had ?? URL.createObjectURL(item.blob)
       if (!had) {
         restoredUrls.current.set(item.id, url)
+        restoredRevs.current.set(item.id, item.rev)
         // ⚠️ The chip reads a session THUMBNAIL of the queued file (lib/mediaUrl); the full
         // object URL is only for the viewer. Minted before the row shows it, one picture at a
         // time: every pending photo re-minted at full size on every launch is what killed the
         // tab of an offline phone, again on each reopen for as long as it stayed offline.
         if (item.kind === 'photo') await mintLocalThumb(url, item.blob)
-        if (!alive()) { forgetLocalThumb(url); URL.revokeObjectURL(url); restoredUrls.current.delete(item.id); return false }
+        if (!alive()) {
+          for (const u of shown ? [url, shown] : [url]) { forgetLocalThumb(u); URL.revokeObjectURL(u) }
+          restoredUrls.current.delete(item.id)
+          restoredRevs.current.delete(item.id)
+          return false
+        }
       }
       // the queued-with URL died with the previous session; hand it over so the restore
-      // replaces that dead entry instead of appending a duplicate picture to the row
-      cb.current.onRestore(item.rowId, item.kind, url, item.localUrl, item.target, placeOf(item, q))
+      // replaces that dead entry instead of appending a duplicate picture to the row – or the
+      // older capture this page showed under the id
+      cb.current.onRestore(item.rowId, item.kind, url, shown && !had ? shown : item.localUrl, item.target, placeOf(item, q))
+      if (shown && !had) { forgetLocalThumb(shown); URL.revokeObjectURL(shown) }
     }
     return true
   }, [])
@@ -212,6 +224,9 @@ export function useMediaQueue({ incidentId, readOnly, writable, onUploaded, onRe
   useEffect(() => {
     let alive = true
     let done = () => {}
+    // the maps are never replaced, only emptied: the cleanup below empties these same ones
+    const urls = restoredUrls.current
+    const revs = restoredRevs.current
     restored.current = new Promise<void>((resolve) => { done = resolve })
     void (async () => {
       const q = await listMediaQueue(incidentId)
@@ -224,8 +239,9 @@ export function useMediaQueue({ incidentId, readOnly, writable, onUploaded, onRe
     })().catch(() => done()) // a restore that failed must not hold every later replay
     return () => {
       alive = false
-      for (const url of restoredUrls.current.values()) { forgetLocalThumb(url); URL.revokeObjectURL(url) }
-      restoredUrls.current.clear()
+      for (const url of urls.values()) { forgetLocalThumb(url); URL.revokeObjectURL(url) }
+      urls.clear()
+      revs.clear()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once per Einsatz: the restore must not re-run per render
   }, [incidentId])
