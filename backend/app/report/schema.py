@@ -137,6 +137,11 @@ class JournalRowIn(BaseModel):
     #: store keeps them all, the paper shows where it started and where it ended, 19.08.).
     correctedAt: str | None = None  # client-formatted HH:MM of the LAST correction
     textOriginal: str | None = None
+    #: A row whose TIME was corrected (owner pick UX journeys B2·6, 25.11.2026) sorts and prints at
+    #: the corrected time, with a muted «Zeit korrigiert HH:MM · erfasst HH:MM» sub-line — when the
+    #: correction was made, and when the row was written. Both client-formatted HH:MM.
+    timeCorrectedAt: str | None = None
+    timeWritten: str | None = None
     #: the row reached the record after the Einsatzende — written after the close, or written
     #: before it and received after it (src/lib/report · journalRows, `receivedAfterClose`). The
     #: paper marks it the way the app does (D4, 25.09.2026: the flag was computed and dropped).

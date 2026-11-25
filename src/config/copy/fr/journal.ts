@@ -228,6 +228,12 @@ export const journalCopy: Localizable<Pick<Copy, 'journal' | 'tafelPendenzen' | 
     pendenzRemindMins: '{n} min',
     pendenzNoRemind: 'Sans rappel',
     pendenzUrgent: 'Urgent',
+    editTime: 'Corriger l’heure',
+    editTimeTitle: 'Survenu à',
+    editTimeFuture: 'Ce moment est encore à venir',
+    timeCorrected: 'heure corrigée {t} · saisi {w}',
+    detailTimeCorrected: 'Heure corrigée',
+    detailTimeWritten: 'saisi {t}',
   },
   tafelPendenzen: {
     createdLog: 'Point en suspens du tableau ({page}) : {text}',

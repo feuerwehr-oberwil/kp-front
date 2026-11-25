@@ -1264,6 +1264,21 @@ describe('krokiFitMaxZoom', () => {
 })
 
 // staging r3
+// owner pick UX journeys B2·6: a row moved to its real time prints there, and says when it was written
+describe('journalRows · a corrected time', () => {
+  it('sorts at the corrected time and carries the written one', () => {
+    const events = [
+      { id: 'b', t: '', at: '2026-11-25T00:41:00', icon: 'type', text: 'Eintreffen TLF', kind: 'journal' as const },
+      { id: 'a', t: '', at: '2026-11-25T00:40:00', icon: 'type', text: 'Wasserversorgung sichergestellt', kind: 'journal' as const,
+        atOriginal: '2026-11-25T00:44:00', timeCorrectedAt: '2026-11-25T01:04:00' },
+    ]
+    const rows = journalRows(events, [])
+    expect(rows.map((r) => r.id)).toEqual(['a', 'b'])
+    expect(rows[0]).toMatchObject({ timeCorrectedAt: '01:04', timeWritten: '00:44' })
+    expect(rows[1].timeCorrectedAt).toBeUndefined()
+  })
+})
+
 describe('journalRows · Nachtrag', () => {
   it('prints a row the server received after the close as a Nachtrag, in its own time order', () => {
     const closed = '2026-07-02T18:00:00Z'

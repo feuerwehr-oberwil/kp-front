@@ -229,6 +229,12 @@ export const journalCopy: Localizable<Pick<Copy, 'journal' | 'tafelPendenzen' | 
     pendenzRemindMins: '{n} min',
     pendenzNoRemind: 'No reminder',
     pendenzUrgent: 'Urgent',
+    editTime: 'Correct time',
+    editTimeTitle: 'Happened at',
+    editTimeFuture: 'That time is still to come',
+    timeCorrected: 'time corrected {t} · logged {w}',
+    detailTimeCorrected: 'Time corrected',
+    detailTimeWritten: 'logged {t}',
   },
   tafelPendenzen: {
     createdLog: 'Item from the board ({page}): {text}',

@@ -228,6 +228,12 @@ export const journalCopy: Localizable<Pick<Copy, 'journal' | 'tafelPendenzen' | 
     pendenzRemindMins: '{n} min',
     pendenzNoRemind: 'Senza promemoria',
     pendenzUrgent: 'Urgente',
+    editTime: 'Correggi ora',
+    editTimeTitle: 'Avvenuto alle',
+    editTimeFuture: 'Questo momento deve ancora venire',
+    timeCorrected: 'ora corretta {t} · registrato {w}',
+    detailTimeCorrected: 'Ora corretta',
+    detailTimeWritten: 'registrato {t}',
   },
   tafelPendenzen: {
     createdLog: 'Pendenza dalla lavagna ({page}): {text}',

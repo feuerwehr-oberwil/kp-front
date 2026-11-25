@@ -164,7 +164,7 @@ export function foldJournalRows(out: readonly TimelineEvent[]): TimelineEvent[] 
     if (!p.patchOf) continue
     const target = patched.get(p.patchOf)
     if (!target || target.id.startsWith('sys')) continue // server boundaries cannot be corrected by a client patch
-    const { id: _i, t: _t, at: _a, icon: _ic, text: _tx, patchOf: _p, textEdit, transcriptSection, transcriptSectionEdit, ...fields } = p
+    const { id: _i, t: _t, at: _a, icon: _ic, text: _tx, patchOf: _p, textEdit, atEdit, transcriptSection, transcriptSectionEdit, ...fields } = p
     const folded = patched.get(p.patchOf)!
     patched.set(target.id, {
       ...folded,
@@ -175,6 +175,12 @@ export function foldJournalRows(out: readonly TimelineEvent[]): TimelineEvent[] 
       // `textOriginal` keeps the FIRST wording across any number of corrections — the printed
       // rapport shows original + latest and skips the intermediates.
       ...(textEdit ? { text: textEdit, correctedAt: p.at, textOriginal: folded.textOriginal ?? folded.text } : {}),
+      // a TIME correction moves the row to when it happened (B2·6): the folded `at` is the real
+      // time, so every reader sorts and prints it there; the written one rides along as
+      // `atOriginal` (the FIRST, across any number of corrections) and `timeCorrectedAt` says when
+      ...(atEdit && Number.isFinite(Date.parse(atEdit))
+        ? { at: atEdit, timeCorrectedAt: p.at, atOriginal: folded.atOriginal ?? folded.at }
+        : {}),
       // transcript sections ACCUMULATE (each patch carries one; its id addresses the section),
       // sorted by offset so the subtitle list reads in recording order however they arrived
       ...(transcriptSection
@@ -369,7 +375,7 @@ export class JournalStore {
   /** Later-arriving enrichment (transcript, uploaded media URL) — a NEW row, never an edit.
    *  Clearing a field sends '' (never undefined: JSON.stringify drops undefined keys, and
    *  the clear would un-apply once the outbox copy is replaced by the server row). */
-  appendPatch(targetId: string, fields: Partial<Pick<TimelineEvent, 'transcript' | 'transcriptSection' | 'transcriptSectionEdit' | 'audioUrl' | 'photoUrl' | 'photoUrls' | 'photoGeo' | 'textEdit' | 'retracted'>>) {
+  appendPatch(targetId: string, fields: Partial<Pick<TimelineEvent, 'transcript' | 'transcriptSection' | 'transcriptSectionEdit' | 'audioUrl' | 'photoUrl' | 'photoUrls' | 'photoGeo' | 'textEdit' | 'atEdit' | 'retracted'>>) {
     const at = new Date().toISOString()
     // a server URL supersedes the session one: the overlay would keep winning in display() and
     // point the player at a blob: the media queue revokes once the link is acknowledged

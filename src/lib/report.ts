@@ -230,6 +230,11 @@ export interface JournalPrintRow {
    *  HH:MM · ursprünglich: …») and skips intermediate revisions. Absent on untouched rows. */
   correctedAt?: string
   textOriginal?: string
+  /** HH:MM when the row's TIME was corrected + HH:MM it was written («Zeit korrigiert 01:04 ·
+   *  erfasst 00:44», owner pick UX journeys B2·6) – the row itself sorts and prints at the
+   *  corrected time. Absent on rows whose time stands as written. */
+  timeCorrectedAt?: string
+  timeWritten?: string
   /** how often this line repeated within the repeat window (lib/verlauf · repeatRuns). >1 prints
    *  as «6×» after the entry; the repeats themselves are in the record, not on the paper. */
   repeats?: number
@@ -474,6 +479,8 @@ export function journalRows(
         // the original through the same prefix-strip as the latest text, or the two would
         // differ by the «Auftrag · » tag alone and read as a phantom correction
         textOriginal: e.correctedAt && e.textOriginal ? withoutAreaPrefix(e.textOriginal) : undefined,
+        timeCorrectedAt: e.timeCorrectedAt && e.atOriginal ? hhmm(new Date(e.timeCorrectedAt)) : undefined,
+        timeWritten: e.timeCorrectedAt && e.atOriginal ? hhmm(new Date(e.atOriginal)) : undefined,
       }
     })
     .sort((a, b) => {

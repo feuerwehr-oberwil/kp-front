@@ -71,7 +71,7 @@ export type AudioWindow = { row: TimelineEvent; start: number; end: number }
 type Draft = { id: string; value: string } | null
 
 type JournalRowProps = Pick<JournalProps,
-  'live' | 'closedAt' | 'replayAtMs' | 'onSelect' | 'onSeekTo' | 'onTranscript' | 'onEditText' | 'onOpenPlayer'
+  'live' | 'closedAt' | 'replayAtMs' | 'onSelect' | 'onSeekTo' | 'onTranscript' | 'onEditText' | 'onEditTime' | 'onOpenPlayer'
   | 'onReminderTick' | 'onReminderNote' | 'onReminderAgain' | 'mediaStatusOf'> & {
   e: TimelineEvent
   plans: PlanDocument[]
@@ -113,7 +113,7 @@ type JournalRowProps = Pick<JournalProps,
 export function JournalRow({
   e, plans, live, closedAt, now, replayAtMs, openMap, repeated, unsent, sameMinute, pendenzTitles, pendenzRowIds, reRaised, audioWindows, playing,
   editTx, editRow, marked, jumpToRow, onTogglePlay, onOpenDetail, setEditTx, setEditRow, saveTranscript, saveRowText,
-  onSelect, onSeekTo, onTranscript, onEditText, onOpenPlayer, onReminderTick, onReminderNote, onReminderAgain, mediaStatusOf,
+  onSelect, onSeekTo, onTranscript, onEditText, onEditTime, onOpenPlayer, onReminderTick, onReminderNote, onReminderAgain, mediaStatusOf,
 }: JournalRowProps) {
   const C = appConfig.copy.journal
   const target = rowTarget(e, live)
@@ -134,7 +134,7 @@ export function JournalRow({
   // …and an open Pendenz's row, whose sheet offers «Meldung erfassen» – the pinned block's text
   // opens the same sheet, so the item's words mean one thing in both places (duck sweep LISTS.6)
   const hasDetail = (!!e.audioUrl && ((!!e.audioMeta && !!onOpenPlayer) || !!onTranscript))
-    || (!!onEditText && isHandWritten(e) && !e.audioUrl)
+    || ((!!onEditText || !!onEditTime) && isHandWritten(e) && !e.audioUrl)
     || (!!onReminderNote && e.reminder?.op === 'created' && openMap.has(e.reminder.id))
   const opensDetail = !seekable && hasDetail
   const clickable = seekable || opensDetail || target != null
@@ -179,7 +179,7 @@ export function JournalRow({
   const glyph = rowGlyph(e)
   // the footnotes on the row — appended facts about it, so they read AFTER the sentence
   const nachtrag = isNachtrag(e, closedAt)
-  const hasFootnotes = nachtrag || !!e.correctedAt || repeated > 1 || e.via === 'atemschutz-link' || e.via === 'atemschutz-fix'
+  const hasFootnotes = nachtrag || !!e.correctedAt || !!e.timeCorrectedAt || repeated > 1 || e.via === 'atemschutz-link' || e.via === 'atemschutz-fix'
   const txMissing = !!e.audioUrl && !!onTranscript && !hasTx
   const mediaState = (rowPhotos(e).length > 0 || !!e.audioUrl) ? mediaStatusOf?.(e.id) : undefined
   const offersAgain = closedRow && !!onReminderAgain
@@ -242,6 +242,11 @@ export function JournalRow({
                 {nachtrag && <b className="jr-foot-nachtrag">{C.nachtrag}</b>}
                 {e.correctedAt && (
                   <span title={C.correctHint}>{fillTemplate(C.corrected, { t: formatTime(new Date(e.correctedAt)) })}</span>
+                )}
+                {/* moved to when it happened (B2·6): the time column says the real time, and this says
+                    it was set later and when the row was written – nothing in the record is lost */}
+                {e.timeCorrectedAt && e.atOriginal && (
+                  <span title={C.correctHint}>{fillTemplate(C.timeCorrected, { t: formatTime(new Date(e.timeCorrectedAt)), w: formatTime(new Date(e.atOriginal)) })}</span>
                 )}
                 {repeated > 1 && (
                   <span className="jr-foot-rep" title={C.repeatedTitle}>{fillTemplate(C.repeated, { n: String(repeated) })}</span>

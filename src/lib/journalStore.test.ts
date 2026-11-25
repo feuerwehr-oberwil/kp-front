@@ -552,6 +552,29 @@ describe('JournalStore — enrichment patches + session overlay', () => {
     expect(s.display()[0].text).toBe('Trupp 1 an Front, 2 Rohre')
   })
 
+  // owner pick UX journeys B2·6: a late entry moves to when it happened; the written time stays
+  it('an atEdit patch moves the row to its real time and keeps the written one', async () => {
+    fakeServer()
+    const s = new JournalStore(INC, false)
+    await s.init([])
+    s.append(row('b', { at: '2026-11-25T00:41:00.000Z' }))
+    s.append(row('a', { at: '2026-11-25T00:44:00.000Z' }))
+    expect(s.display().map((r) => r.id)).toEqual(['a', 'b'])
+    s.appendPatch('a', { atEdit: '2026-11-25T00:40:00.000Z' })
+    s.appendPatch('a', { atEdit: '2026-11-25T00:39:00.000Z' })
+    await settle(); await settle()
+
+    const d = s.display()
+    expect(d.map((r) => r.id)).toEqual(['b', 'a'])
+    expect(d[1]).toMatchObject({ at: '2026-11-25T00:39:00.000Z', atOriginal: '2026-11-25T00:44:00.000Z' })
+    expect(d[1].timeCorrectedAt).toBeTruthy()
+    // a malformed time is no correction
+    s.appendPatch('b', { atEdit: 'gestern' })
+    await settle(); await settle()
+    expect(s.display()[0]).toMatchObject({ id: 'b', at: '2026-11-25T00:41:00.000Z' })
+    expect(s.display()[0].atOriginal).toBeUndefined()
+  })
+
   it('transcriptSection patches accumulate into a subtitle list sorted by offset', async () => {
     fakeServer()
     const s = new JournalStore(INC, false)

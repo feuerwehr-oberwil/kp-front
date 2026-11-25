@@ -139,6 +139,7 @@ export function JournalLayer({
           unsentIds={['offline', 'error'].includes(combinedSyncStatus(journal.syncStatus, auditDelivery.status)) ? journal.unsentIds : undefined}
           onOpenPlayer={(e, seekSec) => setPlayer({ row: e, seekSec })}
           onEditText={!readOnly ? (id, text) => journal.appendPatch(id, { textEdit: text }) : undefined}
+          onEditTime={!readOnly ? (id, at) => journal.appendPatch(id, { atEdit: at }) : undefined}
           photoPlacement={photoOnMap}
           onPhotoPlace={!tacticalLocked && !replayActive ? (e) => placePhotos(e) : undefined}
           onPhotoShow={!replayActive ? showPhotoOnMap : undefined}

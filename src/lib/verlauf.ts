@@ -97,7 +97,9 @@ export const rowTarget = (e: TimelineEvent, live: LiveTargets): 'map-entity' | '
  *  Nachtrag beside an «Einsatz abgeschlossen» of the same minute that did not. */
 export const isNachtrag = (e: TimelineEvent, closedAt?: string | null): boolean => {
   const close = closedAt ? Date.parse(closedAt) : Number.NaN
-  const at = e.at ? Date.parse(e.at) : Number.NaN
+  // when the row REACHED the record – a time correction (`atOriginal`, B2·6) moves the event, not that
+  const written = e.atOriginal ?? e.at
+  const at = written ? Date.parse(written) : Number.NaN
   if (e.atClose && Number.isFinite(close) && Number.isFinite(at) && at <= close + AT_CLOSE_TOLERANCE_MS) return false
   return !!e.receivedAfterClose || (Number.isFinite(close) && Number.isFinite(at) && at > close)
 }

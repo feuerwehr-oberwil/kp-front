@@ -489,6 +489,9 @@ def compose_report_pdf(
             if r.correctedAt and r.textOriginal:
                 corrected = L["correctedLine"].format(t=_esc(r.correctedAt), text=_esc(r.textOriginal))
                 entry_cells.append(Paragraph(corrected, st["muted"]))
+            if r.timeCorrectedAt and r.timeWritten:
+                moved = L["timeCorrectedLine"].format(t=_esc(r.timeCorrectedAt), w=_esc(r.timeWritten))
+                entry_cells.append(Paragraph(moved, st["muted"]))
             if r.transcriptLines:
                 for i, line in enumerate(r.transcriptLines):
                     lead = f"<b>{_esc(L['transcript'])}:</b> " if i == 0 else ""

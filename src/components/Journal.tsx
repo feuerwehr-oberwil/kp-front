@@ -23,6 +23,8 @@ import { openReRaises, type OpenReminder } from '../lib/reminders'
 import { pinnedWithTicked, type TickedHere } from '../lib/pinnedPendenzen'
 import { TickBox, TickRow } from './TickRow'
 import { cardinalIndex, fmtDistance, takenClock, type PhotoPlacement } from '../lib/photoGeo'
+import { WheelPopover, type WheelValue } from './WheelPicker'
+import { dayRange } from '../lib/zeitplanFormat'
 
 /** HH:MM of an ISO instant — the Pendenzen block's time column and its Meldung lines. */
 function rowClock(iso: string): string {
@@ -127,6 +129,10 @@ export type JournalProps = {
    *  Nachdokumentation in the player) and on nothing the app wrote about an action; the
    *  corrected line is marked «Korrigiert HH:MM». See lib/verlauf · isHandWritten. */
   onEditText?: (id: string, text: string) => void
+  /** correct WHEN a hand-written row's event happened — an append-only `atEdit` patch, offered
+   *  beside «Text bearbeiten» on the same rows (owner pick UX journeys B2·6, 25.11.2026). The row
+   *  then sorts at that time and says «Zeit korrigiert HH:MM · erfasst HH:MM». */
+  onEditTime?: (id: string, atIso: string) => void
   /** where picture `i` of a row was taken, and what it can do on the Karte (lib/photoGeo ·
    *  photoPlacement). `null` for a picture without a position — the sheet then says nothing. */
   photoPlacement?: (e: TimelineEvent, i: number) => PhotoPlacement | null
@@ -159,7 +165,7 @@ export type JournalProps = {
 // happens on either surface. Rendered as a slide-over so it can open over the
 // map or the plan; a row jumps back to wherever its event happened. Each row is
 // a <JournalRow>; the row's detail sheet is rendered here, at the bottom.
-export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, onClose, onTranscript, onReplay, openReminders, onReminderTick, onReminderNote, onReminderAgain, mediaStatusOf, unsentIds, onOpenPlayer, onEditText, replayAtMs, onSeekTo, landOn, deliveryNotice, photoPlacement, onPhotoPlace, onPhotoShow, onOpenTafel, onShowTrupp }: JournalProps) {
+export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, onClose, onTranscript, onReplay, openReminders, onReminderTick, onReminderNote, onReminderAgain, mediaStatusOf, unsentIds, onOpenPlayer, onEditText, onEditTime, replayAtMs, onSeekTo, landOn, deliveryNotice, photoPlacement, onPhotoPlace, onPhotoShow, onOpenTafel, onShowTrupp }: JournalProps) {
   // read per-render (not module-load) so the resolved locale is applied — see config/copy
   const C = appConfig.copy.journal
   const audio = useAudioPlayer()
@@ -241,6 +247,8 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
   // actions it is the one that happens mid-incident under time pressure, so it keeps (and
   // grows) its one-tap spot.
   const [detailId, setDetailId] = useState<string | null>(null)
+  /** the «Zeit korrigieren» wheels, anchored to their button in the detail sheet; null = closed */
+  const [timeEdit, setTimeEdit] = useState<{ id: string; at: string; anchor: DOMRect } | null>(null)
   // The sheet's «Text bearbeiten» / «Transkript» close it INTO a field under the row. The sheet's
   // focus return (to the row that opened it) lands a microtask after that field's autoFocus and
   // took the caret away from it – so such a close tells the sheet to leave focus where it is.
@@ -952,7 +960,7 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
                   editTx={editTx} editRow={editRow} setEditTx={setEditTx} setEditRow={setEditRow}
                   saveTranscript={saveTranscript} saveRowText={saveRowText}
                   marked={marked} jumpToRow={jumpToRow} onOpenDetail={setDetailId}
-                  onSelect={onSelect} onSeekTo={onSeekTo} onTranscript={onTranscript} onEditText={onEditText}
+                  onSelect={onSelect} onSeekTo={onSeekTo} onTranscript={onTranscript} onEditText={onEditText} onEditTime={onEditTime}
                   onOpenPlayer={onOpenPlayer} onReminderTick={onReminderTick} onReminderNote={onReminderNote} onReminderAgain={onReminderAgain}
                   mediaStatusOf={mediaStatusOf} unsent={!!unsentIds?.has(e.id)}
                 />
@@ -997,8 +1005,10 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
           // is this line above that one» has no answer anywhere else (the Verlauf sorts on the full
           // stamp — lib/journalStore · chronological). …with the day in front when it is not today
           // (rowDay, S5): a sheet over a multi-day Verlauf otherwise answered «wann» with a clock.
+          const rowAt = e.at
+          const stamp = (iso: string) => [rowDay(iso, now), formatTime(new Date(iso), true)].filter(Boolean).join(' ')
           const meta = [
-            e.at ? [rowDay(e.at, now), formatTime(new Date(e.at), true)].filter(Boolean).join(' ') : null,
+            e.at ? stamp(e.at) : null,
             disc?.label,
             byHand ? C.detailSourceManual : C.detailSourceSystem,
           ].filter(Boolean).join(' · ')
@@ -1027,6 +1037,10 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
                   v: [rowDay(e.correctedAt, now), formatTime(new Date(e.correctedAt), true)].filter(Boolean).join(' '),
                   ...(e.textOriginal ? { sub: fillTemplate(C.detailCorrectedFirst, { text: withoutAreaPrefix(e.textOriginal) || e.textOriginal }) } : {}),
                 }]
+              : []),
+            // …and a row moved to when it happened (B2·6): when that was said, and the time it was written
+            ...(e.timeCorrectedAt && e.atOriginal
+              ? [{ k: C.detailTimeCorrected, v: stamp(e.timeCorrectedAt), sub: fillTemplate(C.detailTimeWritten, { t: stamp(e.atOriginal) }) }]
               : []),
             ...(repeated > 1
               ? [{ k: C.detailRepeated, v: lastRepeat ? fillTemplate(C.detailRepeatedN, { n: repeated, t: formatTime(new Date(lastRepeat)) }) : fillTemplate(C.repeated, { n: repeated }) }]
@@ -1113,6 +1127,15 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
                     {C.editEntry}
                   </Button>
                 )}
+                {/* …and its TIME, on the same rows (owner pick UX journeys B2·6, 25.11.2026): a late
+                    entry sorts at when it happened, not at when somebody found the minute to type it.
+                    The wheels open over the sheet; the sheet stays, and shows the correction. */}
+                {onEditTime && isHandWritten(e) && !e.audioUrl && rowAt && (
+                  <Button block icon={<Icon id="clock" />}
+                    onClick={(ev) => setTimeEdit({ id: e.id, at: rowAt, anchor: ev.currentTarget.getBoundingClientRect() })}>
+                    {C.editTime}
+                  </Button>
+                )}
                 {/* the picture's own place — offered only for a picture that knows it */}
                 {toPlace > 0 && onPhotoPlace ? (
                   <Button block icon={<Icon id="pin" />}
@@ -1135,6 +1158,26 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
             </Sheet>
           )
         })()}
+      {/* «Zeit korrigieren» (B2·6): THE time picker, the one every other clock in the app uses, with
+          the row's days around it. A moment still to come is no answer – the event has happened. */}
+      {timeEdit && onEditTime && (
+        <WheelPopover
+          anchor={timeEdit.anchor}
+          initial={new Date(timeEdit.at)}
+          days={dayRange(new Date(Date.parse(timeEdit.at) - 86_400_000), new Date())}
+          title={C.editTimeTitle}
+          noNow
+          note={(v: WheelValue) => (new Date(v.y, v.mo - 1, v.d, v.h, v.mi).getTime() > Date.now()
+            ? { text: C.editTimeFuture, blocks: true } : null)}
+          onClose={() => setTimeEdit(null)}
+          onCommit={(v: WheelValue) => {
+            setTimeEdit(null)
+            const at = new Date(v.y, v.mo - 1, v.d, v.h, v.mi).toISOString()
+            // the same minute is no correction (the wheels hold no seconds)
+            if (Math.floor(Date.parse(at) / 60_000) !== Math.floor(Date.parse(timeEdit.at) / 60_000)) onEditTime(timeEdit.id, at)
+          }}
+        />
+      )}
     </Overlay>
   )
 }

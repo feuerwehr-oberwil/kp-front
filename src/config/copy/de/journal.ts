@@ -384,6 +384,14 @@ export const journalCopy = {
     pendenzRemindMins: '{n} min',
     pendenzNoRemind: 'Ohne Erinnern',
     pendenzUrgent: 'Dringend',
+    // «Zeit korrigieren» in a hand-written row's detail sheet (owner pick UX journeys B2·6, 25.11.2026):
+    // the row moves to when it happened, and says so under it – on paper too (report · timeCorrected)
+    editTime: 'Zeit korrigieren',
+    editTimeTitle: 'Geschehen um',
+    editTimeFuture: 'Zeitpunkt liegt in der Zukunft',
+    timeCorrected: 'Zeit korrigiert {t} · erfasst {w}',
+    detailTimeCorrected: 'Zeit korrigiert',
+    detailTimeWritten: 'erfasst {t}',
   },
   // ── The Tafel's «Aufträge / Pendenzen» page (05.11.2026, lib/pendenzenPage) ────────────────
   // A view on the Verlauf's Pendenzen and Erinnerungen: every act on the page appends a Verlauf

@@ -458,6 +458,41 @@ describe('Journal · the classification column', () => {
   })
 })
 
+// owner pick UX journeys B2·6: «Zeit korrigieren» beside «Text bearbeiten» – an appended patch,
+// and the row says it was moved and when it was written
+describe('Journal · correcting a line\'s time', () => {
+  beforeEach(() => {
+    Element.prototype.scrollTo = Element.prototype.scrollTo ?? (() => {})
+    vi.stubGlobal('matchMedia', (q: string) => ({
+      matches: q.includes('fine'), media: q, onchange: null, addListener: () => {}, removeListener: () => {},
+      addEventListener: () => {}, removeEventListener: () => {}, dispatchEvent: () => false,
+    }))
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('patches the time from the row\'s detail sheet', async () => {
+    const onEditTime = vi.fn()
+    setup({ onEditTime })
+    fireEvent.click(screen.getByText('Feuer aus'))
+    fireEvent.click(screen.getByRole('button', { name: 'Zeit korrigieren' }))
+    const pop = await screen.findByRole('dialog', { name: 'Geschehen um' })
+    const field = pop.querySelector('input[type="text"], input:not([type])') as HTMLInputElement
+    const was = new Date(1_060_000)
+    const to = new Date(was.getTime() - 5 * 60_000)
+    fireEvent.change(field, { target: { value: `${String(to.getHours()).padStart(2, '0')}:${String(to.getMinutes()).padStart(2, '0')}` } })
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }))
+    expect(onEditTime).toHaveBeenCalledOnce()
+    const [id, at] = onEditTime.mock.calls[0]
+    expect(id).toBe('r3')
+    expect(Math.floor(Date.parse(at) / 60_000)).toBe(Math.floor(to.getTime() / 60_000))
+  })
+
+  it('says under the row that its time was corrected and when it was written', () => {
+    setup({ events: [{ ...events[0], atOriginal: new Date(1_260_000).toISOString(), timeCorrectedAt: new Date(1_500_000).toISOString() }, ...events.slice(1)] })
+    expect(document.querySelector('[data-ev="r3"] .jr-foot')!.textContent).toMatch(/^Zeit korrigiert \d{1,2}:\d{2} · erfasst \d{1,2}:\d{2}$/)
+  })
+})
+
 describe('Journal · correcting a line (append-only)', () => {
   const sysRow: TimelineEvent = {
     id: 's1', t: '', at: new Date(1_050_000).toISOString(),
