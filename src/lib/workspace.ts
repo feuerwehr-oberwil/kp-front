@@ -379,7 +379,8 @@ type Complete<T extends string, U extends readonly string[]> = Exclude<T, U[numb
 const kindSet = <T extends string>() => <const U extends readonly T[]>(u: U & Complete<T, U>): ReadonlySet<string> => new Set<string>(u)
 /** every map entity kind this build draws (and src/lib/workspaceManifest.json lists) */
 export const ENTITY_KINDS = kindSet<EntityKind>()(['symbol', 'vehicle', 'note', 'photo', 'shape', 'team', 'person'])
-const DRAW_KINDS = kindSet<DrawKind>()(['line', 'area', 'circle'])
+/** every drawing kind this build draws (and src/lib/workspaceManifest.json lists) */
+export const DRAW_KINDS = kindSet<DrawKind>()(['line', 'area', 'circle'])
 /** every board kind this build draws (and the server's version table lists – lib/boardKinds.test) */
 export const BOARD_KINDS = kindSet<BoardKind>()(['draw', 'area', 'circle', 'text', 'symbol', 'shape', 'resource', 'form'])
 /** the pre-'resource' board kind, still accepted at the gate because normalizeBoard migrates it */

@@ -1,15 +1,18 @@
 {
   "about": [
     "Every synced workspace key (src/lib/mergeWorkspace.ts · MERGE_POLICY, the rows that are not",
-    "'local') and every map entity kind (src/types.ts · EntityKind), with the WORKSPACE_SCHEMA_VERSION",
-    "(src/lib/workspace.ts) its builds first carried it at.",
+    "'local'), every map entity kind (src/types.ts · EntityKind) and every drawing kind",
+    "(src/types.ts · DrawKind), with the WORKSPACE_SCHEMA_VERSION (src/lib/workspace.ts) its builds",
+    "first carried it at.",
     "A build rebuilds the blob from the keys and kinds it knows, so its next save deletes the rest.",
     "The server refuses a save from a build OLDER than the blob (backend app/workspace_kinds.py ·",
     "refuse_older_build), but not one at the same version. So a new key or kind gets the NEXT",
     "version here AND bumps WORKSPACE_SCHEMA_VERSION to it.",
-    "`shipped` is the fingerprint of each version's set, the baseline from 25.11.2026 on (earlier",
-    "releases at one version did not all carry the same set). Never edit a shipped line: add the line",
-    "for a new version. src/lib/workspaceManifest.test.ts checks all of it."
+    "`shipped` is the fingerprint of each version's keys and entity kinds, the baseline from",
+    "25.11.2026 on (earlier releases at one version did not all carry the same set);",
+    "`shippedDrawKinds` is the same for the drawing kinds, from 26.11.2026 on (its own line, so the",
+    "shipped key lines stay as they are). Never edit a shipped line: a new version adds its line to",
+    "both. src/lib/workspaceManifest.test.ts checks all of it."
   ],
   "keys": {
     "entities": 1,
@@ -45,9 +48,19 @@
     "team": 1,
     "person": 1
   },
+  "drawKinds": {
+    "line": 1,
+    "area": 1,
+    "circle": 1
+  },
   "shipped": {
     "1": "a80d358e068e897e",
     "2": "803973fab9a2afba",
     "3": "4c352986c95e2c9b"
+  },
+  "shippedDrawKinds": {
+    "1": "ddbbf428bda2fee0",
+    "2": "ddbbf428bda2fee0",
+    "3": "ddbbf428bda2fee0"
   }
 }
