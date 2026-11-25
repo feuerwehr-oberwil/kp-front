@@ -451,3 +451,24 @@ describe('an empty roster that is still loading', () => {
     expect(screen.getByText(appConfig.copy.anwesenheit.emptyTitle)).toBeTruthy()
   })
 })
+
+// Owner pick UX journeys M·7, 25.11.2026: a roll call goes by name – the list is A–Z, not grouped by
+// Grad; the Grad stays a chip on the row
+describe('the list goes by name, A–Z', () => {
+  it('orders by name across ranks and guests', () => {
+    const crew: Person[] = [
+      { id: 'p1', displayName: 'Wyss Daniel', rank: 'kdt', active: true, updatedAt: 't' },
+      { id: 'p2', displayName: 'Amrein Patrick', rank: 'fwm', active: true, updatedAt: 't' },
+      { id: 'p3', displayName: 'Egger Roger', rank: 'wm', active: true, updatedAt: 't' },
+    ]
+    const attendance = {
+      g1: { status: 'present', displayNameSnapshot: 'Bieri Lukas', intervals: [{ from: '2026-11-25T10:00:00.000Z' }] },
+    } as unknown as AttendanceState
+    mount({ people: crew, attendance })
+    const shown = ['Amrein Patrick', 'Bieri Lukas', 'Egger Roger', 'Wyss Daniel'].map((n) => screen.getByText(n))
+    for (let i = 1; i < shown.length; i++) {
+      // each name follows the one before it in the document
+      expect(shown[i - 1].compareDocumentPosition(shown[i]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    }
+  })
+})

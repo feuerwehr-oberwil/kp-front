@@ -314,8 +314,8 @@ function LivePositionChip({ live, center, onShow }: {
   )
 }
 
-// marking them gone (the checkout rule). Order is stable alphabetical so chips don't reflow
-// under your finger while you tap.
+// marking them gone (the checkout rule). Order is stable alphabetical by name (A–Z, not by Grad –
+// pick M·7, 25.11.2026) so chips don't reflow under your finger while you tap.
 export function AnwesenheitView({
   people, attendance, canEdit, loading, error, blockedIds, truppOfPerson,
   onAddGuest, onMarkPresent, onMarkLeft, onClear, onSetOrt, onJumpToTrupp, onReload, onUndo, onRedo, canUndo = false, canRedo = false, topBarUndoHidden = false, onSetTimes, onRemoveBlock, onSetNote, captureUsage,
@@ -578,8 +578,11 @@ export function AnwesenheitView({
       .filter((p) => !presentOnly || isOnlyPresentMatch(attendance[p.id]))
       .filter((p) => matchesAny(stateSel, (k) => stateMatches(k, attendance[p.id])))
       .filter((p) => !noteOnly || !!attendance[p.id]?.note)
-      // grouped by seniority (most senior first), alpha within a rank
-      .sort((a, b) => rankOrder(a.rank) - rankOrder(b.rank) || a.displayName.localeCompare(b.displayName, 'de'))
+      // ONE list by name, A–Z («Nachname Vorname»), guests among them; the Grad stays a chip on
+      // the row and the «Filter» menu still narrows to one (owner pick UX journeys M·7, 25.11.2026
+      // – replaces «grouped by seniority, alpha within a rank», 19.07.2026: a roll call goes by
+      // name, and the walker hunted for names jumping between rank blocks)
+      .sort((a, b) => a.displayName.localeCompare(b.displayName, 'de'))
   }, [people, guests, q, rankSel, presentOnly, stateSel, noteOnly, attendance])
 
   /* A status set from a SEARCH hands the field straight back, empty and focused (owner,
