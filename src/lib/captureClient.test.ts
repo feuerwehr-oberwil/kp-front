@@ -1,8 +1,9 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   applyAction, attendanceForPickedName, attendanceForTypedName, autoOpenTarget, captureJournalRow,
-  cycleAttendance, type CapturePerson,
+  cycleAttendance, saveAction, type CapturePerson,
 } from './captureClient'
+import { resetServerClock } from './serverClock'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from './format'
 import type { AttendanceEntry } from '../types'
@@ -443,5 +444,42 @@ describe('cycleAttendance — four states on the poster', () => {
     expect(left.status).toBe('left')
     expect(left.leftAt).toBe(NOW2)
     expect(cycleAttendance(left, 'Meier Anna', NOW2)).toBeUndefined()
+  })
+})
+
+// The whole poster save against a fake /api/capture: what goes into the workspace and the Verlauf.
+describe('saveAction', () => {
+  const SKEW_MS = 7 * 60_000 // this phone runs 7 min fast
+  let blob: Workspace
+  let putBodies: Workspace[]
+  let journal: { at?: string; text: string }[]
+
+  beforeEach(() => {
+    resetServerClock()
+    putBodies = []
+    journal = []
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+      const json = (body: unknown) => new Response(JSON.stringify(body), {
+        headers: { 'X-Server-Time': new Date(Date.now() - SKEW_MS).toISOString() },
+      })
+      const body = init?.body ? JSON.parse(init.body as string) : undefined
+      if (url.endsWith('/journal')) { journal.push(...body.entries); return json({ latest_seq: journal.length }) }
+      if (init?.method === 'PUT') { putBodies.push(body.workspace); blob = body.workspace; return json({ workspace: blob, workspace_rev: 2 }) }
+      return json({ workspace: blob, workspace_rev: 1 })
+    }))
+  })
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    resetServerClock()
+  })
+
+  it('stamps «now» on the server\'s clock, not the phone\'s', async () => {
+    blob = {} as Workspace
+    await saveAction('tok', 'i1', { kind: 'setMittel', label: 'Ölbindemittel', unit: 'Sack', menge: 3 })
+    const serverNow = Date.now() - SKEW_MS
+    const at = Date.parse((putBodies[0].mittel as { at: string }[])[0].at)
+    expect(Math.abs(at - serverNow)).toBeLessThan(5_000)
+    await vi.waitFor(() => expect(journal).toHaveLength(1))
+    expect(journal[0].at).toBe(new Date(at).toISOString())
   })
 })

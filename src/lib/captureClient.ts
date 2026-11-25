@@ -15,7 +15,7 @@ import { appConfig } from '../config/appConfig'
 import { fillTemplate, hhmm, unitLabel } from './format'
 import { newId } from './ids'
 import { linkSessionHeaders } from './linkMode'
-import { isFreshSampleSource, noteServerTime } from './serverClock'
+import { isFreshSampleSource, noteServerTime, serverNowIso } from './serverClock'
 
 // --- pure mutations -------------------------------------------------------------------
 
@@ -514,7 +514,9 @@ export async function saveAction(
   let attempt = 0
   for (;;) {
     const { workspace, workspace_rev } = await captureApi.workspace(token, incidentId)
-    const nowIso = new Date().toISOString()
+    // the deployment's clock, like every other «Jetzt» (docs/rapport.md › Times): a phone that
+    // runs 7 min fast must not stamp a departure 7 min late. Typed times ride in the action.
+    const nowIso = serverNowIso()
     const next = applyAction(workspace, action, nowIso)
     try {
       const saved = await captureApi.putWorkspace(token, incidentId, next, workspace_rev)

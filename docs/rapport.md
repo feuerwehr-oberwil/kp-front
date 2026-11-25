@@ -116,7 +116,8 @@ Owner pick A «Ein Feld» (`components/TimeField · DateTimeField`, header there
   day only when that is not the row's. **The PDF keeps its own formats** (`report · formatDateTime`).
 - **«Jetzt» is the deployment's clock** (`lib/serverClock`), on the two form buttons (Einsatzende,
   Rückmeldung ELZ – tablet, phone and QR-Erfassung) and inside every picker. Grid rows have no form
-  button. The QR-Erfassung learns the clock from its own answers (`captureClient · req`).
+  button. The QR-Erfassung learns the clock from its own answers (`captureClient · req`) and stamps
+  every save with it (`saveAction`); a time somebody types stays as typed.
 - **The QR-Erfassung behaves like the tablet** for the same field: one control, and «Leeren» clears
   an Einsatzende or a Rückmeldung there too (a null commit used to be ignored).
 - **The QR-Erfassung's Personen rows wear the stacked face** (owner pick A «Gestapelt», 13.11.2026,
