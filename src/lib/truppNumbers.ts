@@ -219,8 +219,8 @@ const rank = (a: Claimant, b: Claimant) =>
   b.weight - a.weight || Number(b.landed) - Number(a.landed) || a.created - b.created || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
 
 /** The chip label for its new number, in the chip's own spelling («trupp 1» stays lower-case). */
-const relabel = (label: string | undefined, no: number): string =>
-  label && /\d+\s*$/.test(label) ? label.replace(/\d+(\s*)$/, `${no}$1`) : `${appConfig.copy.whiteboard.team} ${no}`
+const relabel = (label: unknown, no: number): string =>
+  typeof label === 'string' && /\d+\s*$/.test(label) ? label.replace(/\d+(\s*)$/, `${no}$1`) : `${appConfig.copy.whiteboard.team} ${no}`
 
 /** What a merge may settle.
  *  - `all` — Trupps and loose chips: a full editor session, which pushes the whole blob.
