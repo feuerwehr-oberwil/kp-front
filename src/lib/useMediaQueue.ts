@@ -64,6 +64,11 @@ function placeOf(item: MediaQueueItem, queue: readonly MediaQueueItem[]): PhotoS
 interface Opts {
   incidentId: string
   readOnly: boolean
+  /** Asked at the moment of linking and of retiring, not per render: does this tab still hold
+   *  the Einsatz's edit lock (api/workspaceSync · canWrite)? A tab that lost it to another one
+   *  re-renders read-only only later; a replay still running in it would link into a view that
+   *  saves nothing and retire the receipt the new holder needs. Omitted → `!readOnly`. */
+  writable?: () => boolean
   /** a receipt: the server has the bytes — link the row (or, with `target: 'attachment'`, the
    *  Beilage) to `url` (in place of `localUrl`: a row can carry several pictures, and the others
    *  must survive). Called again on every replay until it answers true («the link is
@@ -95,14 +100,15 @@ export interface MediaQueueApi {
   getStatus: () => SyncStatus
 }
 
-export function useMediaQueue({ incidentId, readOnly, onUploaded, onRestore }: Opts): MediaQueueApi {
+export function useMediaQueue({ incidentId, readOnly, writable, onUploaded, onRestore }: Opts): MediaQueueApi {
   const [items, setItems] = useState<MediaQueueItem[]>([])
   const [durable, setDurable] = useState(true)
   const [reconnected, setReconnected] = useState(0)
   const status = useRef<SyncStatus>('synced')
   // keep callbacks in refs so the window/online listeners always call the fresh versions
-  const cb = useRef({ onUploaded, onRestore })
-  cb.current = { onUploaded, onRestore }
+  const cb = useRef({ onUploaded, onRestore, writable })
+  cb.current = { onUploaded, onRestore, writable }
+  const mayWrite = useCallback(() => !readOnly && (cb.current.writable?.() ?? true), [readOnly])
   // object URLs we minted for restored rows, so we can revoke them once uploaded/cleared
   const restoredUrls = useRef(new Map<string, string>())
 
@@ -130,16 +136,17 @@ export function useMediaQueue({ incidentId, readOnly, onUploaded, onRestore }: O
 
   // Hand every receipt to its row (or Beilage) and retire the ones whose link is acknowledged.
   const replay = useCallback(async () => {
-    if (readOnly || !mounted.current) return
+    if (!mayWrite() || !mounted.current) return
     await restored.current
     if (!mounted.current) return
     const receipts = inSlotOrder((await listMediaQueue(incidentId)).filter(isReceipt))
-    if (!mounted.current) return
+    if (!mounted.current || !mayWrite()) return
     // after a reload the row shows the object URL we minted at restore, not the one the
     // capture was queued with — that is the picture the server URL has to replace
     const done = receipts.filter((r) => cb.current.onUploaded(r.rowId, r.kind, r.url, restoredUrls.current.get(r.id) ?? r.localUrl, r.target, placeOf(r, receipts)))
     if (!done.length) return
-    await retireMediaReceipts(incidentId, done)
+    // …asked again under the queue's lock: the edit lock may have gone while the links were made
+    await retireMediaReceipts(incidentId, done, mayWrite)
     for (const r of done) {
       // linked for good: its session thumbnail (restored OR minted at the capture) and the
       // restored object URL have nothing left to show
@@ -148,14 +155,14 @@ export function useMediaQueue({ incidentId, readOnly, onUploaded, onRestore }: O
       if (local) forgetLocalThumb(local)
       if (old) { URL.revokeObjectURL(old); restoredUrls.current.delete(r.id) }
     }
-  }, [incidentId, readOnly])
+  }, [incidentId, mayWrite])
 
   const flush = useCallback(async (options?: { retry?: boolean }) => {
-    if (readOnly) return
+    if (!mayWrite()) return
     await flushMediaQueue(incidentId, uploadMedia, options)
     await replay()
     await refresh()
-  }, [incidentId, readOnly, refresh, replay])
+  }, [incidentId, mayWrite, refresh, replay])
 
   const replayReceipts = useCallback(async () => {
     await replay()
@@ -200,6 +207,14 @@ export function useMediaQueue({ incidentId, readOnly, onUploaded, onRestore }: O
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [incidentId])
+
+  // The edit lock came to this tab (read-only → writable): the queue as the previous holder left
+  // it – this tab's last look may predate its captures and receipts – is sent and replayed now.
+  const wasReadOnly = useRef(readOnly)
+  useEffect(() => {
+    if (wasReadOnly.current && !readOnly) void flush()
+    wasReadOnly.current = readOnly
+  }, [readOnly, flush])
 
   // Retry the moment the browser reports connectivity is back.
   useEffect(() => {

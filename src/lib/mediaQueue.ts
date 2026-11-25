@@ -118,13 +118,42 @@ export const mediaQueueId = (rowId: string, kind: 'photo' | 'audio', localUrl?: 
 export const sameQueue = (a: MediaQueueItem[], b: MediaQueueItem[]): boolean =>
   a.length === b.length && a.every((x, i) => x.id === b[i].id && x.status === b[i].status && x.attempts === b[i].attempts && x.retryAt === b[i].retryAt)
 
+/** Run `job` under the cross-tab Web Lock `name`: the page lane below orders this tab, the lock
+ *  orders the TABS – two tabs of one browser share the one stored queue, and a tab that lost the
+ *  Einsatz's edit lock can still be finishing a flush while the tab that took it stores a capture
+ *  (hunt 24.11.2026). No Web Locks, or a lock the browser refuses before the grant (an inactive
+ *  document): `refused` answers, or – without one – the job runs unlocked, as
+ *  objectVisits/store · withRecordLock (a capture is never dropped for want of a lock). */
+async function acrossTabs<T>(name: string, job: () => Promise<T>, refused?: () => T): Promise<T> {
+  const locks = typeof navigator !== 'undefined' ? navigator.locks : undefined
+  if (!locks?.request) return job()
+  let ran = false
+  try {
+    return await locks.request(name, async () => { ran = true; return job() })
+  } catch (e) {
+    if (ran) throw e
+    return refused ? refused() : job()
+  }
+}
+
+type Lane = <T>(job: () => Promise<T>, refused?: () => T) => Promise<T>
 /** Per incident: `edit` serialises every read-modify-write of the stored queue; `flush` keeps two
  *  flushes from uploading the same item twice (the `online` event and the sync recovering
- *  routinely fire together). Two lanes, so a capture is stored while a flush is uploading. */
-const lanes = new Map<string, { edit: ReturnType<typeof serialQueue>; flush: ReturnType<typeof serialQueue> }>()
+ *  routinely fire together). Two lanes, so a capture is stored while a flush is uploading. Each
+ *  holds its own cross-tab lock (acrossTabs); a flush takes `edit` inside `flush`, never the other
+ *  way round, so the two cannot wait on each other. */
+const lanes = new Map<string, { edit: Lane; flush: Lane }>()
 function laneFor(incidentId: string) {
   let lane = lanes.get(incidentId)
-  if (!lane) { lane = { edit: serialQueue(), flush: serialQueue() }; lanes.set(incidentId, lane) }
+  if (!lane) {
+    const edit = serialQueue()
+    const flush = serialQueue()
+    lane = {
+      edit: (job, refused) => edit(() => acrossTabs(`kp-front-mediaq-${incidentId}`, job, refused)),
+      flush: (job, refused) => flush(() => acrossTabs(`kp-front-mediaq-flush-${incidentId}`, job, refused)),
+    }
+    lanes.set(incidentId, lane)
+  }
   return lane
 }
 
@@ -151,9 +180,12 @@ async function readQueue(incidentId: string): Promise<{ items: MediaQueueItem[];
   if (!read.ok) return held ?? { items: [], known: false }
   const stored = read.value ?? []
   if (!held) return { items: stored, known: true }
-  if (held.known) return held // the newer whole queue whose write failed
+  // `known`: the newer whole queue whose write failed – newer for every entry it holds. An entry
+  // only the store has was stored since by ANOTHER tab (this one's writes are in `held`), and is
+  // kept: a receipt this tab had retired comes back as a receipt, whose link is idempotent.
   const heldIds = new Set(held.items.map((i) => i.id))
-  return { items: [...stored.filter((i) => !heldIds.has(i.id)), ...held.items], known: true }
+  const others = stored.filter((i) => !heldIds.has(i.id))
+  return { items: held.known ? [...held.items, ...others] : [...others, ...held.items], known: true }
 }
 /** Returns whether the queue is durably stored. A queued photo/voice memo is an incident record
  *  that exists ONLY here until it uploads, so a full device evicts map tiles to make room rather
@@ -263,7 +295,8 @@ export interface FlushOutcome {
  *  a bad flush just leaves work queued for the next one. */
 export function flushMediaQueue(incidentId: string, upload: MediaUploader, { retry = false }: { retry?: boolean } = {}): Promise<FlushOutcome> {
   const lane = laneFor(incidentId)
-  return lane.flush(async () => {
+  // a refused lock uploads nothing: the next flush tries again (`remaining` is not read for it)
+  return lane.flush<FlushOutcome>(async () => {
     const { items } = await lane.edit(() => readQueue(incidentId))
     const uploaded: FlushOutcome['uploaded'] = []
     /** per attempted entry: its updated state (a receipt once it is on the server) */
@@ -306,19 +339,22 @@ export function flushMediaQueue(incidentId: string, upload: MediaUploader, { ret
       return next
     })
     return { uploaded, remaining }
-  })
+  }, () => ({ uploaded: [], remaining: [] }))
 }
 
 /** These receipts' links are acknowledged: drop them — each only while it is still the receipt
  *  it was (a capture queued again under the same id stays). Resolves whether the queue is
- *  durably stored, like enqueueMedia. */
-export function retireMediaReceipts(incidentId: string, done: readonly MediaReceipt[]): Promise<boolean> {
+ *  durably stored, like enqueueMedia. `still`: asked under the lock, just before the write – a
+ *  tab that lost the Einsatz's edit lock meanwhile linked into a view that saves nothing, and
+ *  leaves the receipt for the tab that took it. A refused lock retires nothing. */
+export function retireMediaReceipts(incidentId: string, done: readonly MediaReceipt[], still: () => boolean = () => true): Promise<boolean> {
   return laneFor(incidentId).edit(async () => {
+    if (!still()) return isMediaQueueDurable(incidentId)
     const { items, known } = await readQueue(incidentId)
     const next = items.filter((cur) => !(isReceipt(cur) && done.some((d) => sameCapture(d, cur))))
     if (next.length === items.length) return isMediaQueueDurable(incidentId)
     return storeQueue(incidentId, next, known)
-  })
+  }, () => isMediaQueueDurable(incidentId))
 }
 
 /** Test-only: forget the in-memory holdings (the IDB double is replaced per test). */

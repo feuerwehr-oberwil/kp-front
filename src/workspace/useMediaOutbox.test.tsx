@@ -133,6 +133,7 @@ const ATTACHMENTS = 'workspace-attachments'
  *  it is pushed, and only a push puts the Beilagen on disk — a page killed before loses it. */
 class FakeWorkspace {
   hasUnsynced = false
+  canWrite = true
   syncStatus: SyncStatus = 'synced'
   private owed: ReportAttachment[] = []
   save(list: ReportAttachment[]) { this.owed = list; this.hasUnsynced = true; this.syncStatus = 'pending' }
