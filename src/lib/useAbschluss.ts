@@ -13,6 +13,10 @@ import { mittelLineCount } from './mittel'
 import { confirmDialog } from './ui'
 import { einsatzSubject } from './einsatzSubject'
 import type { ConfirmSpec } from './overlays/ConfirmCard'
+import type { ClosedReceipt } from '../components/ClosedReceiptMeldung'
+
+/** What the confirm knew of the Rapport it closed – for the receipt on the launcher. */
+export type CloseKnown = Pick<ClosedReceipt, 'endedAt' | 'reportMadeAt'>
 
 interface Args {
   reportMeta: ReportMeta
@@ -37,7 +41,7 @@ interface Args {
   replayActive: boolean
   media: MediaQueueApi
   /** App's handover: stamp report_done_at + close. TRUE only when the close really happened. */
-  onCompleteRapport: () => Promise<boolean>
+  onCompleteRapport: (known: CloseKnown) => Promise<boolean>
   /** the confirm's rows are links — to the Rapport step, the Trupps, the offline media sheet */
   setMode: (mode: 'rapport' | 'atemschutz') => void
   setPanel: (panel: null) => void
@@ -339,7 +343,12 @@ export function useAbschluss({
     // …and the answer is the REAL outcome, not the firing of the request: App reports whether
     // the close went through, so the Rapport's kept scroll position survives a failed Abschluss
     // (offline, server error) instead of being forgotten for an Einsatz that is still open.
-    return onCompleteRapport().finally(() => markClosing?.(false))
+    // …with what the receipt on the launcher says (components/ClosedReceiptMeldung, UX pick B2·13):
+    // the Einsatzende kept or just written, and the paper's time (none when it predates the Nachtrag)
+    return onCompleteRapport({
+      endedAt: reportMeta.endedAt ?? pendingEnde ?? undefined,
+      reportMadeAt: reportBeforeNachtrag ? undefined : reportMeta.reportMadeAt,
+    }).finally(() => markClosing?.(false))
   // requestReportStep is a module-level loader of the caller's — stable, so naming it changes nothing
   }, [abschlussMissing, incidentMeta, reportMeta.endedAt, reportMeta.reportMadeAt, reportBeforeNachtrag, truppsStillOut, showVerlaufRow, media, onCompleteRapport, setMode, setPanel, setOfflineReadyOpen, requestReportStep, standDownTrupps, noteInsideAtClose, noteNotfallAtClose, flushOutboxes, markClosing, patchReportMeta])
 

@@ -91,6 +91,7 @@ import { TabLockBanner } from './components/TabLockBanner'
 import { SurfaceBoundary } from './components/SurfaceBoundary'
 import { RemindersHost } from './lib/useReminders'
 import { deriveReminders } from './lib/reminders'
+import type { CloseKnown } from './lib/useAbschluss'
 import { reportBeforeNachtrag } from './lib/reportNachtrag'
 import { useRenderStorm } from './lib/useRenderStorm'
 import { AtemschutzAlarmHost } from './lib/useAtemschutzAlarm'
@@ -278,7 +279,7 @@ interface WorkspaceProps {
    *  handover (offline, server error) does not pretend to have archived anything.
    *  ⚠️ There is deliberately no second «archive the active one» prop. Both doors — the Rapport
    *  and the Einsatz-Menü row — go through the one confirm and end in this one callback. */
-  onCompleteRapport: () => Promise<boolean>
+  onCompleteRapport: (known: CloseKnown) => Promise<boolean>
   /** App's handle on that same confirm, for «Abschliessen» in «Alle Einsätze» (lib/
    *  useIncidentLifecycle · archiveFromList): set while this Einsatz can be closed here, else null. */
   abschlussRef?: MutableRefObject<(() => Promise<boolean>) | null>

@@ -275,6 +275,12 @@ export const incidentCopy = {
     // 25.11.2026) – «wieder» on a re-close
     confirmMsgKeep: 'Der Einsatz wird abgeschlossen. Das Einsatzende bleibt {t} – wie im Rapport. Danach nur noch lesen und unterschreiben – für Korrekturen wieder öffnen.',
     confirmMsgKeepAgain: 'Der Einsatz wird wieder abgeschlossen. Das Einsatzende bleibt {t} – wie im Rapport. Danach nur noch lesen und unterschreiben – für Korrekturen wieder öffnen.',
+    // the receipt of a close on the launcher, until «Ausblenden» (owner pick UX journeys B2·13,
+    // 25.11.2026; components/ClosedReceiptMeldung)
+    closedTitle: 'Einsatz abgeschlossen',
+    closedEnde: 'Einsatzende {t}',
+    closedReport: 'Einsatzrapport erstellt {t}',
+    closedOpenRapport: 'Rapport öffnen',
   },
   // sync the roster with the configured personnel source
   personnelSync: {

@@ -188,6 +188,10 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     reportBeforeNachtrag: 'Rapporto delle {t} – prima dell’aggiunta',
     confirmMsgKeep: 'L’intervento viene chiuso. L’ora di fine resta {t} – come nel rapporto. Dopo può essere solo letto e firmato – riaprire per correggere.',
     confirmMsgKeepAgain: 'L’intervento viene chiuso di nuovo. L’ora di fine resta {t} – come nel rapporto. Dopo può essere solo letto e firmato – riaprire per correggere.',
+    closedTitle: 'Intervento chiuso',
+    closedEnde: 'Fine intervento {t}',
+    closedReport: 'Rapporto creato {t}',
+    closedOpenRapport: 'Apri rapporto',
   },
   personnelSync: {
     title: 'Allinea l’effettivo con {provider}',

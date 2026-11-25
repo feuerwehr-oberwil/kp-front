@@ -186,6 +186,10 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     reportBeforeNachtrag: 'Report from {t} – before the late entry',
     confirmMsgKeep: 'The incident is closed. The end time stays {t} – as in the report. After that it can only be read and signed – reopen it for corrections.',
     confirmMsgKeepAgain: 'The incident is closed again. The end time stays {t} – as in the report. After that it can only be read and signed – reopen it for corrections.',
+    closedTitle: 'Incident closed',
+    closedEnde: 'Incident end {t}',
+    closedReport: 'Report created {t}',
+    closedOpenRapport: 'Open report',
   },
   personnelSync: {
     title: 'Match personnel with {provider}',

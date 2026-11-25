@@ -66,21 +66,25 @@ export const MELDUNG_RANK = {
   /** a closed Einsatz's Fotos / Sprachnotizen are still only on this device (useIncidentLifecycle · completeRapport,
    *  S3 20.10.2026) — stands while the queue holds them */
   media: 12,
+  /** THIS device just closed an Einsatz — the receipt: «Einsatz abgeschlossen», its Einsatzende,
+   *  its Rapport, «Rapport öffnen» (owner pick UX journeys B2·13, 25.11.2026; components/
+   *  ClosedReceiptMeldung). Stands until «Ausblenden», under what still waits on this device. */
+  closed: 13,
   /** another tab of this browser holds the edit lock */
-  tabLock: 13,
+  tabLock: 14,
   /** the tactical symbol pack failed to load — Karte and Kroki run without glyphs */
-  symbols: 14,
+  symbols: 15,
   /** offline with no cached basemap for this view — the map is a flat colour */
-  basemap: 15,
+  basemap: 16,
   /** the session cookie expired — the sync is standing still until the operator signs in again.
    *  Also the row about ANOTHER account's unsent edits parked on this device
    *  (ForeignUnsentMeldung, sweep 09.11.2026 UX.2): the same subject — work that waits for a
    *  sign-in — and the same standing, below everything about the Einsatz itself. */
-  session: 16,
+  session: 17,
   /** a new build is waiting for the next app start */
-  update: 17,
+  update: 18,
   /** «KP Front als App installieren» */
-  install: 18,
+  install: 19,
 } as const
 
 export type MeldungKind = keyof typeof MELDUNG_RANK

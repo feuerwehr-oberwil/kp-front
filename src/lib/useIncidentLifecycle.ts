@@ -16,6 +16,7 @@ import { toast, confirmDialog } from './ui'
 import { loadPrefs, savePrefs } from './prefs'
 import { clearUploadedMedia } from './mediaQueue'
 import type { ClosedMediaPending } from '../components/MediaPendingMeldung'
+import type { ClosedReceipt } from '../components/ClosedReceiptMeldung'
 import { closedMetaFor, closedNoticeAt, onIncidentClosed, onIncidentReopened, reopenedMetaFor, reportIncidentClosed, reportIncidentReopened, type IncidentClosedSignal, type IncidentReopenedSignal } from './incidentClosed'
 import { serverNow, serverNowIso } from './serverClock'
 import { ApiError, isUnverifiable } from './api'
@@ -167,7 +168,7 @@ export function useIncidentLifecycle({ activeMeta, incidents, setActiveMeta, set
  */
 export function useCloseReopen({
   closingLocallyRef, reopeningLocallyRef, activeId, activeMeta, incidents, syncRef, archiveReturnRef, refreshList,
-  selectIncident, markOpened, setIncidents, setClosedMedia, setActiveId, setActiveMeta, setWorkspace, setForceReadOnly,
+  selectIncident, markOpened, setIncidents, setClosedMedia, setClosedReceipt, setActiveId, setActiveMeta, setWorkspace, setForceReadOnly,
   abschlussHereRef, showEinsatz, isSessionCurrent,
 }: {
   isSessionCurrent: () => boolean
@@ -189,6 +190,8 @@ export function useCloseReopen({
   markOpened: () => void
   setIncidents: SetIncidents
   setClosedMedia: Dispatch<SetStateAction<ClosedMediaPending[]>>
+  /** the receipt of THIS device's close on the launcher (components/ClosedReceiptMeldung) */
+  setClosedReceipt: (receipt: ClosedReceipt | null) => void
   setActiveId: (id: string | null) => void
   setActiveMeta: (meta: IncidentMeta | null) => void
   setWorkspace: (ws: Workspace | null) => void
@@ -264,7 +267,9 @@ export function useCloseReopen({
   // Abschluss».
   // Resolves TRUE only when the Einsatz was actually closed — the workspace's confirm passes
   // the outcome on (a failed handover must not look like an Abschluss to anyone upstream).
-  const completeRapport = useCallback(async (id: string): Promise<boolean> => {
+  // `known`: what the workspace's confirm knew of the Rapport – the Einsatzende it kept or wrote and
+  // the time of its paper – for the receipt; a close from «Alle Einsätze» knows neither
+  const completeRapport = useCallback(async (id: string, known: Pick<ClosedReceipt, 'endedAt' | 'reportMadeAt'> = {}): Promise<boolean> => {
     if (isDemoMode()) { toast(appConfig.copy.demo.actionBlocked, { icon: 'info' }); return false }
     closingLocallyRef.current = id
     try {
@@ -278,12 +283,14 @@ export function useCloseReopen({
       if (!isSessionCurrent()) return true
       const stillQueued = await clearUploadedMedia(id)
       if (!isSessionCurrent()) return true
-      /* No «Rapport abgeschlossen» toast (owner pick 28, 17.11.2026): the operator just CONFIRMED
-         the close in its dialog, and the screen moving to the launcher says it happened. The way
-         back is «Alle Einsätze» → «Wieder öffnen» (reactivateById). Until then a 10 s toast
-         carried «Wieder öffnen» (3am sweep, 23.10.2026). */
+      /* No toast, a standing receipt (owner pick UX journeys B2·13, 25.11.2026): «Einsatz
+         abgeschlossen» with its Einsatzende and Rapport stays on the launcher until «Ausblenden»
+         (components/ClosedReceiptMeldung). It overturns pick 28 (17.11.2026: «the screen moving to
+         the launcher says it happened» – both walkers asked «Did it work? Where is my Rapport?»).
+         The way back is «Alle Einsätze» → «Wieder öffnen» (reactivateById). */
+      const title = (incidents ?? []).find((i) => i.id === id)?.title ?? activeMeta?.title ?? ''
+      setClosedReceipt({ id, title, ...known })
       if (stillQueued) {
-        const title = (incidents ?? []).find((i) => i.id === id)?.title ?? activeMeta?.title ?? ''
         setClosedMedia((cur) => [...cur.filter((p) => p.id !== id), { id, title, n: stillQueued }])
       }
       await refreshList()
@@ -316,7 +323,7 @@ export function useCloseReopen({
     } finally {
       if (closingLocallyRef.current === id) closingLocallyRef.current = null
     }
-  }, [closingLocallyRef, syncRef, refreshList, incidents, activeMeta, isSessionCurrent, setClosedMedia, archiveReturnRef, setActiveId, setActiveMeta, setWorkspace, setForceReadOnly])
+  }, [closingLocallyRef, syncRef, refreshList, incidents, activeMeta, isSessionCurrent, setClosedMedia, setClosedReceipt, archiveReturnRef, setActiveId, setActiveMeta, setWorkspace, setForceReadOnly])
 
   // Close ANY incident from the «Alle Einsätze» list (per-incident, not just the active one).
   // ⚠️ It ends the same way the Rapport does — through `completeRapport` — so an Einsatz put away
