@@ -320,8 +320,10 @@ export const normalizeBoard = (board?: BoardDoc): BoardDoc => {
   }))
 }
 
-/** Version stamped into every saved blob (App's buildPayload). Bump on a breaking shape
- *  change and add a stepwise migration in `sanitizeWorkspace` for the older versions. */
+/** Version stamped into every saved blob (useWorkspaceBlob · buildPayload). Bump on a breaking
+ *  shape change and add a stepwise migration in `sanitizeWorkspace` for the older versions.
+ *  ⚠️ Bump on every new synced key or EntityKind too: a build at the same version deletes what it
+ *  does not know, and the server only refuses OLDER builds (lib/workspaceManifest.json). */
 // v2 (09.09.): the unified `objects` collection joins the blob.
 // The legacy collections are still written as views, so a v1 reader renders — see Saved.objects.
 // v3 (10.10.2026): Tafel pages (board kind `form`). A v2 build cannot keep what it cannot read in
@@ -361,7 +363,8 @@ const num = (v: unknown): v is number => typeof v === 'number' && Number.isFinit
  *  without a row here fails `tsc` instead of being silently dropped from every incident. */
 type Complete<T extends string, U extends readonly string[]> = Exclude<T, U[number]> extends never ? unknown : never
 const kindSet = <T extends string>() => <const U extends readonly T[]>(u: U & Complete<T, U>): ReadonlySet<string> => new Set<string>(u)
-const ENTITY_KINDS = kindSet<EntityKind>()(['symbol', 'vehicle', 'note', 'photo', 'shape', 'team', 'person'])
+/** every map entity kind this build draws (and src/lib/workspaceManifest.json lists) */
+export const ENTITY_KINDS = kindSet<EntityKind>()(['symbol', 'vehicle', 'note', 'photo', 'shape', 'team', 'person'])
 const DRAW_KINDS = kindSet<DrawKind>()(['line', 'area', 'circle'])
 /** every board kind this build draws (and the server's version table lists – lib/boardKinds.test) */
 export const BOARD_KINDS = kindSet<BoardKind>()(['draw', 'area', 'circle', 'text', 'symbol', 'shape', 'resource', 'form'])

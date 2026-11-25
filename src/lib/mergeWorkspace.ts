@@ -781,8 +781,10 @@ function withMergedSymbolReadings(won: TacticalObject, base: TacticalObject, min
  *     reportMeta, building, pickedObjectId) → three-way by value, so a field the resolver didn't
  *     touch yields to the server's concurrent change instead of being reverted.
  * Only genuinely LOCAL view/device state stays mine (the `'local'` rows of MERGE_POLICY:
- * activePlanId, activeModule, layerState, recent, weather, schemaVersion). A key this build does
- * not know at all rides with mine too, as it always has.
+ * activePlanId, activeModule, layerState, recent, weather, schemaVersion).
+ * ⚠️ A key this build does not know is LOST: only mine's keys are carried, and mine is this build's
+ * own payload, which never holds one. So a new key bumps WORKSPACE_SCHEMA_VERSION
+ * (lib/workspaceManifest.json), and the server refuses the older build's save instead.
  * (Same-object field-level edits remain LWW-mine for every collection except trupps, attendance and
  * shifts — see the documented limitation in the tests, mergeTrupp and mergeFields.)
  *
@@ -828,7 +830,7 @@ export function mergeWorkspace(
         )
   const objects = mergeById(objectsOf(base), objectsOf(mine), objectsOf(theirs), (a, m, t) => resolveTactical(a, m, t, opts.onFormConflict))
   const cx: MergeCx = { objects, views: viewsOf(objects), onAttendanceConflict, onTruppConflict }
-  const out: Record<string, unknown> = { ...mine } // the 'local' rows (and keys this build doesn't know)
+  const out: Record<string, unknown> = { ...mine } // the 'local' rows; theirs' unknown keys are not kept (see above)
   for (const [k, policy] of Object.entries(MERGE_POLICY) as [keyof Saved, FieldPolicy][]) {
     if (policy !== 'local') out[k] = policy(base[k], mine[k], theirs[k], cx)
   }
