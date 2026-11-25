@@ -1,4 +1,4 @@
-import { splitDuplicateTruppIds } from './mergeWorkspace'
+import { splitDuplicateTruppIds, type LocalKey } from './mergeWorkspace'
 import { nextTruppNo } from './placedTrupps'
 import type { ReportSignature } from './reportSignature'
 import { ghostCounterNames } from './truppTrails'
@@ -276,6 +276,16 @@ export type Saved = {
   weather?: WeatherData | null
   schemaVersion?: number
 }
+
+/**
+ * `Saved` with every key spelled out: an optional key may hold `undefined`, but it must be
+ * NAMED. Both ends of the blob are typed with it — the load gate's rebuild (sanitizeWorkspace)
+ * and the save (useWorkspaceBlob · buildPayload) — so a new `Saved` key that one end forgets
+ * fails `tsc` instead of being dropped on load and deleted by the next save. `Skip` names the
+ * keys that end leaves out on purpose; only a device-local key (a `'local'` row of MERGE_POLICY)
+ * may be one.
+ */
+export type EverySavedKey<Skip extends LocalKey = never> = { [K in Exclude<keyof Saved, Skip>]: Saved[K] }
 
 type LegacyBoardAnno = Omit<BoardAnno, 'kind'> & { kind: BoardAnno['kind'] | 'trupp' }
 const TEAM_COLORS = appConfig.drawing.colors
@@ -628,7 +638,8 @@ export function sanitizeWorkspace(raw: unknown): WorkspaceGate {
     return out
   })()
   const sv = typeof raw.schemaVersion === 'number' ? raw.schemaVersion : undefined
-  const ws: Saved = {
+  // weather is the replay fold's alone (Saved.weather): a live load never carries it on
+  const ws: EverySavedKey<'weather'> = {
     objects,
     entities: (arr<Entity>(raw.entities, isEntity, (e) => fixDrawProps(e.trail == null ? e : { ...e, trail: arr<GeoTrailPoint>(e.trail, isGeoTrailPt) })) ?? []).map(migrateRauchCloud),
     drawings: arr<Drawing>(raw.drawings, isDrawing, fixDrawProps) ?? [],

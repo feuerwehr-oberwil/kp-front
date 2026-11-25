@@ -675,6 +675,8 @@ export const MERGE_POLICY = {
 
 /** The `Saved` fields that merge (every row of MERGE_POLICY that is not `'local'`). */
 export type SyncedKey = { [K in keyof typeof MERGE_POLICY]: (typeof MERGE_POLICY)[K] extends 'local' ? never : K }[keyof typeof MERGE_POLICY]
+/** The `Saved` fields that stay with the device that holds them (the `'local'` rows). */
+export type LocalKey = Exclude<keyof typeof MERGE_POLICY, SyncedKey>
 /* ⚠️ …and each of them must also REACH THE SCREEN: a merged blob only lands through
  * deriveInitial → applyWorkspace, whose setters are typed against InitialState (lib/workspace ·
  * WorkspaceAppliers). So every synced field needs an InitialState slot of the same name, or
