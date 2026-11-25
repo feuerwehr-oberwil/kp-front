@@ -77,6 +77,17 @@ export async function login(page: Page) {
     await expect(demoWelcome).toBeVisible()
     await demoWelcome.locator('.dw-cta').click()
   }
+
+  // «Name dieses Geräts» asks once at the first login on a device (components/DeviceName, on home
+  // only). A spec is a fresh device every time, so answer it as «Später» would: mark it asked in the
+  // prefs cookie and tell the open holders (lib/deviceName · skipDeviceNameAsk).
+  await page.evaluate(() => {
+    const raw = document.cookie.split('; ').find((c) => c.startsWith('kp-front-prefs='))?.slice('kp-front-prefs='.length)
+    let prefs: Record<string, unknown> = {}
+    try { prefs = raw ? JSON.parse(decodeURIComponent(raw)) as Record<string, unknown> : {} } catch { /* a fresh device */ }
+    document.cookie = `kp-front-prefs=${encodeURIComponent(JSON.stringify({ ...prefs, deviceNameAsked: true }))}; path=/; samesite=lax`
+    window.dispatchEvent(new Event('kp:device-name'))
+  })
 }
 
 // After login the app shows either home (no open incident: «Karte & Objekte») or, if one is
