@@ -150,7 +150,7 @@ describe('abschlussEndeItem — the Einsatzende pre-filled with «jetzt»', () =
     const change = vi.fn()
     const d = new Date(2026, 9, 23, 23, 41)
     const row = abschlussEndeItem(d.toISOString(), change)
-    expect(row).toMatchObject({ label: appConfig.copy.abschluss.ende, done: true, end: 'jetzt 23:41' })
+    expect(row).toMatchObject({ label: appConfig.copy.abschluss.ende, done: true, end: 'jetzt 23:41 Uhr' })
     row.onClick()
     expect(change).toHaveBeenCalledTimes(1)
   })

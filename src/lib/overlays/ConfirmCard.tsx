@@ -22,7 +22,7 @@ import { useBackLayer } from './layer'
  */
 export interface ConfirmItem {
   label: string
-  /** a short read-out at the row's end – the pre-filled Einsatzende's «jetzt 23:41» */
+  /** a short read-out at the row's end – the pre-filled Einsatzende's «jetzt 23:41 Uhr» */
   end?: string
   /** a quieter line under the label – WHICH thing is open («Eigentümer informieren.» under «1
    *  Pendenz offen», lib/abschlussOpen) */

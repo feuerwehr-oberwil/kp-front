@@ -156,7 +156,7 @@ export interface AbschlussSheetState {
  * (ReportPreflight) – and the Kontrolle chip's list reads the same rows (`abschlussOpenItems`).
  * Rows and order come from here; the words around the list (title, lead, note, buttons) stay each
  * confirm's own. `prefilled` puts the caller's own row in a step's place and counts that step as
- * answered: the Abschluss's Einsatzende «jetzt 23:41», which the close itself writes.
+ * answered: the Abschluss's Einsatzende «jetzt 23:41 Uhr», which the close itself writes.
  */
 export function abschlussSheet<P extends AbschlussOpenPoint>(
   points: P[], go: OpenTargetsFor<P>, prefilled: Partial<Record<AbschlussStep, ConfirmItem>> = {},
@@ -169,7 +169,7 @@ export function abschlussSheet<P extends AbschlussOpenPoint>(
 }
 
 /**
- * The pre-filled Einsatzende (owner's pick, 23.10.2026): «Einsatzende · jetzt 23:41», shown as
+ * The pre-filled Einsatzende (owner's pick, 23.10.2026): «Einsatzende · jetzt 23:41 Uhr», shown as
  * already set. The close writes it (useAbschluss); a tap on the row only goes to the Rapport's
  * field. ⚠️ It wrote «jetzt» first until 25.11.2026 (owner pick UX journeys B3·20): an operator who
  * tapped it to CHANGE the end got «Einsatzende «14:30»» and then «14:28» in the Verlauf.

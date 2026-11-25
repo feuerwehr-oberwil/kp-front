@@ -252,8 +252,9 @@ export const incidentCopy = {
     watchEnds: 'Mit dem Abschluss endet die Überwachung dieser Trupps auf allen Geräten.',
     // die sichere, fokussierte Antwort auf der Liste der offenen Punkte
     confirmBack: 'Zurück',
-    // the pre-filled Einsatzende row: «Einsatzende · jetzt 23:41», written with the close
-    endeNow: 'jetzt {t}',
+    // the pre-filled Einsatzende row: «Einsatzende · jetzt 23:41 Uhr», written with the close (a
+    // time of day says «Uhr», owner pick UX journeys B2·43, 25.11.2026)
+    endeNow: 'jetzt {t} Uhr',
     // what an Abschluss left in the media queue stands in the Meldeleiste while it is there — it
     // was the closing toast's second half (S3, 20.10.2026; components/MediaPendingMeldung)
     mediaPendingTitle: '{n} Foto/Audio von «{title}» noch nicht synchronisiert',
