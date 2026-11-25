@@ -85,10 +85,6 @@ interface IncidentSyncDeps {
   /** Follow once a minute instead of long-polling — the Atemschutz-Link of a CLOSED Einsatz,
    *  whose every request is refused until a reopen (pollBackoff · minDelayMs). Read through a ref. */
   slowFollow?: boolean
-  /** This tab got the incident's edit lock at once when it opened it (lib/tabLock · heldAtOpen).
-   *  Only then is a restored dirty entry pushed without a new edit: a tab that opened behind
-   *  another one holds a COPY of that tab's draft. Optional: omitted → false (no push). */
-  lockHeldAtOpen?: boolean
 }
 
 /**
@@ -99,7 +95,7 @@ interface IncidentSyncDeps {
  * the reactive sync-status badge. State writes stay in App via `applyWorkspace`/`buildPayload`; this
  * hook owns the sync-internal refs (skip/first/liveRev) + effects so the wiring is one unit.
  */
-export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, applyWorkspace, flushEvents, flushEventsBeacon, appendJournal, appendTeamRow, alarmUrgent, gestureOpen, incidentOpen, slowFollow, lockHeldAtOpen = false }: IncidentSyncDeps) {
+export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, applyWorkspace, flushEvents, flushEventsBeacon, appendJournal, appendTeamRow, alarmUrgent, gestureOpen, incidentOpen, slowFollow }: IncidentSyncDeps) {
   const incidentOpenRef = useRef(incidentOpen)
   useEffect(() => { incidentOpenRef.current = incidentOpen }, [incidentOpen])
   /** What the SERVER last said about the lifecycle (its `X-Incident-Open`), which is what the next
@@ -265,10 +261,11 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
 
   // An editor that opened with a restored dirty entry pushes it without waiting for its next edit:
   // nothing else armed that push on a healthy link (WorkspaceSync · pushOwed, hunt 24.11.2026).
-  // Only in the tab that got the edit lock at once — see `lockHeldAtOpen`.
+  // A tab that opened behind another one is a follower (read-only) and owes nothing; once it
+  // gets the lock its fresh engine holds the draft it inherited, and pushes it.
   useEffect(() => {
-    if (lockHeldAtOpen && !readOnly) sync.pushOwed()
-  }, [sync, lockHeldAtOpen, readOnly])
+    if (!readOnly) sync.pushOwed()
+  }, [sync, readOnly])
 
   // Reconnect resume: when the device comes back online, push any edits queued while offline.
   // save()/page-hide/incident-switch are the only other flush triggers, so without this an edit
@@ -308,6 +305,23 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
   // is not up to a minute late. The loop also catches up when the device comes back ONLINE: the
   // ease-off can have parked it up to livePollMaxMs out on a link that has since recovered.
   const liveRev = useRef(sync.rev)
+
+  // ⚠️ The edit lock came to this tab (lib/incidentSelection): the view is handed a FRESH editor
+  // engine, opened from the slot as the previous holder left it. Its workspace replaces what the
+  // follower showed – in place, no remount, never pushed back (hydrate). Before any save of this
+  // view can run: a save from the follower's view would write that tab's older copy over the
+  // draft (hunt 24.11.2026, offline-sync F1). The follower's poll round was aborted with its
+  // loop in this same commit (useLongPoll restarts on `sync`), so its late answer cannot land.
+  const shownSync = useRef(sync)
+  useEffect(() => {
+    if (shownSync.current === sync) return
+    const handed = shownSync.current.incidentId === sync.incidentId
+    shownSync.current = sync
+    if (!handed) return
+    liveRev.current = sync.rev
+    skipSave.current = true // hydrate: the handed workspace is not an edit to push back
+    applyWorkspace(sync.workspace)
+  }, [sync, applyWorkspace])
   // The mechanics (generation guard, in-flight abort, ease-off, visibility/online/pagehide) are
   // the shared loop's (useLongPoll · pollBackoff); this is only what a round DOES.
   const restartPoll = useLongPoll({

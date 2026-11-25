@@ -1,0 +1,129 @@
+// Two tabs of one browser on one Einsatz (hunt 24.11.2026, offline-sync F1 and the three holes of
+// the reverted first fix): handing the edit lock over never erases an edit a tab had saved. Each
+// «tab» is its own IncidentSelection over the shared IndexedDB and one Web Locks double; the view
+// is played by the test (it edits only while the selection says `editing`, and shows the engine's
+// workspace after a grant – what useIncidentSync's hand-over does, tested there).
+import 'fake-indexeddb/auto'
+import { afterEach, beforeEach, expect, it, vi, type MockInstance } from 'vitest'
+import { ApiError } from './api'
+import type { IncidentMeta } from './api/incidents'
+import * as workspaceApi from './api/workspace'
+import { CACHE_DEBOUNCE_MS, setWorkspaceCacheOwner, type WorkspaceSync } from './api/workspaceSync'
+import { idbGet } from './idb'
+import { IncidentSelection } from './incidentSelection'
+import { FakeLocks } from './webLocks.test-utils'
+import type { Saved } from './workspace'
+
+vi.mock('./api/incidents', async (importOriginal) => ({ ...await importOriginal<typeof import('./api/incidents')>(), getIncident: vi.fn() }))
+
+const baseline: Saved = { entities: [], drawings: [], recent: [], layerState: [], timeline: [] }
+const offline = new ApiError(0, 'offline')
+type Stored = { workspace: Saved; dirty: boolean }
+const slot = async (id: string) => idbGet<Stored>(`kp-front-ws-${id}`)
+const settle = () => vi.advanceTimersByTimeAsync(CACHE_DEBOUNCE_MS + 50)
+let n = 0
+const tabs: IncidentSelection[] = []
+
+/** One tab with Einsatz `id` open. */
+async function tab(id: string) {
+  const selection = new IncidentSelection()
+  tabs.push(selection)
+  await selection.open(id, { id } as IncidentMeta, { debounceMs: 1_000 })
+  return selection
+}
+const engine = (t: IncidentSelection) => t.current as WorkspaceSync
+/** The view's edit: what the screen shows plus one change, saved only by an editing tab. */
+function edit(t: IncidentSelection, change: Partial<Saved>) {
+  if (!t.editing) throw new Error('read-only tab edited')
+  const shown = engine(t).workspace as Saved
+  engine(t).save({ ...shown, ...change, reportMeta: { ...shown.reportMeta, ...change.reportMeta } })
+}
+
+let get: MockInstance<typeof workspaceApi.getWorkspace>
+let put: MockInstance<typeof workspaceApi.putWorkspace>
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] })
+  Object.defineProperty(globalThis.navigator, 'locks', { value: new FakeLocks(), configurable: true })
+  setWorkspaceCacheOwner('operator')
+  get = vi.spyOn(workspaceApi, 'getWorkspace').mockResolvedValue({ workspace: baseline, workspace_rev: 1 })
+  put = vi.spyOn(workspaceApi, 'putWorkspace').mockRejectedValue(offline)
+  n++
+})
+afterEach(() => {
+  for (const t of tabs.splice(0)) t.dispose()
+  vi.useRealTimers()
+  vi.restoreAllMocks()
+  Reflect.deleteProperty(globalThis.navigator, 'locks')
+})
+
+it('offline-sync F1: the tab that takes over after a close keeps the closed tab’s saved edit', async () => {
+  const id = `f1-${n}`
+  const a = await tab(id)
+  const b = await tab(id)
+  expect([a.editing, b.editing]).toEqual([true, false])
+  get.mockRejectedValue(offline)
+  edit(a, { reportMeta: { remarks: 'from A' } })
+  await settle()
+  expect(await slot(id)).toMatchObject({ dirty: true, workspace: { reportMeta: { remarks: 'from A' } } })
+  a.close() // the lock goes to B once A's last write settled
+  await vi.waitFor(() => expect(b.editing).toBe(true))
+  edit(b, { reportMeta: { summary: 'from B' } })
+  await settle()
+  expect((await slot(id))?.workspace.reportMeta).toEqual({ remarks: 'from A', summary: 'from B' })
+})
+
+it('hole 1: «Hier bearbeiten» keeps what the holder saved, and the holder never writes after it', async () => {
+  const id = `steal-${n}`
+  const a = await tab(id)
+  const b = await tab(id)
+  edit(a, { reportMeta: { remarks: 'saved in A' } })
+  await settle()
+  edit(a, { reportMeta: { remarks: 'saved in A', lehren: 'typed in A, not yet on disk' } })
+  b.takeOver()
+  await vi.waitFor(() => expect(b.editing).toBe(true))
+  await vi.waitFor(() => expect(a.editing).toBe(false))
+  expect((engine(b).workspace as Saved).reportMeta?.remarks).toBe('saved in A')
+  edit(b, { reportMeta: { summary: 'from B' } })
+  await vi.advanceTimersByTimeAsync(10_000) // A's debounce, retry and every timer it had
+  expect((await slot(id))?.workspace.reportMeta).toMatchObject({ remarks: 'saved in A', summary: 'from B' })
+  expect(engine(a).canWrite).toBe(false)
+})
+
+it('hole 2: a tab opening behind the holder writes nothing over the holder’s newer draft', async () => {
+  const id = `follower-${n}`
+  const a = await tab(id)
+  let answer!: () => void
+  get.mockImplementationOnce(() => new Promise((resolve) => { answer = () => resolve({ workspace: baseline, workspace_rev: 1 }) }))
+  const b = new IncidentSelection()
+  tabs.push(b)
+  const opening = b.open(id, { id } as IncidentMeta, {})
+  await vi.waitFor(() => expect(answer).toBeTypeOf('function')) // B read the slot, asked the server
+  edit(a, { reportMeta: { remarks: 'newer in A' } })
+  await settle()
+  answer()
+  await opening
+  await settle()
+  expect(await slot(id)).toMatchObject({ dirty: true, workspace: { reportMeta: { remarks: 'newer in A' } } })
+  expect(b.editing).toBe(false)
+})
+
+it('hole 3: a holder that loses the lock mid-merge pushes nothing more', async () => {
+  const id = `merge-${n}`
+  const a = await tab(id)
+  const b = await tab(id)
+  const first = engine(a)
+  put.mockRejectedValueOnce(new ApiError(409, 'conflict'))
+  let answer!: () => void
+  get.mockImplementationOnce(() => new Promise((resolve) => {
+    answer = () => resolve({ workspace: { ...baseline, reportMeta: { summary: 'elsewhere' } }, workspace_rev: 2 })
+  }))
+  edit(a, { reportMeta: { remarks: 'from A' } })
+  await vi.advanceTimersByTimeAsync(1_100) // the debounced PUT goes, is answered 409, the merge asks the server
+  await vi.waitFor(() => expect(answer).toBeTypeOf('function'))
+  b.takeOver()
+  await vi.waitFor(() => expect(b.editing).toBe(true))
+  const putsBefore = put.mock.calls.filter((c) => c[4] === first.writerId).length
+  answer()
+  await vi.advanceTimersByTimeAsync(70_000)
+  expect(put.mock.calls.filter((c) => c[4] === first.writerId).length).toBe(putsBefore)
+})

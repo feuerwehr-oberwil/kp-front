@@ -399,38 +399,102 @@ export async function idbSet(key: string, value: unknown): Promise<boolean> {
  *  one native readwrite transaction, including across tabs. Return undefined to keep the
  *  current value or null to delete it. A failed read is never treated as an empty record.
  *  As with idbSet, a failed commit can fall back to JSON; a fallback deletion leaves a null
- *  tombstone so a surviving older IndexedDB value cannot reappear on the next read. */
-export async function idbUpdate<T>(key: string, update: (current: T | null) => T | null | undefined): Promise<boolean> {
+ *  tombstone so a surviving older IndexedDB value cannot reappear on the next read.
+ *  `fence`: as in idbSetFenced – a fence held by another token refuses the change (false). */
+export async function idbUpdate<T>(key: string, update: (current: T | null) => T | null | undefined, fence?: IdbFence): Promise<boolean> {
   let readSucceeded = false
+  let refused = false
   let next: T | null | undefined
   if (!idbUnavailable) {
     try {
       await tx('readwrite', (store) => {
-        const read = store.get(key)
-        read.addEventListener('success', () => {
-          try {
-            const fallback = lsRead<T | null>(FB_PREFIX + key)
-            next = update(fallback.found ? fallback.value : (read.result ?? null))
-            readSucceeded = true
-            if (next === null) store.delete(key)
-            else if (next !== undefined) store.put(next, key)
-          } catch {
-            store.transaction.abort()
-          }
+        const change = () => {
+          const read = store.get(key)
+          read.addEventListener('success', () => {
+            try {
+              const fallback = lsRead<T | null>(FB_PREFIX + key)
+              next = update(fallback.found ? fallback.value : (read.result ?? null))
+              readSucceeded = true
+              if (next === null) store.delete(key)
+              else if (next !== undefined) store.put(next, key)
+            } catch {
+              store.transaction.abort()
+            }
+          })
+          return read
+        }
+        if (!fence) return change()
+        const held = store.get(fence.key)
+        held.addEventListener('success', () => {
+          const fb = lsRead<unknown>(FB_PREFIX + fence.key)
+          const token = fb.found ? fb.value : held.result
+          if (token == null || token === fence.token) change()
+          else refused = true
         })
-        return read
+        return held
       })
+      if (refused) return false
       if (next === undefined) return true
       const cleared = clearFallback(key) && lsDel(key)
       setDegraded(!cleared)
       return cleared
     } catch { /* an answered read still permits the same JSON fallback as idbSet */ }
   }
+  if (fence && idbUnavailable) {
+    const fb = lsRead<unknown>(FB_PREFIX + fence.key)
+    const token = fb.found ? fb.value : lsGet(fence.key)
+    if (token != null && token !== fence.token) return false
+  }
   const fallback = lsRead<T | null>(FB_PREFIX + key)
   if (fallback.found || idbUnavailable) next = update(fallback.found ? fallback.value : lsGet<T>(key))
   else if (!readSucceeded) { setDegraded(true); return false }
   if (next === undefined) return true
   const stored = writeFallback(key, next, next === null)
+  setDegraded(!stored)
+  return stored
+}
+
+/** Who may write a key: the value stored under `key` must be `token`, or absent. */
+export interface IdbFence { key: string; token: string }
+
+/**
+ * `idbSet`, but only while `fence.key` holds `fence.token` (or nothing) – checked inside the same
+ * readwrite transaction as the put, so it holds across tabs. The tab that takes over a slot writes
+ * its own token there first (a plain `idbSet` of the fence key); every write the previous holder
+ * has not yet started is then refused, however late it runs (lib/api/workspaceSync · the edit
+ * lock). Resolves false when refused or not durable, like idbSet. The JSON fallback is written
+ * only when the fence was read and matched in this transaction, or when IndexedDB is unavailable
+ * for the whole session (then the fence lives in the fallback too).
+ */
+export async function idbSetFenced(key: string, value: unknown, fence: IdbFence): Promise<boolean> {
+  const mine = (held: unknown) => held == null || held === fence.token
+  let fenceMatched = false
+  if (!idbUnavailable) {
+    try {
+      await tx('readwrite', (store) => {
+        const read = store.get(fence.key)
+        read.addEventListener('success', () => {
+          const fb = lsRead<unknown>(FB_PREFIX + fence.key)
+          if (!mine(fb.found ? fb.value : read.result)) return
+          fenceMatched = true
+          store.put(value, key)
+        })
+        return read
+      })
+      if (!fenceMatched) return false
+      const cleared = clearFallback(key) && lsDel(key)
+      setDegraded(!cleared)
+      return cleared
+    } catch { /* falls back below, only over a fence this transaction read */ }
+  }
+  if (idbUnavailable) {
+    const fb = lsRead<unknown>(FB_PREFIX + fence.key)
+    if (!mine(fb.found ? fb.value : lsGet(fence.key))) return false
+  } else if (!fenceMatched) {
+    setDegraded(true)
+    return false
+  }
+  const stored = writeFallback(key, value)
   setDegraded(!stored)
   return stored
 }

@@ -12,10 +12,17 @@ vi.mock('./mediaQueue', () => ({ clearIncidentMedia: vi.fn(async () => {}) }))
 
 afterEach(() => { vi.restoreAllMocks(); vi.clearAllMocks() })
 
+/** A selection with Einsatz `id` open (its engine's open answered at once). */
+async function openOn(active: IncidentSelection, id: string): Promise<WorkspaceSync> {
+  const init = vi.spyOn(WorkspaceSync.prototype, 'init').mockResolvedValueOnce({ workspace: {}, rev: 1, fromCache: false })
+  await active.open(id, { id } as IncidentMeta, {})
+  init.mockRestore()
+  return active.current as WorkspaceSync
+}
+
 it.each(['metadata', 'workspace'])('keeps the active incident live after a failed %s read', async (failure) => {
-  const original = new WorkspaceSync('a')
   const active = new IncidentSelection()
-  active.current = original
+  const original = await openOn(active, 'a')
   const retire = vi.spyOn(original, 'dispose')
   const unavailable = new Error('offline')
   vi.mocked(getIncident).mockRejectedValue(unavailable)
@@ -34,6 +41,7 @@ it('keeps a superseding selection when the earlier request resolves last', async
     return { workspace: {}, rev: 1, fromCache: false }
   })
   const first = active.open('b', { id: 'b' } as IncidentMeta, {})
+  await vi.waitFor(() => expect(finish).toBeTypeOf('function'))
   await active.open('c', { id: 'c' } as IncidentMeta, {})
   finish()
   expect(await first).toBeNull()
@@ -50,6 +58,7 @@ it('coalesces two pending opens of B and never disposes the winning engine', asy
   const dispose = vi.spyOn(WorkspaceSync.prototype, 'dispose')
   const first = active.open('b', { id: 'b' } as IncidentMeta, {})
   const second = active.open('b', { id: 'b' } as IncidentMeta, {})
+  await vi.waitFor(() => expect(init).toHaveBeenCalled())
   finish()
   expect(await first).toBeNull()
   expect(await second).toMatchObject({ meta: { id: 'b' } })
@@ -66,6 +75,7 @@ it('unmount during a cold boot disposes the candidate and never adopts it', asyn
   })
   const retire = vi.spyOn(WorkspaceSync.prototype, 'dispose')
   const boot = active.open('b', { id: 'b' } as IncidentMeta, {})
+  await vi.waitFor(() => expect(finish).toBeTypeOf('function'))
   active.dispose()
   finish()
   expect(await boot).toBeNull()
@@ -74,9 +84,8 @@ it('unmount during a cold boot disposes the candidate and never adopts it', asyn
 })
 
 it('keeps the live incident and pending media when undoing the take fails', async () => {
-  const original = new WorkspaceSync('take')
   const active = new IncidentSelection()
-  active.current = original
+  const original = await openOn(active, 'take')
   vi.mocked(archiveIncident).mockRejectedValueOnce(new Error('offline'))
   await expect(undoTakenIncident(active, 'take', () => true, vi.fn())).rejects.toThrow('offline')
   expect(active.current).toBe(original)
@@ -84,12 +93,11 @@ it('keeps the live incident and pending media when undoing the take fails', asyn
 })
 
 it('an acknowledged undo clears only the taken incident if the operator has moved on', async () => {
-  const original = new WorkspaceSync('take')
   const active = new IncidentSelection()
-  active.current = original
-  const other = new WorkspaceSync('other')
+  await openOn(active, 'take')
+  let other: WorkspaceSync | null = null
   vi.mocked(archiveIncident).mockImplementationOnce(async () => {
-    active.current = other
+    other = await openOn(active, 'other')
     return { id: 'take' } as Awaited<ReturnType<typeof archiveIncident>>
   })
   await expect(undoTakenIncident(active, 'take', () => true, async () => [])).resolves.toBeNull()
@@ -98,9 +106,8 @@ it('an acknowledged undo clears only the taken incident if the operator has move
 })
 
 it('retires the old engine only after the new one loads and its own last save finishes', async () => {
-  const original = new WorkspaceSync('a')
   const active = new IncidentSelection()
-  active.current = original
+  const original = await openOn(active, 'a')
   const retire = vi.spyOn(original, 'dispose')
   vi.spyOn(WorkspaceSync.prototype, 'init').mockResolvedValue({ workspace: {}, rev: 1, fromCache: false })
   const flush = vi.spyOn(original, 'flush').mockImplementation(async () => {
@@ -115,10 +122,9 @@ it('retires the old engine only after the new one loads and its own last save fi
 
 // Deliver the same notices as a late recovery probe while the previous incident finishes saving.
 // Keep the candidate's live snapshot separate from the one its init() promise returned.
-function pendingRecovery() {
+async function pendingRecovery() {
   const active = new IncidentSelection()
-  const previous = new WorkspaceSync('a')
-  active.current = previous
+  const previous = await openOn(active, 'a')
   let finish!: () => void
   const flushing = new Promise<void>((resolve) => { finish = resolve })
   const flush = vi.spyOn(previous, 'flush').mockReturnValue(flushing)
@@ -141,11 +147,12 @@ function pendingRecovery() {
   vi.spyOn(syncModule, 'WorkspaceSync').mockImplementation(function (id, options) { return new RecoveringEngine(id, options) })
   const options = { onServerWorkspace: vi.fn(), onRev: vi.fn(), onMerged: vi.fn() }
   const opening = active.open('b', { id: 'b' } as IncidentMeta, options)
+  await vi.waitFor(() => expect(notify).toBeTypeOf('function'))
   return { active, opening, flush, finish, notify, options }
 }
 
 it('forwards candidate view callbacks only while its engine is current', async () => {
-  const { active, opening, flush, finish, notify, options } = pendingRecovery()
+  const { active, opening, flush, finish, notify, options } = await pendingRecovery()
   await vi.waitFor(() => expect(flush).toHaveBeenCalledOnce())
   notify(2)
   for (const callback of Object.values(options)) expect(callback).not.toHaveBeenCalled()
@@ -159,7 +166,7 @@ it('forwards candidate view callbacks only while its engine is current', async (
 })
 
 it('ignores a discarded candidate when the operator returns to the current incident', async () => {
-  const { active, opening, flush, finish, notify, options } = pendingRecovery()
+  const { active, opening, flush, finish, notify, options } = await pendingRecovery()
   await vi.waitFor(() => expect(flush).toHaveBeenCalledOnce())
   await active.open('a', { id: 'a' } as IncidentMeta, {})
   notify(2)
@@ -176,7 +183,7 @@ it('keeps the null initial blob of a new incident when nothing arrived during th
 })
 
 it('hydrates the latest candidate workspace and revision after the previous flush', async () => {
-  const { opening, flush, finish, notify } = pendingRecovery()
+  const { opening, flush, finish, notify } = await pendingRecovery()
   await vi.waitFor(() => expect(flush).toHaveBeenCalledOnce())
   notify(2)
   finish()

@@ -14,7 +14,7 @@
  * the new engine’s cache, view and retry state alone.
  */
 import { ApiError, isDenial, isUnverifiable } from '../api'
-import { idbDel, idbGet, idbKeys, idbRead, idbSet, idbUpdate, type IdbRead } from '../idb'
+import { idbDel, idbGet, idbKeys, idbRead, idbSet, idbSetFenced, idbUpdate, type IdbFence, type IdbRead } from '../idb'
 import { serverNow } from '../serverClock'
 import { withTileEviction } from '../tileEvict'
 import { jsonEqual } from '../jsonEqual'
@@ -61,6 +61,10 @@ type CacheEntry = {
   shape?: 'all' | Slice
 }
 const cacheKey = (id: string) => `kp-front-ws-${id}`
+// Which engine may write the main slot (opts.lock): the writerId of the tab that last took the
+// edit lock. Checked inside every main-slot write's own transaction (idb · idbSetFenced), so a
+// write the previous holder starts after the takeover is refused, however late it runs.
+const fenceKey = (id: string) => `kp-front-ws-${id}::__writer__`
 // A fallback slot, one per (incident, owner). Another user's UNSYNCED work is parked here so the
 // main slot can be reused without destroying it, and so its owner recovers it on their next
 // sign-in (see loadReadableEntry). NEVER read across owners — the key IS the ownership proof.
@@ -325,6 +329,17 @@ export interface WorkspaceSyncOptions {
    * reason about the WHOLE blob (the server's copy carries everything).
    */
   slice?: 'trupps' | 'record'
+  /**
+   * This tab's edit lock for the Einsatz (lib/incidentSelection, lib/tabLock). Two tabs of one
+   * browser share the main slot, so exactly one engine may write it: the one opened as
+   * `'editor'` – it writes its id into the slot's fence before it reads the slot, and every
+   * main-slot write it makes is fenced, until `retire()` (the lock went to another tab).
+   * `'follower'` is opened while another tab holds the lock: it serves that tab's draft and the
+   * server copy from memory and never writes or pushes anything. Promotion is a NEW editor
+   * engine, never this one changing role. Absent: no lock – one engine per browser, as before
+   * (tests, the harness).
+   */
+  lock?: 'editor' | 'follower'
 }
 
 /** The trupp slice of an opaque workspace blob. The engine treats the blob as data it only
@@ -453,6 +468,8 @@ export class WorkspaceSync {
   /** the last attempt failed because the server could not be ASKED (api · isUnverifiable) */
   private unreached = false
   private disposed = false
+  /** the edit lock went to another tab (see `retire`) */
+  private retired = false
   private saveSeq = 0 // bumped on each save(); lets a flush detect an edit that landed mid-PUT
   private readonly debounceMs: number
   // Automatic retry after a FAILED flush (server 5xx / network drop): without it a dirty
@@ -548,8 +565,26 @@ export class WorkspaceSync {
   private requireOpeningOwner(): void {
     if (!this.ownsCache) throw new Error('Incident selection cancelled')
   }
+  /** May this engine write the main slot, push and retry? Not a follower, not after `retire`
+   *  (opts.lock). The view checks it too: a receipt is linked only into an engine that can save
+   *  it (workspace/useMediaOutbox). */
+  get canWrite(): boolean {
+    return this.ownsCache && this.editor
+  }
+  /** This engine holds the edit lock (or runs without one) and has not retired. */
+  get editor(): boolean {
+    return this.opts.lock !== 'follower' && !this.retired
+  }
+  private get fence(): IdbFence | undefined {
+    return this.opts.lock ? { key: fenceKey(this.incidentId), token: this.writerId } : undefined
+  }
+  /** Every write of the main slot: fenced while this engine runs under the edit lock. */
+  private writeMain(entry: CacheEntry): Promise<boolean> {
+    const fence = this.fence
+    return fence ? idbSetFenced(cacheKey(this.incidentId), entry, fence) : idbSet(cacheKey(this.incidentId), entry)
+  }
   private get sessionActive(): boolean {
-    return this.ownsCache && !cacheDenied
+    return this.canWrite && !cacheDenied
   }
   private ownRefused(disposition: 'replay' | 'role' = 'replay'): RefusedWorkspace[] {
     if (!this.sessionActive || !this.sessionOwner) return []
@@ -593,7 +628,10 @@ export class WorkspaceSync {
   private publish() {
     // ⚠️ An unread slot may hold this device's only copy of unsynced offline edits, which nothing
     // in this session has merged or pushed: «synced» would be a promise nobody can keep yet.
-    const eff = this.slotUnread || this.quotaDeferred ? 'storage' : effectiveSyncStatus(this.base, this.entry.dirty, this.cacheDurable)
+    // A tab without the edit lock reports nothing of its own: the tab that holds it owns the
+    // slot and says how it stands (the media queue's rule, useMediaQueue · syncStatus).
+    const eff = !this.editor ? 'synced'
+      : this.slotUnread || this.quotaDeferred ? 'storage' : effectiveSyncStatus(this.base, this.entry.dirty, this.cacheDurable)
     if (this.status === eff) return
     this.status = eff
     this.onStatus?.(eff)
@@ -610,7 +648,7 @@ export class WorkspaceSync {
    *  synchronously first: teardown, an owner change and the server push (the cache ancestor
    *  has to be the one we pushed). */
   private writeCache() {
-    if (!this.ownsCache) return
+    if (!this.canWrite) return
     if (this.cacheTimer) clearTimeout(this.cacheTimer)
     this.cacheTimer = setTimeout(this.flushCache, CACHE_DEBOUNCE_MS)
     pendingCacheWrites.add(this.flushCache)
@@ -634,14 +672,15 @@ export class WorkspaceSync {
       return Promise.resolve(false)
     }
     if (!this.ownsCache) return Promise.resolve(false)
-    const key = cacheKey(this.incidentId)
     const writes = writingCache.get(this.incidentId) ?? new Set<Promise<boolean>>()
     writingCache.set(this.incidentId, writes)
     const write = withTileEviction(async () => {
       const entry = { ...this.entry, cacheWriter: this.writerId }
       if (this.quotaRecovery) return this.writeQuotaRecovery(this.quotaRecovery, entry)
-      if (this.ownsCache) return idbSet(key, entry)
-      if (!entry.dirty) return false
+      if (this.ownsCache && !this.retired) return this.writeMain(entry)
+      // ⚠️ A tab that lost the edit lock has no rescue: what the takeover read is the handover,
+      // and a later copy merged against the wrong ancestor would undo the new holder's deletes.
+      if (!entry.dirty || this.retired) return false
       // Another engine, even another tab, may now own the main slot. Keep the last authored
       // dirty snapshot separately until its author opens this incident again.
       if (this.retiredWrite) return this.retiredWrite
@@ -859,7 +898,7 @@ export class WorkspaceSync {
     if (stored && !cacheDenied) {
       if (!stored.owner && !stored.dirty && cacheOwner) {
         const adopted: CacheEntry = { ...stored, owner: cacheOwner }
-        await idbSet(cacheKey(this.incidentId), adopted)
+        await this.writeMain(adopted)
         return { entry: adopted, parkBlocked: false }
       }
       // An unserved DIRTY entry is about to have its slot reused by init()'s server fetch. Copy it
@@ -887,7 +926,7 @@ export class WorkspaceSync {
         // write is CONFIRMED durable. Deleting the parked copy after a failed write (a full store)
         // would be the exact data loss the parking exists to prevent, so on failure the sole copy
         // stays under the owner key for the next attempt.
-        const wrote = await idbSet(cacheKey(this.incidentId), parked)
+        const wrote = await this.writeMain(parked)
         this.requireOpeningOwner()
         if (wrote) await idbDel(parkedKey)
         return { entry: parked, parkBlocked: false }
@@ -896,9 +935,10 @@ export class WorkspaceSync {
     return { entry: null, parkBlocked: false }
   }
 
-  /** An open starts before the UI acquires its editor lock. Treat the main slot as a live
-   *  peer's data throughout recovery: read it after grant; keep this editor's changes under
-   *  its author's quota key until the server accepts them. */
+  /** Treat the main slot as a live peer's data throughout recovery: read it under the recovery
+   *  lock; keep this editor's changes under its author's quota key until the server accepts
+   *  them. (Since 25.11.2026 an editor opens only after the tab's edit lock answered – opts.lock –
+   *  but an engine without one, and an owner change, still meet a live peer here.) */
   private async restoreQuotaDraft(first: CacheEntry | null): Promise<CacheEntry | null> {
     if (!this.sessionActive) return null
     const owner = this.sessionOwner ?? first?.owner
@@ -982,7 +1022,7 @@ export class WorkspaceSync {
       if (!currentAck()) return undefined
       foreign = !!latest && latest.owner !== entry.owner
       return foreign ? undefined : reconcile(latest)
-    })
+    }, this.fence)
     if (!published || !currentAck()) return false
     if (foreign && entry.owner) {
       // The peer may have parked our observed copy while the PUT was in flight. Retire the
@@ -1059,11 +1099,49 @@ export class WorkspaceSync {
   /** Load initial state: prefer server; fall back to offline cache when the server could not be
    *  ASKED. A server that answered «no» gets no fallback — see mayRead / isDenial. */
   async init(): Promise<{ workspace: Workspace | null; rev: number; fromCache: boolean }> {
-    const opened = await this.open()
+    // ⚠️ The editor claims the slot BEFORE it reads it: IndexedDB runs the claim after every
+    // write the previous holder had started and refuses every later one (idb · idbSetFenced),
+    // so the read below sees that tab's last committed draft and nothing lands over it after.
+    const fence = this.opts.lock === 'editor' ? this.fence : undefined
+    if (fence) {
+      await idbSet(fence.key, fence.token)
+      this.requireOpeningOwner()
+    }
+    const opened = this.opts.lock === 'follower' ? await this.openFollower() : await this.open()
     this.requireOpeningOwner()
     // what the caller hydrates the view from — every renumbering is said against it from now on
     this.viewState = opened.workspace ?? {}
     return opened
+  }
+
+  /** The open of a tab that does NOT hold the edit lock: what the editor's open would show – the
+   *  slot as the holder last wrote it (its unsynced edits, merged over a newer server copy) or
+   *  the server copy – from memory. Nothing is written anywhere: no adopt, park, re-home or
+   *  cache write, which would land over the holder's newer draft. A denial answers as in open(). */
+  private async openFollower(): Promise<{ workspace: Workspace | null; rev: number; fromCache: boolean }> {
+    const read = await readCache(this.incidentId)
+    this.requireOpeningOwner()
+    const cached = read.ok && read.value && mayRead(read.value) ? read.value : null
+    try {
+      const { workspace, workspace_rev } = await getWorkspace(this.incidentId)
+      this.requireOpeningOwner()
+      const server = workspace ?? {}
+      const draft = cached?.dirty
+        ? (cached.baseRev === workspace_rev ? cached.workspace : this.merge(cached.base ?? {}, cached.workspace, server))
+        : null
+      this.entry = { workspace: draft ?? server, base: server, baseRev: workspace_rev, dirty: false, lastSyncedAt: Date.now(), owner: cacheOwner ?? undefined }
+      this.opts.onRev?.(workspace_rev)
+      return draft ? { workspace: draft, rev: workspace_rev, fromCache: true } : { workspace, rev: workspace_rev, fromCache: false }
+    } catch (e) {
+      this.requireOpeningOwner()
+      if (isDenial(e)) {
+        if (e instanceof ApiError && e.status === 401) denyWorkspaceCache()
+        throw e
+      }
+      if (!cached) throw e
+      this.entry = { ...cached, dirty: false }
+      return { workspace: cached.workspace, rev: cached.baseRev, fromCache: true }
+    }
   }
 
   private async open(): Promise<{ workspace: Workspace | null; rev: number; fromCache: boolean }> {
@@ -1096,7 +1174,7 @@ export class WorkspaceSync {
       if (parked) {
         cached = { ...cached, shape: this.shape }
         if (this.quotaRecovery) await this.writeQuotaRecovery(this.quotaRecovery, cached, cached.quotaReceipt)
-        else await idbSet(cacheKey(this.incidentId), cached) // parked once: a reload must not park it again
+        else await this.writeMain(cached) // parked once: a reload must not park it again
         this.requireOpeningOwner()
       } else {
         parkBlocked = true
@@ -1171,8 +1249,9 @@ export class WorkspaceSync {
    *  churns — and restarting it on each held the push back for as long as the churn lasted. */
   save(workspace: Workspace, { keepTimer = false }: { keepTimer?: boolean } = {}) {
     // A denial still permits local edits until the session changes. A late render of the
-    // previous session must never enqueue a new edit (including after a logout and re-login).
-    if (!this.ownsCache) return
+    // previous session must never enqueue a new edit (including after a logout and re-login),
+    // and neither may a tab without the edit lock (opts.lock).
+    if (!this.canWrite) return
     this.saveSeq++
     // Stamp the editing session NOW (the enqueue moment), so the debounced write can't be
     // relabelled if the identity changes before it lands (SEC-10 owner races). An entry that
@@ -1277,7 +1356,7 @@ export class WorkspaceSync {
 
   /** Exponential-backoff re-flush: 5s · 10s · 20s · 40s · then every 60s while dirty. */
   private scheduleRetry() {
-    if (this.disposed) return
+    if (!this.canWrite) return
     if (this.retryTimer) clearTimeout(this.retryTimer)
     const delay = Math.min(60_000, 5_000 * 2 ** this.retryCount)
     this.retryCount++
@@ -1812,6 +1891,28 @@ export class WorkspaceSync {
   /** epoch ms of the last successful server sync, or null if never synced this session. */
   get lastSyncedAt(): number | null {
     return this.entry.lastSyncedAt
+  }
+
+  /**
+   * This tab lost the edit lock to another tab (lib/incidentSelection). Start the cache write
+   * already waiting – the fence refuses it once the new holder has claimed the slot – then never
+   * write, push or retry again: the debounce, the backoff, a 409 merge in flight and a late PUT
+   * answer all stop at their next check. The engine stays the view's read-only source until the
+   * selection replaces it; a later grant opens a fresh editor engine.
+   */
+  retire(): void {
+    if (this.retired) return
+    void this.flushCache()
+    this.retired = true
+    for (const t of [this.timer, this.retryTimer, this.probeTimer, this.refetchTimer]) if (t) clearTimeout(t)
+    this.timer = this.retryTimer = this.probeTimer = this.refetchTimer = null
+    this.publish()
+  }
+
+  /** Every cache write this page started for the Einsatz has settled – what a lock release
+   *  waits for, so the next holder's claim comes after it (lib/incidentSelection). */
+  async settled(): Promise<void> {
+    await Promise.all([...(writingCache.get(this.incidentId) ?? [])])
   }
 
   dispose() {

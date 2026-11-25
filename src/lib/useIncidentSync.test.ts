@@ -49,19 +49,18 @@ function makeSync() {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function mount(sync: any, opts?: { alarmUrgent?: boolean; appendJournal?: (row: unknown) => void; appendTeamRow?: (row: unknown) => void; lockHeldAtOpen?: boolean }) {
+function mount(sync: any, opts?: { alarmUrgent?: boolean; appendJournal?: (row: unknown) => void; appendTeamRow?: (row: unknown) => void; readOnly?: boolean }) {
   const blob = {} as unknown as Saved
   return renderHook(
     ({ bp }) => useIncidentSync({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      sync: sync as any, readOnly: false, incidentId: 'i1', buildPayload: bp,
+      sync: sync as any, readOnly: opts?.readOnly ?? false, incidentId: 'i1', buildPayload: bp,
       applyWorkspace: vi.fn(), flushEvents: vi.fn(), flushEventsBeacon: vi.fn(),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       appendJournal: opts?.appendJournal as any,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       appendTeamRow: opts?.appendTeamRow as any,
       alarmUrgent: opts?.alarmUrgent,
-      lockHeldAtOpen: opts?.lockHeldAtOpen,
     }),
     { initialProps: { bp: () => blob } },
   )
@@ -562,12 +561,41 @@ describe('useIncidentSync — a closed view never spins its poll', () => {
   })
 })
 
-// offline-sync F4 (hunt 24.11.2026): the owed push of a restored dirty entry goes only from the tab
-// that got the edit lock at once — a tab that opened behind another holds a copy of ITS draft
+// offline-sync F4 (hunt 24.11.2026): the owed push of a restored dirty entry goes only from a tab
+// that may write — a follower (opened behind another tab) holds a copy of THAT tab's draft
 describe('useIncidentSync · the owed push at open', () => {
-  it.each([[true, 1], [false, 0]] as const)('lock held at open: %s → %i push armed', (held, calls) => {
+  it.each([[false, 1], [true, 0]] as const)('read-only: %s → %i push armed', (readOnly, calls) => {
     const sync = makeSync()
-    mount(sync, { lockHeldAtOpen: held })
+    mount(sync, { readOnly })
     expect(sync.pushOwed).toHaveBeenCalledTimes(calls)
+  })
+})
+
+// Two tabs, one Einsatz (hunt 24.11.2026, offline-sync F1): the edit lock comes to this tab and the
+// selection hands the view a fresh editor engine, opened from the slot the previous tab left. The
+// view must show THAT – and an answer the follower's poll was still waiting for must not land
+// after it: its older server copy would be the base of this tab's first save.
+describe('useIncidentSync · the edit lock comes to this tab', () => {
+  it('shows the fresh engine’s workspace, and the follower’s late poll answer stays out', async () => {
+    let answer!: (res: unknown) => void
+    pollWorkspaceSince.mockImplementationOnce(() => new Promise((r) => { answer = r })).mockImplementation(() => new Promise(() => {}))
+    const follower = { ...makeSync(), incidentId: 'i1', workspace: {} }
+    const fresh = { ...makeSync(), incidentId: 'i1', rev: 3, workspace: { reportMeta: { remarks: 'from the other tab' } } }
+    const applyWorkspace = vi.fn()
+    const view = renderHook(
+      ({ sync, readOnly }: { sync: typeof follower; readOnly: boolean }) => useIncidentSync({
+        sync: sync as unknown as WorkspaceSync, readOnly, incidentId: 'i1', buildPayload: () => ({}) as Saved,
+        applyWorkspace, flushEvents: vi.fn(), flushEventsBeacon: vi.fn(),
+      }),
+      { initialProps: { sync: follower, readOnly: true } },
+    )
+    await act(async () => { await vi.advanceTimersByTimeAsync(appConfig.sync.livePollMs) })
+    expect(answer).toBeTypeOf('function') // the follower's round is waiting on the server
+    view.rerender({ sync: fresh, readOnly: false })
+    answer({ workspace_rev: 4, workspace: { reportMeta: {} } })
+    await act(async () => { await vi.advanceTimersByTimeAsync(10) })
+    expect(applyWorkspace).toHaveBeenCalledTimes(1)
+    expect(applyWorkspace).toHaveBeenLastCalledWith(fresh.workspace)
+    expect(fresh.pushOwed).toHaveBeenCalledOnce()
   })
 })
