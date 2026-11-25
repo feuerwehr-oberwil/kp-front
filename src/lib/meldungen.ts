@@ -144,6 +144,11 @@ export interface Meldung {
    *  keeps one (20.10.2026, UX sweep S2: «Rückmeldung Strom an EBL: Hauptschalter …» lost the
    *  part that says what to do). The title still opens the whole text in the Verlauf. */
   subLines?: 2
+  /** A text from outside to READ in full, under the title and sub-line: `head` in a title's size,
+   *  `text` as sent – wrapped, never clamped, never highlighted. The «Einsatzdaten prüfen» row
+   *  carries the Stichwort and the Alarmmeldung (owner pick UX journeys B3·4, 25.11.2026): «Passt»
+   *  confirms what the crew has just read. The row grows by it; on a phone that is 4–5 lines. */
+  quote?: { head: string; text: string }
 }
 
 /**

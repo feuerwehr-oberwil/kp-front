@@ -91,5 +91,6 @@ export const intakeCopy: Localizable<Pick<Copy, 'intake'>> = {
     kindLabel: 'Réel / exercice',
     kindReal: 'Réel',
     showAlarm: 'Afficher',
+    fromDiveraRead: 'Repris depuis la source d’alarme – lecture seule',
   },
 }

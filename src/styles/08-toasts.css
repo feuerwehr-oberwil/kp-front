@@ -125,6 +125,18 @@
    lines, then the ellipsis, the title's own clamp */
 .ml-row.sub2 .ml-sub { white-space: normal; overflow-wrap: anywhere;
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
+/* a row that carries a text to READ in full (Meldung.quote – «Einsatzdaten prüfen» with the
+   Stichwort and the Alarmmeldung, owner pick UX journeys B3·4, 25.11.2026): title and sub-line on
+   one line, the Stichwort in a title's size and the text as sent under them, never clamped. The
+   glyph and the buttons stand at the top, level with the title. */
+.ml-row.quote { align-items: flex-start; }
+.ml-row.quote .ml-ic { margin-top: calc(var(--sp-3) + 1px); }
+.ml-row.quote .ml-txt { flex-direction: row; flex-wrap: wrap; justify-content: flex-start; align-items: baseline; column-gap: var(--sp-1);
+  padding: var(--sp-3) 0 var(--sp-2); }
+.ml-row.quote .ml-sub::before { content: '· '; }
+.ml-quote { flex: 1 1 100%; display: grid; gap: var(--sp-1); margin-top: var(--sp-2); max-width: 600px; }
+.ml-quote-head { font: var(--fw-bold) var(--fs-4)/var(--lh-4) var(--body); color: var(--ink); overflow-wrap: anywhere; }
+.ml-quote-text { font: var(--fw-medium) var(--fs-3)/var(--lh-3) var(--body); color: var(--ink); white-space: pre-line; overflow-wrap: anywhere; }
 /* a sub-line's emphasis (lib/meldungen · MeldungSpan) – «Alarm aktualisiert»: what is new on an
    amber wash in the ink, what it replaces struck through and faint, a value to read in the ink */
 .ml-sub ins { text-decoration: none; font-weight: var(--fw-bold); color: var(--ink); border-radius: 4px; padding: 0 var(--sp-1);
@@ -233,6 +245,12 @@
      «Weiter folgen») wraps onto two full-width buttons rather than running off the card */
   .ml-act { order: 1; flex: 1 1 100%; flex-wrap: wrap; justify-content: flex-end; }
   .ml-act .ml-btn { flex: 1 1 auto; min-width: 0; }
+  /* the quote row's buttons drop under the text, so nothing up top to stand level with; the
+     sub-line has no room beside the title – its own line, whole, without the «·» */
+  .ml-row.quote .ml-txt { padding-top: var(--sp-2); }
+  .ml-row.quote .ml-ic { margin-top: calc(var(--sp-2) + 1px); }
+  .ml-row.quote .ml-sub { flex-basis: 100%; white-space: normal; }
+  .ml-row.quote .ml-sub::before { content: none; }
 }
 
 /* pinned to both edges (NOT left:50% + translate: an auto-width fixed box only gets the
