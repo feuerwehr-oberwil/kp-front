@@ -14,7 +14,11 @@
 //   → In der Nähe (one list by distance, objects and hydrants, and a sentence saying so)
 //   → Objektbesuche, an object's only (rows open the existing read view; a read-only line for
 //     other roles). A plain building has none to show – its always-empty line went (owner 20.10.)
-//   → the actions LAST: «Objektbesuch» and «Melden» (capture roles only)
+//   → the actions LAST: «Objektbesuch» and «Melden» (capture roles only) — in reading order still
+//     last, but PINNED at the panel's foot while the sections scroll above them, on the phone
+//     sheet and the tablet panel alike (owner pick UX journeys, 25.11.2026 · B2·58: both walkers
+//     scrolled past the register and the hydrants for the one thing they came to do). A building
+//     and a pin keep the same foot.
 //
 // The panel ENDS there. The closing «Keine Gefahrenangaben der Station erfasst …» went with
 // review round 7 (owner, 20.10.2026: «knowing that there could be something but it isn't filled
@@ -28,8 +32,8 @@
 // passes their states in.
 //
 // Scrolling is REMEMBERED per selection (owner, 20.10.2026 · s09): a plan or an Objektbesuch
-// takes the panel off the screen, and coming back puts «Objektbesuch» back under the thumb
-// instead of the head. Another place — the other level, the next object — starts at the top
+// takes the panel off the screen, and coming back puts the reader back where they were instead
+// of at the head. Another place — the other level, the next object — starts at the top
 // (`scrollKey` below).
 //
 // On a PHONE it is the slide-up sheet Ebenen is (owner, 17.10.2026 · R2: «a full slide-up like
@@ -175,6 +179,8 @@ export function KartePanel(p: {
   })
   let head: ReactNode
   let body: ReactNode
+  /** the pinned foot (B2·58): the place's actions, outside the scrolling body */
+  let actions: ReactNode
   if (sel.kind === 'object') {
     const o = sel.obj
     head = (
@@ -197,9 +203,9 @@ export function KartePanel(p: {
         <Register key={o.id} reg={p.register} address={o.address} onRetry={p.onRetryRegister} />
         <Nearby rows={p.nearby} lit={p.litHydrant ?? null} onHydrant={p.onHydrant} onSelectObject={p.onSelectObject} />
         <Visits visits={p.visits} canCapture={p.canCapture} empty={C.visitsNever} onOpenVisit={p.onOpenVisit} offline={p.offline} last={o.lastVisit} />
-        <Actions canCapture={p.canCapture} onVisit={p.onStartVisit} onReport={p.onReport} />
       </>
     )
+    actions = <Actions canCapture={p.canCapture} onVisit={p.onStartVisit} onReport={p.onReport} />
   } else if (sel.kind === 'building') {
     const info = p.register.info
     const [street, place] = splitAddress(info?.address ?? sel.address)
@@ -225,9 +231,9 @@ export function KartePanel(p: {
       <>
         <Register key={sel.at.join(',')} reg={p.register} address={null} onRetry={p.onRetryRegister} />
         <Nearby rows={p.nearby} lit={p.litHydrant ?? null} onHydrant={p.onHydrant} onSelectObject={p.onSelectObject} />
-        <Actions canCapture={p.canCapture} onReport={p.onReport} />
       </>
     )
+    actions = <Actions canCapture={p.canCapture} onReport={p.onReport} />
   } else {
     const title = sel.nearState === 'loading' ? null
       : sel.near ? (sel.near.distanceM != null ? fillTemplate(C.pinNear, { a: sel.near.label, m: Math.round(sel.near.distanceM) }) : fillTemplate(C.pinLabelNear, { a: sel.near.label }))
@@ -252,11 +258,13 @@ export function KartePanel(p: {
           </ListCard>
         )}
         <Nearby rows={p.nearby} lit={p.litHydrant ?? null} onHydrant={p.onHydrant} onSelectObject={p.onSelectObject} />
-        <Actions canCapture={p.canCapture} onReport={p.onReport}
-          extra={p.coordsCopied
-            ? <DoneChip key="copy" title={C.copyCoords}>{C.copied}</DoneChip>
-            : <Button key="copy" variant="secondary" icon={<Icon id="copy" />} onClick={p.onCopyCoords}>{C.copyCoords}</Button>} />
       </>
+    )
+    actions = (
+      <Actions canCapture={p.canCapture} onReport={p.onReport}
+        extra={p.coordsCopied
+          ? <DoneChip key="copy" title={C.copyCoords}>{C.copied}</DoneChip>
+          : <Button key="copy" variant="secondary" icon={<Icon id="copy" />} onClick={p.onCopyCoords}>{C.copyCoords}</Button>} />
     )
   }
   return (
@@ -279,6 +287,7 @@ export function KartePanel(p: {
           pending.current = 0
           rememberScroll(key, el.scrollTop)
         }}>{p.level && <LevelSwitch level={p.level} />}{body}</div>
+      {actions}
     </section>
   )
 }
@@ -314,9 +323,11 @@ function HeadSkeleton({ sub = false }: { sub?: boolean }) {
 }
 
 /** The actions, LAST (owner R2: the facts first, what to do about them after): «Objektbesuch»
- *  where there is an object, «Melden» everywhere. A door the role cannot go through is not drawn
- *  (docs/roles-and-access.md) — without `canCapture` only `extra` (the pin's «Koordinaten
- *  kopieren», which writes nothing) is left. */
+ *  where there is an object, «Melden» everywhere. PINNED at the panel's foot, under the scrolling
+ *  body, so they are in reach without scrolling (owner pick UX journeys, 25.11.2026 · B2·58).
+ *  A door the role cannot go through is not drawn (docs/roles-and-access.md) — without
+ *  `canCapture` only `extra` (the pin's «Koordinaten kopieren», which writes nothing) is left, and
+ *  with nothing left there is no foot. */
 function Actions({ canCapture, onVisit, onReport, extra }: { canCapture: boolean; onVisit?: () => void; onReport: () => void; extra?: ReactNode }) {
   const C = appConfig.copy.karte
   const buttons = [
@@ -325,7 +336,7 @@ function Actions({ canCapture, onVisit, onReport, extra }: { canCapture: boolean
     canCapture && <Button key="report" variant="secondary" icon={<Icon id="warn" />} onClick={onReport}>{C.startReport}</Button>,
   ].filter(Boolean)
   if (!buttons.length) return null
-  return <div className={s.quick} data-section="actions">{buttons}</div>
+  return <div className={cx(s.quick, s.foot)} data-section="actions">{buttons}</div>
 }
 
 /** The station's own word about the object, FIRST (owner R2: in a hurry it matters most):

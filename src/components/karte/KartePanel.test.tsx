@@ -233,6 +233,18 @@ describe('KartePanel · order and actions (R2)', () => {
     }
   })
 
+  // owner pick B2·58 (25.11.2026): last in reading order, but pinned at the foot — never inside
+  // the body that scrolls, so «Objektbesuch» is in reach without scrolling past the hydrants
+  it('pins the actions at the foot, outside the scrolling body, on the phone and the tablet', () => {
+    for (const sheet of [true, false]) {
+      const { container } = panel({ sel: { kind: 'object', obj: WITH_PLANS }, docs: DOCS, sheet })
+      const actions = container.querySelector('[data-section="actions"]')!
+      expect(actions.closest('[data-karte-body]')).toBeNull()
+      expect(container.querySelector('[data-karte-body]')!.nextElementSibling).toBe(actions)
+      cleanup()
+    }
+  })
+
   it('a building and a pin keep the same order with what they have', () => {
     // a plain building has no Objektbesuche to list – no always-empty section (owner 20.10.2026)
     let r = panel({ sel: { kind: 'building', at: [7.5708, 47.5228], address: null } })

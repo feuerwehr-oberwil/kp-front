@@ -339,7 +339,9 @@ The rules that are easy to break:
   a hurry) · Pläne & Module as full-width rows named by the plan's title (the module number in the
   badge, offline the «auf diesem Gerät» mark — below) · Gebäude laut Register as bullets (the hazards first, each with ⚠ and its word) · In der Nähe ·
   Objektbesuche · the actions, «Objektbesuch» and «Melden» (no map-portal links under them since
-  14.11.2026). A plain building or a dropped pin keeps that order with what
+  14.11.2026) – last in reading order, but PINNED at the panel's foot while the sections scroll
+  above them, phone and tablet alike (owner pick UX journeys, 25.11.2026 · B2·58: both walkers
+  scrolled past the hydrants for the visit button). A plain building or a dropped pin keeps that order with what
   it has (Register as the same bullets, In der Nähe, Melden; a pin also «Koordinaten kopieren»), a
   plan-less object too (no tiles). Every part is a top-level section with its head — no card
   around the first ones, no tabs (owner, 27.10.2026: «keep everything top level»). The action row is two equal halves where both labels fit; else the longer
@@ -535,8 +537,9 @@ The rules that are easy to break:
   its factual first sentence («Kein Objekt an diesem Punkt.») without the «Fehlende
   Angaben heissen nicht …» tail.
 - **The panel remembers where it was scrolled to** (owner, 20.10.2026): leaving an Einsatzobjekt
-  for a plan, an Objektbesuch or the other level and coming back puts «Objektbesuch» back under
-  the thumb instead of the top of the sheet. Per place (`KartePanel · scrollKey`), the last 12,
+  for a plan, an Objektbesuch or the other level and coming back puts the reader back where they
+  were instead of the top of the sheet («Objektbesuch» itself is pinned at the foot since
+  25.11.2026). Per place (`KartePanel · scrollKey`), the last 12,
   restored once the sections that were still loading have made the body tall enough again.
   Another object starts at the top.
 - **Doors by role.** «Objektbesuch» / «Melden» only for `objectVisits.captureRoles`
