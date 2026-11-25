@@ -28,4 +28,21 @@ describe('useAlarmMessage', () => {
     const { result } = renderHook(() => useAlarmMessage('e2'))
     await waitFor(() => expect(result.current).toBe(''))
   })
+
+  it('an older read that answers last does not overwrite the newer answer', async () => {
+    let answerOld: (v: { text: string }) => void = () => {}
+    getIncidentMeta.mockReturnValueOnce(new Promise((r) => { answerOld = r }))
+    getIncidentMeta.mockResolvedValueOnce({ text: 'Neu' })
+    const first = renderHook(() => useAlarmMessage('e3'))
+    const second = renderHook(() => useAlarmMessage('e3'))
+    await waitFor(() => expect(second.result.current).toBe('Neu'))
+    first.unmount()
+    second.unmount()
+    answerOld({ text: 'Alt' })
+    await Promise.resolve()
+
+    getIncidentMeta.mockRejectedValueOnce(new Error('offline'))
+    const later = renderHook(() => useAlarmMessage('e3'))
+    expect(later.result.current).toBe('Neu')
+  })
 })
