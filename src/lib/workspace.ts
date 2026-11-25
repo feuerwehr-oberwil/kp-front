@@ -355,14 +355,15 @@ type RequiredKeys<T> = { [K in keyof T]-?: object extends Pick<T, K> ? never : K
 /**
  * A stored row of `T` as the load gate admits it: an object with an id. Every other key `T`
  * requires — the ones consumers read without a check — is `unknown` until the gate's fix for
- * that list repairs it, plus the optional keys named in `Extra` that the fix checks too. So a
- * required key added to `T` fails `tsc` in that fix instead of passing the gate unchecked.
+ * that list repairs it, so a required key added to `T` fails `tsc` in that fix instead of passing
+ * the gate unchecked. `AsStored` names the required keys the gate passes on UNCHECKED, typed as
+ * `T` says: each is named where it is used, with the reason no repair is safe.
  */
-type Stored<T, Extra extends keyof T = never> =
-  Omit<T, RequiredKeys<T> | Extra> & { id: string } & { [K in Exclude<RequiredKeys<T> | Extra, 'id'>]?: unknown }
+type Stored<T, AsStored extends RequiredKeys<T> = never> =
+  Omit<T, Exclude<RequiredKeys<T>, AsStored>> & { id: string } & { [K in Exclude<RequiredKeys<T>, 'id' | AsStored>]?: unknown }
 /** The gate's predicate for a list whose rows only need an id to be kept: rows of any other shape
  *  are kept and repaired (sanitizeWorkspace), never dropped, because the next save would delete them. */
-const storedRow = <T, Extra extends keyof T = never>() => (v: unknown): v is Stored<T, Extra> => hasId(v)
+const storedRow = <T, AsStored extends RequiredKeys<T> = never>() => (v: unknown): v is Stored<T, AsStored> => hasId(v)
 
 // --- Shape predicates ---------------------------------------------------------------------
 // One malformed OBJECT in a synced collection used to take every device down together: the
@@ -399,7 +400,20 @@ const BEARINGS = ['rotation', 'rotation2'] as const
 const lngLat = (v: unknown): v is LngLat =>
   Array.isArray(v) && v.length === 2 && num(v[0]) && num(v[1]) && Math.abs(v[0]) <= 180 && Math.abs(v[1]) <= 90
 const boardPt = (v: unknown): v is BoardPoint => Array.isArray(v) && (v.length === 2 || v.length === 3) && v.every(num)
-const isTruppStatus = (v: unknown): v is Trupp['status'] => typeof v === 'string' && TRUPP_STATUSES.has(v)
+/** A stored Trupp: its clocks, its Eingangsdruck and its phase pass unchecked. A repair would make
+ *  a new value out of nothing — a 0 bar reads as an empty cylinder on the board and in the push,
+ *  a filled-in stamp outvotes a contact another device just recorded in the merge — and would
+ *  change a row the server only keeps while it is unchanged (sanitizeWorkspace · fixTimeline). */
+type TruppRow = Stored<Trupp, 'entryTime' | 'lastContactTime' | 'entryPressureBar' | 'status'>
+const isTruppRow = storedRow<Trupp, 'entryTime' | 'lastContactTime' | 'entryPressureBar' | 'status'>()
+/** A stored Verlauf row: its icon passes unchecked (same server rule as the Trupp) — every reader
+ *  compares it or hands it to `<Icon>`, which draws nothing for an unknown one. */
+type TimelineRow = Stored<TimelineEvent, 'icon'>
+const isTimelineRow = storedRow<TimelineEvent, 'icon'>()
+/** A stored Kartenansicht: its centre and zoom pass unchecked. There is no default to repair them
+ *  to, and a view without them would throw in an older build's menu, where a wrong one does not. */
+type CameraViewRow = Stored<CameraView, 'center' | 'zoom'>
+const isCameraViewRow = storedRow<CameraView, 'center' | 'zoom'>()
 /** a `layerState` row: its id and visibility checked, its opacity not yet (sanitizeWorkspace · fixLayerRow) */
 type LayerRow = Omit<Saved['layerState'][number], 'opacity'> & { opacity?: unknown }
 const isLayerRow = (v: unknown): v is LayerRow => hasId(v) && typeof v.visible === 'boolean'
@@ -463,9 +477,9 @@ export const isBuilding = (v: unknown): v is BuildingDoc =>
  *
  * Two verbs, on purpose: geometry that cannot render is DROPPED (the object is unusable), while
  * in a list kept on its id alone every field the row's type requires is REPAIRED (`Stored` and
- * the fixes: text → '', a count or a pressure → 0, a missing phase → the one its stamps say) —
- * a Trupp without a name is still a crew under air, and losing its clock over a missing label is
- * the wrong trade. ⚠️ Such a list never drops a row it kept before: the next save would delete it.
+ * the fixes: text → '', a count → 0), or named as passed on unchecked (`AsStored`) — a Trupp
+ * without a name is still a crew under air, and losing its clock over a missing label is the
+ * wrong trade. ⚠️ Such a list never drops a row it kept before: the next save would delete it.
  */
 export function sanitizeWorkspace(raw: unknown): WorkspaceGate {
   if (raw == null) return { ws: null, dropped: 0, newerSchema: false }
@@ -495,30 +509,25 @@ export function sanitizeWorkspace(raw: unknown): WorkspaceGate {
     if (v != null) dropped++
     return ''
   }
-  // …a count or a pressure becomes 0: a Mittel `menge` of 0 is «nothing used» (hidden, as an
-  // absent one already was), an `entryPressureBar` of 0 is «no Eingangsdruck» (core · hasEntryPressure)
-  const zero = (v: unknown): number => {
+  // …a count becomes 0: a Mittel `menge` of 0 is «nothing used» (hidden, as an absent one was)
+  const count = (v: unknown): number => {
     if (num(v)) return v
     if (v != null) dropped++
     return 0
   }
-  const fixTimeline = (e: Stored<TimelineEvent>): TimelineEvent => ({ ...e, t: text(e.t), icon: text(e.icon), text: text(e.text) })
+  // ⚠️ The server keeps an invalid stored Trupp or Verlauf row only while it is UNCHANGED
+  // (alarm_validation · validate_alarm_workspace): a repair that changes such a row gets the whole
+  // next save refused. So these two lists repair no more than they did before 26.11.2026 — what
+  // they leave unchecked is their `AsStored`.
+  const fixTimeline = (e: TimelineRow): TimelineEvent => ({ ...e, t: text(e.t), text: text(e.text) })
   const fixMittel = (m: Stored<MittelEntry>): MittelEntry =>
-    ({ ...m, label: text(m.label), unit: text(m.unit), menge: zero(m.menge), at: text(m.at) })
+    ({ ...m, label: text(m.label), unit: text(m.unit), menge: count(m.menge), at: text(m.at) })
   const fixShift = (s: Stored<Shift>): Shift => ({ ...s, personId: text(s.personId), from: text(s.from), to: text(s.to) })
   const fixBand = (b: Stored<ShiftBand>): ShiftBand => ({ ...b, label: text(b.label), from: text(b.from), to: text(b.to) })
   const fixAttachment = (a: Stored<ReportAttachment>): ReportAttachment => ({ ...a, url: text(a.url), at: text(a.at) })
-  // a view without a usable centre or zoom is kept and cannot be flown to (MapViewsMenu); one
-  // without a bearing is north-up
-  const fixCameraView = (c: Stored<CameraView, 'center' | 'zoom'>): CameraView => {
-    const { center, zoom, ...rest } = c
-    if (center != null && !lngLat(center)) dropped++
-    if (zoom != null && !num(zoom)) dropped++
-    return {
-      ...rest, name: text(c.name), bearing: num(c.bearing) ? c.bearing : (c.bearing != null && dropped++, 0),
-      ...(lngLat(center) && { center }), ...(num(zoom) && { zoom }),
-    }
-  }
+  // a view without a bearing is north-up
+  const fixCameraView = (c: CameraViewRow): CameraView =>
+    ({ ...c, name: text(c.name), bearing: num(c.bearing) ? c.bearing : (c.bearing != null && dropped++, 0) })
   // a layer's opacity reaches the map's paint: anything but a number goes, the layer's own stays
   const fixLayerRow = ({ opacity, ...row }: LayerRow): Saved['layerState'][number] => {
     if (num(opacity)) return { ...row, opacity }
@@ -581,19 +590,18 @@ export function sanitizeWorkspace(raw: unknown): WorkspaceGate {
     }
     return (out ?? o) as T
   }
-  const fixTrupp = (t: Stored<Trupp>): Trupp => {
-    const entryTime = text(t.entryTime)
-    // The words that decide monitoring (audit F01): an unknown or missing `status` becomes the
-    // phase its stamps say — kept as stored, the crew would fall out of every phase the alarm
-    // watches, and the next edit of it would be refused by the server.
-    const status = isTruppStatus(t.status) ? t.status : (t.status != null && dropped++, t.exitTime ? 'raus' : entryTime ? 'aktiv' : 'angemeldet')
-    let o = fixDrawProps<Trupp>({
-      ...t, name: text(t.name), entryTime, lastContactTime: text(t.lastContactTime), entryPressureBar: zero(t.entryPressureBar), status,
-    }) as Trupp & { readings?: unknown; equipment?: unknown }
-    // …and an unknown `kind` is removed: absent means Atemschutz, so the crew stays watched.
+  const fixTrupp = (t: TruppRow): Trupp => {
+    let o = fixDrawProps<Trupp>({ ...t, name: text(t.name) }) as Trupp & { readings?: unknown; equipment?: unknown }
+    // The words that decide monitoring (audit F01): an unknown `kind` is removed — absent means
+    // Atemschutz, so the crew stays watched — and an unknown `status` becomes the phase its stamps
+    // say. Kept as stored, the next edit of the crew would be refused by the server.
     if (o.kind != null && o.kind !== 'atemschutz' && o.kind !== 'einfach') {
       const { kind: _drop, ...rest } = o
       o = rest
+      dropped++
+    }
+    if (o.status != null && !TRUPP_STATUSES.has(o.status)) {
+      o = { ...o, status: o.exitTime ? 'raus' : o.entryTime ? 'aktiv' : 'angemeldet' }
       dropped++
     }
     // The crew lists every label trims (lib/atemschutz · truppLogName): a `null` in there threw on
@@ -701,7 +709,7 @@ export function sanitizeWorkspace(raw: unknown): WorkspaceGate {
     drawings: arr(raw.drawings, isDrawing)?.map(fixDrawProps) ?? [],
     recent: arr(raw.recent, (x): x is string => typeof x === 'string') ?? [],
     layerState: arr(raw.layerState, isLayerRow)?.map(fixLayerRow) ?? [],
-    timeline: arr(raw.timeline, storedRow<TimelineEvent>())?.map(fixTimeline) ?? [],
+    timeline: arr(raw.timeline, isTimelineRow)?.map(fixTimeline) ?? [],
     board,
     activePlanId: str(raw.activePlanId),
     activeModule: str(raw.activeModule),
@@ -717,12 +725,12 @@ export function sanitizeWorkspace(raw: unknown): WorkspaceGate {
       const split = splitDuplicateTruppIds(list)
       dropped += split.repaired
       return split.list
-    })(arr(raw.trupps, storedRow<Trupp>())?.map(fixTrupp)),
+    })(arr(raw.trupps, isTruppRow)?.map(fixTrupp)),
     attendance: rec<AttendanceState>(raw.attendance),
     mittel: arr(raw.mittel, storedRow<MittelEntry>())?.map(fixMittel),
     shifts: arr(raw.shifts, storedRow<Shift>())?.map(fixShift),
     bands: arr(raw.bands, storedRow<ShiftBand>())?.map(fixBand),
-    cameraViews: arr(raw.cameraViews, storedRow<CameraView, 'center' | 'zoom'>())?.map(fixCameraView),
+    cameraViews: arr(raw.cameraViews, isCameraViewRow)?.map(fixCameraView),
     trails: arr(raw.trails, isTruppTrail),
     reportMeta: rec<ReportMeta>(raw.reportMeta),
     attachments: arr(raw.attachments, storedRow<ReportAttachment>())?.map(fixAttachment),

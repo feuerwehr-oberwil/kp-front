@@ -697,15 +697,17 @@ describe('sanitizeWorkspace — Trupp safety repairs', () => {
 describe('sanitizeWorkspace — a kept row is the type it is read as (sweep 25.11.2026 #23)', () => {
   // One malformed row per list the gate keeps on its id alone: each lacks or mistypes the fields
   // its consumers read without a check. A row the gate removed would be deleted by the next save,
-  // so every one survives — the field is repaired instead.
+  // so every one survives — the field is repaired instead, or passed on as stored (`AsStored`).
+  const at = '2026-11-25T09:00:00Z'
   const malformed = {
     timeline: [{ id: 'r1' }, { id: 'r2', t: '09:00', icon: 7, text: null }, { noId: true }],
-    trupps: [{ id: 't1' }, { id: 't2', name: 3, entryTime: '2026-11-25T09:00:00Z', entryPressureBar: '300' }, { id: 't3', entryTime: '2026-11-25T09:00:00Z', exitTime: '2026-11-25T09:30:00Z' }],
+    // t4 twice, told apart only by an absent vs an empty contact stamp: two crews, as on main
+    trupps: [{ id: 't1' }, { id: 't2', name: 3, entryTime: at }, { id: 't4', entryTime: at }, { id: 't4', entryTime: at, lastContactTime: '' }],
     mittel: [{ id: 'm1' }, { id: 'm2', label: 'Ölbinder', unit: 'Sack', menge: '4', at: 5 }],
     shifts: [{ id: 's1' }, { id: 's2', personId: 9, from: null, to: [] }],
     bands: [{ id: 'b1' }],
-    attachments: [{ id: 'a1' }, { id: 'a2', url: { x: 1 }, at: '2026-11-25T09:00:00Z' }],
-    cameraViews: [{ id: 'v1' }, { id: 'v2', name: 'Nord', center: null, zoom: 'weit', bearing: '90' }, { id: 'v3', name: 'Süd', center: [7.5, 47.5], zoom: 17, bearing: 12 }],
+    attachments: [{ id: 'a1' }, { id: 'a2', url: { x: 1 }, at }],
+    cameraViews: [{ id: 'v1' }, { id: 'v2', name: 'Nord', center: [], zoom: 'weit', bearing: '90' }, { id: 'v3', name: 'Süd', center: [7.5, 47.5], zoom: 17, bearing: 12 }],
     layerState: [{ id: 'l1', visible: true, opacity: 'halb' }, { id: 'l2', visible: false, opacity: 40 }],
   }
   const keptIds = (g: ReturnType<typeof sanitizeWorkspace>) => {
@@ -720,7 +722,7 @@ describe('sanitizeWorkspace — a kept row is the type it is read as (sweep 25.1
   it('keeps every row the gate on main kept — no row that passed it is dropped', () => {
     // the ids the main gate (9a1b74d) kept from this fixture, run over the same object
     expect(keptIds(sanitizeWorkspace(malformed))).toEqual({
-      timeline: ['r1', 'r2'], trupps: ['t1', 't2', 't3'], mittel: ['m1', 'm2'], shifts: ['s1', 's2'], bands: ['b1'],
+      timeline: ['r1', 'r2'], trupps: ['t1', 't2', 't4', 't4~2'], mittel: ['m1', 'm2'], shifts: ['s1', 's2'], bands: ['b1'],
       attachments: ['a1', 'a2'], cameraViews: ['v1', 'v2', 'v3'], layerState: ['l1', 'l2'],
     })
   })
@@ -728,34 +730,34 @@ describe('sanitizeWorkspace — a kept row is the type it is read as (sweep 25.1
   it('repairs the fields each list is read by, and counts only a value that was there', () => {
     const g = sanitizeWorkspace(malformed)
     const w = g.ws!
-    expect(w.timeline).toEqual([{ id: 'r1', t: '', icon: '', text: '' }, { id: 'r2', t: '09:00', icon: '', text: '' }])
-    expect(w.trupps?.map(({ id, name, entryTime, lastContactTime, entryPressureBar, status }) => ({ id, name, entryTime, lastContactTime, entryPressureBar, status }))).toEqual([
-      { id: 't1', name: '', entryTime: '', lastContactTime: '', entryPressureBar: 0, status: 'angemeldet' },
-      // no status: the phase its stamps say, so the crew inside stays under the alarm clock
-      { id: 't2', name: '', entryTime: '2026-11-25T09:00:00Z', lastContactTime: '', entryPressureBar: 0, status: 'aktiv' },
-      { id: 't3', name: '', entryTime: '2026-11-25T09:00:00Z', lastContactTime: '', entryPressureBar: 0, status: 'raus' },
-    ])
     expect(w.mittel).toEqual([
       { id: 'm1', label: '', unit: '', menge: 0, at: '' },
       { id: 'm2', label: 'Ölbinder', unit: 'Sack', menge: 0, at: '' },
     ])
     expect(w.shifts).toEqual([{ id: 's1', personId: '', from: '', to: '' }, { id: 's2', personId: '', from: '', to: '' }])
     expect(w.bands).toEqual([{ id: 'b1', label: '', from: '', to: '' }])
-    expect(w.attachments).toEqual([{ id: 'a1', url: '', at: '' }, { id: 'a2', url: '', at: '2026-11-25T09:00:00Z' }])
-    // a view without a usable centre or zoom is listed and cannot be flown to (types · CameraView)
+    expect(w.attachments).toEqual([{ id: 'a1', url: '', at: '' }, { id: 'a2', url: '', at }])
+    // centre and zoom pass as stored: there is nothing to repair them to (workspace · CameraViewRow)
     expect(w.cameraViews).toEqual([
       { id: 'v1', name: '', bearing: 0 },
-      { id: 'v2', name: 'Nord', bearing: 0 },
+      { id: 'v2', name: 'Nord', center: [], zoom: 'weit', bearing: 0 },
       { id: 'v3', name: 'Süd', center: [7.5, 47.5], zoom: 17, bearing: 12 },
     ])
     expect(w.layerState).toEqual([{ id: 'l1', visible: true }, { id: 'l2', visible: false, opacity: 40 }])
-    // a null counts as absent: r2 icon · t2 name + pressure · m2 menge + at · s2 personId + to ·
-    // a2 url · v2 zoom + bearing · l1 opacity, and the row without an id
-    expect(g.dropped).toBe(1 + 2 + 2 + 2 + 1 + 2 + 1 + 1)
+    // a null counts as absent: m2 menge + at · s2 personId + to · a2 url · v2 bearing · l1 opacity
+    // · t2 name · the t4 split · the row without an id
+    expect(g.dropped).toBe(2 + 2 + 1 + 1 + 1 + 1 + 1 + 1)
+  })
+
+  it('repairs a Trupp and a Verlauf row no further than main did: the server keeps an invalid one only unchanged', () => {
+    const w = sanitizeWorkspace(malformed).ws!
+    // the clocks, the Eingangsdruck and the phase pass as stored (workspace · TruppRow)
+    expect(w.trupps?.slice(0, 2)).toEqual([{ id: 't1', name: '' }, { id: 't2', name: '', entryTime: at }])
+    expect(w.timeline).toEqual([{ id: 'r1', t: '', text: '' }, { id: 'r2', t: '09:00', icon: 7, text: '' }])
   })
 
   it('a well-formed row comes out equal to what went in', () => {
-    const row = { id: 'm3', label: 'Wasser', unit: 'l', menge: 400, at: '2026-11-25T09:00:00Z', sourceId: 'tlf' }
+    const row = { id: 'm3', label: 'Wasser', unit: 'l', menge: 400, at, sourceId: 'tlf' }
     const g = sanitizeWorkspace({ mittel: [row] })
     expect(g.ws?.mittel).toEqual([row])
     expect(g.dropped).toBe(0)
