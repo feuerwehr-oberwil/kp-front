@@ -12,6 +12,12 @@ import { truppClockActions } from './clock'
 // The full behaviour through useTruppActions is covered in lib/useTruppActions.test.ts.
 
 const ui = vi.hoisted(() => ({ toasts: [] as string[] }))
+// whether this page is the handed-over Atemschutz board (lib/linkMode · onAtemschutzLink)
+const page = vi.hoisted(() => ({ link: false }))
+vi.mock('../linkMode', async (importOriginal) => ({
+  ...await importOriginal<typeof import('../linkMode')>(),
+  onAtemschutzLink: () => page.link,
+}))
 vi.mock('../ui', async (importOriginal) => ({
   ...await importOriginal<typeof import('../ui')>(),
   toast: (text: string) => { ui.toasts.push(text); return 0 },
@@ -120,6 +126,24 @@ describe('truppClockActions — the contact clock', () => {
     expect(b.t()).toMatchObject({ lastContactTime: at(12), lastPressureBar: alarmBar, lowestBar: alarmBar })
     expect(last(b.t())).toMatchObject({ kind: 'alarm', bar: alarmBar })
     expect(b.rows.map((r) => r.icon)).toEqual(['warn'])
+  })
+})
+
+// owner pick UX journeys M·12 (25.11.2026): a Kontakt logged on the Atemschutz-Link says so in the
+// record, and the tablet's Kontakt tile reads it (lib/atemschutz · contactViaLink)
+describe('truppClockActions — where a Kontakt was logged', () => {
+  afterEach(() => { page.link = false })
+  it('stamps the link\'s Kontakt, Druck and Rückzug rows, and nothing the app writes', () => {
+    const b = clockBoard([trupp({ status: 'aktiv', entryTime: at(0), lastContactTime: at(0), readings: [{ t: at(0), bar: 300, kind: 'entry' }] })])
+    tick(5); b.act().recordContact('T1')
+    expect(last(b.t())).not.toHaveProperty('via')
+    page.link = true
+    tick(6); b.act().recordContact('T1')
+    expect(last(b.t())).toMatchObject({ kind: 'contact', via: 'link' })
+    tick(7); b.act().recordPressure('T1', 250)
+    expect(last(b.t())).toMatchObject({ kind: 'pressure', via: 'link' })
+    tick(8); b.act().setTruppStatus('T1', 'rueckzug')
+    expect(last(b.t())).toMatchObject({ kind: 'rueckzug', via: 'link' })
   })
 })
 

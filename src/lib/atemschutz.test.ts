@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { notfallFacts, notfallOffered, safetyCandidates, safetyInside, safetyMissing, safetyReady, truppInNotfall, alarmBarFor, anyTruppInField, contactSeverity, deriveTruppLive, EARLY_PRESSURE_CORRECTION_MS, earlyEntryCorrection, entryPressureAsks, entryPressureConfirmed, estimatePressure, fmtClock, fmtDuration, fmtElapsedFull, isAtemschutzTrupp, isStandDownExit, peakAtemschutzAlarm, pressureAlarm, truppAlarm, truppCrewWithout, truppEditPatch, truppFieldGroupsChanged, truppFieldsOf, truppInField, truppLogName, truppNeverDeployed, truppStillDeployed, truppStillRegistered, truppTransferState } from './atemschutz'
 import type { Trupp } from '../types'
-import { alarmRowKey, azChipRedundant, truppAwaitsEntry, truppGroupTransfer, truppHeadName, truppRegisteredAt } from './atemschutz'
+import { alarmRowKey, azChipRedundant, contactViaLink, truppAwaitsEntry, truppGroupTransfer, truppHeadName, truppRegisteredAt } from './atemschutz'
 
 // A Trupp that entered at a fixed reference time; its contact clock starts at entry.
 const REF = Date.parse('2026-06-21T10:00:00Z')
@@ -980,5 +980,27 @@ describe('truppGroupTransfer', () => {
     expect(truppGroupTransfer(two({ status: 'raus' }), ['p2']).state).toBe('blocked')
     expect(truppGroupTransfer(two({ removedAt: '2026-11-19T10:00:00Z' }), ['p2']).state).toBe('blocked')
     expect(truppGroupTransfer(two({ status: 'aktiv', entryTime: '2026-11-19T10:00:00Z' }), ['p2']).state).toBe('deployed')
+  })
+})
+
+// owner pick UX journeys M·12 (25.11.2026): the Kontakt tile says when the last Kontakt came from the link
+describe('contactViaLink', () => {
+  const T = (min: number) => new Date(Date.UTC(2026, 10, 25, 22, min)).toISOString()
+  const inside = (readings: Trupp['readings']): Trupp => ({
+    id: 'a', name: 'Weber Fabian', status: 'aktiv', entryPressureBar: 300, entryTime: T(0), lastContactTime: T(0), readings,
+  })
+
+  it('is the time of the newest clock-resetting row while it came from the link', () => {
+    expect(contactViaLink(inside([{ t: T(0), bar: 300, kind: 'entry' }, { t: T(10), bar: 300, kind: 'contact', via: 'link' }]))).toBe(T(10))
+    // a Druck from the link is a Kontakt too
+    expect(contactViaLink(inside([{ t: T(0), bar: 300, kind: 'entry' }, { t: T(9), bar: 270, kind: 'pressure', via: 'link' }]))).toBe(T(9))
+  })
+
+  it('ends with the next Kontakt logged elsewhere, and is nothing out of the field', () => {
+    const rows: Trupp['readings'] = [{ t: T(0), bar: 300, kind: 'entry' }, { t: T(10), bar: 300, kind: 'contact', via: 'link' }, { t: T(12), bar: 300, kind: 'contact' }]
+    expect(contactViaLink(inside(rows))).toBeNull()
+    // a crew row is not a Kontakt – it does not hide the link's
+    expect(contactViaLink(inside([...rows.slice(0, 2), { t: T(11), bar: 300, kind: 'crew', crew: { name: 'x', members: [] } }]))).toBe(T(10))
+    expect(contactViaLink({ ...inside(rows.slice(0, 2)), status: 'raus', exitTime: T(20) })).toBeNull()
   })
 })

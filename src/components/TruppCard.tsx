@@ -12,7 +12,7 @@ import { cx } from '../lib/cx'
 import { Button } from './Button'
 import { Menu } from '../lib/overlays'
 import { NotfallHold } from './AtemschutzNotfall'
-import { alarmBarFor, currentRunStart, notfallOffered, truppInNotfall, isStandDownExit, estimatePressure, fmtDuration, isAtemschutzTrupp, pressureAlarm, truppHeadName, truppNeverDeployed, type TruppAlarm, type TruppLive } from '../lib/atemschutz'
+import { alarmBarFor, contactViaLink, currentRunStart, notfallOffered, truppInNotfall, isStandDownExit, estimatePressure, fmtDuration, isAtemschutzTrupp, pressureAlarm, truppHeadName, truppNeverDeployed, type TruppAlarm, type TruppLive } from '../lib/atemschutz'
 import { readingBarShown, truppAuftragLabel, truppEquipmentLabels, truppStatusLabel } from '../lib/report'
 import type { Trupp, TruppReading } from '../types'
 import { atemschutzDoctrine } from '../lib/deploymentConfig'
@@ -278,12 +278,27 @@ function TruppPair({ t, live, sev, nested = false, onPressure, onContact }: {
   const press = <><Icon id="manometer" /><b className={cx(s.pairBar, low && s.pairBarLow)}><UnitVal val={`${live.currentBar} bar`} /></b></>
   // the spoken name keeps the word the tile dropped («Druck 240 bar»)
   const pressName = `${az.actPressure} ${live.currentBar} bar`
-  const kontakt = <><Icon id="radio" /><span>{az.actContact}</span></>
+  /* ⚠️ The last Kontakt came from the Atemschutz-Link: a second line on the tile says so, «🔗 22:10 ·
+   * über Link», until a Kontakt is logged anywhere else (owner pick UX journeys M·12, 25.11.2026 –
+   * lib/atemschutz · contactViaLink). The person at the tablet reads the tile before tapping it, and
+   * a call the Eingang already answered is not logged twice. Every board, as the card is one. */
+  const viaAt = contactViaLink(t)
+  const viaTime = viaAt ? fmtTime(viaAt) : ''
+  const kontakt = viaAt ? (
+    <>
+      {/* a <b>, not a span: the narrowest row hides the tile's word span (`.trowKontakt span`), never its glyph */}
+      <b className={s.kontaktMain}><Icon id="radio" /><span>{az.actContact}</span></b>
+      <small className={s.kontaktVia}><Icon id="link" />{fillTemplate(az.contactViaLink, { time: viaTime })}</small>
+    </>
+  ) : <><Icon id="radio" /><span>{az.actContact}</span></>
+  // the spoken name keeps the word and says the source
+  const kontaktName = viaAt ? `${az.actContact}, ${fillTemplate(az.contactViaLinkLong, { time: viaTime })}` : undefined
+  const kontaktTone = cx(kontaktCls, viaAt && s.kontaktViaTile)
   if (!nested) {
     return (
       <div className={s.trowActs}>
         <button type="button" className={pressCls} aria-label={pressName} onClick={() => onPressure(t.id)}>{press}</button>
-        <button type="button" className={kontaktCls} onClick={() => onContact(t.id)}>{kontakt}</button>
+        <button type="button" className={kontaktTone} aria-label={kontaktName} onClick={() => onContact(t.id)}>{kontakt}</button>
       </div>
     )
   }
@@ -295,7 +310,7 @@ function TruppPair({ t, live, sev, nested = false, onPressure, onContact }: {
   return (
     <>
       <span className={pressCls} aria-label={pressName} {...act(onPressure)}>{press}</span>
-      <span className={kontaktCls} {...act(onContact)}>{kontakt}</span>
+      <span className={kontaktTone} aria-label={kontaktName} {...act(onContact)}>{kontakt}</span>
     </>
   )
 }

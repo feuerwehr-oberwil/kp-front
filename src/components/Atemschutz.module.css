@@ -202,6 +202,13 @@
 .kontaktCrit { background: color-mix(in srgb, var(--red) 15%, var(--surface)); color: var(--red-strong);
   box-shadow: inset 0 0 0 1.5px var(--red-45); }
 @media (hover: hover) { .kontaktCrit:hover { background: color-mix(in srgb, var(--red) 24%, var(--surface)); } }
+/* «🔗 22:10 · über Link» under «Kontakt» while the last Kontakt came from the Atemschutz-Link (owner
+   pick UX journeys M·12, 25.11.2026 – TruppCard · TruppPair): the tile stacks its two lines in the
+   height it already has; the second in the tile's own tone, a step smaller. */
+.kontaktViaTile { flex-direction: column; gap: 0; padding-block: 2px; }
+.kontaktMain { display: inline-flex; align-items: center; gap: var(--sp-2); font-weight: inherit; }
+.kontaktVia { display: inline-flex; align-items: center; gap: var(--sp-1); font: var(--fw-bold) var(--fs-1)/1.2 var(--body); white-space: nowrap; }
+.kontaktBtn .kontaktVia :global(.i) { width: 13px; height: 13px; }
 
 /* (`.metaRow` retired 09.09. — it WAS the stacked Sockel row. `.metaAlarm` below outlives it:
    the red an alarming pressure wears is still worn, now by a value on `.metaLine`.) */

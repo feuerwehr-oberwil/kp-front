@@ -11,6 +11,7 @@ import { alarmBarFor, currentRunStart, earlyEntryCorrection, fmtDuration, isAtem
 // unaffected.
 import { serverNowIso } from '../serverClock'
 import { noteOwnContact, recentOwnContact } from '../contactEcho'
+import { onAtemschutzLink } from '../linkMode'
 import { auftragText, withDetails, type TruppActionCore, type TruppActionDeps } from './core'
 
 // The Trupp CLOCK family — the safety-critical rules: Funkkontakt, Druckmeldung, the lifecycle
@@ -52,6 +53,11 @@ export const correctEntryPressure = (t: Trupp, bar: number): Partial<Trupp> => {
   return { entryPressureBar: bar, readings, lowestBar }
 }
 
+/** The row's source (types · TruppReading.via): `link` on the handed-over Atemschutz board, so the
+ *  tablet's Kontakt tile can say «über Link» (owner pick UX journeys M·12). Read from the address
+ *  bar at write time, like every link question (lib/linkMode). */
+const viaHere = (): { via?: 'link' } => (onAtemschutzLink() ? { via: 'link' } : {})
+
 type ClockDeps = Pick<TruppActionDeps, 'trupps' | 'setTrupps' | 'log' | 'emit' | 'placeOf' | 'liveTrupps'>
   & Pick<TruppActionCore, 'remember' | 'recorded'>
 
@@ -75,7 +81,7 @@ export function truppClockActions(deps: ClockDeps) {
      * OWN_REPEAT_MS writes nothing — on every board, because it is decided here, where the
      * contact is written. Another device's contact is the echo question (lib/contactEcho). */
     if (recentOwnContact(id, Date.parse(now))) return
-    const apply = (t: Trupp): Trupp => ({ ...t, lastContactTime: now, readings: [...(t.readings ?? []), { t: now, bar: t.lastPressureBar ?? t.entryPressureBar, kind: 'contact' }] })
+    const apply = (t: Trupp): Trupp => ({ ...t, lastContactTime: now, readings: [...(t.readings ?? []), { t: now, bar: t.lastPressureBar ?? t.entryPressureBar, kind: 'contact', ...viaHere() }] })
     setTrupps((ts) => ts.map((t) => (t.id === id ? apply(t) : t)))
     // this device's own confirmation — what lets a second device's tap within a minute ask first
     // instead of writing a second contact (lib/contactEcho, 24.09.2026)
@@ -126,7 +132,7 @@ export function truppClockActions(deps: ClockDeps) {
     if (tr && !crossed && !asReading && earlyEntryCorrection(tr, Date.parse(now))) {
       const apply = (t: Trupp): Trupp => {
         const c = { ...t, ...correctEntryPressure(t, bar) }
-        return { ...c, lastContactTime: now, readings: [...(c.readings ?? []), { t: now, bar, kind: 'contact' as const }] }
+        return { ...c, lastContactTime: now, readings: [...(c.readings ?? []), { t: now, bar, kind: 'contact' as const, ...viaHere() }] }
       }
       setTrupps((ts) => ts.map((t) => (t.id === id ? apply(t) : t)))
       noteOwnContact(id, now)
@@ -142,7 +148,7 @@ export function truppClockActions(deps: ClockDeps) {
     // …and the LOG ROW says so too, so the printed Atemschutz-Journal can name the moment
     // instead of leaving a reader to compare a column of numbers against the station's doctrine
     const apply = (t: Trupp): Trupp => ({ ...t, lastPressureBar: bar, lastPressureTime: now, lastContactTime: now, lowestBar: Math.min(t.lowestBar ?? t.entryPressureBar, bar),
-      readings: [...(t.readings ?? []), { t: now, bar, kind: crossed ? 'alarm' : 'pressure' }] })
+      readings: [...(t.readings ?? []), { t: now, bar, kind: crossed ? 'alarm' : 'pressure', ...viaHere() }] })
     setTrupps((ts) => ts.map((t) => (t.id === id ? apply(t) : t)))
     noteOwnContact(id, now) // a Druckmeldung confirms the contact too (lib/contactEcho)
     const line = fillTemplate(
@@ -219,7 +225,7 @@ export function truppClockActions(deps: ClockDeps) {
     // action instead would stamp `now` a second time and move a safety clock forward.
     const apply = (t: Trupp): Trupp => {
       if (status === 'aktiv' && !t.entryTime) {
-        return { ...t, status, entryTime: now, lastContactTime: now, readings: [...(t.readings ?? []), { t: now, bar: t.entryPressureBar, kind: 'entry', pa: isAtemschutzTrupp(t) }] }
+        return { ...t, status, entryTime: now, lastContactTime: now, readings: [...(t.readings ?? []), { t: now, bar: t.entryPressureBar, kind: 'entry', pa: isAtemschutzTrupp(t), ...viaHere() }] }
       }
       // ⚠️ The Austritt is a ROW too (19.08.). It lived only in the sheet's header, so the
       // printed pressure log simply stopped mid-Einsatz and the reader had to look up to find
@@ -242,7 +248,7 @@ export function truppClockActions(deps: ClockDeps) {
         // is the other half of the Rückzug, and printing it as one of twenty radio checks left
         // the sheet saying a Trupp withdrew and never went back. Same clock reset, own word.
         const kind = status === 'rueckzug' ? 'rueckzug' as const : 'resume' as const
-        return { ...t, status, lastContactTime: now, readings: [...(t.readings ?? []), { t: now, bar: t.lastPressureBar ?? t.entryPressureBar, kind }] }
+        return { ...t, status, lastContactTime: now, readings: [...(t.readings ?? []), { t: now, bar: t.lastPressureBar ?? t.entryPressureBar, kind, ...viaHere() }] }
       }
       return { ...t, status }
     }

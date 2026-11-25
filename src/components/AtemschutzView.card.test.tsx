@@ -18,6 +18,7 @@ import { registerAtemschutzViewHooks, az, druckName, dz, iso, aktivTrupp, propsF
 import type { Trupp } from '../types'
 import { fillTemplate } from '../lib/format'
 import { Overlays } from '../lib/ui'
+import { fmtTime } from './truppCardText'
 
 vi.mock('../lib/useIsPhone', async (original) => ({ ...await original<typeof import('../lib/useIsPhone')>(), useIsPhone: vi.fn(() => false) }))
 registerAtemschutzViewHooks()
@@ -766,5 +767,21 @@ describe('a low first Druck right after «Im Einsatz»', () => {
     tapDruck(280)
     expect(screen.queryByRole('alertdialog')).toBeNull()
     expect(recordPressure).toHaveBeenCalledWith('tr1', 280)
+  })
+})
+
+// owner pick UX journeys M·12 (25.11.2026): the Kontakt tile says when the last Kontakt came from the link
+describe('the Kontakt tile names a Kontakt from the Atemschutz-Link', () => {
+  it('carries «hh:mm · über Link» until a Kontakt is logged elsewhere', () => {
+    const at = iso(60_000)
+    const viaLink = (): Trupp => ({ ...aktivTrupp(), lastContactTime: at,
+      readings: [...aktivTrupp().readings!, { t: at, bar: 240, kind: 'contact', via: 'link' }] })
+    mount({ trupps: [viaLink()] })
+    const time = fmtTime(at)
+    const tile = screen.getByRole('button', { name: new RegExp(`^${az.actContact}, `) })
+    expect(tile.textContent).toBe(`${az.actContact}${fillTemplate(az.contactViaLink, { time })}`)
+    cleanup()
+    mount({ trupps: [{ ...viaLink(), readings: [...viaLink().readings!, { t: iso(1000), bar: 240, kind: 'contact' }] }] })
+    expect(screen.getByRole('button', { name: az.actContact }).textContent).toBe(az.actContact)
   })
 })

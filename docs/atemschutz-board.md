@@ -56,6 +56,13 @@ questions, and what the record keeps (`components/AtemschutzView`; the card and 
     the tiles – «Alarmdruck 100 bar (Schätzung)», number included – as a quiet
     outlined box (grey edge, `--ink-dim` 14/700, no tint, no ⚠ of its own): the red clock
     already says the card is in alarm.
+  - *A Kontakt from the Atemschutz-Link says so on the tile* (owner pick UX journeys M·12,
+    25.11.2026): while the last clock-resetting row of the running deployment was logged on the
+    handed-over board (`types · TruppReading.via = 'link'`, stamped by the clock family from the
+    address bar – `lib/linkMode · onAtemschutzLink`), the Kontakt tile carries a second line
+    «🔗 22:10 · über Link» (`lib/atemschutz · contactViaLink`) – on every board, the card is one. The
+    next Kontakt logged anywhere else ends it. The tablet reads the tile before it taps, so a call
+    the Eingang already answered is not logged twice. Rows written before 25.11.2026 have no source.
   - *Rückzug and Raus are equal tiles on every board* (29.09.2026): both framed grey, «Rückzug»
     amber only at or under the Trupp's Alarmdruck (`.actAlarm`). A permanently amber «Rückzug
     melden» says «warning» about a Trupp at 300 bar.
