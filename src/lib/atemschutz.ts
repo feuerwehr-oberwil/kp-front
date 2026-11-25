@@ -528,8 +528,9 @@ export function entryPressureConfirmed(t: Pick<Trupp, 'readings'>): boolean {
   return false
 }
 
-/** The log rows that reset the contact clock – what «the last Kontakt» is made of. */
-const CONTACT_KINDS: ReadonlySet<TruppReading['kind']> = new Set(['entry', 'contact', 'pressure', 'alarm', 'rueckzug', 'resume'])
+/** The log rows that reset the contact clock – what «the last Kontakt» is made of. `paOn` too: the
+ *  upgrade to Atemschutz stamps the clock (truppActions/lifecycle · editTrupp · kindPatch). */
+const CONTACT_KINDS: ReadonlySet<TruppReading['kind']> = new Set(['entry', 'contact', 'pressure', 'alarm', 'rueckzug', 'resume', 'paOn'])
 
 /**
  * When the LAST Kontakt of a crew inside came from the handed-over Atemschutz board, its time –

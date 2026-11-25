@@ -1003,4 +1003,10 @@ describe('contactViaLink', () => {
     expect(contactViaLink(inside([...rows.slice(0, 2), { t: T(11), bar: 300, kind: 'crew', crew: { name: 'x', members: [] } }]))).toBe(T(10))
     expect(contactViaLink({ ...inside(rows.slice(0, 2)), status: 'raus', exitTime: T(20) })).toBeNull()
   })
+
+  it('ends with the upgrade to Atemschutz, which restarts the clock', () => {
+    const rows: Trupp['readings'] = [{ t: T(0), bar: 300, kind: 'entry' }, { t: T(10), bar: 300, kind: 'contact', via: 'link' },
+      { t: T(12), bar: 300, kind: 'paOff' }, { t: T(15), bar: 300, kind: 'paOn' }]
+    expect(contactViaLink(inside(rows))).toBeNull()
+  })
 })
