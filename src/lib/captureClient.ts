@@ -276,7 +276,8 @@ export function applyAction(ws: Workspace | null, action: CaptureAction, nowIso:
  * The tablet's side does the same thing in the same shape (lib/useAttendanceActions).
  *
  * Only entries that actually CHANGED — re-stamping a row this action never touched would claim
- * the poster wrote it.
+ * the poster wrote it. An entry rebuilt with the same values (a time confirmed as it stood) is
+ * put back as it was, so it keeps its author and the save stays a no-op.
  */
 function stampCaptureSource(before: Workspace | null, after: Workspace): Workspace {
   const next = (after as { attendance?: Record<string, AttendanceEntry> }).attendance
@@ -284,9 +285,11 @@ function stampCaptureSource(before: Workspace | null, after: Workspace): Workspa
   const prev = ((before ?? {}) as { attendance?: Record<string, AttendanceEntry> }).attendance ?? {}
   let out: Record<string, AttendanceEntry> | undefined
   for (const [id, e] of Object.entries(next)) {
-    if (e === prev[id] || e.source === 'capture') continue
+    if (e === prev[id]) continue
+    const unchanged = jsonEqual(e, prev[id])
+    if (!unchanged && e.source === 'capture') continue
     out ??= { ...next }
-    out[id] = { ...e, source: 'capture' }
+    out[id] = unchanged ? prev[id] : { ...e, source: 'capture' }
   }
   return out ? { ...(after as Record<string, unknown>), attendance: out } : after
 }
