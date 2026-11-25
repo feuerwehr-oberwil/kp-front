@@ -88,7 +88,7 @@ export function isMoving(speed: number | null | undefined, course: number | null
  *  course to orient by: the live course while moving, else the last direction it moved in (so a
  *  parked vehicle keeps its heading). null only for a vehicle that has never moved → neutral body. */
 function toEntity(p: VehiclePosition, heading: number | null): Entity {
-  const status = cfg.status[p.status] ?? p.status
+  const status = appConfig.copy.map.live.vehicleStatus[p.status] ?? p.status
   const fields: Record<string, string> = { 'Status': status }
   if (p.speed != null) fields['Geschwindigkeit'] = `${Math.round(p.speed)} km/h`
   if (p.course != null) fields['Kurs'] = `${Math.round(p.course)}°`

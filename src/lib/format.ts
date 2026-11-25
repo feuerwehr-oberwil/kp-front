@@ -58,14 +58,13 @@ export function roleLabel(role: string): string {
   return role === 'editor' ? C.roleEditor : role === 'el' ? C.roleEl : C.roleViewer
 }
 
+/** A symbol's display label: the active locale's `copy.symbolNames` entry, else the raw library
+ *  name with its prefix and numbers stripped and its umlauts restored. The raw name stays the
+ *  stored identity; only the label localizes. */
 export function formatSymbolName(name: string): string {
-  // localized display label wins, then the per-deployment displayNames override (keeps de output
-  // identical + custom overrides working), then strip prefix/numbers and restore umlauts
   const key = name.trim()
   const localized = appConfig.copy.symbolNames[key]
   if (localized) return localized
-  const override = appConfig.symbols.displayNames[key]
-  if (override) return override
   const base = key.replace(prefixPattern, '').replace(/^\d+\s+\d+\s+/, '').trim()
   return restoreUmlauts(base)
 }

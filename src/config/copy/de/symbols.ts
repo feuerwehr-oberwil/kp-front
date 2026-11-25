@@ -3,11 +3,11 @@
 // top of that file before adding or renaming a key here.
 
 export const symbolsCopy = {
-  // Tactical-symbol DISPLAY labels, keyed by the RAW FireGIS name (same keys as
-  // appConfig.symbols.displayNames). de = the current German short labels; en/fr/it translate
-  // them. The stored/looked-up symbol identity is always the raw name — only the label localizes.
-  // formatSymbolName falls back to appConfig.symbols.displayNames (per-deployment override) then
-  // to the prefix-strip/umlaut-restore, so missing keys keep working.
+  // Tactical-symbol DISPLAY labels, keyed by the RAW FireGIS name — the one source of symbol
+  // labels. de = the German short labels; en/fr/it translate them. The stored/looked-up symbol
+  // identity is always the raw name — only the label localizes. Every placeable glyph of the
+  // pack has an entry (copy.test.ts); formatSymbolName falls back to the prefix-strip/umlaut-
+  // restore only for a name outside the pack.
   symbolNames: {
     'VKF Feuer': 'Feuer',
     'VKF Rettungen': 'Rettung',
@@ -102,6 +102,11 @@ export const symbolsCopy = {
     'VKF Bereich Chemiewehr': 'Chemiewehr',
     'VKF Bereich Zivilschutz': 'Zivilschutz',
     'VKF Bereich Feuerwehr': 'Feuerwehr',
+    'FW Beschaedigung': 'Beschädigung',
+    'FW Teilzerstoerung': 'Teilzerstörung',
+    'FW Totalzerstoerung': 'Totalzerstörung',
+    'FW Ueberschwemmung': 'Überschwemmung',
+    'VKF Drohne': 'Drohne',
   } as Record<string, string>,
   // Palette-search synonyms, keyed by the RAW FireGIS name. Matched (substring, case/umlaut
   // tolerant) IN ADDITION to the raw key + display label + category heading — so "wasser"

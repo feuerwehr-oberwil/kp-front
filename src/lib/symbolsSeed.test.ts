@@ -21,7 +21,7 @@ describe('seedSymbolProps', () => {
   it('seeds label (display name), subtitle (category) and empty field rows from the preset', () => {
     const p = seedSymbolProps('VKF Rettungen', catalog)
     expect(p.symbol).toBe('VKF Rettungen')
-    expect(p.label).toBe('Rettung') // curated displayName
+    expect(p.label).toBe('Rettung') // copy symbolNames entry
     expect(p.subtitle).toBe('Schadenlage')
     // VKF Rettungen preset carries fields (['Status']) → seeded as empty strings
     expect(p.fields).toBeTruthy()
@@ -37,9 +37,9 @@ describe('seedSymbolProps', () => {
     expect(p.fields).toBeUndefined()
   })
 
-  it('falls back to the prefix-stripped name when there is no curated display name', () => {
+  it('seeds the copy label of a building symbol', () => {
     const p = seedSymbolProps('GB BA Wand F30', catalog)
-    expect(p.label).toBe('Wand F30') // from displayNames override
+    expect(p.label).toBe('Wand F30') // copy symbolNames entry
     expect(p.subtitle).toBe('Gebäude')
   })
 
