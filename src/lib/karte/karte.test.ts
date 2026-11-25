@@ -373,6 +373,18 @@ describe('plans as the rail documents', () => {
     expect(planTitle(p('modul4', ''), STATION)).toBe('Modul 4')
   })
 
+  // owner pick B2·61 (25.11.2026): the sheet's row says the title, without the object the head names
+  it('titleUnderObject drops the object\'s own name before the dash, nothing else', async () => {
+    const { titleUnderObject } = await import('./plans')
+    expect(titleUnderObject('Schloss Musterdorf – Übersicht', 'Schloss Musterdorf')).toBe('Übersicht')
+    expect(titleUnderObject('Gemeindehaus - Zugang & Objekt', 'Gemeindehaus')).toBe('Zugang & Objekt')
+    // another object's name, a name that only starts the same, no dash: the title as it is
+    expect(titleUnderObject('Gemeindehaus – Übersicht', 'Schloss Musterdorf')).toBe('Gemeindehaus – Übersicht')
+    expect(titleUnderObject('Schlossgarten – Übersicht', 'Schloss')).toBe('Schlossgarten – Übersicht')
+    expect(titleUnderObject('Übersicht', 'Schloss Musterdorf')).toBe('Übersicht')
+    expect(titleUnderObject('Schloss Musterdorf', 'Schloss Musterdorf')).toBe('Schloss Musterdorf')
+  })
+
   // duck sweep ENT.10: the Ebenen row names the plan as its tile does, never «5-wasser2»
   it('planName is the tile\'s word for a plan', async () => {
     const { planName } = await import('./plans')

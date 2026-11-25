@@ -4,8 +4,9 @@
 //
 //   head (kind, name, address, ✕)
 //   → the station's own word (Sofortmassnahmen, Bemerkungen, no source line) — read first
-//   → Pläne & Module as tiles, two to a line (a tile opens the Einsatz's plan reader, read-only —
-//     KartePlans; owner, 27.10.2026 · mocks 2B/2C top)
+//   → Pläne & Module as full-width rows named by the plan's title, the module number only in the
+//     badge (owner pick UX journeys, 25.11.2026 · B2·61; replaces the two-to-a-line «Modul 1»
+//     tiles of 27.10.2026 · mocks 2B/2C). A row opens the Einsatz's plan reader, read-only — KartePlans
 //   → Gebäude laut Register as BULLETS, the hazards first with ⚠ («Register-Hinweis», source and
 //     Stand on every line)
 // Every part a top-level section with its head — no card around the first ones, no tabs (owner,
@@ -58,7 +59,7 @@ import type { BuildingInfo } from '../../lib/api/building'
 import type { StationObject } from '../../lib/api/stationReference'
 import type { NearRow } from '../../lib/karte/places'
 import { objectHeadSub, objectRowSub, splitAddress, streetKey } from '../../lib/karte/places'
-import type { ViewerPlanDoc } from '../../lib/karte/plans'
+import { titleUnderObject, type ViewerPlanDoc } from '../../lib/karte/plans'
 import { planKey, type ObjectAvailability } from '../../lib/karte/availability'
 import type { VisitSummary } from '../../objectVisits/types'
 import type { LngLat } from '../../types'
@@ -192,7 +193,7 @@ export function KartePanel(p: {
           <div className="form-warn form-warn-amber"><Icon id="warn" /><span className="form-warn-text">{C.approxHead} {C.approxBody}</span></div>
         )}
         <StationWord obj={o} />
-        <PlanTiles docs={p.docs} onOpenDoc={p.onOpenDoc} avail={p.offline ? p.avail ?? null : undefined} />
+        <PlanTiles docs={p.docs} objectName={o.name} onOpenDoc={p.onOpenDoc} avail={p.offline ? p.avail ?? null : undefined} />
         <Register key={o.id} reg={p.register} address={o.address} onRetry={p.onRetryRegister} />
         <Nearby rows={p.nearby} lit={p.litHydrant ?? null} onHydrant={p.onHydrant} onSelectObject={p.onSelectObject} />
         <Visits visits={p.visits} canCapture={p.canCapture} empty={C.visitsNever} onOpenVisit={p.onOpenVisit} offline={p.offline} last={o.lastVisit} />
@@ -341,16 +342,23 @@ function StationWord({ obj }: { obj: StationObject }) {
   )
 }
 
-/** Pläne & Module as tiles, two to a line (owner, 27.10.2026 · mock 2C): each says the plan's
- *  name and nothing else — «Modul 1», «Wasser», «PV» (lib/navRail · planLabel), «Gebäude» for the
- *  stack — behind the rail's own mark (PlanGlyph · PlanChip: «1», «W2», the floors glyph the
- *  Gebäude). Offline, the ●/○ «auf diesem Gerät» mark trails the name, before the › (a tile the
- *  device does not hold is dimmed) and the head's legend
- *  says what it means. A tile opens the plan in the Einsatz's reader, read-only (KartePlans).
- *  Not a ListRow: a row spans the card, and two tiles a line is what keeps four plans in the
- *  first screen. */
-function PlanTiles({ docs, onOpenDoc, avail }: {
+/** Pläne & Module as full-width rows, ONE a line, each named by the plan's TITLE — «Übersicht»,
+ *  «Zugang & Objekt» (lib/karte/plans · planTitle, the object's own name before a dash dropped:
+ *  `titleUnderObject`), «Gebäude» for the stack — behind the rail's own mark (PlanGlyph · PlanChip:
+ *  «1», «2/3», «W2», the floors glyph the Gebäude), which is where the module number stays.
+ *  ⚠️ Owner pick UX journeys, 25.11.2026 · B2·61: both walkers were sent for «die Übersicht» and
+ *  had to guess which «Modul N» it was. It replaces «the plan's name and nothing else, two to a
+ *  line» (review round 4, «just ‹modul 1› is enough»; 27.10.2026 · mock 2C). The rails, «Plan
+ *  wählen» and the Objektbesuch keep `planLabel` («Modul 1»).
+ *  Offline, the ●/○ «auf diesem Gerät» mark trails the title, before the › (a row the device does
+ *  not hold is dimmed) and the head's legend says what it means. A row opens the plan in the
+ *  Einsatz's reader, read-only (KartePlans).
+ *  Not a ListRow: each plan is its own lifted tile, the panel's ONE lifted surface (12.11.2026),
+ *  where a ListCard would put the rows in one card with hairlines between them. */
+function PlanTiles({ docs, objectName, onOpenDoc, avail }: {
   docs: ViewerPlanDoc[]
+  /** the object the sheet is about: its name is dropped from the front of a plan's title */
+  objectName: string
   onOpenDoc: (id: string) => void
   /** offline only: what this device holds (null = still asking; undefined = online, no lamps) */
   avail?: ObjectAvailability | null
@@ -368,17 +376,18 @@ function PlanTiles({ docs, onOpenDoc, avail }: {
         {offline && <span className={s.legend}><span className={s.lamp} aria-hidden />{C.onDevice}</span>}
       </div>
       <div className={s.planTiles} role="group" aria-label={C.plansTitle}>
-        {docs.map(({ doc, row, plan }) => {
+        {docs.map(({ doc, plan }) => {
           const lamp = lampOf(plan)
           const off = lamp === 'online'
+          const title = titleUnderObject(doc.title, objectName)
           return (
             <button key={doc.id} type="button" className={cx(s.planTile, off && s.off)} onClick={() => onOpenDoc(doc.id)}
-              aria-label={lamp ? `${row} · ${off ? C.planNotStored : C.device.lampWord[lamp]}` : undefined}>
+              aria-label={lamp ? `${title} · ${off ? C.planNotStored : C.device.lampWord[lamp]}` : undefined}>
               {/* the rail's own mark (PlanChip, ENT.10) – «1», «W2», the Gebäude's floors – and
                   the › on every tile, offline too: the lamp says what the device holds, the ›
                   that the tile still opens (LISTS.8 – the lamp used to stand in its place) */}
               <span className={s.planMark}><PlanChip doc={doc} /></span>
-              <span className={s.planTileText}>{row}</span>
+              <span className={s.planTileText}>{title}</span>
               {lamp && <LampDot lamp={lamp} />}
               <Icon id="chevron" className={s.chev} />
             </button>

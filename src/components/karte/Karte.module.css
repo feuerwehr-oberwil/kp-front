@@ -188,11 +188,12 @@ button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel
 .note { display: flex; gap: var(--sp-2); align-items: flex-start; padding: var(--sp-2) var(--sp-3); border-radius: var(--r-sm); background: var(--ink-5);
   font: var(--fw-medium) var(--fs-1)/1.4 var(--body); color: var(--ink); }
 .note svg { width: 16px; height: 16px; flex: none; margin-top: 1px; color: var(--ink-dim); }
-/* the plan tiles, two to a line (PlanTiles, owner 27.10.2026 · mock 2C): the list row's height and
-   type (one rhythm, below); a long name ends in «…» rather than growing the tile. The panel's ONE
+/* the plan tiles, ONE a line, named by the title (PlanTiles, owner pick UX journeys 25.11.2026 ·
+   B2·61; two to a line from 27.10.2026 · mock 2C): the list row's height and type (one rhythm,
+   below); a long title ends in «…» rather than growing the tile. The panel's ONE
    lifted surface – the .list-card's opaque fill and hairline ring, the glyph in full ink (owner,
    12.11.2026 · variant A «Leiser Rest»: the plans are what matters, they were the dimmest thing) */
-.planTiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-2); }
+.planTiles { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-2); }
 .planTile { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; min-height: var(--tap); padding: 0 var(--sp-3);
   border: none; border-radius: var(--r-sm); background: var(--surface); box-shadow: 0 0 0 1px var(--border-soft); color: var(--ink); font: var(--fw-bold) var(--fs-2)/1.2 var(--body);
   text-align: left; cursor: pointer; }
