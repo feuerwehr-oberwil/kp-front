@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { JournalStore, type JournalOwner } from './journalStore'
 import { useLongPoll } from './useLongPoll'
 import type { TimelineEvent } from '../types'
+import type { PhotoSlot } from './verlauf'
 
 /**
  * React binding for the JournalStore — one store per incident mount (IncidentWorkspace is
@@ -87,7 +88,7 @@ export function useJournal({ incidentId, readOnly, legacy, slowFollow = false, o
   const overlaySession = useCallback((id: string, fields: Partial<TimelineEvent>) => store.overlaySession(id, fields), [store])
   // stable identity: callers hang upload callbacks off this, and reading a row's photos from
   // the store (not from a captured `rows`) is what keeps a multi-photo row intact
-  const swapPhoto = useCallback((id: string, from: string, to: string) => store.swapPhoto(id, from, to), [store])
+  const swapPhoto = useCallback((id: string, from: string, to: string, place?: PhotoSlot) => store.swapPhoto(id, from, to, place), [store])
   const ingestLegacy = useCallback((tl: TimelineEvent[]) => store.ingestLegacy(tl), [store])
 
   const retry = useCallback(() => store.retry(), [store])

@@ -24,8 +24,7 @@ function setup(rows: ReportAttachment[]) {
   const hook = renderHook(() => {
     const [attachments, setAttachments] = useState(rows)
     const api = useRowMediaUpload({
-      incidentMeta: { id: 'inc1' }, canWriteRecord: true, media: media as never,
-      swapPhoto: vi.fn(), swapRowMedia: vi.fn(), attachments, setAttachments, emit,
+      canWriteRecord: true, media: media as never, attachments, setAttachments, emit,
       rememberOneShotRef: rememberOneShotRef as never, lastCaptionStepRef,
     })
     return { attachments, ...api }
@@ -105,5 +104,27 @@ describe('useRowMediaUpload · Beilagen', () => {
     expect(undoToast).not.toHaveBeenCalled()
     act(() => pushed[0].restore())
     expect(hook.result.current.attachments.map((a) => a.id)).toEqual(['a1', 'a2', 'a3'])
+  })
+})
+
+// offline-sync F2 (hunt 24.11.2026): a Verlauf capture is stored BEFORE its upload is asked for —
+// the bytes used to reach the queue only once the upload had failed, so a tab killed during a slow
+// upload kept the row without its picture or voice memo.
+describe('useRowMediaUpload · Verlauf captures', () => {
+  it.each([
+    ['photo', (api: ReturnType<typeof useRowMediaUpload>) => api.uploadPhotoForRow('r1', 'blob:shot', 1), ['r1', 'photo', expect.any(Blob), 'photo-r1', expect.any(String), 'blob:shot', undefined, undefined, 1]],
+    ['voice memo', (api: ReturnType<typeof useRowMediaUpload>) => api.uploadAudioForRow('r1', 'blob:memo'), ['r1', 'audio', expect.any(Blob), 'audio-r1', expect.any(String), undefined, undefined, undefined, undefined]],
+  ] as const)('a %s is queued durably first, then sent through the queue', async (_kind, capture, args) => {
+    vi.stubGlobal('fetch', async () => ({ blob: async () => new Blob(['bytes']) }))
+    const { hook, media } = setup([])
+    // the store answers only when we say so: the upload must not be asked for before it has
+    let stored!: (ok: boolean) => void
+    media.enqueue.mockImplementationOnce(() => new Promise<boolean>((res) => { stored = res }))
+    let done!: Promise<unknown>
+    await act(async () => { done = Promise.resolve(capture(hook.result.current)) })
+    expect(media.enqueue).toHaveBeenCalledWith(...args)
+    expect(media.flush).not.toHaveBeenCalled()
+    await act(async () => { stored(true); await done })
+    expect(media.flush).toHaveBeenCalled()
   })
 })

@@ -30,13 +30,13 @@ import type { useAuditEvents } from '../lib/useAuditEvents'
 import type { useJournal } from '../lib/useJournal'
 import { useMediaQueue } from '../lib/useMediaQueue'
 import type { MediaTarget } from '../lib/mediaQueue'
-import { rowPhotos } from '../lib/verlauf'
+import { rowPhotos, type PhotoSlot } from '../lib/verlauf'
 import type { TimelineEvent } from '../types'
 import { useCallback, useEffect, useRef } from 'react'
 import { flushSync } from 'react-dom'
 
 export interface UseMediaOutboxInputs {
-  swapPhoto: (id: string, from: string, to: string) => void
+  swapPhoto: (id: string, from: string, to: string, place?: PhotoSlot) => void
   swapAttachmentMedia: (id: string, url: string) => void
   overlayRow: (id: string, fields: Partial<TimelineEvent>) => void
   patchRow: (id: string, fields: Partial<Pick<TimelineEvent, 'transcript' | 'transcriptSection' | 'transcriptSectionEdit' | 'audioUrl' | 'photoUrl' | 'photoUrls' | 'textEdit' | 'retracted'>>) => void
@@ -59,7 +59,7 @@ export function useMediaOutbox({
 }: UseMediaOutboxInputs) {
   // Offline media queue: reattaches queued captures to their rows after a reload, retries on
   // reconnect, and swaps a row's local blob: URL for the persistent server URL on success.
-  const swapRowMedia = useCallback((rowId: string, kind: 'photo' | 'audio', url: string, replaces?: string, target?: MediaTarget) => {
+  const swapRowMedia = useCallback((rowId: string, kind: 'photo' | 'audio', url: string, replaces?: string, target?: MediaTarget, place?: PhotoSlot) => {
     if (target === 'attachment') { swapAttachmentMedia(rowId, url); return }
     // a persistent server URL becomes an appended enrichment patch (the record stays
     // append-only); a session blob: URL (queue restore) is a display-only overlay
@@ -67,7 +67,7 @@ export function useMediaOutbox({
       // photos are a LIST: a queued upload that lands later must replace ITS OWN picture and
       // leave the row's others alone. The store reads the current list itself — a copy taken
       // here would be the one from whichever render created this callback (see swapPhoto).
-      swapPhoto(rowId, replaces ?? '', url)
+      swapPhoto(rowId, replaces ?? '', url, place)
       return
     }
     if (url.startsWith('blob:')) overlayRow(rowId, { audioUrl: url })
@@ -78,7 +78,7 @@ export function useMediaOutbox({
   const linked = useRef(new Set<string>())
   const { rows, getStatus: journalStatus, rowShown } = journal
   /** A receipt's replay (useMediaQueue · onUploaded): link once, retire once delivered. */
-  const linkUploaded = useCallback((rowId: string, kind: 'photo' | 'audio', url: string, replaces?: string, target?: MediaTarget): boolean => {
+  const linkUploaded = useCallback((rowId: string, kind: 'photo' | 'audio', url: string, replaces?: string, target?: MediaTarget, place?: PhotoSlot): boolean => {
     const key = `${target ?? 'row'} ${rowId} ${url}`
     if (target === 'attachment') {
       if (!linked.current.has(key)) {
@@ -97,7 +97,7 @@ export function useMediaOutbox({
     if (!row) return false // shown, but this render predates it: the next render replays
     const carried = kind === 'photo' ? rowPhotos(row).includes(url) : row.audioUrl === url
     if (!carried && !linked.current.has(key)) {
-      swapRowMedia(rowId, kind, url, replaces)
+      swapRowMedia(rowId, kind, url, replaces, undefined, place)
       linked.current.add(key)
     }
     return journalStatus() === 'synced'
@@ -141,5 +141,5 @@ export function useMediaOutbox({
     await Promise.all([flushJournal(), flushEvents()]).catch(() => {})
     await replayReceipts().catch(() => {})
   }, [flushJournal, flushEvents, replayReceipts])
-  return { media, flushRecordOutboxes, swapRowMedia, syncStatus, closedRefusedUnexported, baseSyncStatus, syncNow }
+  return { media, flushRecordOutboxes, syncStatus, closedRefusedUnexported, baseSyncStatus, syncNow }
 }

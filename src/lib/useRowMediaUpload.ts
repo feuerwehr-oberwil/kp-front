@@ -1,25 +1,18 @@
 import { useCallback, useRef, type Dispatch, type MutableRefObject, type SetStateAction } from 'react'
 import { appConfig } from '../config/appConfig'
 import type { ReportAttachment } from '../types'
-import type { IncidentMeta } from './api/incidents'
 import type { Dropper, UndoDomain } from './undoTimeline'
 import { recordKey, type RecordKey } from './undoKeys'
 import type { MediaQueueApi } from './useMediaQueue'
-import { uploadMedia } from './incidents'
 import { prepareUploadImage } from './imagePrep'
-import { forgetLocalThumb, mintLocalThumb } from './mediaUrl'
+import { mintLocalThumb } from './mediaUrl'
 import { newId } from './ids'
 import { REPORT_COALESCE_MS } from './reportUndo'
 
 interface Args {
-  incidentMeta: Pick<IncidentMeta, 'id'>
   /** this session may write the record domains (IncidentWorkspace · canWriteRecord) */
   canWriteRecord: boolean
   media: MediaQueueApi
-  /** swap ONE picture of a row by value (journal · swapPhoto) */
-  swapPhoto: (rowId: string, from: string, to: string) => void
-  /** swap a row's local media URL for the server one (IncidentWorkspace · swapRowMedia) */
-  swapRowMedia: (rowId: string, kind: 'photo' | 'audio', url: string, replaces?: string) => void
   attachments: ReportAttachment[]
   setAttachments: Dispatch<SetStateAction<ReportAttachment[]>>
   emit: (op: string, payload?: Record<string, unknown>) => void
@@ -32,69 +25,50 @@ interface Args {
 
 /**
  * The media a Verlauf row carries and the Rapport-Beilagen, lifted out of IncidentWorkspace
- * (23.09.2026): the upload of a row's photo / Sprachnotiz that swaps its session blob: URL for the
- * server's (or parks the blob in the offline queue), and the Beilagen's add / caption / remove,
- * each one step on the one timeline (a typed caption folds into ONE) and the remove
- * confirm-with-undo.
+ * (23.09.2026): a row's photo / Sprachnotiz goes into the durable media queue and from there to
+ * the server (its receipt swaps the session blob: URL for the server's), and the Beilagen's add /
+ * caption / remove, each one step on the one timeline (a typed caption folds into ONE) and the
+ * remove confirm-with-undo.
  *
- * Moved verbatim and called where the block stood. The callbacks' deps are the old ones plus the
- * two ref OBJECTS, which arrive as arguments now — stable identities, so nothing re-memoizes.
- * Rapport-Beilagen enter the durable media queue BEFORE upload, just like pending journal media.
- * Their URL swaps never recreate a deleted row; kept undo values learn the uploaded URL too.
+ * The callbacks' deps include the two ref OBJECTS, which arrive as arguments — stable identities,
+ * so nothing re-memoizes. Journal media and Rapport-Beilagen alike enter the durable media queue
+ * BEFORE upload. A Beilage's URL swap never recreates a deleted row; kept undo values learn the
+ * uploaded URL too.
  */
 export function useRowMediaUpload({
-  incidentMeta, canWriteRecord, media, swapPhoto, swapRowMedia, attachments, setAttachments, emit,
+  canWriteRecord, media, attachments, setAttachments, emit,
   rememberOneShotRef, lastCaptionStepRef,
 }: Args) {
-  // upload a captured photo/audio blob and swap the timeline row's session blob: URL for the
-  // persistent server URL (so history keeps the media). On failure the blob is persisted to the
-  // offline queue so the capture survives a reload and re-uploads when connectivity returns.
   /**
-   * Upload ONE picture of a row that may carry several, and swap that picture's local blob: URL
-   * for the server URL — by value, not by field: a row with three photos must not lose two of
-   * them because the third finished uploading. Failures keep the blob: entry, which the Rapport
-   * preflight already counts as pending media.
+   * Hand ONE capture of a Verlauf row (a photo of the row's list, or its in-app Sprachnotiz) to
+   * the durable media queue, then ask the queue to send it. The upload lands as a receipt, and the
+   * receipt links the server URL into the row (useMediaOutbox · linkUploaded), by value: a row
+   * with three photos keeps the other two.
+   * ⚠️ The bytes are stored BEFORE the upload (hunt 24.11.2026, offline-sync F2). They used to be
+   * queued only when the upload failed, so for the whole upload – up to five minutes on a weak
+   * link – the capture lived in page memory alone, and a tab killed meanwhile kept the row
+   * without its picture or voice memo while the badge said «gespeichert».
+   * `slot` is the photo's place in the row as captured (mediaQueue · slot).
    */
-  const uploadPhotoForRow = useCallback(async (rowId: string, localUrl: string) => {
-    if (!canWriteRecord) return
-    let blob: Blob
-    try {
-      blob = await (await fetch(localUrl)).blob()
-    } catch { return }
-    blob = await prepareUploadImage(blob)
-    // one id for this capture, sent by this attempt and every queued retry (mediaQueue · rev)
-    const uploadId = newId('mq')
-    try {
-      const { url } = await uploadMedia(incidentMeta.id, blob, 'photo', `photo-${rowId}`, uploadId)
-      swapPhoto(rowId, localUrl, url)
-      forgetLocalThumb(localUrl) // the chip reads the server's small copy from here on
-    } catch {
-      // queue THIS picture (keyed by its own blob: URL) — a row-wide key made each photo of a
-      // multi-photo row evict the previous one, losing every capture but the last while offline
-      await media.enqueue(rowId, 'photo', blob, `photo-${rowId}`, new Date().toISOString(), localUrl, undefined, uploadId)
-    }
-  }, [incidentMeta.id, canWriteRecord, media, swapPhoto])
-
-  const uploadMediaForRow = useCallback(async (rowId: string, localUrl: string, kind: 'photo' | 'audio') => {
+  const queueRowCapture = useCallback(async (rowId: string, localUrl: string, kind: 'photo' | 'audio', slot?: number) => {
     if (!canWriteRecord) return
     let blob: Blob
     try {
       blob = await (await fetch(localUrl)).blob()
     } catch { return /* the blob: URL is already gone — nothing to persist */ }
-    // A photo is re-encoded BEFORE the first attempt (and therefore before it is queued): the
-    // server takes jpeg/png/webp only and a phone hands over a 4–12 MB HEIC, so the upload used
-    // to 4xx, retry forever from the offline queue, and the picture quietly never reached the
-    // printed Rapport. See lib/imagePrep.
+    // A photo is re-encoded BEFORE it is queued: the server takes jpeg/png/webp only and a phone
+    // hands over a 4–12 MB HEIC, so the upload used to 4xx, retry forever from the offline queue,
+    // and the picture quietly never reached the printed Rapport. See lib/imagePrep.
     if (kind === 'photo') blob = await prepareUploadImage(blob)
-    const uploadId = newId('mq')
-    try {
-      const { url } = await uploadMedia(incidentMeta.id, blob, kind, `${kind}-${rowId}`, uploadId)
-      swapRowMedia(rowId, kind, url, localUrl)
-    } catch {
-      // offline / server error — keep the blob for later instead of losing it this session
-      await media.enqueue(rowId, kind, blob, `${kind}-${rowId}`, new Date().toISOString(), kind === 'photo' ? localUrl : undefined, undefined, uploadId)
-    }
-  }, [incidentMeta.id, canWriteRecord, media, swapRowMedia])
+    // a photo is keyed by its own blob: URL — a row-wide key made each photo of a multi-photo row
+    // evict the previous one; a Sprachnotiz is one per row (mediaQueue · mediaQueueId)
+    await media.enqueue(rowId, kind, blob, `${kind}-${rowId}`, new Date().toISOString(), kind === 'photo' ? localUrl : undefined, undefined, undefined, slot)
+    void media.flush()
+  }, [canWriteRecord, media])
+  /** picture `slot` of the row's list */
+  const uploadPhotoForRow = useCallback((rowId: string, localUrl: string, slot: number) => queueRowCapture(rowId, localUrl, 'photo', slot), [queueRowCapture])
+  /** the row's in-app Sprachnotiz */
+  const uploadAudioForRow = useCallback((rowId: string, localUrl: string) => queueRowCapture(rowId, localUrl, 'audio'), [queueRowCapture])
 
   /**
    * Rapport-Beilagen: add one or more photos that belong to the REPORT (an ID document, a damage
@@ -192,5 +166,5 @@ export function useRowMediaUpload({
     )
   }, [canWriteRecord, setAttachments, emit, rememberOneShotRef])
 
-  return { uploadPhotoForRow, uploadMediaForRow, addAttachments, captionAttachment, removeAttachment, swapAttachmentMedia }
+  return { uploadPhotoForRow, uploadAudioForRow, addAttachments, captionAttachment, removeAttachment, swapAttachmentMedia }
 }

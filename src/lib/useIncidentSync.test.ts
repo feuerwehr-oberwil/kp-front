@@ -30,6 +30,7 @@ function makeSync() {
     flush: vi.fn().mockResolvedValue(undefined),
     flushKeepalive: vi.fn(),
     adoptServer: vi.fn(),
+    pushOwed: vi.fn(),
     drainAttendanceConflicts: vi.fn().mockReturnValue([]),
     drainTruppConflicts: vi.fn().mockReturnValue([]),
     drainFormConflicts: vi.fn().mockReturnValue([]),
@@ -48,7 +49,7 @@ function makeSync() {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function mount(sync: any, opts?: { alarmUrgent?: boolean; appendJournal?: (row: unknown) => void; appendTeamRow?: (row: unknown) => void }) {
+function mount(sync: any, opts?: { alarmUrgent?: boolean; appendJournal?: (row: unknown) => void; appendTeamRow?: (row: unknown) => void; lockHeldAtOpen?: boolean }) {
   const blob = {} as unknown as Saved
   return renderHook(
     ({ bp }) => useIncidentSync({
@@ -60,6 +61,7 @@ function mount(sync: any, opts?: { alarmUrgent?: boolean; appendJournal?: (row: 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       appendTeamRow: opts?.appendTeamRow as any,
       alarmUrgent: opts?.alarmUrgent,
+      lockHeldAtOpen: opts?.lockHeldAtOpen,
     }),
     { initialProps: { bp: () => blob } },
   )
@@ -557,5 +559,15 @@ describe('useIncidentSync — a closed view never spins its poll', () => {
     mountClosed(makeSync())
     await vi.advanceTimersByTimeAsync(10_000)
     expect(pollWorkspaceSince.mock.calls.length).toBeLessThanOrEqual(6)
+  })
+})
+
+// offline-sync F4 (hunt 24.11.2026): the owed push of a restored dirty entry goes only from the tab
+// that got the edit lock at once — a tab that opened behind another holds a copy of ITS draft
+describe('useIncidentSync · the owed push at open', () => {
+  it.each([[true, 1], [false, 0]] as const)('lock held at open: %s → %i push armed', (held, calls) => {
+    const sync = makeSync()
+    mount(sync, { lockHeldAtOpen: held })
+    expect(sync.pushOwed).toHaveBeenCalledTimes(calls)
   })
 })

@@ -6,7 +6,7 @@ import { ApiError, apiBeacon, apiGet, apiPost, LONG_POLL_TIMEOUT_MS } from './ap
 import { idbDel, idbKeys, idbRead, idbSet } from './idb'
 import { journalSlot as KEY, legacyJournalSlot as LEGACY_KEY } from './journalSlots'
 import { newId } from './ids'
-import { rowPhotos, swapUrl } from './verlauf'
+import { rowPhotos, swapUrl, type PhotoSlot } from './verlauf'
 import type { TimelineEvent } from '../types'
 import type { SyncStatus } from './api/workspaceSync'
 import { isIncidentClosedRefusal, refusalClosedAt, reportIncidentClosed } from './incidentClosed'
@@ -326,6 +326,9 @@ export class JournalStore {
    *  the clear would un-apply once the outbox copy is replaced by the server row). */
   appendPatch(targetId: string, fields: Partial<Pick<TimelineEvent, 'transcript' | 'transcriptSection' | 'transcriptSectionEdit' | 'audioUrl' | 'photoUrl' | 'photoUrls' | 'photoGeo' | 'textEdit' | 'retracted'>>) {
     const at = new Date().toISOString()
+    // a server URL supersedes the session one: the overlay would keep winning in display() and
+    // point the player at a blob: the media queue revokes once the link is acknowledged
+    if (fields.audioUrl && !isBlob(fields.audioUrl)) this.dropOverlayField(targetId, 'audioUrl')
     const clean = Object.fromEntries(Object.entries(fields).map(([k, v]) => [k, v ?? '']))
     // two patches for one target can land in the same millisecond — on one device (newId's
     // counter) or on two (its random tail; a per-store counter restarted at 0 on each, 24.09.2026)
@@ -341,16 +344,17 @@ export class JournalStore {
   /**
    * One picture of a row settled — an upload finished (`to` = server URL) or a queued capture
    * was restored after a reload (`to` = fresh blob: URL). Replaces THAT url and keeps the row's
-   * other pictures.
+   * other pictures. A `from` the row no longer lists (its session died) goes back to `place`, its
+   * place as captured (verlauf · swapUrl) — else to the end.
    *
    * The row's current photos are read from the store HERE rather than passed in: between the
    * capture and the upload landing, a caller-captured copy is stale (a React callback holds the
    * rows array of whichever render created it), and folding a one-element list over the row is
    * how a three-photo entry ends up printing one picture.
    */
-  swapPhoto(targetId: string, from: string, to: string) {
+  swapPhoto(targetId: string, from: string, to: string, place?: PhotoSlot) {
     const cur = this.display().find((r) => r.id === targetId)
-    const next = swapUrl(rowPhotos(cur ?? {}), from, to)
+    const next = swapUrl(rowPhotos(cur ?? {}), from, to, place)
     // pending pictures live in the overlay; once they have all uploaded it must go, or the
     // stale session list would keep winning over the patch in display()
     if (next.some(isBlob)) this.overlaySession(targetId, { photoUrls: next })
@@ -361,9 +365,13 @@ export class JournalStore {
   }
 
   private dropOverlayPhotos(id: string) {
+    this.dropOverlayField(id, 'photoUrls')
+  }
+
+  private dropOverlayField(id: string, field: 'photoUrls' | 'audioUrl') {
     const cur = this.overlay.get(id)
-    if (!cur || !('photoUrls' in cur)) return
-    const { photoUrls: _dropped, ...rest } = cur
+    if (!cur || !(field in cur)) return
+    const { [field]: _dropped, ...rest } = cur
     if (Object.keys(rest).length) this.overlay.set(id, rest)
     else this.overlay.delete(id)
   }

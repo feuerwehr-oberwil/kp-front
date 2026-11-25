@@ -107,6 +107,14 @@ describe('rowPhotos / swapUrl', () => {
     expect(swapUrl(['/api/media/1'], 'blob:gone', '/api/media/2')).toEqual(['/api/media/1', '/api/media/2'])
     expect(swapUrl(undefined, 'blob:gone', '/api/media/2')).toEqual(['/api/media/2'])
   })
+
+  // offline-sync F3: after a reload, slot 0 an unlinked receipt, slot 1 a queued capture, slot 2
+  // already in the record — worked in slot order, each lands at its captured index
+  it('puts a picture whose url is gone back at its captured slot, counting receipts still to link', () => {
+    const restored = swapUrl(['/s2'], 'blob:dead1', 'blob:b1', { slot: 1, ahead: ['/s0'] })
+    expect(restored).toEqual(['blob:b1', '/s2'])
+    expect(swapUrl(restored, 'blob:dead0', '/s0', { slot: 0 })).toEqual(['/s0', 'blob:b1', '/s2'])
+  })
 })
 
 describe('isHandWritten', () => {
