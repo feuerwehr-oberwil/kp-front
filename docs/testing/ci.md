@@ -216,7 +216,10 @@ stay CI's.
   each perf metric's limit (value plus tolerance, on every runner speed the gate scales to),
   jscpd's `minTokens`, `minLines` and `maxLines`, and Stryker's `break` floor. A loosened limit
   fails when the same commit changes any other file; tightening always passes, and so does a new
-  baseline file. A new rule's first count is a raise too: commit it on its own.
+  baseline file. A new rule's first count is a raise too: commit it on its own. A merge commit may
+  take either parent's limit, but none looser than every parent has – a conflict in a baseline is
+  not the place to raise it. A bundle chunk that leaves the baseline is a retired chunk, not a
+  raise.
   `controlDebt.test.ts` keeps its baseline in TypeScript and is not covered.
 - **Dead code and duplicates beyond knip** (`just ci-static-analysis`, part of `just ci` and the
   required «Static analysis» check; `just lint-dead` adds knip): jscpd fails when the share of

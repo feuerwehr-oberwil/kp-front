@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { judge, loosened } from './baseline-guard.mjs'
+import { judge, loosened, loosenedInMerge } from './baseline-guard.mjs'
 
 const eslint = (n) => ({ rules: { 'kp/no-raw-effect': n }, silenced: {} })
 const floor = (statements) => ({ floor: { statements, lines: 78 } })
@@ -53,21 +53,33 @@ describe('baseline guard', () => {
       'chunks › App › gzip limit: 105 → 110',
     ])
     expect(loosened('scripts/bundle-baseline.json', chunks({ gzip: 100 }), chunks({ gzip: 90 }, 10))).toEqual([])
-    expect(loosened('scripts/bundle-baseline.json', chunks({ gzip: 100 }), { budgetPercent: 5, chunks: {} })).toEqual([
-      'chunks › App › gzip limit: 105 → –',
-    ])
+    // a chunk that leaves the baseline is retired: the bundle check itself names the chunks it demands
+    expect(loosened('scripts/bundle-baseline.json', chunks({ gzip: 100 }), { budgetPercent: 5, chunks: {} })).toEqual([])
     // a raised jscpd minTokens counts fewer clones
     expect(loosened('.jscpd.json', { threshold: 1, minTokens: 70 }, { threshold: 1, minTokens: 140 })).toEqual(['minTokens: 70 → 140'])
-    expect(loosened('.jscpd.json', { threshold: 1 }, { threshold: 1, minLines: 10000, maxLines: 50 })).toEqual([
+    // …and jscpd has no maximum by default, so adding one counts fewer and dropping one counts more
+    expect(loosened('.jscpd.json', { threshold: 1 }, { threshold: 1, minLines: 10000, maxLines: 1200 })).toEqual([
       'minLines: 5 → 10000',
-      'maxLines: 1000 → 50',
+      'maxLines: – → 1200',
     ])
-    expect(loosened('.jscpd.json', { threshold: 1 }, { threshold: 0.5, minLines: 3 })).toEqual([])
+    expect(loosened('.jscpd.json', { threshold: 1, maxLines: 1200 }, { threshold: 0.5, minLines: 3 })).toEqual([])
     // the perf gate's limit is the value plus its tolerance, overrides included
     const perf = (tolerance, calibration = 46) => ({ calibration, tolerance, metrics: { 'idle.saves': { value: 10, unit: 'count' } } })
     expect(loosened('e2e/perf/baseline.json', perf({}), perf({ 'idle.saves': { abs: 0 } }))).toEqual([])
     expect(loosened('e2e/perf/baseline.json', perf({}), perf({ 'idle.saves': { abs: 9 } }))).toEqual(['metrics › idle.saves limit: 13 → 19'])
     expect(loosened('e2e/perf/baseline.json', perf({}), { ...perf({}), metrics: {} })).toEqual(['metrics › idle.saves: removed'])
+  })
+
+  it('lets a merge take either parent\'s limit, but none looser than both', () => {
+    const file = 'scripts/eslint-baseline.json'
+    // main lowered to 564, the branch raised to 566 in a commit of its own: both are honest results
+    expect(loosenedInMerge(file, [eslint(566), eslint(564)], eslint(566))).toEqual([])
+    expect(loosenedInMerge(file, [eslint(566), eslint(564)], eslint(563))).toEqual([])
+    // 567 is on neither side: the conflict was resolved upwards
+    expect(loosenedInMerge(file, [eslint(566), eslint(564)], eslint(567))).toEqual(['rules › kp/no-raw-effect: 566 → 567'])
+    const merge = { sha: 'abc1234def', subject: 'Merge main', changed: [], baselines: { [file]: { parents: [eslint(566), eslint(564)], after: eslint(567) } } }
+    expect(judge([merge])).toHaveLength(1)
+    expect(judge([{ ...merge, baselines: { [file]: { parents: [eslint(566), eslint(564)], after: eslint(564) } } }])).toEqual([])
   })
 
   it('judges a perf time limit on every runner the speed factor allows', () => {

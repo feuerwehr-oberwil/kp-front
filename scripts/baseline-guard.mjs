@@ -4,10 +4,11 @@
 // else. The repo rule (docs/testing/ci.md): a deliberate change goes in its own commit, with the reason – a raise beside
 // a feature hides in the feature's diff; alone it is a commit a reviewer reads.
 //
-// It walks the non-merge commits from the merge base with `--base` (default origin/main) to HEAD.
+// It walks the commits from the merge base with `--base` (default origin/main) to HEAD.
 // For every commit that changes a file in BASELINES it compares the limits that file sets with its
 // parent's, limit by limit. Tightening always passes; so does a loosening in a commit that touches only files of
-// BASELINES. Work not yet committed is not judged.
+// BASELINES. A merge commit may take any parent's limit, but none looser than every parent has: a
+// conflict in a baseline is not the place to raise it. Work not yet committed is not judged.
 import { execFileSync } from 'node:child_process'
 import { pathToFileURL } from 'node:url'
 import { judge as judgeMetric, speedFactor, toleranceFor } from './perf-gate.mjs'
@@ -31,7 +32,11 @@ const leavesOf = (rule, match = () => true) => (json) => {
   return out
 }
 
-/** what scripts/check-bundle-size.mjs fails above, per chunk: its gzip size plus its own budget or the global one */
+/**
+ * What scripts/check-bundle-size.mjs fails above, per chunk: its gzip size plus its own budget or
+ * the global one. The chunks it demands are listed in that script, so an entry that leaves the
+ * baseline is a retired chunk, not a lifted limit (`removed: 'ok'`).
+ */
 function bundleLimits(json) {
   const out = new Map()
   for (const [name, c] of Object.entries(json.chunks ?? {})) {
@@ -42,11 +47,12 @@ function bundleLimits(json) {
 }
 
 /** a file read as limits (parsed JSON → key → `{ value, rule }`), compared limit by limit */
-const byLimits = (limitsOf) => (before, after) => {
+const byLimits = (limitsOf, { removed } = {}) => (before, after) => {
   const was = limitsOf(before)
   const now = limitsOf(after)
   const out = []
   for (const key of new Set([...was.keys(), ...now.keys()])) {
+    if (removed === 'ok' && !now.has(key)) continue
     const { rule } = was.get(key) ?? now.get(key)
     const a = was.get(key)?.value ?? rule.absent
     const b = now.get(key)?.value ?? rule.absent
@@ -98,13 +104,14 @@ function bends(key, file, metric) {
 
 /**
  * jscpd's threshold, and the sizes that decide which clones it counts at all: a raised minimum or
- * a lowered maximum counts fewer. A missing key is jscpd's default.
+ * a lowered maximum counts fewer. A missing key is jscpd's default (`jscpd --debug`: min_tokens 50,
+ * min_lines 5, max_lines null – no maximum).
  */
 const JSCPD = {
   threshold: CEILING,
   minTokens: { looser: 'up', absent: 50 },
   minLines: { looser: 'up', absent: 5 },
-  maxLines: { looser: 'down', absent: 1000 },
+  maxLines: { looser: 'down', absent: Infinity },
 }
 function jscpdLimits(json) {
   const out = new Map()
@@ -123,7 +130,7 @@ export const BASELINES = {
   'scripts/eslint-baseline.json': byLimits(leavesOf(COUNT, (p) => p[0] === 'rules' || p[0] === 'silenced')),
   'scripts/knip-baseline.json': byLimits(leavesOf(COUNT, (p) => p[0] === 'counts')),
   'src/styles/styleDebt.baseline.json': byLimits(leavesOf(COUNT)),
-  'scripts/bundle-baseline.json': byLimits(bundleLimits),
+  'scripts/bundle-baseline.json': byLimits(bundleLimits, { removed: 'ok' }),
   'scripts/coverage-floor.json': byLimits(leavesOf(FLOOR, (p) => p[0] === 'floor')),
   '.jscpd.json': byLimits(jscpdLimits),
   'backend/.jscpd.json': byLimits(jscpdLimits),
@@ -144,18 +151,33 @@ export function loosened(file, before, after) {
   return BASELINES[file](before, after)
 }
 
+/** the limit a line names: everything before its `: was → now` */
+const limitOf = (line) => line.slice(0, line.lastIndexOf(': '))
+
+/**
+ * The limits a merge commit sets looser than EVERY parent has them (lines read against the first
+ * parent). A merge may take either side's limit – main moved it on purpose, or the branch did in
+ * a commit of its own – so only a limit beyond all of them was raised in the merge itself.
+ */
+export function loosenedInMerge(file, parents, after) {
+  const [first, ...rest] = parents.map((before) => loosened(file, before, after))
+  return first.filter((line) => rest.every((lines) => lines.some((l) => limitOf(l) === limitOf(line))))
+}
+
 /**
  * The verdict over a branch's commits. Each commit is `{ sha, subject, changed, baselines }`:
  * `changed` lists every path it touches, `baselines` maps each baseline file among them to its
- * parsed `{ before, after }`. Returns one problem per commit that loosens and touches more.
+ * parsed `{ before, after }` – or `{ parents, after }` for a merge commit, which always carries
+ * other changes. Returns one problem per commit that loosens and touches more.
  */
 export function judge(commits) {
   const problems = []
   for (const c of commits) {
-    const raised = Object.entries(c.baselines).flatMap(([file, { before, after }]) =>
-      loosened(file, before, after).map((line) => `${file} · ${line}`),
+    const merge = Object.values(c.baselines).some((b) => b.parents)
+    const raised = Object.entries(c.baselines).flatMap(([file, { before, parents, after }]) =>
+      (parents ? loosenedInMerge(file, parents, after) : loosened(file, before, after)).map((line) => `${file} · ${line}`),
     )
-    const others = c.changed.filter((f) => !(f in BASELINES))
+    const others = merge ? ['the merge itself'] : c.changed.filter((f) => !(f in BASELINES))
     if (raised.length && others.length) problems.push({ sha: c.sha, subject: c.subject, raised, others })
   }
   return problems
@@ -167,23 +189,32 @@ const git = (...args) => execFileSync('git', args, { encoding: 'utf8', maxBuffer
 function readAt(rev, file) {
   let text
   try {
-    text = git('show', `${rev}:${file}`)
+    // git's own «does not exist» line stays off the log: a missing file is an answer here
+    text = execFileSync('git', ['show', `${rev}:${file}`], { encoding: 'utf8', maxBuffer: 64 << 20, stdio: ['ignore', 'pipe', 'ignore'] })
   } catch {
     return undefined
   }
   return JSON.parse(text)
 }
 
-/** this branch's non-merge commits since the merge base with `base`, oldest first */
+/** this branch's commits since the merge base with `base`, merges included, oldest first */
 function branchCommits(base) {
   const from = git('merge-base', base, 'HEAD').trim()
-  const shas = git('rev-list', '--reverse', '--no-merges', `${from}..HEAD`).split('\n').filter(Boolean)
-  return shas.map((sha) => {
-    const changed = git('diff-tree', '--no-commit-id', '--name-only', '-r', '--root', sha).split('\n').filter(Boolean)
+  const rows = git('rev-list', '--reverse', '--parents', `${from}..HEAD`).split('\n').filter(Boolean)
+  return rows.map((row) => {
+    const [sha, ...parents] = row.split(' ')
+    const subject = git('log', '-1', '--format=%s', sha).trim()
     const baselines = {}
+    if (parents.length > 1) {
+      // every baseline file is read on all sides: a merge has no single diff to list them
+      for (const file of Object.keys(BASELINES))
+        baselines[file] = { parents: parents.map((p) => readAt(p, file)), after: readAt(sha, file) }
+      return { sha, subject, changed: [], baselines }
+    }
+    const changed = git('diff-tree', '--no-commit-id', '--name-only', '-r', '--root', sha).split('\n').filter(Boolean)
     for (const file of changed.filter((f) => f in BASELINES))
       baselines[file] = { before: readAt(`${sha}^`, file), after: readAt(sha, file) }
-    return { sha, subject: git('log', '-1', '--format=%s', sha).trim(), changed, baselines }
+    return { sha, subject, changed, baselines }
   })
 }
 
