@@ -99,17 +99,48 @@ def _looks_like_isobmff(head: bytes) -> bool:
 # bytes back UNDER that label — so for the types a decoder or viewer will open, the head
 # bytes have to actually be that type. Hand-rolled prefix checks on the first chunk (which
 # is read anyway), deliberately not python-magic. Types without an entry (txt/csv/zip/office)
-# pass unsniffed; audio keeps its own M4A check above.
+# pass unsniffed; M4A keeps its own ISO-BMFF check above.
 _MAGIC_PREFIXES = {
     "image/jpeg": b"\xff\xd8\xff",
     "image/png": b"\x89PNG\r\n\x1a\n",
     "application/pdf": b"%PDF-",
+    # the audio a recorder or a phone hands over (hunt 24.11.2026, access-control F9: any bytes
+    # labelled as one of these were stored, and the player could not open them)
+    "audio/webm": b"\x1a\x45\xdf\xa3",  # EBML (Matroska/WebM) – Chrome's MediaRecorder
+    "audio/ogg": b"OggS",
 }
+
+
+#: how much zero padding may stand before an MP3's first frame
+_MPEG_PROBE = 64 * 1024
+
+
+def _mpeg_frame_at(head: bytes, i: int) -> bool:
+    """An MPEG audio frame header at `i`: the 11 sync bits, a real layer (00 is AAC's ADTS, which
+    shares the sync) and no reserved version."""
+    if i + 1 >= len(head) or head[i] != 0xFF:
+        return False
+    b = head[i + 1]
+    return b & 0xE0 == 0xE0 and bool(b & 0x06) and (b >> 3) & 0x03 != 0x01
+
+
+def _looks_like_mpeg_audio(head: bytes) -> bool:
+    """MP3: an ID3 tag first, or a frame header at the start or after zero padding (bounded). Not
+    a scan for a frame anywhere – a JPEG holds the sync bits somewhere in its first kilobytes."""
+    if head.startswith(b"ID3"):
+        return True
+    probe = head[:_MPEG_PROBE]
+    start = len(probe) - len(probe.lstrip(b"\x00"))
+    return _mpeg_frame_at(probe, start)
 
 
 def _matches_declared_type(content_type: str, head: bytes) -> bool:
     if content_type == "image/webp":  # RIFF container: 'RIFF' <size> 'WEBP'
         return len(head) >= 12 and head[:4] == b"RIFF" and head[8:12] == b"WEBP"
+    if content_type == "audio/wav":  # RIFF / RIFX (big-endian) / RF64 container: <id> <size> 'WAVE'
+        return len(head) >= 12 and head[:4] in (b"RIFF", b"RIFX", b"RF64") and head[8:12] == b"WAVE"
+    if content_type == "audio/mpeg":
+        return _looks_like_mpeg_audio(head)
     prefix = _MAGIC_PREFIXES.get(content_type)
     return prefix is None or head.startswith(prefix)
 
@@ -548,7 +579,10 @@ async def start_transcription(
 
 
 @router.get("/media/{media_id}/transcription")
-async def get_transcription(media_id: uuid.UUID, _user: CurrentUser, db: AsyncSession = Depends(get_db)) -> dict:
+async def get_transcription(media_id: uuid.UUID, _user: CurrentEditor, db: AsyncSession = Depends(get_db)) -> dict:
+    """The transcription job and its UNREVIEWED segments – editor-only like starting and deciding
+    them (hunt 24.11.2026, access-control F8): an el or viewer read the drafts nobody had checked,
+    and a status read could mark an orphaned job failed."""
     job = (await db.execute(select(SttJob).where(SttJob.media_id == media_id))).scalar_one_or_none()
     if job is None:
         return {"status": "none", "error": None, "segments": None}

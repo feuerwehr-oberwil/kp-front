@@ -95,12 +95,6 @@ export const reportCopy: Localizable<Pick<Copy, 'auswertung' | 'report' | 'print
     areaRapport: 'Rapport',
     areaSystem: 'Système',
     areaLage: 'Situation',
-    drawCircle: 'Périmètre de sécurité',
-    drawAreaLabeled: 'Section « {label} »',
-    drawArea: 'Surface',
-    drawRescueAxis: 'Axe de sauvetage',
-    drawMeasureArrow: 'Flèche de mesure',
-    drawLine: 'Ligne',
 
     pdf: 'Télécharger le PDF',
     pdfBusy: 'Création du PDF …',

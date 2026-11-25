@@ -1496,10 +1496,6 @@ async def delete_visit_list(db: AsyncSession, ref: str) -> dict[str, Any]:
     return {"ref": ref, "deleted": row is not None}
 
 
-async def visit_count(db: AsyncSession) -> int:
-    return int((await db.execute(select(func.count()).select_from(ObjectVisit))).scalar_one())
-
-
 async def mark_deliveries(db: AsyncSession, *, destination: str, visit_id: str | None, now: datetime) -> int:
     """«Erneut versuchen»: failed → pending with attempts reset (and, for one visit, enqueue
     anything not yet in the outbox — e.g. a destination added after the visit was filed).

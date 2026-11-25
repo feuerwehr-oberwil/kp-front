@@ -372,9 +372,13 @@ describe('report journal rows', () => {
   })
 
   it('uses fallback date for legacy HH:MM rows', () => {
+    // local dates on both sides: the row's «12:34» is a wall-clock time on the Einsatz's own
+    // calendar day, so a UTC-midnight fixture failed west of Greenwich (tests-quality F6)
     const e: TimelineEvent = { id: 'a', t: '12:34', icon: 'type', text: 'Alt', kind: 'journal' }
-    expect(eventIso(e, '2026-06-23T00:00:00.000Z')).toContain('2026-06-23T')
-    expect(journalRows([e], plans, '2026-06-23T00:00:00.000Z')[0].iso).toBeTruthy()
+    const day = new Date(2026, 5, 23).toISOString()
+    const expected = new Date(2026, 5, 23, 12, 34).toISOString()
+    expect(eventIso(e, day)).toBe(expected)
+    expect(journalRows([e], plans, day)[0].iso).toBe(expected)
   })
 
   it('counts missing audio transcripts — sections written in the player count too', () => {

@@ -154,7 +154,8 @@ POST https://<your deployment>/api/divera/webhook?secret=<the secret>
 
 The secret may travel either as the `?secret=` query parameter or as an **`X-Webhook-Secret`**
 header – use the header if Divera lets you set one, so the secret stays out of your own proxy
-logs. Anything without a valid secret is refused with 403 and nothing is stored.
+logs. Nothing is stored without a valid secret: with no secret configured the webhook is off
+and answers **403**; a missing or wrong secret is answered with **401**.
 
 ### The Divera side
 
@@ -368,7 +369,8 @@ Where the data comes from, so nothing new has to be set up:
 
 | What you see | What happened | What to do |
 |--------------|---------------|------------|
-| Webhook answers **403** | no secret configured, or the value does not match | check the **Divera Webhook-Secret** field and the URL registered in Divera – and remember `.env` outranks the stored value |
+| Webhook answers **403** | no secret configured – the webhook is off | set the **Divera Webhook-Secret** field – and remember `.env` outranks the stored value |
+| Webhook answers **401** | the secret is missing from the request or does not match | check the secret in the URL / header registered in Divera against the EFFECTIVE secret – the `.env` value when one is set, else the **Divera Webhook-Secret** field |
 | Alarms arrive, but **up to 30 s late** (two minutes while an Einsatz runs) | the webhook is not registered (or the tier does not carry it) and you are running on the poll | Step 3; on FREE, this is the expected behaviour |
 | **HTTP 401 / 403** on the row | the key is wrong, was rotated, or its scope changed | re-enter the accesskey. For the personnel key, the rights of its user are the usual cause |
 | **HTTP 429** | polling too hard, or the tier's rate limit (FREE: one alarm per five minutes) | nothing to fix in KP Front; the next poll succeeds |

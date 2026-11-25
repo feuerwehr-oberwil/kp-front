@@ -28,7 +28,7 @@ import { type PlanFit } from './lib/tacticalObjects'
 import { useReplay } from './lib/useReplay'
 import { isTypingTarget, keyOwnedElsewhere } from './lib/hotkeys'
 import { navStops } from './lib/navRail'
-import { incident as demoIncident, planDocuments, gebaeudeDoc, preparedOverlays } from './data/demoIncident'
+import { incident as demoIncident, planDocuments, gebaeudeDoc } from './data/demoIncident'
 import { ergRingOverlays } from './lib/ergRings'
 import { useHazardData } from './lib/useHazardData'
 import type { BoardAnno, Drawing, Entity, Incident, LayerDef, LayerId, LngLat, MittelEntry, ReactivateResult, TimelineEvent, Trupp } from './types'
@@ -1826,7 +1826,7 @@ export function IncidentWorkspace({
   // left open across sunrise/sunset picks the flip up with the next re-render, which any
   // interaction provides — a Planungshilfe does not warrant its own clock.
   const mapOverlays = useMemo(
-    () => [...(undergroundMapOverlay ? [undergroundMapOverlay] : []), ...preparedOverlays, ...ergRingOverlays(entities, new Date())],
+    () => [...(undergroundMapOverlay ? [undergroundMapOverlay] : []), ...ergRingOverlays(entities, new Date())],
     // hazVersion: the ERG table arrives by fetch shortly after boot (lib/useHazardData) —
     // rings drawn from an already-typed UN appear with it.
     [entities, hazVersion, undergroundMapOverlay],

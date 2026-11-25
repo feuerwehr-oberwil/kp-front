@@ -1184,14 +1184,11 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    height doing it — taller than a phone's entire 575px scroll port, so a Trupp's clock and its
    Rückzug/Raus row can never be seen at once. These rows are the phone's answer to that.
 
-   ⚠️ Only phones use them (AtemschutzView · `compact` = useIsPhone = `max-width: 600px`), so a
-   row is NEVER rendered above 600px — both media steps below always apply and the 760px one
-   always wins. The base tracks and the 1023px set are therefore unreachable as final values;
-   they are kept as the readable derivation of the narrow one, not as live breakpoints. (An
-   earlier note here claimed landscape phones at 852px used them; at 852px `useIsPhone()` is
-   false and the board renders CARDS.) Consequence worth knowing: `.trowPress` is always hidden,
-   so the row's pressure lives on the phone-only second line under the name (see `.trowEst` and
-   TruppCard · TruppRow, which puts the MEASURED bar there on a pressure alarm).
+   ⚠️ Every rendered row is one of four shapes, each with its own tracks: `.trowOne` and
+   `.trowTwo` (a Trupp – identity · clock · chevron, the second with an action line), `.trowCard`
+   (flex) and `.trowSafety` (the Sicherungstrupp). The generic six-, five- and four-track
+   templates and the pressure / state / estimate cells of the first row design are gone (hunt
+   24.11.2026, simplification F4): no row rendered them any more.
 
    ⚠️ GRID, not flex. The first version laid each row out with flex, which meant every row sized
    its own columns from its own content: a Trupp with no Kontakt button (angemeldet) let its
@@ -1203,11 +1200,6 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 
 /* (outline and lift read `--item-edge` / `--item-lift`: none on a phone page – Surface.module.css · the phone block) */
 .trow { display: grid; align-items: center; gap: var(--sp-3); width: 100%; text-align: left;
-  /* identity · state · clock · pressure · action · chevron.
-     ⚠️ the identity track carries a real MINIMUM, not `minmax(0, 1fr)`. With a 0 minimum the fixed
-     tracks win every argument, and at 640px they left ~26px for the name — every Trupp rendered as
-     a single letter («M», «S.», «H»), which is worse than the flex version it replaced. */
-  grid-template-columns: minmax(140px, 1fr) 104px 132px 84px 148px var(--tap);
   background: var(--surface); border: none; position: relative; isolation: isolate;
   border-radius: var(--r-ctl); padding: var(--sp-3); cursor: pointer; font-family: var(--body);
   box-shadow: 0 0 0 1px var(--item-edge, var(--border-soft)), var(--item-lift, var(--e3));
@@ -1294,18 +1286,6 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
   border-radius: var(--r-pill); background: var(--amber); color: var(--on-amber); }
 .rueckzugBadge :global(.i) { width: 15px; height: 15px; }
 
-/* the Planungshilfe under the name. Hidden by default — on a wide row the pressure has its own
-   column; this is the phone's substitute for it, in space that is already there. */
-/* indented past the colour dot (--trow-dot + the name's 8px gap) so it hangs under the NAME rather than under the
-   dot — the two lines then read as one block instead of two things that happen to be stacked */
-.trowEst { display: none; font-family: var(--mono); font-size: var(--fs-1); font-weight: var(--fw-bold);
-  color: var(--ink-dim); font-variant-numeric: tabular-nums; margin-top: 2px; padding-left: calc(var(--trow-dot) + var(--sp-2)); }
-.trowEstLow { color: var(--red-strong); }
-
-.trowState { font-size: var(--fs-micro); font-weight: var(--fw-heavy); letter-spacing: .05em; text-transform: uppercase;
-  color: var(--ink-faint); }
-.trowWarn .trowState { color: var(--amber-strong); }
-.trowCrit .trowState { color: var(--red-strong); }
 
 /* the number the whole surface exists for — mono and tabular so the digits line up down the column.
    A calm clock in the STRONG green on every board (hill climb r19, 05.11.2026): the phone row's plain
@@ -1343,9 +1323,6 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    since 30.10.2026 – the digits' colour (amber / red) is the tier. */
 .trowClockLine { display: flex; justify-content: flex-end; align-items: center; gap: var(--sp-2); }
 
-.trowPress { text-align: right; font-family: var(--mono); font-size: var(--fs-3); font-weight: var(--fw-bold);
-  color: var(--ink); font-variant-numeric: tabular-nums; }
-.trowPressUnit { font-family: var(--body); font-size: var(--fs-micro); font-weight: var(--fw-medium); color: var(--ink-faint); }
 
 /* the action track is reserved whether or not this Trupp has a Kontakt button — an angemeldeter
    Trupp leaving a hole here is what pulled every other column out of line */
@@ -1367,9 +1344,7 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
      «SEIT LETZTEM KONTAKT», ~118px that ran out under the Kontakt button, and the row hid it; one
      wording on both form factors now, «SEIT KONTAKT». The clock cell is a right-aligned column, so
      a caption wider than its track («DRAUSSEN SEIT») reaches left into the gap, never right. */
-  .trow { grid-template-columns: minmax(120px, 1fr) 96px 92px 140px var(--tap); }
   .trow .trowClock { display: flex; flex-direction: column; align-items: flex-end; }
-  .trowPress { display: none; }
 }
 @media (max-width: 760px) {
   /* the state word goes too — the left border colour and the clock colour already carry it, and
@@ -1377,10 +1352,8 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
   /* Tracks trimmed to the minimum each cell actually needs, because «Widmer Céline» wanted ~108px
      of the ~102px the name had and ellipsised one character short. Clock 25px mono × 5 chars ≈ 72,
      icon-only Kontakt 52, chevron 24, gap 7 — together ~15px handed back to the name. */
-  .trow { grid-template-columns: minmax(90px, 1fr) 72px 46px 24px; gap: var(--sp-2); }
-  .trowState { display: none; }
+  .trow { gap: var(--sp-2); }
   .trowClockVal { font-size: 25px; }
-  .trowEst { display: block; }
   /* trimmed to 44px — the repo's --tap floor exactly, not below it. The 3am tenet asks primary actions
      for 48–56px and this is the surface's primary action, so it sits at the bottom of what is
      allowed rather than in the comfortable band; deliberate, to buy the name its width back. */
@@ -2330,7 +2303,6 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
 .surfaceFrozen .trow::before { content: none; }
 .surfaceFrozen .trowHead { background: transparent; }
 .surfaceFrozen .trowClockVal, .surfaceFrozen .tabClock { color: var(--ink-dim); animation: none; }
-.surfaceFrozen .trowState { color: var(--ink-faint); }
 /* …and the SICHERUNGSTRUPP head (staging r6, F3; a head since 26.09.2026): a missing
    Sicherungstrupp is a fact about the board at the close, not a call to act — the amber title was
    the one coloured warning left on a neutral closed Tafel. Same word, the frozen tone. */

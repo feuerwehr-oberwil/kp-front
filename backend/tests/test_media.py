@@ -39,6 +39,17 @@ async def _create_incident(client) -> str:
     return r.json()["id"]
 
 
+def _jpeg_bytes() -> bytes:
+    """A real JPEG (Pillow): its markers carry MPEG-like sync bits past the start."""
+    import io
+
+    from PIL import Image
+
+    buf = io.BytesIO()
+    Image.effect_noise((64, 64), 60).convert("RGB").save(buf, "JPEG")
+    return buf.getvalue()
+
+
 def _photo(name: str = "foto.jpg", content_type: str = "image/jpeg", data: bytes = JPEG):
     return {"file": (name, data, content_type)}
 
@@ -124,6 +135,46 @@ async def test_m4a_without_isobmff_signature_rejected(client, editor):
     )
     assert r.status_code == 415
     assert not [p for p in pathlib.Path(storage_mod._ROOT).rglob("*") if p.is_file()]
+
+
+@pytest.mark.parametrize(
+    "name,ctype,real",
+    [
+        ("memo.webm", "audio/webm", b"\x1a\x45\xdf\xa3\x9fB\x86\x81\x01"),
+        ("memo.ogg", "audio/ogg", b"OggS\x00\x02" + b"\x00" * 8),
+        ("memo.wav", "audio/wav", b"RIFF\x24\x00\x00\x00WAVEfmt "),
+        ("memo.mp3", "audio/mpeg", b"ID3\x04\x00\x00\x00\x00\x00\x00"),
+        ("memo.mp3", "audio/mpeg", b"\xff\xfb\x90\x64" + b"\x00" * 8),
+        ("memo.mp3", "audio/mpeg", b"\x00" * 300 + b"\xff\xfb\x90\x64"),  # padding before the first frame
+        ("memo.wav", "audio/wav", b"RF64\xff\xff\xff\xffWAVEds64"),
+        ("memo.wav", "audio/wav", b"RIFX\x00\x00\x00\x24WAVEfmt "),
+    ],
+)
+async def test_audio_is_stored_only_when_it_is_that_audio(client, editor, name, ctype, real):
+    """Hunt 24.11.2026, access-control F9: WebM, Ogg, WAV and MP3 were stored on the label
+    alone – the Verlauf kept a «recording» the player could not open."""
+    await _login(client, editor)
+    inc = await _create_incident(client)
+    fake = await client.post(
+        f"/api/incidents/{inc}/media",
+        files={"file": (name, b"not audio at all, just text", ctype)},
+        data={"kind": "audio"},
+    )
+    assert fake.status_code == 415
+    if ctype == "audio/mpeg":  # AAC (ADTS) shares the frame sync but is no MP3
+        adts = await client.post(
+            f"/api/incidents/{inc}/media",
+            files={"file": (name, b"\xff\xf1\x50\x80" + b"\x00" * 8, ctype)},
+            data={"kind": "audio"},
+        )
+        assert adts.status_code == 415
+        # …nor a photo labelled MP3, whose bytes hold the sync bits somewhere
+        jpeg = await client.post(
+            f"/api/incidents/{inc}/media", files={"file": (name, _jpeg_bytes(), ctype)}, data={"kind": "audio"}
+        )
+        assert jpeg.status_code == 415
+    ok = await client.post(f"/api/incidents/{inc}/media", files={"file": (name, real, ctype)}, data={"kind": "audio"})
+    assert ok.status_code == 201, ok.text
 
 
 async def test_octet_stream_named_m4a_rejected(client, editor):

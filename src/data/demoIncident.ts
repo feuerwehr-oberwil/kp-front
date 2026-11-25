@@ -1,19 +1,12 @@
-import type { Entity, Incident, LayerDef, LngLat, PlanDocument, PreparedMapOverlay, TimelineEvent } from '../types'
+import type { Incident, LayerDef, LngLat, PlanDocument } from '../types'
 
 // ---------------------------------------------------------------------------
-// Demo incident data. All map objects are defined as meter offsets from CENTER,
-// so replacing the example location starts with one coordinate change.
+// The built-in fallbacks: an empty incident, the base layers and the plan catalogue.
 // ---------------------------------------------------------------------------
 // Neutral fallback only: the geographic centre of Switzerland. The real centre comes
 // from the incident's own coordinate or the deployment config (map.defaultView); this
 // value is only used as a last resort by a config-less/public build.
 const CENTER: LngLat = [8.2275, 46.8182] // Schweiz (Landeszentrum)
-const M_PER_LAT = 110540
-const M_PER_LON = 111320 * Math.cos((CENTER[1] * Math.PI) / 180)
-const at = (eastM: number, northM: number): LngLat => [
-  CENTER[0] + eastM / M_PER_LON,
-  CENTER[1] + northM / M_PER_LAT,
-]
 
 const wmts = (l: string) => `https://wmts.geo.admin.ch/1.0.0/${l}/default/current/3857/{z}/{x}/{y}.jpeg`
 // Carto raster basemaps (a–d subdomains). Dark Matter is the night theme; it also serves as the
@@ -67,57 +60,6 @@ export const layers: LayerDef[] = [
   // `admin_geodata` CLI (or added via the Datenquellen panel) and merged in at runtime by
   // `referenceLayersFromConfig` (see src/lib/deploymentConfig.ts → src/lib/workspace.ts).
 ]
-
-export const entities: Entity[] = [
-  // --- Karte / taktische Zeichen (around the school building) ---
-  { id: 'brand', kind: 'symbol', layer: 'taktisch', coord: at(4, 6), symbol: 'VKF Feuer', label: 'Vollbrand Schulhaus Trakt B' },
-  {
-    id: 'person', kind: 'symbol', layer: 'taktisch', coord: at(26, 2), symbol: 'VKF Rettungen', label: '2 Personen vermisst',
-    subtitle: 'Menschenrettung', fields: { 'Anzahl': '2', 'Bereich': 'OG 1, Westseite', 'Status': 'in Rettung' },
-  },
-  {
-    id: 'pv', kind: 'symbol', layer: 'taktisch', coord: at(-6, 16), symbol: 'FW Elektroanlage', label: 'PV-Anlage Dach',
-    subtitle: 'Gefahr Elektrizität', fields: { 'Quelle': 'SchlüeHü Objekt 4471', 'DC-Trennung': 'nicht bestätigt' },
-  },
-  {
-    id: 'gefahrgut', kind: 'symbol', layer: 'taktisch', coord: at(-30, 4), symbol: 'VKF Gefaehrliche Stoffe', label: 'Chemie- / Werkraum',
-    subtitle: 'Gefährliche Stoffe', fields: { 'Hinweis': 'Werkstoffe / Chemikalien', 'Quelle': 'Objektplan' },
-  },
-
-  // --- Führung ---
-  {
-    id: 'kp-front', kind: 'symbol', layer: 'taktisch', coord: at(-58, -34), symbol: 'VKF KP Front', label: 'KP Front',
-    subtitle: 'Kommandoposten Front', badge: 'KP', fields: { 'Einsatzleiter': 'Hptm Meier', 'Funkkanal': 'Kdo BL', 'Errichtet': '14:31' },
-  },
-  {
-    id: 'bereitstellung', kind: 'symbol', layer: 'taktisch', coord: at(-95, -58), symbol: 'VKF Sammelstelle', label: 'Bereitstellungsraum',
-    subtitle: 'Sammelstelle', fields: { 'Lage': 'Schulstrasse / Parkplatz', 'Zufahrt': 'ab Schulstrasse' },
-  },
-
-  // --- Fahrzeuge / Mittel ---
-  // No static vehicles here: the Fahrzeuge / Mittel layer ('fahrzeuge') is fed
-  // live from kp-rueck's Traccar GPS feed (see lib/useVehiclePositions.ts).
-
-  // --- Hydranten ---
-  { id: 'hyd1', kind: 'symbol', layer: 'taktisch', coord: at(-30, -18), symbol: 'SI Unterflurhydrant', label: 'UH 220', subtitle: 'Unterflurhydrant', fields: { 'Leistung': '1200 l/min', 'Nennweite': 'DN 150' } },
-  { id: 'hyd2', kind: 'symbol', layer: 'taktisch', coord: at(52, -22), symbol: 'SI Unterflurhydrant', label: 'UH 221', subtitle: 'Unterflurhydrant', fields: { 'Leistung': '900 l/min', 'Nennweite': 'DN 125' } },
-  { id: 'hyd3', kind: 'symbol', layer: 'taktisch', coord: at(20, 26), symbol: 'SI Ueberflurhydrant', label: 'OH 045', subtitle: 'Oberflurhydrant', fields: { 'Leistung': '1600 l/min', 'Nennweite': 'DN 150' } },
-]
-
-export const timeline: TimelineEvent[] = [
-  { id: 't8', t: '14:26', icon: 'mic', text: 'Audionotiz · Lagemeldung EL', kind: 'audio' },
-  { id: 't7', t: '14:25', icon: 'truck', text: 'ADL Reinach eingetroffen', kind: 'vehicle' },
-  { id: 't6', t: '14:24', icon: 'hex', text: 'Menschenrettung-Symbol gesetzt', kind: 'symbol' },
-  { id: 't5', t: '14:22', icon: 'area', text: 'Gefahrenzone 135 m erstellt', kind: 'symbol' },
-  { id: 't4', t: '14:21', icon: 'truck', text: 'TLF 1 platziert', kind: 'vehicle' },
-  { id: 't3', t: '14:20', icon: 'doc', text: 'Feuerwehrplan 4471 geöffnet', kind: 'layer' },
-  { id: 't2', t: '14:19', icon: 'flag', text: 'KP Front errichtet', kind: 'symbol' },
-  { id: 't1', t: '14:18', icon: 'photo', text: 'Foto Westfassade angehängt', kind: 'photo' },
-]
-
-// No pre-baked map overlays — incidents start clean (the red demo "Gefahrenzone" circle
-// was removed). Kept as an (empty) export so MapView's prop wiring is unchanged.
-export const preparedOverlays: PreparedMapOverlay[] = []
 
 // Module tiles carry NO bundled PDFs: a module only appears when the deployment's nearest/
 // picked Einsatzobjekt actually provides that plan (useObjectPlans fills imageUrl from the

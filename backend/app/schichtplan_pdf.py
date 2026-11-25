@@ -106,12 +106,6 @@ def _band_chunks(bands: list[ZeitplanBand]) -> list[list[ZeitplanBand]]:
     return [bands[i : i + MAX_BANDS] for i in range(0, len(bands), MAX_BANDS)]
 
 
-def _fmt_count(n: float) -> str:
-    """«8», «7,6» — one decimal only where the pro-rata counting produced one."""
-    r = round(n, 1)
-    return str(int(r)) if r == int(r) else f"{r:.1f}".replace(".", ",")
-
-
 Segment = tuple[datetime, datetime, bool]  # (from, to, confirmed), clamped to one band
 
 

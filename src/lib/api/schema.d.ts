@@ -1200,7 +1200,12 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Transcription */
+        /**
+         * Get Transcription
+         * @description The transcription job and its UNREVIEWED segments – editor-only like starting and deciding
+         *     them (hunt 24.11.2026, access-control F8): an el or viewer read the drafts nobody had checked,
+         *     and a status read could mark an orphaned job failed.
+         */
         get: operations["get_transcription_api_media__media_id__transcription_get"];
         put?: never;
         post?: never;

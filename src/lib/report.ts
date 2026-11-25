@@ -9,7 +9,6 @@
 import type { AttendanceState, BoardDoc, Drawing, Entity, LngLat, MittelEntry, PlanDocument, TimelineEvent, Trupp, TruppReading } from '../types'
 import type { FahrzeugZeit, GruppeZeit, PartnerContact, ReportMeta } from './workspace'
 import { allAuftragTypes, appConfig } from '../config/appConfig'
-import { fmtDistance } from './geo'
 import { fillTemplate, fmtDuration, hhmm, pad2, restoreUmlauts, unitLabel, compareText, formatLocale } from './format'
 import { fahrzeugRows, gruppenRows } from './alarmzeiten'
 import { fahrtenText } from './vehiclePresence'
@@ -963,16 +962,6 @@ export function krokiFitMaxZoom(points: LngLat[]): number {
     (Math.max(...lats) - Math.min(...lats)) * 110540,
   )
   return spanM < KROKI_COMPACT_SPAN_M ? 21 : 20
-}
-
-export function describeDrawing(d: Drawing): string {
-  const r = appConfig.copy.report
-  if (d.kind === 'circle') return `${r.drawCircle}${d.radiusM ? ` ${fmtDistance(d.radiusM)}` : ''}`
-  if (d.kind === 'area') return d.label ? fillTemplate(r.drawAreaLabeled, { label: d.label }) : r.drawArea
-  if (d.label) return d.label
-  if (d.marker === 'R') return r.drawRescueAxis
-  if (d.showDistance) return r.drawMeasureArrow
-  return r.drawLine
 }
 
 /** The Einsatzleiter as drawn on the Lage, for pre-filling the Rapport field that would
