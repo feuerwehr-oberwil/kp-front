@@ -1571,8 +1571,10 @@ export interface MittelEntry {
 export interface CameraView {
   id: string
   name: string
-  center: LngLat
-  zoom: number
+  /** Absent only on a stored view whose centre or zoom was unusable (the load gate keeps the row,
+   *  lib/workspace · sanitizeWorkspace): it is listed and cannot be flown to. Every save writes both. */
+  center?: LngLat
+  zoom?: number
   bearing: number
 }
 

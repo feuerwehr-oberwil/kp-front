@@ -350,6 +350,20 @@ const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 
 const hasId = (v: unknown): v is Record<string, unknown> & { id: string } => isObj(v) && typeof v.id === 'string' && v.id.length > 0
 const num = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
 
+/** The keys of `T` a value must carry (the non-optional ones). */
+type RequiredKeys<T> = { [K in keyof T]-?: object extends Pick<T, K> ? never : K }[keyof T]
+/**
+ * A stored row of `T` as the load gate admits it: an object with an id. Every other key `T`
+ * requires — the ones consumers read without a check — is `unknown` until the gate's fix for
+ * that list repairs it, plus the optional keys named in `Extra` that the fix checks too. So a
+ * required key added to `T` fails `tsc` in that fix instead of passing the gate unchecked.
+ */
+type Stored<T, Extra extends keyof T = never> =
+  Omit<T, RequiredKeys<T> | Extra> & { id: string } & { [K in Exclude<RequiredKeys<T> | Extra, 'id'>]?: unknown }
+/** The gate's predicate for a list whose rows only need an id to be kept: rows of any other shape
+ *  are kept and repaired (sanitizeWorkspace), never dropped, because the next save would delete them. */
+const storedRow = <T, Extra extends keyof T = never>() => (v: unknown): v is Stored<T, Extra> => hasId(v)
+
 // --- Shape predicates ---------------------------------------------------------------------
 // One malformed OBJECT in a synced collection used to take every device down together: the
 // gate below only asked «object with a string id», and the first consumer of a `line` whose
@@ -384,6 +398,10 @@ const BEARINGS = ['rotation', 'rotation2'] as const
 const lngLat = (v: unknown): v is LngLat =>
   Array.isArray(v) && v.length === 2 && num(v[0]) && num(v[1]) && Math.abs(v[0]) <= 180 && Math.abs(v[1]) <= 90
 const boardPt = (v: unknown): v is BoardPoint => Array.isArray(v) && (v.length === 2 || v.length === 3) && v.every(num)
+const isTruppStatus = (v: unknown): v is Trupp['status'] => typeof v === 'string' && TRUPP_STATUSES.has(v)
+/** a `layerState` row: its id and visibility checked, its opacity not yet (sanitizeWorkspace · fixLayerRow) */
+type LayerRow = Omit<Saved['layerState'][number], 'opacity'> & { opacity?: unknown }
+const isLayerRow = (v: unknown): v is LayerRow => hasId(v) && typeof v.visible === 'boolean'
 const isReading = (v: unknown): v is TruppReading => isObj(v) && typeof v.t === 'string' && num(v.bar) && typeof v.kind === 'string'
 const isGeoTrailPt = (v: unknown): v is GeoTrailPoint => isObj(v) && lngLat(v.coord) && typeof v.t === 'string'
 const isTrailPt = (v: unknown): v is TrailPoint => isObj(v) && num(v.x) && num(v.y) && typeof v.t === 'string'
@@ -443,21 +461,24 @@ export const isBuilding = (v: unknown): v is BuildingDoc =>
  * last-line crash guard at read time.
  *
  * Two verbs, on purpose: geometry that cannot render is DROPPED (the object is unusable), while
- * the string fields the panels `.trim()` / `.localeCompare()` are COERCED to '' — a Trupp without
- * a name is still a crew under air, and losing its clock over a missing label is the wrong trade.
+ * in a list kept on its id alone every field the row's type requires is REPAIRED (`Stored` and
+ * the fixes: text → '', a count or a pressure → 0, a missing phase → the one its stamps say) —
+ * a Trupp without a name is still a crew under air, and losing its clock over a missing label is
+ * the wrong trade. ⚠️ Such a list never drops a row it kept before: the next save would delete it.
  */
 export function sanitizeWorkspace(raw: unknown): WorkspaceGate {
   if (raw == null) return { ws: null, dropped: 0, newerSchema: false }
   if (!isObj(raw)) return { ws: null, dropped: 1, newerSchema: false }
   let dropped = 0
-  // `ok` is a plain boolean for the id-only collections (hasId narrows to less than T); the
-  // shape-gated ones pass a real predicate and read as T either way
-  const arr = <T,>(v: unknown, ok: (x: unknown) => boolean, fix?: (x: T) => T): T[] | undefined => {
+  // Keep the rows `ok` admits and count the rest. `ok` is a type guard, so a row is after the gate
+  // exactly what its predicate checked; a list that keeps every row with an id gets a `Stored`
+  // row and repairs it with `.map(fix)` (the fixes below).
+  const arr = <T,>(v: unknown, ok: (x: unknown) => x is T): T[] | undefined => {
     if (v == null) return undefined
     if (!Array.isArray(v)) { dropped++; return undefined }
-    const kept = v.filter(ok) as T[]
+    const kept = v.filter(ok)
     dropped += v.length - kept.length
-    return fix ? kept.map(fix) : kept
+    return kept
   }
   const rec = <T,>(v: unknown): T | undefined => {
     if (v == null) return undefined
@@ -465,14 +486,43 @@ export function sanitizeWorkspace(raw: unknown): WorkspaceGate {
     return v as T
   }
   const str = (v: unknown): string | undefined => (typeof v === 'string' ? v : undefined)
-  // Coerce the named string fields on one object to strings; a present wrong-typed value counts
-  // as a reset, an absent one is quietly '' (an older writer simply did not know the field).
-  const strFields = <T extends object>(o: T, keys: (keyof T & string)[]): T => {
-    const r = o as Record<string, unknown>
-    if (keys.every((k) => typeof r[k] === 'string')) return o
-    const out = { ...r }
-    for (const k of keys) if (typeof out[k] !== 'string') { if (out[k] != null) dropped++; out[k] = '' }
-    return out as T
+  // The repairs of a required field: a present wrong-typed value counts as a reset, an absent one
+  // is quiet (an older writer simply did not know the field). A string becomes '' — what the
+  // panels `.trim()` and the app writes for «not yet» (a Trupp's entryTime before Eintritt).
+  const text = (v: unknown): string => {
+    if (typeof v === 'string') return v
+    if (v != null) dropped++
+    return ''
+  }
+  // …a count or a pressure becomes 0: a Mittel `menge` of 0 is «nothing used» (hidden, as an
+  // absent one already was), an `entryPressureBar` of 0 is «no Eingangsdruck» (core · hasEntryPressure)
+  const zero = (v: unknown): number => {
+    if (num(v)) return v
+    if (v != null) dropped++
+    return 0
+  }
+  const fixTimeline = (e: Stored<TimelineEvent>): TimelineEvent => ({ ...e, t: text(e.t), icon: text(e.icon), text: text(e.text) })
+  const fixMittel = (m: Stored<MittelEntry>): MittelEntry =>
+    ({ ...m, label: text(m.label), unit: text(m.unit), menge: zero(m.menge), at: text(m.at) })
+  const fixShift = (s: Stored<Shift>): Shift => ({ ...s, personId: text(s.personId), from: text(s.from), to: text(s.to) })
+  const fixBand = (b: Stored<ShiftBand>): ShiftBand => ({ ...b, label: text(b.label), from: text(b.from), to: text(b.to) })
+  const fixAttachment = (a: Stored<ReportAttachment>): ReportAttachment => ({ ...a, url: text(a.url), at: text(a.at) })
+  // a view without a usable centre or zoom is kept and cannot be flown to (MapViewsMenu); one
+  // without a bearing is north-up
+  const fixCameraView = (c: Stored<CameraView, 'center' | 'zoom'>): CameraView => {
+    const { center, zoom, ...rest } = c
+    if (center != null && !lngLat(center)) dropped++
+    if (zoom != null && !num(zoom)) dropped++
+    return {
+      ...rest, name: text(c.name), bearing: num(c.bearing) ? c.bearing : (c.bearing != null && dropped++, 0),
+      ...(lngLat(center) && { center }), ...(num(zoom) && { zoom }),
+    }
+  }
+  // a layer's opacity reaches the map's paint: anything but a number goes, the layer's own stays
+  const fixLayerRow = ({ opacity, ...row }: LayerRow): Saved['layerState'][number] => {
+    if (num(opacity)) return { ...row, opacity }
+    if (opacity != null) dropped++
+    return row
   }
   // A third verb, for the handful of fields that end up INSIDE the artwork: they are REMOVED, so
   // the renderer falls back to its own default. A colour becomes an SVG attribute value on both
@@ -530,18 +580,19 @@ export function sanitizeWorkspace(raw: unknown): WorkspaceGate {
     }
     return (out ?? o) as T
   }
-  const fixTrupp = (t: Trupp): Trupp => {
-    let o = fixDrawProps(strFields(t, ['name'])) as Trupp & { readings?: unknown; equipment?: unknown }
-    // The words that decide monitoring (audit F01): an unknown `kind` is removed — absent means
-    // Atemschutz, so the crew stays watched — and an unknown `status` becomes the phase its stamps
-    // say. Kept as stored, the next edit of the crew would be refused by the server.
+  const fixTrupp = (t: Stored<Trupp>): Trupp => {
+    const entryTime = text(t.entryTime)
+    // The words that decide monitoring (audit F01): an unknown or missing `status` becomes the
+    // phase its stamps say — kept as stored, the crew would fall out of every phase the alarm
+    // watches, and the next edit of it would be refused by the server.
+    const status = isTruppStatus(t.status) ? t.status : (t.status != null && dropped++, t.exitTime ? 'raus' : entryTime ? 'aktiv' : 'angemeldet')
+    let o = fixDrawProps<Trupp>({
+      ...t, name: text(t.name), entryTime, lastContactTime: text(t.lastContactTime), entryPressureBar: zero(t.entryPressureBar), status,
+    }) as Trupp & { readings?: unknown; equipment?: unknown }
+    // …and an unknown `kind` is removed: absent means Atemschutz, so the crew stays watched.
     if (o.kind != null && o.kind !== 'atemschutz' && o.kind !== 'einfach') {
       const { kind: _drop, ...rest } = o
       o = rest
-      dropped++
-    }
-    if (o.status != null && !TRUPP_STATUSES.has(o.status)) {
-      o = { ...o, status: o.exitTime ? 'raus' : o.entryTime ? 'aktiv' : 'angemeldet' }
       dropped++
     }
     // The crew lists every label trims (lib/atemschutz · truppLogName): a `null` in there threw on
@@ -569,7 +620,7 @@ export function sanitizeWorkspace(raw: unknown): WorkspaceGate {
       o = ids.length ? { ...rest, equipment: ids } : rest
     }
     if (o.readings == null) return o
-    const readings = arr<TruppReading>(o.readings, isReading)
+    const readings = arr(o.readings, isReading)
     return { ...o, readings }
   }
   // board needs one level more: normalizeBoard maps over each doc's anno ARRAY, so a
@@ -580,8 +631,9 @@ export function sanitizeWorkspace(raw: unknown): WorkspaceGate {
     if (!b) return undefined
     const out: BoardDoc = {}
     for (const [k, v] of Object.entries(b)) {
-      const annos = arr<BoardAnno>(v, (a): a is BoardAnno => isBoardAnno(a) || isPassengerAnno(a),
-        (a: BoardAnno) => (isPassengerAnno(a) ? a : fixDrawProps(a.trail == null ? a : { ...a, trail: arr<TrailPoint>(a.trail, isTrailPt) })))
+      // a passenger rides as a BoardAnno, untouched (isPassengerAnno)
+      const annos = arr(v, (a): a is BoardAnno => isBoardAnno(a) || isPassengerAnno(a))
+        ?.map((a) => (isPassengerAnno(a) ? a : fixDrawProps(a.trail == null ? a : { ...a, trail: arr(a.trail, isTrailPt) })))
       if (annos) out[k] = annos
     }
     return out
@@ -620,7 +672,7 @@ export function sanitizeWorkspace(raw: unknown): WorkspaceGate {
     for (const v of raw.objects) {
       if (!hasId(v)) { dropped++; continue }
       const entity = isEntity(v.entity)
-        ? migrateRauchCloud(fixDrawProps(v.entity.trail == null ? v.entity : { ...v.entity, trail: arr<GeoTrailPoint>(v.entity.trail, isGeoTrailPt) }))
+        ? migrateRauchCloud(fixDrawProps(v.entity.trail == null ? v.entity : { ...v.entity, trail: arr(v.entity.trail, isGeoTrailPt) }))
         : (v.entity != null ? (dropped++, undefined) : undefined)
       const drawing = entity == null && isDrawing(v.drawing)
         ? fixDrawProps(v.drawing)
@@ -632,7 +684,7 @@ export function sanitizeWorkspace(raw: unknown): WorkspaceGate {
         // a passenger is kept exactly as it came (isPassengerAnno) — no fix-up, no migration
         if (isPassengerAnno(s.anno)) return { planId: s.planId, anno: s.anno as BoardAnno }
         if (!isBoardAnno(s.anno)) { dropped++; return undefined }
-        const anno = migrateRauchCloud(fixDrawProps(s.anno.trail == null ? s.anno : { ...s.anno, trail: arr<TrailPoint>(s.anno.trail, isTrailPt) }))
+        const anno = migrateRauchCloud(fixDrawProps(s.anno.trail == null ? s.anno : { ...s.anno, trail: arr(s.anno.trail, isTrailPt) }))
         return { planId: s.planId, anno }
       })()
       if (!entity && !drawing && !sheet) { dropped++; continue }
@@ -644,11 +696,11 @@ export function sanitizeWorkspace(raw: unknown): WorkspaceGate {
   // weather is the replay fold's alone (Saved.weather): a live load never carries it on
   const ws: EverySavedKey<'weather'> = {
     objects,
-    entities: (arr<Entity>(raw.entities, isEntity, (e) => fixDrawProps(e.trail == null ? e : { ...e, trail: arr<GeoTrailPoint>(e.trail, isGeoTrailPt) })) ?? []).map(migrateRauchCloud),
-    drawings: arr<Drawing>(raw.drawings, isDrawing, fixDrawProps) ?? [],
-    recent: arr<string>(raw.recent, (x) => typeof x === 'string') ?? [],
-    layerState: arr<Saved['layerState'][number]>(raw.layerState, (x) => hasId(x) && typeof x.visible === 'boolean') ?? [],
-    timeline: arr<TimelineEvent>(raw.timeline, hasId, (e) => strFields(e, ['text', 't'])) ?? [],
+    entities: (arr(raw.entities, isEntity)?.map((e) => fixDrawProps(e.trail == null ? e : { ...e, trail: arr(e.trail, isGeoTrailPt) })) ?? []).map(migrateRauchCloud),
+    drawings: arr(raw.drawings, isDrawing)?.map(fixDrawProps) ?? [],
+    recent: arr(raw.recent, (x): x is string => typeof x === 'string') ?? [],
+    layerState: arr(raw.layerState, isLayerRow)?.map(fixLayerRow) ?? [],
+    timeline: arr(raw.timeline, storedRow<TimelineEvent>())?.map(fixTimeline) ?? [],
     board,
     activePlanId: str(raw.activePlanId),
     activeModule: str(raw.activeModule),
@@ -664,17 +716,17 @@ export function sanitizeWorkspace(raw: unknown): WorkspaceGate {
       const split = splitDuplicateTruppIds(list)
       dropped += split.repaired
       return split.list
-    })(arr<Trupp>(raw.trupps, hasId, fixTrupp)),
+    })(arr(raw.trupps, storedRow<Trupp>())?.map(fixTrupp)),
     attendance: rec<AttendanceState>(raw.attendance),
-    mittel: arr<MittelEntry>(raw.mittel, hasId, (e) => strFields(e, ['label', 'unit'])),
-    shifts: arr<Shift>(raw.shifts, hasId),
-    bands: arr<ShiftBand>(raw.bands, hasId, (b) => strFields(b, ['label'])),
-    cameraViews: arr<CameraView>(raw.cameraViews, hasId),
-    trails: arr<TruppTrail>(raw.trails, isTruppTrail),
+    mittel: arr(raw.mittel, storedRow<MittelEntry>())?.map(fixMittel),
+    shifts: arr(raw.shifts, storedRow<Shift>())?.map(fixShift),
+    bands: arr(raw.bands, storedRow<ShiftBand>())?.map(fixBand),
+    cameraViews: arr(raw.cameraViews, storedRow<CameraView, 'center' | 'zoom'>())?.map(fixCameraView),
+    trails: arr(raw.trails, isTruppTrail),
     reportMeta: rec<ReportMeta>(raw.reportMeta),
-    attachments: arr<ReportAttachment>(raw.attachments, hasId),
-    reportSignatures: arr<ReportSignature>(raw.reportSignatures, isReportSignature),
-    planBindings: arr<IncidentPlanBinding>(raw.planBindings, isIncidentPlanBinding),
+    attachments: arr(raw.attachments, storedRow<ReportAttachment>())?.map(fixAttachment),
+    reportSignatures: arr(raw.reportSignatures, isReportSignature),
+    planBindings: arr(raw.planBindings, isIncidentPlanBinding),
     settings,
     intakeReviewedAt: str(raw.intakeReviewedAt),
     schemaVersion: sv,

@@ -342,7 +342,10 @@ export function useMapActions({
   const viewsApi: ViewsApi = {
     list: cameraViews,
     current: view,
-    onGo: (v) => mapRef.current?.flyTo({ center: v.center, zoom: v.zoom, bearing: v.bearing, duration: motionDuration(600) }),
+    // a stored view without a centre or zoom (CameraView) has nowhere to go
+    onGo: (v) => {
+      if (v.center && v.zoom != null) mapRef.current?.flyTo({ center: v.center, zoom: v.zoom, bearing: v.bearing, duration: motionDuration(600) })
+    },
     // an animated turn back to north, like a map app's compass — at the saved views' pace, and
     // instant under reduced motion (MapLibre's own default is a fixed 1 s that ignores it)
     onResetNorth: () => mapRef.current?.resetNorth({ duration: motionDuration(600) }),

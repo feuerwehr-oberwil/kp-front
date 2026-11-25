@@ -60,6 +60,7 @@ export interface ViewsApi {
 // the operator recognises where they are. Loose tolerances — flyTo lands close, not exact, and
 // a hand-nudge of a few metres shouldn't drop the highlight.
 function isOnView(v: CameraView, c: { bearing: number; center: LngLat; zoom: number }): boolean {
+  if (!v.center || v.zoom == null) return false
   const dLng = Math.abs(v.center[0] - c.center[0])
   const dLat = Math.abs(v.center[1] - c.center[1])
   const dBear = Math.abs(((v.bearing - c.bearing + 540) % 360) - 180) // shortest angular gap
