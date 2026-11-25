@@ -108,6 +108,9 @@ export const anwesenheitCopy: Localizable<Pick<Copy, Keys>> = {
     ortToStationPick: 'À la caserne',
     zeitenWord: 'Heures',
     backToRapportWord: 'Rapport',
+    incidentEnd: 'Fin d’intervention',
+    wholeIncident: 'Toute l’intervention',
+    untilIncidentEnd: 'jusqu’à la fin',
   },
   anrueckend: {
     title: 'En route',

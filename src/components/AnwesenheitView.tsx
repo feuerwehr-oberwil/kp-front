@@ -91,7 +91,7 @@ const spanOrNothing = (ms: number) => (Number.isFinite(ms) ? fmtSpanShort(ms) : 
  * a return is opened. Built on the SAME sheet the Zeitplan's Schichten use, so the two stay
  * identical rather than drifting apart.
  */
-function PresenceSheet({ person, blocks, note, canEdit, startedAt, onSetTimes, onRemoveBlock, onSetNote, onRemoveGuest, onBack, onClose }: {
+function PresenceSheet({ person, blocks, note, canEdit, startedAt, endedAt, onSetTimes, onRemoveBlock, onSetNote, onRemoveGuest, onBack, onClose }: {
   person: Person
   blocks: PresenceInterval[]
   /** free remark on this person for this incident («Fahrer TLF», «abgelöst 21:40») */
@@ -102,6 +102,9 @@ function PresenceSheet({ person, blocks, note, canEdit, startedAt, onSetTimes, o
   canEdit: boolean
   /** incident alarm time — drives the day labels and the «ab Beginn» shortcut */
   startedAt?: string | null
+  /** the Rapport's Einsatzende, once there is one (closed, or reopened for a Nachtrag) – an open
+   *  stretch then reads as running to it, the way the Personalblatt prints it */
+  endedAt?: string | null
   onSetTimes?: (personId: string, patch: { from?: string; to?: string }, index?: number) => void
   /** drop one recorded block — the sheet was the only place it was visible and the only place it
    *  could not be removed, so a mis-tapped «Weiterer Block» was permanent */
@@ -117,6 +120,14 @@ function PresenceSheet({ person, blocks, note, canEdit, startedAt, onSetTimes, o
   // sheet is open, which is the right trade — this surface is transient, and a ticking hook here
   // is exactly the shape that once cost the phone its battery.
   const [openedAt] = useState(() => Date.now())
+  // ⚠️ Once the Einsatz HAS an Einsatzende, an open stretch does not run on: it ends there, on the
+  // Personalblatt as for everybody else (lib/report · open blocks borrow `endedAt`). «noch da · läuft
+  // 1 h 37» said otherwise, and both walkers set a «bis» by hand – one 6 minutes past the
+  // Einsatzende (owner pick UX journeys B3·22, 25.11.2026). Wording only: the record is unchanged.
+  const endMs = endedAt ? Date.parse(endedAt) : NaN
+  const ended = Number.isFinite(endMs)
+  const days = incidentDays(startedAt, openedAt)
+  const labels = timeBlockLabels(A.blockRemove)
   return (
     <TimeBlockSheet
       title={fillTemplate(A.blocksTitle, { name: person.displayName })}
@@ -131,8 +142,9 @@ function PresenceSheet({ person, blocks, note, canEdit, startedAt, onSetTimes, o
       addLabel={canEdit ? (open ? A.addBlock : A.backAgain) : undefined}
       onAdd={canEdit ? onBack : undefined}
       onClose={onClose}
-      labels={timeBlockLabels(A.blockRemove)}
-      days={incidentDays(startedAt, openedAt)}
+      // the «bis» picker's named clear says what it sets: «Einsatzende» once there is one
+      labels={ended ? { ...labels, reopen: A.incidentEnd } : labels}
+      days={days}
       // The remark belongs to the person on THIS Einsatz, not to their roster entry: «Fahrer
       // TLF», «abgelöst 21:40». It sits with the times because that is the one surface that is
       // already about what this person did here, and it prints on the Personalblatt beside them.
@@ -166,14 +178,18 @@ function PresenceSheet({ person, blocks, note, canEdit, startedAt, onSetTimes, o
         key: String(i),
         from: iv.from,
         to: iv.to,
-        openLabel: A.stillHere,
+        openLabel: ended ? A.incidentEnd : A.stillHere,
+        openValue: ended && endedAt ? fmtStartValue(endedAt, days) : undefined,
+        fromStartClock: ended && startedAt ? fmtStartValue(startedAt, days) : undefined,
         // Same card as the Zeitplan, but the head is a READ-OUT here: a stretch of presence has no
         // second state to flip into — it is running or it is finished, and that is decided by the
         // row in the list, not in this sheet. So no switch, and no «umschalten» on hover.
         head: iv.to
           ? { label: A.ended, tone: 'done' as const }
-          : { label: A.running, tone: 'open' as const },
-        duration: spanOrNothing((iv.to ? Date.parse(iv.to) : openedAt) - Date.parse(iv.from)),
+          : ended
+            ? { label: startedAt && iv.from === startedAt ? A.wholeIncident : A.untilIncidentEnd, tone: 'open' as const }
+            : { label: A.running, tone: 'open' as const },
+        duration: spanOrNothing((iv.to ? Date.parse(iv.to) : ended ? endMs : openedAt) - Date.parse(iv.from)),
         // the instant as the picker showed it, date included (docs/rapport.md › Times): no day is
         // inferred from the other end any more, and a block that ends up reversed says so (warn)
         onFrom: canEdit && onSetTimes ? (iso) => onSetTimes(person.id, { from: iso }, i) : undefined,
@@ -189,7 +205,7 @@ function PresenceSheet({ person, blocks, note, canEdit, startedAt, onSetTimes, o
         onFromStart: canEdit && onSetTimes && startedAt && i === 0
           && (!iv.to || Date.parse(startedAt) < Date.parse(iv.to))
           ? () => onSetTimes(person.id, { from: startedAt }, i) : undefined,
-        fromStartValue: startedAt ? fmtStartValue(startedAt, incidentDays(startedAt, openedAt)) : undefined,
+        fromStartValue: startedAt ? fmtStartValue(startedAt, days) : undefined,
         fromIsStart: !!startedAt && iv.from === startedAt,
         // «noch da» on EVERY end, as asked: emptying it says the person never left, and an open
         // stretch runs to the Einsatzende for the Rapport (attendanceIntervals.totalMinutes).
@@ -322,7 +338,7 @@ export function AnwesenheitView({
   shifts, bands, onCreateBand, onSaveBand, onRemoveBand, onCycleCell, onSetCellState, onPutCellState,
   startedAt, onAddShift, onAddShiftSpan, onReplaceShift, onSetShiftTime, onRemoveShift,
   onPrintZeitplan, onDownloadZeitplan, zeitplanPrintOnline,
-  livePositions, incidentCenter, onShowOnMap, incidentId, diveraResponsesFor, onBackToRapport,
+  livePositions, incidentCenter, onShowOnMap, incidentId, diveraResponsesFor, onBackToRapport, endedAt,
 }: {
   people: Person[]
   attendance: AttendanceState
@@ -421,6 +437,9 @@ export function AnwesenheitView({
    *  (owner pick UX journeys M·8, 25.11.2026: it replaces the floating «Zurück zum Rapport» pill
    *  here, which covered the list's last row – WorkspaceMeldungen keeps it for Material) */
   onBackToRapport?: () => void
+  /** the Rapport's Einsatzende (`reportMeta.endedAt`) – the Zeiten sheet reads an open stretch as
+   *  running to it once it is set (PresenceSheet, pick B3·22) */
+  endedAt?: string | null
 }) {
   const [q, setQ] = useState('')
   const [rankSel, setRankSel] = useState<ReadonlySet<string>>(() => new Set())
@@ -1209,6 +1228,7 @@ export function AnwesenheitView({
           note={attendance[blocksPerson.id]?.note}
           canEdit={canEdit}
           startedAt={startedAt}
+          endedAt={endedAt}
           onSetTimes={onSetTimes}
           onRemoveBlock={onRemoveBlock}
           onSetNote={onSetNote}

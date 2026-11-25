@@ -4,7 +4,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { AnwesenheitView } from './AnwesenheitView'
 import { appConfig } from '../config/appConfig'
 import { applyLocale } from '../config/copy'
-import { fillTemplate } from '../lib/format'
+import { fillTemplate, hhmm } from '../lib/format'
 import type { AttendanceState, Person } from '../types'
 import { PHONE_QUERY } from '../lib/useIsPhone'
 
@@ -511,5 +511,42 @@ describe('the Ort is a word and a choice, never a one-tap flip', () => {
     cleanup()
     mount()
     expect(screen.queryByRole('button', { name: appConfig.copy.abschluss.backToRapport })).toBeNull()
+  })
+})
+
+// Owner pick UX journeys B3·22, 25.11.2026: a person ticked after the close read «noch da · läuft
+// 1 h 37», and both walkers set a «bis» by hand. Once there is an Einsatzende an open stretch runs
+// to it – the sheet says so, the record stays as it is.
+describe('an open stretch in an Einsatz with an Einsatzende', () => {
+  const A = appConfig.copy.anwesenheit
+  const startedAt = '2026-11-25T11:58:00.000Z'
+  const endedAt = '2026-11-25T13:27:00.000Z'
+  const open = (from: string) => {
+    mount({
+      startedAt, endedAt,
+      attendance: { p1: { status: 'present', intervals: [{ from }] } } as unknown as AttendanceState,
+    })
+    fireEvent.click(screen.getByRole('button', { name: fillTemplate(A.openBlocks, { name: 'Meier Anna' }) }))
+  }
+
+  it('reads «Ganzer Einsatz», ends at the Einsatzende and counts to it', () => {
+    open(startedAt)
+    expect(screen.getByText(A.wholeIncident)).toBeTruthy()
+    expect(screen.getByText('1 h 29')).toBeTruthy()
+    expect(screen.getByRole('button', { name: new RegExp(`${A.bis} – Meier Anna: ${A.incidentEnd} ${hhmm(new Date(endedAt))}`) })).toBeTruthy()
+    expect(screen.queryByText(A.running)).toBeNull()
+    expect(screen.queryByText(A.stillHere)).toBeNull()
+  })
+
+  it('reads «bis Einsatzende» for a stretch that started later', () => {
+    open('2026-11-25T12:27:00.000Z')
+    expect(screen.getByText(A.untilIncidentEnd)).toBeTruthy()
+    expect(screen.getByText('1 h 00')).toBeTruthy()
+  })
+
+  it('still runs while there is no Einsatzende', () => {
+    mount({ startedAt, attendance: { p1: { status: 'present', intervals: [{ from: startedAt }] } } as unknown as AttendanceState })
+    fireEvent.click(screen.getByRole('button', { name: fillTemplate(A.openBlocks, { name: 'Meier Anna' }) }))
+    expect(screen.getByText(A.running)).toBeTruthy()
   })
 })

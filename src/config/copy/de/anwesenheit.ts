@@ -220,6 +220,11 @@ export const anwesenheitCopy = {
     zeitenWord: 'Zeiten',
     // «‹ Rapport» in the page head while the page was opened from the Rapport
     backToRapportWord: 'Rapport',
+    // An open stretch once the Einsatz has an Einsatzende (pick B3·22, 25.11.2026): it runs to the
+    // end like everybody's, so the sheet says so instead of «noch da · läuft»
+    incidentEnd: 'Einsatzende',
+    wholeIncident: 'Ganzer Einsatz',
+    untilIncidentEnd: 'bis Einsatzende',
   },
   // «Anrückend» — die Divera-Rückmeldungen über der Anwesenheit (AnrueckendBlock, X1 08.10.2026).
   // Nur ja / nein und Namen (Besitzer, 09.10.2026). ⚠️ Eine Divera-Antwort ist KEINE Anwesenheit:
