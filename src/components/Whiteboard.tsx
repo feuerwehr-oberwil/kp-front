@@ -502,7 +502,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // own placement state (lib/useTacticalSelection · usePlacement). Placing one at a time by
   // default (drop to pan + select it after each), or holding the lock to keep placing several,
   // is identical to the Lage map placement model.
-  const { tool: armedTool, setTool, pending, setPending, pendingShape, setPendingShape, placeLock, setPlaceLock } = usePlacement<BoardTool>('pan')
+  const { tool: armedTool, setTool, pending, pendingLabel, setPending, pendingShape, setPendingShape, placeLock, setPlaceLock } = usePlacement<BoardTool>('pan')
   /** measure node currently in the hand — its cumulative label (25px over the fingertip) steps
    *  aside and the fixed .measure-readout carries the number instead (mirrors MapView) */
   const [measDragNode, setMeasDragNode] = useState<number | null>(null)
@@ -1257,7 +1257,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   const stopPlacing = () => { setPending(null); setPendingShape(null); setTool('pan') }
   // the armed tool's readout, the first tile of its dock (ToolDock · armed, lib/armedTool) – the
   // Lage's own (MapToolDocks); every dock but Messen's, whose results panel names the tool
-  const armed = armedReadout(tool, appConfig.copy.planTools, { symbol: pending, svg: pending ? sym.byName[pending] : undefined, shape: pendingShape })
+  const armed = armedReadout(tool, appConfig.copy.planTools, { symbol: pending, label: pendingLabel, svg: pending ? sym.byName[pending] : undefined, shape: pendingShape })
   // Back from the background (C3, 17.11.2026 · lib/useOnResume): the armed tool, symbol or shape is
   // put down – a line draft is released through the same `setTool('pan')` Escape uses, so a
   // committable one asks – a half-laid Rotation goes, and «Mehrere platzieren» goes off.
@@ -1351,7 +1351,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
 
   // --- create-tool interactions (on the ink overlay) — components/usePlanCreate ---
   const { inkDown, inkMove, inkUp, placeTeamChip, doorGhost, clearDoorGhost } = usePlanCreate({
-    tool, setTool, pending, setPending, pendingShape, setPendingShape, placeLock, setPaletteOpen, stack, drawings: storeyDrawings,
+    tool, setTool, pending, pendingLabel, setPending, pendingShape, setPendingShape, placeLock, setPaletteOpen, stack, drawings: storeyDrawings,
     toNorm, floorAt, localY, mapY, sW, sH, tileAR, scale, posRef, scaleRef, applyView, zoomTo, canvasRef, boardRef, inkTapRef: inkTap,
     planDraft, rotor, measure: planMeasure, rotPlacing, rotStart, setRotStart, rotN, noteDefaults, txtBase, setNotePanelId, setNotePlacedId,
     sym, onRecent, annos, trupps, placedTeamNames, onLinkTrupp, setTruppPick, add, log, setSelId,
@@ -1683,8 +1683,8 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   }, [flashId])
 
   // the Durchgang on the Gebäude stack places «mehrere» by default: 20 doors are 20 taps (owner, 27.10.2026)
-  const pickSymbol = (name: string) => {
-    setPending(name); setPendingShape(null); setTool('symbol'); setPaletteOpen(false); onRecent(name)
+  const pickSymbol = (name: string, label?: string) => {
+    setPending(name, label); setPendingShape(null); setTool('symbol'); setPaletteOpen(false); onRecent(name)
     if (stack && name === DOOR_SYMBOL) setPlaceLock(true)
   }
   const pickShape = (kind: ShapeKind) => { setPendingShape(kind); setPending(null); setTool('shape'); setPaletteOpen(false) }

@@ -55,7 +55,8 @@ export interface UseMapActionsInputs {
   setPaletteOpen: Dispatch<SetStateAction<boolean>>
   tool: MapTool
   setTool: Dispatch<SetStateAction<MapTool>>
-  setPending: Dispatch<SetStateAction<string | null>>
+  /** arm a symbol, `label` = the name it is placed with (lib/useTacticalSelection · usePlacement) */
+  setPending: (symbol: string | null, label?: string) => void
   setPendingShape: Dispatch<SetStateAction<ShapeKind | null>>
   setSelectedId: Dispatch<SetStateAction<string | null>>
   setSelectedDrawingId: Dispatch<SetStateAction<string | null>>
@@ -74,6 +75,8 @@ export interface UseMapActionsInputs {
   log: (icon: string, text: string, kind?: TimelineEvent['kind'], audioUrl?: string, entityId?: string, opts?: { rowId?: string; subjectId?: string }) => void
   emit: (op_type: string, payload?: Record<string, unknown>, opts?: { observed?: string }) => void
   pending: string | null
+  /** the name an armed own vehicle is placed with («TLF», components/Palette · VehicleCell) */
+  pendingLabel?: string
   /** switch a layer this device has off back on – a placement into it (IncidentWorkspace · revealLayer) */
   revealLayer: (id: LayerId) => void
   sym: ReturnType<typeof useSymbols>
@@ -163,7 +166,7 @@ export interface UseMapActionsInputs {
 export function useMapActions({
   clearMapUi, setPaletteOpen, tool, setTool, setPending, setPendingShape, setSelectedId,
   setSelectedDrawingId, setSelectedDrawIds, setSelectedEntityIds, setNotePanelId, setEditNoteId, panel,
-  setPanel, tacticalLocked, pendingShape, rotStart, setRotStart, commit, placeLock, log, emit, pending,
+  setPanel, tacticalLocked, pendingShape, rotStart, setRotStart, commit, placeLock, log, emit, pending, pendingLabel,
   revealLayer, sym, addRecent, noteDefaults, setNotePlacedId, setTeamPick, setDraft, settleDraft, lineMode, measure, mapRef,
   incidentView, entities, liveIds, resolvedMapDrawings, cameraViews, view, setLocateReq, incidentOpen,
   share, setShareParent, setSharePick, setCameraViews, rememberOneShotRef, C_HIST, setViewsOpen,
@@ -212,14 +215,14 @@ export function useMapActions({
    *  structure on both surfaces. A driven vehicle is stored on the Fahrzeuge layer, so it toggles
    *  with the live GPS glyphs rather than sitting among the tactical symbols. (Old incidents are
    *  handled by effectiveLayer at read time – this just means new data needs no shim.) */
-  const symbolEntity = (s: string, c: LngLat): Entity => {
+  const symbolEntity = (s: string, c: LngLat, label?: string): Entity => {
     const layer = VEHICLE_SYMBOLS.has(s) ? appConfig.gps.layerId : appConfig.defaults.operationalLayerId
-    return { id: newId('p'), kind: 'symbol', layer, coord: c, ...seedSymbolProps(s, sym.symbols) }
+    return { id: newId('p'), kind: 'symbol', layer, coord: c, ...seedSymbolProps(s, sym.symbols, label) }
   }
   /** Put symbol `s` down at `c` – ONE undo step, the «… platziert» Verlauf row and the
    *  `entity.add` event; selection and tool are the caller's (the palette's tap). */
-  const addSymbol = (s: string, c: LngLat): Entity => {
-    const entity = symbolEntity(s, c)
+  const addSymbol = (s: string, c: LngLat, label?: string): Entity => {
+    const entity = symbolEntity(s, c, label)
     commit((d) => ({ ...d, entities: [...d.entities, entity] }))
     revealLayer(entity.layer)
     log('hex', fillTemplate(appConfig.copy.log.symbolPlaced, { name: entity.label || formatSymbolName(s) }), 'symbol', undefined, entity.id)
@@ -272,7 +275,7 @@ export function useMapActions({
       log('area', fillTemplate(appConfig.copy.log.shapePlaced, { name }), 'symbol', undefined, id)
       emit('entity.add', { id, kind: 'shape', entity: { id, kind: 'shape', layer: appConfig.defaults.drawingLayerId, shape: pendingShape, color: def.defaultColor, label: name, ...geom } })
     } else if (tool === 'symbol' && pending) {
-      const { id } = addSymbol(pending, c)
+      const { id } = addSymbol(pending, c, pendingLabel)
       addRecent(pending)
       setSelectedDrawIds([]); setSelectedEntityIds([])
       if (placeLock) { setSelectedId(null); setSelectedDrawingId(null) }

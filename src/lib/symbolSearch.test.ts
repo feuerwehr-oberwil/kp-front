@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { symbolMatchesQuery } from './symbolSearch'
+import { symbolMatchesQuery, vehicleHits } from './symbolSearch'
 import type { SymbolMeta } from '../types'
 
 const sym = (name: string, cat: string): SymbolMeta => ({ name, cat, svg: '<svg/>' })
@@ -50,5 +50,19 @@ describe('symbolMatchesQuery', () => {
   it('never matches an empty query', () => {
     expect(symbolMatchesQuery(feuer, '')).toBe(false)
     expect(symbolMatchesQuery(feuer, '   ')).toBe(false)
+  })
+})
+
+// owner picks UX journeys M·9 + M·10 (25.11.2026): «TLF» finds the station's own TLF
+describe('vehicleHits', () => {
+  const fleet = ['TLF', 'ADL', 'HLF', 'KoWa', 'ELW', 'MGV']
+  it('finds the Bezeichnungen the query names, in the list order', () => {
+    expect(vehicleHits(fleet, 'TLF')).toEqual(['TLF'])
+    expect(vehicleHits(fleet, 'kowa')).toEqual(['KoWa'])
+    expect(vehicleHits(fleet, 'L')).toEqual(['TLF', 'ADL', 'HLF', 'ELW'])
+  })
+  it('finds nothing for an empty query or an unconfigured list', () => {
+    expect(vehicleHits(fleet, '  ')).toEqual([])
+    expect(vehicleHits(undefined, 'TLF')).toEqual([])
   })
 })

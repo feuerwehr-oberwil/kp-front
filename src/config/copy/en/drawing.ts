@@ -201,7 +201,7 @@ export const drawingCopy: Localizable<Pick<Copy, Keys>> = {
     backTo: 'back to {stage}',
     calmAgain: 'back in the normal range',
   },
-  addSheet: { tile: 'Add', tools: 'Draw & crew' },
+  addSheet: { tile: 'Add', tools: 'Draw & crew', ownVehicles: 'Own vehicles' },
   toolDock: {
     autoCommitted: '{name} saved',
     draftDiscarded: 'Incomplete drawing discarded',

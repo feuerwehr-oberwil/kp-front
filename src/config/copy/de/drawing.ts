@@ -328,7 +328,9 @@ export const drawingCopy = {
   // unified, append-only journal (Verlauf) shared by Karte + Plan
   // PHONE: the «+» tile's word and the first section of its sheet (lib/toolFold · Palette) —
   // Linie · Fläche · Absperrkreis · Notiz · Trupp leave the bar for it
-  addSheet: { tile: 'Hinzufügen', tools: 'Zeichnen & Trupp' },
+  addSheet: { tile: 'Hinzufügen', tools: 'Zeichnen & Trupp',
+    /** die Treffer der Suche aus der Bezeichnungsliste der Wache (Owner-Pick UX-Journeys M·9, 25.11.2026) */
+    ownVehicles: 'Eigene Fahrzeuge' },
   toolDock: {
     // Tap-away while a node draft is in progress no longer discards silently (29.08.):
     // a committable draft auto-commits with this toast, whose «Rückgängig» hands the
