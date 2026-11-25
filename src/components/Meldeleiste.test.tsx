@@ -154,6 +154,25 @@ describe('Meldeleiste', () => {
     expect(second.querySelector('ins')?.textContent).toBe(', <b>Person</b> vermisst')
     expect(second.querySelector('ins b')).toBeNull()
   })
+
+  // the strip repaints only when a row's face changes, so a tap must not run a handler a render old
+  // (CodeRabbit on #755: «Bestimmen» kept the closure from the board, where it had no way back to it)
+  it('a tap runs the handler the publisher wrote last, though nothing readable changed', async () => {
+    const first = vi.fn()
+    const latest = vi.fn()
+    const row = (go: () => void): Meldung => ({ ...reminder([
+      { label: 'Erledigt', onClick: go },
+      { label: 'Bestimmen', menu: [{ label: 'Graf Eva', onClick: go }] },
+    ]), dismiss: { label: 'Ausblenden', onClick: go } })
+    const view = render(<Host items={[row(first)]} />)
+    view.rerender(<Host items={[row(latest)]} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Erledigt' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Ausblenden' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Bestimmen' }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Graf Eva' }))
+    expect(first).not.toHaveBeenCalled()
+    expect(latest).toHaveBeenCalledTimes(3)
+  })
 })
 
 /* staging r3: on the Trupp-Tafel two rows sat on the first crew's clock. There the strip folds to
