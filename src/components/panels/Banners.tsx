@@ -195,7 +195,8 @@ export function ReviewBanner({ meta, onEdit, onDone }: {
     icon: hasLoc ? 'flag' : 'warn',
     title: ix.reviewTitle,
     sub: !hasLoc ? ix.noLocationOnMap : message ? ix.fromDiveraRead : ix.fromDivera,
-    ...(message ? { quote: { head: meta.title, text: message } } : {}),
+    // the Stichwort stands even while the text loads or when the alarm carried no words of its own
+    quote: { head: meta.title, text: message ?? '' },
     actions: [
       { label: appConfig.copy.edit, onClick: onEdit },
       { label: ix.ok, primary: true, onClick: onDone },
