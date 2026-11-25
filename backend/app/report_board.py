@@ -121,7 +121,6 @@ class BoardPageIn(BaseModel):
 #: the poster's grey section bar and its ruling
 BAR = colors.HexColor("#9d9d9d")
 RULE = colors.HexColor("#141414")
-HAIR = colors.HexColor("#3c3c3c")
 SIG = colors.HexColor("#1b75bc")
 TONE = {"plus": colors.HexColor("#c6dfb0"), "minus": colors.HexColor("#f4a183"), "shade": colors.HexColor("#d0d2d3")}
 DIM = colors.HexColor("#5b6573")
