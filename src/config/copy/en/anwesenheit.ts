@@ -107,6 +107,13 @@ export const anwesenheitCopy: Localizable<Pick<Copy, Keys>> = {
     statusFilterWord: 'Status',
     reloadDone: 'List updated',
     filterWord: 'Filter',
+    ortPick: 'Choose where {name} is',
+    ortToStationPick: 'To the station',
+    zeitenWord: 'Times',
+    backToRapportWord: 'Report',
+    incidentEnd: 'Incident end',
+    wholeIncident: 'Whole incident',
+    untilIncidentEnd: 'until incident end',
   },
   anrueckend: {
     title: 'On the way',

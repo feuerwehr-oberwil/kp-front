@@ -42,8 +42,9 @@ import { dayRange, RECENT_DAYS } from '../lib/zeitplanFormat'
 type Shortcut = { label: string; value?: string; tone?: 'blue' | 'green'; active?: boolean; onPick: () => void }
 /** Shown INSTEAD of the value, because the value is not really a clock reading: «ab Start» for a
  *  beginning tied to the alarm, «noch da» for an end that has not happened. The instant behind it
- *  is still stored in full (date included) — this is how it reads, not what it is. */
-type Token = { label: string; tone: 'start' | 'open' }
+ *  is still stored in full (date included) — this is how it reads, not what it is. `value` puts the
+ *  clock the word stands for under it – «Einsatzende» / «14:27» in a closed Einsatz (pick B3·22). */
+type Token = { label: string; tone: 'start' | 'open'; value?: string }
 
 export function TimeField({ value, valueDay, onCommit, disabled, ariaLabel, nowLabel, className, shortcut, clearLabel, clearActive, days, placeholder, token, required }: {
   /** current value as 'HH:MM' ('' = unset) */
@@ -110,10 +111,10 @@ export function TimeField({ value, valueDay, onCommit, disabled, ariaLabel, nowL
       <button
         type="button" ref={btnRef}
         className={`timefield-trigger${value || token ? '' : ' empty'}${token ? ` tok-${token.tone}` : ''}`}
-        disabled={disabled} aria-label={token ? `${ariaLabel}: ${token.label}` : ariaLabel}
+        disabled={disabled} aria-label={token ? `${ariaLabel}: ${tokenText(token)}` : ariaLabel}
         onClick={() => setOpen(true)}
       >
-        {token ? token.label : (value || placeholder || '--:--')}
+        {token ? <TokenFace token={token} /> : (value || placeholder || '--:--')}
       </button>
       {nowLabel && (
         <button type="button" className="timefield-now" disabled={disabled} onClick={stampNow}>{nowLabel}</button>
@@ -172,6 +173,20 @@ export function When({ iso, refYear, stacked }: { iso?: string | null; refYear: 
  * outside the list still opens on itself instead of silently moving. The day column shows for a
  * single day too: the picker always says which date it commits.
  */
+/** a token as one line of words, for the accessible name */
+const tokenText = (t: Token) => (t.value ? `${t.label} ${t.value}` : t.label)
+
+/** the token's face: the word, and the clock it stands for under it when there is one */
+function TokenFace({ token }: { token: Token }) {
+  if (!token.value) return <>{token.label}</>
+  return (
+    <span className="timefield-token">
+      <span>{token.label}</span>
+      <span className="timefield-token-value">{token.value}</span>
+    </span>
+  )
+}
+
 export function DateTimeField({ value, onCommit, disabled, ariaLabel, className, days, opensOn, refYear, nowLabel, required, shortcut, clearLabel, clearActive, token, stacked }: {
   /** ISO datetime ('' /undefined = unset) */
   value?: string
@@ -225,9 +240,9 @@ export function DateTimeField({ value, onCommit, disabled, ariaLabel, className,
       <button
         type="button" ref={btnRef}
         className={`timefield-trigger dt${stacked !== undefined ? ' stacked' : ''}${valid || token ? '' : ' empty'}${token ? ` tok-${token.tone}` : ''}`}
-        disabled={disabled} aria-label={token ? `${ariaLabel}: ${token.label}` : ariaLabel} onClick={() => setOpen(true)}
+        disabled={disabled} aria-label={token ? `${ariaLabel}: ${tokenText(token)}` : ariaLabel} onClick={() => setOpen(true)}
       >
-        {token ? token.label : <When iso={valid ? value : null} refYear={year} stacked={stacked} />}
+        {token ? <TokenFace token={token} /> : <When iso={valid ? value : null} refYear={year} stacked={stacked} />}
       </button>
       {nowLabel && (
         <button type="button" className="timefield-now" disabled={disabled}

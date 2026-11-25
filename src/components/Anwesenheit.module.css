@@ -30,6 +30,9 @@
    width. Tablet and desk only: on a phone the same three are the docked strip above the nav bar
    (AnwesenheitView · PhoneTabBar, 27.09.2026) and this slot is not rendered at all. */
 .headTabs { flex: none; order: 2; }
+/* «‹ Rapport», before the title while the page was opened from a Rapport row (pick M·8, 25.11.2026)
+   – a page-head tile like the others, so it never folds and never covers a row */
+.headBack { flex: none; }
 /* ⚠️ A fixed title that truncates is a bug, not a graceful degradation: these are fixed strings,
    and the head's ladder (lib/pageHeadFit) checks every <h2> — a cut one makes the tiles give up
    their words, and last the tiles take a second row. The shared ellipsis (Surface.module.css) is
@@ -80,7 +83,9 @@
      name 99px and it kept truncating. At 380px a 1440px panel packs three columns instead of
      four — but the Ort word is what made the row that hungry. With the Ort back to icon-only
      the same name fits in a 290px column, so the list packs more people on a screen again. */
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: var(--sp-2); align-content: start;
+  /* 320px since the Ort carries its word again (pick M·8, 25.11.2026): the chip takes ~100px, and
+     an iPad landscape panel still packs three columns */
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: var(--sp-2); align-content: start;
 }
 
 
@@ -136,12 +141,14 @@
    every row — a 46px pin next to a 38px clock read as one big button and one small one, and
    the two columns of glyphs no longer lined up down the list. */
 .backBtn {
-  flex: none; align-self: stretch; display: inline-flex; align-items: center; justify-content: center;
-  width: var(--row-act); padding: 0;
+  flex: none; align-self: stretch; display: inline-flex; flex-direction: column; align-items: center; justify-content: center;
+  min-width: var(--row-act); padding: 0 var(--sp-2);
   border: none; border-left: 1px solid var(--glass-edge); background: none; cursor: pointer;
   color: var(--green); -webkit-tap-highlight-color: transparent;
 }
 .backBtn svg { width: 16px; height: 16px; }
+/* the word under the clock, «Zeiten» (pick M·8, 25.11.2026) – SurfaceControls' `.word` voice */
+.actWord { font: var(--fw-bold) var(--fs-micro) var(--body); white-space: nowrap; }
 @media (hover: hover) { .backBtn:hover { background: var(--green-16); } }
 .backBtn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 
@@ -165,31 +172,31 @@
 .livePos:disabled { cursor: default; }
 
 /* ── Vor Ort / Magazin ────────────────────────────────────────────────────────────────────
-   A full-height edge button, the same shape as the clock beside it — the row already has that
-   language and a pill floating inside it was a third one. ALWAYS icon-only: the word cost ~60px
-   of every row, which is what pushed the columns wide enough that «Baumann Michael» truncated.
-   The glyph plus a stronger ink fill says it — Haus = Magazin, Pin = am Einsatzort — and the
-   accessible name still carries the full sentence for anyone who needs it read out. */
+   A WORDED chip, «Vor Ort ▾» / «Magazin ▾», and a tap opens the two-row choice (owner pick UX
+   journeys M·8, 25.11.2026 – replaces «ALWAYS icon-only», 09.08.2026: the glyph flipped on one tap,
+   and a stray tap moved somebody to the Magazin without a word). The BUTTON is the full row height
+   (the tap floor); the pill inside it is what is seen. The grid's columns widened for the word. */
 
 .ort {
-  /* ⚠️ ONE width for every row. The two states must not end at different x, or the names beside
-     them stop lining up — on a list read by running an eye down it, that is the whole complaint. */
   flex: none; align-self: stretch; display: inline-flex; align-items: center; justify-content: center;
-  width: var(--row-act); padding: 0;
-  border: none; border-left: 1px solid var(--glass-edge); background: none;
+  padding: 0 var(--sp-1); border: none; background: none;
   cursor: pointer; font: var(--fw-bold) var(--fs-1) var(--body); white-space: nowrap;
   -webkit-tap-highlight-color: transparent;
 }
-.ort svg { width: 16px; height: 16px; flex: none; }
-/* am Einsatzort = the ordinary case, so it stays the ink of the row and nothing more */
-.ortScene { color: var(--ink-dim); }
-@media (hover: hover) { button.ortScene:hover { background: var(--fill-soft); color: var(--ink); } }
-button.ortScene:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-/* …the Magazin is the one worth SEEING, because it is the answer to the question. It keeps its
-   tint when the word is gone — icon-only is exactly when the colour has to carry it. */
-.ortStation { color: var(--ink); background: var(--ink-12); }
-@media (hover: hover) { button.ortStation:hover { background: var(--ink-22); } }
-button.ortStation:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+.ortChip { display: inline-flex; align-items: center; gap: var(--sp-1); min-height: 32px; padding: 0 var(--sp-2);
+  border-radius: var(--r-sm); }
+.ortChip svg { width: 14px; height: 14px; flex: none; }
+/* am Einsatzort = the ordinary case: the row's own green, one step stronger */
+.ortScene { color: var(--green-strong); }
+.ortScene .ortChip { background: var(--green-16); }
+/* …the Magazin is the one worth SEEING, because it is the answer to the question */
+.ortStation { color: var(--ink); }
+.ortStation .ortChip { background: var(--ink-12); }
+@media (hover: hover) {
+  button.ortScene:hover .ortChip { background: var(--green-22); }
+  button.ortStation:hover .ortChip { background: var(--ink-22); }
+}
+button.ort:active .ortChip, button.ort[data-popup-open] .ortChip { background-image: linear-gradient(var(--press), var(--press)); }
 
 
 
