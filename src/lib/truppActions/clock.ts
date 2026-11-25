@@ -12,6 +12,7 @@ import { alarmBarFor, currentRunStart, earlyEntryCorrection, fmtDuration, isAtem
 import { serverNowIso } from '../serverClock'
 import { noteOwnContact, recentOwnContact } from '../contactEcho'
 import { onAtemschutzLink } from '../linkMode'
+import { refuse } from '../meldungenRefusal'
 import { auftragText, withDetails, type TruppActionCore, type TruppActionDeps } from './core'
 
 // The Trupp CLOCK family — the safety-critical rules: Funkkontakt, Druckmeldung, the lifecycle
@@ -100,11 +101,15 @@ export function truppClockActions(deps: ClockDeps) {
 
   // record a cylinder pressure reading — logged for the record, and counts as a contact. All
   // derived state (lowestBar, the log row) is computed INSIDE the updater so it never reads stale.
-  // `asReading`: the operator said this early value IS a Druckmeldung, not the Eingangsdruck asked
-  // late (owner pick UX journeys B2·18, 25.11.2026 – the board asks below the station's minimum,
-  // AtemschutzView · the PressureSheet); it skips the early correction below.
-  const recordPressure = (id: string, bar: number, { asReading = false }: { asReading?: boolean } = {}) => {
-    const tr = trupps.find((t) => t.id === id)
+  // `as`: what the operator said this early value IS, when the board asked (owner pick UX journeys
+  // B2·18, 25.11.2026 – below the station's minimum, AtemschutzView · pickPressure). `reading` skips
+  // the early correction below; `entry` asks for it. Absent: the rule decides, as before.
+  // ⚠️ The answer comes after a question, so the Trupp is read as it stands NOW (`liveTrupps`): a
+  // measured Druck or the end of the window while the question stood makes `entry` no longer
+  // possible. Then the value is still a gauge read at a radio call – it is written as the
+  // Druckmeldung, and the board SAYS so (refuse), never a silent switch.
+  const recordPressure = (id: string, bar: number, { as }: { as?: 'entry' | 'reading' } = {}) => {
+    const tr = (liveTrupps?.() ?? trupps).find((t) => t.id === id)
     const now = serverNowIso()
     // Crossing the Alarmdruck is the moment the Trupp has to turn round, and it was visible on
     // the card and nowhere else — the reconstruction afterwards could not say when it happened.
@@ -129,7 +134,11 @@ export function truppClockActions(deps: ClockDeps) {
      * appends a `contact` row carrying the new bar, beside the corrected baseline, in ONE Verlauf
      * row that says both. It never touches an Eingangsdruck set on purpose
      * (earlyEntryCorrection → entryPressureConfirmed); the PressureSheet names the rule. */
-    if (tr && !crossed && !asReading && earlyEntryCorrection(tr, Date.parse(now))) {
+    const correction = !!tr && !crossed && as !== 'reading' && earlyEntryCorrection(tr, Date.parse(now))
+    if (tr && as === 'entry' && !correction) {
+      refuse(fillTemplate(appConfig.copy.atemschutz.earlyLowTooLate, { bar, edit: appConfig.copy.edit }))
+    }
+    if (tr && correction) {
       const apply = (t: Trupp): Trupp => {
         const c = { ...t, ...correctEntryPressure(t, bar) }
         return { ...c, lastContactTime: now, readings: [...(c.readings ?? []), { t: now, bar, kind: 'contact' as const, ...viaHere() }] }

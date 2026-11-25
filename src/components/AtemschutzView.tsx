@@ -148,9 +148,9 @@ export function AtemschutzView({
   adoptMarker: (truppId: string, markerId: string) => void
   focusTruppOnPlan: (id: string) => void
   recordContact: (id: string) => void
-  /** `asReading`: an early low value the operator called a Druckmeldung (B2·18) – never the
-   *  Eingangsdruck correction (lib/truppActions/clock · recordPressure) */
-  recordPressure: (id: string, bar: number, opts?: { asReading?: boolean }) => void
+  /** `as`: what the operator called an early low value when asked (B2·18) – the Druckmeldung or
+   *  the Eingangsdruck correction (lib/truppActions/clock · recordPressure) */
+  recordPressure: (id: string, bar: number, opts?: { as?: 'entry' | 'reading' }) => void
   /** `exitBar` = the Restdruck asked at «Raus melden» (PressureSheet); absent = without one */
   setTruppStatus: (id: string, status: Trupp['status'], exitBar?: number, opts?: { undoToast?: boolean }) => void
   editTrupp: (id: string, f: TruppFields) => void
@@ -759,7 +759,9 @@ export function AtemschutzView({
         safeAnswer: 'cancel',
       })
       freezeOrder()
-      recordPressure(t.id, bar, { asReading: !asEntry })
+      // the answer is the intent – whether it is still possible, recordPressure decides on the
+      // Trupp as it stands now (and says so when it is not)
+      recordPressure(t.id, bar, { as: asEntry ? 'entry' : 'reading' })
       return
     }
     freezeOrder()

@@ -260,7 +260,7 @@ describe('recordPressure in the first minutes after the Eintritt', () => {
   // Druckmeldung» records it against the Eingangsdruck instead of replacing it
   it('records an early value the operator called a Druckmeldung as a reading — the Eingangsdruck stays', () => {
     const { actions, state } = harness(fresh())
-    actions.recordPressure('T1', 180, { asReading: true })
+    actions.recordPressure('T1', 180, { as: 'reading' })
     const t = state.trupps[0]
     expect(t.entryPressureBar).toBe(300)
     expect(t.lastPressureBar).toBe(180)

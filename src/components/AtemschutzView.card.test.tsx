@@ -750,7 +750,7 @@ describe('a low first Druck right after «Im Einsatz»', () => {
     const safe = within(dialog).getByRole('button', { name: az.earlyLowAsReading })
     expect(document.activeElement).toBe(safe)
     fireEvent.click(safe)
-    await waitFor(() => expect(recordPressure).toHaveBeenCalledWith('tr1', 180, { asReading: true }))
+    await waitFor(() => expect(recordPressure).toHaveBeenCalledWith('tr1', 180, { as: 'reading' }))
   })
 
   it('«Eingangsdruck 180 bar» lets it replace the Eingangsdruck', async () => {
@@ -759,7 +759,7 @@ describe('a low first Druck right after «Im Einsatz»', () => {
     mount({ trupps: [justIn()], recordPressure })
     tapDruck(180)
     fireEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: fillTemplate(az.earlyLowAsEntry, { bar: 180 }) }))
-    await waitFor(() => expect(recordPressure).toHaveBeenCalledWith('tr1', 180, { asReading: false }))
+    await waitFor(() => expect(recordPressure).toHaveBeenCalledWith('tr1', 180, { as: 'entry' }))
   })
 
   it('asks nothing at or above the minimum – 280 replaces silently, as before', () => {

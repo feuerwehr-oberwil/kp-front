@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { SetStateAction } from 'react'
 import type { Trupp } from '../../types'
 import { appConfig } from '../../config/appConfig'
+import { fillTemplate } from '../format'
 import { createUndoTimeline } from '../undoTimeline'
 import { resetOwnContacts } from '../contactEcho'
 import { truppActionCore } from './core'
@@ -144,6 +145,39 @@ describe('truppClockActions — where a Kontakt was logged', () => {
     expect(last(b.t())).toMatchObject({ kind: 'pressure', via: 'link' })
     tick(8); b.act().setTruppStatus('T1', 'rueckzug')
     expect(last(b.t())).toMatchObject({ kind: 'rueckzug', via: 'link' })
+  })
+})
+
+/* owner pick UX journeys B2·18 (25.11.2026): «Eingangsdruck 180 bar» answers a question, so it is
+ * checked against the Trupp as it stands when the answer comes – and never switched silently. */
+describe('truppClockActions — the Eingangsdruck asked for', () => {
+  const inside = () => trupp({ status: 'aktiv', entryTime: at(0), lastContactTime: at(0), readings: [{ t: at(0), bar: 300, kind: 'entry' }] })
+  const tooLate = (bar: number) => fillTemplate(appConfig.copy.atemschutz.earlyLowTooLate, { bar, edit: appConfig.copy.edit })
+
+  it('replaces the Eingangsdruck while it still may', () => {
+    const b = clockBoard([inside()])
+    tick(1); b.act().recordPressure('T1', 180, { as: 'entry' })
+    expect(b.t().entryPressureBar).toBe(180)
+    expect(ui.toasts).toEqual([])
+  })
+
+  it('an answer after the window is a Druckmeldung, and the board says so', () => {
+    const b = clockBoard([inside()])
+    tick(2); const asked = b.act()
+    tick(4); asked.recordPressure('T1', 180, { as: 'entry' })
+    expect(b.t()).toMatchObject({ entryPressureBar: 300, lastPressureBar: 180 })
+    expect(last(b.t())).toMatchObject({ kind: 'pressure', bar: 180 })
+    expect(ui.toasts).toEqual([tooLate(180)])
+  })
+
+  it('never overwrites an Eingangsdruck measured while the question stood', () => {
+    const b = clockBoard([inside()])
+    tick(1); const asked = b.act()
+    b.act().recordPressure('T1', 280) // the first Druck from another hand: the measured baseline
+    asked.recordPressure('T1', 180, { as: 'entry' })
+    expect(b.t().entryPressureBar).toBe(280)
+    expect(last(b.t())).toMatchObject({ kind: 'pressure', bar: 180 })
+    expect(ui.toasts).toEqual([tooLate(180)])
   })
 })
 

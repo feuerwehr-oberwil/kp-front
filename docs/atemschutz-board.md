@@ -398,7 +398,9 @@ good but we don't need the triangle thing. red and notfall is already enough»):
   the minimum it asks once, «Eingangsdruck 180 bar?», «Als Druckmeldung» filled and focused (a
   reading against the Eingangsdruck), «Eingangsdruck 180 bar» the quiet answer (owner pick UX
   journeys B2·18, 25.11.2026 – a 180 silently became the baseline). At or over the minimum it
-  replaces silently, as before.
+  replaces silently, as before. The answer is checked on the Trupp as it stands when it comes
+  (`recordPressure` · `as`): past the window, or after a Druck measured meanwhile, «Eingangsdruck»
+  is written as the Druckmeldung and the board says so (a refusal) – never a silent switch.
 A question whose «yes» WRITES something a reflex must not (these three) puts the safe answer
 first: `ConfirmSpec · safeAnswer` ('cancel' | 'alt') fills and focuses it, not red. Every
 question MOUNTS FRESH (`Overlays` keys the card per request, staging r3 F5): a chain answered

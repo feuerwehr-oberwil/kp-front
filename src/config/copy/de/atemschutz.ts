@@ -1009,6 +1009,8 @@ export const atemschutzCopy = {
     earlyLowMsg: 'Üblich ab {min} bar – angemeldet mit {entry} bar.',
     earlyLowAsReading: 'Als Druckmeldung',
     earlyLowAsEntry: 'Eingangsdruck {bar} bar',
+    // …und die Antwort «Eingangsdruck», wenn sie nicht mehr geht (Fenster vorbei, inzwischen gemessen)
+    earlyLowTooLate: 'Eingangsdruck nicht mehr ersetzbar – {bar} bar als Druckmeldung erfasst. Ändern unter «{edit}».',
     // die zweite Zeile der Kontakt-Taste, solange der letzte Kontakt vom geteilten Link kam (owner
     // pick UX journeys M·12, 25.11.2026 – lib/atemschutz · contactViaLink); die lange Form ist ihr Name
     contactViaLink: '{time} Uhr · über Link',

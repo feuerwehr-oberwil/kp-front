@@ -478,6 +478,7 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     earlyLowMsg: 'Di solito da {min} bar – annunciata con {entry} bar.',
     earlyLowAsReading: 'Come lettura di pressione',
     earlyLowAsEntry: 'Pressione d’entrata {bar} bar',
+    earlyLowTooLate: 'La pressione d’entrata non può più essere sostituita – {bar} bar registrati come lettura di pressione. Modificare in «{edit}».',
     contactViaLink: '{time} · via link',
     contactViaLinkLong: 'ultimo contatto {time} via link',
   },
