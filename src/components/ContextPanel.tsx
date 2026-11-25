@@ -249,6 +249,9 @@ export interface ContextPanelProps {
   /** …and its «Herkunft» (05.11.2026), the row under the Fahrer: same reason, same override map,
    *  `options` = the station's `fleet.origins`. Without `onChange` a read-out. */
   origin?: { value: string; options?: string[]; onChange?: (v: string) => void }
+  /** A vehicle's Einsatz clocks («Ausgerückt 13:40», «Vor Ort 13:48») – automatic, read-only rows
+   *  from the Rapport's vehicle times (lib/vehicleTimes, owner 25.11.2026: «Sheet only»). */
+  vehicleTimes?: { label: string; value: string }[]
   /** A placed Fahrzeug named like a GPS vehicle beside it (lib/gpsTwin, owner picks UX journeys
    *  B3·33/34): the hint under «Bezeichnung», and `onHold` – the symbol goes, the GPS vehicle is
    *  held at its spot. Without `onHold` (a locked session) the hint alone. */
@@ -319,7 +322,7 @@ function LinkBtn({ onClick, text }: { onClick: () => void; text: string }) {
   )
 }
 
-export function ContextPanel({ entity, svg, onClose, onCenter, onOriginal, originalLabel, onTitle, onTitleLive, onFields, onNotes, onReadingAgain, onFloorFrom, onFloorTo, onSpread, onCount, onRotate, onErgRings, ergCoord, onAdoptRadius, ergAdopted, onRotate2, onCaption, captionDefault = 'auto', onAirflow, controls, titleOptions, fieldOptions, rosterRank, protectedKeys, onDelete, onDone, onStopSharing, readOnly, allowDelete = false, hasOverride, onPinGps, onResetGps, driver, origin, gpsTwin, personStatus, fieldHints, connectedLines = [], onFocusLine, dockedToLabel, onUndock, dockedTeams = [], onNoteSize, autoFocusNote = false, onNotePlain, onColor }: ContextPanelProps) {
+export function ContextPanel({ entity, svg, onClose, onCenter, onOriginal, originalLabel, onTitle, onTitleLive, onFields, onNotes, onReadingAgain, onFloorFrom, onFloorTo, onSpread, onCount, onRotate, onErgRings, ergCoord, onAdoptRadius, ergAdopted, onRotate2, onCaption, captionDefault = 'auto', onAirflow, controls, titleOptions, fieldOptions, rosterRank, protectedKeys, onDelete, onDone, onStopSharing, readOnly, allowDelete = false, hasOverride, onPinGps, onResetGps, driver, origin, vehicleTimes = [], gpsTwin, personStatus, fieldHints, connectedLines = [], onFocusLine, dockedToLabel, onUndock, dockedTeams = [], onNoteSize, autoFocusNote = false, onNotePlain, onColor }: ContextPanelProps) {
   // read per-render (not module-load) so the resolved locale is applied — see config/copy
   const C = appConfig.copy.contextPanel
   const N = appConfig.copy.notes
@@ -657,7 +660,7 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
   /** the symbol's own name, for the header of everything that is NOT user-labelled */
   const symbolName = entity.symbol ? formatSymbolName(entity.symbol) : ''
   // a live vehicle's Fahrer / Herkunft count as details too – a read-only sheet with no other row hid them
-  const showDetails = !isNote && (showFloorRange || showCount || showRotate || showSpread || showAirflow || onNotes || rows.length > 0 || showUnHazard || !readOnly || !!driver || !!origin)
+  const showDetails = !isNote && (showFloorRange || showCount || showRotate || showSpread || showAirflow || onNotes || rows.length > 0 || showUnHazard || !readOnly || !!driver || !!origin || vehicleTimes.length > 0)
 
   /* on-canvas caption override for THIS symbol — small + de-emphasised down by the actions
      (the field values matter first; visibility is a rare tweak). Standard follows the device
@@ -881,6 +884,11 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
           {/* The glyph-affecting steppers — grouped, only the ones this symbol declares. View
               state keeps the literal same row/chrome and disables it: removing unset controls
               made the mirrored object's sidebar a different, mostly empty object. */}
+          {/* the vehicle's Einsatz clocks first: «is it vor Ort?» is the radio's question
+              (lib/vehicleTimes). Automatic, so a read-out on every session. */}
+          {vehicleTimes.map((t) => (
+            <div key={t.label} className="field"><span className="kv-key-ro">{t.label}</span><b className="kv-val-ro">{t.value}</b></div>
+          ))}
           {driver && !driver.onChange && (
             // the locked session's read-out: the same row, the value as every read-only field shows it
             <div className="field"><span className="kv-key-ro">{C.driverLabel}</span><b className="kv-val-ro">{driver.value || '–'}</b></div>

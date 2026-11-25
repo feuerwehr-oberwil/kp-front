@@ -233,6 +233,14 @@ export const editorsCopy = {
     gpsTwinHint: 'ist schon per GPS auf der Karte, {m} m daneben. Zwei Symbole = zwei Fahrzeuge?',
     gpsTwinHold: 'Stattdessen GPS-{name} hier festhalten',
     gpsTwinStep: 'GPS-{name} statt Symbol festgehalten',
+    /** Die Einsatzzeiten eines Fahrzeugs im Blatt, automatisch aus den Ausrückzeiten des Rapports
+     *  (lib/vehicleTimes, Owner 25.11.2026: «im Detailblatt, als automatisches Attribut»). */
+    vehicleTimes: {
+      ausgerueckt: 'Ausgerückt',
+      vorOrt: 'Vor Ort',
+      zurueck: 'Zurück im Magazin',
+      notYet: 'noch nicht',
+    },
   },
   drawingEditor: {
     area: 'Fläche',

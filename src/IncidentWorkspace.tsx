@@ -3331,6 +3331,7 @@ export function IncidentWorkspace({
         setDocRaw, endDrag, emit, patchEntity, linkRosterFields, createCircle, doc, undockTeam, effTrupps,
         symbolCaptions, rosterNames, rosterRank, personStatus, rosterFieldHints, setEntityDone, commitEntityFields,
         vehicleOverrides, canEditIncident, readOnly, stopPersonSharing, setVehicleOverrides, resetVehicleGps, placeVehicle, holdGpsInstead, log,
+        fahrzeuge: reportMeta.fahrzeuge,
         assignTypedName, drawings, entities, focusDrawing, noteEntity, notePlacedId, setNotePanelId,
         noteTextLive, setNoteDefaults, selectedDrawing, patchDrawing,
         selectedDrawingId, patchDrawingLabelLive, commitDrawingLabel,

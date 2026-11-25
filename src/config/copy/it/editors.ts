@@ -151,6 +151,7 @@ export const editorsCopy: Localizable<Pick<Copy, Keys>> = {
     gpsTwinHint: 'è già sulla carta via GPS, a {m} m. Due simboli = due veicoli?',
     gpsTwinHold: 'Fissa invece qui il GPS-{name}',
     gpsTwinStep: 'GPS-{name} fissato al posto del simbolo',
+    vehicleTimes: { ausgerueckt: 'Uscito', vorOrt: 'Sul posto', zurueck: 'Rientrato in caserma', notYet: 'non ancora' },
   },
   drawingEditor: {
     area: 'Superficie',

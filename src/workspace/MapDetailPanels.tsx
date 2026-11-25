@@ -26,8 +26,10 @@ import type { useSymbols } from '../lib/useSymbols'
 import { positionOverride, type VehicleOverrides, type VehiclePosition } from '../lib/useVehicleLayer'
 import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import type { TacticalObject } from '../lib/tacticalObjects'
-import type { Doc } from '../lib/workspace'
+import type { Doc, FahrzeugZeit } from '../lib/workspace'
 import { gpsTwin } from '../lib/gpsTwin'
+import { gpsDeviceOf, vehicleTimeRows } from '../lib/vehicleTimes'
+import { getDeploymentConfig } from '../lib/deploymentConfig'
 import type { Entity, LngLat, TimelineEvent, Trupp, Drawing, NoteSize, Person, LineEndpoint, LineAttachment, LayerId, CaptionMode, MapTool } from '../types'
 import type { WorkspaceMode } from './types'
 
@@ -75,6 +77,8 @@ export interface MapDetailPanelsProps {
   placeVehicle: (id: string, pos: VehiclePosition) => void
   /** a placed Fahrzeug goes and its GPS twin is held there instead (useMapActions · holdGpsInstead) */
   holdGpsInstead: (symbolId: string, vehicleId: string, name: string) => void
+  /** the Rapport's vehicle times – a vehicle's sheet reads its clocks (lib/vehicleTimes) */
+  fahrzeuge: FahrzeugZeit[] | undefined
   log: (icon: string, text: string, kind?: TimelineEvent['kind'], audioUrl?: string, entityId?: string, opts?: { rowId?: string; subjectId?: string }) => void
   assignTypedName: (name: string, role: AssignableRole, note?: string) => string | undefined
   drawings: Drawing[]
@@ -123,7 +127,7 @@ export function MapDetailPanels({
   timeline, sym, entityTypedAt, titleLiveRef, beginDrag,
   setDocRaw, endDrag, emit, patchEntity, linkRosterFields, createCircle, doc, undockTeam, effTrupps,
   symbolCaptions, rosterNames, rosterRank, personStatus, rosterFieldHints, setEntityDone, commitEntityFields,
-  vehicleOverrides, canEditIncident, readOnly, stopPersonSharing, setVehicleOverrides, resetVehicleGps, placeVehicle, holdGpsInstead, log,
+  vehicleOverrides, canEditIncident, readOnly, stopPersonSharing, setVehicleOverrides, resetVehicleGps, placeVehicle, holdGpsInstead, fahrzeuge, log,
   assignTypedName, drawings, entities, focusDrawing, noteEntity, notePlacedId, setNotePanelId,
   noteTextLive, setNoteDefaults, selectedDrawing, patchDrawing,
   selectedDrawingId, patchDrawingLabelLive, commitDrawingLabel,
@@ -359,6 +363,13 @@ export function MapDetailPanels({
               })),
             }
             : undefined}
+          // «Ausgerückt 13:40 · Vor Ort 13:48» – a GPS vehicle by its device, a placed Fahrzeug by
+          // its Bezeichnung (lib/vehicleTimes; owner, batch-3 round #5, 25.11.2026: «Sheet only»)
+          vehicleTimes={selected.live && selected.kind === 'vehicle'
+            ? vehicleTimeRows({ name: selected.label, device: gpsDeviceOf(selected.id) }, getDeploymentConfig().fleet?.vehicles ?? [], fahrzeuge)
+            : selected.symbol === appConfig.symbols.vehicleName
+              ? vehicleTimeRows({ name: selected.label }, getDeploymentConfig().fleet?.vehicles ?? [], fahrzeuge)
+              : undefined}
           // a placed Fahrzeug named like the GPS vehicle beside it: «Zwei Symbole = zwei
           // Fahrzeuge?» and the way out (lib/gpsTwin, owner picks UX journeys B3·33/34)
           gpsTwin={selected.symbol === appConfig.symbols.vehicleName ? (() => {
