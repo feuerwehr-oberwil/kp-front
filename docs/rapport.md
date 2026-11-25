@@ -189,6 +189,10 @@ the three mockup rounds: `docs/planning/signature-2026-10-15/` (local, gitignore
 - **A one-day Einsatz prints the time alone** («07:03»); the date stands once in the heading,
   «Einsatzjournal · 23.10.2026» (`reportPdfDirect · oneDay` → `ReportPayload.journalDay`). Rows
   across midnight keep «Datum Zeit» on every row.
+- **The Pendenzen follow the sheet's one midnight rule** (`report · pendenzRows` → `spanAwareClock`,
+  25.11.2026): sorted by the instant, not the printed «HH:MM» (00:10 printed above 23:50), and
+  every clock carries its day once the Einsatz spans days. An old row with only its «HH:MM» keeps
+  its place and prints no day.
 
 ## Messungen (10.11.2026)
 
