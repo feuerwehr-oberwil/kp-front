@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
-  applyAction, attendanceForPickedName, attendanceForTypedName, autoOpenTarget, captureJournalRow,
-  cycleAttendance, saveAction, type CapturePerson,
+  applyAction, attendanceForPickedName, attendanceForTypedName, autoOpenTarget, captureJournalRows,
+  cycleAttendance, saveAction, type CaptureAction, type CapturePerson,
 } from './captureClient'
+import { changedReportMetaLines } from './report'
 import { resetServerClock } from './serverClock'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from './format'
@@ -322,7 +323,7 @@ describe('applyAction · Gast', () => {
   })
 
   it('writes the same Verlaufszeile the tablet writes for a Gast', () => {
-    const row = captureJournalRow(guest, NOW)
+    const [row] = captureJournalRows(guest, NOW)
     expect(row?.text).toBe(fillTemplate(appConfig.copy.anwesenheit.logGuestAdded, { name: 'Wm. Keller' }))
     expect(row?.icon).toBe('user')
   })
@@ -345,8 +346,11 @@ describe('applyAction · Bemerkung', () => {
   })
 })
 
-describe('captureJournalRow — the poster writes to the Verlauf too', () => {
+describe('captureJournalRows — the poster writes to the Verlauf too', () => {
   const NOW = '2026-08-07T09:41:00.000Z'
+  /** the one row an action writes (`setMeta` gets the tablet's diff from an empty Rapport) */
+  const captureJournalRow = (a: CaptureAction, now: string, ctx: Parameters<typeof captureJournalRows>[2] = {}) =>
+    captureJournalRows(a, now, a.kind === 'setMeta' ? { ...ctx, metaLines: changedReportMetaLines({}, a.patch) } : ctx)[0] ?? null
 
   it('names which way the attendance cycle went', () => {
     const a = { kind: 'cycleAttendance', personId: 'p1', name: 'Meier Anna' } as const
@@ -481,5 +485,22 @@ describe('saveAction', () => {
     expect(Math.abs(at - serverNow)).toBeLessThan(5_000)
     await vi.waitFor(() => expect(journal).toHaveLength(1))
     expect(journal[0].at).toBe(new Date(at).toISOString())
+  })
+
+  it('writes a Partnerorganisation tick in the tablet\'s words, marked (QR)', async () => {
+    blob = { reportMeta: { einsatzleiter: 'Widmer Céline' } } as unknown as Workspace
+    await saveAction('tok', 'i1', { kind: 'setMeta', patch: { partnerContacts: [{ org: 'Polizei' }] } })
+    await vi.waitFor(() => expect(journal).toHaveLength(1))
+    const [tablet] = changedReportMetaLines({}, { partnerContacts: [{ org: 'Polizei' }] }).statements
+    expect(journal[0].text).toBe(`${tablet} (QR)`)
+    expect(journal[0].text).toBe('Partnerorganisation Polizei ergänzt (QR)')
+  })
+
+  it('writes no row when the save changed nothing', async () => {
+    // the tablet removed this person while somebody edited their times on the poster
+    blob = { attendance: {} } as unknown as Workspace
+    await saveAction('tok', 'i1', { kind: 'setTimes', personId: 'gone', from: '2026-08-07T09:00:00.000Z' })
+    await new Promise((r) => setTimeout(r, 0))
+    expect(journal).toEqual([])
   })
 })

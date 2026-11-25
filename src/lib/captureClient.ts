@@ -6,6 +6,7 @@
 
 import type { AttendanceEntry, AttendanceOrt, MittelEntry, TimelineEvent } from '../types'
 import type { ReportMeta } from './workspace'
+import type { ReportMetaLines } from './report'
 import type { IncidentMeta, Workspace } from './incidents'
 import type { DeploymentConfig } from './deploymentConfig'
 import { closePresence, currentIntervalIndex, isPresent, openPresence, setIntervalTime } from './attendanceIntervals'
@@ -14,6 +15,7 @@ import { currentLineFor } from './mittel'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, hhmm, unitLabel } from './format'
 import { newId } from './ids'
+import { jsonEqual } from './jsonEqual'
 import { linkSessionHeaders } from './linkMode'
 import { isFreshSampleSource, noteServerTime, serverNowIso } from './serverClock'
 
@@ -48,34 +50,31 @@ export type CaptureAction =
   | { kind: 'addAttachment'; id: string; url: string; caption?: string }
   | { kind: 'removeAttachment'; id: string }
 
-/** Which Rapportangaben are short enough to quote, and which are prose — the tablet's rule, applied
- *  to the subset the poster can reach (lib/report · META_SHORT / META_PROSE). */
-const META_SHORT = new Set(['einsatzleiter', 'kontaktperson', 'kontaktpersonTelefon', 'endedAt', 'ausgeruecktAt'])
-const META_PROSE = new Set(['summary', 'remarks', 'lehren'])
-
 /**
- * The Verlaufszeile for one capture action — the poster's half of the record.
+ * The Verlaufszeilen for one capture action — the poster's half of the record.
  *
  * Everything the poster can change is incident RECORD (who was there, what was used, what the
  * rapport says), and all of it used to land in the workspace blob without a single journal row:
  * the same tap on the tablet logged, the same tap on the phone did not. `erfasser` is the one
  * exception — it is bookkeeping about the capture itself, not about the Einsatz.
  *
- * Pure, so the wording is testable without a server. Returns null for an action that records
- * nothing worth a line.
+ * Pure, so the wording is testable without a server. One row per action, except `setMeta`, which
+ * writes what the tablet writes for the same change (several rows, or none).
  */
 export interface CaptureLogContext {
   /** what the attendance cycle actually DID — only knowable from the resulting entry */
   outcome?: 'station' | 'present' | 'left' | 'cleared'
   /** display name behind a personId, so a row reads «Meier Anna» and not a uuid */
   name?: string
+  /** `setMeta` only: the tablet's own diff of the Rapportangaben (lib/report ·
+   *  changedReportMetaLines). Handed in, because lib/report stays out of the poster's first chunk. */
+  metaLines?: ReportMetaLines
 }
 
-export function captureJournalRow(
+export function captureJournalRows(
   action: CaptureAction, nowIso: string, ctx: CaptureLogContext = {},
-): TimelineEvent | null {
+): TimelineEvent[] {
   const C = appConfig.copy.capture
-  const P = appConfig.copy.preflight
   const row = (icon: string, text: string): TimelineEvent => ({
     // two rows in the same millisecond must not share an id, or the server's idempotency skip
     // swallows the second one. ⚠️ A per-page counter kept one phone's rows apart but not two
@@ -97,65 +96,54 @@ export function captureJournalRow(
           // building yet is the half-truth this whole feature exists to end
           : ctx.outcome === 'station' ? appConfig.copy.anwesenheit.logOrtStation
             : C.logAttendancePresent
-      return row('user', fillTemplate(tpl, { name: action.name }))
+      return [row('user', fillTemplate(tpl, { name: action.name }))]
     }
     case 'setAttendanceOrt':
-      return row('user', fillTemplate(
+      return [row('user', fillTemplate(
         action.ort === 'station' ? appConfig.copy.anwesenheit.logOrtStation : appConfig.copy.anwesenheit.logOrtScene,
         { name: action.name },
-      ))
+      ))]
     case 'restoreAttendance':
-      return row('user', fillTemplate(C.logAttendanceRestored, {
+      return [row('user', fillTemplate(C.logAttendanceRestored, {
         name: ctx.name ?? action.entry.displayNameSnapshot ?? '',
-      }))
+      }))]
     // the same line the tablet writes for the same act, so a Gast reads identically in the
     // Verlauf whoever recorded them (lib/useAttendanceActions · addGuest)
     case 'addGuest':
-      return row('user', fillTemplate(appConfig.copy.anwesenheit.logGuestAdded, { name: action.name }))
+      return [row('user', fillTemplate(appConfig.copy.anwesenheit.logGuestAdded, { name: action.name }))]
     case 'setTimes':
-      return row('clock', fillTemplate(C.logTimes, { name: ctx.name ?? action.personId }))
+      return [row('clock', fillTemplate(C.logTimes, { name: ctx.name ?? action.personId }))]
     case 'setAttendanceNote':
       // same event and therefore the same wording as the tablet's Anwesenheit view — a
       // Bemerkung reads identically in the Verlauf no matter which surface wrote it
-      return row('user', fillTemplate(appConfig.copy.anwesenheit.logNote, {
+      return [row('user', fillTemplate(appConfig.copy.anwesenheit.logNote, {
         name: ctx.name ?? action.personId, note: action.note ?? '–',
-      }))
+      }))]
     case 'setMittel':
-      return row('box', fillTemplate(C.logMittel, {
+      return [row('box', fillTemplate(C.logMittel, {
         label: action.label, menge: String(action.menge), unit: unitLabel(action.unit),
-      }))
+      }))]
     // ⚠️ 'attach', not 'photo' (23.08.): a Beilage is a Rapport row, while #photo is also what a
     // composer photo entry wears, and that one is «Info». One glyph, two Bereiche — invisible
     // on paper (the print has a Bereich column) but fatal on the Verlauf, where the disc is now
     // the whole classification. Rows written before the change keep #photo and `journalArea`
     // keeps reading them as Rapport; the record is append-only.
     case 'addAttachment':
-      return row('attach', C.logAttachmentAdd)
+      return [row('attach', C.logAttachmentAdd)]
     case 'removeAttachment':
-      return row('attach', C.logAttachmentRemove)
+      return [row('attach', C.logAttachmentRemove)]
     case 'setMeta': {
-      const keys = Object.keys(action.patch).filter((k) => k !== 'erfasser')
-      // «Erfasser» alone is bookkeeping about the capture, not a change to the Einsatz
-      if (!keys.length) return null
-      // Same rule as the tablet (lib/report · changedReportMetaFields): a short field carries
-      // its new value, free text says only that it was written. A row reading «Rapportangaben
-      // geändert (QR): Bemerkungen» is one nobody can act on — the poster's whole point is that
-      // the person at the magazine records something the command post has not seen.
-      const patch = action.patch as Record<string, unknown>
-      const fields = keys.map((k) => {
-        // the copy catalogue's one Rapportangaben map, shared with the tablet (lib/report)
-        const label = appConfig.copy.report.metaFieldLabels[k] ?? k
-        const v = patch[k]
-        if (META_PROSE.has(k)) return `${label} ${typeof v === 'string' && v.trim() ? P.metaWritten : P.metaCleared}`
-        if (META_SHORT.has(k) && typeof v === 'string' && v.trim()) {
-          return fillTemplate(P.metaValue, { label, value: v.trim() })
-        }
-        return label
-      })
-      return row('clipboard', fillTemplate(C.logMeta, { fields: fields.join(', ') }))
+      // the tablet's rule, word for word (IncidentWorkspace · saveReportMeta): the scalar fields
+      // share one row, each structured statement («Partnerorganisation Polizei ergänzt») is a row
+      // of its own. «Erfasser» is bookkeeping about the capture and yields nothing.
+      const { fields, statements } = ctx.metaLines ?? { fields: [], statements: [] }
+      return [
+        ...(fields.length ? [row('clipboard', fillTemplate(C.logMeta, { fields: fields.join(', ') }))] : []),
+        ...statements.map((statement) => row('clipboard', fillTemplate(C.logMetaStatement, { statement }))),
+      ]
     }
     default:
-      return null
+      return []
   }
 }
 
@@ -521,7 +509,9 @@ export async function saveAction(
     try {
       const saved = await captureApi.putWorkspace(token, incidentId, next, workspace_rev)
       const ws = saved.workspace ?? next
-      void logCaptureAction(token, incidentId, action, nowIso, workspace, ws)
+      // a save that changed nothing (the tablet removed the person whose times this edits) has
+      // nothing for the Verlauf to say
+      if (!jsonEqual(workspace ?? {}, next)) void logCaptureAction(token, incidentId, action, nowIso, workspace, ws)
       return { workspace: ws, rev: saved.workspace_rev }
     } catch (e) {
       if (e instanceof CaptureError && e.status === 409 && attempt < 2) { attempt += 1; continue }
@@ -552,11 +542,16 @@ async function logCaptureAction(
   if (action.kind === 'setTimes' || action.kind === 'restoreAttendance' || action.kind === 'setAttendanceNote') {
     ctx.name = att(after, action.personId)?.displayNameSnapshot ?? att(before, action.personId)?.displayNameSnapshot
   }
-  const row = captureJournalRow(action, nowIso, ctx)
-  if (!row) return
+  const meta = (ws: Workspace | null) => (ws as { reportMeta?: ReportMeta } | null)?.reportMeta ?? {}
+  let rows: TimelineEvent[] = []
   try {
-    await captureApi.appendJournal(token, incidentId, [row])
+    if (action.kind === 'setMeta') {
+      const { changedReportMetaLines } = await import('./report')
+      ctx.metaLines = changedReportMetaLines(meta(before), meta(after))
+    }
+    rows = captureJournalRows(action, nowIso, ctx)
+    if (rows.length) await captureApi.appendJournal(token, incidentId, rows)
   } catch (e) {
-    console.error('Verlaufszeile der Erfassung konnte nicht gespeichert werden:', row.text, e)
+    console.error('Verlaufszeile der Erfassung konnte nicht gespeichert werden:', rows.map((r) => r.text), e)
   }
 }

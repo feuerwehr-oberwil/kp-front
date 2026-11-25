@@ -120,5 +120,8 @@ export const captureCopy = {
     groupCurrent: 'Aktuell',
     groupBacklog: 'Noch offen',
     beilageRemoved: 'Beilage entfernt',
+    // one structured Rapportangaben statement, in the tablet's words (lib/report ·
+    // changedReportMetaLines), marked like every other poster row
+    logMetaStatement: '{statement} (QR)',
   },
 } as const
