@@ -474,6 +474,10 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     zielPickPlanTitle: 'Choisir l’objectif sur le plan',
     zielPickBarTitle: 'Objectif du binôme',
     zielPickBarHint: 'Toucher un symbole',
+    earlyLowTitle: 'Pression d’entrée {bar} bar ?',
+    earlyLowMsg: 'Habituellement dès {min} bar – annoncé avec {entry} bar.',
+    earlyLowAsReading: 'Comme relevé de pression',
+    earlyLowAsEntry: 'Pression d’entrée {bar} bar',
   },
   lineDecor: {
     W: 'Eau',

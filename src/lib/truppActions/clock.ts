@@ -94,7 +94,10 @@ export function truppClockActions(deps: ClockDeps) {
 
   // record a cylinder pressure reading — logged for the record, and counts as a contact. All
   // derived state (lowestBar, the log row) is computed INSIDE the updater so it never reads stale.
-  const recordPressure = (id: string, bar: number) => {
+  // `asReading`: the operator said this early value IS a Druckmeldung, not the Eingangsdruck asked
+  // late (owner pick UX journeys B2·18, 25.11.2026 – the board asks below the station's minimum,
+  // AtemschutzView · the PressureSheet); it skips the early correction below.
+  const recordPressure = (id: string, bar: number, { asReading = false }: { asReading?: boolean } = {}) => {
     const tr = trupps.find((t) => t.id === id)
     const now = serverNowIso()
     // Crossing the Alarmdruck is the moment the Trupp has to turn round, and it was visible on
@@ -120,7 +123,7 @@ export function truppClockActions(deps: ClockDeps) {
      * appends a `contact` row carrying the new bar, beside the corrected baseline, in ONE Verlauf
      * row that says both. It never touches an Eingangsdruck set on purpose
      * (earlyEntryCorrection → entryPressureConfirmed); the PressureSheet names the rule. */
-    if (tr && !crossed && earlyEntryCorrection(tr, Date.parse(now))) {
+    if (tr && !crossed && !asReading && earlyEntryCorrection(tr, Date.parse(now))) {
       const apply = (t: Trupp): Trupp => {
         const c = { ...t, ...correctEntryPressure(t, bar) }
         return { ...c, lastContactTime: now, readings: [...(c.readings ?? []), { t: now, bar, kind: 'contact' as const }] }

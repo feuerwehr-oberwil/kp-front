@@ -256,6 +256,18 @@ describe('recordPressure in the first minutes after the Eintritt', () => {
     expect(t.readings?.[t.readings.length - 1]).toMatchObject({ kind: 'pressure', bar: 280 })
   })
 
+  // owner pick UX journeys B2·18 (25.11.2026): the board asks for a low value, and «Als
+  // Druckmeldung» records it against the Eingangsdruck instead of replacing it
+  it('records an early value the operator called a Druckmeldung as a reading — the Eingangsdruck stays', () => {
+    const { actions, state } = harness(fresh())
+    actions.recordPressure('T1', 180, { asReading: true })
+    const t = state.trupps[0]
+    expect(t.entryPressureBar).toBe(300)
+    expect(t.lastPressureBar).toBe(180)
+    expect(t.readings?.map((r) => r.kind)).toEqual(['entry', 'pressure'])
+    expect(t.lastContactTime).not.toBe(t.entryTime)
+  })
+
   it('a second Druck in the window is an ordinary reading — the first already set the baseline', () => {
     const { actions, state } = harness(fresh())
     actions.recordPressure('T1', 280)

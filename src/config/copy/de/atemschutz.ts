@@ -1001,6 +1001,13 @@ export const atemschutzCopy = {
     // die Leiste unten, solange gewählt wird: was gefragt ist, und Abbrechen führt zurück ins Sheet
     zielPickBarTitle: 'Ziel für den Trupp',
     zielPickBarHint: 'Symbol antippen',
+    // Ein Druck unter dem Stationsminimum in den ersten Minuten nach dem Eintritt fragt einmal, ob er
+    // der Eingangsdruck ist (owner pick UX journeys B2·18, 25.11.2026) – «Als Druckmeldung» ist die
+    // sichere, fokussierte Antwort; gleiche Schwelle wie «Eingangsdruck tief» im Formular
+    earlyLowTitle: 'Eingangsdruck {bar} bar?',
+    earlyLowMsg: 'Üblich ab {min} bar – angemeldet mit {entry} bar.',
+    earlyLowAsReading: 'Als Druckmeldung',
+    earlyLowAsEntry: 'Eingangsdruck {bar} bar',
   },
   // FKS hose-line device-letter labels (line decoration editor + tooltips)
   lineDecor: {

@@ -10,13 +10,14 @@
 // explicit «Bestätigen» commits.
 import { readFileSync } from 'node:fs'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { AtemschutzView } from './AtemschutzView'
 import { useIsPhone } from '../lib/useIsPhone'
 import s from './Atemschutz.module.css'
 import { registerAtemschutzViewHooks, az, druckName, dz, iso, aktivTrupp, propsFor, mount } from './AtemschutzView.setup'
 import type { Trupp } from '../types'
 import { fillTemplate } from '../lib/format'
+import { Overlays } from '../lib/ui'
 
 vi.mock('../lib/useIsPhone', async (original) => ({ ...await original<typeof import('../lib/useIsPhone')>(), useIsPhone: vi.fn(() => false) }))
 registerAtemschutzViewHooks()
@@ -720,5 +721,50 @@ describe('pointing to a Trupp', () => {
     expect(docked.querySelector(`.${s.factTxt}`)?.textContent).toBe(fillTemplate(az.dockedAt, { host }))
     expect(docked.querySelector(`.${s.factTxt} svg`)).toBeNull()   // the ▸ is not in the part that ellipsises
     expect(docked.querySelector(':scope > svg')).toBeTruthy()
+  })
+})
+
+/* ── A low Druck in the first minutes asks (owner pick UX journeys B2·18, 25.11.2026) ───────────
+ * Below the station's minimum the first Druck after the Eintritt is not silently the Eingangsdruck:
+ * the board asks once, «Als Druckmeldung» focused – the form's «Eingangsdruck tief» in the same form. */
+describe('a low first Druck right after «Im Einsatz»', () => {
+  const justIn = (): Trupp => ({
+    ...aktivTrupp(), entryTime: iso(60_000), lastContactTime: iso(60_000), lastPressureBar: undefined, lastPressureTime: undefined,
+    lowestBar: 300, readings: [{ t: iso(60_000), bar: 300, kind: 'entry' }],
+  })
+  const tapDruck = (bar: number) => {
+    fireEvent.click(screen.getByRole('button', { name: druckName }))
+    fireEvent.click(within(screen.getByRole('group', { name: az.pressureSheetTitle })).getByRole('button', { name: String(bar) }))
+  }
+
+  it('asks under the minimum, «Als Druckmeldung» focused, and records a reading', async () => {
+    render(<Overlays />)
+    const recordPressure = vi.fn()
+    mount({ trupps: [justIn()], recordPressure })
+    tapDruck(180)
+    const dialog = await screen.findByRole('alertdialog')
+    expect(within(dialog).getByText(fillTemplate(az.earlyLowTitle, { bar: 180 }))).toBeTruthy()
+    const safe = within(dialog).getByRole('button', { name: az.earlyLowAsReading })
+    expect(document.activeElement).toBe(safe)
+    fireEvent.click(safe)
+    await waitFor(() => expect(recordPressure).toHaveBeenCalledWith('tr1', 180, { asReading: true }))
+  })
+
+  it('«Eingangsdruck 180 bar» lets it replace the Eingangsdruck', async () => {
+    render(<Overlays />)
+    const recordPressure = vi.fn()
+    mount({ trupps: [justIn()], recordPressure })
+    tapDruck(180)
+    fireEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: fillTemplate(az.earlyLowAsEntry, { bar: 180 }) }))
+    await waitFor(() => expect(recordPressure).toHaveBeenCalledWith('tr1', 180, { asReading: false }))
+  })
+
+  it('asks nothing at or above the minimum – 280 replaces silently, as before', () => {
+    render(<Overlays />)
+    const recordPressure = vi.fn()
+    mount({ trupps: [justIn()], recordPressure })
+    tapDruck(280)
+    expect(screen.queryByRole('alertdialog')).toBeNull()
+    expect(recordPressure).toHaveBeenCalledWith('tr1', 280)
   })
 })

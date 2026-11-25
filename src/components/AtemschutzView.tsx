@@ -20,7 +20,7 @@ import { FilterStrip } from './FilterStrip'
 import { Menu, Overlay, Popover } from '../lib/overlays'
 import { NotfallBanner, NotfallPageHead, NotfallPageSafety, NotfallStrip, type SafetyActProps } from './AtemschutzNotfall'
 import { DoubleAssignmentBanner } from './DoubleAssignmentBanner'
-import { alarmBarFor, deriveTruppLive, safetyCandidates, safetyInside, safetyReady, truppInNotfall, earlyEntryCorrection, truppEditPatch, truppFieldGroupsChanged, truppLogName, type TruppFieldGroup, fmtClock, isAtemschutzTrupp, truppAlarm, truppFieldsOf, truppHeadName, truppInField, truppStillDeployed, truppGroupTransfer, truppTransferState, type TruppAlarm, type TruppLive, type TruppTransferState } from '../lib/atemschutz'
+import { alarmBarFor, deriveTruppLive, entryPressureAsks, safetyCandidates, safetyInside, safetyReady, truppInNotfall, earlyEntryCorrection, truppEditPatch, truppFieldGroupsChanged, truppLogName, type TruppFieldGroup, fmtClock, isAtemschutzTrupp, truppAlarm, truppFieldsOf, truppHeadName, truppInField, truppStillDeployed, truppGroupTransfer, truppTransferState, type TruppAlarm, type TruppLive, type TruppTransferState } from '../lib/atemschutz'
 import { foreignContactAgo } from '../lib/contactEcho'
 import { serverNow, serverNowIso } from '../lib/serverClock'
 import { isPresent } from '../lib/attendanceIntervals'
@@ -148,7 +148,9 @@ export function AtemschutzView({
   adoptMarker: (truppId: string, markerId: string) => void
   focusTruppOnPlan: (id: string) => void
   recordContact: (id: string) => void
-  recordPressure: (id: string, bar: number) => void
+  /** `asReading`: an early low value the operator called a Druckmeldung (B2·18) – never the
+   *  Eingangsdruck correction (lib/truppActions/clock · recordPressure) */
+  recordPressure: (id: string, bar: number, opts?: { asReading?: boolean }) => void
   /** `exitBar` = the Restdruck asked at «Raus melden» (PressureSheet); absent = without one */
   setTruppStatus: (id: string, status: Trupp['status'], exitBar?: number, opts?: { undoToast?: boolean }) => void
   editTrupp: (id: string, f: TruppFields) => void
@@ -730,6 +732,35 @@ export function AtemschutzView({
     freezeOrder()
     recordContact(id)
     return true
+  }
+
+  /* ── A low Druck in the first minutes ASKS whether it is the Eingangsdruck (owner pick UX
+   * journeys B2·18, 25.11.2026) ─────────────────────────────────────────────────────────────────
+   * The first Druck in the 3 min after the Eintritt replaces the Eingangsdruck (14.09.2026, field:
+   * the crew goes in on the default 300 and the gauge is read a minute later) – and a walker's 180
+   * silently became the baseline. Below the station's minimum (`doctrine.entryPressureMin`, the
+   * form's «Eingangsdruck tief» threshold – lib/atemschutz · entryPressureAsks) it asks ONCE, the
+   * same form as the form's question: «Als Druckmeldung» is the safe, focused answer (and what a
+   * dismissal means – the value was picked to be written), «Eingangsdruck 180 bar» replaces it.
+   * A value at or above the minimum still replaces silently, as before; a value at or under the
+   * Alarmdruck is never a correction (recordPressure · crossed), so it is never asked. */
+  const pickPressure = async (t: Trupp, bar: number) => {
+    const dz = atemschutzDoctrine()
+    const crosses = bar <= alarmBarFor(t, dz)
+    if (!crosses && earlyEntryCorrection(t, serverNow()) && entryPressureAsks(bar, dz)) {
+      const asEntry = await confirmDialog({
+        title: fillTemplate(az.earlyLowTitle, { bar }),
+        message: fillTemplate(az.earlyLowMsg, { min: dz.entryPressureMin, entry: t.entryPressureBar }),
+        confirmLabel: fillTemplate(az.earlyLowAsEntry, { bar }),
+        cancelLabel: az.earlyLowAsReading,
+        safeAnswer: 'cancel',
+      })
+      freezeOrder()
+      recordPressure(t.id, bar, { asReading: !asEntry })
+      return
+    }
+    freezeOrder()
+    recordPressure(t.id, bar)
   }
 
   // roster of everyone already entered on any Trupp (GF + AdF) — offered as quick-select chips
@@ -2021,7 +2052,7 @@ export function AtemschutzView({
           <PressureSheet t={t} title={az.pressureSheetTitle}
             hint={earlyEntryCorrection(t, serverNow()) ? fillTemplate(az.pressureSheetFirst, { bar: t.entryPressureBar }) : az.pressureSheetHint}
             last={lv.currentBar} alarmBar={alarmBarFor(t, atemschutzDoctrine())} onClose={close}
-            onPick={(bar) => { freezeOrder(); recordPressure(t.id, bar); close() }} />
+            onPick={(bar) => { close(); void pickPressure(t, bar) }} />
         )
       })()}
 

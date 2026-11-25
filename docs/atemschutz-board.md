@@ -373,7 +373,12 @@ good but we don't need the triangle thing. red and notfall is already enough»):
 - *The Eingangsdruck is guarded, once* (item 2, every width): locked in «Bearbeiten» once the
   Trupp is raus (pointing at the exit's Restdruck); below `doctrine.entryPressureMin` (default
   270, `/admin › Doktrin`) the form asks ONE question with the value on the button and «Ändern»
-  focused. No upper bound, no second plausibility rule.
+  focused. No upper bound, no second plausibility rule. The same threshold guards the first Druck
+  on the card in the 3 min after the Eintritt, which replaces the Eingangsdruck (14.09.2026): under
+  the minimum it asks once, «Eingangsdruck 180 bar?», «Als Druckmeldung» filled and focused (a
+  reading against the Eingangsdruck), «Eingangsdruck 180 bar» the quiet answer (owner pick UX
+  journeys B2·18, 25.11.2026 – a 180 silently became the baseline). At or over the minimum it
+  replaces silently, as before.
 A question whose «yes» WRITES something a reflex must not (these three) puts the safe answer
 first: `ConfirmSpec · safeAnswer` ('cancel' | 'alt') fills and focuses it, not red. Every
 question MOUNTS FRESH (`Overlays` keys the card per request, staging r3 F5): a chain answered
