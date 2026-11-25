@@ -83,7 +83,10 @@ async def fetch_roster(
 
 
 async def roster_policy(db: AsyncSession) -> tuple[int, int]:
-    """``(interval minutes, max deactivation %)`` from ``roster.*`` (stored config → shipped)."""
+    """``(interval minutes, max deactivation %)`` from ``roster.*`` (stored config → shipped).
+
+    ⚠️ Raw on purpose, not `deployment_config.read_config`: on a document broken elsewhere its
+    fallback would read a station's tighter cap as the shipped 20 %."""
     row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
     roster = ((row.config_json or {}).get("roster") or {}) if row else {}
     interval = roster.get("snapshotIntervalMin")

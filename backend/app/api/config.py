@@ -79,7 +79,7 @@ from ..config_guard import (
 from ..config_history import changed_sections, emptied_sections, keep_previous
 from ..credentials import load as load_credentials
 from ..database import get_db
-from ..deployment_config import config_row
+from ..deployment_config import config_row, safe_config
 from ..divera import CATEGORY_LABELS
 from ..i18n import set_locale
 from ..models import DeploymentConfig, DeploymentConfigHistory, User
@@ -162,21 +162,13 @@ def pick_parts(document: dict, parts: Iterable[str]) -> dict:
 async def stored_document(db: AsyncSession) -> tuple[DeploymentConfigIn, dict]:
     """The stored config as a validated document, plus the raw JSON it came from.
 
-    Last-good fallback: a missing row or one that fails validation (a hand-edited bad row) is
-    answered with the safe empty document and a warning. Never raises.
-
-    ⚠️ Read through ``load_stored_config``, not the strict PUT-body model: a field that has
-    grown a rule since the row was written (``identity.accentColor``) must be dropped, not
-    refused. Refusing it lands in the fallback — and answering one bad colour by serving
-    the login screen a station with no name and no logo is the wrong trade.
+    The validated half is ``deployment_config · safe_config``: a missing row or one that fails
+    validation (a hand-edited bad row) reads as the safe empty document. Never raises. The raw
+    half is read on purpose — the ``version`` is a hash of the JSON as stored.
     """
     row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
     raw = row.config_json if (row and row.config_json) else {}
-    try:
-        return load_stored_config(raw), raw
-    except Exception:  # never let a bad stored row brick a read
-        logger.warning("deployment_config row failed validation; serving empty fallback", exc_info=True)
-        return DeploymentConfigIn(), raw
+    return safe_config(row.config_json if row else None), raw
 
 
 def _alarm_vocabulary(doc: DeploymentConfigIn) -> AlarmVocabularyStatus:

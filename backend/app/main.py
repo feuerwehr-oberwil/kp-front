@@ -154,16 +154,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # Load the deployment locale for error-detail i18n (null-safe; stays de-CH otherwise).
     try:
-        from sqlalchemy import select
-
         from .database import async_session_maker
-        from .models import DeploymentConfig
+        from .deployment_config import read_config
 
         async with async_session_maker() as db:
-            row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
-        cfg = (row.config_json if (row and row.config_json) else {}) or {}
-        identity = cfg.get("identity") or {}
-        set_locale(identity.get("locale"))
+            set_locale((await read_config(db)).identity.locale)
     except Exception:
         logger.exception("Loading deployment locale failed (defaulting to de-CH)")
 

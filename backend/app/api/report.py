@@ -25,9 +25,9 @@ from .. import storage
 from ..auth.dependencies import CurrentUser
 from ..auth.viewer_scope import is_viewer
 from ..database import get_db
+from ..deployment_config import read_config
 from ..incident_archive import keep_report_safely
 from ..incident_service import get_incident_or_404
-from ..models import DeploymentConfig as DeploymentConfigRow
 from ..models import DiveraEmergency, Media, PlanRevision, ReferenceDataset
 from ..report import ReportPayload, TafelPrintPayload, compose_report_pdf, compose_tafel_pdf
 from ..schichtplan_pdf import compose_schichtplan_pdf
@@ -70,12 +70,11 @@ _LOGO_KEY = "logo"
 
 
 async def _resolve_logo(db: AsyncSession, figs: dict[str, bytes]) -> None:
-    row = (await db.execute(select(DeploymentConfigRow))).scalars().first()
-    assets = ((row.config_json if row else None) or {}).get("identity", {}).get("assets", {})
+    assets = (await read_config(db)).identity.assets
     # the rapport's own letterhead wins; the app brandmark is the fallback, so a station that
     # only ever uploaded one logo still gets a sensible sheet
-    url = assets.get("reportLogo") or assets.get("logo")
-    if not isinstance(url, str):
+    url = assets.reportLogo or assets.logo
+    if not url:
         return
     m = _BRANDING_URL.match(url)
     if not m:

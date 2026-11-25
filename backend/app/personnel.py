@@ -244,6 +244,12 @@ def derive_rank_from_quals(qual_names: list[str], ranks: list[dict]) -> str | No
     return ranks[-1]["key"]  # base rank — everyone is at least this
 
 
+# ⚠️ The four `roster.*` readers below read the RAW document, not `deployment_config.read_config`:
+# their values feed the unattended roster sync and the rank writes, and the validated read's
+# fallback on a document broken ELSEWHERE would sync with the shipped ranks and levels instead
+# of the station's own.
+
+
 async def load_roster_ranks_info(db: AsyncSession) -> tuple[list[dict], bool]:
     """``(active rank list, station has one of its own)``.
 
