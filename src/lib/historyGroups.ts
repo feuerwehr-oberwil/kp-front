@@ -68,9 +68,11 @@ export function monthLabel(key: string, locale: string): string {
  *  («Hauptstrasse 12 · 05.10., 12:24») and the end was nowhere. Now the row says the day, the
  *  span and how long it took — «Mo., 05.10. · 12:24–13:47 · 1 h 23» — and a running one «seit».
  *
- *  Pure: hands back the pieces, the panel words them. `end` is the Einsatzende the clock and the
- *  Rapport use (`closeTimeOf`: the LAST close); null while it runs or when a closed row has
- *  none. `endDay` is set only when the end fell on another calendar day than the start. */
+ *  Pure: hands back the pieces, the panel words them. `end` is the RAPPORT's Einsatzende
+ *  (`report_ended_at`, what the Rapport and the PDF print), the close only when it has none (owner
+ *  pick UX journeys B3·20, 25.11.2026 – it was the LAST close, so a Nachtrag next morning made the
+ *  Einsatz «run all night» here while the Rapport kept 14:27); null while it runs or when a closed
+ *  row has neither. `endDay` is set only when the end fell on another calendar day than the start. */
 export interface HistoryWhen {
   day: string
   start: string
@@ -86,7 +88,7 @@ const pad = (n: number) => String(n).padStart(2, '0')
 const clock = (d: Date) => `${pad(d.getHours())}:${pad(d.getMinutes())}`
 
 export function historyWhen(
-  i: { is_archived: boolean; started_at: string; closed_at?: string | null; last_closed_at?: string | null },
+  i: { is_archived: boolean; started_at: string; closed_at?: string | null; last_closed_at?: string | null; report_ended_at?: string | null },
   now: Date,
   locale: string,
 ): HistoryWhen | null {
@@ -103,7 +105,7 @@ export function historyWhen(
       return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.`
     }
   }
-  const endIso = i.is_archived ? (i.last_closed_at ?? i.closed_at ?? null) : null
+  const endIso = i.is_archived ? (i.report_ended_at || i.last_closed_at || i.closed_at || null) : null
   const e = endIso ? new Date(endIso) : null
   const end = e && !Number.isNaN(e.getTime()) && e.getTime() >= s.getTime() ? e : null
   const until = end ?? (i.is_archived ? null : now)

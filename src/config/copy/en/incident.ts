@@ -183,6 +183,8 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     pendenzOpenOne: '1 open item',
     pendenzOpenMany: '{n} open items',
     reportBeforeNachtrag: 'Report from {t} – before the late entry',
+    confirmMsgKeep: 'The incident is closed. The end time stays {t} – as in the report. After that it can only be read and signed – reopen it for corrections.',
+    confirmMsgKeepAgain: 'The incident is closed again. The end time stays {t} – as in the report. After that it can only be read and signed – reopen it for corrections.',
   },
   personnelSync: {
     title: 'Match personnel with {provider}',

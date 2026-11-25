@@ -243,6 +243,10 @@ class IncidentMeta(BaseModel):
     closed_at: datetime | None = None
     #: the CURRENT close (models · Incident.last_closed_at) — what the Einsatzende defaults to
     last_closed_at: datetime | None = None
+    #: the Rapport's Einsatzende (workspace `reportMeta.endedAt`), for a CLOSED Einsatz – filled by
+    #: the list route only, so «Alle Einsätze» shows the end the Rapport and the PDF print, not the
+    #: last close (owner pick UX journeys B3·20, 25.11.2026). Null elsewhere and when none was set.
+    report_ended_at: str | None = None
     is_archived: bool
     is_exercise: bool = False
     #: Übung since creation, never marked real — the only kind an editor may hard-delete

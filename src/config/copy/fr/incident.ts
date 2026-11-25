@@ -185,6 +185,8 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     pendenzOpenOne: '1 tâche en suspens',
     pendenzOpenMany: '{n} tâches en suspens',
     reportBeforeNachtrag: 'Rapport de {t} – avant l’ajout',
+    confirmMsgKeep: 'L’intervention est close. L’heure de fin reste {t} – comme dans le rapport. Ensuite, elle ne peut plus qu’être lue et signée – rouvrir pour corriger.',
+    confirmMsgKeepAgain: 'L’intervention est à nouveau close. L’heure de fin reste {t} – comme dans le rapport. Ensuite, elle ne peut plus qu’être lue et signée – rouvrir pour corriger.',
   },
   personnelSync: {
     title: 'Rapprocher l’effectif avec {provider}',

@@ -185,6 +185,8 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     pendenzOpenOne: '1 pendenza aperta',
     pendenzOpenMany: '{n} pendenze aperte',
     reportBeforeNachtrag: 'Rapporto delle {t} – prima dell’aggiunta',
+    confirmMsgKeep: 'L’intervento viene chiuso. L’ora di fine resta {t} – come nel rapporto. Dopo può essere solo letto e firmato – riaprire per correggere.',
+    confirmMsgKeepAgain: 'L’intervento viene chiuso di nuovo. L’ora di fine resta {t} – come nel rapporto. Dopo può essere solo letto e firmato – riaprire per correggere.',
   },
   personnelSync: {
     title: 'Allinea l’effettivo con {provider}',

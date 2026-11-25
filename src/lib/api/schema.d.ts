@@ -5966,6 +5966,8 @@ export interface components {
             closed_at?: string | null;
             /** Last Closed At */
             last_closed_at?: string | null;
+            /** Report Ended At */
+            report_ended_at?: string | null;
             /** Is Archived */
             is_archived: boolean;
             /**
@@ -6064,6 +6066,8 @@ export interface components {
             closed_at?: string | null;
             /** Last Closed At */
             last_closed_at?: string | null;
+            /** Report Ended At */
+            report_ended_at?: string | null;
             /** Is Archived */
             is_archived: boolean;
             /**

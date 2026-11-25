@@ -23,12 +23,18 @@ sweep had put on the rows («Jetzt setzen», «Nichts verwendet», «Entfällt»
 are gone from all three lists – this sheet, the print's «Angaben fehlen noch» and the Kontrolle
 chip's popover. The fast tap was often the wrong answer («Entfällt» for a Rückmeldung ELZ that was
 given). An empty **Einsatzende is pre-filled with «jetzt»** on the deployment clock
-(`serverNowIso`), shown as a done row in the step's own place on the list (a tap changes it); the
-close writes it before the handover, so «Einsatzende» (the step `zeiten`) is only open on a sheet
+(`serverNowIso`), shown as a done row in the step's own place on the list (a tap opens the field
+and writes nothing – it wrote «jetzt» first until 25.11.2026); the close writes it before the handover, so «Einsatzende» (the step `zeiten`) is only open on a sheet
 that may not write the Rapport. The success toast says «Einsatz abgeschlossen» and carries «Wieder
 öffnen» for 10 s (docs/undo.md). Close and reopen stamps come off `lib/serverClock`, like the
 Rapport's own «Jetzt» buttons. A single lifecycle PATCH commits `report_done_at` and
 `is_archived`. Retrying a close preserves its stamp and writes each journal entry once.
+
+**One Einsatzende** (owner pick UX journeys B3·20, 25.11.2026): an Einsatzende the Rapport already
+holds stays, and the sheet says so – «Das Einsatzende bleibt 25.11. 14:27 – wie im Rapport.»
+(«wieder abgeschlossen» on a re-close) instead of «… festgehalten». «Alle Einsätze» shows that end
+too (`IncidentMeta.report_ended_at`, list route only), the close only when the Rapport has none;
+`last_closed_at` stays for the audit and the «Zuletzt abgeschlossen» group.
 
 **An open Pendenz is an open point** (owner pick UX journeys B2·9, 25.11.2026): the Pendenzen and
 Erinnerungen still open in the Verlauf stand on the sheet after the Trupps as «1 Pendenz offen» /

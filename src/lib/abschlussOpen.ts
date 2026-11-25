@@ -170,8 +170,9 @@ export function abschlussSheet<P extends AbschlussOpenPoint>(
 
 /**
  * The pre-filled Einsatzende (owner's pick, 23.10.2026): «Einsatzende · jetzt 23:41», shown as
- * already set. The close writes it (useAbschluss); a tap on the row writes it too and goes to the
- * Rapport's field — so the field shows the value being changed, not an empty one.
+ * already set. The close writes it (useAbschluss); a tap on the row only goes to the Rapport's
+ * field. ⚠️ It wrote «jetzt» first until 25.11.2026 (owner pick UX journeys B3·20): an operator who
+ * tapped it to CHANGE the end got «Einsatzende «14:30»» and then «14:28» in the Verlauf.
  */
 export function abschlussEndeItem(iso: string, change: () => void): ConfirmItem {
   const A = appConfig.copy.abschluss

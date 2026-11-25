@@ -174,12 +174,32 @@ async def list_incidents(
     q = q.order_by(Incident.started_at.desc()).limit(limit).offset(skip)
     rows = list((await db.execute(q)).scalars())
     due = await _atemschutz_due(db, [i.id for i in rows if i.is_open])
-    if not due:
+    ended = await _report_ended(db, [i.id for i in rows if not i.is_open])
+    if not due and not ended:
         return rows
     return [
-        IncidentMeta.model_validate(i).model_copy(update={"atemschutz_due": due[i.id]}) if i.id in due else i
+        IncidentMeta.model_validate(i).model_copy(
+            update={
+                **({"atemschutz_due": due[i.id]} if i.id in due else {}),
+                **({"report_ended_at": ended[i.id]} if i.id in ended else {}),
+            }
+        )
+        if i.id in due or i.id in ended
+        else i
         for i in rows
     ]
+
+
+async def _report_ended(db: AsyncSession, ids: list[uuid.UUID]) -> dict[uuid.UUID, str]:
+    """The Rapport's Einsatzende per CLOSED Einsatz (workspace `reportMeta.endedAt`) – the end the
+    Rapport and the PDF print. The list showed the LAST close, so a Nachtrag next morning made an
+    Einsatz «run all night» there (owner pick UX journeys B3·20, 25.11.2026). Only that one path
+    leaves Postgres, never the blob."""
+    if not ids:
+        return {}
+    ended = Incident.map_workspace_json["reportMeta"]["endedAt"].astext
+    found = (await db.execute(select(Incident.id, ended).where(Incident.id.in_(ids), ended.is_not(None)))).all()
+    return {inc_id: at for inc_id, at in found if at}
 
 
 async def _atemschutz_due(db: AsyncSession, ids: list[uuid.UUID]) -> dict[uuid.UUID, list[AtemschutzDue]]:

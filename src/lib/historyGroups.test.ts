@@ -68,6 +68,13 @@ describe('historyWhen — when an Einsatz ran, for its row', () => {
     expect(w.day).toMatch(/12\.07/)
     expect(w.day).not.toMatch(/2026/) // this year's needs no year
   })
+  // UX pick B3·20 (25.11.2026): the Rapport's Einsatzende, not the re-close of the Nachtrag
+  it('a closed one with a Rapport end shows that end, not the last close', () => {
+    const w = historyWhen({ is_archived: true, started_at: '2026-07-12T12:58:00', closed_at: '2026-07-12T14:33:00', last_closed_at: '2026-07-13T08:10:00', report_ended_at: '2026-07-12T14:27:00' }, NOW, 'de-CH')!
+    expect(w.end).toBe('14:27')
+    expect(w.endDay).toBeNull()
+    expect(w.durationMs).toBe(89 * 60_000)
+  })
   it('a running one: no end, the duration runs to now', () => {
     const w = historyWhen({ is_archived: false, started_at: '2026-07-12T17:30:00', closed_at: null }, NOW, 'de-CH')!
     expect(w.end).toBeNull()

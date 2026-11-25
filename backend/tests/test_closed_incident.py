@@ -580,6 +580,22 @@ async def test_the_re_close_claims_a_new_version_only_when_a_new_paper_exists(cl
     )
 
 
+async def test_the_list_carries_the_rapport_end_of_a_closed_einsatz(client, editor):
+    """UX pick B3·20: «Alle Einsätze» shows the Rapport's Einsatzende, not the last close."""
+    await _login(client, editor)
+    inc = await _incident(client)
+    r = await client.put(
+        f"/api/incidents/{inc}/workspace",
+        json={"workspace": {"reportMeta": {"endedAt": "2026-11-25T13:27:00.000Z"}}, "base_rev": 0},
+    )
+    assert r.status_code == 200, r.text
+    row = next(i for i in (await client.get("/api/incidents")).json() if i["id"] == inc)
+    assert row["report_ended_at"] is None  # running: the list says «seit», no end
+    await _close(client, inc)
+    row = next(i for i in (await client.get("/api/incidents")).json() if i["id"] == inc)
+    assert row["report_ended_at"] == "2026-11-25T13:27:00.000Z"
+
+
 async def test_rows_accepted_after_the_close_are_stamped_for_paper(client, editor):
     """A Kontakt from before the close that reaches the server after it: recorded in its time
     order, and marked as having come late, so the PDF prints it as a Nachtrag."""

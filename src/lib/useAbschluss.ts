@@ -8,7 +8,7 @@ import { abschlussFacts, missingSteps, type AbschlussStep } from './abschluss'
 import { abschlussEndeItem, abschlussOpenPoints, abschlussSheet, insideAbschlussSpec, registeredAbschlussMessage, type OpenPendenz } from './abschlussOpen'
 import { serverNowIso } from './serverClock'
 import { truppInNotfall, truppLogName, truppStillDeployed, truppStillRegistered } from './atemschutz'
-import { fillTemplate } from './format'
+import { fieldWhen, fillTemplate } from './format'
 import { mittelLineCount } from './mittel'
 import { confirmDialog } from './ui'
 import { einsatzSubject } from './einsatzSubject'
@@ -207,6 +207,14 @@ export function useAbschluss({
        ⚠️ Closing-only: the print's «Angaben fehlen noch» does not pre-fill (printing sets no
        Einsatzende), its row is open like the others (ReportPreflight · startOutput). */
     const pendingEnde = patchReportMeta && !reportMeta.endedAt ? serverNowIso() : null
+    /* ⚠️ An Einsatzende the Rapport already holds STAYS, and the sheet says so (owner pick UX
+       journeys B3·20, 25.11.2026): «… und das Einsatzende festgehalten» on a re-close read as if
+       the close moved it, and «Alle Einsätze» did move to the close then. «Das Einsatzende bleibt
+       25.11. 14:27 – wie im Rapport.»; «wieder» when the Einsatz was closed before. */
+    const keptEnde = reportMeta.endedAt ? fieldWhen(reportMeta.endedAt, new Date(incidentMeta.started_at ?? reportMeta.endedAt).getFullYear()) : ''
+    const confirmMsg = keptEnde
+      ? fillTemplate(incidentMeta.closed_at ? A.confirmMsgKeepAgain : A.confirmMsgKeep, { t: keptEnde })
+      : A.confirmMsg
     /* The rows and their order are the ONE list both confirms read (lib/abschlussOpen ·
        abschlussSheet). ⚠️ Every row is a LINK, and only that (owner, 11.11.2026: no one-tap
        answers): naming a gap on the last screen before the Akte closes and leaving the operator
@@ -219,12 +227,12 @@ export function useAbschluss({
       reportBeforeNachtrag: reportBeforeNachtrag ? reportMeta.reportMadeAt : undefined,
       pendenzen: pendenzenRef.current,
     }), go,
-      pendingEnde ? { zeiten: abschlussEndeItem(pendingEnde, () => { patchReportMeta!({ endedAt: pendingEnde }); go.step('zeiten') }) } : undefined)
+      pendingEnde ? { zeiten: abschlussEndeItem(pendingEnde, () => go.step('zeiten')) } : undefined)
     const { title, started_at: startedAt } = incidentMeta
     const subject = title && startedAt ? einsatzSubject({ title, started_at: startedAt, is_exercise: !!incidentMeta.is_exercise }) : undefined
     const askCrew = (which: NonNullable<typeof lastAsked>, spec: Pick<ConfirmSpec, 'title' | 'message' | 'items' | 'confirmLabel'>) => {
       const isConfirm = crewConfirms && which === lastAsked
-      const note = [standDownTrupps ? '' : A.boardNotYours, isConfirm ? A.confirmMsg : ''].filter(Boolean).join(' ')
+      const note = [standDownTrupps ? '' : A.boardNotYours, isConfirm ? confirmMsg : ''].filter(Boolean).join(' ')
       const ask = {
         ...spec,
         /* ⚠️ The question that IS the confirm shows what the confirm showed (lead review of FLOW.4,
@@ -276,9 +284,9 @@ export function useAbschluss({
     // …asked only when no crew question already was the confirm (FLOW.4, above)
     const ok = crewConfirms || await confirmDialog({
       title: A.confirmTitle,
-      message: anyOpen ? P.exportIncompleteLead : A.confirmMsg,
+      message: anyOpen ? P.exportIncompleteLead : confirmMsg,
       items,
-      note: anyOpen ? A.confirmMsg : undefined,
+      note: anyOpen ? confirmMsg : undefined,
       subject,
       // the button names what is actually about to happen — closing an Einsatz with open points
       // is allowed, and the label is where that is said out loud

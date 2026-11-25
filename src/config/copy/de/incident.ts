@@ -269,6 +269,10 @@ export const incidentCopy = {
     // …and a paper made before the Nachtrag of a reopened Einsatz (owner pick UX journeys B3·18,
     // 25.11.2026, lib/reportNachtrag)
     reportBeforeNachtrag: 'Rapport von {t} – vor dem Nachtrag',
+    // the close over an Einsatzende the Rapport already holds: it stays (owner pick UX journeys B3·20,
+    // 25.11.2026) – «wieder» on a re-close
+    confirmMsgKeep: 'Der Einsatz wird abgeschlossen. Das Einsatzende bleibt {t} – wie im Rapport. Danach nur noch lesen und unterschreiben – für Korrekturen wieder öffnen.',
+    confirmMsgKeepAgain: 'Der Einsatz wird wieder abgeschlossen. Das Einsatzende bleibt {t} – wie im Rapport. Danach nur noch lesen und unterschreiben – für Korrekturen wieder öffnen.',
   },
   // sync the roster with the configured personnel source
   personnelSync: {

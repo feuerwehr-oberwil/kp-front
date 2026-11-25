@@ -394,7 +394,9 @@ describe('useAbschluss', () => {
       expect(spec.items?.some(prefilled)).toBe(false)
     })
 
-    it('a tap on the pre-filled Ende writes it and goes to the Rapport\'s field', async () => {
+    // UX pick B3·20 (25.11.2026): the tap only goes there – it wrote «jetzt» first until then, so a
+    // change of the end left «Einsatzende «14:30»» and then «14:28» in the Verlauf
+    it('a tap on the pre-filled Ende goes to the Rapport\'s field and writes nothing', async () => {
       const ask = vi.mocked(confirmDialog)
       ask.mockReset().mockResolvedValueOnce(false)
       const patchReportMeta = vi.fn()
@@ -403,9 +405,22 @@ describe('useAbschluss', () => {
       const ende = (ask.mock.calls[0][0] as Ask).items?.find((i) => typeof i !== 'string' && i.label === A.ende)
       if (typeof ende !== 'object' || !('onClick' in ende)) throw new Error('no Ende row')
       ende.onClick()
-      expect(patchReportMeta).toHaveBeenCalledWith({ endedAt: expect.stringMatching(/^\d{4}-/) })
+      expect(patchReportMeta).not.toHaveBeenCalled()
       expect(a.requestReportStep).toHaveBeenCalledWith('zeiten')
       expect(a.setMode).toHaveBeenCalledWith('rapport')
+    })
+
+    // UX pick B3·20: an Einsatzende the Rapport holds stays, and the sheet says so – «wieder» on a re-close
+    it('says the Rapport\'s Einsatzende stays instead of «festgehalten»', async () => {
+      const ask = vi.mocked(confirmDialog)
+      ask.mockReset().mockResolvedValue(false)
+      const reportMeta = { endedAt: '2026-11-25T13:27:00Z', reportMadeAt: '2026-11-25T13:30:00Z', kurzbericht: 'x' } as ReportMeta
+      await renderHook(() => useAbschluss(args({ reportMeta }))).result.current.confirmAndComplete()
+      const msgOf = (n: number) => { const s = ask.mock.calls[n][0] as Ask; return `${s.message} ${s.note ?? ''}` }
+      expect(msgOf(0)).toContain('Das Einsatzende bleibt 25.11. ')
+      expect(msgOf(0)).not.toContain(A.confirmMsg)
+      await renderHook(() => useAbschluss(args({ reportMeta, incidentMeta: { is_archived: false, status: 'offen', closed_at: '2026-11-25T13:33:00Z' } }))).result.current.confirmAndComplete()
+      expect(msgOf(1)).toContain('Der Einsatz wird wieder abgeschlossen.')
     })
   })
 })
