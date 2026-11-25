@@ -87,8 +87,9 @@ interface SystemResponse {
   connectors: SystemConnector[] | null
   /** whether this deployment can tell anybody it has died (api/system) — a boolean, never the URL */
   monitoring: SystemMonitoring | null
-  /** empty on every ordinary day; absent from a server older than this page */
-  loginLocks?: SystemLoginLock[]
+  /** empty on every ordinary day; null when the server's read failed; absent from a server older
+   *  than this page (read as empty) */
+  loginLocks?: SystemLoginLock[] | null
   /** «Einrichtung», derived server-side — see SetupChecklist. */
   setup: SetupState | null
 }
@@ -795,8 +796,15 @@ export function SystemView({ onNavigate }: { onNavigate?: (id: string) => void }
               onGo={(id) => onNavigate?.(id)}
             />
             {/* Only while a lock stands: the one thing on this page that means «somebody is
-                trying to get in», so it sits above the health read-out. */}
-            {loginLocks.length > 0 && (
+                trying to get in», so it sits above the health read-out. A failed read says
+                «nicht verfügbar» like any other failed section – never «nobody is locked» – and
+                carries no tip: the tip explains a lock that a failed read has not seen. */}
+            {loginLocks === null && (
+              <Card title={C.loginLocksTitle}>
+                <EmptyState message={C.notAvailable} />
+              </Card>
+            )}
+            {loginLocks !== null && loginLocks.length > 0 && (
               <Card title={C.loginLocksTitle} tip={C.loginLocksTip}>
                 {loginLocks.map((lock) => (
                   <p key={lock.userId} className="adm-hint" role="status">
