@@ -8,7 +8,15 @@ import { useCallback, useEffect, useRef } from 'react'
  *
  * The stop listener is on `window`, so a hold is always released even if the button disables
  * mid-hold (e.g. the value hits its min/max and the button greys out) — no runaway timer.
+ *
+ * ⚠️ A timer that runs more than `LATE_MS` late never steps: it ran on a busy thread (a big
+ * Einsatz re-rendering after the step before), and the finger's release may be queued behind it.
+ * It re-arms instead, so a waiting pointerup is dispatched first – one tap is one step however
+ * slow the device (Üben round 4, 24.11.2026: «Von Geschoss» counted on after a tap). A real hold
+ * on a busy device still repeats, at a slower pace.
  */
+const LATE_MS = 60
+
 export function useHoldRepeat(
   step: () => void,
   opts?: { delayMs?: number; intervalMs?: number; minIntervalMs?: number },
@@ -35,10 +43,13 @@ export function useHoldRepeat(
     if (e.button) return // primary button / touch / pen only
     stepRef.current() // immediate first step so a quick tap works without waiting
     let curr = interval
+    let due = Date.now() + delay
+    const arm = (ms: number) => { due = Date.now() + ms; timers.current.repeat = setTimeout(tick, ms) }
     const tick = () => {
+      if (Date.now() - due > LATE_MS) { arm(curr); return } // busy thread: let a queued release in first
       stepRef.current()
       curr = Math.max(minInterval, curr - 8) // gentle acceleration
-      timers.current.repeat = setTimeout(tick, curr)
+      arm(curr)
     }
     timers.current.start = setTimeout(tick, delay)
     window.addEventListener('pointerup', stop)
