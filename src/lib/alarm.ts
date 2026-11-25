@@ -6,7 +6,7 @@
 // sound until it is resumed inside a real user gesture (tap/click/keydown). So
 // `primeAudio()` must run inside such a gesture once. The first tap ANYWHERE in the app does
 // it (`armOnAnyTap`, mounted by App; owner pick UX journeys M·3, 25.11.2026), with a short
-// «Alarmton an» toast once that tap is over (the tap still does its own job). It replaces the
+// «Alarmton an» toast once that tap is over and no layer is open (the tap still does its own job). It replaces the
 // rule that only «Einsatz starten / öffnen», the Trupp-Formular and a tap on the Tafel unlocked
 // it (App · selectIncident, 2026-08): after a reload of a running Einsatz an überfällig alarm
 // stayed silent until somebody happened to touch one of those. After that the `Alarm` can sound later without interaction. Whether it worked is
@@ -154,7 +154,11 @@ const SETTLE_MS = 300
  * ⚠️ `onArmed` runs only once the arming tap is over (no pointer down, SETTLE_MS after the
  * last lift): the first tap must still do its own job. A toast shown on the `pointerdown` stood
  * under the finger, took the `pointerup`, and the tap's `click` never reached the Karte search
- * row it was meant for (PR #752's CI, 25.11.2026). Returns the uninstall.
+ * row it was meant for (PR #752's CI, 25.11.2026).
+ * ⚠️ The tap PRIMES the tone everywhere, but App's «Alarmton an» shows only when no sheet,
+ * composer or dialog is open at that moment (lib/useArmOnAnyTap · overlays/layer · layerOpen).
+ * Inside a layer it stays silent – the tone works either way. A pill over the composer took the
+ * next «Erfassen» tap (e2e F8; lead's call, 25.11.2026). Returns the uninstall.
  */
 export function armOnAnyTap(onArmed: () => void): () => void {
   // a prime was sent and the context has not reported `running` yet (resume is async)
