@@ -92,7 +92,7 @@ const fieldRoute = !bootPath.startsWith('/e/') && !bootPath.startsWith('/admin')
 // ⚠️ …and only once an account is known (hunt 24.11.2026, performance F3). A signed-in device
 // knows it from its cached user, read here at once (lib/userCache), so the chunk still loads beside
 // the awaits below; a kiosk with nobody signed in renders its PIN pad first instead of sharing
-// the line with ~2 MB of field app. The link door loads the app itself, after its exchange
+// the line with ~2 MB of field app, and loads it in the first idle moment after (below). The link door loads the app itself, after its exchange
 // (link/LinkApp). Offline launch is unaffected: the service worker holds the chunks.
 // The warm-up's own failure (a navigation cutting its CSS preload short, offline without the chunk)
 // is nobody's error: `lazy()` asks again when the app actually mounts.
@@ -200,7 +200,10 @@ void (async () => {
     // the first render, and the capture poster and /admin never read a UN number at all. The
     // idle callback fires in the first quiet moment after first paint (2 s at the latest), and
     // both files are precached, so offline they land exactly as before.
-    if (fieldRoute) whenIdle(() => { void ensureUnHazard(); void ensureErg() })
+    // …and the field app itself on a device nobody is signed in to (a kiosk): its PIN pad is on
+    // screen first, and the chunk loads while the PIN is typed (performance F3 – loading it only
+    // after the PIN cost the cold start half a second; a signed-in device has warmed it already).
+    if (fieldRoute) whenIdle(() => { warmApp(); void ensureUnHazard(); void ensureErg() })
     // Tiles cached by releases before 08.11.2026 move from Cache Storage into the worker's tile
     // store (public/sw-tile-store.js), asked on every launch until it is done – well after the boot.
     setTimeout(() => navigator.serviceWorker?.controller?.postMessage({ type: 'kp-tile-migrate' }), 10_000)
