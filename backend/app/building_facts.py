@@ -87,9 +87,6 @@ ENERGY: dict[int, str] = {
     7599: "other",
 }
 
-#: Energy keys that put fuel ON SITE worth an immediate measure: the gas main valve, the oil tank.
-HAZARD_ENERGY = frozenset({"gas", "oil"})
-
 #: gbaup — the construction period when the exact year is unknown.
 PERIOD: dict[int, tuple[int | None, int | None]] = {
     8011: (None, 1918),
