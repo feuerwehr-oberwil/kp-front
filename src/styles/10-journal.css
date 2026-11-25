@@ -718,7 +718,8 @@
 .jc-body > * { flex: none; }
 
 /* ── ONE row under the field (owner pick B «One row», 19.11.2026) ─────────────────────────────
-   The Art track · the ⏱ | □ track · ONE «Anhang» plate (mic · upload · camera behind its menu),
+   The Art track · the «Pendenz» track (one worded button since 25.11.2026, UX pick B2·40) · ONE
+   «Anhang» plate (mic · upload · camera behind its menu),
    and «Erfassen» alone below. It was two rows – Art, then Aufnehmen · Datei · Foto – with a
    measured «compact» rung that folded them into this one when the height got tight; this is that
    rung as the normal layout, so the ladder is down to ONE step: when the room runs out, `.jc-body`
@@ -727,7 +728,7 @@
    ⚠️ One look per ROLE (owner pick 6B, 18.11.2026 – «inconsistent color use»): words to insert
    are a borderless wash (.jc-phrase, 18-audio.css); a CHOICE is one track – the Segmented look,
    `.useg` (06-contextpanel); an ACT is a framed plate (.jc-rec); «Erfassen» is the one primary.
-   The Art track takes the slack; ⏱ □ and the clip keep their size. On a phone the Art shows
+   The Art track takes the slack; «Pendenz» and the clip keep their size. On a phone the Art shows
    «I · A · S» (15-mobile.css), the words stay the names. */
 .jc-controls { display: flex; flex-direction: column; gap: 8px; }
 /* the same «nothing shrinks» rule as the sheet's, one level down */

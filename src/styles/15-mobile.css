@@ -877,7 +877,7 @@
      10-journal.css: the tablet card is the same capped flex column and clipped the same row.) */
 
   /* ── the Art as «I · A · S» (owner, 19.11.2026: «on mobile do the same but just with I/A/S») ──
-     The one row (10-journal · .jc-row) has no room for three words beside ⏱ □ and the clip on a
+     The one row (10-journal · .jc-row) has no room for three words beside «Pendenz» and the clip on a
      phone, so each Art option shows its initial, three equal thirds of the track, big enough to
      read at arm's length with a glove on. The word stays the button's name and title. */
   .journal-composer .jc-art > .jc-chip { flex: 1 1 0; padding: var(--sp-1) 2px; font-size: var(--fs-3); }
@@ -1441,11 +1441,15 @@
      AnwesenheitView): where the bar has no pair, the surface being tapped offers its own. */
   .topbar .tb-act-history { display: none; }
   /* …and «Neuer Eintrag»'s one row (10-journal · .jc-row): at 16px of gutter and 8px of gap the
-     three Art options were 39.7px wide at 320 (Sol review, PR #704). 12 + 4 hand back 16px, and
-     each option is 45px beside ⏱ □ and the clip (or the stop square in its place). */
+     three Art options were 39.7px wide at 320 (Sol review, PR #704). 12 + 4 hand back 16px.
+     The worded «Pendenz» button (UX pick B2·40, 25.11.2026) is 14px wider than the ⏱ □ pair it
+     replaced – at its 12px sides the options were 39.3px again. 4px sides and a 4px ring–word gap
+     hand back 20px: each option is 46px beside «Pendenz» and the clip (or the stop square in its
+     place), measured by e2e/touch.spec.ts. */
   .journal-composer { padding-inline: 12px; }
   .journal-composer > .jc-body { margin-inline: -12px; padding-inline: 12px; }
   .journal-composer .jc-row { gap: 4px; }
+  .journal-composer .jc-when .useg-btn { padding-inline: var(--sp-1); gap: var(--sp-1); }
 }
 
 /* The narrower phones' bar words (29.09.2026; on the type scale since 08.10.2026). The words are on
