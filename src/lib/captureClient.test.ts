@@ -504,6 +504,13 @@ describe('saveAction', () => {
     expect(journal).toEqual([])
   })
 
+  it('writes no row when a stale page removes a photo that is already gone', async () => {
+    blob = {} as Workspace
+    await saveAction('tok', 'i1', { kind: 'removeAttachment', id: 'a1' })
+    await new Promise((r) => setTimeout(r, 0))
+    expect(journal).toEqual([])
+  })
+
   it('writes no row and keeps the author when a time is confirmed as it stood', async () => {
     const from = '2026-08-07T09:00:00.000Z'
     blob = { attendance: { p1: { status: 'present', displayNameSnapshot: 'Meier Anna', checkedInAt: from, intervals: [{ from }], source: 'kp' } } } as unknown as Workspace

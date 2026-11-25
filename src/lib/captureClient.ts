@@ -298,6 +298,8 @@ function _applyAction(ws: Workspace | null, action: CaptureAction, nowIso: strin
   const base: Record<string, unknown> = { ...(ws ?? {}) }
   if (action.kind === 'addAttachment' || action.kind === 'removeAttachment') {
     const list = [...((base.attachments as { id: string }[] | undefined) ?? [])]
+    // a stale page removing a photo that is already gone changes nothing
+    if (action.kind === 'removeAttachment' && !list.some((a) => a.id === action.id)) return base
     base.attachments = action.kind === 'removeAttachment'
       ? list.filter((a) => a.id !== action.id)
       // append-then-dedupe by id: a retried save (409 → re-read → re-apply) must not add twice
