@@ -40,9 +40,12 @@ const C = appConfig.copy.whiteboard.georef
 
 // The store persists on its own (the surface that completes a pair may be unmounted by then), so
 // the write is stubbed rather than the network.
-const { mockGeorefForPlan } = vi.hoisted(() => ({
+const { mockGeorefForPlan, toast } = vi.hoisted(() => ({
   mockGeorefForPlan: vi.fn<(id: string) => Georef | null>(() => null),
+  toast: vi.fn(),
 }))
+// the store raises its own error pill (no surface may be mounted when a save fails)
+vi.mock('./ui', () => ({ toast }))
 
 vi.mock('./stationPlanScale', () => ({
   georefForPlan: mockGeorefForPlan,
@@ -818,6 +821,23 @@ describe('the store persists exactly the edits — and nothing else', () => {
       expect(vi.mocked(saveGeoref).mock.calls[0][0]).toBe(key)
       expect(vi.mocked(saveGeoref).mock.calls[0][1].pairs).toEqual([])
     })
+  })
+})
+
+// sweep 25.11.2026 #9: on a phone the pair is finished on the Karte while the Plan screen is
+// unmounted – the error pill used to belong to that screen, so a failed save said nothing
+describe('a failed save with no plan surface mounted', () => {
+  beforeEach(() => { resetGeorefMode(); toast.mockClear(); vi.stubGlobal('navigator', { onLine: true }) })
+  afterEach(() => { vi.unstubAllGlobals(); vi.mocked(saveGeoref).mockImplementation(() => Promise.resolve()) })
+
+  it('raises the error toast once', async () => {
+    vi.mocked(saveGeoref).mockRejectedValueOnce(new Error('503'))
+    georefDispatch({ type: 'start', planId: 'modul2', storageKey: 'object:o1:plan:modul2', pairs: [], aspect: AR })
+    georefDispatch({ type: 'planTap', pt: { x: 0.2, y: 0.2 } })
+    georefDispatch({ type: 'mapTap', lngLat: { lng: 7.5, lat: 47.5 } })
+    georefDispatch({ type: 'end' }) // flushes the debounced write
+    await vi.waitFor(() => expect(toast).toHaveBeenCalledTimes(1))
+    expect(toast).toHaveBeenCalledWith(C.saveFailed, expect.objectContaining({ tone: 'warn', kind: 'georef-save' }))
   })
 })
 

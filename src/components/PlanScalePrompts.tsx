@@ -73,7 +73,7 @@ export function PlanScalePrompt({ refMInput, setRefMInput, onCommit, onClose, wh
  * synchronously and drop the rejection on the floor: the operator was told «Als Standard-Massstab
  * gespeichert» while nothing of the sort had happened, and offline the claim was simply false. So
  * the save is awaited and its outcome reported, exactly as the Georeferenz's own writer does
- * (Whiteboard · setGeorefSaveErrorHandler). The prompt still closes at once — the operator has
+ * (lib/georefMode · saySaveFailed). The prompt still closes at once — the operator has
  * answered its question, and a dialog that waits for the network is a dialog in the way. Only
  * the failure is said (toast diet, 17.11.2026): a prompt that closed on its answer needs no echo.
  */

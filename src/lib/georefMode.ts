@@ -50,6 +50,7 @@ import { georefForPlan, saveGeoref, subscribeStationPlanScales } from './station
 import { incidentBindingApproved, isIncidentGeorefKey, saveIncidentGeoref } from './incidentPlanBindings'
 import { isAdminGeorefKey, saveAdminGeoref } from './adminGeorefSink'
 import { useIsPhone } from './useIsPhone'
+import { toast } from './ui'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from './format'
 
@@ -748,10 +749,22 @@ let rev = 0
 // pairs would sit in the singleton with nothing on screen re-reading them.
 subscribeStationPlanScales(() => { rev++; listeners.forEach((l) => l()) })
 
-/** Called with the reason a save failed, so the UI can raise the app's standard error toast.
- *  Set once by the Whiteboard; the store itself knows nothing about toasts or copy. */
-let onSaveError: (() => void) | null = null
-export function setGeorefSaveErrorHandler(fn: (() => void) | null) { onSaveError = fn }
+/**
+ * The error pill for a failed reference save, raised by the store itself: on a phone the pair is
+ * finished on the Karte while the Plan screen is unmounted, so a handler owned by that screen was
+ * gone at exactly the moment the save failed. A failed PUT keeps the local pairs – the next save
+ * writes the whole list again (saveGeoref replaces the document), so the retry needs no queue.
+ * ⚠️ Said ONCE per offline spell (toast diet, 17.11.2026): offline every pair drag fails, and
+ * each used to add a pill. Online, a failure is said every time – as one pill (`kind`).
+ */
+let saidOffline = false
+if (typeof window !== 'undefined') window.addEventListener('online', () => { saidOffline = false })
+function saySaveFailed() {
+  const offline = !navigator.onLine
+  if (offline && saidOffline) return
+  saidOffline = offline
+  toast(appConfig.copy.whiteboard.georef.saveFailed, { icon: 'warn', tone: 'warn', kind: 'georef-save' })
+}
 
 /** Called with how many OPEN halves an exit just discarded, so the UI can say so («3 gesehen,
  *  1 Punkt übrig» read as points being lost). Same registration pattern as the save error. */
@@ -800,7 +813,7 @@ function flushSave(): Promise<void> {
   if (saveTimer) { clearTimeout(saveTimer); saveTimer = null }
   const job = savePending; savePending = null
   if (!job) return Promise.resolve()
-  return saveGeoref(job.georefKey, { pairs: job.pairs }).catch(() => onSaveError?.())
+  return saveGeoref(job.georefKey, { pairs: job.pairs }).catch(() => saySaveFailed())
 }
 
 function queueSave(georefKey: string, pairs: GeorefPair[]) {
@@ -844,10 +857,10 @@ export function georefDispatch(a: GeorefAction) {
       // An incident binding lives in the workspace slice (undo/redo + sync), not behind the
       // station PUT — written through immediately; the debounce exists for a network write
       // this path never makes. Drag frames coalesce into the binding's single undo step.
-      try { saveIncidentGeoref(prev.storageKey, { pairs: next.pairs }, a.type === 'dragPlan' || a.type === 'dragMap') } catch { stored = false; onSaveError?.() }
+      try { saveIncidentGeoref(prev.storageKey, { pairs: next.pairs }, a.type === 'dragPlan' || a.type === 'dragMap') } catch { stored = false; saySaveFailed() }
     } else if (isAdminGeorefKey(prev.storageKey)) {
       // the admin's review draft (adminGeorefSink): in memory until «Ausrichtung freigeben»
-      try { saveAdminGeoref(prev.storageKey, { pairs: next.pairs }) } catch { onSaveError?.() }
+      try { saveAdminGeoref(prev.storageKey, { pairs: next.pairs }) } catch { saySaveFailed() }
     } else queueSave(prev.storageKey, next.pairs)
     // commit point 1 of 2: the pair that makes an unlinked sheet's fit (see `noteHandLink`).
     // The mode's pairs ARE the stored ones — seeded from storage at `start`, saved on every edit.
@@ -941,7 +954,7 @@ export function resetGeorefPlan(georefKey: string) {
   if (isAdminGeorefKey(georefKey)) {
     georefDispatch({ type: 'dismiss' })
     rev++
-    try { saveAdminGeoref(georefKey, { pairs: [] }) } catch { onSaveError?.() }
+    try { saveAdminGeoref(georefKey, { pairs: [] }) } catch { saySaveFailed() }
     listeners.forEach((l) => l())
     return
   }
@@ -950,14 +963,14 @@ export function resetGeorefPlan(georefKey: string) {
     // disconnect that must not fall back to the approval (incidentPlanBindings · override).
     georefDispatch({ type: 'dismiss' })
     rev++
-    try { saveIncidentGeoref(georefKey, { pairs: [] }) } catch { onSaveError?.() }
+    try { saveIncidentGeoref(georefKey, { pairs: [] }) } catch { saySaveFailed() }
     listeners.forEach((l) => l())
     return
   }
   const settled = settleSave(georefKey)
   georefDispatch({ type: 'dismiss' }) // its own flush now finds nothing left in the air
   rev++
-  settled.then(() => saveGeoref(georefKey, { pairs: [] })).catch(() => onSaveError?.())
+  settled.then(() => saveGeoref(georefKey, { pairs: [] })).catch(() => saySaveFailed())
   listeners.forEach((l) => l())
 }
 
@@ -981,7 +994,7 @@ export async function transferGeorefPlan(sourceKey: string, targetKey: string): 
   }))
   const before = georefForPlan(targetKey)?.pairs ?? []
   if (isIncidentGeorefKey(targetKey)) {
-    try { saveIncidentGeoref(targetKey, { pairs }) } catch { onSaveError?.(); return false }
+    try { saveIncidentGeoref(targetKey, { pairs }) } catch { saySaveFailed(); return false }
   } else {
     await saveGeoref(targetKey, { pairs })
   }
