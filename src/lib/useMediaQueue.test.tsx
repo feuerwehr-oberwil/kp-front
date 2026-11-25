@@ -165,3 +165,17 @@ it('two waiting captures do not hand each other an early try a minute after one 
   expect(since('a')).toBeLessThanOrEqual(3)
   expect(since('b')).toBeLessThanOrEqual(4)
 })
+
+it('a tab that loses the edit lock while linking leaves the receipt for the tab that took it', async () => {
+  vi.stubGlobal('URL', { createObjectURL: () => 'blob:restored', revokeObjectURL: vi.fn() })
+  upload.mockReset().mockResolvedValue({ url: '/media/7' })
+  await enqueueMedia('handover', 'row', 'photo', new Blob(['jpg']), 'photo-row', new Date().toISOString(), 'blob:cap')
+  let holds = true
+  // the link lands in this tab's view – and that instant another tab takes the Einsatz
+  const onUploaded = vi.fn(() => { holds = false; return true })
+  const { result } = renderHook(() => useMediaQueue({ incidentId: 'handover', readOnly: false, writable: () => holds, onUploaded, onRestore: () => {} }))
+  await waitFor(() => expect(onUploaded).toHaveBeenCalledOnce())
+  await act(async () => { await result.current.replayReceipts() })
+  expect(onUploaded).toHaveBeenCalledOnce() // no second link from a tab that does not hold it
+  expect(state.store.get('kp-front-mediaq-handover')).toEqual([expect.objectContaining({ status: 'uploaded', url: '/media/7' })])
+})

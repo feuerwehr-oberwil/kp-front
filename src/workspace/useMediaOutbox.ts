@@ -48,7 +48,7 @@ export interface UseMediaOutboxInputs {
   syncWorkspaceNow: () => Promise<void>
   journal: Pick<ReturnType<typeof useJournal>, 'rows' | 'getStatus' | 'rowShown' | 'retry' | 'flush'>
   auditDelivery: Pick<ReturnType<typeof useAuditEvents>, 'retry' | 'getStatus'>
-  sync: Pick<WorkspaceSync, 'syncStatus' | 'hasUnsynced'>
+  sync: Pick<WorkspaceSync, 'syncStatus' | 'hasUnsynced' | 'canWrite'>
   flushEvents: () => Promise<void>
 }
 
@@ -105,6 +105,8 @@ export function useMediaOutbox({
 
   const media = useMediaQueue({
     incidentId: incidentMeta.id, readOnly: !canWriteRecord,
+    // the engine of THIS render: once another tab took the edit lock it answers false at once
+    writable: () => sync.canWrite,
     onUploaded: linkUploaded, onRestore: swapRowMedia,
   })
   // Every change of the Verlauf may be the one a receipt waits for (its row loaded, its patch
