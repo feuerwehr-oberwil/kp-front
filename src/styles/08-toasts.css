@@ -870,6 +870,14 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
   font: var(--fw-medium) var(--fs-2)/1.35 var(--body);
   text-align: center; text-wrap: balance;
   box-shadow: var(--float-edge); }
+/* The ↶ caption's «✓ gespeichert» (lib/undoFlash, owner pick UX journeys M·11, 25.11.2026): the
+   server has the step. A green word on its own tint, the state as a glyph colour – the pill
+   itself stays the message surface. */
+.hold-tip.with-saved { display: inline-flex; align-items: center; gap: var(--sp-2); text-wrap: nowrap; }
+.hold-tip-saved { display: inline-flex; align-items: center; gap: var(--sp-1); flex: none;
+  padding: 2px var(--sp-2); border-radius: var(--r-xs);
+  background: var(--green-12); color: var(--green-strong); font-weight: var(--fw-bold); }
+.hold-tip-saved svg { width: 14px; height: 14px; }
 
 /* ── the Präsentationsmodus (components/Presentation, mock 8B, 05.11.2026; docs/presentation.md) ──
    The pill stands bottom centre, in the floating family of the armed-tool pill (09-whiteboard):

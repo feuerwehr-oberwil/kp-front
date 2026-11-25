@@ -51,14 +51,16 @@ export interface UndoableDoc<D> {
 
 /**
  * `onCheckpoint` is told every time a step is actually laid down – a `commit`, or a gesture folded
- * by `endDrag` – with the step's id. It exists so the ONE global timeline (`lib/undoTimeline`) can
+ * by `endDrag` – with the step's id and the document before and after it (the after is the live
+ * document at that moment; a `checkpoint` caller may not have written yet, so it can equal the
+ * before). The two states are what lets the ↶ name a step its writer left unnamed (lib/undoStepWords). It exists so the ONE global timeline (`lib/undoTimeline`) can
  * record that the Karte moved, in the same chronology as everything else; the document's own stack
  * keeps working exactly as before and stays the thing that answers `undo()`.
  *
  * `shape` says how the document is made of records (lib/undoKeys). With it, a remote merge keeps
  * the steps it did not invalidate (`rebase`); without it, a merge drops the history.
  */
-export function useUndoableDoc<D>(init: D, readOnly: boolean, onCheckpoint?: (step: string) => void, shape?: RecordShape<D>): UndoableDoc<D> {
+export function useUndoableDoc<D>(init: D, readOnly: boolean, onCheckpoint?: (step: string, before: D, after: D) => void, shape?: RecordShape<D>): UndoableDoc<D> {
   const [doc, setDoc] = useState<D>(init)
   // ⚠️ The live value, advanced synchronously by every write below — `doc` (state) is a
   // per-render snapshot and only feeds renders. Reading the snapshot in commit() meant two
@@ -101,7 +103,7 @@ export function useUndoableDoc<D>(init: D, readOnly: boolean, onCheckpoint?: (st
     const snap = docRef.current
     const id = lay(snap)
     setDocRaw(updater(snap))
-    onCheckpoint?.(id)
+    onCheckpoint?.(id, snap, docRef.current)
   }
   const beginDrag = () => { dragSnap.current = docRef.current }
   const endDrag = () => {
@@ -109,7 +111,7 @@ export function useUndoableDoc<D>(init: D, readOnly: boolean, onCheckpoint?: (st
     dragSnap.current = null
     if (!snap || readOnly) return
     const id = lay(snap) // ⚠️ not inside `onCheckpoint?.(…)`: an absent callback skips its arguments
-    onCheckpoint?.(id)
+    onCheckpoint?.(id, snap, docRef.current)
   }
   const undo = (expect?: string): boolean => {
     const top = past.current[past.current.length - 1]
@@ -153,7 +155,7 @@ export function useUndoableDoc<D>(init: D, readOnly: boolean, onCheckpoint?: (st
   const checkpoint = (snapshot: D): string | null => {
     if (readOnly) return null
     const id = lay(snapshot)
-    onCheckpoint?.(id)
+    onCheckpoint?.(id, snapshot, docRef.current)
     return id
   }
 

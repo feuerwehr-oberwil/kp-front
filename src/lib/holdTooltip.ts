@@ -87,6 +87,13 @@ export function showHoldBubble(el: HTMLElement, label: string): HTMLElement {
   b.textContent = label
   b.setAttribute('role', 'tooltip')
   document.body.appendChild(b)
+  placeHoldBubble(b, el)
+  return b
+}
+
+/** (Re)place bubble `b` at `el` – again after its content changed width (the ↶ caption's
+ *  «✓ gespeichert», `undoFlash.ts`). */
+export function placeHoldBubble(b: HTMLElement, el: HTMLElement): void {
   const r = el.getBoundingClientRect()
   // above the button, clamped into the viewport; below it when there is no room above
   // ⚠️ Measured AFTER `text-wrap: balance` has settled the line break, so `bw` is the pill's real
@@ -96,7 +103,6 @@ export function showHoldBubble(el: HTMLElement, label: string): HTMLElement {
   const top = r.top - b.offsetHeight - 8
   b.style.left = `${Math.round(left)}px`
   b.style.top = `${Math.round(top >= 6 ? top : r.bottom + 8)}px`
-  return b
 }
 
 /** Install the app-wide hold-tooltip listeners. Returns the uninstaller (for tests / HMR). */

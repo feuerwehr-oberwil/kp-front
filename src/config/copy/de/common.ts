@@ -147,4 +147,15 @@ export const commonCopy = {
     count: '{n} von {m}',
     showAll: 'Alle zeigen',
   },
+  /** Was ein Karten-Schritt mit EINEM Objekt tat – die Worte, die ↶ nennt, wo der Schreiber keine
+   *  eigenen setzt (lib/undoStepWords; Owner-Pick UX-Journeys M·11, 25.11.2026: «Rückgängig:
+   *  Änderung auf der Karte» nannte nichts). `saved` steht in der ↶-Blase, sobald der Server den
+   *  Schritt hat (lib/undoFlash). */
+  undoStep: {
+    placed: '{name} gesetzt',
+    removed: '{name} entfernt',
+    moved: '{name} verschoben',
+    changed: '{name} geändert',
+    saved: 'gespeichert',
+  },
 } as const
