@@ -94,7 +94,9 @@ if ! compose run --rm --no-deps -T app uv run python -m app.backup </dev/null \
 fi
 
 # Verify both content types before publishing either half. gzip integrity alone also accepts
-# an empty stream. Keep the dump prefix in a variable to avoid grep's early-exit SIGPIPE.
+# an empty stream. Keep the dump prefix in a variable and match it in bash: piped into an
+# early-exit `grep -q` (even via printf), pipefail turned the match into a failure (hunt
+# 24.11.2026, ops-integrations F2).
 DB_PART="$STAGE/db.sql.gz"
 STORAGE_PART="$STAGE/storage.tar.gz"
 if ! gzip -t "$DB_PART" || ! gzip -t "$STORAGE_PART" || ! kp_storage_archive_list "$STORAGE_PART" >/dev/null; then
@@ -102,7 +104,7 @@ if ! gzip -t "$DB_PART" || ! gzip -t "$STORAGE_PART" || ! kp_storage_archive_lis
   exit 1
 fi
 DUMP_HEAD="$(gunzip -c "$DB_PART" | head -c 65536 || true)"
-if ! printf '%s' "$DUMP_HEAD" | grep -q 'PostgreSQL database dump'; then
+if [[ $DUMP_HEAD != *'PostgreSQL database dump'* ]]; then
   echo "ERROR: database half is not a PostgreSQL dump – NOT kept." >&2
   exit 1
 fi

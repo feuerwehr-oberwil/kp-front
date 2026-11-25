@@ -17,6 +17,7 @@ Einsatz-Link responder is one). Unconfirmed incidents stay out of the stats expo
 import asyncio
 import logging
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from weakref import WeakValueDictionary
 
@@ -99,9 +100,21 @@ async def is_demo_deployment(db: AsyncSession) -> bool:
     return bool(identity and identity.demoMode)
 
 
-async def open_pooled_alarm(db: AsyncSession, *, source: str, ref: str) -> Incident | None:
+@dataclass(frozen=True)
+class ParkedAlarm:
+    """A pooled alarm the split-dispatch guard holds back while real Einsätze run: it waits for
+    the EL to attach it (or open it). `running` is every candidate, oldest first."""
+
+    running: list[Incident]
+
+
+async def open_pooled_alarm(
+    db: AsyncSession, *, source: str, ref: str, may_open: bool = True
+) -> Incident | ParkedAlarm | None:
     """Resolve an alarm still sitting in an intake pool to its incident, opening it if nobody
-    has yet. Returns None when no pool row matches — the caller decides what that means.
+    has yet. Returns None when no pool row matches — the caller decides what that means – and a
+    `ParkedAlarm` while it waits for the EL beside running Einsätze. `may_open=False` (a responder's
+    pick from that list) never opens the alarm itself.
 
     This is the Einsatz-Link's rescue path. A link names the alarm (`src`/`ref`), never our
     incident UUID, so a responder could tap it before the alarm had become an Einsatz here and
@@ -120,7 +133,7 @@ async def open_pooled_alarm(db: AsyncSession, *, source: str, ref: str) -> Incid
     except (TypeError, ValueError):
         return None
 
-    from .divera import open_emergency, running_real_incident  # lazy — avoids an import cycle
+    from .divera import open_emergency, running_real_incidents  # lazy — avoids an import cycle
     from .models import DiveraEmergency
 
     em = (await db.execute(select(DiveraEmergency).where(DiveraEmergency.divera_id == divera_id))).scalar_one_or_none()
@@ -141,18 +154,16 @@ async def open_pooled_alarm(db: AsyncSession, *, source: str, ref: str) -> Incid
     # — and a link is the likeliest way to trip it, because a re-dispatched group taps it
     # within seconds while the EL is still working the first alarm.
     #
-    # Sending the responder to the running Einsatz is not a compromise, it is the better
-    # answer: a Nachalarm for the same incident wants that incident's Lage, not a fresh
-    # empty one. The EL can still attach the pool row properly afterwards; this only
-    # decides what the responder sees in the meantime.
-    running = await running_real_incident(db)
-    if running is not None:
-        logger.info(
-            "Einsatz-Link für Divera %s: laufender Einsatz %s statt zweitem Einsatz",
-            em.divera_id,
-            running.id,
-        )
-        return running
+    # ⚠️ …and sending the responder to «the» running Einsatz was a guess (hunt 24.11.2026,
+    # access-control F1, owner pick «ask on the phone»): a second, unrelated call within the
+    # window landed its responders on the first one. The alarm WAITS for the EL's assignment;
+    # the phone shows the running Einsätze, the oldest (where a Nachalarm is merged) marked.
+    running = await running_real_incidents(db)
+    if running:
+        logger.info("Einsatz-Link für Divera %s: wartet auf Zuordnung (%d laufend)", em.divera_id, len(running))
+        return ParkedAlarm(running)
+    if not may_open:
+        return None  # a pick made on a list that has since emptied opens nothing of its own
 
     return await open_emergency(db, em)
 

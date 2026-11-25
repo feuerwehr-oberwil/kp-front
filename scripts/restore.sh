@@ -290,13 +290,15 @@ gzip -t "$DB_FILE" 2>/dev/null || die "$(sayf "$T_ERR_BAD_GZIP_FMT" "$DB_FILE")"
 # the wrong (or of an empty) database. pg_dump names every table it creates, so the
 # schema-version table is a cheap, unambiguous fingerprint for the second.
 #
-# ⚠️ Read into a variable rather than piped straight into `grep -q`: grep exits at the first
-# match, head takes SIGPIPE, and `set -o pipefail` then reports the pipeline as FAILED — so
-# finding the fingerprint was what made the check say the fingerprint was missing.
+# ⚠️ Read into a variable and matched by bash itself, never piped into `grep -q`: grep exits at
+# the first match, the writer takes SIGPIPE, and `set -o pipefail` then reports the pipeline as
+# FAILED — so finding the fingerprint was what made the check say it was missing. Piping the
+# variable through `printf` did the same once the prefix outgrew the pipe buffer (hunt
+# 24.11.2026, ops-integrations F2: a valid ~600 KB prefix was refused).
 dump_head="$(gunzip -c "$DB_FILE" 2>/dev/null | head -n 20000 || true)"
-printf '%s' "$dump_head" | grep -q 'PostgreSQL database dump' \
+[[ $dump_head == *'PostgreSQL database dump'* ]] \
   || die "$(sayf "$T_ERR_NOT_A_DUMP_FMT" "$DB_FILE")"
-printf '%s' "$dump_head" | grep -q 'alembic_version' \
+[[ $dump_head == *'alembic_version'* ]] \
   || die "$(sayf "$T_ERR_EMPTY_DUMP_FMT" "$DB_FILE" "$DB_FILE" "$PGUSER_" "$PGDB_")"
 unset dump_head
 
