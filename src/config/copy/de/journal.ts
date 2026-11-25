@@ -10,7 +10,6 @@ export const journalCopy = {
       storageTitle: 'Einträge nicht auf diesem Gerät gespeichert',
       storageBody: 'App offen lassen und Einträge herunterladen. Beim Schliessen können diese Einträge verloren gehen.',
       savedBody: 'Auf diesem Gerät gespeichert. Auf anderen Geräten fehlen diese Einträge.',
-      offlineBody: 'Auf diesem Gerät gespeichert. Wird mit Netz synchronisiert.',
       retry: 'Erneut versuchen',
       retrying: 'Wird versucht …',
       export: 'Einträge herunterladen',
@@ -27,6 +26,12 @@ export const journalCopy = {
       closedBody: 'Der Einsatz war bereits abgeschlossen, als diese Einträge ankamen. Sie stehen nicht im Verlauf, bleiben aber auf diesem Gerät und lassen sich herunterladen. Wird der Einsatz wieder geöffnet, werden sie synchronisiert.',
       // die Statusleuchte, solange solche Einträge nur auf dem Gerät liegen
       closedShort: 'Einträge nach dem Abschluss nicht übernommen – herunterladen',
+      // offline, the notice is one calm line (owner pick UX journeys B2·37, 25.11.2026) – and the row that waits says so
+      offlineTitleOne: 'Offline · 1 Eintrag nur auf diesem Gerät',
+      offlineTitle: 'Offline · {n} Einträge nur auf diesem Gerät',
+      offlineLine: 'Wird mit Netz von selbst synchronisiert.',
+      exportShort: 'Herunterladen',
+      onlyHere: 'nur auf diesem Gerät',
     },
     open: 'Verlauf',
     add: 'Eintrag',

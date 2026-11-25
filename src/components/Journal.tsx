@@ -115,6 +115,10 @@ export type JournalProps = {
   /** offline-queue status of a row's media (photo/audio not yet on the server), or undefined
    *  once uploaded — drives the "wird geladen"/"nicht geladen" chip on media rows. */
   mediaStatusOf?: (rowId: string) => 'pending' | 'failed' | undefined
+  /** rows that are only on this device while it is offline or the server refuses them
+   *  (journalStore · unsentRowIds): each says «nur auf diesem Gerät» (owner pick UX journeys
+   *  B2·37, 25.11.2026). Absent while everything is delivered or simply in flight. */
+  unsentIds?: ReadonlySet<string>
   /** open the Durchhören player sheet for a long recording (rows with audioMeta);
    *  seekSec jumps straight to a moment inside it (annotation rows link back) */
   onOpenPlayer?: (e: TimelineEvent, seekSec?: number) => void
@@ -155,7 +159,7 @@ export type JournalProps = {
 // happens on either surface. Rendered as a slide-over so it can open over the
 // map or the plan; a row jumps back to wherever its event happened. Each row is
 // a <JournalRow>; the row's detail sheet is rendered here, at the bottom.
-export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, onClose, onTranscript, onReplay, openReminders, onReminderTick, onReminderNote, onReminderAgain, mediaStatusOf, onOpenPlayer, onEditText, replayAtMs, onSeekTo, landOn, deliveryNotice, photoPlacement, onPhotoPlace, onPhotoShow, onOpenTafel, onShowTrupp }: JournalProps) {
+export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, onClose, onTranscript, onReplay, openReminders, onReminderTick, onReminderNote, onReminderAgain, mediaStatusOf, unsentIds, onOpenPlayer, onEditText, replayAtMs, onSeekTo, landOn, deliveryNotice, photoPlacement, onPhotoPlace, onPhotoShow, onOpenTafel, onShowTrupp }: JournalProps) {
   // read per-render (not module-load) so the resolved locale is applied — see config/copy
   const C = appConfig.copy.journal
   const audio = useAudioPlayer()
@@ -950,7 +954,7 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
                   marked={marked} jumpToRow={jumpToRow} onOpenDetail={setDetailId}
                   onSelect={onSelect} onSeekTo={onSeekTo} onTranscript={onTranscript} onEditText={onEditText}
                   onOpenPlayer={onOpenPlayer} onReminderTick={onReminderTick} onReminderNote={onReminderNote} onReminderAgain={onReminderAgain}
-                  mediaStatusOf={mediaStatusOf}
+                  mediaStatusOf={mediaStatusOf} unsent={!!unsentIds?.has(e.id)}
                 />
               ))}
             </Fragment>

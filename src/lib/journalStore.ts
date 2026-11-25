@@ -580,6 +580,14 @@ export class JournalStore {
     return this.state.dead?.length ?? 0
   }
 
+  /** The Verlauf rows still only on this device – queued or rejected – by the id of the row they
+   *  write or correct (a patch counts as its target). The delivery notice counts these and the
+   *  Verlauf marks them «nur auf diesem Gerät» (owner pick UX journeys B2·37, 25.11.2026: one
+   *  entry used to read «2 Einträge», the second being its audit event). */
+  unsentRowIds(): ReadonlySet<string> {
+    return new Set([...this.state.outbox, ...(this.state.dead ?? [])].map((r) => r.patchOf ?? r.id))
+  }
+
   /** rows the closed Einsatz no longer took — parked, not owed (see Persisted · refused) */
   get refusedCount(): number {
     return this.state.refused?.length ?? 0

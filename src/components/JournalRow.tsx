@@ -81,6 +81,8 @@ type JournalRowProps = Pick<JournalProps,
   openMap: ReadonlyMap<string, OpenReminder>
   /** how many times this row's state was re-stated in a run (lib/verlauf · repeatRuns); 1 = once */
   repeated: number
+  /** the row is only on this device (Journal · unsentIds): «nur auf diesem Gerät» under it */
+  unsent: boolean
   /** the row above it prints the same clock: this one's stamp steps back (`.t[data-same]`) */
   sameMinute: boolean
   /** reminder id → the item's own words, and → the row that raised it (a Meldung's anchor) */
@@ -109,7 +111,7 @@ type JournalRowProps = Pick<JournalProps,
 /** One Verlauf row: time, disc, the sentence, its trail of footnotes/media/controls, and the
  *  transcript lines and inline editors under it. Rendered by Journal once per shown row. */
 export function JournalRow({
-  e, plans, live, closedAt, now, replayAtMs, openMap, repeated, sameMinute, pendenzTitles, pendenzRowIds, reRaised, audioWindows, playing,
+  e, plans, live, closedAt, now, replayAtMs, openMap, repeated, unsent, sameMinute, pendenzTitles, pendenzRowIds, reRaised, audioWindows, playing,
   editTx, editRow, marked, jumpToRow, onTogglePlay, onOpenDetail, setEditTx, setEditRow, saveTranscript, saveRowText,
   onSelect, onSeekTo, onTranscript, onEditText, onOpenPlayer, onReminderTick, onReminderNote, onReminderAgain, mediaStatusOf,
 }: JournalRowProps) {
@@ -181,10 +183,10 @@ export function JournalRow({
   const txMissing = !!e.audioUrl && !!onTranscript && !hasTx
   const mediaState = (rowPhotos(e).length > 0 || !!e.audioUrl) ? mediaStatusOf?.(e.id) : undefined
   const offersAgain = closedRow && !!onReminderAgain
-  const hasMeta = hasFootnotes || txMissing || !!mediaState || offersAgain
+  const hasMeta = hasFootnotes || txMissing || !!mediaState || offersAgain || unsent
   return (
     <div
-      className={`hist-ev ${clickable ? 'clickable' : ''} ${future ? 'jr-future' : ''}`}
+      className={`hist-ev ${clickable ? 'clickable' : ''} ${future ? 'jr-future' : ''} ${unsent ? 'jr-unsent' : ''}`}
       data-ev={e.id}
       role={clickable ? 'button' : undefined}
       tabIndex={clickable ? 0 : undefined}
@@ -265,6 +267,11 @@ export function JournalRow({
                 missing-transcript state keeps its amber ON the row — as a chip on the row
                 meta, since the button that carried it is no longer here. The transcript
                 TEXT still gets its own lines below (see .jr-subs): content, not a control. */}
+            {/* the row that waits for the network (owner pick UX journeys B2·37, 25.11.2026): the
+                delivery notice above counts it, this says which one it is */}
+            {unsent && (
+              <span className="jr-media-state jr-unsent-mark"><Icon id="cloud-off" /><span>{C.delivery.onlyHere}</span></span>
+            )}
             {txMissing && (
               <span className="jr-media-state jr-tx-miss" title={C.transcriptAdd}>
                 <Icon id="warn" />

@@ -119,6 +119,23 @@ describe('JournalStore — append/flush/pull', () => {
     expect(store.syncStatus).toBe('synced')
   })
 
+  // owner pick UX journeys B2·37: one entry is ONE waiting row – its correction counts as it
+  it('names the rows still only on this device, a patch by the row it corrects', async () => {
+    apiGet.mockRejectedValue(new ApiError(0, 'offline'))
+    apiPost.mockRejectedValue(new ApiError(0, 'offline'))
+    const store = new JournalStore(INC, false)
+    await store.init([])
+    store.append(row('a'))
+    store.appendPatch('a', { textEdit: 'Zeile a, korrigiert' })
+    await settle(); await settle()
+    expect([...store.unsentRowIds()]).toEqual(['a'])
+    fakeServer()
+    await store.retry()
+    await settle()
+    expect(store.unsentRowIds().size).toBe(0)
+    store.dispose()
+  })
+
   it('persists the union when an offline row is added while the old cache is loading', async () => {
     apiGet.mockRejectedValue(new ApiError(0, 'offline'))
     apiPost.mockRejectedValue(new ApiError(0, 'offline'))

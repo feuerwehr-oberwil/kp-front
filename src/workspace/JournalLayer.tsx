@@ -95,7 +95,8 @@ export function JournalLayer({
         <Journal
           deliveryNotice={<JournalDeliveryNotice
             status={combinedSyncStatus(journal.syncStatus, auditDelivery.status)}
-            count={journal.pendingCount + journal.rejectedCount + auditDelivery.pendingCount + auditDelivery.rejectedCount}
+            // Verlauf rows, not rows plus their audit events (JournalDeliveryNotice · count)
+            count={journal.unsentIds.size || auditDelivery.pendingCount + auditDelivery.rejectedCount}
             refused={auditDelivery.refusedCount + workspaceRoleParked}
             closedRefused={closedRefusedTotal}
             onRetry={async () => { await Promise.all([journal.retry(), auditDelivery.retry()]) }}
@@ -134,6 +135,8 @@ export function JournalLayer({
           } : undefined}
           onReminderAgain={!readOnly && !replayActive ? reRaisePendenz : undefined}
           mediaStatusOf={media.statusOf}
+          // only while the notice says they wait: an in-flight row is no news (JournalDeliveryNotice)
+          unsentIds={['offline', 'error'].includes(combinedSyncStatus(journal.syncStatus, auditDelivery.status)) ? journal.unsentIds : undefined}
           onOpenPlayer={(e, seekSec) => setPlayer({ row: e, seekSec })}
           onEditText={!readOnly ? (id, text) => journal.appendPatch(id, { textEdit: text }) : undefined}
           photoPlacement={photoOnMap}

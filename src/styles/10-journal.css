@@ -424,6 +424,13 @@
 .jr-delivery strong { font-size: var(--fs-2); }
 .jr-delivery p { margin-block: 8px 12px; font-size: var(--fs-2); line-height: 1.5; }
 .jr-delivery-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+/* merely OFFLINE: one calm line – glyph, «Offline · 1 Eintrag nur auf diesem Gerät», «Herunterladen»
+   (JournalDeliveryNotice, owner pick UX journeys B2·37, 25.11.2026); no retry until the network is back */
+.jr-delivery-offline { display: flex; align-items: center; gap: var(--sp-3); padding-block: var(--sp-2); }
+.jr-delivery-offline > .i { flex: none; width: 18px; height: 18px; color: var(--amber-strong); }
+.jr-delivery-line { flex: 1; min-width: 0; }
+.jr-delivery-line p { margin: 0; font-size: var(--fs-1); color: var(--ink-dim); }
+.jr-delivery-offline > button { flex: none; }
 /* ⚠️ ONE size for every button of this head, and it is the app's --tap (30.10.2026, owner: «increase
    the size of the touch targets/buttons to match the size we have otherwise»). It was 36 to the eye
    over a 44 pad – the ✕'s house size (13-incident.css · «ONE size for the ✕») – so the Verlauf read
@@ -1002,6 +1009,9 @@ button.jr-link-go:focus-visible { outline: 2px solid var(--blue); outline-offset
 .jr-media-state .i { width: 12px; height: 12px; }
 .jr-media-state.failed { color: var(--red-strong, #d33); background: color-mix(in srgb, var(--red-strong, #d33) 14%, transparent); }
 /* `.jr-tx-miss` (missing transcript, on the row meta) rides the same amber chip — no own rule. */
+/* …and so does the row only on this device (`.jr-unsent-mark`, B2·37); the row itself wears the
+   notice's amber wash, so the one the notice counts is found at a glance */
+.hist-ev.jr-unsent { background: color-mix(in srgb, var(--amber) 12%, transparent); }
 
 /* ── the audio row's ONE inline control (29.08., Variante 2) ──
    Durchhören and Transkript moved into the row's detail sheet, so the play circle no longer
