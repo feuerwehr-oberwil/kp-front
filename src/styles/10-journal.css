@@ -737,7 +737,7 @@
 .jc-track { flex-wrap: nowrap; }
 .jc-art { flex: 1 1 auto; min-width: 0; display: flex; }
 .jc-art > .jc-chip { flex: 1 1 auto; min-width: 0; padding: var(--sp-1) var(--sp-3); }
-.jc-when .useg-btn { width: var(--tap); padding: 0; }
+.jc-when .useg-btn { min-width: var(--tap); padding: 0 var(--sp-3); }
 /* the clip: a square plate, the row's height */
 .jc-row > .jc-rec { flex: none; width: var(--tap); height: auto; min-height: var(--tap); padding: 0; }
 .jc-row > .jc-rec .i { width: 19px; height: 19px; }
@@ -878,8 +878,8 @@ button.jr-link-go:focus-visible { outline: 2px solid var(--blue); outline-offset
    as three rules that quietly style nothing. */
 
 /* ⚠️ The Erinnerung's own strip of due chips is GONE (17.08.). It belonged to a mode that no
-   longer exists — the clock beside the ring carries those answers in a menu now (see
-   .jc-due-btn), for the same reason the ring does: a row unfolding inside the sheet pushes the
+   longer exists — the «Pendenz» button carries those answers in a menu now (see
+   JournalComposer · B2·40), for the same reason the ring does: a row unfolding inside the sheet pushes the
    field it belongs to under the keyboard. What is left here serves the IMPORTED MEMO's start
    time, which is a different question on a different row. */
 /* ⚠️ «Aufnahme begann» — VISIBLE. It was `display: none`, left behind when the Erinnerung's chip

@@ -371,12 +371,10 @@
    picker now hangs off a LONG PRESS on the ○ switch (see JournalComposer), which is where «this
    entry belongs to something open» already lives. */
 
-/* the track cell the ring and the clock live in — each menu is anchored to its own button.
-   ⚠️ The clock shares the shell (`.useg-btn` in the ⏱ | □ track, 10-journal · .jc-when) but NOT
-   the class: `.jc-open` means «the ring», and one selector answering to two controls is how a
-   rule written for one of them silently reaches the other. */
+/* the track cell the ONE «Pendenz» button lives in (owner pick UX journeys B2·40, 25.11.2026 – the
+   ⏱ | □ pair of two unlabelled icons became the ring + its word; the menu is anchored to it) */
 .jc-openwrap { position: relative; display: flex; min-width: 0; }
-.jc-open, .jc-due-btn { -webkit-tap-highlight-color: transparent; }
+.jc-open { position: relative; -webkit-tap-highlight-color: transparent; }
 .jc-ring { width: 21px; height: 21px; border-radius: var(--r-xs); border: 2px solid currentColor;
   display: grid; place-items: center; box-sizing: border-box; }
 /* ⚠️ The Pendenz's tick box, not a ring (duck sweep ENT.5, 17.11.2026): the switch draws what the
@@ -401,19 +399,12 @@
 .jc-open[data-state="2"] { color: var(--red-strong);
   background: var(--red-12); }
 
-/* ── the clock beside the ring: when this entry has to come back ──
-   Same shell as the ring's button, so the two read as one pair of questions about this line
-   («bleibt offen» / «meldet sich») rather than as a control and a decoration – one track. */
-.jc-due-btn { position: relative; }
-.jc-due-btn .i { width: 17px; height: 17px; }
-.jc-due-btn[data-on] { color: var(--on-sel); background: var(--sel); box-shadow: var(--sel-shadow); }
-/* ⚠️ The time hangs OUT of the button, absolutely positioned. Inline it would widen the control
-   by ~40px, and the three Art chips are the only things in the row that can give that up — at
-   which point «Sofortmassnahme» wraps and the row grows anyway. A lit clock alone says «something
-   was chosen» without saying what, and «wann» is the half you can act on, so it has to be legible
-   rather than merely present. The ONE count badge (05-navrail · .nav-count, 28.09.2026): 16px,
-   11/800, --r-xs, and INK — it was blue, the chosen button's own fill, so on a lit clock the
-   badge melted into it. The --surface ring stays to lift it off that fill. */
+/* ⚠️ A reminder's time hangs OUT of the «Pendenz» button, absolutely positioned. Inline it would
+   widen the control by ~40px, and the three Art chips are the only things in the row that can give
+   that up — at which point «Sofortmassnahme» wraps and the row grows anyway. «wann» is the half you
+   can act on, so it has to be legible rather than merely present. The ONE count badge (05-navrail ·
+   .nav-count, 28.09.2026): 16px, 11/800, --r-xs, and INK; the --surface ring lifts it off the
+   button's amber. */
 .jc-due-badge { position: absolute; top: -7px; right: -6px; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box;
   border-radius: var(--r-xs); background: var(--ink-fill); color: var(--on-accent-ink);
   font: var(--fw-heavy) var(--fs-micro)/16px var(--body); font-variant-numeric: tabular-nums; white-space: nowrap; text-align: center;
