@@ -17,7 +17,7 @@ beforeEach(() => {
 
 /** The Whiteboard's wiring in miniature: a committed angle, a live preview on top of it, and
  *  the popover (`open`) the slider lives in. `shown` is what the backdrop would be turned to. */
-function Harness({ onCommit }: { onCommit: (deg: number) => void }) {
+function Harness({ onCommit, snap = (d) => d }: { onCommit: (deg: number) => void; snap?: (deg: number) => number }) {
   const [committed, setCommitted] = useState(0)
   const [preview, setPreview] = useState<number | null>(null)
   const [open, setOpen] = useState(true)
@@ -29,7 +29,7 @@ function Harness({ onCommit }: { onCommit: (deg: number) => void }) {
         <OrientSlider
           value={preview ?? committed}
           label="Drehung"
-          onPreview={setPreview}
+          onPreview={(deg) => setPreview(snap(deg))}
           onCommit={(deg) => { setPreview(null); setCommitted(deg); onCommit(deg) }}
           onAbandon={() => setPreview(null)}
         />
@@ -85,12 +85,53 @@ describe('OrientSlider – the Gebäude orientation preview', () => {
     expect(commit).not.toHaveBeenCalled()
   })
 
-  it('the keyboard commits once per step', () => {
+  // review of #742: a held arrow commits ONCE, when it lifts — one «Gebäude drehen» step, not
+  // one per repeat
+  it('the keyboard previews each step and commits once per key gesture', () => {
     const commit = vi.fn()
     render(<Harness onCommit={commit} />)
-    for (let i = 0; i < 3; i++) fireEvent.keyDown(slider(), { key: 'ArrowRight' })
-    expect(commit.mock.calls).toEqual([[1], [2], [3]])
+    for (let i = 0; i < 3; i++) fireEvent.keyDown(slider(), { key: 'ArrowRight', repeat: i > 0 })
     expect(shown()).toBe(3)
+    expect(commit).not.toHaveBeenCalled()
+    fireEvent.keyUp(slider(), { key: 'ArrowRight' })
+    expect(commit.mock.calls).toEqual([[3]])
+    // two separate taps are two gestures
+    fireEvent.keyDown(slider(), { key: 'ArrowLeft' })
+    fireEvent.keyUp(slider(), { key: 'ArrowLeft' })
+    expect(commit.mock.calls).toEqual([[3], [2]])
+  })
+
+  // review of #742: the Whiteboard snaps the preview within 5° of 0° — a held arrow stepped from
+  // the snapped value and never got past the catch
+  it('a held arrow walks past a snap point: it steps from its own value, not the snapped one', () => {
+    const commit = vi.fn()
+    render(<Harness onCommit={commit} snap={(d) => (Math.abs(d) <= 5 ? 0 : d)} />)
+    for (let i = 0; i < 7; i++) fireEvent.keyDown(slider(), { key: 'ArrowRight', repeat: i > 0 })
+    expect(shown()).toBe(7)
+    fireEvent.keyUp(slider(), { key: 'ArrowRight' })
+    expect(commit.mock.calls).toEqual([[7]])
+  })
+
+  // review of #742: an unrelated key lifting is no end of the gesture, and a pointer press ends it
+  it('a Shift lifted under a held arrow does not split the gesture into two commits', () => {
+    const commit = vi.fn()
+    render(<Harness onCommit={commit} />)
+    fireEvent.keyDown(slider(), { key: 'ArrowRight' })
+    fireEvent.keyUp(slider(), { key: 'Shift' })
+    fireEvent.keyDown(slider(), { key: 'ArrowRight', repeat: true })
+    fireEvent.keyUp(slider(), { key: 'ArrowRight' })
+    expect(commit.mock.calls).toEqual([[2]])
+  })
+
+  it('a pointer press ends an open key gesture: the key lifting later commits nothing stale', () => {
+    const commit = vi.fn()
+    render(<Harness onCommit={commit} />)
+    fireEvent.keyDown(slider(), { key: 'ArrowRight' })
+    fireEvent.pointerDown(slider(), at(40))
+    fireEvent.pointerUp(slider(), at(40))
+    fireEvent.keyUp(slider(), { key: 'ArrowRight' })
+    expect(commit.mock.calls).toEqual([[1], [40]])
+    expect(shown()).toBe(40)
   })
 
   it('the popover closing with a preview still live drops it', () => {

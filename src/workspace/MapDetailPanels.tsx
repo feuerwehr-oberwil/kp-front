@@ -23,7 +23,7 @@ import { SHAPE_MIN_M, SHAPE_MAX_M, SHAPE_DEFS, rotationRun, ROTATION_MAX_M, rota
 import { symbolControls, symbolTitleOptions, symbolFieldOptions, symbolPresetFieldKeys, vehicleOriginOptions } from '../lib/symbols'
 import { truppForLine, truppIsOut } from '../lib/truppLines'
 import type { useSymbols } from '../lib/useSymbols'
-import type { VehicleOverrides } from '../lib/useVehicleLayer'
+import { positionOverride, type VehicleOverrides, type VehiclePosition } from '../lib/useVehicleLayer'
 import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import type { TacticalObject } from '../lib/tacticalObjects'
 import type { Doc } from '../lib/workspace'
@@ -68,6 +68,10 @@ export interface MapDetailPanelsProps {
   readOnly: boolean
   stopPersonSharing: (entityId: string) => Promise<void>
   setVehicleOverrides: Dispatch<SetStateAction<VehicleOverrides>>
+  /** «Zurück auf GPS» – the hand position goes, as one ↶ step (useMapActions · resetVehicleGps) */
+  resetVehicleGps: (id: string, name: string) => void
+  /** a hand places a live vehicle (useMapActions · placeVehicle) */
+  placeVehicle: (id: string, pos: VehiclePosition) => void
   log: (icon: string, text: string, kind?: TimelineEvent['kind'], audioUrl?: string, entityId?: string, opts?: { rowId?: string; subjectId?: string }) => void
   assignTypedName: (name: string, role: AssignableRole, note?: string) => string | undefined
   drawings: Drawing[]
@@ -116,7 +120,7 @@ export function MapDetailPanels({
   timeline, sym, entityTypedAt, titleLiveRef, beginDrag,
   setDocRaw, endDrag, emit, patchEntity, linkRosterFields, createCircle, doc, undockTeam, effTrupps,
   symbolCaptions, rosterNames, rosterRank, personStatus, rosterFieldHints, setEntityDone, commitEntityFields,
-  vehicleOverrides, canEditIncident, readOnly, stopPersonSharing, setVehicleOverrides, log,
+  vehicleOverrides, canEditIncident, readOnly, stopPersonSharing, setVehicleOverrides, resetVehicleGps, placeVehicle, log,
   assignTypedName, drawings, entities, focusDrawing, noteEntity, notePlacedId, setNotePanelId,
   noteTextLive, setNoteDefaults, selectedDrawing, patchDrawing,
   selectedDrawingId, patchDrawingLabelLive, commitDrawingLabel,
@@ -290,7 +294,9 @@ export function MapDetailPanels({
           onDone={canBeDone(selected.kind) && !selected.live && !tacticalLocked
             && (offersDone(selected.symbol, sym.symbols.find((x) => x.name === selected.symbol)?.cat) || !!doneOf(selected))
             ? (on) => setEntityDone(selected, on) : undefined}
-          hasOverride={vehicleOverrides[selected.id] != null}
+          // only a hand POSITION or heading is something GPS can take back – a Fahrer or a
+          // Herkunft alone is not (hunt 24.11.2026, frontend-state F4)
+          hasOverride={positionOverride(vehicleOverrides[selected.id]) != null}
           // Vehicles only. «GPS» undoes an operator's drag/rotate of a live symbol — a person
           // dot has neither (both are blocked in MapMarkers), so the button sat there
           // permanently disabled, a dead control inviting «what does this do?».
@@ -303,7 +309,7 @@ export function MapDetailPanels({
           // override (the next hydrate would put it back), and the Führungsansicht is hands-off
           // (RBAC audit 22.10.2026)
           onResetGps={selected.live && selected.kind !== 'person' && !tacticalLocked
-            ? () => setVehicleOverrides((m) => { const { [selected.id]: _drop, ...rest } = m; return rest })
+            ? () => resetVehicleGps(selected.id, selected.label ?? '')
             : undefined}
           // «Hier festhalten»: the Kroki is printed hours later, and a vehicle that has since
           // driven home takes its symbol with it — the picture then shows no TLF at an Einsatz
@@ -314,7 +320,7 @@ export function MapDetailPanels({
             && Array.isArray(selected.coord) && vehicleOverrides[selected.id]?.coord == null
             ? () => {
               const coord = selected.coord as LngLat
-              setVehicleOverrides((m) => ({ ...m, [selected.id]: { ...m[selected.id], coord } }))
+              placeVehicle(selected.id, { coord })
               log('truck', fillTemplate(appConfig.copy.contextPanel.logPinned, { name: selected.label ?? '' }), 'symbol', undefined, selected.id)
             }
             : undefined}

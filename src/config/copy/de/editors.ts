@@ -52,6 +52,8 @@ export const editorsCopy = {
     toOriginal: 'Zum Original',
     resetGps: 'Zurück auf GPS',
     resetGpsTitle: 'Zurück auf GPS – das Fahrzeug folgt wieder seiner Live-Position',
+    // the ↶ caption of that reset (workspace/useMapActions · resetVehicleGps)
+    resetGpsStep: '{name} zurück auf GPS',
     // The Kroki is printed hours later. A Fahrzeug that has since driven home takes its symbol
     // with it — the picture then shows no TLF at an Einsatz that had one. «Festhalten» writes
     // the CURRENT position as an override; «GPS» next to it is the way back, so there is no

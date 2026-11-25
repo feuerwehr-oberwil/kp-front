@@ -321,6 +321,10 @@ interface Props {
    *  linkLineToAttachedTrupp). The Karte reports the identical fact from its own magnet
    *  (lib/useMapDrawing · onLineAttached). */
   onLineAttached?: (annoId: string, attachment: LineAttachment) => void
+  /** open ONE step on the global ↶ timeline over several writes (lib/undoTimeline · group): a new
+   *  hose and the Trupp link its end makes are one act, and so are a Drehung's re-glued marks and
+   *  its turned footprint. Omitted ⇒ each write is its own step. */
+  historyGroup?: () => () => void
   /** …and the reverse (15.09.): an end let go of its coupling («Lösen», or dragged off) – with
    *  the coupling it had, so the Trupp link that coupling made is dropped too. */
   onLineDetached?: (annoId: string, previous: LineAttachment) => void
@@ -357,8 +361,9 @@ interface Props {
   /** per-plan distance calibration (planId → factor). A plan has no inherent scale; the user
    *  calibrates against a printed scale bar so line lengths read in metres. See lib/planScale. */
   planScale?: PlanScales
-  /** persist a plan's calibration (null clears it). Rides the workspace blob via App. */
-  onCalibrate?: (planId: string, scale: PlanScale | null) => void
+  /** persist a plan's hand calibration as one undo step; hands back the toast's «Rückgängig»
+   *  (workspace/planCalibration). Rides the workspace blob. */
+  onCalibrate?: (planId: string, scale: PlanScale) => () => boolean
   /** The Karte's live feed on this sheet — vehicles and shared responder positions, already
    *  projected and clipped by the caller (lib/planProjection · liveOverlay). Everything else
    *  the Karte holds is an OBJECT and arrives in `annos` like the sheet's own work. */
@@ -421,7 +426,7 @@ export interface PlanLogExtra {
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
 
-export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange: onChangeAll, building, floorPack, sheetFloors, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, authorName, onStepLabel, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], truppColors, placedTeamNames, teamNameTaken, onLinkTrupp, onShowTrupp, truppFinder, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, buildingInfo, readingsChip, incidentId, incidentAddress, incidentPos, onObjectSwitch, planScale = {}, onCalibrate, live = [], photos = [], liveFacts, onPlanLiveMove, onStepEnd, slimTools: slimToolsProp = false, linkViewer = false, railLabels, tafel, presentation, replay = false }: Props) {
+export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange: onChangeAll, building, floorPack, sheetFloors, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, authorName, onStepLabel, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], truppColors, placedTeamNames, teamNameTaken, onLinkTrupp, onShowTrupp, truppFinder, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, historyGroup, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, buildingInfo, readingsChip, incidentId, incidentAddress, incidentPos, onObjectSwitch, planScale = {}, onCalibrate, live = [], photos = [], liveFacts, onPlanLiveMove, onStepEnd, slimTools: slimToolsProp = false, linkViewer = false, railLabels, tafel, presentation, replay = false }: Props) {
   // ⚠️ RIDERS: what lives on a sheet but is not drawn ON it — the Tafel's pages (kind `form`,
   // lib/boardForm) and any board object this build does not understand (lib/workspace ·
   // isPassengerAnno). Nothing positional may see them: every drawing path below reads `annos` —
@@ -1231,7 +1236,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // --- the draft in the hand, its magnet, the commit funnel, the leave release and the Grundriss
   // presets — components/usePlanDraft ---
   const planDraft = usePlanDraft({
-    tool, setTool, annos, add, log, setSelId, onLineAttached,
+    tool, setTool, annos, add, log, setSelId, onLineAttached, historyGroup,
     sW, sH, mapY, localY, stack, outlinePx: (f) => stackOutlinePx(f),
     planCandidatesAt, planAttachmentFor, planEndpointDragState, prevToolRef: prevTool,
     onContinue: () => setPaletteOpen(false),
@@ -1739,8 +1744,15 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     const dx = nb[0] - here[0], dy = nb[1] - here[1], len = Math.hypot(dx, dy) || 1
     const off: BoardPoint = [here[0] + (dx / len) * 0.02, here[1] + (dy / len) * 0.02, here[2] ?? selDraw.floor ?? 0]
     const pts = selDraw.pts.map((p, i): BoardPoint => (i === idx ? off : p))
-    patchCommit(selDraw.id, { pts, ...(endpoint === 'start' ? { startAttachment: undefined } : { endAttachment: undefined }) })
-    onLineDetached?.(selDraw.id, a)
+    const patch = { pts, ...(endpoint === 'start' ? { startAttachment: undefined } : { endAttachment: undefined }) }
+    // the freed end and the Trupp link it parts are ONE ↶ step, as on the Lage (review of #742)
+    const endStep = historyGroup?.() ?? (() => {})
+    try {
+      // ⚠️ the audit row carries the freed end as `null` (lineAttachments · wireFreed): JSON drops
+      // the live `undefined`, and replay kept the coupling (hunt 24.11.2026, frontend-state F8)
+      patchCommit(selDraw.id, patch, { patch: wireFreed(patch) })
+      onLineDetached?.(selDraw.id, a)
+    } finally { endStep() }
   }
   // a selected generic shape — colour via the same ShapeEditor sheet as the Lage map
   const selShape = annos.find((a) => a.id === selId && a.kind === 'shape')
@@ -1941,14 +1953,20 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     // on the Karte — projected through the stack's fit — swung with the building. The same
     // re-glue drew the live preview while the slider was held (`previewAnnos`).
     const remapped = reorientAnnos(annos, { src: orientSrc, fromDeg, toDeg, layout, toLayout })
-    commit(remapped) // re-glued annotations go through undo/redo + sync
-    // `northUp` stays in sync (0° IS north-up) so pre-dial clients keep their binary read — on a
-    // PACK it would be a lie (0° is the page as drawn, which is north-up only by luck), and the
-    // rings would be the frame rectangle, which a pack deliberately has none of. Only the aspect
-    // crosses over: it is what makes the tile box follow the turned frame.
-    onReorient(building.pack
-      ? { ...building, viewDeg: toDeg, ringAspect: view.aspect, tileAR: nextTileAR }
-      : { ...building, viewDeg: toDeg, northUp: toDeg === 0, rings: view.rings, ring: view.rings[0], ringAspect: view.aspect })
+    // ⚠️ the re-glued marks and the turned footprint are ONE ↶ step: one ↶ used to put the
+    // footprint back under marks still turned for the new view (hunt 24.11.2026,
+    // frontend-state F3). The group also holds the store's step, where a mark is the Karte's.
+    const endStep = historyGroup?.() ?? (() => {})
+    try {
+      commit(remapped) // re-glued annotations go through undo/redo + sync
+      // `northUp` stays in sync (0° IS north-up) so pre-dial clients keep their binary read — on a
+      // PACK it would be a lie (0° is the page as drawn, which is north-up only by luck), and the
+      // rings would be the frame rectangle, which a pack deliberately has none of. Only the aspect
+      // crosses over: it is what makes the tile box follow the turned frame.
+      onReorient(building.pack
+        ? { ...building, viewDeg: toDeg, ringAspect: view.aspect, tileAR: nextTileAR }
+        : { ...building, viewDeg: toDeg, northUp: toDeg === 0, rings: view.rings, ring: view.rings[0], ringAspect: view.aspect })
+    } finally { endStep() }
     emit('building.reorient', { northUp: toDeg === 0, deg: toDeg, planId: activeId })
     // …and the VIEW is re-glued too. The board keeps its size through a rotation (a stack's
     // aspect is the floor count, not the footprint's — see effAspect), so the storey cards stay

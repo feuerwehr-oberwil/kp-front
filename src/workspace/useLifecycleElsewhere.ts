@@ -16,12 +16,13 @@ const LIFECYCLE_NOTICE_MS = 120_000
 
 export interface UseLifecycleElsewhereInputs {
   sync: WorkspaceSync
-  journal: ReturnType<typeof useJournal>
-  auditDelivery: ReturnType<typeof useAuditEvents>
+  /** …only what this hook reads of the two outboxes, so a test drives it over the real stores */
+  journal: Pick<ReturnType<typeof useJournal>, 'refusedCount' | 'requeueRefused' | 'recoveryData' | 'rows'>
+  auditDelivery: Pick<ReturnType<typeof useAuditEvents>, 'closedCount' | 'requeueClosed' | 'getRecoveryData'>
   running: boolean
   flushEvents: () => Promise<void>
   outboxReadOnly: boolean
-  incidentMeta: IncidentMeta
+  incidentMeta: Pick<IncidentMeta, 'id'>
   lifecycleElsewhere: { event: 'closed' | 'reopened'; at: number } | null | undefined
 }
 

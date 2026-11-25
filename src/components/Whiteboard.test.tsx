@@ -1616,6 +1616,24 @@ describe('the Gebäude north dial answers one tap, every time', () => {
     expect(onReorient.mock.calls[0][0]).toMatchObject({ viewDeg: 0, northUp: true })
   })
 
+  // hunt 24.11.2026, frontend-state F3: the re-glued marks and the turned footprint were two ↶
+  // steps, so one ↶ put the footprint back under marks still turned for the new view
+  it('a turn writes its re-glued marks and the footprint inside ONE history group', () => {
+    const order: string[] = []
+    const mark: BoardAnno = { id: 'n1', kind: 'text', x: 0.2, y: 0.1, floor: 0, text: 'Hier' }
+    render(<Whiteboard
+      plans={[umrisse, gebaeudeDoc, tafel]} activeId="gebaeude" annos={[mark]} onChange={() => { order.push('marks') }}
+      building={footprint} onSelectBuilding={() => {}} onBuildingFace={() => {}} onReorient={() => { order.push('footprint') }}
+      historyGroup={() => { order.push('open'); return () => { order.push('close') } }}
+      onAddFloor={() => {}} onRemoveFloor={() => {}} slimTools sym={sym} onRecent={() => {}} log={() => {}}
+      hist={{}} setHist={() => {}} focus={null}
+    />)
+    const dial = within(document.querySelector('.view-bar') as HTMLElement).getByRole('button', { name: TURN })
+    press(glyph(dial), 'mouse')
+    press(screen.getByRole('button', { name: 'Norden oben' }), 'mouse')
+    expect(order).toEqual(['open', 'marks', 'footprint', 'close'])
+  })
+
   it('a drag that starts on the dial is no tap: it neither opens nor closes the popover', () => {
     const { dial, canvas } = renderStack()
     press(glyph(dial()), 'touch', { travel: 40 })
@@ -2490,6 +2508,19 @@ describe('Plan line ends in replay', () => {
     const { board } = await replayEmits({ board: { tafel: [coupled] } }, emit.mock.calls)
     expect(board.tafel[0].startAttachment?.target).toEqual(onChip.target)
     expect(board.tafel[0]).not.toHaveProperty('endAttachment')
+  })
+
+  // hunt 24.11.2026, frontend-state F8: the detach went out as the live `undefined` patch, which
+  // JSON drops — replay kept the old coupling (the Lage's `draw.detach` always cleared it)
+  it('«Verbindung lösen»: a detached end is free in replay', async () => {
+    const coupled: BoardAnno = { ...line, endAttachment: onChip }
+    const emit = vi.fn()
+    const { container } = renderPlan([chip, coupled], { emit })
+    mouseDown(hitShape(container))
+    fireEvent.click(screen.getAllByRole('button', { name: appConfig.copy.drawingEditor.detachConnection })[0])
+    const wire = JSON.parse(JSON.stringify(emit.mock.calls)) as typeof emit.mock.calls
+    const { board } = await replayEmits({ board: { tafel: [chip, coupled] } }, wire)
+    expect(board.tafel.find((a) => a.id === 'l1')).not.toHaveProperty('endAttachment')
   })
 
   it('deleting what a line hangs on leaves the line free in replay', async () => {

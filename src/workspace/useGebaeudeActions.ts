@@ -21,9 +21,6 @@ import { floorLabel } from '../lib/whiteboard'
 import type { BoardAnno, BoardDoc, BuildingDoc, SrcGeoref, TimelineEvent } from '../types'
 import type { OneShotRows } from './types'
 
-/** One Drehung of the Gebäude is one drag, not forty slider frames — see `reorient`. */
-const REORIENT_FOLD_MS = 1500
-
 export interface GebaeudeActionDeps {
   tacticalLocked: boolean
   building: BuildingDoc | null
@@ -40,13 +37,11 @@ export interface GebaeudeActionDeps {
   setActivePlanId: Dispatch<SetStateAction<string>>
   rememberGebaeudeStep: (label: string, restore: () => void, reapply: () => void, touches: () => readonly RecordKey[] | null, rows?: OneShotRows | 'silent') => Dropper
   logPlan: (icon: string, text: string, extra?: { kind?: TimelineEvent['kind']; annoId?: string; x?: number; y?: number; floor?: number; subjectId?: string }) => void
-  /** the Drehung burst still folding into one step — reset by a remote hydrate (useWorkspaceBlob) */
-  lastReorient: RefObject<{ at: number; from: BuildingDoc; drop: () => void } | null>
 }
 
 export function useGebaeudeActions({
   tacticalLocked, building, setBuilding, board, setBoard, objects, objectsRef, boardRef, floorPack,
-  planBindings, activeObjectId, setActivePlanId, rememberGebaeudeStep, logPlan, lastReorient,
+  planBindings, activeObjectId, setActivePlanId, rememberGebaeudeStep, logPlan,
 }: GebaeudeActionDeps) {
   /** «Übernehmen» on the Umrisse: the picked footprint(s) become the building under the stack. */
   const selectBuilding = (src: [number, number][][], orientDeg: number, geo: SrcGeoref) => {
@@ -190,21 +185,18 @@ export function useGebaeudeActions({
     logPlan('close', removedRow, subject)
   }
 
-  /** The Gebäude's Drehung from the Plan (Whiteboard · onReorient) — one drag, one step. */
+  /**
+   * The Gebäude's Drehung from the Plan (Whiteboard · onReorient) — one release, one step. The
+   * slider writes once when the finger lifts (components/Slider · onCommit), and the Whiteboard
+   * groups this step with the marks it re-glued (Whiteboard · reorientTo), so ONE ↶ turns both
+   * back. ⚠️ No fold of quick turns into one step any more: it folded the building alone, and
+   * left each turn's marks on a step of their own (hunt 24.11.2026, frontend-state F3).
+   */
   const reorient = (next: BuildingDoc) => {
-    // The Drehung is a SLIDER with a live preview, so it writes many times per drag: one
-    // burst is one step, and the step goes back to the angle the drag started from — the
-    // same fold the Bildlegende uses, for the same reason. It matters beyond the screen,
-    // because the printed Geschossseiten come out at whatever angle is set.
-    const now = Date.now()
-    const prev = lastReorient.current
-    const folding = !!prev && now - prev.at <= REORIENT_FOLD_MS
-    const from = folding ? prev.from : building
-    if (folding) prev.drop()
+    const from = building
     setBuilding(next)
     if (!from) return
-    const drop = rememberGebaeudeStep(appConfig.copy.whiteboard.orientMenuTitle, () => setBuilding(from), () => setBuilding(next), () => [recordKey('building')], 'silent')
-    lastReorient.current = { at: now, from, drop }
+    rememberGebaeudeStep(appConfig.copy.whiteboard.orientMenuTitle, () => setBuilding(from), () => setBuilding(next), () => [recordKey('building')], 'silent')
   }
 
   return { selectBuilding, addFloor, removeFloor, reorient }

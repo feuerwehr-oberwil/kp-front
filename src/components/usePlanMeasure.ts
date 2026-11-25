@@ -6,6 +6,7 @@ import { resolvePlanScale } from '../lib/stationPlanScale'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { toast } from '../lib/ui'
+import { jsonEqual } from '../lib/jsonEqual'
 import { useNodeHold } from '../lib/nodeHold'
 import { useFreshPoint } from '../lib/useFreshPoint'
 import type { BoardTool } from '../types'
@@ -32,7 +33,9 @@ interface Args {
   /** client point → normalized 0..1 in plan space */
   toNorm: (clientX: number, clientY: number) => Pt | null
   log: (icon: string, text: string, extra?: PlanLogExtra) => void
-  onCalibrate?: (planId: string, scale: PlanScale | null) => void
+  /** persist a hand calibration; hands back the toast's «Rückgängig», which answers false once the
+   *  step no longer stands (workspace/planCalibration) */
+  onCalibrate?: (planId: string, scale: PlanScale) => () => boolean
   /** this surface may set a plan's scale (not a locked session) – then Messen on a plan without
    *  one starts at «Massstab» */
   canCalibrate: boolean
@@ -90,6 +93,9 @@ export function usePlanMeasure({ activeId, stack, aspect, tileAR, planScale, loc
   // calibration for this incident still wins; a stale candidate falls through.
   const workspaceScale: PlanScale | undefined = planScale[activeId]
   const validWorkspaceScale = workspaceScale && !isStale(workspaceScale, measureAR) ? workspaceScale : undefined
+  /** «merken?» offers the calibration that STANDS: once ↶ took it back or another device's
+   *  replaced it, there is nothing left to make a station default of (review of #742) */
+  const standingSavePrompt = savePrompt && workspaceScale && jsonEqual(savePrompt, workspaceScale) ? savePrompt : null
   /**
    * ⚠️ …with ONE surface where that order is inverted: the Gebäude floor-stack.
    *
@@ -183,9 +189,7 @@ export function usePlanMeasure({ activeId, stack, aspect, tileAR, planScale, loc
     setCalPrompt(null)
     if (!sc || !onCalibrate) return
     setLastRefM(refM)
-    // what this incident had before – the hand calibration it replaces, or none
-    const before = planScale[activeId] ?? null
-    onCalibrate(activeId, sc)
+    const takeBack = onCalibrate(activeId, sc)
     setMeasMode('line')
     setTool('measure')
     const C = appConfig.copy.whiteboard.scale
@@ -194,15 +198,20 @@ export function usePlanMeasure({ activeId, stack, aspect, tileAR, planScale, loc
     setSavePrompt(sc) // editor: offer to remember it across incidents
     // the one toast of the rare-user round (C9): a wrong length makes every metre on this plan
     // wrong, so the calibration can be taken back right here – the plan's own value restored, the
-    // «merken?» bar gone with it (nothing has been remembered yet unless it was answered)
+    // «merken?» bar gone with it (nothing has been remembered yet unless it was answered).
+    // ⚠️ Through the step's own guard: once another device's newer scale took the step, the
+    // toast declines instead of deleting that scale (hunt 24.11.2026, frontend-state F9).
     toast(said, {
       icon: 'measure', kind: 'plan-scale',
-      action: { label: appConfig.copy.undo, onClick: () => { onCalibrate(activeId, before); setSavePrompt(null); log('measure', C.undone) } },
+      action: { label: appConfig.copy.undo, onClick: () => {
+        if (!takeBack()) { toast(appConfig.copy.undoLost, { icon: 'warn' }); return }
+        setSavePrompt(null)
+      } },
     })
   }
 
   return {
-    calNodes, setCalNodes, calPrompt, setCalPrompt, calWhyRef, lastRefM, refMInput, setRefMInput, savePrompt, setSavePrompt,
+    calNodes, setCalNodes, calPrompt, setCalPrompt, calWhyRef, lastRefM, refMInput, setRefMInput, savePrompt: standingSavePrompt, setSavePrompt,
     measMode, setMeasMode, measLine, setMeasLine, measArea, setMeasArea,
     measureAR, activeScale, scaleAuto, scaleStale, calibrated, planMetres, toMeasurePt,
     measPath, setMeasPath, measFresh, measMpts, measLenM, measAreaM2, measPerimM, measReset, resetEphemeral,

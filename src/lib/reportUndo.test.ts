@@ -1,11 +1,25 @@
 // @vitest-environment jsdom
-import { describe, it, expect } from 'vitest'
+import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
-import { useRef, useState } from 'react'
+import { useRef, useState, type SetStateAction } from 'react'
 import { REPORT_COALESCE_MS, changedReportFields, foldsIntoPrevious, keepMachineFields, reportStep } from './reportUndo'
 import { useUndoableSlice } from './useUndoableSlice'
 import { createUndoTimeline } from './undoTimeline'
 import type { ReportMeta } from './workspace'
+import type { IncidentMeta } from './incidents'
+import type { AttendanceEntry } from '../types'
+import { appConfig } from '../config/appConfig'
+import { useRecordSlices } from '../workspace/useRecordSlices'
+
+const INCIDENT: IncidentMeta = {
+  id: 'inc-1', divera_id: null, title: 'Brand klein', type: null, priority: null, address: null,
+  lat: null, lng: null, status: 'open', source: 'manual', source_ref: null, auto_opened: false,
+  started_at: '2026-09-26T08:00:00.000Z', closed_at: null, is_archived: false, is_exercise: false,
+  report_done_at: null, workspace_rev: 1, created_by: null,
+  created_at: '2026-09-26T08:00:00.000Z', updated_at: '2026-09-26T08:00:00.000Z',
+}
+beforeEach(() => { vi.useFakeTimers({ toFake: ['Date'] }) })
+afterEach(() => { vi.useRealTimers() })
 
 /**
  * Field report 18.09.2026: «Rettungen eingetragen, Zahl war falsch, Rückgängig macht nichts.»
@@ -81,35 +95,28 @@ describe('keepMachineFields — what a step back does NOT touch', () => {
   })
 })
 
-/** The real wiring: the slice, the classification and the one global timeline, exactly as
- *  IncidentWorkspace puts them together (`reportSet`). */
+/**
+ * The PRODUCTION wiring: the Rapport's writer of the workspace (workspace/useRecordSlices ·
+ * reportSet) over the one global timeline. `save` writes at the moment `now`, the clock the
+ * writer's fold window reads. ⚠️ It used to be a copy of that writer, and passed with the
+ * writer's step removed (hunt 24.11.2026, tests-quality F3).
+ */
 function useRapport(readOnly = false) {
   const timeline = useState(() => createUndoTimeline())[0]
   const [meta, setMeta] = useState<ReportMeta>({})
-  // the machine's bookkeeping rides OUTSIDE the snapshots — see keepMachineFields
-  const hist = useUndoableSlice(meta, setMeta, readOnly, keepMachineFields)
-  // ⚠️ Through a ref, like the real caller: the entry outlives the render that pushed it, and a
-  // captured `hist` would step a stack that has moved on.
-  const histRef = useRef(hist)
-  histRef.current = hist
-  const last = useState(() => ({ current: null as { key: string; at: number } | null }))[0]
+  const [attendance, setAttendance] = useState<Record<string, AttendanceEntry>>({})
+  const attHist = useUndoableSlice(attendance, setAttendance, true)
+  const reportSetRef = useRef<(update: SetStateAction<ReportMeta>) => boolean>(() => false)
+  useRecordSlices({
+    mittel: [], setMittel: () => {}, canWriteRecord: !readOnly, checklists: {}, setChecklists: () => {},
+    undoHist: timeline, histSide: useRef({ log: () => {}, emit: () => {} }), histStep: (moved) => moved,
+    C_HIST: appConfig.copy, reportMeta: meta, setReportMeta: setMeta, lastReportStep: useRef(null), reportSetRef,
+    user: null, log: () => {}, doc: { entities: [], drawings: [] }, board: {}, shifts: [], bands: [],
+    setShifts: () => {}, setBands: () => {}, sliceRebase: useRef(null), attHist, incidentMeta: INCIDENT, attendance: {},
+  })
   const save = (next: ReportMeta, now: number) => {
-    const laid = hist.set(next, {
-      coalesce: (prev, n) => {
-        const step = reportStep(prev, n)
-        if (!step) { last.current = null; return true }
-        const fold = foldsIntoPrevious(last.current, step, now)
-        last.current = { key: step.key, at: now }
-        return fold
-      },
-    })
-    // …and every ↶ ↷ closes the open fold window, exactly as the real entry does
-    if (laid) timeline.push({
-      domain: 'rapport',
-      label: 'Rapport',
-      undo: () => { last.current = null; return !!histRef.current.undo() },
-      redo: () => { last.current = null; return !!histRef.current.redo() },
-    })
+    vi.setSystemTime(now)
+    reportSetRef.current(next)
   }
   return { meta, save, timeline }
 }

@@ -84,6 +84,13 @@ recorded group from either stack, including a group reduced to one part before i
   problem's Tendenz set on a page writes the checklist's, a checklist problem deleted on a page un-ticks
   it – the board write and the slice write are ONE step (`UndoTimeline.group('plan')`,
   `usePlanTafelPages · editPage`); its ↶ caption says when a tick went with a deleted row.
+- *Compound* – one act over the picture and its bookkeeping (24.11.2026, `workspace/compoundStep`):
+  a hose drawn or an end snapped onto a crew marker together with the Trupp link it makes, a
+  Gebäude-Drehung with its re-glued marks. One group, and in it ONE store step — the first one
+  laid; a plan step inside is taken by it (`usePlanStacks · takeIntoStore`), and the link's own
+  picture step is skipped, or silent outside an act (its Trupp half writes the counter-row). The
+  store step restores from the live state, sheets included; a plan step beside it replayed a
+  stale sheet view on ↷ and cleared the store's redo mid-group.
 - *No confirm-with-undo toast beside the timeline* (owner pick 28, 17.11.2026). Until then a
   one-shot that destroyed something (a Geschoss, a Beilage, an Anwesenheits-Block, a Pendenz's
   «Erledigt», the Abschluss with «Wieder öffnen») also raised a toast that did the inverse and
@@ -99,7 +106,7 @@ Two rules that fall out of it: a surface that persists on every **keystroke** cl
 writes so a burst of typing is ONE step and a value/row appearing or disappearing is its own
 (`lib/reportUndo`, `UndoableSlice.set`'s `coalesce`); and a remote hydrate closes the open
 fold windows — the Rapport's typing burst (`lastReportStep`), the Bildlegende
-(`lastCaptionStep`), the Gebäude-Drehung (`lastReorient`) — and re-opens a plan gesture whose
+(`lastCaptionStep`) — and re-opens a plan gesture whose
 step the merge took: the store's sheet-step token (`useObjectStore · rebaseObjects`) and the
 Whiteboard's first-movement checkpoint (`useBoardDoc · set`) each lay a fresh step at the
 gesture's next sample.

@@ -34,11 +34,14 @@ export interface PlanStacksDeps {
   stepLabelRef: RefObject<string | null>
   /** ONE gesture on a plan is ONE undo step, whichever stack takes it (lib/planStepLink) */
   planStepLinkRef: RefObject<PlanStepLink | null>
+  /** A compound act is open (IncidentWorkspace · openCompound): its ONE store step takes this
+   *  plan step, laid now with `label` if none stands yet. `true` = taken, lay no plan step. */
+  takeIntoStore?: (label: string) => boolean
 }
 
 export function usePlanStacks({
   undoHist, histStep, beginSheetStep, endSheetStep, setBoard, boardRef, activePlanIdRef, planLabelRef,
-  planStepLabelRef, stepLabelRef, planStepLinkRef,
+  planStepLabelRef, stepLabelRef, planStepLinkRef, takeIntoStore,
 }: PlanStacksDeps) {
   // the Plan keeps its own per-document history (inside Whiteboard); it reports its
   // step fns up here so the GLOBAL TopBar undo/redo drives whichever
@@ -99,12 +102,23 @@ export function usePlanStacks({
    *  the STORE's stack where the write touched an object the sheet does not own (lib/useObjectStore
    *  · touchedForeign) — the one stack such a write can reach. */
   const rememberPlanStep = (planId: string, step: string) => {
+    const label = planStepLabelRef.current ?? fillTemplate(appConfig.copy.undoDomains.plan, { plan: planLabelRef.current(planId) })
+    planStepLabelRef.current = null
+    // ⚠️ Inside a compound act (a hose and its Trupp link, a Drehung) the act's ONE store step
+    // holds the sheet too, so its snapshot here is withdrawn and no plan entry is laid. A plan
+    // step beside the store's restored a stale view on ↷, whose foreign edit then cleared the
+    // store's redo in mid-group (hunt 24.11.2026, review of #742).
+    if (takeIntoStore?.(label)) {
+      setPlanHistory((m) => {
+        const c = m[planId]
+        return c?.past.some((s) => s.id === step) ? { ...m, [planId]: { ...c, past: c.past.filter((s) => s.id !== step) } } : m
+      })
+      return
+    }
     // ⚠️ …and the STORE is told too, because a plan gesture may reach an object the sheet does
     // not own (lib/useObjectStore · setBoard): one gesture is one step on whichever stack owns
     // what it touched, and this is the signal that keeps it to one.
     beginSheetStep()
-    const label = planStepLabelRef.current ?? fillTemplate(appConfig.copy.undoDomains.plan, { plan: planLabelRef.current(planId) })
-    planStepLabelRef.current = null
     const drop = undoHist.push({
       domain: 'plan',
       scope: planId,
