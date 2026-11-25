@@ -333,8 +333,9 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
       abschlussClose: 'Chiudere comunque',
       // «Entfernen» on a Trupp in a Notfall is refused until it is ended (review of #300)
       removeBlocked: 'Tenere prima «Emergenza conclusa» – una squadra in emergenza resta sorvegliata',
-      noSafetySub: 'Dentro: {names} – annunciare una squadra con compito «Mettere in sicurezza»',
+      noSafetySub: '{n} squadre dentro',
       noSafetyGo: 'Alle squadre',
+      noSafetySubOne: '1 squadra dentro',
     },
     removeInsideTitle: 'La squadra {name} è dentro – annunciarla fuori prima?',
     removeInsideMsg: 'Rimuovere toglie la squadra dalla sorveglianza e da ogni allarme. Di solito si intende: la squadra è uscita.',

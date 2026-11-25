@@ -465,7 +465,12 @@ reworded.
   the same first (exactly one ready ⇒ it goes in and the Tafel opens).
 - *Ready* is what the board models: under PA, Auftrag «Sichern», angemeldet. While an
   Atemschutz-Trupp is inside and none is ready, a STANDING Meldeleiste row says «Kein
-  Sicherungstrupp bereit» and names the crews inside – on every surface, the board and the
+  Sicherungstrupp bereit · 3 Trupps drin» with «Bestimmen» beside it – the same candidate menu as
+  the Notfall's «Sicherungstrupp bestimmen» (`lib/safetyPick`; owner pick UX journeys M·16,
+  25.11.2026 – it named the crews inside, which the reader had to map to cards). A pick brings the
+  board forward, which answers it: a crew bereit or inside turns «Sichern» (an ordinary edit), a
+  crew that is out or a new one opens the form on «Sichern». A viewer gets «Zu den Trupps». On
+  every surface, the board and the
   Atemschutz-Link included, no ✕, gone the moment one is ready or the last crew is out, and
   silent while a Notfall runs (its banner is the one row about the Sicherungstrupp). Never a
   question (`atemschutz · safetyMissing`, `SafetyMissingMeldung`; FEEDBACK.1, 17.11.2026 – it was

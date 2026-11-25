@@ -46,6 +46,7 @@ import { notfallStrips } from '../lib/notfall'
 import { TruppForm, type FormMode, type TruppSubmitExtra } from './TruppForm'
 import { beginZielPick, endZielPick, parkedAuftragSheet, parkedTruppForm, type AuftragDraft, type TruppFormOpen } from '../lib/zielPick'
 import { refuse } from '../lib/meldungenRefusal'
+import { safetyPickItems, useSafetyPickAnswer, type SafetyPick } from '../lib/safetyPick'
 
 /**
  * The last incoming `focus` nonce this view has already rung the bell for — MODULE scope, not
@@ -693,7 +694,6 @@ export function AtemschutzView({
   // …and whom «Sicherungstrupp bestimmen» can name while none is ready: any other crew, a busy
   // one included (owner, 30.10.2026 — lib/atemschutz · safetyCandidates)
   const candidates = safetyCandidates(byHand(paBoard))
-  const notfallCandidates = [candidates.ready, candidates.inside, candidates.out]
 
   // Called from the card's action handlers — i.e. after render, so it simply closes over the
   // arrangement the operator is currently looking at. (A ref would have to be written during
@@ -1410,23 +1410,25 @@ export function AtemschutzView({
    * anmelden (Sichern)». A crew
    * bereit or inside turns «Sichern» in one act (designateSafety: its own Verlauf row, one ↶); a
    * crew that is out needs a fresh bottle first, so its pick opens its re-entry form on «Sichern». */
+  // ONE answer to a pick, from the menu here or from the «Kein Sicherungstrupp bereit» row's
+  // «Bestimmen» (lib/safetyPick, owner pick UX journeys M·16): in a Notfall (`forId`) the crew is
+  // designated for it (its own Verlauf row); without one it is an ordinary edit to «Sichern».
+  const answerSafetyPick = (p: SafetyPick, forId?: string) => {
+    if (p.kind === 'new') { safetyPickNew(); return }
+    const x = trupps.find((t) => t.id === p.id)
+    if (!x) return
+    if (p.kind === 'redeploy') { openForm('redeploy', { ...x, auftrag: 'sichern' }); return }
+    freezeOrder()
+    if (forId && designateSafety) designateSafety(x.id, forId)
+    else editTrupp(x.id, truppFieldsOf(x, { auftrag: 'sichern' }))
+  }
   const candidateMenu = (forId: string, trigger: ReactElement) => (
     <Menu trigger={trigger} popupClassName="rp-print-menu" itemClassName={() => 'rp-print-menu-item'}
-      items={[
-        ...notfallCandidates.flatMap((group, gi) => group.length === 0 ? [] : [
-          { kind: 'head' as const, label: [az.phoneSectionReady, az.phoneSectionIn, az.phoneSectionOut][gi] },
-          ...group.map((x) => ({
-            label: [x.name, ...(x.members ?? [])].map((n) => n.trim()).filter(Boolean).join(' / '),
-            onClick: x.status === 'raus' ? () => openForm('redeploy', { ...x, auftrag: 'sichern' })
-              : designateSafety ? () => { freezeOrder(); designateSafety(x.id, forId) }
-              : () => editTrupp(x.id, truppFieldsOf(x, { auftrag: 'sichern' })),
-          })),
-        ]),
-        { kind: 'sep' as const },
-        { label: az.safetyPickNew, onClick: safetyPickNew },
-      ]} />
+      items={safetyPickItems(byHand(paBoard), (p) => answerSafetyPick(p, forId))} />
   )
-  const noCandidates = notfallCandidates.every((g) => g.length === 0)
+  // …and the row's pick, answered while this board is mounted and may write (the row brought it forward)
+  useSafetyPickAnswer(canEdit && frozenAt == null ? answerSafetyPick : null)
+  const noCandidates = [candidates.ready, candidates.inside, candidates.out].every((g) => g.length === 0)
   const safetyFor = (t: Trupp): SafetyActProps => ({
     ready: notfallReady, inside: notfallSafetyInside, canEdit,
     onDeploySafety: (id) => { freezeOrder(); setTruppStatus(id, 'aktiv') },

@@ -333,8 +333,9 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
       abschlussClose: 'Clôturer quand même',
       // «Entfernen» on a Trupp in a Notfall is refused until it is ended (review of #300)
       removeBlocked: 'Maintenir d’abord «Urgence terminée» – un binôme en urgence reste sous surveillance',
-      noSafetySub: 'À l’intérieur : {names} – annoncer un binôme avec la mission «Sécuriser»',
+      noSafetySub: '{n} binômes à l’intérieur',
       noSafetyGo: 'Vers les binômes',
+      noSafetySubOne: '1 binôme à l’intérieur',
     },
     removeInsideTitle: 'Le binôme {name} est engagé – l’annoncer sorti d’abord ?',
     removeInsideMsg: 'Retirer enlève le binôme de la surveillance et de toute alarme. En général, on veut dire : le binôme est sorti.',

@@ -345,8 +345,9 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
       abschlussClose: 'Close anyway',
       // «Entfernen» on a Trupp in a Notfall is refused until it is ended (review of #300)
       removeBlocked: 'Hold «Emergency ended» first – a team in an emergency stays monitored',
-      noSafetySub: 'Inside: {names} – register a team with task «Secure»',
+      noSafetySub: '{n} teams inside',
       noSafetyGo: 'To the teams',
+      noSafetySubOne: '1 team inside',
     },
     removeInsideTitle: 'Team {name} is inside – report it out first?',
     removeInsideMsg: 'Removing takes the team out of monitoring and out of every alarm. What is usually meant: the team is out.',

@@ -161,7 +161,7 @@ export function WorkspaceMeldungen({
       {/* «Kein Sicherungstrupp bereit» – standing while a PA crew is inside uncovered, on every
           surface, the board and the Link included (components/SafetyMissingMeldung, FEEDBACK.1) */}
       {azAlarmActive && (
-        <SafetyMissingMeldung trupps={trupps}
+        <SafetyMissingMeldung trupps={trupps} canPick={canEditTrupps}
           onGoToBoard={mode === 'atemschutz' ? undefined : () => { setMode('atemschutz'); setPanel(null) }} />
       )}
 

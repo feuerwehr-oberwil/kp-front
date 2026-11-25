@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom'
 import { getMeldeleisteHost, subscribeMeldeleisteHost } from '../lib/meldeleisteHost'
 import { fillTemplate } from '../lib/format'
 import { Icon } from '../lib/icons'
+import { Menu } from '../lib/overlays'
 import { appConfig } from '../config/appConfig'
 import { rankMeldungen, type Meldung, type MeldungText } from '../lib/meldungen'
 import { getMeldungen, subscribeMeldungen } from '../lib/useMeldung'
@@ -156,18 +157,24 @@ function MeldungActions({ m }: { m: Meldung }) {
   if (!m.actions?.length) return null
   return (
     <span className="ml-act">
-      {m.actions.map((a) => (
-        <Button
-          key={a.label}
-          variant={a.primary ? (a.go ? 'go' : 'primary') : 'secondary'}
-          className="ml-btn"
-          disabled={a.disabled}
-          onClick={a.onClick}
-          icon={a.busy ? <ShellLoader /> : undefined}
-        >
-          {a.label}
-        </Button>
-      ))}
+      {m.actions.map((a) => {
+        const btn = (
+          <Button
+            key={a.label}
+            variant={a.primary ? (a.go ? 'go' : 'primary') : 'secondary'}
+            className="ml-btn"
+            disabled={a.disabled}
+            onClick={a.menu ? undefined : a.onClick}
+            icon={a.busy ? <ShellLoader /> : undefined}
+          >
+            {a.label}
+          </Button>
+        )
+        // a button that opens the row's own choice (MeldungAction · menu) – the app's menu skin
+        return a.menu
+          ? <Menu key={a.label} trigger={btn} items={a.menu} popupClassName="rp-print-menu" itemClassName={() => 'rp-print-menu-item'} />
+          : btn
+      })}
     </span>
   )
 }

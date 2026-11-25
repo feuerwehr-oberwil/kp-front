@@ -3110,7 +3110,7 @@ export function IncidentWorkspace({
             stands in its place (AtemschutzNotfall) */}
         <AtemschutzNotfallMeldungen trupps={trupps} onBoard onGoToTrupp={(id) => setTruppFocus({ id, nonce: Date.now() })} />
         {/* «Kein Sicherungstrupp bereit» – the person at the door is who most needs it (FEEDBACK.1) */}
-        {azAlarmActive && <SafetyMissingMeldung trupps={trupps} />}
+        {azAlarmActive && <SafetyMissingMeldung trupps={trupps} canPick={canEditTrupps} />}
       </div>
     )
   }
