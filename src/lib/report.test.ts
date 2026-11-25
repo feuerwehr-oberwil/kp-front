@@ -836,6 +836,13 @@ describe('changedReportMetaFields (what the Verlauf row says)', () => {
     expect(out[0]).toContain('TLF') // the configured label, never the raw id
   })
 
+  // clearing a row's last time drops the row (lib/alarmzeiten) – that clear still writes its line
+  it('names a cleared Gruppe or Fahrzeug time whose row the clear dropped', () => {
+    const set = { ...base, gruppen: [{ id: 'g1', alarmedAt: '2026-08-10T12:00:00Z' }], fahrzeuge: [{ id: 'tlf', ausgerueckt: '2026-08-10T12:05:00Z' }] }
+    expect(changedReportMetaLines(set, { ...set, gruppen: undefined }).statements).toEqual(['Alarmzeit Gr. 1 entfernt'])
+    expect(changedReportMetaLines(set, { ...set, fahrzeuge: [] }).statements).toEqual(['TLF: Zeit entfernt'])
+  })
+
   it('never prints a raw field identifier on the signed rapport', () => {
     // `startedAt` has no human name; a row reading «startedAt» is worse than no row
     expect(changedReportMetaFields(base, { ...base, startedAt: '2026-08-10T12:00:00Z' })).toEqual([])
@@ -910,6 +917,36 @@ describe('report Pendenzen rows', () => {
     const [first, second] = pendenzRows(timed)
     expect(first.faellig).toBe('21:25') // moved by the Meldung, not the 21:15 it was raised with
     expect(second.faellig).toBeUndefined() // untimed item prints none
+  })
+
+  // the text «00:10» sorted above «23:50», and no row said which day it was on
+  it('orders by the instant past midnight and dates every clock like the rest of the sheet', () => {
+    const night: TimelineEvent[] = [
+      entry('d1', '2026-08-17T00:20:00', 'erledigt', { op: 'done', id: 'p1' }),
+      entry('e2', '2026-08-17T00:10:00', 'Strasse sperren', { op: 'created', id: 'p2', text: 'Strasse sperren', dueAt: '2026-08-17T00:40:00' }),
+      entry('e1', '2026-08-16T23:50:00', 'Werkhof aufbieten', { op: 'created', id: 'p1', text: 'Werkhof aufbieten' }),
+    ]
+    const rows = pendenzRows(night, { alarmedAt: '2026-08-16T23:40:00', endedAt: '2026-08-17T01:30:00' })
+    expect(rows.map((r) => [r.text, r.erteilt])).toEqual([
+      ['Werkhof aufbieten', '16.08. 23:50'],
+      ['Strasse sperren', '17.08. 00:10'],
+    ])
+    expect(rows[0].erledigt).toBe('17.08. 00:20')
+    expect(rows[1].faellig).toBe('17.08. 00:40')
+  })
+
+  it('keeps an old clock-only row in its slot, with no invented day', () => {
+    const legacy = { id: 'e0', t: '23:55', icon: 'type', text: 'alt', kind: 'journal', surface: 'map', reminder: { op: 'created', id: 'p0', text: 'alt' } } satisfies TimelineEvent
+    // newest first, as the Verlauf holds it: the record reads alt · spät · früh
+    const mixed = [
+      entry('e1', '2026-08-16T23:50:00', 'früh', { op: 'created', id: 'p1', text: 'früh' }),
+      entry('e2', '2026-08-17T00:10:00', 'spät', { op: 'created', id: 'p2', text: 'spät' }),
+      legacy,
+    ]
+    const rows = pendenzRows(mixed, { alarmedAt: '2026-08-16T23:40:00', endedAt: '2026-08-17T01:30:00' })
+    expect(rows.map((r) => [r.text, r.erteilt])).toEqual([
+      ['alt', '23:55'], ['früh', '16.08. 23:50'], ['spät', '17.08. 00:10'],
+    ])
   })
 })
 
