@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState, type RefObject } from 'react'
 import type { MapRef } from 'react-map-gl/maplibre'
 import { geocodeReverse, type GeoHit } from '../../lib/incidents'
 import { loadStationBuilding, type StationObject } from '../../lib/api/stationReference'
-import { nearbyPlaces, objectAtAddress, pinNear, pointsFromGeoJson, splitAddress, type NamedPoint } from '../../lib/karte/places'
+import { isHydrantLayer, nearbyPlaces, objectAtAddress, pinNear, pointsFromGeoJson, splitAddress, type NamedPoint } from '../../lib/karte/places'
 import type { Sel } from '../../lib/karte/selection'
 import { listVisits } from '../../objectVisits/api'
 import type { LayerDef, LngLat } from '../../types'
@@ -104,7 +104,7 @@ export function useObjectVisits(objectId: string | null, enabled: boolean): Visi
 /** The deployment's hydrant layer and its points, fetched once when first needed: for «In der
  *  Nähe» (`selected`), and for the mouse over the map's hydrants while their layer is on. */
 export function useHydrants(layers: readonly LayerDef[], selected: boolean) {
-  const hydrantLayer = useMemo(() => layers.find((l) => l.geojson && l.vectorKind === 'point' && /hydrant/i.test(`${l.id} ${l.label} ${l.symbol ?? ''}`)), [layers])
+  const hydrantLayer = useMemo(() => layers.find(isHydrantLayer), [layers])
   const [hydrants, setHydrants] = useState<NamedPoint[]>([])
   const wantHydrants = !!hydrantLayer?.geojson && (selected || hydrantLayer.visible)
   useEffect(() => {

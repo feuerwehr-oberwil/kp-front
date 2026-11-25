@@ -3320,7 +3320,7 @@ export function IncidentWorkspace({
         selectedDrawingId, patchDrawingLabelLive, commitDrawingLabel,
         changeMapEnding, reverseDrawing, setDrawingWallRole, objects, syncLineNoToTrupp, pickablePersonnel, linkTruppLine,
         unlinkLine, setSelectedDrawingId, setMode, setPanel, showTrupp, setGpsRouting, revertAll, gpsEndOf, releaseHere,
-        releaseOnSite, setDrawingAttachment, focusEntity, isVisible, toggleLayer, deleteDrawing,
+        releaseOnSite, setDrawingAttachment, focusEntity, isVisible, toggleLayer, deleteDrawing, layers,
       }} />
 
       <MapToolDocks {...{

@@ -4,7 +4,7 @@ import { withRetiredKinds, type StationObject } from '../api/stationReference'
 import type { DeploymentModule } from '../deploymentConfig'
 import { nearestObjects, normText, openableCount, searchObjects } from './search'
 import {
-  compass8, nearbyPlaces, NEARBY_MAX, normAddress, objectAtAddress, splitAddress, objectVisitHref, outlineFor, pinNear, placeVisitHref,
+  compass8, hydrantAt, isHydrantLayer, nearbyPlaces, NEARBY_MAX, normAddress, objectAtAddress, splitAddress, objectVisitHref, outlineFor, pinNear, placeVisitHref,
   pointsFromGeoJson, ringAt, ringsFromOverpass, streetKey,
   nameIsAddress, nameSaysAddress, objectAddress, objectHeadSub, objectPicklistSub, objectRowSub,
 } from './places'
@@ -115,6 +115,24 @@ describe('places', () => {
     expect(near.map((n) => n.item.id)).toEqual(['h0', 'depot', 'mag'])
     expect(near[0]).toMatchObject({ kind: 'hydrant', dir: 0 })
     expect(near.map((n) => n.distanceM)).toEqual([...near.map((n) => n.distanceM)].sort((a, b) => a - b))
+  })
+
+  it('names the hydrant a line end sits at, within 10 m, and nothing farther (B2·49)', () => {
+    const hyd = pointsFromGeoJson({ features: [
+      { geometry: { type: 'Point', coordinates: [7.57, 47.52] }, properties: {} },
+      { geometry: { type: 'Point', coordinates: [7.57, 47.52004] }, properties: {} }, // ~4.4 m north
+    ] }, 'h')
+    // the NEAREST one, not the first: an end ~2 m north of the first sits ~2.4 m from the second
+    expect(hydrantAt(hyd, [7.57, 47.52002])).toBeCloseTo(2.2, 0)
+    expect(hydrantAt(hyd, [7.57, 47.5202])).toBeNull() // ~18 m from the nearest
+    expect(hydrantAt([], [7.57, 47.52])).toBeNull()
+  })
+
+  it('finds the hydrant layer among point layers only', () => {
+    const l = { geojson: '/h.geojson', vectorKind: 'point', id: 'wasser', label: 'Hydranten', symbol: undefined } as const
+    expect(isHydrantLayer(l)).toBe(true)
+    expect(isHydrantLayer({ ...l, vectorKind: 'line' })).toBe(false)
+    expect(isHydrantLayer({ ...l, label: 'Defibrillatoren' })).toBe(false)
   })
 
   it('keeps the nearest hydrant in the list, however far, in place of the last row', () => {
