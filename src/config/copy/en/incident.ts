@@ -180,6 +180,8 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     corrected: 'Hours corrected: {name}',
     attendanceRemoved: '{name} attendance removed',
     reportMissing: 'Report not created yet',
+    pendenzOpenOne: '1 open item',
+    pendenzOpenMany: '{n} open items',
   },
   personnelSync: {
     title: 'Match personnel with {provider}',

@@ -182,6 +182,8 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     corrected: 'Ore corrette: {name}',
     attendanceRemoved: 'Presenza di {name} rimossa',
     reportMissing: 'Rapporto non ancora creato',
+    pendenzOpenOne: '1 pendenza aperta',
+    pendenzOpenMany: '{n} pendenze aperte',
   },
   personnelSync: {
     title: 'Allinea l’effettivo con {provider}',

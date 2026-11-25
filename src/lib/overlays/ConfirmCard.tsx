@@ -24,6 +24,9 @@ export interface ConfirmItem {
   label: string
   /** a short read-out at the row's end – the pre-filled Einsatzende's «jetzt 23:41» */
   end?: string
+  /** a quieter line under the label – WHICH thing is open («Eigentümer informieren.» under «1
+   *  Pendenz offen», lib/abschlussOpen) */
+  sub?: string
   onClick: () => void
   /** already answered – a check instead of the chevron, the row stays as the record of it */
   done?: boolean
@@ -162,7 +165,7 @@ export function ConfirmCard({ open, title, message, items, note, noteLead, subje
                     {/* a full-width row, not a link in a bullet: ≥44px so a thumb lands on it at
                         3am, and the whole line is the target rather than the word alone */}
                     <button type="button" className="confirm-list-btn" onClick={() => { onResolve(false); it.onClick() }}>
-                      <span>{it.label}</span>
+                      <span>{it.label}{it.sub && <span className="confirm-list-sub">{it.sub}</span>}</span>
                       {it.end && <span className="confirm-list-end">{it.end}</span>}
                       {it.done
                         ? <Icon id="check" className="confirm-list-done" />

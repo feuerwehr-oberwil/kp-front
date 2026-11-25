@@ -182,6 +182,8 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     corrected: 'Heures corrigées : {name}',
     attendanceRemoved: 'Présence de {name} retirée',
     reportMissing: 'Rapport pas encore établi',
+    pendenzOpenOne: '1 tâche en suspens',
+    pendenzOpenMany: '{n} tâches en suspens',
   },
   personnelSync: {
     title: 'Rapprocher l’effectif avec {provider}',

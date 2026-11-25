@@ -263,6 +263,9 @@ export const incidentCopy = {
     // the close sheet's first open point while neither a PDF nor a finished print exists (M5 · A,
     // 17.11.2026); an edit after the paper makes it «noch nicht erstellt» again
     reportMissing: 'Rapport noch nicht erstellt',
+    // open Pendenzen in the close's «Noch offen» (owner pick UX journeys B2·9, 25.11.2026)
+    pendenzOpenOne: '1 Pendenz offen',
+    pendenzOpenMany: '{n} Pendenzen offen',
   },
   // sync the roster with the configured personnel source
   personnelSync: {

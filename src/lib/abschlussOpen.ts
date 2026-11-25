@@ -16,8 +16,9 @@ import { truppLogName } from './atemschutz'
  *
  * So the list lives here, once, and both callers ask it for rows — through ONE builder since
  * 31.10.2026 (`abschlussSheet`): same order, same rows on both. The Abschluss knows
- * about two open points the Rapport's own «noch offen» chips do not — a Trupp nobody reported back
- * in, and captures still sitting on this device — and those get targets too.
+ * about open points the Rapport's own «noch offen» chips do not — a Trupp nobody reported back
+ * in, a Pendenz still open in the Verlauf, and captures still sitting on this device — and those
+ * get targets too.
  */
 export type AbschlussOpenPoint =
   /** no Rapport made yet – neither a PDF nor a finished print (`reportMadeAt` unset). The
@@ -26,8 +27,18 @@ export type AbschlussOpenPoint =
   | { kind: 'step'; step: AbschlussStep }
   /** Trupps still recorded as being out there (lib/atemschutz · truppStillDeployed) */
   | { kind: 'trupps'; n: number }
+  /** the Pendenzen and Erinnerungen still open in the Verlauf (lib/reminders · deriveReminders) –
+   *  owner pick UX journeys B2·9, 25.11.2026: both walkers archived an Einsatz with «Eigentümer
+   *  informieren» still open, and the close said nothing about it */
+  | { kind: 'pendenzen'; items: readonly OpenPendenz[] }
   /** photos/audio still in this device's upload queue */
   | { kind: 'media'; n: number }
+
+/** One open Pendenz as the close names it: the bare item and the Verlauf row it opens on. */
+export interface OpenPendenz {
+  rowId: string
+  text: string
+}
 
 /** Where each kind of open point is answered. Every kind has one — see the note on `media`. */
 export interface AbschlussOpenTargets {
@@ -37,6 +48,8 @@ export interface AbschlussOpenTargets {
   step: (step: AbschlussStep) => void
   /** the Atemschutz-Tafel, where a Trupp is reported back in */
   trupps: () => void
+  /** the Verlauf, landed on that Pendenz's row – where it is ticked off */
+  pendenzen: (rowId: string) => void
   /** ⚠️ Not a surface: an upload is answered by getting a connection, so the target is the
    *  Bereitschaft sheet — the one place that says what is still outstanding and carries «Jetzt
    *  synchronisieren». There is nothing else to point at, and pointing at nothing was the bug. */
@@ -47,13 +60,19 @@ export interface AbschlussOpenTargets {
  *  abgeschlossen» over no Rapport read as «finished». A finished print counts exactly like a PDF
  *  (owner: «printing is equivalent to a pdf»). Printing never blocks: it is one more open point
  *  in the existing «Noch offen» confirm, «Trotzdem abschliessen» goes on. */
+/** ⚠️ Open Pendenzen come after the Trupps (B2·9): a gap in the record, so they count as open
+ *  (`countsAsOpen`) and the button says «Trotzdem abschliessen» – but closing over one stays
+ *  allowed, and the row only OPENS the Verlauf on it (the 11.11.2026 rule below). */
 export function abschlussOpenPoints(
-  missing: AbschlussStep[], truppsStillOut: number, pendingMedia: number, noReport = false,
+  missing: AbschlussStep[], truppsStillOut: number, pendingMedia: number,
+  more: { noReport?: boolean; pendenzen?: readonly OpenPendenz[] } = {},
 ): AbschlussOpenPoint[] {
+  const pendenzen = more.pendenzen ?? []
   return [
-    ...(noReport ? [{ kind: 'report' } as const] : []),
+    ...(more.noReport ? [{ kind: 'report' } as const] : []),
     ...missing.map((step): AbschlussOpenPoint => ({ kind: 'step', step })),
     ...(truppsStillOut > 0 ? [{ kind: 'trupps', n: truppsStillOut } as const] : []),
+    ...(pendenzen.length > 0 ? [{ kind: 'pendenzen', items: pendenzen } as const] : []),
     ...(pendingMedia > 0 ? [{ kind: 'media', n: pendingMedia } as const] : []),
   ]
 }
@@ -70,9 +89,19 @@ export function abschlussOpenLabel(p: AbschlussOpenPoint): string {
     case 'report': return appConfig.copy.abschluss.reportMissing
     case 'step': return appConfig.copy.abschluss.steps[p.step]
     case 'trupps': return fillTemplate(P.truppsDeployedConfirm, { n: p.n })
+    case 'pendenzen': {
+      const A = appConfig.copy.abschluss
+      return p.items.length === 1 ? A.pendenzOpenOne : fillTemplate(A.pendenzOpenMany, { n: p.items.length })
+    }
     case 'media': return fillTemplate(P.pendingMediaConfirm, { n: p.n })
   }
 }
+
+/** The line under a point's name, where it has one: the open Pendenzen by their own words
+ *  («Eigentümer und Gebäudeversicherung informieren.») – «1 Pendenz offen» alone does not say
+ *  which task the Akte would close over. */
+const abschlussOpenSub = (p: AbschlussOpenPoint): string | undefined =>
+  p.kind === 'pendenzen' ? p.items.map((i) => i.text).join(' · ') : undefined
 
 /**
  * Does this point make the Abschluss an «trotzdem»?
@@ -95,10 +124,13 @@ export function abschlussOpenItems<P extends AbschlussOpenPoint>(points: P[], go
   const to: Partial<AbschlussOpenTargets> = go
   return points.map((p) => ({
     label: abschlussOpenLabel(p),
+    sub: abschlussOpenSub(p),
     onClick: () => {
       if (p.kind === 'step') go.step(p.step)
       else if (p.kind === 'report') to.report?.()
       else if (p.kind === 'trupps') to.trupps?.()
+      // several open: the first one – the Verlauf pins every open Pendenz at its top anyway
+      else if (p.kind === 'pendenzen') to.pendenzen?.(p.items[0].rowId)
       else to.media?.()
     },
   }))

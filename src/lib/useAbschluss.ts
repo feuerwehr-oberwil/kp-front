@@ -5,7 +5,7 @@ import { closeTimeOf, isIncidentRunning, type IncidentMeta } from './api/inciden
 import type { ReportMeta } from './workspace'
 import type { MediaQueueApi } from './useMediaQueue'
 import { abschlussFacts, missingSteps, type AbschlussStep } from './abschluss'
-import { abschlussEndeItem, abschlussOpenPoints, abschlussSheet, insideAbschlussSpec, registeredAbschlussMessage } from './abschlussOpen'
+import { abschlussEndeItem, abschlussOpenPoints, abschlussSheet, insideAbschlussSpec, registeredAbschlussMessage, type OpenPendenz } from './abschlussOpen'
 import { serverNowIso } from './serverClock'
 import { truppInNotfall, truppLogName, truppStillDeployed, truppStillRegistered } from './atemschutz'
 import { fillTemplate } from './format'
@@ -23,6 +23,11 @@ interface Args {
   openConflictCount: number
   /** the board's Trupps (removed ones already filtered out) */
   trupps: Trupp[]
+  /** the Pendenzen and Erinnerungen still open in the Verlauf (lib/reminders · deriveReminders) –
+   *  one more open point of the close (owner pick UX journeys B2·9, 25.11.2026) */
+  openPendenzen: readonly OpenPendenz[]
+  /** open the Verlauf on that row – where an open Pendenz is ticked off */
+  showVerlaufRow: (rowId: string) => void
   /** …and `title` / `started_at` / `is_exercise` for the line that names the Einsatz above every
    *  close button (lib/einsatzSubject, LISTS.11) */
   incidentMeta: Pick<IncidentMeta, 'is_archived' | 'status' | 'closed_at' | 'last_closed_at'> & Partial<Pick<IncidentMeta, 'title' | 'started_at' | 'is_exercise'>>
@@ -73,7 +78,7 @@ interface Args {
  * used to stand, so the hook order and every identity downstream are unchanged.
  */
 export function useAbschluss({
-  reportMeta, attendance, mittel, openConflictCount, trupps, incidentMeta, replayActive, media, onCompleteRapport,
+  reportMeta, attendance, mittel, openConflictCount, trupps, openPendenzen, showVerlaufRow, incidentMeta, replayActive, media, onCompleteRapport,
   setMode, setPanel, setOfflineReadyOpen, requestReportStep, standDownTrupps, noteInsideAtClose, noteNotfallAtClose, flushOutboxes, markClosing,
   patchReportMeta,
 }: Args) {
@@ -92,6 +97,9 @@ export function useAbschluss({
   // so the confirm is not re-created on every Kontakt somebody writes while the Rapport is open
   const truppsRef = useRef(trupps)
   useEffect(() => { truppsRef.current = trupps }, [trupps])
+  // …and the open Pendenzen, for the same reason: the Verlauf grows while the Rapport is open
+  const pendenzenRef = useRef(openPendenzen)
+  useEffect(() => { pendenzenRef.current = openPendenzen }, [openPendenzen])
   // …and their tiers and clock, for the same reason
   /** The moment every Trupp clock is read against once the Einsatz is abgeschlossen — after that
    *  no more time passes on this Einsatz, and a board that kept counting was describing a
@@ -186,6 +194,7 @@ export function useAbschluss({
       report: () => { setMode('rapport'); setPanel(null) },
       step: (st: AbschlussStep) => { setMode('rapport'); setPanel(null); requestReportStep(st) },
       trupps: () => { setMode('atemschutz'); setPanel(null) },
+      pendenzen: showVerlaufRow,
       media: () => setOfflineReadyOpen(true),
     }
     /* ⚠️ The Einsatzende is PRE-FILLED with «jetzt» (owner's pick): «Zeiten» stood open on
@@ -202,7 +211,7 @@ export function useAbschluss({
        resolves the ask false — going there is not going ahead. */
     // a Trupp still out counts as open for the WORDING, the way a missing Angabe does: the
     // message and the button both have to say that something is being closed over
-    const { items, anyOpen } = abschlussSheet(abschlussOpenPoints(abschlussMissing, inside.length > 0 ? 0 : truppsStillOut, media.pendingCount, !reportMeta.reportMadeAt), go,
+    const { items, anyOpen } = abschlussSheet(abschlussOpenPoints(abschlussMissing, inside.length > 0 ? 0 : truppsStillOut, media.pendingCount, { noReport: !reportMeta.reportMadeAt, pendenzen: pendenzenRef.current }), go,
       pendingEnde ? { zeiten: abschlussEndeItem(pendingEnde, () => { patchReportMeta!({ endedAt: pendingEnde }); go.step('zeiten') }) } : undefined)
     const { title, started_at: startedAt } = incidentMeta
     const subject = title && startedAt ? einsatzSubject({ title, started_at: startedAt, is_exercise: !!incidentMeta.is_exercise }) : undefined
@@ -317,7 +326,7 @@ export function useAbschluss({
     // (offline, server error) instead of being forgotten for an Einsatz that is still open.
     return onCompleteRapport().finally(() => markClosing?.(false))
   // requestReportStep is a module-level loader of the caller's — stable, so naming it changes nothing
-  }, [abschlussMissing, incidentMeta, reportMeta.endedAt, reportMeta.reportMadeAt, truppsStillOut, media, onCompleteRapport, setMode, setPanel, setOfflineReadyOpen, requestReportStep, standDownTrupps, noteInsideAtClose, noteNotfallAtClose, flushOutboxes, markClosing, patchReportMeta])
+  }, [abschlussMissing, incidentMeta, reportMeta.endedAt, reportMeta.reportMadeAt, truppsStillOut, showVerlaufRow, media, onCompleteRapport, setMode, setPanel, setOfflineReadyOpen, requestReportStep, standDownTrupps, noteInsideAtClose, noteNotfallAtClose, flushOutboxes, markClosing, patchReportMeta])
 
   return { abschlussMissing, truppsStillOut, azFrozenAt, azMonitoring, confirmAndComplete }
 }

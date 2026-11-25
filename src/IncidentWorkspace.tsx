@@ -90,6 +90,7 @@ import { loudForeignAlarms } from './lib/foreignAlarm'
 import { TabLockBanner } from './components/TabLockBanner'
 import { SurfaceBoundary } from './components/SurfaceBoundary'
 import { RemindersHost } from './lib/useReminders'
+import { deriveReminders } from './lib/reminders'
 import { useRenderStorm } from './lib/useRenderStorm'
 import { AtemschutzAlarmHost } from './lib/useAtemschutzAlarm'
 import { truppInNotfall, truppLogName, truppStillRegistered, type AtemschutzAlarmState, type CrewSlot } from './lib/atemschutz'
@@ -1211,6 +1212,9 @@ export function IncidentWorkspace({
   // unified journal (Verlauf): a single append-only stream shared by both
   // surfaces, plus its quick-add composer — both reachable from the TopBar.
   const [journalOpen, setJournalOpen] = useState(false)
+  // …and the row it lands on (a nonce, so the same row twice points again): a Wiedergabe caption,
+  // a Tafel Pendenz, an open Pendenz on the close's «Noch offen» (useAbschluss)
+  const [journalLandOn, setJournalLandOn] = useState<{ id: string; nonce: number } | null>(null)
   // «Nur ansehen» in the head pill, true for the surface on screen (workspace/access · viewOnlyReason)
   const viewOnly = viewOnlyReason({
     flags: { running, elView, canEditRecord, canEditTrupps, tacticalLocked }, roleReadOnly, linkScoped, isEl, mode, journalOpen,
@@ -1623,8 +1627,12 @@ export function IncidentWorkspace({
   // the Rapport counts an unsettled Abweichung as open — so does every door to it (lib/abschluss ·
   // abschlussFacts): the phone's «Einsatz» badge, the chooser, the Abschluss, the archive count
   const openConflictCount = useMemo(() => openConflicts(timeline).length, [timeline])
+  // the Pendenzen still open – a point of the close's «Noch offen», whose row opens the Verlauf on
+  // it (owner pick UX journeys B2·9, 25.11.2026)
+  const openPendenzen = useMemo(() => deriveReminders(timeline).map((r) => ({ rowId: r.rowId, text: r.text })), [timeline])
+  const showVerlaufRow = useCallback((rowId: string) => { setJournalOpen(true); setJournalLandOn({ id: rowId, nonce: Date.now() }) }, [])
   const { abschlussMissing, azFrozenAt, azMonitoring, confirmAndComplete } = useAbschluss({
-    reportMeta, attendance, mittel, openConflictCount, trupps, incidentMeta, replayActive, media, onCompleteRapport,
+    reportMeta, attendance, mittel, openConflictCount, trupps, openPendenzen, showVerlaufRow, incidentMeta, replayActive, media, onCompleteRapport,
     setMode, setPanel, setOfflineReadyOpen, requestReportStep,
     // only where the Tafel may be written — a viewer's or a replay's Abschluss has nothing to close
     standDownTrupps: canEditTrupps ? standDownTrupps : undefined,
@@ -2204,7 +2212,6 @@ export function IncidentWorkspace({
   // Verlauf row, and hands its seek down through a ref — the same imperative-handle pattern the
   // Plan's fit and history already use. Together those two make a row a way into the moment.
   const replaySeek = useRef<((ms: number) => void) | null>(null)
-  const [journalLandOn, setJournalLandOn] = useState<{ id: string; nonce: number } | null>(null)
   const [replayAtMs, setReplayAtMs] = useState<number | null>(null)
   const onReplayPlayhead = useCallback((ms: number) => setReplayAtMs(ms), [])
   const seekToEvent = (e: TimelineEvent) => {

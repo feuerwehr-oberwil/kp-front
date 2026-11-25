@@ -30,6 +30,12 @@ that may not write the Rapport. The success toast says «Einsatz abgeschlossen»
 Rapport's own «Jetzt» buttons. A single lifecycle PATCH commits `report_done_at` and
 `is_archived`. Retrying a close preserves its stamp and writes each journal entry once.
 
+**An open Pendenz is an open point** (owner pick UX journeys B2·9, 25.11.2026): the Pendenzen and
+Erinnerungen still open in the Verlauf stand on the sheet after the Trupps as «1 Pendenz offen» /
+«{n} Pendenzen offen», their own words on a line under it (`ConfirmItem.sub`). They count as open
+(«Trotzdem abschliessen»); the row opens the Verlauf on the first of them – it does not tick it
+off (the 11.11.2026 rule above). The print's list does not carry them.
+
 **The crews question comes first, once** (`useAbschluss`): a Notfall, then Trupps still inside,
 then Trupps still angemeldet. «Zur Tafel» is the focused answer only for a closer who can write the
 Tafel; the `el` role gets «Trotzdem abschliessen» / «Abbrechen» («Abbrechen» focused) and the line
