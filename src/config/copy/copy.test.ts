@@ -104,3 +104,21 @@ describe('the Trupp card «⋯ Mehr» chip', () => {
     }
   })
 })
+
+// owner pick UX journeys B2·43 (25.11.2026): a time of day ends on «Uhr», a duration never – so
+// «Notfall seit 00:15 Uhr» is never read as the Einsatz clock's «5:00». On the Trupps, every
+// German `{time}` is a time of day (durations are `{dur}`, `{age}`, `{s}`).
+describe('the Trupps say «Uhr» after a time of day', () => {
+  it('every German {time} in the Atemschutz copy is followed by «Uhr»', async () => {
+    await applyLocale('de-CH')
+    const strings: string[] = []
+    const walk = (v: unknown) => {
+      if (typeof v === 'string') strings.push(v)
+      else if (v && typeof v === 'object') Object.values(v).forEach(walk)
+    }
+    walk(getCopy().atemschutz)
+    const bare = strings.filter((x) => /\{time\}(?! Uhr)/.test(x))
+    expect(bare).toEqual([])
+    expect(strings.filter((x) => x.includes('{time}')).length).toBeGreaterThan(5)
+  })
+})

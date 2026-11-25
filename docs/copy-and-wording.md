@@ -165,6 +165,13 @@ follow with their own word for each idea.
 - **A door that shows only a number says WHAT is counted in its title / screen-reader name** –
   «Verlauf – 3 Pendenzen offen», «Rapport: 2 offen», «Offene Einsätze: 1». A head that stands next
   to its noun («Pendenzen · 3 offen») keeps the short count.
+- **A time of day ends on «Uhr», a duration never** (owner pick UX journeys B2·43, 25.11.2026: a
+  walker read the Notfall banner's «00:15» as the Einsatz clock's «5:00»): «Notfall seit 00:15 Uhr»,
+  «drin seit 00:15 Uhr», «letzter Kontakt 22:10 Uhr» – «5:00», «drin 10:00 min» stay bare. The
+  heads stay wordless (the Einsatz clock's ⌛ and the save stamp «✓ 22:09», 13.11.2026). The Trupps
+  copy holds it (`copy.test` · every German `{time}` is followed by «Uhr»); a column of times under
+  a «Zeit» head (the Rapport's tables, the Trupp's own log) needs no word per cell. Open: the
+  Verlauf rows, the Rapport and the banners outside the Trupps.
 
 ## Failure, clear and search copy
 

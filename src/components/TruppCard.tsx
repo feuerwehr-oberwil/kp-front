@@ -746,7 +746,8 @@ export function TruppCard({
   // Verlauf, behind a word — and the band went back to being a display, not a button.
   const timesShown = monitored && live.sinceContactSec != null
   const lastContactAt = live.sinceContactSec != null ? now - live.sinceContactSec * 1000 : null
-  const hm = (ms: number) => fmtTime(new Date(ms).toISOString())
+  // a time of day says «Uhr», a duration never (owner pick UX journeys B2·43, 25.11.2026)
+  const hm = (ms: number) => fillTemplate(az.timeOfDay, { time: fmtTime(new Date(ms).toISOString()) })
   /* The two conditional groups of the opened Verlauf's look-up panel, named here so the markup
    * below can ask ONE question per row and the panel itself can ask «is there anything at all».
    * ⚠️ `lowestShown` is deliberately narrow: the tiefster Druck is only a fact of its own once

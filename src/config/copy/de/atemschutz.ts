@@ -359,8 +359,8 @@ export const atemschutzCopy = {
     estimatedShort: 'Schätzung',
     estimatedHint: 'Planungshilfe – bis genügend Druckverlauf vorliegt, geschätzt mit {liters} L Flasche und {rate} L/min Verbrauch. Ersetzt keine Druckmeldung.',
     estimatedHintHistory: 'Planungshilfe – aus dem bestätigten Druckverbrauch dieses Trupps hochgerechnet. Ersetzt keine Druckmeldung.',
-    estimatedSourceHistory: 'aus {count} Druckwerten · Stand {time}',
-    estimatedSourceFallback: '{rate} L/min angenommen · Stand {time}',
+    estimatedSourceHistory: 'aus {count} Druckwerten · Stand {time} Uhr',
+    estimatedSourceFallback: '{rate} L/min angenommen · Stand {time} Uhr',
     currentPressure: 'Druck',
     lowestPressure: 'Tiefster',
     // Alarmdruck on the Trupp card. The «Schätzung» variant applies when only the projection has
@@ -824,8 +824,9 @@ export const atemschutzCopy = {
       // Kopfzeile des Notfall-Banners auf der Tafel und der Zeile in der Meldeleiste
       title: 'Notfall',
       who: 'Trupp {name}',
-      since: 'seit {time}',
-      stateWord: 'Notfall seit {time}',
+      // jede Uhrzeit endet auf «Uhr», eine Dauer nie (owner pick UX journeys B2·43, 25.11.2026)
+      since: 'seit {time} Uhr',
+      stateWord: 'Notfall seit {time} Uhr',
       // die Fakten: letzter Ort, letzter Druck mit Alter, Funkkanal
       placeMap: 'Karte',
       placeMapAt: 'Karte · bei {host}',
@@ -835,7 +836,7 @@ export const atemschutzCopy = {
       // EIN Fakt: der Druck und woher er stammt – «300 bar (Eingangsdruck)», «220 bar (vor 5 min)»
       barWith: '{bar} ({when})',
       kanal: 'Kanal {n}',
-      contact: 'Kontakt {time}',
+      contact: 'Kontakt {time} Uhr',
       // die erste angebotene Handlung
       sitrDeploy: 'Sicherungstrupp einsetzen',
       sitrPickTitle: 'Welcher Sicherungstrupp?',
@@ -849,7 +850,7 @@ export const atemschutzCopy = {
       sitrOtherLabel: 'Einen anderen Trupp als Sicherungstrupp bestimmen',
       stripOne: 'Notfall · {name}',
       stripMany: '{n} Notfälle',
-      sitrInside: 'Sicherungstrupp {name} drin seit {time}',
+      sitrInside: 'Sicherungstrupp {name} drin seit {time} Uhr',
       goTo: 'Zum Trupp',
       // die ganze Kopfzeile des Banners (Screenreader): «Zum Trupp 1 (Binggeli Michael / …)»
       goToWho: 'Zum {name}',
@@ -858,8 +859,8 @@ export const atemschutzCopy = {
       // der Verlauf (und damit das Einsatzjournal im Rapport)
       logTrigger: 'Trupp {name}: Notfall ausgelöst',
       factPlace: 'Ort {place}',
-      factContact: 'letzter Kontakt {time}',
-      factBar: '{bar} bar ({time})',
+      factContact: 'letzter Kontakt {time} Uhr',
+      factBar: '{bar} bar ({time} Uhr)',
       factBarEntry: 'Eingangsdruck {bar} bar',
       factKanal: 'Kanal {n}',
       logEnd: 'Trupp {name}: Notfall beendet – Dauer {dur}',
@@ -873,7 +874,7 @@ export const atemschutzCopy = {
       logAtClose: 'Trupp {name}: Notfall beim Abschluss nicht beendet',
       // Benachrichtigung (Ton, OS, Web-Push)
       notifyTitle: 'Atemschutz-Notfall – {name}',
-      notifyBody: 'Notfall seit {time} – Sicherungstrupp einsetzen.',
+      notifyBody: 'Notfall seit {time} Uhr – Sicherungstrupp einsetzen.',
       // der ruhige Hinweis beim Eintritt eines AS-Trupps, wenn niemand sichert
       noSafetyHint: 'Kein Sicherungstrupp bereit',
       // der Abschluss fragt zuerst danach
@@ -1010,8 +1011,10 @@ export const atemschutzCopy = {
     earlyLowAsEntry: 'Eingangsdruck {bar} bar',
     // die zweite Zeile der Kontakt-Taste, solange der letzte Kontakt vom geteilten Link kam (owner
     // pick UX journeys M·12, 25.11.2026 – lib/atemschutz · contactViaLink); die lange Form ist ihr Name
-    contactViaLink: '{time} · über Link',
-    contactViaLinkLong: 'letzter Kontakt {time} über Link',
+    contactViaLink: '{time} Uhr · über Link',
+    contactViaLinkLong: 'letzter Kontakt {time} Uhr über Link',
+    // eine Uhrzeit als Wert (der Verlauf des Trupps: «Letzter Kontakt 22:10 Uhr») – B2·43
+    timeOfDay: '{time} Uhr',
   },
   // FKS hose-line device-letter labels (line decoration editor + tooltips)
   lineDecor: {

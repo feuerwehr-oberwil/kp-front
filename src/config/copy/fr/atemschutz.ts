@@ -480,6 +480,7 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     earlyLowAsEntry: 'Pression d’entrée {bar} bar',
     contactViaLink: '{time} · via lien',
     contactViaLinkLong: 'dernier contact {time} via lien',
+    timeOfDay: '{time}',
   },
   lineDecor: {
     W: 'Eau',
