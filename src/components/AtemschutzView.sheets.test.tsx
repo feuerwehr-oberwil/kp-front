@@ -3,7 +3,7 @@
 // «lite»), on the tablet and in the phone's focus mode. Shared setup: AtemschutzView.setup.tsx.
 import { useState } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { AtemschutzView } from './AtemschutzView'
 import { useIsPhone } from '../lib/useIsPhone'
 import s from './Atemschutz.module.css'
@@ -346,6 +346,30 @@ describe('the handed-over board on a phone (focus mode)', () => {
       // the link hint is a line here now — the link board shows no toasts (sweep #23)
       expect(panel).toContain(az.linkReentryHint)
     })
+  })
+
+  // owner pick UX journeys M·13 (25.11.2026, «Nur Fehler laut»): no orange dot after every
+  // Kontakt – the last Stand stays «✓ 18:05» while a save is on its way, and only a save stuck
+  // for 10 s says «Nicht synchronisiert · 18:05» in the red chip
+  it('keeps «✓ 18:05» while a save is pending and turns loud only after 10 s', () => {
+    vi.useFakeTimers()
+    try {
+      vi.mocked(useIsPhone).mockReturnValue(true)
+      const props = propsFor({ lite: { subtitle: 'Brand', title: 'Brand' }, syncStatus: 'pending', lastSyncedAt: Date.parse('2026-09-09T18:05:00') })
+      const { rerender } = render(<AtemschutzView {...props} />)
+      const line = () => document.querySelector('.az-syncline')!
+      expect(line().querySelector('.ip-status-dot')).toBeNull()
+      expect(line().textContent).toBe('18:05')
+      act(() => { vi.advanceTimersByTime(10_000) })
+      expect(line().querySelector('.ip-error-chip')?.textContent).toBe(`${appConfig.copy.incidentSwitcher.errorShort} · 18:05`)
+      // …on a line of its own under the address, no «·» before it
+      expect(line().parentElement!.className).toContain(s.headTitleSyncLoud)
+      expect(line().parentElement!.textContent).not.toMatch(/^·/)
+      // the save lands: the new Stand, quiet again
+      rerender(<AtemschutzView {...props} syncStatus="synced" lastSyncedAt={Date.parse('2026-09-09T18:06:00')} />)
+      expect(line().querySelector('.ip-error-chip')).toBeNull()
+      expect(line().textContent).toBe('18:06')
+    } finally { vi.useRealTimers() }
   })
 
   // owner pick UX journeys M·18 (25.11.2026): ↶ ↷ are glyphs on the link phone head, so the

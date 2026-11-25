@@ -186,7 +186,9 @@ good but we don't need the triangle thing. red and notfall is already enough»):
   phone board's head «the page's first row, not a band» (it sits flat between the app's top bar
   and bottom bars). The link board has no top bar, so head and rail frame the screen
   symmetrically; the notch is the shell's padding (`.as-link-shell`). It is the Einsatz in full on two lines — its title, then «Adresse · ✓ 12:12» (the save
-  stamp's bare time is back now that it has a line of its own) — still the door to the ⌄ popover
+  stamp's bare time is back now that it has a line of its own; a save on its way keeps the last
+  «✓ 12:12» – no orange dot – and only a save pending 10 s turns into the red «⚠ Nicht
+  synchronisiert · 12:12», owner pick UX journeys M·13, 25.11.2026) — still the door to the ⌄ popover
   (title, address, the long «Gespeichert um …», and the link's way back «Der Link führt zurück …»
   as one line; it was a once-per-device toast until the link dropped toasts, sweep #23). ↶ ↷ 🔔
   without frames and without words, 44px glyphs (owner pick UX journeys M·18, 25.11.2026: pick 24a's

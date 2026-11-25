@@ -28,6 +28,7 @@ import { ortOf } from '../lib/attendanceOrt'
 import { truppAuftragLabel, truppEquipmentLabels } from '../lib/report'
 import { useIsPhone } from '../lib/useIsPhone'
 import { usePageHeadFit } from '../lib/pageHeadFit'
+import { useLate } from '../lib/useLate'
 import type { AttendanceState, Person, Trupp, TruppAuftrag, TruppFields } from '../types'
 import { assignedPersonIds, doubleAssignments, rosterIdByName, truppCrewSlots } from '../lib/personnel'
 import { truppLineNo, type LeitungOption } from '../lib/truppLines'
@@ -88,6 +89,10 @@ const FROZEN_ALARM: TruppAlarm = { sev: 0, reason: null, line: null }
  *  folded a rank later and stood «+ Trupp anmelden» beside the stacked tiles while the title read
  *  «Trup…»). Last «✓ Gespeichert» keeps its ✓ (the sentence stays its `title`; a LOUD state never folds). */
 const HEAD_FOLD = { saved: 1, tiles: 2, savedMark: 3 } as const
+
+/** how long a save may stand «pending» before the link phone head says so (M·13 – the same grace
+ *  as the workspace head, panels/IncidentSwitcher) */
+const PENDING_GRACE_MS = 10_000
 
 /** The room the sticky Notfall stack takes at the top of the board's port (+ the air under it). */
 const nfInset = (el: HTMLElement | null) => (el ? el.offsetHeight + 12 : 0)
@@ -1265,16 +1270,25 @@ export function AtemschutzView({
   }
   const skewMin = clockSkewMs != null ? Math.round(clockSkewMs / 60_000) : null
   const skewLoud = skewMin != null && Math.abs(skewMin) > CLOCK_SKEW_WARN_MIN
+  /* ⚠️ The link phone head says only the stuck save (owner pick UX journeys M·13, 25.11.2026 –
+   * «Nur Fehler laut»): no orange dot after every Kontakt. «✓ 22:09» stays while a save is on its
+   * way – still true, the Stand of 22:09 is on the server – and turns «✓ 22:10» when it lands;
+   * only a save pending past PENDING_GRACE_MS turns into the red «⚠ Nicht synchronisiert · 22:09».
+   * The 01.09. safety rule holds: this screen still says whether what it shows is synchronised. */
+  const pendingLate = useLate(syncStatus === 'pending', PENDING_GRACE_MS)
+  const quietPending = focusMode && syncStatus === 'pending' && !pendingLate
+  const lineStatus = focusMode && syncStatus === 'pending' ? (pendingLate ? 'error' : 'synced') : syncStatus
+  const syncLoud = skewLoud || (!!lineStatus && lineStatus !== 'synced' && lineStatus !== 'pending')
   /* ⚠️ A <span>, not a <div> (09.09.): on the phone focus board this whole line rides INSIDE the
    * title's popover trigger, and a <button> may only contain phrasing content. `.az-syncline` is
    * `display: flex`, which a span wears exactly as a div does — the tablet header is unchanged. */
   const syncLine = (syncStatus || skewLoud) && (
     <span className="az-syncline" data-fit-check>
-      {syncStatus === 'synced' || syncStatus === 'pending' ? (
-        <span className={cx('az-sync-quiet', syncStatus === 'pending' && 'az-sync-pending')}
+      {lineStatus === 'synced' || lineStatus === 'pending' ? (
+        <span className={cx('az-sync-quiet', lineStatus === 'pending' && 'az-sync-pending')}
           data-fold={focusMode ? undefined : `${HEAD_FOLD.saved} ${HEAD_FOLD.savedMark}`}
-          title={syncStatus === 'pending' ? cpSync.badgePending : savedAtText}>
-          {syncStatus === 'synced' ? <Icon id="check" /> : <span className="ip-status-dot" />}
+          title={syncStatus === 'pending' && !quietPending ? cpSync.badgePending : savedAtText}>
+          {lineStatus === 'synced' ? <Icon id="check" /> : <span className="ip-status-dot" />}
           {/* ⚠️ On the phone focus board the QUIET state is the mark ALONE — no «18:05» beside
               it (09.09., maintainer review of the one-row head). It shrank to the bare time on
               03.09. because there was no room for the sentence; on a one-row head there is no
@@ -1299,13 +1313,13 @@ export function AtemschutzView({
             </span>
           )}
         </span>
-      ) : syncStatus ? (
-        <span className={cx('ip-offline-chip', syncStatus !== 'offline' && 'ip-error-chip')}
-          title={syncLong[syncStatus]} aria-label={syncLong[syncStatus]}>
-          <Icon id={syncStatus === 'offline' ? 'cloud-off' : 'warn'} />
+      ) : lineStatus ? (
+        <span className={cx('ip-offline-chip', lineStatus !== 'offline' && 'ip-error-chip')}
+          title={syncLong[lineStatus]} aria-label={syncLong[lineStatus]}>
+          <Icon id={lineStatus === 'offline' ? 'cloud-off' : 'warn'} />
           <span>{lastSyncedAt != null
-            ? fillTemplate(az.syncStand, { status: syncShort[syncStatus], t: formatTime(new Date(lastSyncedAt)) })
-            : syncShort[syncStatus]}</span>
+            ? fillTemplate(az.syncStand, { status: syncShort[lineStatus], t: formatTime(new Date(lastSyncedAt)) })
+            : syncShort[lineStatus]}</span>
         </span>
       ) : null}
       {skewLoud && (
@@ -1485,8 +1499,12 @@ export function AtemschutzView({
                         {(lite?.address || syncLine) && (
                           <small>
                             {lite?.address && <span className={s.headTitleAddr}>{lite.address}</span>}
-                            {/* the «· ✓ 12:12» stays glued to the end of the address however it wraps */}
-                            {syncLine && <span className={s.headTitleSync} aria-hidden="true">{lite?.address && '·'}{syncLine}</span>}
+                            {/* the «· ✓ 12:12» stays glued to the end of the address however it wraps;
+                                the LOUD chip (M·13: the only state this head says aloud) takes a line
+                                of its own under the address, no «·», and wraps inside it */}
+                            {syncLine && (syncLoud
+                              ? <span className={cx(s.headTitleSync, s.headTitleSyncLoud)} aria-hidden="true">{syncLine}</span>
+                              : <span className={s.headTitleSync} aria-hidden="true">{lite?.address && '·'}{syncLine}</span>)}
                           </small>
                         )}
                       </span>
