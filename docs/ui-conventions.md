@@ -264,7 +264,10 @@ while the head's subtitle says when («Schadenlage · erledigt 10:57»).
 - **The way out of a layer is ONE rule** (duck sweep 17.11.2026, owner calls 2 + 3;
   `lib/overlays/layer`): **a tap beside a menu, popover or card only closes it** – the whole
   gesture is swallowed, it never places, selects, deselects or pans what lies under it, on every
-  width; **one Esc closes one layer** (taken in the capture phase and stopped, so the surface's
+  width. One exception (owner pick UX journeys M·2, 25.11.2026): a layer that opts in with
+  `throughBars` – today the Gebäude card – lets a tap on a «Bedienleiste» (the rails, the tool
+  bar, the head) close it AND do what the tile says; a tap on the map beside it still only closes
+  it. **One Esc closes one layer** (taken in the capture phase and stopped, so the surface's
   ladder never peels a second); **the native back closes the top layer**, one per press (Android's
   back, the iOS edge swipe – the 05.10. rule «no entry behind the operational screens» stands when
   nothing is open: then back does what it did before); and focus goes back to the opener. The

@@ -6,6 +6,11 @@
  *   the board or a list underneath, so it cannot place, select or deselect anything (CONT.1). The
  *   Base UI `Menu` and `Popover` get the same from their modal backdrop; a hand-rolled container
  *   gets it here (`useLayer`).
+ * - **…except on a «Bedienleiste»** (`BARS`: the rails, the tool bar, the head) for a layer that
+ *   opts in with `throughBars` – the Gebäude-Karte (owner pick UX journeys M·2, 25.11.2026; it
+ *   narrows call 2 of 17.11.2026). A tap there closes the layer AND does what it says: a rail tile
+ *   has nothing under it to protect, and a button that does nothing on the first tap reads as a
+ *   frozen app at 3am. A tap on the map beside the layer still only closes it.
  * - **One Esc closes one thing.** The key is taken in the CAPTURE phase on `window` and stopped, so
  *   no surface ladder (Lage, Plan, Karte) peels a second layer with the same press (CONT.2). A
  *   field keeps its own Esc (it leaves the field first), a dialog or menu with the focus keeps its.
@@ -151,6 +156,9 @@ export function swallowGesture(down: PointerEvent): void {
 const ABOVE = '[role="dialog"], [role="alertdialog"], [role="menu"], [data-base-ui-inert], .ui-backdrop, .help-scrim, .confirm-backdrop, .toaster'
 /** Where the focus says somebody else owns Escape: a dialog, a menu. */
 const KEY_OWNER = '[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"]'
+/** The «Bedienleisten» a `throughBars` layer lets a tap reach (owner pick M·2, 25.11.2026): the
+ *  surface rail (`.navrail`), the tool rail and the Plan's tools (`.vrail`), the head (`.topbar`). */
+const BARS = '.navrail, .vrail, .topbar'
 
 type HandLayer = { inside: (t: Node) => boolean }
 const handStack: HandLayer[] = []
@@ -175,6 +183,10 @@ export interface LayerOptions {
   outside?: boolean
   /** `false`: the native back leaves it alone (a mode is not a layer the back gesture closes). */
   back?: boolean
+  /** `true`: a tap on a Bedienleiste (`BARS`) closes the layer and is NOT swallowed – the tile
+   *  does what it says in the same tap. Only for a layer none of whose toggles sits on a bar
+   *  (a bar toggle outside `inside` would close the layer and then open it again). */
+  throughBars?: boolean
 }
 
 /**
@@ -189,7 +201,7 @@ export interface LayerOptions {
  * `{ inside: [], outside: false, back: false }`: its Esc is taken first and alone, the selection
  * under it stays.
  */
-export function useLayer({ open, onClose, inside, returnFocus, suspended = false, escape = true, outside = true, back = true }: LayerOptions): void {
+export function useLayer({ open, onClose, inside, returnFocus, suspended = false, escape = true, outside = true, back = true, throughBars = false }: LayerOptions): void {
   const latest = useRef({ onClose, inside, returnFocus })
   useEffect(() => { latest.current = { onClose, inside, returnFocus } })
   useBackLayer(open && back, onClose)
@@ -205,6 +217,8 @@ export function useLayer({ open, onClose, inside, returnFocus, suspended = false
       // ComboMenu's own sheet: a tap on the next field there is «beside» the list)
       const host = t.closest(ABOVE)
       if (host && !inHandLayer(t) && !latest.current.inside.some((r) => !!r.current && host.contains(r.current))) return
+      // a Bedienleiste's tile: close, and let the press go on to the tile
+      if (throughBars && t.closest(BARS)) { latest.current.onClose(); return }
       swallowGesture(e)
       latest.current.onClose()
     }
@@ -228,7 +242,7 @@ export function useLayer({ open, onClose, inside, returnFocus, suspended = false
       const i = handStack.indexOf(layer)
       if (i >= 0) handStack.splice(i, 1)
     }
-  }, [open, suspended, escape, outside])
+  }, [open, suspended, escape, outside, throughBars])
   // closing – or unmounting – with the focus inside (or already dropped to <body>): back to the
   // opener. A LAYOUT effect, so the opener is read before a layer's own effect moves the focus in
   // (Ebenen focuses its first row).
