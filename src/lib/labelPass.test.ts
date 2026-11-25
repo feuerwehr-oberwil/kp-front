@@ -101,6 +101,17 @@ describe('labelSize', () => {
   it('gives a multi-value caption a row per value', () => {
     expect(labelSize('ab\ncd\nef', style, measure).h).toBe(3 * 14 + 2)
   })
+
+  // a note box (`overflow-wrap: break-word`) breaks a word wider than the box inside itself
+  it('breakWords: a word three boxes wide is three rows, never wider than the box', () => {
+    expect(labelSize('Atemschutzsammelplatzzz', style, measure).h).toBe(14 + 2)
+    expect(labelSize('Atemschutzsammelplatzzz', { ...style, breakWords: true }, measure)).toEqual({ w: 90 + 12, h: 3 * 14 + 2 })
+  })
+
+  it('breakWords: breaks fall between whole characters, so the rows can outnumber width ÷ box', () => {
+    // 7 × 10px in a 25px box: two characters a row → 4 rows, where 70 ÷ 25 rounds up to 3
+    expect(labelSize('abcdefg', { ...style, maxTextW: 25, breakWords: true }, measure).h).toBe(4 * 14 + 2)
+  })
 })
 
 describe('pileAt — nearest centre replaces "later drawn wins"', () => {

@@ -7,6 +7,7 @@ import { VEHICLE_SYMBOLS } from '../lib/symbols'
 import { lookbackPoint } from './lineStyle'
 import { dockSlotOffset, teamDockHost } from './docking'
 import { cachedLabelSize } from './labelPass'
+import { noteScale, noteWPx } from './notes'
 import type { LineTone } from './truppLines'
 
 /** Our own glyph ranges (public/fonts, scripts/vendor-map-labels.mjs) – the one text the map
@@ -102,6 +103,18 @@ export const CRUMB_LABEL_DX = 12 - 9 / 2
 /** `.line-end-tag` (09-whiteboard.css) — the plates' 700 --fs-1/1, 2px/4px padding plus a 1.5px border
  *  (a ~20px plate since hill climb r17); `inline-grid` stacks the Trupp row */
 export const END_TAG_LABEL_STYLE = { font: '700 12.5px Sora, system-ui, sans-serif', maxTextW: Infinity, chromeW: 11, chromeH: 7, lineH: 12.5 }
+/** A Karte note's box as drawn (EntityMarker · `.note-pill.box`, 08-toasts.css): exactly `noteW`
+ *  wide, its text 500 Sora at 12px × the size step, wrapping (inside a long word too) within
+ *  `.38em .7em` padding and a 1px border at line-height 1.35 – so one line high until it wraps.
+ *  The label pass books this box; booking `noteW` as a square held ~100px of empty map above and
+ *  below a one-line note and hid the end tag of a Leitung that ends near it (show run, 23.11.2026). */
+export function noteBoxPx(e: Pick<Entity, 'label' | 'noteW' | 'noteSize'>): { w: number; h: number } {
+  const fs = 12 * noteScale(e.noteSize)
+  const w = noteWPx(e.noteW)
+  const chromeW = 2 * 0.7 * fs + 2
+  const { h } = cachedLabelSize(e.label ?? '', { font: `500 ${fs}px Sora, system-ui, sans-serif`, maxTextW: w - chromeW, chromeW, chromeH: 2 * 0.38 * fs + 2, lineH: 1.35 * fs, breakWords: true })
+  return { w, h }
+}
 /** the whole resting marker's width: the dot, then the plate from the dot's centre on. ⚠️ No
  *  Leitung field any more (11.10.2026, owner: «on the map the trupps are numbered – which we don't
  *  need»): the Karte's marker is the Gebäude chip's — name only — and the Leitung's number stays

@@ -187,6 +187,9 @@ export type LabelStyle = {
   chromeH: number
   /** one text line's height */
   lineH: number
+  /** `overflow-wrap: break-word` (a note box): a word wider than `maxTextW` breaks inside itself
+   *  onto further rows instead of running out of the box */
+  breakWords?: boolean
 }
 
 /**
@@ -201,7 +204,7 @@ const sizeCache = new Map<string, { w: number; h: number }>()
  * canvas measurement is done once per distinct string.
  */
 export function cachedLabelSize(text: string, style: LabelStyle): { w: number; h: number } {
-  const key = `${style.font}|${style.maxTextW}|${style.lineH}|${style.chromeW}|${style.chromeH}|${text}`
+  const key = `${style.font}|${style.maxTextW}|${style.lineH}|${style.chromeW}|${style.chromeH}|${style.breakWords ?? false}|${text}`
   const hit = sizeCache.get(key)
   if (hit) return hit
   const size = labelSize(text, style)
@@ -210,12 +213,27 @@ export function cachedLabelSize(text: string, style: LabelStyle): { w: number; h
   return size
 }
 
+/** Rows a word too wide for its box fills when it breaks between characters, as
+ *  `overflow-wrap: break-word` does: greedy, a character at a time. Only for an overlong line. */
+function charRows(line: string, maxW: number, m: (s: string) => number): number {
+  let rows = 1
+  let cur = ''
+  for (const ch of line) {
+    if (cur && m(cur + ch) > maxW) { rows++; cur = ch } else cur += ch
+  }
+  return rows
+}
+
 export function labelSize(text: string, style: LabelStyle, measure: MeasureText = textWidth): { w: number; h: number } {
   const m = (s: string) => measure(s, style.font)
   let w = 0
   let rows = 0
   for (const para of text.split('\n')) {
-    for (const line of wrapLine(para, style.maxTextW, m)) { w = Math.max(w, m(line)); rows++ }
+    for (const line of wrapLine(para, style.maxTextW, m)) {
+      const lw = m(line)
+      rows += style.breakWords && lw > style.maxTextW ? charRows(line, style.maxTextW, m) : 1
+      w = Math.max(w, style.breakWords ? Math.min(lw, style.maxTextW) : lw)
+    }
   }
   return { w: Math.ceil(w) + style.chromeW, h: Math.round(rows * style.lineH) + style.chromeH }
 }

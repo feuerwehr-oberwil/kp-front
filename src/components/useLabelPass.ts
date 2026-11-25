@@ -3,8 +3,7 @@ import type { Map as MlMap } from 'maplibre-gl'
 import type { CaptionMode, Drawing, Entity, LayerId, LngLat, Trupp } from '../types'
 import { dockSlots } from '../lib/docking'
 import { boxesOverlap, cachedLabelSize, LABEL_RANK, placeLabels, type LabelBox, type LabelCandidate, type LabelStyle } from '../lib/labelPass'
-import { CRUMB_LABEL_DX, CRUMB_LABEL_STYLE, effectiveLayer, END_TAG_LABEL_STYLE, READOUT_LABEL_STYLE, READOUT_WORDS_STYLE, shapePx, symPx, SYM_CAPTION_GAP, SYM_CAPTION_STYLE, SYM_PILL_STYLE, teamDockAnchor, teamNameAtZoom, TEAM_DOT_PX, TEAM_LABEL_STYLE, TEAM_NAME_MIN_ZOOM, TEAM_PLATE_TUCK } from '../lib/mapView'
-import { noteWPx } from '../lib/notes'
+import { CRUMB_LABEL_DX, CRUMB_LABEL_STYLE, effectiveLayer, END_TAG_LABEL_STYLE, noteBoxPx, READOUT_LABEL_STYLE, READOUT_WORDS_STYLE, shapePx, symPx, SYM_CAPTION_GAP, SYM_CAPTION_STYLE, SYM_PILL_STYLE, teamDockAnchor, teamNameAtZoom, TEAM_DOT_PX, TEAM_LABEL_STYLE, TEAM_NAME_MIN_ZOOM, TEAM_PLATE_TUCK } from '../lib/mapView'
 import { SHAPE_MAX_PX, shapeAspect } from '../lib/shapes'
 import { endTagLabel } from '../lib/endTagSpots'
 import { isNamedPerson, readingPillText, symbolCaptionBoxText, symbolReading } from '../lib/symbols'
@@ -118,14 +117,15 @@ export function mapLabelDecisions(px: (c: LngLat) => { x: number; y: number }, s
     const dock = teamDockAnchor(e, entities, dockedSlots, zoom, symMul)
     const own = px(dock?.host.coord ?? e.coord)
     const p = dock ? { x: own.x + dock.dx, y: own.y + dock.dy } : own
-    const g = e.kind === 'shape' ? shapePx(e.sizeM, e.coord[1], zoom, SHAPE_MAX_PX[e.shape ?? 'square'])
+    const note = e.kind === 'note' ? noteBoxPx(e) : null
+    const g = note ? note.w : e.kind === 'shape' ? shapePx(e.sizeM, e.coord[1], zoom, SHAPE_MAX_PX[e.shape ?? 'square'])
       : e.kind === 'photo' ? 56
-      : e.kind === 'note' ? noteWPx(e.noteW)
       : e.kind === 'team' ? TEAM_DOT_PX
       : symPx(e.kind, e.coord[1], zoom, symMul)
-    // a stretched Rechteck/Rauch is g wide but g × aspect tall — seed the real box, or a
-    // label happily lands on the lower half of a tall shape it believes is square
-    const gh = e.kind === 'shape' ? g * shapeAspect(e.shape ?? 'square', e.aspect) : g
+    // a stretched Rechteck/Rauch is g wide but g × aspect tall, and a note is its text's lines
+    // tall — seed the real box, or a label lands on the lower half of a tall shape it believes
+    // is square, or yields to empty map above and below a one-line note
+    const gh = note ? note.h : e.kind === 'shape' ? g * shapeAspect(e.shape ?? 'square', e.aspect) : g
     const isSel = e.id === selectedId || selectedEntityIds.includes(e.id)
     if (e.kind === 'team') {
       // a resting Trupp marker is ONE piece, the dot its head, anchored by its LEFT edge
