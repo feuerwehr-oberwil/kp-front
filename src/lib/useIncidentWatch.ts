@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { listIncidentsShared, type IncidentMeta } from './incidents'
 import { freshAlarmCandidate, loadDismissedIncidents, saveDismissedIncident } from './incidentAlerts'
+import { markAlarmPoll } from './alarmPollHealth'
 import { useResumingPoll, WATCH_POLL_MS, WATCH_RESUME_GAP_MS } from './useResumingPoll'
 
 /**
@@ -28,8 +29,11 @@ export function useIncidentWatch(
 
   // The cadence, the foreground resume and the one-round-at-a-time guard are useResumingPoll's;
   // this is only what a round does. The first round shares the boot's request (listIncidentsShared).
+  // Every round reports to the readiness sign (lib/alarmPollHealth · «Bereit für Alarme»): the
+  // device's cached list is no answer from the server.
   const refresh = useCallback(async () => {
-    const { list, offline } = await listIncidentsShared()
+    const { list, offline } = await listIncidentsShared().catch((e: unknown) => { markAlarmPoll(false); throw e })
+    markAlarmPoll(!offline)
     onList(list, offline)
     if (baseline.current === null) {
       baseline.current = new Set(list.map((i) => i.id))

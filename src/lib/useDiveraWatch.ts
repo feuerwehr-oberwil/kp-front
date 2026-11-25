@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { getDiveraPool, type DiveraAlarm } from './incidents'
+import { markAlarmPoll } from './alarmPollHealth'
 import { useResumingPoll, WATCH_POLL_MS, WATCH_RESUME_GAP_MS } from './useResumingPoll'
 
 /**
@@ -21,8 +22,15 @@ export function useDiveraWatch(enabled: boolean): { alarms: DiveraAlarm[]; refre
 
   // The cadence, the foreground resume and the one-round-at-a-time guard are useResumingPoll's
   // (which also keeps the last-known pool on a transient failure — never blank the banner).
+  // Every round reports to the readiness sign (lib/alarmPollHealth · «Bereit für Alarme»).
   const refresh = useCallback(async () => {
-    setAlarms(await getDiveraPool())
+    try {
+      setAlarms(await getDiveraPool())
+      markAlarmPoll(true)
+    } catch (e) {
+      markAlarmPoll(false)
+      throw e
+    }
   }, [])
 
   const run = useResumingPoll(enabled, refresh, { pollMs: WATCH_POLL_MS, resumeGapMs: WATCH_RESUME_GAP_MS })

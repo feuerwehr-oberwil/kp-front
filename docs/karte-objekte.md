@@ -1062,6 +1062,11 @@ What the surface shows offline:
   bar) shows only when a row is red or nothing was checked for 90 days, never while an Einsatz runs,
   never under the menu or the search; «Später» hides it 30 days, «Keine Alarme auf diesem Gerät»
   for good. Green = no card, not a line.
+- **The bar's «Bereit für Alarme»** (owner pick UX journeys B3·6, 25.11.2026; `AlarmReadyPill`):
+  a quiet pill after the weather, green while the last alarm poll (the incident list or the Divera
+  pool) answered less than 60 s ago, red «Keine Verbindung – Alarme kommen nicht an» once one
+  fails (`lib/alarmPollHealth`); the lamp alone on a phone. A tap shows «Verbindung» and the
+  «Alarm auf diesem Gerät» line above in a popover. Before the first answer it shows nothing.
 - **The bar's «Offline» chip** (a dot only on the phone) stands where the weather was and opens
   **«Dieses Gerät»** scrolled to what the device holds (`KarteDeviceRows`, under the Alarm line;
   the «Keine Basiskarte» Meldung opens it the same way): Objektkatalog · Karte (this view) · Pläne (PDFs of the whole catalogue) ·

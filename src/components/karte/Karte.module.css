@@ -555,3 +555,21 @@ button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel
 .alarmHead { margin: 0; font: var(--fw-bold) var(--fs-3)/1.25 var(--body); color: var(--ink); }
 .alarmHeadRed { color: var(--red-strong); }
 .alarmActs { display: flex; gap: var(--sp-2); justify-content: flex-end; flex-wrap: wrap; }
+
+/* ── «Bereit für Alarme» in the bar (owner pick UX journeys B3·6, 25.11.2026 · AlarmReadyPill) ──
+   A quiet pill after the weather, the bar's corner and tap height: the green tint while the alarm
+   polls answer, the red one when they do not. A phone has room for the lamp alone. */
+.readyPill { display: inline-flex; align-items: center; gap: var(--sp-2); flex: none; min-height: var(--tap);
+  padding: 0 var(--sp-3); border: none; border-radius: var(--r-sm); cursor: pointer; white-space: nowrap;
+  background: var(--green-12); color: var(--green-strong); font: var(--fw-bold) var(--fs-2) var(--body); }
+.readyPill.readyDown { background: var(--red-12); color: var(--red-strong); }
+.readyPill:active { background-image: linear-gradient(var(--press), var(--press)); }
+.readyLamp { width: 10px; height: 10px; border-radius: 50%; flex: none; background: var(--green); box-shadow: 0 0 0 4px var(--green-16); }
+.readyDown .readyLamp { background: var(--red); box-shadow: none; }
+.readyPill.readyDot { min-width: var(--tap); padding: 0; justify-content: center; }
+/* the details: the top bar's glass, as every popup out of the bar (10-journal · .tb-weather-pop) */
+.readyPop { width: 380px; max-width: calc(100vw - 16px); display: grid; gap: var(--sp-3);
+  max-height: calc(100dvh - 90px - env(safe-area-inset-top)); overflow-y: auto; overscroll-behavior: contain;
+  background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line);
+  border-radius: var(--r-bar); box-shadow: var(--e4); padding: var(--bar-pad); }
+.readyPop :global(.list-row-sub) { white-space: normal; display: block; -webkit-line-clamp: unset; }

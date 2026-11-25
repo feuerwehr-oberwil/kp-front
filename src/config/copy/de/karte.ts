@@ -214,6 +214,15 @@ export const karteCopy = {
         roleSub: '{r} · nur Atemschutz-Alarme, kein «Neuer Einsatz»',
         // the first tap anywhere armed the alarm tone (lib/alarm · armOnAnyTap, owner pick M·3, 25.11.2026)
         toneArmed: 'Alarmton an',
+        // the Karte head's readiness sign (karte/AlarmReadiness · AlarmReadyPill, owner pick B3·6, 25.11.2026):
+        // green while the last alarm poll is under 60 s old, red when it fails; a tap opens the details
+        pillReady: 'Bereit für Alarme',
+        pillDown: 'Keine Verbindung – Alarme kommen nicht an',
+        pillDetails: 'Alarmbereitschaft dieses Geräts',
+        connection: 'Verbindung',
+        connectionOk: 'holt Alarme ab · zuletzt {t}',
+        connectionDown: 'keine Antwort vom Server seit {t}',
+        connectionNever: 'noch keine Antwort vom Server',
       },
       leadOffline: 'Offline. Karte & Objekte zeigt, was wirklich auf diesem Gerät liegt.',
       leadOnline: 'Was ohne Netz zur Verfügung stünde.',
