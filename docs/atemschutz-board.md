@@ -249,6 +249,11 @@ good but we don't need the triangle thing. red and notfall is already enough»):
   sheet keeps no drafts, so the store parks its three fields as typed and the board opens the sheet
   again on them, the name in the Ziel; ✕ then saves them like any typed change, «Abbrechen» drops
   them. Leaving for another surface mid-pick drops the sheet's fields too.
+- *The form says who leads* (owner pick UX journeys B2·20, 25.11.2026 – both walkers guessed; it
+  replaces the field ask of 08.09.2026 «no GF/AdF badge, the amber outline IS the marker»): every
+  crew row wears its Dienstgrad chip as the Mannschaft list does («Grfhr», «AdF»), and the top row
+  the filled amber pill «Gruppenführer» at its end. On the phone the chips take the Grad only – a
+  pill would resize the crowned chip under the finger – and the hint «Oberster Name führt» says it.
 - *The phone form opens with the Art* (owner 16.11.2026: «i almost forgot to add people because it
   looked like things were highlighted already»): on the PHONE «Unter / Ohne Atemschutz» is the
   column's first row, and the Mannschaft («Trupp», «Person suchen») comes after it. Under the

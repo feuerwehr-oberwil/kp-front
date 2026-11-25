@@ -911,6 +911,11 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
   background: color-mix(in srgb, var(--amber) 9%, var(--surface)); }
 .teamName { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   font: var(--fw-bold) var(--fs-2) var(--body); color: var(--ink); }
+/* «Gruppenführer» on the leader's row, the role in words (owner pick UX journeys B2·20, 25.11.2026;
+   no badge since 08.09.2026 until then): the amber of the outline as a filled pill, at the row's
+   end before the ✕. A tablet row has the width; the phone chip keeps colour only (`.chipLead`). */
+.teamLeadPill { flex: none; padding: 2px var(--sp-2); border-radius: var(--r-pill);
+  background: var(--amber); color: var(--on-amber); font: var(--fw-heavy) var(--fs-1) var(--body); white-space: nowrap; }
 
 /* ── The PHONE skin of the same Trupp: a wrapping row of chips (05.09.) ───────────────────────
    Same control, same labels, same `value[0]` record — see TruppTeam · `skin`. What changes is
