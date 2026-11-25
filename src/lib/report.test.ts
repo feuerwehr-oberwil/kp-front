@@ -1041,8 +1041,10 @@ describe('truppRunTimes (the Eintritt/Austritt the header prints)', () => {
 
   // …per side, so a Trupp exited before `exit` rows existed (19.08.) still prints its Austritt
   it('falls back to the card for a record written before the log carried that row', () => {
-    expect(truppRunTimes([r('13:44', 'entry')], { entryTime: '13:44', exitTime: '15:03' }))
-      .toEqual({ entries: ['13:44'], exits: ['15:03'], registered: [] })
+    // stored stamps are ISO (the pairing orders them by time)
+    const at = (hhmm: string) => `2026-08-01T${hhmm}:00Z`
+    expect(truppRunTimes([r(at('13:44'), 'entry')], { entryTime: at('13:44'), exitTime: at('15:03') }))
+      .toEqual({ entries: [at('13:44')], exits: [at('15:03')], registered: [] })
     expect(truppRunTimes(undefined, { entryTime: '13:44', exitTime: '15:03' }))
       .toEqual({ entries: ['13:44'], exits: ['15:03'], registered: [] })
   })

@@ -345,9 +345,10 @@ Do it in this order. Steps 3 and 4 are the ones people discover afterwards.
 
 ⚠️ **A failed Railway healthcheck does not keep the previous deployment serving.** Treat any deploy
 that changes the runtime user, the volume mount or the healthcheck as a maintenance window. And on
-Railway the database is managed, so the backup story is §6's Railway paragraph – scheduled
-`pg_dump` against `DATABASE_PUBLIC_URL` from a machine you control, plus the automatic
-pre-migration dumps on the volume.
+Railway the database is managed, so the backup story is §6's Railway paragraph – the PAIRED
+backup (`uv run python -m app.backup`: the database and the storage volume together, moved
+off-host and verified). A `pg_dump` alone, and the automatic pre-migration dumps on the volume,
+recover the rows but none of the photos, Sprachnotizen, plans or filed Rapport-PDFs.
 
 ### A staging copy on Railway
 
@@ -384,8 +385,17 @@ the refresh above and overwrites whatever was tested there.
 - **What the refresh cuts**, in the same transaction as the restore: prod's push subscriptions
   (every Divera alarm staging polls would otherwise reach the crew's phones a second time),
   `alarms.webhooks`, and the stored copies of the credentials listed above. It also renames the
-  app to «KP Staging». Read-only feeds (Divera poll, Traccar, SharePoint, STT, CARTO) keep
-  working, so staging sees the same alarms and vehicles.
+  app to «KP Staging». And it empties the Einsatz-Ablage and Objektbesuche destinations and
+  deletes the `sharepoint_export_*` write registration: staging's own scheduler would otherwise
+  file into prod's SharePoint and could replace a Rapport version there. The cuts live in
+  `scripts/railway-staging-cuts.sql` (tested against PostgreSQL). Read-only feeds (Divera poll,
+  Traccar, the SharePoint import, STT, CARTO) keep working, so staging sees the same alarms and
+  vehicles.
+- **Staging never writes to an external archive**, whatever its database says: on the Railway
+  environment `staging` (or `ENVIRONMENT=staging`) the app refuses every SharePoint export
+  (`config.external_delivery_allowed`). To test the export there on purpose, point it at a test
+  site and set `STAGING_EXTERNAL_DELIVERY=1`; the refresh refuses to run while that or a
+  `SHAREPOINT_EXPORT_*` variable is set.
 - **A refresh overwrites staging completely.** Prod is only read, via `pg_dump` and `tar -c`
   over `railway ssh`. `--db-only` skips the volume.
 - **Stop it between test sessions** (`just staging-down`, `just staging-up`). The scheduler and
@@ -466,8 +476,9 @@ does not.
 
 ### Deployment doctrine: pin a release, update deliberately
 
-**Run a fixed `vX.Y.Z` tag, never `main` and never bare `latest`, once the station is actually
-running incidents.** Set `KP_FRONT_TAG` in `.env` to a version from the
+**Run a fixed release, never `main` and never bare `latest`, once the station is actually
+running incidents.** Set `KP_FRONT_TAG` in `.env` to a version `X.Y.Z` (the image tag has no
+`v`; the Git tag `vX.Y.Z` does) from the
 [releases page](https://github.com/feuerwehr-oberwil/kp-front/releases) (§3's table above has the
 three shapes it accepts). `latest` is the right choice only for evaluation and demo instances that
 have nobody depending on them mid-shift.
@@ -506,7 +517,7 @@ Two things back that doctrine beyond "please don't":
   never means pulling one whose migrations or tests never ran.
 
 **Rollback path:** GHCR keeps every previously published tag – nothing is deleted when a new one
-ships – so rolling back is redeploying the prior `vX.Y.Z` in `KP_FRONT_TAG`, the same two
+ships – so rolling back is redeploying the prior `X.Y.Z` (no `v`) in `KP_FRONT_TAG`, the same two
 commands as an update. The one caveat is the database: migrations are forward-only, and an older
 image cannot resolve a schema revision it does not recognise, so a plain tag edit is only safe
 when the previous image already understood the current schema. Take a `scripts/backup.sh` backup

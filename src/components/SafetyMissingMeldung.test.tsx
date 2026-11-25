@@ -20,7 +20,9 @@ describe('SafetyMissingMeldung', () => {
     render(<><SafetyMissingMeldung trupps={[inside]} onGoToBoard={go} /><Meldeleiste /></>)
     const row = document.querySelector('.ml .ml-row')!
     expect(row.textContent).toContain(nf.noSafetyHint)
-    expect(row.textContent).toContain('Trupp 1')
+    // the name the clock row shows, not the number (hunt 24.11.2026, ux-3am F1)
+    expect(row.textContent).toContain('Weber Nina')
+    expect(row.textContent).not.toContain('Trupp 1')
     expect(row.querySelector('.ml-x')).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: nf.noSafetyGo }))
     expect(go).toHaveBeenCalledOnce()

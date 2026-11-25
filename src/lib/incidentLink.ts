@@ -12,6 +12,7 @@
 import { ApiError, apiPost } from './api'
 import { isIncidentClosedRefusal, refusalClosedAt } from './incidentClosed'
 import { SLOW_FOLLOW_MS } from './pollBackoff'
+import type { StandingCandidate } from './standingLink'
 
 /** How often a link page showing «Einsatz abgeschlossen» asks again — the same once a minute a
  *  frozen Link follows its closed Einsatz with (lib/useIncidentSync · slowFollow). */
@@ -28,6 +29,9 @@ export const LINK_CLOSED_FOLLOW_MS = SLOW_FOLLOW_MS
  */
 export type LinkFailure = 'disabled' | 'invalid' | 'notReady' | 'offline' | 'error' | 'closed'
 
+/** A running Einsatz the waiting phone can open (backend api/incident_link · _candidate). */
+export type LinkCandidate = StandingCandidate
+
 /**
  * `closed` is the one exception to «all 404s alike», and it is not a 404: the Atemschutz link's
  * own secret names one Einsatz, so its exchange says «abgeschlossen» outright — the same 409
@@ -38,14 +42,22 @@ export type LinkFailure = 'disabled' | 'invalid' | 'notReady' | 'offline' | 'err
 export type LinkExchange =
   | { ok: true; incidentId: string }
   | { ok: false; reason: LinkFailure; closedAt?: string | null }
+  /** The alarm waits for the EL's assignment while Einsätze run (hunt 24.11.2026, access-control
+   *  F1): the phone keeps asking and shows `candidates`, `original` the oldest – the one a
+   *  Nachalarm is merged onto. Tapping one exchanges again with its id. */
+  | { ok: false; reason: 'awaiting'; candidates: LinkCandidate[]; original: string }
 
 /**
  * Trade the link token for the httpOnly session cookie. One attempt, no retry — the retry
  * policy belongs to `openIncidentLink`, because only one of these failures is worth retrying.
  */
-export async function exchangeLinkToken(token: string): Promise<LinkExchange> {
+export async function exchangeLinkToken(token: string, incidentId?: string): Promise<LinkExchange> {
   try {
-    const res = await apiPost<{ incident_id: string }>('/api/incident-link/session', { token })
+    const res = await apiPost<{ incident_id?: string; status?: string; candidates?: LinkCandidate[]; original?: string }>(
+      '/api/incident-link/session', { token, ...(incidentId ? { incident_id: incidentId } : {}) })
+    if (res?.status === 'awaiting' && res.candidates?.length && res.original) {
+      return { ok: false, reason: 'awaiting', candidates: res.candidates, original: res.original }
+    }
     return res?.incident_id ? { ok: true, incidentId: res.incident_id } : { ok: false, reason: 'error' }
   } catch (e) {
     if (!(e instanceof ApiError)) return { ok: false, reason: 'error' }
@@ -59,6 +71,9 @@ export async function exchangeLinkToken(token: string): Promise<LinkExchange> {
     return { ok: false, reason: 'error' }
   }
 }
+
+/** How often a phone waiting for the EL's assignment asks again. */
+export const LINK_AWAITING_POLL_MS = 5_000
 
 // A 404 is the one failure that may fix itself while the responder is looking at the screen:
 // the alert reaches the phone over the alerting system's own path, which can beat kp-front's

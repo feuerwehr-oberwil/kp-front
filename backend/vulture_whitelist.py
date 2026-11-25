@@ -20,7 +20,6 @@ build_context  # unused function (app/telemetry/scrub.py:226)
 # Unused, and open PR #746 removes them: drop these entries when it merges.
 _presence_zone  # unused function (app/admin_postcheck.py:1374)
 visit_count  # unused function (app/object_visits.py:1499)
-_fmt_count  # unused function (app/schichtplan_pdf.py:111)
 
 # Unused, but in models.py, which unmerged branches change: decide after those merge.
 INCIDENT_OPEN_STATUS  # unused variable (app/models.py:51)

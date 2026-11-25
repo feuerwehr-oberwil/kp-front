@@ -31,7 +31,8 @@ describe('truppStretches · what counts as a deployment under PA', () => {
   it('stays off for no crew, standby only, or a deployment without PA', () => {
     expect(wentInUnderPa([])).toBe(false)
     expect(wentInUnderPa([trupp({ readings: [r('10:00', 'registered')] })])).toBe(false)
-    expect(wentInUnderPa([trupp({ kind: 'einfach', readings: [r('10:00', 'entry'), r('10:20', 'exit')] })])).toBe(false)
+    // a plain crew's form writes no cylinder: its Eintritt carries 0 bar (TruppForm)
+    expect(wentInUnderPa([trupp({ kind: 'einfach', readings: [r('10:00', 'entry', 0), r('10:20', 'exit', 0)] })])).toBe(false)
   })
 
   it('includes open, completed and later removed PA crews', () => {

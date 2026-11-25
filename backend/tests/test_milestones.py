@@ -229,3 +229,28 @@ async def test_concurrent_milestone_is_not_lost(client, db_session, session_fact
     # BOTH survive: the racer's «vor Ort» and our «ausgerückt».
     assert pio["vorOrt"] == "2026-07-13T01:18:00+00:00"
     assert pio["ausgerueckt"] == "2026-07-13T01:16:00+00:00"
+
+
+async def test_a_late_milestone_stands_at_its_own_minute_and_is_a_nachtrag_after_the_close(client, db_session):
+    """Hunt 24.11.2026, records-rapport F7: a departure reported half an hour late was dated by
+    its arrival – sorted and printed at 09:46 while it read «ausgerückt 09:16». One that arrives
+    after the close is a Nachtrag, like a late device row."""
+    inc = await _incident(db_session)
+    body = {"divera_id": 4711, "vehicles": [{"id": "tlf", "ausgerueckt": "2026-07-13T01:16:00Z"}]}
+    assert (
+        await client.post("/api/alarms/milestones", json=body, headers={"X-Webhook-Secret": SECRET})
+    ).status_code == 200
+    inc.is_archived = True
+    await db_session.commit()
+    late = {"divera_id": 4711, "vehicles": [{"id": "tlf", "zurueck": "2026-07-13T02:40:00"}]}  # no offset: station time
+    assert (
+        await client.post("/api/alarms/milestones", json=late, headers={"X-Webhook-Secret": SECRET})
+    ).status_code == 200
+
+    q = select(JournalEntry).where(JournalEntry.incident_id == inc.id).order_by(JournalEntry.seq)
+    first, back = (await db_session.execute(q)).scalars().all()
+    assert first.row_json["text"] == "TLF ausgerückt 03:16" and first.row_json["at"] == "2026-07-13T01:16:00+00:00"
+    assert first.row_json["writtenAt"] != first.row_json["at"] and "receivedAfterClose" not in first.row_json
+    assert back.row_json["text"] == "TLF zurück 02:40" and back.row_json["receivedAfterClose"] is True
+    await db_session.refresh(inc)
+    assert inc.map_workspace_json["reportMeta"]["fahrzeuge"][0]["zurueck"] == "2026-07-13T00:40:00+00:00"

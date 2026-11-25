@@ -29,8 +29,16 @@ grant.
   (workspace `attachments`, «Ausweis Lenker») go to the report folder as «Beilage NN», never into
   the photo archive.
 - **Nothing remote is ever deleted or overwritten.** A new Rapport gets a new file
-  («Einsatzrapport v2.pdf»); a medium already filed is never sent again; a folder a person moved
-  keeps receiving (it is addressed by id).
+  («Einsatzrapport v2.pdf»): one more than the highest version ever TRIED, kept in
+  `remote_items.reportHigh` and written before the PUT – a try whose answer was lost may have
+  landed, so its number is never handed to a different Rapport (only the same content retries
+  under it). A medium already filed is never sent again; a folder a person moved keeps receiving
+  (it is addressed by id).
+- **A photo that arrives during the close is filed too.** The upload re-reads the lifecycle under
+  the incident lock after its bytes are stored, so either the close sees the photo or the upload
+  sees the close and owes a pass.
+- **Staging never files** (`config.external_delivery_allowed`): its database is a copy of prod's,
+  destinations included. `STAGING_EXTERNAL_DELIVERY=1` opens it for a deliberate test.
 - **No address in a folder name.** `{stichwort}` is the Einsatz title with the incident's own
   address cut out; `{kategorie}` never carries one.
 - **Nothing in the section is secret, but it is internal:** `GET /api/config` serves

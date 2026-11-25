@@ -14,6 +14,32 @@ import type { Entity, LngLat } from '../types'
  *  another sets the Herkunft keeps both. */
 export type VehicleOverrides = Record<string, { coord?: LngLat; rotation?: number; fahrer?: string; herkunft?: string }>
 
+/** The part of a vehicle's override a hand placed: where it stands and where it points. */
+export type VehiclePosition = Pick<VehicleOverrides[string], 'coord' | 'rotation'>
+
+/** The hand position of a vehicle, or null while it follows its GPS — what «Zurück auf GPS» is
+ *  offered for. A heading of 0 counts; a Fahrer or a Herkunft alone does not. */
+export function positionOverride(ov: VehicleOverrides[string] | undefined): VehiclePosition | null {
+  if (ov?.coord == null && ov?.rotation == null) return null
+  return { ...(ov.coord != null ? { coord: ov.coord } : {}), ...(ov.rotation != null ? { rotation: ov.rotation } : {}) }
+}
+
+/**
+ * A vehicle's hand position written into the overrides; `null` puts it back on its GPS. The
+ * Fahrer and the Herkunft stay, and a row left empty goes.
+ * ⚠️ The reset used to drop the WHOLE row, Fahrer and Herkunft with it (hunt 24.11.2026,
+ * frontend-state F4).
+ */
+export function withVehiclePosition(m: VehicleOverrides, id: string, pos: VehiclePosition | null): VehicleOverrides {
+  const { coord: _coord, rotation: _rotation, ...rest } = m[id] ?? {}
+  const row = { ...rest, ...pos }
+  if (Object.values(row).every((v) => v === undefined)) {
+    const { [id]: _drop, ...others } = m
+    return others
+  }
+  return { ...m, [id]: row }
+}
+
 export interface VehicleLayer {
   /** raw live GPS entities from the backend (drives the "live" map badge) */
   gpsVehicles: Entity[]

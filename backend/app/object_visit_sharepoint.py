@@ -38,6 +38,7 @@ from urllib.parse import quote
 
 import httpx
 
+from .config import external_delivery_allowed
 from .credentials import get as credential
 from .sharepoint_graph import GraphAuthError, GraphClient, GraphError, RemoteFile, _error_detail, _redact
 
@@ -56,7 +57,11 @@ class GraphPreconditionError(GraphError):
 
 
 def export_credentials() -> tuple[str, str, str] | None:
-    """The delivery's app registration (tenant, client, secret), or None while incomplete."""
+    """The delivery's app registration (tenant, client, secret), or None while incomplete – and
+    always None where external delivery is closed (config · external_delivery_allowed): every
+    writer, the Ablage and the Objektbesuche worker and the admin test, starts here."""
+    if not external_delivery_allowed():
+        return None
     tenant = credential("sharepoint_export_tenant_id")
     client = credential("sharepoint_export_client_id")
     secret = credential("sharepoint_export_client_secret")

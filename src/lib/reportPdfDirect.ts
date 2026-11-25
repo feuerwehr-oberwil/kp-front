@@ -7,6 +7,7 @@
 // catalogue always travel in the payload so the server can print tick-off rows and amount
 // stubs for everything not (yet) recorded digitally — printing never blocks on missing data.
 
+import { foldJournalRows } from './journalStore'
 import { appConfig } from '../config/appConfig'
 import type { AttendanceState, BoardAnno, BoardDoc, BuildingDoc, CaptionMode, Drawing, Entity, LayerDef, LngLat, MittelEntry, PlanDocument, ReportAttachment, TimelineEvent, Trupp } from '../types'
 import { floorLabel, floorSections, pdfPageOf, tileAspectOf } from './whiteboard'
@@ -19,15 +20,15 @@ import type { ReportDraft } from './report'
 import {
   annotatedPlans, einsatzleiterSuccession, formatDateTime, hasVisiblePlanAnnotation, journalRows, metaExtrasForPdf, mittelFormForPdf, pendenzRows, personalForPdf, readingBarShown, readingKindLabel, spanAwareClock, truppAuftragLabel, truppCrewHistory, truppEquipmentLabels, truppRunTimes, truppStatusLabel,
 } from './report'
-import { isAtemschutzTrupp, isStandDownExit } from './atemschutz'
+import { isStandDownExit } from './atemschutz'
 import { DEFAULT_HOURS_ROUNDING, fmtHours, hoursRows, hoursSummary } from './attendanceHours'
 import { atemschutzDoctrine, getDeploymentConfig } from './deploymentConfig'
 import { serverNow } from './serverClock'
-import { fillTemplate, formatTime, localeDate } from './format'
+import { fillTemplate, formatTime, localeDate, zoneIfTwice } from './format'
 import { buildKrokiPayload, circleSvgString, shapeSvgString } from './krokiPayload'
 import { symbolLegendText } from './symbols'
 import { doneBadge, doneOf, doneWord } from './objectDone'
-import { auswertungForPdf, computeAuswertung } from './auswertung'
+import { auswertungForPdf, computeAuswertung, servedUnderPa } from './auswertung'
 import { fahrzeugRows } from './alarmzeiten'
 import type { ChecklistState, ChecklistTemplate } from './checklists'
 import { formatSymbolName } from './format'
@@ -498,7 +499,13 @@ function oneDay(isos: readonly (string | null)[]): string | undefined {
 /** The ONE payload builder — shared by the PDF download and the station-printer enqueue
  *  (src/lib/printRelay.ts), so both always produce the identical document. */
 export function buildDirectReportPayload(args: DirectReportArgs): Record<string, unknown> {
-  const { incident, draft, trupps, attendance, events, plans, mittel = [], roster = [], attachments = [], scene, board, building } = args
+  const { incident, draft, trupps, attendance, plans, mittel = [], roster = [], attachments = [], scene, board, building } = args
+  // ⚠️ The Verlauf as it READS (journalStore · foldJournalRows), whoever hands it over: the
+  // QR-Erfassung passed the raw server rows and printed corrected and withdrawn statements (hunt
+  // 24.11.2026, records-rapport F4). Folding rows that are already folded changes nothing.
+  // Only for what prints: the signed part (scopeOnly, recomputed on every render of a signed
+  // Rapport) reads no Journal, and the Rapport's own rows arrive folded already.
+  const events = args.scopeOnly ? args.events : foldJournalRows(args.events)
   const meta = draft.meta
   // the moment a CLOSED Einsatz was closed — ends the sorties nobody reported out (see trupps).
   // ⚠️ The LATEST close (closeTimeOf): after a reopen and a second close the crew was still in
@@ -520,7 +527,10 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
   const journalDay = oneDay(journalPrint.map((r) => r.iso))
   const journal = journalPrint
     .map((r) => ({
-      timeLabel: journalDay && r.iso ? formatTime(new Date(r.iso)) : r.timeLabel, area: r.area, text: r.text, markup: r.markup, transcript: r.transcript || undefined,
+      // the autumn change shows 02:15 twice – the zone tells the two apart (records-rapport F6).
+      // ⚠️ The Journal only: it is not signed. A suffix on the Haupt-Rapport's times would change
+      // the signed part of every Rapport already signed with a time in that hour.
+      timeLabel: (journalDay && r.iso ? formatTime(new Date(r.iso)) : r.timeLabel) + (r.iso ? zoneIfTwice(new Date(r.iso)) : ''), area: r.area, text: r.text, markup: r.markup, transcript: r.transcript || undefined,
       transcriptLines: r.transcriptLines,
       repeats: r.repeats,
       // a corrected line prints its first wording beside the latest — the paper says the same
@@ -677,7 +687,9 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
     // empty Druckverlauf under a heading that asserts it was monitored. It is not silently lost:
     // its Verlauf lines (angemeldet / eingerückt / draussen) are on the printed Journal like
     // every other action. (A place of its own in the Rapport is a separate, open question.)
-    trupps: (draft.options.atemschutz ? trupps.filter(isAtemschutzTrupp) : []).map((t) => ({
+    // ⚠️ …«under PA» means EVER, not now (auswertung · servedUnderPa): a crew re-deployed without
+    // PA for the clean-up keeps its first run, readings and all, on the page.
+    trupps: (draft.options.atemschutz ? trupps.filter(servedUnderPa) : []).map((t) => ({
       name: t.name, statusLabel: truppStatusLabel(t), members: t.members ?? [], auftrag: truppAuftragLabel(t.auftrag), ziel: t.ziel,
       // ⚠️ The heading and the crew PER CYCLE (12.09., docs/trupp-naming.md §5): «Trupp 1 – Meier
       // Anna» names the number and the Gruppenführer at registration, and each Eintritt names
@@ -699,7 +711,9 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
             // (staging r3 F4): «19:37 – 19:52 (beim Abschluss noch drin)», not an open «19:37»
             // that reads as a crew still inside today. No Austritt is invented — the words say
             // nobody reported one. While the Einsatz is open (or open again) it stays open.
+            // …and one a later Anmeldung or Eintritt ended with no Austritt written says exactly that
             exit: c.exit ? formatDateTime(c.exit)
+              : c.cut ? appConfig.copy.atemschutz.cycleNoExit
               : closedAt ? fillTemplate(appConfig.copy.atemschutz.cycleEndAtClose, { t: formatDateTime(closedAt) }) : undefined,
             crew: c.crew.join(' / '),
             changes: c.changes.map((ch) => ({ t: formatDateTime(ch.t), text: ch.text })),

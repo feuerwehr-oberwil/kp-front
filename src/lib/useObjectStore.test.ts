@@ -387,6 +387,21 @@ describe('a sheet edit of an object the sheet does not own', () => {
     expect(laid).toHaveLength(2) // …and the rest of the gesture folds into THAT one
   })
 
+  // review of #742: inside a compound act whose store step stands (a Drehung re-gluing a Karte
+  // marker), a foreign edit folds into that step — a second one wrote a second Verlauf row
+  it('a foreign edit inside a compound act that holds its step lays none of its own', () => {
+    const laid: string[] = []
+    let holds = true
+    const { result } = renderHook(() => useObjectStore(geoStore(), false, {
+      getFits: () => FITS, defaultLayer: 'taktisch', fitsVersion: 0, onCheckpoint: (s) => laid.push(s), holdsStep: () => holds,
+    }))
+    act(() => result.current.setBoard((b) => ({ ...b, modul2: [shownAnno(0.4)] }), { gesture: false }))
+    expect(laid).toHaveLength(0)
+    holds = false
+    act(() => result.current.setBoard((b) => ({ ...b, modul2: [shownAnno(0.3)] }), { gesture: false }))
+    expect(laid).toHaveLength(1)
+  })
+
   it('…while an edit of the sheet’s OWN anno leaves this stack alone', () => {
     const { result } = store()
     act(() => result.current.setBoard(() => ({ modul2: [anno('s1')] })))

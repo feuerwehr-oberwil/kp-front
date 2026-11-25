@@ -460,6 +460,8 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     logRestored: 'Squadra {name} ripristinata',
     logInsideAtClose: 'Squadra {name} ancora dentro alla chiusura',
     cycleEndAtClose: '{t} (ancora dentro alla chiusura)',
+    // un impiego chiuso da un nuovo annuncio o ingresso senza uscita registrata
+    cycleNoExit: 'uscita non registrata',
     logClockRestart: 'Squadra {name}: tempo dall’ultimo contatto riavviato – intervento riaperto',
     cardMenuWord: 'Altro',
     // the Trupps head's «⋯ Mehr», where its rare tiles go on a crowded head (lib/pageHeadFit)

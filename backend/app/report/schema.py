@@ -6,6 +6,7 @@ Split out of the former ``report_pdf.py``; rules for this area: docs/rapport.md.
 from __future__ import annotations
 
 import re
+import unicodedata
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
@@ -767,7 +768,26 @@ class SignatureIn(BaseModel):
     strokes: SignatureStrokesIn
 
 
+def _nfc(v: object) -> object:
+    """Every string of a payload in composed form (NFC). Text pasted from another app can spell
+    «ü» as «u» + a combining diaeresis; Helvetica has no glyph for the combining mark and printed
+    «Mu■ller» (hunt 24.11.2026, records-rapport F10). Only the paper is normalised – the journal
+    keeps what was typed."""
+    if isinstance(v, str):
+        return unicodedata.normalize("NFC", v)
+    if isinstance(v, list):
+        return [_nfc(x) for x in v]
+    if isinstance(v, dict):
+        return {k: _nfc(x) for k, x in v.items()}
+    return v
+
+
 class ReportPayload(BaseModel):
+    @model_validator(mode="before")
+    @classmethod
+    def _composed_text(cls, data: object) -> object:
+        return _nfc(data)
+
     incident: IncidentFacts
     meta: ReportMetaIn = ReportMetaIn()
     options: ReportOptionsIn = ReportOptionsIn()

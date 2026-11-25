@@ -754,3 +754,25 @@ it('keeps accepting local edits while the offline session has no settled owner',
   offline.dispose()
   expect(state.store.get(main)).toMatchObject({ owner: 'anna', workspace: { cameraViews: [local, latest] } })
 })
+
+// offline-sync F4 (hunt 24.11.2026): a dirty workspace reopened on a good link stayed «pending»
+// with no PUT until the next edit — nothing armed the push
+it('a dirty workspace reopened on a good link is pushed without a further edit', async () => {
+  get.mockResolvedValue({ workspace: {}, workspace_rev: 7 })
+  put.mockRejectedValue(new ApiError(0, 'offline'))
+  const offline = new WorkspaceSync('i1', { debounceMs: 600 })
+  await offline.init()
+  offline.save({ reportMeta: { remarks: 'offline' } })
+  await vi.advanceTimersByTimeAsync(600)
+  offline.dispose()
+  put.mockReset().mockResolvedValue({ workspace: null, workspace_rev: 8 })
+  const reopened = new WorkspaceSync('i1', { debounceMs: 600 })
+  try {
+    await reopened.init()
+    expect(reopened.syncStatus).toBe('pending')
+    reopened.pushOwed()
+    await vi.advanceTimersByTimeAsync(600)
+    expect(put).toHaveBeenCalledTimes(1)
+    expect(reopened.syncStatus).toBe('synced')
+  } finally { reopened.dispose() }
+})

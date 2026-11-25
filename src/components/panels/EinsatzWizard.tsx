@@ -162,6 +162,8 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
   // lands can't blank an existing Meldungstext.
   const [text, setText] = useState(draft?.text ?? '')
   const fetchedText = useRef('')
+  /** the number of the latest Einsatzort choice – see `newPlace` */
+  const placeSeq = useRef(0)
   const textTouched = useRef(draft?.text !== undefined)
   const [textReady, setTextReady] = useState(!edit)
   // Alarmierungszeit (= incident.started_at): correctable in edit mode, and settable on
@@ -212,7 +214,10 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
     } else clearDraft(draftKey)
   }, [title, address, kategorie, coord, isExercise, tookDispatchAddress, lookupAddress, text, alarmiertAt, opened, openedAlarm, draftKey])
   /** «Abbrechen»: the deliberate way out, so the draft goes too */
-  const cancel = () => { clearDraft(draftKey); onClose() }
+  // closing drops every answer still on its way (placeSeq): a late «Hier» fix must not open the
+  // move confirm over whatever the operator went on to do
+  const close = () => { placeSeq.current++; onClose() }
+  const cancel = () => { clearDraft(draftKey); close() }
   // the Alarmmeldung fetch FAILED — the textarea is disabled and says so, and `text` stays out of
   // the PATCH body, so a save cannot blank what could not be read (see the fetch below)
   const [textFailed, setTextFailed] = useState(false)
@@ -279,8 +284,9 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
   useEffect(() => {
     if (!lookupAddress) return
     let current = true
+    const seq = placeSeq.current
     void geocodeSearch(lookupAddress).then((hits) => {
-      if (current && hits[0]) setCoord([hits[0].lng, hits[0].lat])
+      if (current && seq === placeSeq.current && hits[0]) setCoord([hits[0].lng, hits[0].lat])
     }).catch(() => { /* no match or offline: the address stays explicitly unlocated */ })
       .finally(() => { if (current) setLookupAddress(null) })
     return () => { current = false }
@@ -308,20 +314,30 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
       confirmLabel: ix.moveConfirmBtn,
     })
   }
+  // ⚠️ Every choice of the Einsatzort gets a number, and an answer that arrives for an older one
+  // is dropped (hunt 24.11.2026, frontend-state F2): «Hier» pressed, then an object picked while
+  // the GPS was still looking – the late fix replaced the object's coordinate, and the Einsatz
+  // opened where the phone stood. A newer choice also ends the «sucht…» state of the old one.
+  // (`placeSeq` is declared with the form's other refs, above its first reader.)
+  const newPlace = () => { setLocating(false); return ++placeSeq.current }
   const useHere = () => {
     if (locating) return
     // blocked says where to allow it (lib/permissionPath, rare-user round F9)
     const failed = (err?: GeolocationPositionError) => setHereFailed({ at: coord, blocked: err?.code === 1 })
     if (!navigator.geolocation) { failed(); return }
     setHereFailed(null)
+    // not a choice yet (no newPlace): a pending dispatch lookup may still land – only the fix the
+    // operator accepts replaces it (applyPicked). Any choice made meanwhile drops this fix.
+    const seq = placeSeq.current
     setLocating(true)
     navigator.geolocation.getCurrentPosition(
       (p) => {
+        if (seq !== placeSeq.current) return
         setLocating(false)
         const c: [number, number] = [p.coords.longitude, p.coords.latitude]
-        void confirmMove(c).then((ok) => { if (ok) applyPicked(c) })
+        void confirmMove(c).then((ok) => { if (ok && seq === placeSeq.current) applyPicked(c) })
       },
-      (err) => { setLocating(false); failed(err) },
+      (err) => { if (seq !== placeSeq.current) return; setLocating(false); failed(err) },
       { enableHighAccuracy: true, timeout: 10_000, maximumAge: 30_000 },
     )
   }
@@ -329,12 +345,13 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
   // a coordinate from the map picker → set it and reverse-geocode the address (so a
   // map-click fills the nearest registered address, not just bare coords)
   const applyPicked = (c: [number, number]) => {
+    const seq = newPlace()
     setLookupAddress(null); setCoord(c); setMapOpen(false); closeMenu()
     // ⚠️ Fills a BLANK address only — the same rule the Rapport uses for the Kroki-seeded
     // Einsatzleiter. A nudge of the map pin used to overwrite an address somebody had just
     // typed by hand, and a typed address is a statement; a reverse-geocode is a guess.
     geocodeReverse(c[1], c[0])
-      .then((hit) => { if (hit?.label) setAddress((a) => (a.trim() ? a : hit.label)) })
+      .then((hit) => { if (hit?.label && seq === placeSeq.current) setAddress((a) => (a.trim() ? a : hit.label)) })
       .catch(() => {})
   }
 
@@ -400,9 +417,11 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
   }, [edit?.id])
 
   const pickHit = (h: GeoHit) => {
+    newPlace()
     setLookupAddress(null); setAddress(h.label); setCoord([h.lng, h.lat]); closeMenu(); setHits([])
   }
   const pickObject = (o: ObjectWithPlans) => {
+    newPlace()
     setLookupAddress(null)
     if (!title.trim()) setTitle(o.name)
     if (o.address) setAddress(o.address)
@@ -429,6 +448,7 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
   const demoRef = useRef<HTMLParagraphElement>(null)
   const submit = async () => {
     if (busy || lookupAddress) return
+    placeSeq.current++ // a «Hier» fix still on its way must not open the move confirm after the save
     // Blocked — the Stichwort (an edit with it emptied) or the demo: the button stays tappable
     // and points at what holds it back (lib/pointAtField); a grey «Speichern» with a «*» somewhere
     // above it said nothing. `busy` stays a native disabled: that press is in flight.
@@ -511,7 +531,7 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
   return (
     <>
     {mapOpen && <MapPicker initial={coord} onCancel={() => setMapOpen(false)} onConfirm={applyPicked} />}
-    <Modal title={edit ? ix.editTitle : isExercise ? ix.titleNewExercise : ix.titleNew} onClose={onClose} footer={<>
+    <Modal title={edit ? ix.editTitle : isExercise ? ix.titleNewExercise : ix.titleNew} onClose={close} footer={<>
       {/* «Abbrechen» in both modes (29.09.2026): the wizard is ONE step, and closing it goes back
           to the landing without opening anything — a cancel, not a «Zurück» to a previous step */}
       <button className="ip-btn" onClick={cancel}>{ix.cancel}</button>
@@ -536,6 +556,7 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
         {/* ⚠️ defused (lib/typingField): «Adresse» / «Strasse» made Safari offer contact AutoFill */}
         <span id="einsatz-address-label">{defuseAutofill(ix.addressLabel)}</span>
         <AlarmNew field={alarmNew('address')} value={address} onTake={(v) => {
+          newPlace() // the dispatch's place is a choice too: a pending «Hier» fix must not replace it
           setAddress(v); closeMenu()
           // the pin comes along: the alarm's own coordinate, else the first hit for the address
           const u = edit?.alarm_update

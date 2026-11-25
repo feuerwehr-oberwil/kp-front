@@ -1,6 +1,8 @@
+// @vitest-environment jsdom
 import 'fake-indexeddb/auto'
 import { IDBFactory } from 'fake-indexeddb'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { renderHook, waitFor } from '@testing-library/react'
 
 // TWO DEVICES, ONE EINSATZ, CLOSED ON ONE OF THEM (N3, staging walk-through 25.09.2026).
 //
@@ -115,6 +117,7 @@ const { archiveIncident, reactivateIncident } = await import('./api/incidents')
 const { JournalStore } = await import('./journalStore')
 const { AuditEventStore } = await import('./auditEventStore')
 const { onIncidentClosed, onIncidentReopened } = await import('./incidentClosed')
+const { useLifecycleElsewhere } = await import('../workspace/useLifecycleElsewhere')
 
 const INC = 'inc'
 const TRUPP = { id: 'tr2', name: 'Trupp 2', status: 'drin', lastContactTime: '2026-09-25T12:40:00Z' }
@@ -318,13 +321,27 @@ describe('«Wieder öffnen» on phone A reaches phone B the same way back', () =
     expect(await pollWorkspaceSince(INC, sync.rev)).toBeNull()
     expect(reopenedHeard).toContain('poll')
 
-    // the Einsatz runs again: what was parked is sent (IncidentWorkspace calls exactly these)
-    await journal.requeueRefused()
-    await audit.requeueClosed()
-    await sync.requeueRefused()
-    expect(server.rows.map((r) => r.id)).toContain('r-kontakt')
-    expect(server.events.map((e) => e.client_id)).toContain('ev-kontakt')
-    expect((server.ws.trupps as typeof TRUPP[])[0].lastContactTime).toBe(LATE)
+    // the Einsatz runs again: the workspace's own closed → running transition sends what was
+    // parked (useLifecycleElsewhere), over B's real stores
+    // ⚠️ through the hook, not the three requeue calls: the test sent the parked rows itself and
+    // passed with the hook's resend removed (hunt 24.11.2026, tests-quality F2)
+    const useLifecycle = (running: boolean) => useLifecycleElsewhere({
+      sync, running, flushEvents: () => audit.flush(), outboxReadOnly: false, lifecycleElsewhere: null,
+      incidentMeta: { id: INC },
+      journal: { refusedCount: journal.refusedCount, requeueRefused: () => journal.requeueRefused(), recoveryData: () => journal.recoveryData(), rows: [] },
+      auditDelivery: { closedCount: audit.closedCount, requeueClosed: () => audit.requeueClosed(), getRecoveryData: () => audit.getRecoveryData() },
+    })
+    const hook = renderHook(useLifecycle, { initialProps: false })
+    hook.rerender(true)
+    // …until the SERVER holds all three and the hook's resend has settled (its count of what went
+    // is set only after every requeue resolved) — the parked counts clear before delivery does
+    await waitFor(() => {
+      expect(server.rows.map((r) => r.id)).toContain('r-kontakt')
+      expect(server.events.map((e) => e.client_id)).toContain('ev-kontakt')
+      expect((server.ws.trupps as typeof TRUPP[])[0].lastContactTime).toBe(LATE)
+      expect(hook.result.current.lifecycleRefused).toBe(3)
+    })
+    hook.unmount()
     expect([sync.refusedCount, journal.refusedCount, audit.closedCount]).toEqual([0, 0, 0])
     // …and a reload finds nothing parked any more (the slots were emptied)
     const again = new WorkspaceSync(INC)

@@ -18,10 +18,17 @@ import { snapToStep } from '../lib/sliderStep'
  *
  * Preview vs. commit: `onChange` fires on every step the thumb moves. A value that is costly to
  * apply – an undo step («Gebäude drehen»), a reconstruction (the Kroki's «Stand») – previews there
- * and lands in `onCommit`, called ONCE when the finger lifts (and once per key step). A drag the
+ * and lands in `onCommit`, called ONCE when the finger lifts (and once when the key lifts — a
+ * held arrow repeats its preview, not its commit: a commit per repeat filled the ↶ history with
+ * one «Gebäude drehen» per degree, review of #742). A drag the
  * browser takes away (`pointercancel`) commits nothing and calls `onCancel`, so a preview never
  * stays standing with nothing in the record to say so.
  */
+/** what each adjusting key does: steps (× `step`), or a jump to an end */
+const KEY_STEPS: Record<string, number | 'min' | 'max' | undefined> = {
+  ArrowLeft: -1, ArrowDown: -1, ArrowRight: 1, ArrowUp: 1, PageDown: -10, PageUp: 10, Home: 'min', End: 'max',
+}
+
 export function Slider({ value, min = 0, max = 100, step = 1, onChange, onCommit, onCancel, ariaLabel, valueText }: {
   value: number
   min?: number
@@ -52,9 +59,21 @@ export function Slider({ value, min = 0, max = 100, step = 1, onChange, onCommit
     if (next !== value) { moved.current = next; onChange(next) }
   }
 
-  const nudge = (by: number) => {
-    const next = clamp(snapToStep(value + by, min, step))
-    if (next !== value) { onChange(next); onCommit?.(next) }
+  // ⚠️ A held key steps from the RAW value it last moved to, not the one shown: a caller that
+  // snaps its preview (the Drehung's 0° catch) showed 0 again after each repeat, so every repeat
+  // stepped from 0 and the key got stuck at the snap (review of #742). The caller snaps the
+  // preview and the commit.
+  const keyTo = (to: (from: number) => number) => {
+    const from = keyed.current ?? value
+    const next = clamp(snapToStep(to(from), min, step))
+    if (next !== from) { keyed.current = next; onChange(next) }
+  }
+  /** the last raw value a key gesture moved to — committed when the key lifts (or focus leaves) */
+  const keyed = useRef<number | null>(null)
+  const commitKeyed = () => {
+    const v = keyed.current
+    keyed.current = null
+    if (v != null) onCommit?.(v)
   }
 
   return (
@@ -67,6 +86,9 @@ export function Slider({ value, min = 0, max = 100, step = 1, onChange, onCommit
       data-holdaction
       onPointerDown={(e) => {
         if (e.button) return
+        // a key gesture still open ends HERE, or its key's release would commit the stale key
+        // value over what the pointer sets (review of #742)
+        commitKeyed()
         e.currentTarget.setPointerCapture(e.pointerId)
         moved.current = null
         fromClientX(e.clientX)
@@ -79,16 +101,15 @@ export function Slider({ value, min = 0, max = 100, step = 1, onChange, onCommit
       }}
       onPointerCancel={() => { moved.current = null; onCancel?.() }}
       onKeyDown={(e) => {
-        const k = e.key
-        if (k === 'ArrowLeft' || k === 'ArrowDown') nudge(-step)
-        else if (k === 'ArrowRight' || k === 'ArrowUp') nudge(step)
-        else if (k === 'PageDown') nudge(-step * 10)
-        else if (k === 'PageUp') nudge(step * 10)
-        else if (k === 'Home') nudge(min - value)
-        else if (k === 'End') nudge(max - value)
-        else return
+        const by = KEY_STEPS[e.key]
+        if (by === undefined) return
+        keyTo(by === 'min' ? () => min : by === 'max' ? () => max : (from) => from + by * step)
         e.preventDefault()
       }}
+      // only the adjusting key ends the gesture — Shift lifted under a held arrow would commit
+      // mid-gesture, and the next repeat open a second step (review of #742)
+      onKeyUp={(e) => { if (KEY_STEPS[e.key] !== undefined) commitKeyed() }}
+      onBlur={commitKeyed}
     >
       <span className="uslider-track" ref={trackRef}>
         <span className="uslider-fill" style={{ width: `${pct}%` }} />

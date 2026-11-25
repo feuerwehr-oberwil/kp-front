@@ -138,12 +138,12 @@ export function MapLayers({ layers, preparedOverlays, isVisible, mapReady }: Pro
      from an effect while the layer is on, so a layer nobody switched on is never fetched. */
   const vectorLayers = layers.filter((l) => !l.base && l.geojson && isVisible(l.id))
   const loads = useLayerData()
-  const vectorKeys = vectorLayers.map((l) => `${l.id}|${l.geojson}`).join(',')
+  // ⚠️ JSON, not a comma list (hunt 24.11.2026, karte F7): an offline crop's URL carries
+  // «bbox=w,s,e,n», and splitting on commas asked for «bbox=w» plus three relative URLs – the
+  // stored crop was never read and the hydrants stayed dark offline
+  const vectorKeys = JSON.stringify(vectorLayers.map((l) => [l.id, l.geojson as string]))
   useEffect(() => {
-    for (const key of vectorKeys ? vectorKeys.split(',') : []) {
-      const at = key.indexOf('|')
-      loadLayerData(key.slice(0, at), key.slice(at + 1))
-    }
+    for (const [id, url] of JSON.parse(vectorKeys) as [string, string][]) loadLayerData(id, url)
   }, [vectorKeys])
   return (
     <>

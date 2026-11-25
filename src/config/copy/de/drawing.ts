@@ -154,6 +154,8 @@ export const drawingCopy = {
     carrierTlf: 'TLF',
     moveHint: 'Korb ziehen – Richtung und Reichweite',
     names: { arrow: 'Pfeil', cloud: 'Rauch', square: 'Rechteck', rotation: 'Rotation' } as Record<string, string>,
+    // weit herausgezoomt: eine Form, zu klein zum Sehen und Antippen, als Punkt mit Name und Grösse
+    dotLabel: '{name} · {m} m',
     strokeThin: 'Dünn',
     strokeMedium: 'Mittel',
     strokeThick: 'Dick',

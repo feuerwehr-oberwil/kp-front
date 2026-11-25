@@ -9,6 +9,7 @@ import { useEffect, useRef } from 'react'
 import { Marker } from 'react-map-gl/maplibre'
 import type { Entity, LngLat } from '../types'
 import { appConfig } from '../config/appConfig'
+import { fillTemplate } from '../lib/format'
 import { shownTeamColor } from '../lib/teamColors'
 import { thumbUrl } from '../lib/mediaUrl'
 import { Icon } from '../lib/icons'
@@ -16,7 +17,7 @@ import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
 import { LockChip } from './LockChip'
 import { TwinTeamPill } from './TwinTeamPill'
 import { truppMarkerTone } from '../lib/truppLines'
-import { SHAPE_AXIS_GRIPS, SHAPE_MAX_PX, SHAPE_TWO_POINT, ShapeGlyph, rotationGripOffPx, shapeAspect } from '../lib/shapes'
+import { SHAPE_AXIS_GRIPS, SHAPE_TWO_POINT, ShapeGlyph, rotationGripOffPx, shapeAspect } from '../lib/shapes'
 import { DEFAULT_INK } from '../lib/lineStyle'
 import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import { placardSvgForSymbol } from '../lib/placard'
@@ -26,7 +27,7 @@ import { symbolCaptionText, symbolOriginText, isMeasuredSymbol } from '../lib/sy
 import { softHyphenateText } from '../lib/symbolWrap'
 import { markerZ } from '../lib/labelPass'
 import { noteScale, noteWPx } from '../lib/notes'
-import { pxPerM, symPx, shapePx, isRotatableSym, isVehicleSym, teamDockAnchor, TEAM_DOT_PX, TEAM_PILL_CAP_PX } from '../lib/mapView'
+import { groundPxPerM, groundShapePx, shapeSizeM, SHAPE_DOT_BELOW_PX, symPx, isRotatableSym, isVehicleSym, teamDockAnchor, TEAM_DOT_PX, TEAM_PILL_CAP_PX } from '../lib/mapView'
 import { dockRingPx, type dockSlots } from '../lib/docking'
 import type { MapMarkersProps } from './MapMarkers'
 
@@ -154,9 +155,17 @@ export function EntityMarker({
   // handles out to a comfortable minimum via --hbox in CSS, big ones track the edge).
   // a shape's box is width × (width · aspect) — the halo/handle anchor (--gpx → --hbox)
   // takes the LARGER side so the ring always encloses the rectangle
-  const shpW = e.kind === 'shape' ? shapePx(e.sizeM, e.coord[1], zoom, SHAPE_MAX_PX[e.shape ?? 'square']) : 0
+  // ⚠️ GROUND-true (lib/mapView · groundShapePx): the metres say how much ground the shape covers,
+  // at every zoom. Too small to see or tap when zoomed far out, it becomes a dot with its name and
+  // size (`shapeDot`), which stays findable and selectable. A SELECTED shape never turns into the
+  // dot: its grips own the pointer of a resize in progress, and unmounting them mid-drag would
+  // leave the gesture open. Its metres are resolved once, the kind's default when none is stored.
+  const shapeM = e.kind === 'shape' ? shapeSizeM(e) : 0
+  const shpW = e.kind === 'shape' ? groundShapePx(shapeM, e.coord[1], zoom) : 0
   const shpH = e.kind === 'shape' ? shpW * shapeAspect(e.shape ?? 'square', e.aspect) : 0
-  const gpx = e.kind === 'shape' ? Math.max(shpW, shpH)
+  const shapeDot = e.kind === 'shape' && Math.max(shpW, shpH) < SHAPE_DOT_BELOW_PX
+    && !(selectedId === e.id && !e.locked && onShapeTransform)
+  const gpx = shapeDot ? 28 : e.kind === 'shape' ? Math.max(shpW, shpH)
     : e.kind === 'note' || e.kind === 'photo' || e.kind === 'team' ? 56
     : symPx(e.kind, e.coord[1], zoom, symMul)
   // Selected, multi-selected or mid-drag — the three states that mean «this one, now».
@@ -318,7 +327,20 @@ export function EntityMarker({
               toggleTrail: onToggleTrail && (() => onToggleTrail(e.id)),
             } : undefined} />
         )
-      })() : e.kind === 'shape' ? (
+      })() : shapeDot ? (
+        <span className="shape-dot" style={{ '--shape-c': e.color ?? DEFAULT_INK } as React.CSSProperties}>
+          <i aria-hidden="true" />
+          <b>{fillTemplate(appConfig.copy.shapes.dotLabel, {
+            name: e.label?.trim() || (appConfig.copy.shapes.names[e.shape ?? 'square'] ?? appConfig.copy.shapes.kindLabel),
+            m: String(Math.round(shapeM)),
+          })}</b>
+          {lockedShape && onUnlockShape && (
+            <span className="shape-lock-anchor">
+              <LockChip onUnlock={() => onUnlockShape(e.id)} onOpen={() => onSelect(e)} />
+            </span>
+          )}
+        </span>
+      ) : e.kind === 'shape' ? (
         <>
           <div
             className="shape-glyph"
@@ -414,7 +436,7 @@ export function EntityMarker({
         const overlay = comp ? { svg: byName[compositePartGlyph(comp, e.extract)] ?? byName[comp.part] ?? '', rotation: (e.rotation2 ?? 0) - bearing, scale: comp.scale, offsetX: comp.offsetX } : undefined
         // Hubretter boom: a variable-reach articulated arm drawn behind the body, ground-scaled in
         // metres (reachM) and aimed by rotation2 (−bearing). The cage tip carries the drag handle.
-        const boomPx = hub ? Math.max(24, Math.min(900, (e.reachM ?? 18) * pxPerM(e.coord[1], zoom))) : 0
+        const boomPx = hub ? (e.reachM ?? 18) * groundPxPerM(e.coord[1], zoom) : 0
         // The caption is decided by the ONE label pass, not by a zoom threshold: it is
         // printed whole where it fits and replaced by a dot where it does not. Routed
         // through softHyphenateText because a caption is a FIELD VALUE, not a symbol name
@@ -612,7 +634,9 @@ export function EntityMarker({
         // Hubretter cage tip: ONE handle at the boom end. Dragging it sets both the boom bearing
         // (rotation2) and the reach (reachM). Positioned at the tip = centre + reach·(bearing).
         const rad = (((e.rotation2 ?? 0) - bearing) * Math.PI) / 180
-        const len = Math.max(24, Math.min(900, (e.reachM ?? 18) * pxPerM(e.coord[1], zoom)))
+        // zoomed far out the cage stands clear of the truck (it would catch the drag meant to move
+        // it); never hidden – a drag that crosses that line must keep its grip to the end
+        const len = Math.max((e.reachM ?? 18) * groundPxPerM(e.coord[1], zoom), gpx / 2 + 22)
         return (
           <div className="cage-handle" style={{ left: `calc(50% + ${(Math.cos(rad) * len).toFixed(1)}px)`, top: `calc(50% + ${(Math.sin(rad) * len).toFixed(1)}px)` }}>
             <TransformHandle

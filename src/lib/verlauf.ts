@@ -185,12 +185,23 @@ export function rowText(e: { text: string; photoUrl?: string; photoUrls?: string
   return e.text.trim() || appConfig.copy.journal.photoNote
 }
 
+/** Where a picture goes back into its row once its old URL is gone (mediaQueue · slot): its index
+ *  as captured, and the server URLs of the row's lower-slot pictures whose upload receipts are not
+ *  linked yet — they come before it in the captured order but the list does not hold them. */
+export interface PhotoSlot { slot: number; ahead?: readonly string[] }
+
 /** Replace one URL in a row's photo list, keeping the others and the order. Used when one of
  *  several attached pictures finishes uploading: the row's other photos (still local blob:
- *  URLs, or already uploaded) must survive that patch untouched. */
-export function swapUrl(list: string[] | undefined, from: string, to: string): string[] {
+ *  URLs, or already uploaded) must survive that patch untouched. A `from` the list does not hold
+ *  (a reload dropped its session URL) goes to its captured place (`place`) — exact as long as the
+ *  row's lower slots come back first (useMediaQueue works a row in slot order) — else to the end. */
+export function swapUrl(list: string[] | undefined, from: string, to: string, place?: PhotoSlot): string[] {
   const arr = list ?? []
-  return arr.includes(from) ? arr.map((u) => (u === from ? to : u)) : [...arr, to]
+  if (arr.includes(from)) return arr.map((u) => (u === from ? to : u))
+  if (!place) return [...arr, to]
+  const notYet = (place.ahead ?? []).filter((u) => !arr.includes(u)).length
+  const at = Math.max(0, place.slot - notYet)
+  return [...arr.slice(0, at), to, ...arr.slice(at)]
 }
 
 /**
@@ -278,7 +289,7 @@ const REPEAT_WINDOW_MS = 2 * 60_000
  * ⚠️ Hand-written rows are never collapsed. Somebody who types the same sentence twice meant it
  * both times, and the journal is their record, not the app's.
  */
-export function repeatRuns(events: TimelineEvent[]): {
+export function repeatRuns(events: TimelineEvent[], closedAt?: string | null): {
   counts: Map<string, number>
   hidden: Set<string>
   /** ISO instant of the LAST repeat in each run — the detail sheet says «6× bis 14:34», because
@@ -300,7 +311,10 @@ export function repeatRuns(events: TimelineEvent[]): {
     if (!text) continue
     const obj = e.entityId ?? e.annoId ?? e.subjectId ?? ''
     // NUL joins the two halves so an object id can never run into the text and fake a match.
-    const key = `${obj}\u0000${text}`
+    // ⚠️ …and a Nachtrag never folds into a row that was on the record in time (hunt 24.11.2026,
+    // records-rapport F9): «Kontakt 2×» hid that the second one reached the record after the close.
+    const late = isNachtrag(e, closedAt)
+    const key = `${obj}\u0000${text}\u0000${late ? 'n' : ''}`
     const ms = Date.parse(e.at!)
     if (!Number.isFinite(ms)) continue
     // ⚠️ A ↶ / ↷ row ends EVERY open run (staging walk-through 25.09.2026, F2c). It names no
@@ -320,6 +334,8 @@ export function repeatRuns(events: TimelineEvent[]): {
     // a fresh run under the same key REPLACES the closed one, so the second Austritt keeps its own
     // row rather than joining a run the Eintritt between them had already ended
     open.set(key, { id: e.id, lastMs: ms })
+    // …and it ENDS the same line's run of the other kind: in time, Nachtrag, in time is three rows
+    open.delete(`${obj}\u0000${text}\u0000${late ? '' : 'n'}`)
     if (obj) openOf.set(obj, key)
   }
   return { counts, hidden, lastAt }

@@ -9,6 +9,7 @@ import { isStorageDegraded, onStorageDegraded } from '../../lib/idb'
 import { getInstallPlatform, isStandalone } from '../../lib/installPrompt'
 import { installOffered } from '../../lib/installPolicy'
 import { estimateStorage } from '../../lib/storageBudget'
+import { hasTile } from '../../lib/tileStore'
 import { InstallSteps } from '../InstallGuide'
 import { useReportOfflineState } from './deviceState'
 
@@ -86,9 +87,17 @@ export function OfflineReadiness({
   useEffect(() => {
     if (browserOnly) return // no readiness list is rendered there — don't probe for it
     let alive = true
+    // ⚠️ Map and raster tiles live in the worker's IndexedDB tile store (public/sw-tile-store.js),
+    // not in Cache Storage (hunt 24.11.2026, offline-sync F5 / karte F10: a downloaded map read
+    // «nicht geladen»). The store first, Cache Storage (plans, Ebenen, legacy tile caches) after.
+    // …and the store once more after a Cache Storage miss: the worker migrates legacy tiles out of
+    // Cache Storage, and a tile in flight between the two is in neither for a moment
     const has = async (url: string | null): Promise<boolean | undefined> => {
-      if (!url || typeof caches === 'undefined') return undefined
-      try { return !!(await caches.match(url)) } catch { return undefined }
+      if (!url) return undefined
+      if (await hasTile(url).catch(() => false)) return true
+      if (typeof caches === 'undefined') return undefined
+      try { if (await caches.match(url)) return true } catch { return undefined }
+      return hasTile(url).catch(() => false)
     }
     void (async () => {
       const [tileHits, plan] = await Promise.all([

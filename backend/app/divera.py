@@ -372,6 +372,26 @@ async def running_real_incident(db: AsyncSession) -> Incident | None:
     ).scalar_one_or_none()
 
 
+async def running_real_incidents(db: AsyncSession) -> list[Incident]:
+    """Every real Einsatz still running inside :data:`SPLIT_DISPATCH_WINDOW`, OLDEST first (the
+    same predicate as `running_real_incident`). The Einsatz-Link offers them while its alarm waits
+    for the EL (api/incident_link · the «awaiting» answer), the oldest marked as the first."""
+    return list(
+        (
+            await db.execute(
+                select(Incident)
+                .where(
+                    Incident.is_archived.is_(False),
+                    Incident.status.in_(INCIDENT_ACTIVE_STATUSES),
+                    Incident.is_exercise.is_(False),
+                    Incident.started_at > datetime.now(UTC) - SPLIT_DISPATCH_WINDOW,
+                )
+                .order_by(Incident.started_at.asc())
+            )
+        ).scalars()
+    )
+
+
 async def maybe_auto_open(db: AsyncSession, em: DiveraEmergency) -> Incident | None:
     """Open a NEW pool alarm into an incident. Unconditional — the split guard is the one no.
 
@@ -502,13 +522,17 @@ async def fetch_and_upsert(db: AsyncSession) -> int:
     url = f"{settings.divera_api_url}/alarms"
     # SSRF defence-in-depth: divera_api_url is config-driven (not user input), but pin it to
     # https so a mis-set value can't be aimed at an internal endpoint with our access key.
+    # ⚠️ Both refusals RAISE (hunt 24.11.2026, ops-integrations F3): returning 0 here was
+    # recorded as a healthy poll with no new alarms, and the System card showed the intake online
+    # while it imported nothing. A successful, empty alarm list is the only «0».
     if urlsplit(url).scheme != "https":
-        logger.warning("Divera API URL is not https; skipping fetch")
-        return 0
+        raise DiveraApiError("Divera-API-Adresse ist nicht https – Abruf übersprungen")
     async with httpx.AsyncClient(timeout=30.0) as client:
         r = await client.get(url, params={"accesskey": credential("divera_access_key")})
         check_response(r)
         data = r.json()
+    if not isinstance(data, dict) or not data.get("success"):
+        raise DiveraApiError("Divera hat den Abruf abgelehnt (success=false)")
     # The Rückmeldungen ride in this same response. Their status NAMES come from /pull/all, and
     # that fetch (≤ once per 6 h) happens HERE — before the upserts take their per-alarm locks,
     # never while holding them.

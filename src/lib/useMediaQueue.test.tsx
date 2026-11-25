@@ -47,8 +47,8 @@ it('restores and completes a persisted attachment with its target, then acknowle
   const onRestore = vi.fn(), onUploaded = vi.fn(() => true)
   const { result } = renderHook(() => useMediaQueue({ incidentId: 'attachment-hook', readOnly: false, onUploaded, onRestore }))
   await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)) })
-  expect(onRestore).toHaveBeenCalledWith('att1', 'photo', 'blob:restored-attachment', 'blob:previous-session', 'attachment')
-  expect(onUploaded).toHaveBeenCalledWith('att1', 'photo', '/api/media/attachment', 'blob:restored-attachment', 'attachment')
+  expect(onRestore).toHaveBeenCalledWith('att1', 'photo', 'blob:restored-attachment', 'blob:previous-session', 'attachment', undefined)
+  expect(onUploaded).toHaveBeenCalledWith('att1', 'photo', '/api/media/attachment', 'blob:restored-attachment', 'attachment', undefined)
   expect(result.current.pendingCount).toBe(0)
   expect(result.current.syncStatus).toBe('synced')
 })
@@ -62,7 +62,7 @@ it('keeps a receipt «not saved» until onUploaded acknowledges its link, withou
   const { result } = renderHook(() => useMediaQueue({ incidentId: 'receipt-hook', readOnly: false, onUploaded, onRestore: () => {} }))
   await waitFor(() => expect(result.current.receiptCount).toBe(1))
   // the picture shown since the restore is the one the server copy replaces
-  expect(onUploaded).toHaveBeenCalledWith('row', 'photo', '/media/1', 'blob:restored', undefined)
+  expect(onUploaded).toHaveBeenCalledWith('row', 'photo', '/media/1', 'blob:restored', undefined, undefined)
   expect(result.current).toMatchObject({ pendingCount: 0, syncStatus: 'pending' })
   expect(result.current.statusOf('row')).toBeUndefined()
 

@@ -6,6 +6,7 @@ import re
 import uuid
 from datetime import date, datetime
 from typing import Annotated, Any, Literal
+from zoneinfo import ZoneInfo
 
 from pydantic import (
     BaseModel,
@@ -827,11 +828,24 @@ class FireHubWebhook(BaseModel):
         )
 
 
+def _station_time(v: datetime | None) -> datetime | None:
+    """A milestone without an offset is the station's wall clock (Europe/Zurich), as every
+    browser on the station reads it – stored WITH its offset, so the stats export and the
+    Rapport agree on it (hunt 24.11.2026, records-rapport F8)."""
+    if v is None or v.tzinfo is not None:
+        return v
+    # through UTC, so a wall time the spring change skips (02:15) becomes the real instant (03:15)
+    # and the Verlauf's «ausgerückt 03:15» says what its row's time says
+    return v.replace(tzinfo=ZoneInfo("Europe/Zurich")).astimezone(ZoneInfo("UTC"))
+
+
 class MilestoneGroup(BaseModel):
     """One alarmed group: id matches `alarms.groups[].id` in the deployment config."""
 
     id: str = Field(min_length=1, max_length=32)
     alarmedAt: datetime
+
+    _aware = field_validator("alarmedAt")(_station_time)
 
 
 class MilestoneVehicle(BaseModel):
@@ -841,6 +855,8 @@ class MilestoneVehicle(BaseModel):
     ausgerueckt: datetime | None = None
     vorOrt: datetime | None = None
     zurueck: datetime | None = None
+
+    _aware = field_validator("ausgerueckt", "vorOrt", "zurueck")(_station_time)
 
 
 class MilestonesIn(BaseModel):

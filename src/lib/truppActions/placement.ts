@@ -17,7 +17,7 @@ import type { TruppColorActions } from './colors'
 // deployment's time (lib/serverClock), like the clock family's stamps.
 
 type PlacementDeps = Pick<TruppActionDeps, 'trupps' | 'drawings' | 'objects' | 'board' | 'setBoard' | 'setDocRaw'
-  | 'building' | 'log' | 'logPlan' | 'emit' | 'setMode' | 'setActivePlanId' | 'setPanel' | 'setPlanFocus' | 'mapCenter' | 'focusMapEntity'>
+  | 'building' | 'log' | 'logPlan' | 'emit' | 'setMode' | 'setActivePlanId' | 'setPanel' | 'setPlanFocus' | 'mapCenter' | 'focusMapEntity' | 'liveTrupps'>
   & Pick<TruppActionCore, 'updateTrupp'>
   & Pick<TruppColorActions, 'teamColor'>
   & {
@@ -30,7 +30,7 @@ type PlacementDeps = Pick<TruppActionDeps, 'trupps' | 'drawings' | 'objects' | '
   }
 
 export function truppPlacementActions(deps: PlacementDeps) {
-  const { trupps, drawings, objects, board, setBoard, setDocRaw, building, log, logPlan, emit, setMode, setActivePlanId, setPanel, setPlanFocus, mapCenter, focusMapEntity, updateTrupp, teamColor, setTruppStatus, linkTruppLine, unlinkTruppLine } = deps
+  const { trupps, drawings, objects, board, setBoard, setDocRaw, building, log, logPlan, emit, setMode, setActivePlanId, setPanel, setPlanFocus, mapCenter, focusMapEntity, updateTrupp, teamColor, setTruppStatus, linkTruppLine, unlinkTruppLine, liveTrupps } = deps
 
   /** The hose whose start or end is docked onto this marker, on either surface — what a marker
    *  that is only NOW being bound to a Trupp may already be carrying (see adoptTruppMarker). */
@@ -143,6 +143,12 @@ export function truppPlacementActions(deps: PlacementDeps) {
    * ⚠️ The confirm runs the board's OWN action (setTruppStatus 'aktiv'), so the entry time, the
    * entry reading and the ↶ timeline step are the same ones «Im Einsatz» writes — the clock
    * logic exists once. Declining does nothing at all: the marker stays where it was put.
+   *
+   * ⚠️ The answer may come long after the question (hunt 24.11.2026, frontend-state F1): another
+   * tablet can have entered the crew and logged a pressure meanwhile. So the crew is read LIVE
+   * when the answer arrives and must still await its entry; otherwise the answer does nothing —
+   * a stale «Einrücken» used to land as a step whose ↶ put the crew back on standby on top of
+   * the other tablet's entry and reading.
    */
   const askTruppEntry = async (id: string) => {
     const tr = trupps.find((t) => t.id === id)
@@ -154,7 +160,9 @@ export function truppPlacementActions(deps: PlacementDeps) {
       confirmLabel: az.actEnter,
       cancelLabel: az.entryAskCancel,
     })
-    if (ok) setTruppStatus(id, 'aktiv')
+    if (!ok) return
+    const now = (liveTrupps?.() ?? trupps).find((t) => t.id === id)
+    if (now && truppAwaitsEntry(now)) setTruppStatus(id, 'aktiv')
   }
 
   /**

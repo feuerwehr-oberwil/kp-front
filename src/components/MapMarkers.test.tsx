@@ -352,3 +352,30 @@ describe('«Position markieren» on a docked Trupp', () => {
     expect(cy).toBeCloseTo(drawn[1], 6)
   })
 })
+
+// hunt 24.11.2026, karte F2 + the owner's rule: a Form is ground-true at every zoom; zoomed out
+// past seeing, it becomes a dot with its name and size – findable and tappable, nothing to grab
+describe('a Form zoomed far out', () => {
+  const at = (zoom: number, entities: Entity[], selectedId: string | null) => render(
+    <MapMarkers entities={entities} byName={{}} isVisible={() => true} selectedId={selectedId}
+      zoom={zoom} draggable project={() => ({ x: 0, y: 0 })} unproject={() => [7.6, 47.5]} setDragPan={() => {}}
+      onSelect={() => {}} onMarkerDragStart={() => {}} onMarkerMove={() => {}} onMarkerDragEnd={() => {}}
+      onDelete={() => {}} onShapeTransform={() => {}} />,
+  )
+  it('is a labelled dot when it would be a speck – unless it is selected, when its grips stay', () => {
+    const { container } = at(11, [rechteck], null)
+    expect(container.querySelector('.shape-dot')?.textContent).toBe('Rechteck · 45 m')
+    expect(container.querySelector('.shape-glyph')).toBeNull()
+    cleanup()
+    expect(at(11, [rechteck], 'sq').container.querySelector('.shape-dot')).toBeNull()
+  })
+  it('is its ground box at every zoom, past the old 900 px ceiling too', () => {
+    // 45 m at lat 47.5: 512 · 2^z / (2π · 6378137 · cos 47.5°) px per metre
+    const perM = (z: number) => (512 * 2 ** z) / (2 * Math.PI * 6378137 * Math.cos((47.5 * Math.PI) / 180))
+    for (const z of [18, 21]) {
+      const { container } = at(z, [rechteck], null)
+      expect(parseFloat(container.querySelector<HTMLElement>('.shape-glyph')!.style.width)).toBeCloseTo(45 * perM(z), 0)
+      cleanup()
+    }
+  })
+})

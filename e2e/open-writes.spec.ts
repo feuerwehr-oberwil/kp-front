@@ -32,7 +32,7 @@ function writesOf(context: BrowserContext): string[] {
   return seen
 }
 
-test('opening an Einsatz this build has already saved writes nothing', async ({ page, browser, baseURL }) => {
+test('opening an Einsatz this build has already saved writes nothing', async ({ page, openDevice, baseURL }) => {
   // The perf journeys count 2 writes per open (cold-start.writes: a workspace PUT and a Verlauf
   // POST). Measured 18.10.2026, both are the ONE-TIME upgrade of the seeded Einsatz, not a no-op:
   // the seed is schemaVersion 2 (→ 3, planBindings derived) and its Trupps' crews were never filed
@@ -76,22 +76,21 @@ test('opening an Einsatz this build has already saved writes nothing', async ({ 
     await page.waitForTimeout(6_000) // the save debounce (3 s) twice
     expect(reload, 'the reload wrote').toEqual([])
 
-    // a second device (nothing cached)
-    const other = await browser.newContext({ baseURL })
-    try {
-      await isolateFromOutside(other, baseURL!, [])
-      await buildingAlreadyRead(other, seeded)
-      await remember(other, baseURL!, id)
-      await signIn(other.request)
-      const second = writesOf(other)
-      const p2 = await other.newPage()
-      await p2.goto('/')
-      await waitForWorkspace(p2)
-      await p2.waitForTimeout(6_000)
-      expect(second, 'the second device wrote').toEqual([])
-    } finally {
-      await other.close()
-    }
+    // a second device (nothing cached) — through the guarded fixture, so a client error or a
+    // render storm on it fails the test like one on the first (e2e/guard.ts · openDevice); the
+    // fixture closes it. ⚠️ A raw `browser.newContext()` bypassed that guard (hunt 24.11.2026,
+    // tests-quality F5).
+    const p2 = await openDevice('device 2')
+    const other = p2.context()
+    await isolateFromOutside(other, baseURL!, [])
+    await buildingAlreadyRead(other, seeded)
+    await remember(other, baseURL!, id)
+    await signIn(other.request)
+    const second = writesOf(other)
+    await p2.goto('/')
+    await waitForWorkspace(p2)
+    await p2.waitForTimeout(6_000)
+    expect(second, 'the second device wrote').toEqual([])
   } finally {
     await retire(page.request, id)
   }

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, cleanup, fireEvent, within, waitFor, act } from '@testing-library/react'
-import { getIncident, geocodeSearch, patchIncident } from '../../lib/incidents'
+import { createIncident, getIncident, geocodeSearch, patchIncident } from '../../lib/incidents'
 import { appConfig } from '../../config/appConfig'
 import { defuseAutofill } from '../../lib/typingField'
 import { clearAllDrafts, keepDraft } from '../../lib/draftKeep'
@@ -286,3 +286,22 @@ describe('«Hier» finds no position', () => {
     expect(screen.queryByText(ix.hereFailed)).toBeNull()
   })
 })
+
+// hunt 24.11.2026, frontend-state F2: «Hier» pressed, then an object picked while the GPS was still
+// looking – the late fix replaced the object's coordinate and the Einsatz opened where the phone stood
+describe('a late «Hier» fix', () => {
+  it('never replaces a place chosen after it', async () => {
+    let locate!: PositionCallback
+    Object.defineProperty(navigator, 'geolocation', { configurable: true, value: {
+      getCurrentPosition: (success: PositionCallback) => { locate = success },
+    } })
+    render(<EinsatzWizard onClose={() => {}} onCreated={() => {}} />)
+    fireEvent.click(screen.getByRole('button', { name: ix.hereButton }))
+    fireEvent.change(field(), { target: { value: 'Tramdepot' } })
+    fireEvent.click(await screen.findByRole('button', { name: /Tramdepot/ }))
+    await act(async () => locate({ coords: { longitude: 7.6, latitude: 47.5 } } as GeolocationPosition))
+    fireEvent.click(document.querySelector<HTMLButtonElement>('.ip-btn.primary')!)
+    expect(vi.mocked(createIncident).mock.calls[0]?.[0]).toMatchObject({ address: DEPOT.address, lng: 7.56, lat: 47.49 })
+  })
+})
+

@@ -859,3 +859,16 @@ async def test_a_title_outside_latin1_still_downloads(client, editor):
     disposition = r.headers["content-disposition"]
     assert 'filename="Einsatzrapport_BMA_Capek_AG.pdf"' in disposition
     assert "filename*=UTF-8''Einsatzrapport_BMA_%C4%8Capek_AG.pdf" in disposition
+
+
+def test_a_pasted_umlaut_prints_as_one_letter():
+    """Hunt 24.11.2026, records-rapport F10: «u» + combining diaeresis printed as «Mu■ller»."""
+    import unicodedata
+
+    from app.report import ReportPayload
+
+    payload = _minimal_payload("x")
+    payload["journal"] = [
+        {"timeLabel": "03:02", "area": "", "text": unicodedata.normalize("NFD", "Müller hört Geräusche")}
+    ]
+    assert ReportPayload.model_validate(payload).journal[0].text == "Müller hört Geräusche"

@@ -220,6 +220,21 @@ async def upload_media(
         # with the winner's row.
         async with db.begin_nested():
             storage.created_in_transaction(db, key)
+            # ⚠️ The lifecycle again, now, under the incident lock (hunt 24.11.2026,
+            # data-consistency F1): the read above is as old as the upload, and a close plus a
+            # finished Ablage pass in between left the photo out of the off-site copy, marked
+            # delivered. Held to the commit, so either the close sees this row or this upload sees
+            # the close and owes the Ablage a pass. Inside the savepoint: whatever fails here gives
+            # the blob back.
+            inc = (
+                await db.execute(
+                    select(Incident.is_archived, Incident.is_exercise)
+                    .where(Incident.id == incident_id)
+                    .with_for_update()
+                )
+            ).one_or_none()
+            if inc is None:  # deleted during the upload
+                raise HTTPException(status_code=404, detail=INCIDENT_NOT_FOUND)
             db.add(media)
             await db.flush()
     except IntegrityError:

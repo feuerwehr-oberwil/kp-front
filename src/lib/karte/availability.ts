@@ -22,7 +22,7 @@
 // once the network is gone, so every cache-backed thing reads «nur online» — never a guess.
 
 import type { LngLat } from '../../types'
-import { tilesForBounds, type LngLatBounds } from '../offlineTiles'
+import { tileRequestUrl, tilesForBounds, type LngLatBounds } from '../offlineTiles'
 import { referenceUrl } from '../api/reference'
 import { allTileUrls, sourcePages, tileManifestUrl, tileSource, tileUrl, underlayLevel, visibleTiles, type TileManifest, type TileSource } from '../planTiles'
 import type { StationObject, StationPlan } from '../api/stationReference'
@@ -132,10 +132,11 @@ export function viewTiles(bounds: LngLatBounds, mapZoom: number, maxzoom?: numbe
   return tiles.length > MAX_VIEW_TILES ? null : tiles
 }
 
-/** Every address one tile may be stored under: the downloader cycles a host's subdomains, so a
- *  tile lands under ANY of the templates (workspace/useOfflinePrefetch · offlineProbeUrls). */
+/** The ONE address the map asks for this tile (lib/offlineTiles · tileRequestUrl) – the only one
+ *  the worker answers it from. ⚠️ Not «any subdomain» (hunt 24.11.2026): a copy under another
+ *  host is a copy nothing reads, and counting it hid blank ground. */
 export function tileUrls(templates: readonly string[], t: TileXY): string[] {
-  return templates.map((tpl) => tpl.replace('{z}', String(t.z)).replace('{x}', String(t.x)).replace('{y}', String(t.y)))
+  return templates.length ? [tileRequestUrl(templates, t.z, t.x, t.y)] : []
 }
 
 /**

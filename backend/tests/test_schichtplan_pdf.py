@@ -284,3 +284,77 @@ async def test_a_payload_without_a_sheet_still_gets_the_availability_form(client
     r = await client.post(f"/api/incidents/{inc}/zeitplan/pdf", data={"payload": json.dumps(body)})
     assert r.status_code == 200, r.text
     assert "Verfuegbarkeiten_" in r.headers["content-disposition"]
+
+
+def test_two_assigned_stretches_in_one_watch_both_print_and_count_once():
+    """Hunt 24.11.2026, simplification F8: the tablet showed 08–09 and 10–12 inside a 07–12
+    watch, the paper only 10–12 – the first hour of the assignment was lost on the posted sheet."""
+    p = _payload(
+        [
+            _row(
+                "Alex",
+                [
+                    {"from": _h(1), "to": _h(2), "confirmed": True, "bandId": "bd1"},
+                    {"from": _h(3), "to": _h(5), "confirmed": True, "bandId": "bd1"},
+                ],
+            )
+        ]
+    )
+    assert _cell(p.rows[0], p.bands[0]) == "10:00–11:00\n12:00–14:00"  # Zurich summer time
+    assert _deckung(list(p.rows), p.bands[0]) == "1·"
+    assert compose_schichtplan_pdf(p)[:5] == b"%PDF-"
+
+
+def test_a_watch_across_the_autumn_clock_change_counts_its_person():
+    """Hunt 24.11.2026, data-consistency F6: 02:15 CEST to 02:15 CET is one hour, but the local
+    wall times subtracted to zero and the assigned person dropped out of EINGETEILT."""
+    band = {"id": "n", "label": "Nacht", "from": "2026-10-25T00:15:00Z", "to": "2026-10-25T01:15:00Z"}
+    p = _payload(
+        [_row("Meier Anna", [{"from": band["from"], "to": band["to"], "confirmed": True, "bandId": "n"}])], bands=[band]
+    )
+    assert _is_assigned(p.rows[0], list(p.bands))
+    assert _deckung(list(p.rows), p.bands[0]) == "1"
+    assert _cell(p.rows[0], p.bands[0]) == _MARK_CONFIRMED
+
+
+def test_a_cell_with_many_stretches_grows_its_row_instead_of_overprinting_the_next():
+    """Sol review K8: six stretches in a 7.4mm row overprinted the name below."""
+    from app.schichtplan_pdf import _pages, _slots
+
+    many = [
+        {
+            "from": _iso(T0 + timedelta(minutes=50 * i)),
+            "to": _iso(T0 + timedelta(minutes=50 * i + 20)),
+            "confirmed": True,
+        }
+        for i in range(6)
+    ]
+    p = _payload([_row("Viele Stücke", many), _row("Darunter", [{"from": _h(0), "to": _h(5), "confirmed": True}])])
+    assert _cell(p.rows[0], p.bands[0]).count("\n") == 5
+    assert _slots(p.rows[0], list(p.bands)) > 1 and _slots(p.rows[1], list(p.bands)) == 1
+    assert all(sum(_slots(r, list(p.bands)) for r in page) <= 28 for page in _pages([p.rows[0]] * 20, list(p.bands)))
+    assert compose_schichtplan_pdf(p)[:5] == b"%PDF-"
+
+
+def test_a_watch_across_the_clock_change_names_its_zone():
+    band = {"id": "n", "label": "", "from": "2026-10-25T00:15:00Z", "to": "2026-10-25T01:15:00Z"}
+    from app.schichtplan_pdf import _band_title
+
+    p = _payload(
+        [_row("Meier Anna", [{"from": band["from"], "to": "2026-10-25T00:45:00Z", "confirmed": True}])], bands=[band]
+    )
+    assert _band_title(p.bands[0]) == "02:15 MESZ–\n02:15 MEZ"  # broken after the dash to fit a column
+    assert _cell(p.rows[0], p.bands[0]) == "02:15 MESZ–\n02:45 MESZ"
+    assert compose_schichtplan_pdf(p)[:5] == b"%PDF-"
+
+
+def test_a_cell_lists_six_stretches_at_most_so_a_row_always_fits_a_sheet():
+    """Sol review K8 r2: 110 stretches in one watch raised a LayoutError and no sheet printed."""
+    many = [
+        {"from": _iso(T0 + timedelta(minutes=2 * i)), "to": _iso(T0 + timedelta(minutes=2 * i + 1)), "confirmed": True}
+        for i in range(110)
+    ]
+    p = _payload([_row("Viele Stücke", many)])
+    lines = _cell(p.rows[0], p.bands[0]).split("\n")
+    assert len(lines) == 6 and lines[-1] == "+105 weitere"
+    assert compose_schichtplan_pdf(p)[:5] == b"%PDF-"

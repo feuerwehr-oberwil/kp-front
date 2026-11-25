@@ -198,14 +198,14 @@ export function truppDeploymentDetails(
   ].filter(Boolean).join(' · ')
 }
 
-type LifecycleDeps = Pick<TruppActionDeps, 'trupps' | 'setTrupps' | 'entities' | 'board' | 'log' | 'emit' | 'undoTimeline' | 'liveTrupps' | 'counterNames' | 'slotsOf'>
+type LifecycleDeps = Pick<TruppActionDeps, 'trupps' | 'setTrupps' | 'entities' | 'board' | 'log' | 'emit' | 'undoTimeline' | 'liveTrupps' | 'counterNames' | 'slotsOf' | 'checkpointStore'>
   & Pick<TruppActionCore, 'remember' | 'logStep' | 'recorded'>
   & Pick<TruppPlacementActions, 'dropPlacements' | 'syncPlacementLabel'>
   & Pick<TruppColorActions, 'recolorPlacement'>
   & Pick<TruppLineActions, 'clearLineAnchor'>
 
 export function truppLifecycleActions(deps: LifecycleDeps) {
-  const { trupps, setTrupps, entities, board, log, emit, undoTimeline, liveTrupps, counterNames, slotsOf, remember, logStep, recorded, dropPlacements, syncPlacementLabel, recolorPlacement, clearLineAnchor } = deps
+  const { trupps, setTrupps, entities, board, log, emit, undoTimeline, liveTrupps, counterNames, slotsOf, checkpointStore, remember, logStep, recorded, dropPlacements, syncPlacementLabel, recolorPlacement, clearLineAnchor } = deps
 
   // Registering a Trupp does NOT place a marker — Atemschutz teams belong on the building
   // plan, not the Lage map. The EL places one manually later via "Platzieren" (placeTruppOnPlan),
@@ -354,7 +354,12 @@ export function truppLifecycleActions(deps: LifecycleDeps) {
     // row to the new Eingangsdruck — claiming the Trupp went in under PA all along.
     // ⚠️ Built once and kept: the timeline's ↷ re-applies THIS patch rather than re-running the
     // edit, so `kindPatch`'s Hochstuf-Zeitstempel is the one the record already carries.
-    const patch = { name: f.name, members: f.members, auftrag: f.auftrag, ziel: f.ziel, lineNo: f.lineNo, funkkanal: f.funkkanal, leaderPersonId: f.leaderPersonId, memberPersonIds: f.memberPersonIds, equipment: f.equipment, ...colorPatch(f), ...(tr ? pressurePatch(tr) : {}), ...(tr ? kindPatch(tr) : {}) }
+    // Clearing (or changing) the Leitung number in the form IS how a Trupp lets go of a hose —
+    // that is where the operator already is when they change their mind, so the card needs no
+    // «lösen» icon. The anchor goes with it, or the tag would survive its own number.
+    // ⚠️ …in the PATCH, so ↷ cannot put the old anchor back (hunt 24.11.2026, frontend-state F6)
+    const dropsAnchor = !!tr && f.lineNo !== tr.lineNo && !!tr.lineId
+    const patch = { name: f.name, members: f.members, auftrag: f.auftrag, ziel: f.ziel, lineNo: f.lineNo, funkkanal: f.funkkanal, leaderPersonId: f.leaderPersonId, memberPersonIds: f.memberPersonIds, equipment: f.equipment, ...colorPatch(f), ...(tr ? pressurePatch(tr) : {}), ...(tr ? kindPatch(tr) : {}), ...(dropsAnchor ? { lineId: undefined } : {}) }
     // a changed crew is a `crew` row too, on top of whatever readings the two patches above
     // settled on — the Rapport reads the crew off the log, not off the card (see crewRow)
     const crewChanged = !!tr && (f.name !== tr.name || (f.members ?? []).join('\u0000') !== (tr.members ?? []).join('\u0000'))
@@ -363,40 +368,44 @@ export function truppLifecycleActions(deps: LifecycleDeps) {
       const next = { ...t, ...patch }
       return crewChanged ? { ...next, readings: [...(next.readings ?? []), crewRow(next, crewAt)] } : next
     }
-    setTrupps((ts) => ts.map((t) => (t.id === id ? withCrew(t) : t)))
-    // Clearing (or changing) the Leitung number in the form IS how a Trupp lets go of a hose —
-    // that is where the operator already is when they change their mind, so the card needs no
-    // «lösen» icon. The anchor goes with it, or the tag would survive its own number.
-    if (tr && f.lineNo !== tr.lineNo && tr.lineId) clearLineAnchor(id)
-    if (tr && f.name !== tr.name) syncPlacementLabel(tr, f.name)
-    // colour follows the Trupp, so a repaint (or a new Auftrag under a station colour rule) has
-    // to reach the already-placed marker/chip too — otherwise board and map disagree
-    if (tr) recolorPlacement({ ...tr, color: f.color === null ? undefined : f.color ?? tr.color, auftrag: f.auftrag })
-    // «Trupp X: Auftrag angepasst» covered every field the form touches and named none of them —
-    // so removing an AdF, swapping the Gruppenführer or changing the Funkkanal all read as the
-    // same nothing, and a Trupp whose Auftrag was untouched said the opposite of what happened.
-    // The line now lists what actually changed (same shape as the Sicherheitswerte line).
-    /* ⚠️ NOTHING changed ⇒ NO row (04.09., Manuel's Rapport: «Trupp Brunner Thomas: bearbeitet»
-     * at 16:20). The fallback line was written whenever the form was saved without touching a
-     * tracked field — opening «Bearbeiten» to look at something and pressing Speichern, or moving
-     * an AdF within the crew — and it named nothing at all. A Verlauf row that says a change was
-     * made without saying what is worse than no row: the reader has to go looking for a change
-     * that is not there. What DID change always has its own words (truppEditChanges). The audit
-     * event still fires: that stream records the action, not the sentence. */
-    const changes = truppEditChanges(tr, f)
-    const line = changes.length
-      ? fillTemplate(appConfig.copy.atemschutz.logEditFields, { name: truppLogName({ no: tr?.no, name: f.name, members: f.members }), changes: changes.join(', ') })
-      : null
-    if (line) log('pen', line, 'team', undefined, undefined, { subjectId: id })
-    emit('atemschutz.edit', { id })
-    // ⚠️ Undoable like every other Atemschutz mutation (Kontakt, Druck, raus, löschen) — via the
-    // GLOBAL ↶ timeline (the board's confirm toasts went 09.09.). It rewrites the Eingangsdruck
-    // that «Verbrauch» and «tiefster Druck» are measured against, and an AdF removed from the
-    // crew here is removed from the record. Only the derived state comes back; the Verlauf keeps
-    // its line, because the correction did happen.
-    // Nothing changed ⇒ no row, and nothing on the timeline either: ↶ must never offer to take
-    // back a save that wrote nothing (the operator would watch it do visibly nothing).
-    if (line) remember(id, line, tr, withCrew)
+    // ONE ↶ step over the card and, where the anchor goes, the hose's mirror (lib/truppActions/
+    // lines · linkStep): a store step laid BEFORE the mirror is cleared, in one group
+    const end = dropsAnchor ? undoTimeline?.group('trupps') ?? (() => {}) : () => {}
+    if (dropsAnchor) checkpointStore?.()
+    try {
+      setTrupps((ts) => ts.map((t) => (t.id === id ? withCrew(t) : t)))
+      // …and the hose's mirror with it
+      if (dropsAnchor) clearLineAnchor(id)
+      if (tr && f.name !== tr.name) syncPlacementLabel(tr, f.name)
+      // colour follows the Trupp, so a repaint (or a new Auftrag under a station colour rule) has
+      // to reach the already-placed marker/chip too — otherwise board and map disagree
+      if (tr) recolorPlacement({ ...tr, color: f.color === null ? undefined : f.color ?? tr.color, auftrag: f.auftrag })
+      // «Trupp X: Auftrag angepasst» covered every field the form touches and named none of them —
+      // so removing an AdF, swapping the Gruppenführer or changing the Funkkanal all read as the
+      // same nothing, and a Trupp whose Auftrag was untouched said the opposite of what happened.
+      // The line now lists what actually changed (same shape as the Sicherheitswerte line).
+      /* ⚠️ NOTHING changed ⇒ NO row (04.09., Manuel's Rapport: «Trupp Brunner Thomas: bearbeitet»
+       * at 16:20). The fallback line was written whenever the form was saved without touching a
+       * tracked field — opening «Bearbeiten» to look at something and pressing Speichern, or moving
+       * an AdF within the crew — and it named nothing at all. A Verlauf row that says a change was
+       * made without saying what is worse than no row: the reader has to go looking for a change
+       * that is not there. What DID change always has its own words (truppEditChanges). The audit
+       * event still fires: that stream records the action, not the sentence. */
+      const changes = truppEditChanges(tr, f)
+      const line = changes.length
+        ? fillTemplate(appConfig.copy.atemschutz.logEditFields, { name: truppLogName({ no: tr?.no, name: f.name, members: f.members }), changes: changes.join(', ') })
+        : null
+      if (line) log('pen', line, 'team', undefined, undefined, { subjectId: id })
+      emit('atemschutz.edit', { id })
+      // ⚠️ Undoable like every other Atemschutz mutation (Kontakt, Druck, raus, löschen) — via the
+      // GLOBAL ↶ timeline (the board's confirm toasts went 09.09.). It rewrites the Eingangsdruck
+      // that «Verbrauch» and «tiefster Druck» are measured against, and an AdF removed from the
+      // crew here is removed from the record. Only the derived state comes back; the Verlauf keeps
+      // its line, because the correction did happen.
+      // Nothing changed ⇒ no row, and nothing on the timeline either: ↶ must never offer to take
+      // back a save that wrote nothing (the operator would watch it do visibly nothing).
+      if (line) remember(id, line, tr, withCrew)
+    } finally { end() }
   }
 
   /**
@@ -637,7 +646,10 @@ export function truppLifecycleActions(deps: LifecycleDeps) {
           // and the Rapport reads each cycle's crew off the log
           // `measured` when the form's Eingangsdruck was set on purpose (a bottle answer, a
           // dialled value) — the first Druckmeldung then never «corrects» it (entryPressureConfirmed)
+          // `pa` on the Eintritt: the Art of THIS run, which the card's `kind` stops saying once
+          // the next re-entry changes it (types · TruppReading.pa)
           readings: [...(t.readings ?? []), { t: now, bar: f.pressure, kind: standby ? 'registered' : 'entry',
+            ...(standby ? {} : { pa: nowPa }),
             ...(f.pressureMeasured && nowPa ? { measured: true as const } : {}) },
             crewRow({ name: f.name, members: f.members, entryPressureBar: f.pressure }, now)] })
     setTrupps((ts) => ts.map((t) => (t.id === id ? apply(t) : t)))

@@ -1183,6 +1183,14 @@ export interface TruppReading {
    * three times and the Rapport printed entries of 60, 170 and 180 bar. Absent everywhere else.
    */
   measured?: true
+  /**
+   * Was the Trupp under PA when it went in? Written by every `entry` row since 24.11.2026 (hunt,
+   * records-rapport F2): the Trupp's `kind` is only what it is NOW, and a crew that worked under
+   * PA and was later re-deployed without it (reactivateTrupp) lost its first run from the
+   * Atemschutz page. Absent on older rows – the reader then goes by the run's own evidence
+   * (lib/auswertung · truppStretches).
+   */
+  pa?: boolean
 }
 
 export interface Trupp {

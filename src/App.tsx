@@ -855,6 +855,7 @@ function IncidentApp() {
           sync={syncRef.current}
           forceReadOnly={forceReadOnly}
           tabLockLost={!tabLock.held}
+          tabLockHeldAtOpen={tabLock.heldAtOpen === true}
           onTakeOverTab={tabLock.takeOver}
           // An abgeschlossener Einsatz opens read-only — the same rule «Alle Einsätze» follows
           // (HistoryPanel · onOpen), and it matters here because the menu's «Frühere» rows switch

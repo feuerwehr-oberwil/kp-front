@@ -55,6 +55,8 @@ interface Args {
   log: (icon: string, text: string, extra?: PlanLogExtra) => void
   setSelId: (id: string | null) => void
   onLineAttached?: (annoId: string, attachment: LineAttachment) => void
+  /** open ONE ↶ step over several writes (Whiteboard · Props.historyGroup) */
+  historyGroup?: () => () => void
   /** the magnet's surface: board px of a stored point, the sheet's target walk (`draftStart` is
    *  the claim the draft's first end already made), and what a target becomes */
   sW: number
@@ -81,7 +83,7 @@ interface Args {
  *  arming the Georeferenz, leaving the document) is the Whiteboard's to decide; it calls
  *  `releaseDraft`. Called where the create tools begin, so its effect runs where it always did. */
 export function usePlanDraft({
-  tool, setTool, annos, add, log, setSelId, onLineAttached,
+  tool, setTool, annos, add, log, setSelId, onLineAttached, historyGroup,
   sW, sH, mapY, localY, stack, outlinePx, planCandidatesAt, planAttachmentFor, planEndpointDragState, prevToolRef, onContinue,
 }: Args) {
   // Every new ink starts from the ONE plain default (INK_DEFAULTS) – the Karte's rule
@@ -180,10 +182,15 @@ export function usePlanDraft({
       ? { id, kind: 'draw', pts, floor, role, ...GRUNDRISS_STYLE[role] }
       : { id, kind: 'draw', pts, floor, color, width, ...draftAttachments.current,
           dashed: dashed || undefined, ...(marker ? { marker } : {}), ...(lineArrow ? { arrow: true } : {}) }
-    addRef.current(anno)
-    // a stroke that ENDED on a Trupp's chip is that Trupp's Leitung — both ends are reported,
-    // because either of them may be the coupling (see Whiteboard · Props.onLineAttached)
-    for (const a of [anno.startAttachment, anno.endAttachment]) if (a) onLineAttached?.(id, a)
+    // ⚠️ the hose and the Trupp link its end makes are ONE ↶ step (hunt 24.11.2026,
+    // frontend-state F5): the link's own step joins this group
+    const endStep = historyGroup?.() ?? (() => {})
+    try {
+      addRef.current(anno)
+      // a stroke that ENDED on a Trupp's chip is that Trupp's Leitung — both ends are reported,
+      // because either of them may be the coupling (see Whiteboard · Props.onLineAttached)
+      for (const a of [anno.startAttachment, anno.endAttachment]) if (a) onLineAttached?.(id, a)
+    } finally { endStep() }
     // the jump-back aims at the line's FIRST node: a Leitung can run across two floors, and the
     // end it was started from is the end the operator was standing at when the row was written
     const W = appConfig.copy.whiteboard

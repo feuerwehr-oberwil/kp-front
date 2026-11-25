@@ -95,7 +95,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import audit
-from ..alarms import open_pooled_alarm
+from ..alarms import ParkedAlarm, open_pooled_alarm
 from ..auth.cookies import TERMINAL_COOKIE, set_link_cookie, set_terminal_cookie
 from ..auth.dependencies import CurrentAdmin, CurrentEditor
 from ..auth.incident_link import (
@@ -488,6 +488,22 @@ async def open_terminal_session(
     return await _terminal_answer(key, body.incident_id, response, db)
 
 
+def _awaiting_answer(parked: ParkedAlarm, chosen: str | None, response: Response, key: str) -> dict:
+    """The alarm waits for the EL (alarms · ParkedAlarm). The phone polls this answer and opens the
+    Einsatz the moment the EL assigns the alarm (its pool row then names it). Until then it shows
+    the running Einsätze, `original` the oldest; a tapped one (`chosen`) opens on this phone – the
+    authority the link always had, now a choice the responder makes instead of a guess."""
+    for inc in parked.running:
+        if str(inc.id) == chosen:
+            set_link_cookie(response, create_link_session_token(str(inc.id), key))
+            return {"incident_id": str(inc.id)}
+    return {
+        "status": "awaiting",
+        "candidates": [_candidate(i) for i in parked.running],
+        "original": str(parked.running[0].id),
+    }
+
+
 @router.post("/session")
 async def open_link_session(body: LinkTokenIn, response: Response, db: AsyncSession = Depends(get_db)) -> dict:
     """Trade a link token minted by the alerting system for a link-session cookie.
@@ -498,7 +514,8 @@ async def open_link_session(body: LinkTokenIn, response: Response, db: AsyncSess
     alerting system never has to learn our incident UUIDs to link to one.
     """
     # One door, five kinds of link — the SPA forwards whatever stood in `/l/<…>` and does not
-    # need to know which it is holding. Only the standing kinds read `incident_id`.
+    # need to know which it is holding. The standing kinds read `incident_id`, and so does an
+    # alarm link whose alarm waits for the EL (the Einsatz the responder picked, `_awaiting_answer`).
     if body.token.startswith(VIEW_TOKEN_PREFIX):
         return await _open_view_session(body.token, response, db)
     if body.token.startswith(ATEMSCHUTZ_TOKEN_PREFIX):
@@ -552,7 +569,10 @@ async def open_link_session(body: LinkTokenIn, response: Response, db: AsyncSess
             # is the whole point of the exchange: the link must not depend on someone else having
             # picked the alarm up on a tablet first (production, 2026-08-02). The lookup is
             # source-agnostic and lives in `alarms`, so nothing here learns what Divera is.
-            inc = await open_pooled_alarm(db, source=src, ref=str(ref))
+            pooled = await open_pooled_alarm(db, source=src, ref=str(ref), may_open=body.incident_id is None)
+            if isinstance(pooled, ParkedAlarm):
+                return _awaiting_answer(pooled, body.incident_id, response, key)
+            inc = pooled
     if inc is None or not inc.is_open:
         # Unknown, archived, or already closed — one answer for all three (no probing). An
         # alarm that no pool knows either falls in here, indistinguishable from the rest.

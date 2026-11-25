@@ -38,7 +38,8 @@ export const SHAPE_DEFS: Record<ShapeKind, { defaultColor: string; defaultSizeM:
 export const ROTATION_PREVIEW_ASPECT = 0.42
 
 /**
- * How wide a shape may be drawn ON SCREEN, in px, per kind.
+ * How wide a shape may be drawn on the KROKI (print raster and its preview), in px, per kind. The
+ * live map draws shapes ground-true without a ceiling (lib/mapView · groundShapePx, 24.11.2026).
  *
  * ⚠️ 900 is the general ceiling and it is what made a long Rotation impossible: the loop's METRES
  * grew with the drag, but its rendered width stopped at 900 px, so past that the shape simply

@@ -1,5 +1,5 @@
 import { appConfig } from '../config/appConfig'
-import { safetyMissing } from '../lib/atemschutz'
+import { safetyMissing, truppHeadName } from '../lib/atemschutz'
 import { fillTemplate } from '../lib/format'
 import { useMeldung } from '../lib/useMeldung'
 import type { Trupp } from '../types'
@@ -19,7 +19,10 @@ export function SafetyMissingMeldung({ trupps, onGoToBoard }: {
 }) {
   const az = appConfig.copy.atemschutz
   const inside = safetyMissing(trupps)
-  const names = inside.map((t) => (typeof t.no === 'number' ? fillTemplate(az.truppTerm, { name: String(t.no) }) : t.name)).join(', ')
+  // ⚠️ Named as the clock rows name them (atemschutz · truppHeadName), never «Trupp 2» (hunt
+  // 24.11.2026, ux-3am F1, owner pick «Namen in der Meldung»): the row under this warning says
+  // «Bachmann Reto», and with three crews inside nobody should have to recall which number is whose.
+  const names = inside.map(truppHeadName).join(', ')
   useMeldung(inside.length ? {
     id: 'safety:missing',
     kind: 'safety',

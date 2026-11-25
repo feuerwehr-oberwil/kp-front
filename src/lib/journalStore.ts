@@ -6,7 +6,7 @@ import { ApiError, apiBeacon, apiGet, apiPost, LONG_POLL_TIMEOUT_MS } from './ap
 import { idbDel, idbKeys, idbRead, idbSet } from './idb'
 import { journalSlot as KEY, legacyJournalSlot as LEGACY_KEY } from './journalSlots'
 import { newId } from './ids'
-import { rowPhotos, swapUrl } from './verlauf'
+import { rowPhotos, swapUrl, type PhotoSlot } from './verlauf'
 import type { TimelineEvent } from '../types'
 import type { SyncStatus } from './api/workspaceSync'
 import { isIncidentClosedRefusal, refusalClosedAt, reportIncidentClosed } from './incidentClosed'
@@ -148,6 +148,51 @@ export function chronological(rows: readonly TimelineEvent[]): TimelineEvent[] {
     })
     .sort((a, b) => b.key - a.key)
     .map((d) => d.row)
+}
+
+/**
+ * The Verlauf as it reads: enrichment patches folded onto their rows (corrections with their
+ * first wording, transcripts, media URLs), patch rows hidden, retracted rows gone – in the order
+ * given. The KP's store (`display`) and every other reader of raw rows go through this ONE fold;
+ * ⚠️ the QR-Erfassung printed the raw rows and so put corrected and withdrawn statements on
+ * paper (hunt 24.11.2026, records-rapport F4).
+ */
+export function foldJournalRows(out: readonly TimelineEvent[]): TimelineEvent[] {
+  // fold enrichment patches onto their targets, hide the patch rows
+  const patched = new Map(out.filter((r) => !r.patchOf).map((r) => [r.id, r]))
+  for (const p of out) {
+    if (!p.patchOf) continue
+    const target = patched.get(p.patchOf)
+    if (!target || target.id.startsWith('sys')) continue // server boundaries cannot be corrected by a client patch
+    const { id: _i, t: _t, at: _a, icon: _ic, text: _tx, patchOf: _p, textEdit, transcriptSection, transcriptSectionEdit, ...fields } = p
+    const folded = patched.get(p.patchOf)!
+    patched.set(target.id, {
+      ...folded,
+      ...fields,
+      // a text correction rides in `textEdit` (patch rows carry a filler text: '') — and the
+      // patch's own time comes along as `correctedAt`, so the Verlauf can say the line was
+      // corrected instead of silently showing different words than were written (see types).
+      // `textOriginal` keeps the FIRST wording across any number of corrections — the printed
+      // rapport shows original + latest and skips the intermediates.
+      ...(textEdit ? { text: textEdit, correctedAt: p.at, textOriginal: folded.textOriginal ?? folded.text } : {}),
+      // transcript sections ACCUMULATE (each patch carries one; its id addresses the section),
+      // sorted by offset so the subtitle list reads in recording order however they arrived
+      ...(transcriptSection
+        ? { transcriptSections: [...(folded.transcriptSections ?? []), { id: p.id, ...transcriptSection }].sort((a, b) => a.at - b.at) }
+        : {}),
+      // …and an edit REPLACES one section's words in place (empty text removes it). No
+      // «korrigiert» mark: the recording is the original; its transcription may be fixed.
+      ...(transcriptSectionEdit
+        ? {
+            transcriptSections: (folded.transcriptSections ?? [])
+              .map((s) => (s.id === transcriptSectionEdit.id ? { ...s, text: transcriptSectionEdit.text } : s))
+              .filter((s) => s.text.trim() !== ''),
+          }
+        : {}),
+    })
+  }
+  // retracted rows fold out entirely (the record keeps original + retraction)
+  return out.filter((r) => !r.patchOf).map((r) => patched.get(r.id)!).filter((r) => !r.retracted)
 }
 
 export class JournalStore {
@@ -326,6 +371,9 @@ export class JournalStore {
    *  the clear would un-apply once the outbox copy is replaced by the server row). */
   appendPatch(targetId: string, fields: Partial<Pick<TimelineEvent, 'transcript' | 'transcriptSection' | 'transcriptSectionEdit' | 'audioUrl' | 'photoUrl' | 'photoUrls' | 'photoGeo' | 'textEdit' | 'retracted'>>) {
     const at = new Date().toISOString()
+    // a server URL supersedes the session one: the overlay would keep winning in display() and
+    // point the player at a blob: the media queue revokes once the link is acknowledged
+    if (fields.audioUrl && !isBlob(fields.audioUrl)) this.dropOverlayField(targetId, 'audioUrl')
     const clean = Object.fromEntries(Object.entries(fields).map(([k, v]) => [k, v ?? '']))
     // two patches for one target can land in the same millisecond — on one device (newId's
     // counter) or on two (its random tail; a per-store counter restarted at 0 on each, 24.09.2026)
@@ -341,16 +389,17 @@ export class JournalStore {
   /**
    * One picture of a row settled — an upload finished (`to` = server URL) or a queued capture
    * was restored after a reload (`to` = fresh blob: URL). Replaces THAT url and keeps the row's
-   * other pictures.
+   * other pictures. A `from` the row no longer lists (its session died) goes back to `place`, its
+   * place as captured (verlauf · swapUrl) — else to the end.
    *
    * The row's current photos are read from the store HERE rather than passed in: between the
    * capture and the upload landing, a caller-captured copy is stale (a React callback holds the
    * rows array of whichever render created it), and folding a one-element list over the row is
    * how a three-photo entry ends up printing one picture.
    */
-  swapPhoto(targetId: string, from: string, to: string) {
+  swapPhoto(targetId: string, from: string, to: string, place?: PhotoSlot) {
     const cur = this.display().find((r) => r.id === targetId)
-    const next = swapUrl(rowPhotos(cur ?? {}), from, to)
+    const next = swapUrl(rowPhotos(cur ?? {}), from, to, place)
     // pending pictures live in the overlay; once they have all uploaded it must go, or the
     // stale session list would keep winning over the patch in display()
     if (next.some(isBlob)) this.overlaySession(targetId, { photoUrls: next })
@@ -361,9 +410,13 @@ export class JournalStore {
   }
 
   private dropOverlayPhotos(id: string) {
+    this.dropOverlayField(id, 'photoUrls')
+  }
+
+  private dropOverlayField(id: string, field: 'photoUrls' | 'audioUrl') {
     const cur = this.overlay.get(id)
-    if (!cur || !('photoUrls' in cur)) return
-    const { photoUrls: _dropped, ...rest } = cur
+    if (!cur || !(field in cur)) return
+    const { [field]: _dropped, ...rest } = cur
     if (Object.keys(rest).length) this.overlay.set(id, rest)
     else this.overlay.delete(id)
   }
@@ -599,41 +652,7 @@ export class JournalStore {
     for (const r of this.legacy) push(r)
     for (const r of this.state.outbox) push(r)
     for (const r of this.state.dead ?? []) push(r)
-    // fold enrichment patches onto their targets, hide the patch rows
-    const patched = new Map(out.filter((r) => !r.patchOf).map((r) => [r.id, r]))
-    for (const p of out) {
-      if (!p.patchOf) continue
-      const target = patched.get(p.patchOf)
-      if (!target || target.id.startsWith('sys')) continue // server boundaries cannot be corrected by a client patch
-      const { id: _i, t: _t, at: _a, icon: _ic, text: _tx, patchOf: _p, textEdit, transcriptSection, transcriptSectionEdit, ...fields } = p
-      const folded = patched.get(p.patchOf)!
-      patched.set(target.id, {
-        ...folded,
-        ...fields,
-        // a text correction rides in `textEdit` (patch rows carry a filler text: '') — and the
-        // patch's own time comes along as `correctedAt`, so the Verlauf can say the line was
-        // corrected instead of silently showing different words than were written (see types).
-        // `textOriginal` keeps the FIRST wording across any number of corrections — the printed
-        // rapport shows original + latest and skips the intermediates.
-        ...(textEdit ? { text: textEdit, correctedAt: p.at, textOriginal: folded.textOriginal ?? folded.text } : {}),
-        // transcript sections ACCUMULATE (each patch carries one; its id addresses the section),
-        // sorted by offset so the subtitle list reads in recording order however they arrived
-        ...(transcriptSection
-          ? { transcriptSections: [...(folded.transcriptSections ?? []), { id: p.id, ...transcriptSection }].sort((a, b) => a.at - b.at) }
-          : {}),
-        // …and an edit REPLACES one section's words in place (empty text removes it). No
-        // «korrigiert» mark: the recording is the original; its transcription may be fixed.
-        ...(transcriptSectionEdit
-          ? {
-              transcriptSections: (folded.transcriptSections ?? [])
-                .map((s) => (s.id === transcriptSectionEdit.id ? { ...s, text: transcriptSectionEdit.text } : s))
-                .filter((s) => s.text.trim() !== ''),
-            }
-          : {}),
-      })
-    }
-    // retracted rows fold out of display entirely (the record keeps original + retraction)
-    const rows = out.filter((r) => !r.patchOf).map((r) => patched.get(r.id)!).filter((r) => !r.retracted)
+    const rows = foldJournalRows(out)
     // session overlay last (blob: URLs beat everything for display)
     const withOverlay = rows.map((r) => (this.overlay.has(r.id) ? { ...r, ...this.overlay.get(r.id) } : r))
     // reverse first (newest-first, `seq` within), then order by written time — the reverse is

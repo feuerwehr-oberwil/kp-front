@@ -1737,7 +1737,7 @@ export function AtemschutzView({
             {phoneIn.length > 0 && (
               <>
                 <div className={s.sect}><span className={s.sectTitle}>{az.phoneSectionIn}</span><span className={s.sectCount}>{phoneIn.length}</span></div>
-                <div className={s.rowList}>{cards(phoneIn)}</div>
+                <div className={cx(s.rowList, s.rowListIn)}>{cards(phoneIn)}</div>
               </>
             )}
             {/* the Sicherungstrupp keeps ONE place: under the crews inside, above everybody else —

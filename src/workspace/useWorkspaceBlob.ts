@@ -68,7 +68,6 @@ export interface UseWorkspaceBlobInputs {
   setPlanHistory: Dispatch<SetStateAction<BoardHistory>>
   lastReportStepRef: RefObject<{ key: string; at: number } | null>
   lastCaptionStepRef: RefObject<{ key: string; at: number; from: string | undefined; drop: () => void } | null>
-  lastReorientRef: RefObject<{ at: number; from: BuildingDoc; drop: () => void } | null>
   setSelectedId: Dispatch<SetStateAction<string | null>>
   setSelectedDrawingId: Dispatch<SetStateAction<string | null>>
   setSelectedDrawIds: Dispatch<SetStateAction<string[]>>
@@ -104,7 +103,7 @@ export function useWorkspaceBlob({
   setChecklists, setTrupps, setAttendance, setMittel, setShifts, setBands, setCameraViews, setTrails,
   setPlanScale, setReportMeta, setAttachments, setReportSignatures, setIncidentSettings, setPlanBindings, setPickedObjectId,
   setIntakeReviewedAt, undoHist, setUndoTopLost, liveWs, liveObjects, boardRef, getFits, rebaseObjects, replaceObjects,
-  setPlanHistory, lastReportStepRef, lastCaptionStepRef, lastReorientRef, setSelectedId, setSelectedDrawingId,
+  setPlanHistory, lastReportStepRef, lastCaptionStepRef, setSelectedId, setSelectedDrawingId,
   setSelectedDrawIds, objects, recent, activePlanId, pickedObjectId, building, vehicleOverrides,
   checklists, allTrupps, attendance, mittel, shifts, bands, cameraViews, trails, planScale, reportMeta,
   attachments, reportSignatures, incidentSettings, planBindings, intakeReviewedAt, layers,
@@ -216,12 +215,12 @@ export function useWorkspaceBlob({
     // every marker on it would read as «vanished» and the merge would ghost the whole picture.
     // Through a ref, because the hook that owns it is declared further down this component.
     ghostReseedRef.current?.()
-    // …and every OPEN fold window with them — the Rapport's typing burst, the Bildlegende, the
-    // Gebäude-Drehung (the plan sheet-step token is re-opened by the store itself when its step
-    // went, useObjectStore · rebaseObjects). A burst still collecting points at a state the merge has replaced:
+    // …and every OPEN fold window with them — the Rapport's typing burst, the Bildlegende (the
+    // plan sheet-step token is re-opened by the store itself when its step went, useObjectStore ·
+    // rebaseObjects). A burst still collecting points at a state the merge has replaced:
     // folding the next write into it would write a pre-merge value back, and — worse — lay no
     // step of its own, so the edit that followed a merge would be the one thing with no way back.
-    lastReportStepRef.current = null; lastCaptionStepRef.current = null; lastReorientRef.current = null
+    lastReportStepRef.current = null; lastCaptionStepRef.current = null
     // Drop any selection pointing at an entity/drawing that no longer exists after the merge.
     setSelectedId((id) => (id && next.doc.entities.some((e) => e.id === id) ? id : null))
     setSelectedDrawingId((id) => (id && next.doc.drawings.some((d) => d.id === id) ? id : null))

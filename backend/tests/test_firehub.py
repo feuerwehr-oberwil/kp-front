@@ -208,3 +208,26 @@ async def test_firehub_end_for_unknown_operation_is_noop(client, alarm_secret, d
 
     # nothing was created for an operation we never opened
     assert (await db_session.execute(select(Incident))).scalars().all() == []
+
+
+async def test_an_end_decided_on_a_stale_read_does_not_stamp_twice(client, alarm_secret, db_session, session_factory):
+    """Hunt 24.11.2026, access-control F2: two concurrent end deliveries both read `closed_at`
+    empty; the second overwrote the first stamp and wrote a second end row. The handler now
+    re-reads the incident under its lock – a stale copy in hand decides nothing."""
+    from app.api.firehub import _handle_end
+
+    start = await _post(client, firehub_payload())
+    incident_id = uuid.UUID(start.json()["incident_id"])
+    stale = await db_session.get(Incident, incident_id)  # in hand, closed_at still empty
+    assert stale.closed_at is None
+    first = datetime.now(UTC) - timedelta(minutes=1)
+    async with session_factory() as other:  # the other delivery commits its stamp meanwhile
+        (await other.get(Incident, incident_id)).closed_at = first
+        await other.commit()
+
+    out = await _handle_end(db_session, "42")  # opsID of firehub_payload()
+    await db_session.commit()
+    assert out["stamped"] is False
+    db_session.expire_all()
+    inc = await db_session.get(Incident, incident_id)
+    assert inc.closed_at.replace(tzinfo=None) == first.replace(tzinfo=None)

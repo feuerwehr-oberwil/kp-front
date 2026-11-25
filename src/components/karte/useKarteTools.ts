@@ -30,7 +30,9 @@ export function useKarteTools(initial: Tool) {
     if (keys) primeKeyboard()
     setErgKeys(keys)
   }
-  /** arm `t`, or disarm it when it is the armed one; Gefahrgut without a centre yet takes `at()` */
+  /** arm `t`, or disarm it when it is the armed one; Gefahrgut without a centre yet takes `at()`.
+   *  ⚠️ Opening Gefahrgut re-reads the clock (hunt 24.11.2026, karte F3): reopened after sunset with
+   *  the same number, the ring kept the daytime protection distance while the panel said «Nacht». */
   const toggleTool = (t: Tool, at: () => LngLat) => {
     setToolState((cur) => {
       const next = cur === t ? null : t
@@ -38,7 +40,7 @@ export function useKarteTools(initial: Tool) {
       return next
     })
     setViewsOpen(false)
-    if (t === 'erg' && !erg.center) setErg((e) => ({ ...e, center: at(), at: new Date() }))
+    if (t === 'erg' && tool !== 'erg') setErg((e) => ({ ...e, center: e.center ?? at(), at: new Date() }))
   }
   return { tool, setToolState, toggleTool, measure, erg, setErg, viewsOpen, setViewsOpen, ergKeys, keysFor }
 }

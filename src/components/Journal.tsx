@@ -257,7 +257,7 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
 
   // A state the app re-states («Trupp X überfällig» every few seconds, an undo tapped six times)
   // reads as one line that repeated, not as twenty lines. Display only — see lib/verlauf.
-  const repeats = useMemo(() => repeatRuns(events), [events])
+  const repeats = useMemo(() => repeatRuns(events, closedAt), [events, closedAt])
 
   // ── the log, grouped once and mounted in pages ──
   // Grouping and the repeat filter run once per timeline, not per render — the drawer re-renders

@@ -51,6 +51,9 @@ interface MapDrawingDeps {
    *  drag-off. Handed up with the coupling it HAD, so the workspace can drop the Trupp link that
    *  coupling made (useTruppActions · unlinkLineFromDetachedTrupp). */
   onLineDetached?: (lineId: string, previous: LineAttachment) => void
+  /** open ONE ↶ step over several writes (lib/undoTimeline · group) — a new hose and the Trupp link
+   *  its end makes are one act; returns its end */
+  historyGroup?: () => () => void
   /** switch a layer this device has off back on – a drawing lands on «Skizzen & Notizen»
    *  (IncidentWorkspace · revealLayer, rare-user round 17.11.2026 F3) */
   revealLayer?: (id: string) => void
@@ -73,7 +76,7 @@ export function useMapDrawing(deps: MapDrawingDeps) {
   const {
     drawings, resolvedDrawings = drawings, selectedDrawingId, tacticalLocked, tool, setTool,
     commit, setDocRaw, beginDrag, endDrag, emit, log,
-    setSelectedDrawingId, setSelectedId, setSelectedDrawIds, setSelectedEntityIds, onLineAttached, onLineDetached, stepLabelRef, revealLayer,
+    setSelectedDrawingId, setSelectedId, setSelectedDrawIds, setSelectedEntityIds, onLineAttached, onLineDetached, historyGroup, stepLabelRef, revealLayer,
   } = deps
 
   const [draft, setDraftRaw] = useState<LngLat[]>([])
@@ -135,20 +138,25 @@ export function useMapDrawing(deps: MapDrawingDeps) {
       ...(drawMarker ? { marker: drawMarker } : {}), ...(drawArrow ? { arrow: true } : {}), ...attachments,
       ...(opts?.props?.hose ? { hose: opts.props.hose } : {}), ...(opts?.props?.relay ? { relay: opts.props.relay } : {}),
     }
-    commit((d) => ({ ...d, drawings: [...d.drawings, drawing] }))
-    revealLayer?.(appConfig.defaults.drawingLayerId)
-    // named by drawingLogName, so «Rettungsachse gezeichnet» opens what «Rettungsachse gelöscht»
-    // closes — before 31.08. every line, whatever it was drawn with, opened on «Zeichnung erstellt»
-    log('pen', fillTemplate(appConfig.copy.log.shapeDrawn, { name: drawingLogName(drawing) }), 'symbol', undefined, undefined, { subjectId: id }); emit('draw.add', { id, kind: 'line', drawing })
-    // a Wassertransport adopted from Messen arrives with the pump warnings it already stands on –
-    // they appear NOW, so they are noted now (later edits note only the ones they bring)
-    const warnings = pumpWarningRows(null, drawing)
-    if (warnings.length) {
-      log('pen', fillTemplate(appConfig.copy.log.entityEdited, { name: drawingLogName(drawing), changes: warnings.join(', ') }), 'symbol', undefined, undefined, { subjectId: id })
-    }
-    // a stroke that ENDED on a Trupp's marker is that Trupp's Leitung — reported for both ends,
-    // because either of them may be the coupling (see MapDrawingDeps · onLineAttached)
-    for (const a of [attachments?.startAttachment, attachments?.endAttachment]) if (a) onLineAttached?.(id, a)
+    // ⚠️ the hose and the Trupp link its end makes are ONE ↶ step (hunt 24.11.2026,
+    // frontend-state F5): the link's own step joins this group
+    const endStep = historyGroup?.() ?? (() => {})
+    try {
+      commit((d) => ({ ...d, drawings: [...d.drawings, drawing] }))
+      revealLayer?.(appConfig.defaults.drawingLayerId)
+      // named by drawingLogName, so «Rettungsachse gezeichnet» opens what «Rettungsachse gelöscht»
+      // closes — before 31.08. every line, whatever it was drawn with, opened on «Zeichnung erstellt»
+      log('pen', fillTemplate(appConfig.copy.log.shapeDrawn, { name: drawingLogName(drawing) }), 'symbol', undefined, undefined, { subjectId: id }); emit('draw.add', { id, kind: 'line', drawing })
+      // a Wassertransport adopted from Messen arrives with the pump warnings it already stands on –
+      // they appear NOW, so they are noted now (later edits note only the ones they bring)
+      const warnings = pumpWarningRows(null, drawing)
+      if (warnings.length) {
+        log('pen', fillTemplate(appConfig.copy.log.entityEdited, { name: drawingLogName(drawing), changes: warnings.join(', ') }), 'symbol', undefined, undefined, { subjectId: id })
+      }
+      // a stroke that ENDED on a Trupp's marker is that Trupp's Leitung — reported for both ends,
+      // because either of them may be the coupling (see MapDrawingDeps · onLineAttached)
+      for (const a of [attachments?.startAttachment, attachments?.endAttachment]) if (a) onLineAttached?.(id, a)
+    } finally { endStep() }
     // `select: false` = «Speichern» on a drawing being left (settleDraft) — see the note on createArea
     if (opts?.select !== false) { setTool('select'); setSelectedDrawingId(id); setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedId(null) }
     return drawing
@@ -444,16 +452,20 @@ export function useMapDrawing(deps: MapDrawingDeps) {
     if (tacticalLocked) return
     const key = endpoint === 'start' ? 'startAttachment' : 'endAttachment'
     const previous = drawings.find((dr) => dr.id === id)?.[key]
-    commit((d) => ({ ...d, drawings: d.drawings.map((dr) => {
-      if (dr.id !== id || dr.kind !== 'line' || dr.coords.length < 2) return dr
-      const coords = dr.coords.map((p, i) => i === (endpoint === 'start' ? 0 : dr.coords.length - 1) ? fallback : p)
-      return { ...dr, coords, [key]: attachment }
-    }) }))
-    emit(attachment ? 'draw.attach' : 'draw.detach', { id, endpoint, attachment, fallback })
-    // …and an end dragged ONTO a Trupp's marker joins the two, exactly as a fresh stroke's does –
-    // and an end let go of that marker parts them again
-    if (attachment) onLineAttached?.(id, attachment)
-    else if (previous) onLineDetached?.(id, previous)
+    // the end's new coupling and the Trupp link it makes or parts are ONE ↶ step (review of #742)
+    const endStep = historyGroup?.() ?? (() => {})
+    try {
+      commit((d) => ({ ...d, drawings: d.drawings.map((dr) => {
+        if (dr.id !== id || dr.kind !== 'line' || dr.coords.length < 2) return dr
+        const coords = dr.coords.map((p, i) => i === (endpoint === 'start' ? 0 : dr.coords.length - 1) ? fallback : p)
+        return { ...dr, coords, [key]: attachment }
+      }) }))
+      emit(attachment ? 'draw.attach' : 'draw.detach', { id, endpoint, attachment, fallback })
+      // …and an end dragged ONTO a Trupp's marker joins the two, exactly as a fresh stroke's does –
+      // and an end let go of that marker parts them again
+      if (attachment) onLineAttached?.(id, attachment)
+      else if (previous) onLineDetached?.(id, previous)
+    } finally { endStep() }
   }
 
   /**

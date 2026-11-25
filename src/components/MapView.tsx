@@ -28,8 +28,7 @@ import { centroid, rotateAround, turnedBy } from '../lib/selectionTransform'
 import { SelectionBar } from './SelectionBar'
 import { SelectionTurn } from './SelectionTurn'
 import { useArmedTransform } from '../lib/useArmedTransform'
-import { SHAPE_MAX_PX } from '../lib/shapes'
-import { EMPTY_STYLE, END_TAG_LABEL_STYLE, mapMaxZoom, vis, fc, lineFeat, polyFeat, pathSegmentCount, resumeViewState, shapePx, symPx, effectiveLayer, nativeDrawingChromeVisible, lineLabelAction } from '../lib/mapView'
+import { EMPTY_STYLE, END_TAG_LABEL_STYLE, mapMaxZoom, vis, fc, lineFeat, polyFeat, pathSegmentCount, resumeViewState, groundShapePx, shapeSizeM, symPx, effectiveLayer, nativeDrawingChromeVisible, lineLabelAction } from '../lib/mapView'
 import { TeilstueckFork, EndTag, hasLineDecor } from '../lib/lineDecor'
 import { WAND_MAP_PX } from '../lib/grundriss'
 import { cachedLabelSize, MARKER_Z } from '../lib/labelPass'
@@ -494,7 +493,7 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
       center = guarded.point as LngLat
     }
     const c = map.project(center), t = map.project(toward)
-    const size = e.kind === 'shape' ? shapePx(e.sizeM, e.coord[1], zoom, SHAPE_MAX_PX[e.shape ?? 'square'])
+    const size = e.kind === 'shape' ? groundShapePx(shapeSizeM(e), e.coord[1], zoom)
       : e.kind === 'team' ? 56 : e.kind === 'note' || e.kind === 'photo' ? 56 : symPx(e.kind, e.coord[1], zoom, symMul)
     // negative padding = the endpoint lands just INSIDE the glyph, so the stroke disappears
     // under the marker instead of stopping short of it (see attachInsetPx)
@@ -1251,7 +1250,8 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
         // source's error at the map with the `sourceId` it belongs to (style.ts · setEventedParent);
         // react-map-gl's ErrorEvent type does not carry it, hence the structural read.
         const sourceId = (e as { sourceId?: string }).sourceId
-        if (sourceId && !navigator.onLine && layers.some((l) => l.base && `s-${l.id}` === sourceId)) onBasemapUnavailable?.()
+        // …the night variant included (`s-<id>-night`, MapLayers): at night it is the base on screen
+        if (sourceId && !navigator.onLine && layers.some((l) => l.base && (`s-${l.id}` === sourceId || `s-${l.id}-night` === sourceId))) onBasemapUnavailable?.()
       }}
       onClick={handleClick}
       // ⚠️ BOTH fill layers. `l-draw-hit` is line-only, so a polygon's INTERIOR is picked through
@@ -1368,8 +1368,8 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
       // beats a soft base there (owner on #383). The raster SOURCES keep their own native `maxzoom`
       // (MapLayers), so past it MapLibre stretches the last tile level. The Karte asks for the
       // visible base's last SHARP level instead (`zoomCapAtBase`, lib/mapView · mapMaxZoom); a base
-      // that ends sooner (OSM) then clamps the view. Symbols are pinned by symPx's band and a Form
-      // by shapePx's ceiling, so nothing outgrows the screen on the extra step.
+      // that ends sooner (OSM) then clamps the view. Symbols are pinned by symPx's band; a Form is
+      // ground-true (lib/mapView · groundShapePx) and grows with the ground it covers.
       maxZoom={mapMaxZoom(layers.find((l) => l.base && isVisible(l.id)), zoomCapAtBase)}
     >
       <QuietAttributionControl />
@@ -1378,10 +1378,13 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
 
       {/* Literal georeferenced Modul sheets are separate from their symbol projections. Ebenen
           owns visibility + transparency; they sit above the basemap and below every tactical
-          object, exactly like a reference raster rather than like an editable surface. */}
-      {!georefOn && georefPlanRasters.map((p, i) => (
-        <Source key={p.id} id={`s-georef-plan-${i}`} type="image" url={p.url} coordinates={p.coordinates}>
-          <Layer id={`l-georef-plan-${i}`} type="raster"
+          object, exactly like a reference raster rather than like an editable surface.
+          ⚠️ The MapLibre ids follow the SHEET, like the React key (hunt 24.11.2026, karte F5): by
+          array index, hiding the first of two sheets renamed the second's source under the same
+          key, and react-maplibre throws «source id changed» – the workspace crashed. */}
+      {!georefOn && georefPlanRasters.map((p) => (
+        <Source key={p.id} id={`s-georef-plan-${p.id}`} type="image" url={p.url} coordinates={p.coordinates}>
+          <Layer id={`l-georef-plan-${p.id}`} type="raster"
             paint={{ 'raster-opacity': p.opacity, 'raster-fade-duration': 0 }} />
         </Source>
       ))}

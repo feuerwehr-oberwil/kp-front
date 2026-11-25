@@ -4,7 +4,7 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { MapDetailPanels, type MapDetailPanelsProps } from './MapDetailPanels'
 import { appConfig } from '../config/appConfig'
 import type { TacticalObject } from '../lib/tacticalObjects'
-import type { Drawing, Trupp } from '../types'
+import type { Drawing, Entity, Trupp } from '../types'
 
 /** Any input not named stands in as an inert, endlessly nestable stub (MapStage.test's helper). */
 const inert = (): unknown => new Proxy(() => undefined, {
@@ -92,5 +92,36 @@ describe('«Zum Trupp» in the Karte\'s Leitung editor', () => {
     mount({ ...hose, truppId: 't9' }, { effTrupps: [trupp], showTrupp, setSelectedDrawingId: vi.fn() })
     fireEvent.click(screen.getAllByRole('button', { name: D.truppShow })[0])
     expect(showTrupp).toHaveBeenCalledWith('t9')
+  })
+})
+
+// hunt 24.11.2026, frontend-state F4: «Zurück auf GPS» is offered for a hand position or heading
+// only – a Fahrer alone left it lit, and the reset then took the Fahrer away
+describe('«Zurück auf GPS» on a live vehicle', () => {
+  const C = appConfig.copy.contextPanel
+  const tlf: Entity = { id: 'v1', kind: 'symbol', layer: 'gps', symbol: 'TLF', label: 'TLF', coord: [7.6, 47.5], live: true }
+  const mountVehicle = (over: Partial<MapDetailPanelsProps>) => {
+    const resetVehicleGps = vi.fn()
+    render(<MapDetailPanels {...withInert<MapDetailPanelsProps>({
+      detailSlotFree: true, tacticalLocked: false, readOnly: false, tool: 'select', selected: tlf, noteEntity: null,
+      selectedDrawing: null, selectedDrawingId: null, drawings: [], entities: [tlf], effTrupps: [], rosterNames: [],
+      pickablePersonnel: [], objects: [], resetVehicleGps, canEditIncident: true, timeline: [],
+      sym: { byName: {}, symbols: [] } as unknown as MapDetailPanelsProps['sym'], doc: { entities: [tlf], drawings: [] },
+      rosterFieldHints: () => undefined, personStatus: () => undefined, rosterRank: {}, isVisible: () => true, ...over,
+    })} />)
+    const button = screen.getAllByRole('button', { name: C.resetGpsTitle })[0] as HTMLButtonElement
+    return { resetVehicleGps, button }
+  }
+
+  it('stays off for a vehicle whose only override is its Fahrer and Herkunft', () => {
+    const { button } = mountVehicle({ vehicleOverrides: { v1: { fahrer: 'Meier', herkunft: 'Oberwil' } } })
+    expect(button.disabled).toBe(true)
+  })
+
+  it('is on for a hand heading of 0°, and hands the reset to the one step writer', () => {
+    const { button, resetVehicleGps } = mountVehicle({ vehicleOverrides: { v1: { rotation: 0, fahrer: 'Meier' } } })
+    expect(button.disabled).toBe(false)
+    fireEvent.click(button)
+    expect(resetVehicleGps).toHaveBeenCalledWith('v1', 'TLF')
   })
 })
