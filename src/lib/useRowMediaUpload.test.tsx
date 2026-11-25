@@ -117,8 +117,14 @@ describe('useRowMediaUpload · Verlauf captures', () => {
   ] as const)('a %s is queued durably first, then sent through the queue', async (_kind, capture, args) => {
     vi.stubGlobal('fetch', async () => ({ blob: async () => new Blob(['bytes']) }))
     const { hook, media } = setup([])
-    await act(async () => { await capture(hook.result.current) })
+    // the store answers only when we say so: the upload must not be asked for before it has
+    let stored!: (ok: boolean) => void
+    media.enqueue.mockImplementationOnce(() => new Promise<boolean>((res) => { stored = res }))
+    let done!: Promise<unknown>
+    await act(async () => { done = Promise.resolve(capture(hook.result.current)) })
     expect(media.enqueue).toHaveBeenCalledWith(...args)
-    expect(media.enqueue.mock.invocationCallOrder[0]).toBeLessThan(media.flush.mock.invocationCallOrder[0])
+    expect(media.flush).not.toHaveBeenCalled()
+    await act(async () => { stored(true); await done })
+    expect(media.flush).toHaveBeenCalled()
   })
 })
