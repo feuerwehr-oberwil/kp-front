@@ -24,7 +24,6 @@ export const materialCopy: Localizable<Pick<Copy, 'mittel' | 'checklists'>> = {
     categoryOther: 'Other',
     customGroup: 'Additional',
     noch: '{n} left',
-    stockAria: '{label}: {remaining} of {total} left',
     emptyTitle: 'No material recorded yet.',
     emptyHint: 'Use «+ Material» to record what was used.',
     emptyReadonly: 'No material recorded yet.',
@@ -72,6 +71,8 @@ export const materialCopy: Localizable<Pick<Copy, 'mittel' | 'checklists'>> = {
     notePlaceholder: 'e.g. handed over to the works depot',
     viewBySourceWord: 'Used',
     customMaterialWord: 'Other',
+    stockLeft: '{n} of {total} left',
+    stockOver: '{n} more than stocked',
   },
   checklists: {
     railLabel: 'Checklists',
