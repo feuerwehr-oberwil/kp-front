@@ -2,10 +2,10 @@ import { ShellLoader } from '../components/ShellLoader'
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { AlarmGroup, DeploymentConfig, FleetVehicle } from '../lib/deploymentConfig'
 import { legacyFleetToAttributeLists, DEFAULT_MODULES, OFFLINE_RADIUS_M } from '../lib/deploymentConfig'
-import { CONTACT_BOUNDS } from '../lib/workspace'
 import { geoDatasetId, geoLayerUrl, inspectGeojson, listReference, uploadReference, type ReferenceDataset } from '../lib/incidents'
 import { ApiError, apiGet } from '../lib/api'
-import { useConfig, getPath, type ConfigPathTo } from './ConfigContext'
+import { useConfig, getPath } from './ConfigContext'
+import { ALARM_BAR_STATION_MIN, NUMBER_GUARDS, TEXT_MAX_LENGTH, type NumberField, type NumberGuard } from './configGuards'
 // No `Field` any more: every setting on these pages is a row of the settings table now, and
 // the list editors' records are a divider plus their fields as rows of the same grid.
 import {
@@ -54,31 +54,11 @@ function numStr(v: number | null | undefined): string {
   return v == null ? '' : String(v)
 }
 
-/**
- * What `backend/app/schemas.py` accepts in one number box.
- *
- * ⚠️ The config is ONE document with a 700 ms autosave, so a single 422 stops the autosave for
- * every Station page at once — the field being typed AND the four pages nobody is looking at.
- * Every bounded number is therefore checked against the real schema BEFORE it enters the draft:
- * a value the API would refuse stays in local state with a German line saying why, and the
- * stored value (plus every other section) is left alone meanwhile.
- *
- * ⚠️ `nullable` is the schema's `| None`, NOT «the box may be empty». `doctrine.*` is nullable —
- * clearing it goes back to the shipped doctrine. `report.hoursRounding.stepMin` and the two
- * numbers beside it are plain `int` with a default, always populated by the GET projection:
- * backspacing «30» to type «60» wrote `null` into a field that has no null and wedged the whole
- * document for as long as the box was empty.
- */
-export interface NumberGuard {
-  /** `int` on the backend — 8.5 is an `int_from_float` error there, not a rounding */
-  kind: 'int' | 'decimal'
-  min?: number
-  max?: number
-  /** the schema's `gt` rather than `ge` (doctrine.cylinderLiters: gt=0, le=30) */
-  exclusiveMin?: boolean
-  /** the schema accepts `null` here, so an empty box is a value rather than a refusal */
-  nullable?: boolean
-}
+// ⚠️ The config is ONE document with a 700 ms autosave, so a single 422 stops the autosave for
+// every Station page at once — the field being typed AND the four pages nobody is looking at.
+// Every bounded number is therefore checked against the real schema BEFORE it enters the draft
+// (the bounds: ./configGuards): a value the API would refuse stays in local state with a German
+// line saying why, and the stored value (plus every other section) is left alone meanwhile.
 
 /** The value to store, or `undefined` when the API would refuse it. */
 function guardedNumber(raw: string, g: NumberGuard): number | null | undefined {
@@ -103,7 +83,8 @@ function guardMessage(g: NumberGuard): string {
 }
 
 /**
- * A number box bound to a config path, following the rule above.
+ * A number box bound to one entry of `NUMBER_GUARDS` (its path and its bound), following the
+ * rule above. `narrow` tightens the bound at run time; it never widens it.
  *
  * A hook returning a plain JSX helper — NOT a nested component, which would remount on every
  * keystroke and lose the focus mid-typing. The typed text lives in one bag keyed by path, so a
@@ -113,10 +94,10 @@ function useNumberField() {
   const { draft, set } = useConfig()
   const [editing, setEditing] = useState<Record<string, string>>({})
   return function numberField(opts: {
-    path: ConfigPathTo<number>
+    field: NumberField
+    narrow?: Pick<NumberGuard, 'min' | 'max'>
     label: string
     tip?: string
-    guard: NumberGuard
     /** what the app runs on while the document stores nothing (the shipped doctrine) */
     fallback?: number
     placeholder?: string
@@ -129,30 +110,32 @@ function useNumberField() {
     /** Keep coupled fields valid when this accepted value changes their meaning. */
     onAccepted?: (value: number | null) => void
   }) {
-    const key = opts.path.join('.')
-    const stored = numStr(getPath(draft, opts.path) ?? opts.fallback)
+    const { path } = opts.field
+    const guard: NumberGuard = { ...opts.field, ...opts.narrow }
+    const key = path.join('.')
+    const stored = numStr(getPath(draft, path) ?? opts.fallback)
     const text = editing[key] ?? stored
-    const value = guardedNumber(text, opts.guard)
+    const value = guardedNumber(text, guard)
     // ⚠️ The DOCUMENT's value, not `text`: a half-typed number is not a deviation yet, and the
     // Standard column must not flicker on every keystroke.
-    const standard = standardNote(getPath(draft, opts.path), opts.standard ?? opts.fallback)
+    const standard = standardNote(getPath(draft, path), opts.standard ?? opts.fallback)
     return (
       <Fragment key={key}>
         <SettingRow label={opts.label} tip={opts.tip} standard={standard}>
           <input
             className="adm-input adm-input-mono adm-input-num"
             type="number"
-            step={opts.guard.kind === 'int' ? 1 : 'any'}
-            min={opts.guard.min} max={opts.guard.max}
+            step={guard.kind === 'int' ? 1 : 'any'}
+            min={guard.min} max={guard.max}
             placeholder={opts.placeholder}
             value={text}
             aria-invalid={value === undefined ? true : undefined}
             onChange={(e) => {
               const raw = e.target.value
               setEditing((s) => ({ ...s, [key]: raw }))
-              const v = guardedNumber(raw, opts.guard)
+              const v = guardedNumber(raw, guard)
               if (v !== undefined) {
-                set(opts.path, v)
+                set(path, v)
                 opts.onAccepted?.(v)
               }
               // else: the stored number stays as it is, and the warning below says why
@@ -160,7 +143,7 @@ function useNumberField() {
           />
         </SettingRow>
         {value === undefined && (
-          <SettingsNote tone="warn">{opts.message ?? guardMessage(opts.guard)}</SettingsNote>
+          <SettingsNote tone="warn">{opts.message ?? guardMessage(guard)}</SettingsNote>
         )}
       </Fragment>
     )
@@ -330,7 +313,7 @@ export function IdentitySection() {
         <input
           className="adm-input"
           type="text"
-          maxLength={8}
+          maxLength={TEXT_MAX_LENGTH['identity.shortName']}
           value={getPath(draft, ['identity', 'shortName']) ?? ''}
           onChange={(e) => set(['identity', 'shortName'], e.target.value || null)}
         />
@@ -547,9 +530,8 @@ export function MapSection() {
           A device slider in the Einstellungen until 13.11.2026 (owner pick PLACE.7). `int | None`
           on the backend, so an emptied box is the shipped 1200 m again. */}
       {numberField({
-        path: ['map', 'offlineRadiusM'], label: C.offlineRadius,
+        field: NUMBER_GUARDS['map.offlineRadiusM'], label: C.offlineRadius,
         tip: fillTemplate(C.offlineRadiusTip, { min: OFFLINE_RADIUS_M.min, max: OFFLINE_RADIUS_M.max }),
-        guard: { kind: 'int', min: OFFLINE_RADIUS_M.min, max: OFFLINE_RADIUS_M.max, nullable: true },
         fallback: OFFLINE_RADIUS_M.default,
       })}
     </SettingsSheet>
@@ -735,15 +717,10 @@ export function DoctrineSection() {
   // field must not be offerable for it.
   type NumericAtemschutzKey = { [K in keyof typeof appConfig.atemschutz]: typeof appConfig.atemschutz[K] extends number ? K : never }[keyof typeof appConfig.atemschutz]
   type DoctrineKey = keyof NonNullable<DeploymentConfig['doctrine']> & NumericAtemschutzKey
-  // A doctrine number field, wired to its config path. Grouped by type below so related knobs
-  // (Funk / Druck / Kontakt) sit together.
-  //
-  // ⚠️ Every one of these is `int | None` on the backend (schemas.py · DoctrineConfig), so an
-  // EMPTY box is a value — it goes back to the shipped doctrine — but «8.5» is not: pydantic
-  // refuses a fractional int (`int_from_float`) and that 422 takes the whole document with it.
-  // The box therefore steps by 1 and the value is checked before it enters the draft.
-  const numField = (label: string, tip: string, key: DoctrineKey, guard: NumberGuard = { kind: 'int', nullable: true }, message?: string) =>
-    numberField({ path: ['doctrine', key], label, tip, guard, message, fallback: appConfig.atemschutz[key] })
+  // A doctrine number field, wired to its config path and its bound (configGuards ·
+  // NUMBER_GUARDS). Grouped by type below so related knobs (Funk / Druck / Kontakt) sit together.
+  const numField = (label: string, tip: string, key: DoctrineKey, narrow?: Pick<NumberGuard, 'min' | 'max'>, message?: string) =>
+    numberField({ field: NUMBER_GUARDS[`doctrine.${key}`], narrow, label, tip, message, fallback: appConfig.atemschutz[key] })
 
   // The two default channels stay inside the station's own Funkkanal min/max – the range the
   // Trupp stepper offers. A 999 above a max of 99 was autosaved to every device (sweep F.4,
@@ -752,7 +729,6 @@ export function DoctrineSection() {
     min: getPath(draft, ['doctrine', 'funkkanalMin']) ?? appConfig.atemschutz.funkkanalMin,
     max: getPath(draft, ['doctrine', 'funkkanalMax']) ?? appConfig.atemschutz.funkkanalMax,
   }
-  const funkkanalGuard: NumberGuard = { kind: 'int', ...funkkanalRange, nullable: true }
 
   // ⚠️ A colour is stored as a KEY of `doctrine.auftragColors` (`dict[str, str] | None`), so
   // «Automatisch» has to REMOVE the key — writing `null` under it is a `string_type` 422, and it
@@ -762,7 +738,7 @@ export function DoctrineSection() {
   // The Alarmdruck this station runs on right now — the stored value, or the shipped one while
   // the box is empty. It is the ceiling of the Rückzug line below it (see there).
   const effectiveAlarmBar = getPath(draft, ['doctrine', 'alarmBar']) ?? appConfig.atemschutz.alarmBar
-  const rueckzugMax = Math.min(300, effectiveAlarmBar)
+  const rueckzugMax = Math.min(NUMBER_GUARDS['doctrine.alarmBarRueckzug'].max, effectiveAlarmBar)
 
   // The Rückzug line the operator actually CHOSE, as opposed to the one currently clamped into
   // the draft.
@@ -789,14 +765,14 @@ export function DoctrineSection() {
   return (
     <SettingsSheet>
       <SettingsGroup title={C.groupFunk} />
-      {numField(C.defaultFunkkanal, C.defaultFunkkanalTip, 'defaultFunkkanal', funkkanalGuard,
+      {numField(C.defaultFunkkanal, C.defaultFunkkanalTip, 'defaultFunkkanal', funkkanalRange,
         fillTemplate(C.funkkanalOutOfRange, funkkanalRange))}
       {/* not in appConfig.atemschutz (its shipped fallback is «same as defaultFunkkanal»),
           so it bypasses the numField helper: the placeholder shows the channel an empty box
           actually yields — the station's AS default, else the shipped one. */}
       {numberField({
-        path: ['doctrine', 'defaultFunkkanalEinfach'], label: C.defaultFunkkanalEinfach,
-        tip: C.defaultFunkkanalEinfachTip, guard: funkkanalGuard,
+        field: NUMBER_GUARDS['doctrine.defaultFunkkanalEinfach'], narrow: funkkanalRange,
+        label: C.defaultFunkkanalEinfach, tip: C.defaultFunkkanalEinfachTip,
         message: fillTemplate(C.funkkanalOutOfRange, funkkanalRange),
         fallback: getPath(draft, ['doctrine', 'defaultFunkkanal']) ?? appConfig.atemschutz.defaultFunkkanal,
       })}
@@ -819,12 +795,12 @@ export function DoctrineSection() {
           180 bar went through as entries). It sits under the fill pressure it is read against.
           0 is a real choice here — «never ask» — so the box takes it, unlike the alarm lines. */}
       {numField(C.entryPressureMin, fillTemplate(C.entryPressureMinTip, { n: appConfig.atemschutz.entryPressureMin }),
-        'entryPressureMin', { kind: 'int', min: 0, max: 300, nullable: true })}
+        'entryPressureMin')}
       {numberField({
-          path: ['doctrine', 'alarmBar'],
+          field: NUMBER_GUARDS['doctrine.alarmBar'],
           label: C.alarmBar,
           tip: isDemo ? C.alarmBarDemoTip : C.alarmBarTip,
-          guard: { kind: 'int', min: isDemo ? 0 : 1, max: 300, nullable: true },
+          narrow: { min: isDemo ? NUMBER_GUARDS['doctrine.alarmBar'].min : ALARM_BAR_STATION_MIN },
           fallback: appConfig.atemschutz.alarmBar,
           onAccepted: (value) => {
             // A zero Alarmdruck (demo only) switches both lines off; the intent is remembered,
@@ -846,12 +822,12 @@ export function DoctrineSection() {
           <input className="adm-input adm-input-mono adm-input-num" type="number" value="0" disabled />
         </SettingRow>
       ) : numberField({
-          path: ['doctrine', 'alarmBarRueckzug'],
+          field: NUMBER_GUARDS['doctrine.alarmBarRueckzug'],
           label: C.alarmBarRueckzug,
           tip: fillTemplate(C.alarmBarRueckzugTip, {
             n: Math.min(appConfig.atemschutz.alarmBarRueckzug, effectiveAlarmBar),
           }),
-          guard: { kind: 'int', min: 0, exclusiveMin: true, max: rueckzugMax, nullable: true },
+          narrow: { max: rueckzugMax },
           fallback: Math.min(appConfig.atemschutz.alarmBarRueckzug, effectiveAlarmBar),
           message: fillTemplate(C.alarmBarRueckzugInvalid, { max: rueckzugMax }),
           // Typing here IS the choice — it becomes the value a later Alarmdruck edit restores to.
@@ -861,9 +837,8 @@ export function DoctrineSection() {
       {numField(C.pressureMax, C.pressureMaxTip, 'pressureMax')}
 
       <SettingsGroup title={C.groupContact} />
-      {/* the station range of the contact clock (lib/workspace · CONTACT_BOUNDS, audit F02) */}
-      {numField(C.contactInterval, C.contactIntervalTip, 'contactIntervalMin', { kind: 'int', ...CONTACT_BOUNDS.contactIntervalMin, nullable: true })}
-      {numField(C.contactGrace, C.contactGraceTip, 'contactGraceSec', { kind: 'int', ...CONTACT_BOUNDS.contactGraceSec, nullable: true })}
+      {numField(C.contactInterval, C.contactIntervalTip, 'contactIntervalMin')}
+      {numField(C.contactGrace, C.contactGraceTip, 'contactGraceSec')}
 
       {/* The air estimate's two inputs. The app has read them from the config all along and the
           card says «geschätzt mit 7 L Flasche und 50 L/min», which reads like a station setting —
@@ -876,10 +851,8 @@ export function DoctrineSection() {
           le=200` (schemas.py · DoctrineConfig). A 0-litre cylinder is not a smaller cylinder,
           it is a division by zero in the estimate — which is why the API refuses it and why
           this box has to refuse it here, where the operator can still see what happened. */}
-      {numField(C.cylinderLiters, C.cylinderLitersTip, 'cylinderLiters',
-        { kind: 'decimal', min: 0, exclusiveMin: true, max: 30, nullable: true })}
-      {numField(C.estConsumption, C.estConsumptionTip, 'estConsumptionLPerMin',
-        { kind: 'decimal', min: 0, exclusiveMin: true, max: 200, nullable: true })}
+      {numField(C.cylinderLiters, C.cylinderLitersTip, 'cylinderLiters')}
+      {numField(C.estConsumption, C.estConsumptionTip, 'estConsumptionLPerMin')}
 
       {/* How far the auto-surfaced object may lie from the Einsatzadresse before the Plan warns
           «nicht die Einsatzadresse» (useObjectPlans · objectNearbyOnly). Not an Atemschutz
@@ -887,8 +860,8 @@ export function DoctrineSection() {
           box is held back like Rapport › Rundung instead of being sent. */}
       <SettingsGroup title={C.groupObject} />
       {numberField({
-        path: ['doctrine', 'nearbyObjectWarnM'], label: C.nearbyObjectWarnM, tip: C.nearbyObjectWarnMTip,
-        guard: { kind: 'int', min: 0, max: 500 }, fallback: appConfig.defaults.nearbyObjectWarnM,
+        field: NUMBER_GUARDS['doctrine.nearbyObjectWarnM'], label: C.nearbyObjectWarnM, tip: C.nearbyObjectWarnMTip,
+        fallback: appConfig.defaults.nearbyObjectWarnM,
       })}
 
       {/* The hose Ø a plain Linie without one reads as, and the one a Wassertransport (in Messen,
@@ -1784,13 +1757,13 @@ export function ReportSection() {
           the draft and 422 the whole document — every Station page with it. Held locally
           instead, exactly like the map centre and the three Alarm-Uhren. */}
       {numberField({
-        path: ['report', 'hoursRounding', 'stepMin'], label: C.stepMin, tip: C.stepMinTip,
-        guard: { kind: 'int', min: 1, max: 480 }, placeholder: String(DEFAULT_HOURS_ROUNDING.stepMin),
+        field: NUMBER_GUARDS['report.hoursRounding.stepMin'], label: C.stepMin, tip: C.stepMinTip,
+        placeholder: String(DEFAULT_HOURS_ROUNDING.stepMin),
         standard: DEFAULT_HOURS_ROUNDING.stepMin,
       })}
       {numberField({
-        path: ['report', 'hoursRounding', 'graceMin'], label: C.graceMin, tip: C.graceMinTip,
-        guard: { kind: 'int', min: 0, max: 479 }, placeholder: String(DEFAULT_HOURS_ROUNDING.graceMin),
+        field: NUMBER_GUARDS['report.hoursRounding.graceMin'], label: C.graceMin, tip: C.graceMinTip,
+        placeholder: String(DEFAULT_HOURS_ROUNDING.graceMin),
         standard: DEFAULT_HOURS_ROUNDING.graceMin,
       })}
       {/* Not a setting — the two numbers above, worked through. It stays a ROW rather than
@@ -1804,8 +1777,8 @@ export function ReportSection() {
           convention for turning a recorded presence into a printed figure. */}
       <SettingsGroup title={C.groupMerge} tip={C.mergeTip} />
       {numberField({
-        path: ['report', 'attendanceMergeGapMin'], label: C.mergeGapMin, tip: C.mergeGapMinTip,
-        guard: { kind: 'int', min: 0, max: 240 }, placeholder: String(DEFAULT_ATTENDANCE_MERGE_GAP_MIN),
+        field: NUMBER_GUARDS['report.attendanceMergeGapMin'], label: C.mergeGapMin, tip: C.mergeGapMinTip,
+        placeholder: String(DEFAULT_ATTENDANCE_MERGE_GAP_MIN),
         standard: DEFAULT_ATTENDANCE_MERGE_GAP_MIN,
       })}
 
@@ -1869,12 +1842,13 @@ export function AlarmsSection() {
   // ⚠️ The same rule the whole page follows, in the one shared implementation of it
   // (`useNumberField` at the top of this file) — this section's own wording for the refusal,
   // because these three are days and hours rather than a doctrine number.
-  const intField = (key: 'autoArchiveDays' | 'staleIncidentDays' | 'captureWindowHours', label: string, tip: string, min: number, max: number) =>
-    numberField({
-      path: ['alarms', key], label, tip,
-      guard: { kind: 'int', min, max },
-      message: fillTemplate(C.numberRange, { min, max }),
+  const intField = (key: 'autoArchiveDays' | 'staleIncidentDays' | 'captureWindowHours', label: string, tip: string) => {
+    const field = NUMBER_GUARDS[`alarms.${key}`]
+    return numberField({
+      field, label, tip,
+      message: fillTemplate(C.numberRange, { min: field.min, max: field.max }),
     })
+  }
 
   return (
     <>
@@ -1889,11 +1863,11 @@ export function AlarmsSection() {
           The page's other three surfaces carry their heading in the card head, and a group divider
           standing in for a card title is the same words one line lower and two sizes smaller. */}
       <SettingsSheet title={C.groupArchive} tip={C.archiveTip}>
-        {intField('autoArchiveDays', C.autoArchiveDays, C.autoArchiveDaysTip, 0, 3650)}
-        {intField('staleIncidentDays', C.staleIncidentDays, C.staleIncidentDaysTip, 0, 3650)}
+        {intField('autoArchiveDays', C.autoArchiveDays, C.autoArchiveDaysTip)}
+        {intField('staleIncidentDays', C.staleIncidentDays, C.staleIncidentDaysTip)}
       </SettingsSheet>
       <SettingsSheet title={C.groupCapture} tip={C.captureTip}>
-        {intField('captureWindowHours', C.captureWindowHours, C.captureWindowHoursTip, 1, 168)}
+        {intField('captureWindowHours', C.captureWindowHours, C.captureWindowHoursTip)}
       </SettingsSheet>
       <SettingsSheet title={C.groupWebhooks} tip={C.webhooksTip}>
         <WebhooksEditor />

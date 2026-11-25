@@ -38,6 +38,7 @@ interface Schema {
   exclusiveMaximum?: number
   minLength?: number
   maxLength?: number
+  pattern?: string
   minItems?: number
   maxItems?: number
 }
@@ -158,4 +159,23 @@ export function expectAccepted(body: unknown): void {
   if (errs.length) {
     throw new Error(`PUT /api/config would answer 422:\n  ${errs.join('\n  ')}`)
   }
+}
+
+/** The field at a dotted config path (`doctrine.alarmBar`; a number steps into a list's rows) as
+ *  the schema declares it: its own schema, with an `anyOf` that adds `null` folded into one
+ *  (pydantic puts the bounds beside the `anyOf` or inside it), and whether it takes `null`.
+ *  Throws on a path the schema lacks. */
+export function fieldSchema(path: string): { schema: Schema; nullable: boolean } {
+  let schema: Schema = { $ref: '#/components/schemas/DeploymentConfigIn' }
+  let nullable = false
+  for (const key of path.split('.')) {
+    const node = deref(schema)
+    const child = /^\d+$/.test(key) ? node.items : node.properties?.[key]
+    if (!child) throw new Error(`${path}: no «${key}» in the schema`)
+    const { anyOf, ...own } = child
+    const options = (anyOf ?? []).map(deref)
+    nullable = options.some((s) => s.type === 'null')
+    schema = { ...own, ...options.find((s) => s.type !== 'null') }
+  }
+  return { schema: deref(schema), nullable }
 }
