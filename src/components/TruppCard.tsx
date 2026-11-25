@@ -761,8 +761,10 @@ export function TruppCard({
    * Under the grid's «Draussen» head the crews that are out sink to one line and their one act,
    * so the crews inside stand on top and whole (the walkers' iPad cut their feet). What the full
    * card says below its tiles stands at the top of its «⋯ Mehr» as plain lines – the Auftrag, the
-   * Kanal, «drin 29:00 min · raus mit 175 bar» – then the card's own items. */
-  const slimDrawn = slim && status === 'raus' && monitored && !page && !onCollapse
+   * Kanal, «drin 29:00 min · raus mit 175 bar» – then the card's own items.
+   * ⚠️ Never while a Notfall runs: a crew reported out (an older client) with `notfallAt` still set
+   * keeps the full card, or «Notfall beendet» is nowhere on the board. */
+  const slimDrawn = slim && status === 'raus' && monitored && !page && !onCollapse && !truppInNotfall(t)
   const slimNotes = slimDrawn ? [
     ...(auftrag || t.ziel ? [{ kind: 'note' as const, label: auftrag && t.ziel ? `${auftrag} · ${t.ziel}` : (auftrag || t.ziel) }] : []),
     ...(t.funkkanal != null ? [{ kind: 'note' as const, label: `${az.funkkanalUnit} ${t.funkkanal}` }] : []),

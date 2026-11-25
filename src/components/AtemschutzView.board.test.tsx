@@ -657,6 +657,13 @@ describe('the Reihenfolge menu', () => {
     expect(document.querySelector(`.${s.trowSlim}`)).toBeNull()
   })
 
+  it('a crew out with a Notfall still running keeps the full card and its «Notfall beendet»', () => {
+    vi.mocked(useIsPhone).mockReturnValue(false)
+    mount({ order: 'manuell', endNotfall: vi.fn(), trupps: [{ ...aktivTrupp(), status: 'raus', exitTime: iso(60_000), notfallAt: iso(120_000) }] })
+    expect(document.querySelector(`.${s.trowSlim}`)).toBeNull()
+    expect(screen.getByRole('button', { name: new RegExp(`^${az.notfall.end} – `) })).toBeTruthy()
+  })
+
   it('says the slim card\'s facts at the top of its «Mehr»', async () => {
     vi.mocked(useIsPhone).mockReturnValue(false)
     mount({ trupps: [{ ...aktivTrupp(), status: 'raus', exitTime: iso(60_000), auftrag: 'loeschen', ziel: 'Westfassade', funkkanal: 11 }] })
