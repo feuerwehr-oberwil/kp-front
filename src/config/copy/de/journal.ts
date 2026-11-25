@@ -244,7 +244,8 @@ export const journalCopy = {
     // ⚠️ The arrow is a WORD-shaped suggestion, not a control: it inserts « → » and nothing else.
     arrowTitle: 'Pfeil einsetzen – wer an wen',
     arrowBackTitle: 'Pfeil einsetzen – wer von wem',
-    dueSetTitle: 'Erinnert um {t}',
+    // a time of day says «Uhr» (owner pick UX journeys B2·43, 25.11.2026)
+    dueSetTitle: 'Erinnert um {t} Uhr',
     dueExactTitle: 'Erinnern um',
     dayToday: 'Heute',
     dayTomorrow: 'Morgen',

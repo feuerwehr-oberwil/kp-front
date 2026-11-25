@@ -333,6 +333,8 @@ describe('JournalComposer · the clock', () => {
     type('Lüfter im Treppenhaus prüfen')
     fireEvent.click(screen.getByRole('button', { name: 'Auftrag' }))
     fireEvent.click(await dueRow(/^10 min$/))
+    // the Pendenz button names the due time as a time of day (B2·43)
+    expect(screen.getByRole('button', { name: /^Pendenz – Erinnert um \d{2}:\d{2} Uhr$/ })).toBeTruthy()
     send()
     const d = onSubmit.mock.calls[0][0]
     expect(d.entryType).toBe('auftrag')
