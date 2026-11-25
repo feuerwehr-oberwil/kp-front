@@ -7,7 +7,7 @@ from urllib.parse import quote
 import anyio
 import httpx
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -138,6 +138,19 @@ def _load_geojson(storage_key: str) -> dict:
     return json.loads(storage.get_bytes(storage_key))
 
 
+def _cropped_geojson(storage_key: str, qbox: tuple[float, float, float, float]) -> bytes | None:
+    """Read, parse, crop to `qbox` AND encode – the whole job, in one worker thread (hunt
+    24.11.2026, performance F6): the crop walks every coordinate of a region-wide layer and the
+    encode writes megabytes, and both ran on the event loop, stalling every other request. Bytes
+    as JSONResponse would render them; None when the file is no FeatureCollection."""
+    fc = _load_geojson(storage_key)
+    feats = fc.get("features") if isinstance(fc, dict) else None
+    if not isinstance(feats, list):
+        return None
+    kept = [f for f in feats if (bb := _feature_bbox(f)) is None or _overlaps(bb, qbox)]
+    return json.dumps({**fc, "features": kept}, ensure_ascii=False, allow_nan=False, separators=(",", ":")).encode()
+
+
 #: The same two headers `api/branding · serve_branding` puts on an admin-uploaded asset, and
 #: for the same reason: `image/svg+xml` is an accepted checklist-diagram type, and an SVG is a
 #: DOCUMENT — navigate straight to it and any `<script>` inside runs on this origin, with the
@@ -219,16 +232,12 @@ async def download_reference(
         try:
             w, s, e, n = (float(v) for v in bbox.split(","))
             qbox = (min(w, e), min(s, n), max(w, e), max(s, n))
-            # Read AND parse in one thread hop: at tens of megabytes the json.loads costs as
-            # much as the read, and both would otherwise freeze the event loop for the whole
-            # request — every other tablet's polling stalls behind one bbox crop.
-            fc = await anyio.to_thread.run_sync(_load_geojson, ds.storage_key)
-            feats = fc.get("features") if isinstance(fc, dict) else None
-            if isinstance(feats, list):
-                kept = [f for f in feats if (bb := _feature_bbox(f)) is None or _overlaps(bb, qbox)]
-                cropped = JSONResponse({**fc, "features": kept}, media_type="application/geo+json")
-                cropped.headers[_RAW_BYTES_HEADER] = str(len(cropped.body))
-                return cropped
+            # Read, parse, crop and encode in ONE thread hop (_cropped_geojson): at tens of
+            # megabytes each step would otherwise freeze the event loop for the whole request —
+            # every other tablet's polling stalls behind one bbox crop.
+            body = await anyio.to_thread.run_sync(_cropped_geojson, ds.storage_key, qbox)
+            if body is not None:
+                return Response(body, media_type="application/geo+json", headers={_RAW_BYTES_HEADER: str(len(body))})
         except (ValueError, TypeError, OSError):
             pass  # malformed bbox / unreadable → fall through to the full file
     media_type = ds.content_type or None

@@ -41,6 +41,7 @@
 
 import { appConfig } from '../config/appConfig'
 import { apiGet } from './api'
+import { serverNow } from './serverClock'
 import type { Out } from './api/wire'
 import { fillTemplate } from './format'
 import { isBoardAnno, isDrawing, isEntity, sanitizeWorkspace, type Saved } from './workspace'
@@ -62,6 +63,8 @@ interface SnapshotResponse {
   occurred_at: string | null
   seq_at: number | null
   workspace: Saved | null
+  /** when the next snapshot was taken – this anchor serves every instant before it */
+  next_at?: string | null
 }
 /** One recorded GPS fix; `device_name` is the tracker's name on the live feed during the
  *  Einsatz (backend `vehicle_presence · names_seen`), null when none was recorded. */
@@ -98,6 +101,11 @@ export interface ReplayBundle {
 }
 
 const ms = (iso: string) => new Date(iso).getTime()
+/** how far before «now» the last snapshot anchor stops serving (loadSnapshotAt) */
+const LAST_ANCHOR_MARGIN_MS = 60_000
+/** `ms`, rounded UP to the next millisecond when the stamp has finer digits (PostgreSQL keeps
+ *  microseconds): a snapshot at 10:00:00.123456 must not serve an instant at 10:00:00.123. */
+const msCeil = (iso: string) => ms(iso) + (/\.\d{3}\d*[1-9]/.test(iso) ? 1 : 0)
 
 // Structural events that are NOT a content change — they must not stretch the scrub range into
 // idle time (incident.create fires at the incident's open, often well before any real work).
@@ -403,12 +411,46 @@ export async function loadReplay(
   const { startMs, endMs } = activeReplayRange(events, samples, windowStartMs, windowEndMs)
 
   const snapshotCache = new Map<number, Saved | null>()
+  // ⚠️ One request per ANCHOR, not per frame (hunt 24.11.2026, performance F2). The Wiedergabe
+  // asks for a state four times a second and on every drag move; each ask downloaded the whole
+  // snapshot again, and once a reply took longer than a frame the clock outran it and the Karte
+  // stopped updating. An anchor serves every instant up to the next snapshot (`next_at`), and an
+  // ask while one request is out waits for it – its answer usually covers the new instant too.
+  // The LAST anchor (no `next_at`) holds only up to a minute before it was asked for: a replay
+  // of a running Einsatz meets snapshots taken after it, and a save stamps its snapshot at the
+  // START of its transaction, so one committing just after the ask can lie a moment before it.
+  // An anchor whose blob could not be read is not kept – the next frame asks again. An ask that
+  // a newer one overtook while it waited starts no request of its own: the Wiedergabe has
+  // already dropped that frame, and its request would only queue ahead of the one it shows.
+  const anchors: { fromMs: number; untilMs: number; workspace: Saved | null; occurredMs: number | null }[] = []
+  let inflight: Promise<unknown> | null = null
+  let latestAsk = 0
+  const covering = (tMs: number) => anchors.find((a) => tMs >= a.fromMs && tMs < a.untilMs)
   const loadSnapshotAt = async (tMs: number) => {
-    const atISO = new Date(tMs).toISOString()
-    const res = await fetchSnapshotAt(incidentId, atISO).catch(() => null)
-    if (!res || !res.found || res.occurred_at == null) return { workspace: null, occurredMs: null }
+    const ask = ++latestAsk
+    let hit = covering(tMs)
+    // re-checked after every wait: of several asks woken together, the first starts the next request
+    while (!hit && inflight) {
+      await inflight
+      hit = covering(tMs)
+      if (!hit && ask !== latestAsk) return { workspace: null, occurredMs: null } // overtaken, see above
+    }
+    if (hit) return { workspace: hit.workspace, occurredMs: hit.occurredMs }
+    const askedAt = serverNow() - LAST_ANCHOR_MARGIN_MS
+    const req = fetchSnapshotAt(incidentId, new Date(tMs).toISOString()).catch(() => null)
+    inflight = req
+    const res = await req
+    if (inflight === req) inflight = null
+    if (!res) return { workspace: null, occurredMs: null }
+    const untilMs = res.next_at ? msCeil(res.next_at) : askedAt
+    if (!res.found || res.occurred_at == null) {
+      // before the first snapshot: everything up to it folds from the empty start
+      anchors.push({ fromMs: Number.NEGATIVE_INFINITY, untilMs, workspace: null, occurredMs: null })
+      return { workspace: null, occurredMs: null }
+    }
     const occurredMs = ms(res.occurred_at)
     snapshotCache.set(occurredMs, res.workspace)
+    if (res.workspace) anchors.push({ fromMs: msCeil(res.occurred_at), untilMs, workspace: res.workspace, occurredMs })
     return { workspace: res.workspace, occurredMs }
   }
 

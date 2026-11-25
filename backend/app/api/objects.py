@@ -1,5 +1,6 @@
 """Einsatzobjekte + per-object module plans; proximity auto-surface on incidents."""
 
+import contextlib
 import hashlib
 import re
 import unicodedata
@@ -10,6 +11,7 @@ from typing import Annotated
 from fastapi import APIRouter, Cookie, Depends, File, Form, HTTPException, Query, UploadFile
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import load_only
 
 from .. import geocode
 from ..auth.dependencies import (
@@ -537,6 +539,43 @@ async def ranked_objects_near(db: AsyncSession, inc: Incident) -> list[tuple[Obj
     # address match first, then by distance (None distance last)
     candidates.sort(key=lambda c: (not c[2], c[1] is None, c[1] or 0))
     return candidates
+
+
+async def object_surfaced(db: AsyncSession, incident_id: uuid.UUID, object_id: uuid.UUID) -> bool:
+    """Does this Einsatz point at this ONE object? The plan rail's rule (`ranked_objects_near`:
+    address match or within 400 m, organizer-only objects excluded) for one object, plus the
+    object an editor picked by hand (`pickedObjectId` in the workspace) – without loading the
+    whole register or the workspace blob. Asked by the link guard on every plan tile (hunt
+    24.11.2026, performance F5: each uncached tile re-read every station object and the incident's
+    whole workspace)."""
+    inc = (
+        await db.execute(
+            select(Incident)
+            .options(load_only(Incident.id, Incident.address, Incident.lat, Incident.lng))
+            .where(Incident.id == incident_id)
+        )
+    ).scalar_one_or_none()
+    if inc is None:
+        return False
+    picked = (
+        await db.execute(
+            select(Incident.map_workspace_json["pickedObjectId"].as_string()).where(Incident.id == incident_id)
+        )
+    ).scalar_one_or_none()
+    # parsed, not compared as text: an older workspace may hold it upper-case or without hyphens
+    with contextlib.suppress(ValueError, TypeError, AttributeError):
+        if picked is not None and uuid.UUID(str(picked)) == object_id:
+            return True
+    o = await db.get(ObjectSite, object_id)
+    if o is None:
+        return False
+    has_plan = (
+        await db.execute(select(ReferenceDataset.id).where(ReferenceDataset.object_id == object_id).limit(1))
+    ).first() is not None
+    if is_integration_only(o, {o.id} if has_plan else set()):
+        return False
+    dist, matched = object_match(inc, o)
+    return matched or (dist is not None and dist <= OBJECT_SURFACE_RADIUS_M)
 
 
 @incidents_objects_router.get("/{incident_id}/objects", response_model=list[ObjectWithPlans])

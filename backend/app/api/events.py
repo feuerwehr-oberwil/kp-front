@@ -8,7 +8,7 @@ import uuid
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import audit, vehicle_presence
@@ -22,7 +22,7 @@ from ..auth.dependencies import (
 from ..auth.incident_link import _Denied
 from ..database import get_db
 from ..incident_service import INCIDENT_NOT_FOUND, happened_after_close, incident_closed, incident_lifecycle
-from ..models import Incident, IncidentEvent
+from ..models import Incident, IncidentEvent, WorkspaceSnapshot
 from ..schemas import EventBatchIn, EventOut, SnapshotOut, VehicleSampleOut
 
 router = APIRouter(prefix="/incidents", tags=["events"])
@@ -190,9 +190,15 @@ async def snapshot_at(
     """
     await _ensure(db, incident_id)
     snap, blob = await audit.load_snapshot_at(db, incident_id, at)
+    # the anchor's interval ends where the next snapshot begins (hunt 24.11.2026, performance F2)
+    later = select(func.min(WorkspaceSnapshot.occurred_at)).where(
+        WorkspaceSnapshot.incident_id == incident_id,
+        WorkspaceSnapshot.occurred_at > (snap.occurred_at if snap is not None else at),
+    )
+    next_at = (await db.execute(later)).scalar_one_or_none()
     if snap is None:
-        return SnapshotOut(found=False)
-    return SnapshotOut(found=True, occurred_at=snap.occurred_at, seq_at=snap.seq_at, workspace=blob)
+        return SnapshotOut(found=False, next_at=next_at)
+    return SnapshotOut(found=True, occurred_at=snap.occurred_at, seq_at=snap.seq_at, workspace=blob, next_at=next_at)
 
 
 @router.get("/{incident_id}/samples", response_model=list[VehicleSampleOut])

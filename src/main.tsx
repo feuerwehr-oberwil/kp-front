@@ -11,6 +11,7 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 import './fonts.css'
 import './app.css'
 import { onAccountKnown } from './lib/accountKnown'
+import { hasCachedUser } from './lib/userCache'
 import { AuthProvider, useAuth } from './lib/auth'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { LoginScreen } from './components/LoginScreen'
@@ -78,18 +79,28 @@ document.addEventListener('visibilitychange', clearBadgeInFront)
 // The field app itself (App → IncidentWorkspace → MapView → maplibre, ~2 MB of script) is a
 // lazy chunk too, so the capture poster (/e/) and /admin no longer download and parse it — the
 // entry used to import it statically, which also made index.html modulepreload maplibre on
-// EVERY route (perf sweep 23.09.2026). ⚠️ No extra round trip for the field app: the import is
-// kicked off HERE, at module evaluation, for every route that will mount it (the main route and
-// the link door, whose LinkApp imports App statically), so the chunk downloads in parallel with
-// the boot awaits below (IDB migration, /api/config, locale) instead of after them. `lazy()`
-// then resolves from the same, already-settled module promise.
+// EVERY route (perf sweep 23.09.2026). The import is kicked off as soon as an account is known
+// (below), so on a signed-in device the chunk downloads in parallel with the boot awaits (IDB
+// migration, /api/config, locale) instead of after them. `lazy()` then resolves from the same,
+// already-settled module promise.
 const loadApp = () => import('./App')
 // eslint-disable-next-line react-refresh/only-export-components -- the entry is never hot-swapped
 const App = lazy(loadApp)
 const bootPath = window.location.pathname
-/** the routes that mount the field app: everything but the capture poster and /admin */
-const fieldRoute = !bootPath.startsWith('/e/') && !bootPath.startsWith('/admin')
-if (fieldRoute) void loadApp()
+/** the main route: everything but the capture poster, /admin and the link door */
+const fieldRoute = !bootPath.startsWith('/e/') && !bootPath.startsWith('/admin') && !bootPath.startsWith('/l/') && bootPath !== '/terminal'
+// ⚠️ …and only once an account is known (hunt 24.11.2026, performance F3). A signed-in device
+// knows it from its cached user, read here at once (lib/userCache), so the chunk still loads beside
+// the awaits below; a kiosk with nobody signed in renders its PIN pad first instead of sharing
+// the line with ~2 MB of field app, and loads it in the first idle moment after (below). The link door loads the app itself, after its exchange
+// (link/LinkApp). Offline launch is unaffected: the service worker holds the chunks.
+// The warm-up's own failure (a navigation cutting its CSS preload short, offline without the chunk)
+// is nobody's error: `lazy()` asks again when the app actually mounts.
+const warmApp = () => { loadApp().catch(() => { /* lazy() retries on mount */ }) }
+if (fieldRoute) {
+  void hasCachedUser().then((known) => { if (known) warmApp() })
+  onAccountKnown(warmApp)
+}
 
 // Admin surface: an unlinked /admin route loaded as its OWN lazy chunk so field
 // users (the overwhelming majority of loads) never download any admin code. The
@@ -189,7 +200,10 @@ void (async () => {
     // the first render, and the capture poster and /admin never read a UN number at all. The
     // idle callback fires in the first quiet moment after first paint (2 s at the latest), and
     // both files are precached, so offline they land exactly as before.
-    if (fieldRoute) whenIdle(() => { void ensureUnHazard(); void ensureErg() })
+    // …and the field app itself on a device nobody is signed in to (a kiosk): its PIN pad is on
+    // screen first, and the chunk loads while the PIN is typed (performance F3 – loading it only
+    // after the PIN cost the cold start half a second; a signed-in device has warmed it already).
+    if (fieldRoute) whenIdle(() => { warmApp(); void ensureUnHazard(); void ensureErg() })
     // Tiles cached by releases before 08.11.2026 move from Cache Storage into the worker's tile
     // store (public/sw-tile-store.js), asked on every launch until it is done – well after the boot.
     setTimeout(() => navigator.serviceWorker?.controller?.postMessage({ type: 'kp-tile-migrate' }), 10_000)
