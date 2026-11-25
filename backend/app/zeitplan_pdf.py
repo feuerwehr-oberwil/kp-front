@@ -102,10 +102,8 @@ class ZeitplanBlock(BaseModel):
     start: datetime = Field(alias="from")
     end: datetime | None = Field(default=None, alias="to")
     confirmed: bool = False
-    #: the Schichtband this block was entered into, when it was entered into one at all. Only the
-    #: «Schichtplan» sheet reads it; this sheet prints every block regardless, which is the whole
-    #: reason it is the one that exists without bands.
-    band_id: str | None = Field(default=None, alias="bandId")
+    # (A block's `bandId` is ignored: both sheets place a block by its time, not by the band it
+    # was entered into.)
 
     model_config = {"populate_by_name": True}
 
