@@ -207,7 +207,11 @@ export function MapLayers({ layers, preparedOverlays, isVisible, mapReady }: Pro
                 'icon-image': night && o.nightColor ? `icon-${o.id}-night` : `icon-${o.id}`,
                 'icon-allow-overlap': true,
                 'icon-ignore-placement': true,
-                'icon-size': ['interpolate', ['linear'], ['zoom'], 14, 0.22, 17, 0.42, 20, 0.8],
+                // the plate (lib/mapImages · onPlate) reads ≈ 24 px from z16 on – the street scale
+                // of an Einsatz – and shrinks to ≈ 13 px zoomed out to z14, where a district's
+                // hydrants would otherwise cover the streets (owner pick UX journeys, 25.11.2026 ·
+                // B2·52; it was the bare symbol at 0.22–0.8, ≈ 10 px at the Einsatz zoom)
+                'icon-size': ['interpolate', ['linear'], ['zoom'], 14, 0.5, 16, 0.9],
               }}
               paint={{ 'icon-opacity': (o.opacity ?? 100) / 100 }}
             />
