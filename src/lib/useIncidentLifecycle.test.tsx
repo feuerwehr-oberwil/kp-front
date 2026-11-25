@@ -86,7 +86,7 @@ describe('useCloseReopen · reopenNow', () => {
     const deps = {
       isSessionCurrent: vi.fn(() => true),
       closingLocallyRef: { current: null }, reopeningLocallyRef: { current: null }, activeId, activeMeta: null,
-      incidents: [], syncRef: { current: null }, archiveReturnRef: { current: 'inc-0' as string | null },
+      incidents: [], syncRef: { current: null, close: vi.fn() }, archiveReturnRef: { current: 'inc-0' as string | null },
       refreshList: vi.fn(() => new Promise<IncidentMeta[]>(() => {})), // never answers: must not be waited for
       selectIncident: vi.fn(async () => {}), markOpened: vi.fn(), setIncidents: vi.fn(), setClosedMedia: vi.fn(),
       setActiveId: vi.fn(), setActiveMeta: vi.fn(), setWorkspace: vi.fn(), setForceReadOnly: vi.fn(),
@@ -123,7 +123,7 @@ describe('useCloseReopen · archiveFromList', () => {
     const deps = {
       isSessionCurrent: vi.fn(() => true),
       closingLocallyRef: { current: null }, reopeningLocallyRef: { current: null }, activeId, activeMeta: null,
-      incidents, syncRef: { current: null as WorkspaceSync | null }, archiveReturnRef: { current: null },
+      incidents, syncRef: { current: null as WorkspaceSync | null, close: vi.fn() }, archiveReturnRef: { current: null },
       refreshList: vi.fn(async () => []), selectIncident: vi.fn(async () => {}), markOpened: vi.fn(),
       setIncidents: vi.fn(), setClosedMedia: vi.fn(), setActiveId: vi.fn(), setActiveMeta: vi.fn(),
       setWorkspace: vi.fn(), setForceReadOnly: vi.fn(),
@@ -151,7 +151,7 @@ describe('useCloseReopen · archiveFromList', () => {
     })
     const { result, deps, rerender } = list('inc-1')
     const old = { incidentId: 'inc-1', dispose: vi.fn(), flush: vi.fn(async () => {}) }
-    const next = { incidentId: 'inc-2', dispose: vi.fn() }
+    const next = { incidentId: 'inc-2' }
     deps.syncRef.current = old as unknown as WorkspaceSync
     const close = result.current.completeRapport('inc-1')
     await waitFor(() => expect(patchIncident).toHaveBeenCalledOnce())
@@ -159,7 +159,7 @@ describe('useCloseReopen · archiveFromList', () => {
     rerender('inc-2')
     acknowledge()
     await expect(close).resolves.toBe(true)
-    expect(next.dispose).not.toHaveBeenCalled()
+    expect(deps.syncRef.close).not.toHaveBeenCalled()
     expect(deps.setActiveId).not.toHaveBeenCalled()
     expect(deps.refreshList).toHaveBeenCalledOnce()
   })

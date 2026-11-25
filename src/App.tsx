@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
 import './app.css'
 import { IconSprite } from './lib/icons'
 import { demoSeedRebase } from './lib/workspace'
@@ -27,7 +27,6 @@ import { getInstallPlatform, isStandalone } from './lib/installPrompt'
 import { installOffered } from './lib/installPolicy'
 import { claimBootNotifyTarget, handOverNotifyTarget } from './lib/notifyTarget'
 import { muteAtemschutzFor } from './lib/useAtemschutzMute'
-import { useIncidentTabLock } from './lib/tabLock'
 import { listMediaQueue } from './lib/mediaQueue'
 import { MediaPendingMeldung, type ClosedMediaPending } from './components/MediaPendingMeldung'
 import { clearAppBadge, ensurePushSubscription } from './lib/push'
@@ -155,9 +154,6 @@ function IncidentApp() {
   // Demo instances greet a first-time visitor once per device with the can/can't intro.
   const [showWelcome, setShowWelcome] = useState(() => isDemoMode() && !hasSeenDemoWelcome())
   const [forceReadOnly, setForceReadOnly] = useState(false)
-  // single-editor-per-browser: only one tab may edit an incident (they'd race the shared
-  // IDB sync cache); a second tab is read-only with a one-tap take-over.
-  const tabLock = useIncidentTabLock(activeId)
   const [overlay, setOverlay] = useState<null | 'create' | 'history'>(null)
   // closed Einsätze whose captures are still queued on this device (completeRapport) — a Meldung
   // each while true; re-read whenever the list refreshes, gone once the queue is empty
@@ -335,14 +331,19 @@ function IncidentApp() {
     setReviewedStamp({ id, at: new Date().toISOString() })
     setReviewPendingId(null)
   }, [])
-  const [syncRef] = useState(() => new IncidentSelection())
+  const [selection] = useState(() => new IncidentSelection())
+  // single-editor-per-browser: only one tab may edit an incident (they'd race the shared IDB
+  // sync cache); a second tab is read-only with a one-tap take-over. The selection owns the
+  // lock and swaps in a fresh engine when editing comes to this tab (lib/incidentSelection).
+  const tabEditing = useSyncExternalStore(selection.subscribe, () => selection.editing)
+  useSyncExternalStore(selection.subscribe, () => selection.current)
   // A toast and an awaited confirmation can outlive the signed-in operator that created them.
   const sessionAlive = useRef(true)
   const isSessionCurrent = useCallback(() => sessionAlive.current, [])
   useLayoutEffect(() => {
     sessionAlive.current = true
-    return () => { sessionAlive.current = false; syncRef.dispose() }
-  }, [syncRef])
+    return () => { sessionAlive.current = false; selection.dispose() }
+  }, [selection])
   // where «Zurück» from an archived read-only view lands: the editable incident that was
   // active before the (first) read-only open — chained archived views keep the original.
   // Refs mirror the states because selectIncident is a stable ([] deps) callback.
@@ -379,7 +380,7 @@ function IncidentApp() {
     if (!isSessionCurrent()) return
     unlockAlarm()
     const opening = activeIdRef.current !== id
-    const selected = await syncRef.open(id, opts.meta, {
+    const selected = await selection.open(id, opts.meta, {
       debounceMs: appConfig.sync.saveDebounceMs,
       // An Atemschutz-Link session may write the Überwachungstafel and nothing else — the full
       // workspace PUT 403s for it — so its pushes and its teardown beacon go down the trupp
@@ -441,7 +442,7 @@ function IncidentApp() {
     savePrefs(opts.boot
       ? { ...prev, incidentId: id }
       : { ...prev, incidentId: id, incidentChosenAt: Date.now(), landedAt: undefined })
-  }, [markOpened, syncRef, isSessionCurrent])
+  }, [markOpened, selection, isSessionCurrent])
 
   // `selectIncident` for a HUMAN tap: the same open, but a failure is SAID. Every interactive
   // caller used to swallow the rejection — offline with no cached workspace, a 404 for an Einsatz
@@ -576,7 +577,7 @@ function IncidentApp() {
   // was the other one. An Einsatz that is gone meanwhile, or does not open, is home too.
   const undoTake = useCallback(async (id: string, back: 'karte' | { incidentId: string | null }) => {
     if (!isSessionCurrent()) return
-    const selection = syncRef.generation
+    const generation = selection.generation
     // this device's own archive — not «auf einem anderen Gerät abgeschlossen» (lib/incidentClosed)
     closingLocallyRef.current = id
     // ⚠️ SAY SO when the undo does not go through. A swallowed failure here left the incident on
@@ -584,7 +585,7 @@ function IncidentApp() {
     // an Einsatz that reappears by itself is how a tool stops being believed.
     let list: IncidentMeta[] | null
     try {
-      list = await undoTakenIncident(syncRef, id, () => syncRef.generation === selection, refreshList)
+      list = await undoTakenIncident(selection, id, () => selection.generation === generation, refreshList)
     } catch (e) {
       if (isSessionCurrent()) toast(e instanceof ApiError ? e.detail : appConfig.copy.intake.undoTakeFailed, { icon: 'warn', tone: 'warn' })
       return
@@ -601,7 +602,7 @@ function IncidentApp() {
     setWorkspace(null); setForceReadOnly(false)
     const previous = back === 'karte' ? null : undoTakeReturn(list, back.incidentId)
     if (previous) await openIncident(previous.id, { meta: previous }) // says so when it fails
-  }, [closingLocallyRef, refreshList, openIncident, refreshPool, syncRef, isSessionCurrent])
+  }, [closingLocallyRef, refreshList, openIncident, refreshPool, selection, isSessionCurrent])
 
   const takeAndOpen = useCallback(async (a: DiveraAlarm, from?: 'karte') => {
     if (taking != null) return
@@ -665,7 +666,7 @@ function IncidentApp() {
   /** the open Einsatz's counting confirm, set by IncidentWorkspace (prop `abschlussRef`) */
   const abschlussHereRef = useRef<(() => Promise<boolean>) | null>(null)
   const { completeRapport, archiveFromList, reactivateById } = useCloseReopen({
-    closingLocallyRef, reopeningLocallyRef, activeId, activeMeta, incidents, syncRef, archiveReturnRef, refreshList, isSessionCurrent,
+    closingLocallyRef, reopeningLocallyRef, activeId, activeMeta, incidents, syncRef: selection, archiveReturnRef, refreshList, isSessionCurrent,
     selectIncident, markOpened, setIncidents, setClosedMedia, setActiveId, setActiveMeta, setWorkspace, setForceReadOnly,
     abschlussHereRef,
     // the list steps aside and the Einsatz comes to the front: its confirm can answer «Zur Tafel»
@@ -680,11 +681,11 @@ function IncidentApp() {
     if (backId && (await selectIncident(backId).then(() => true).catch(() => false))) return
     // a read-only view holds no unsaved edits — dispose without flushing; and forget it, or the
     // next reload reopens the Einsatz just left
-    if (syncRef.current) { syncRef.current.dispose(); syncRef.current = null }
+    selection.close()
     savePrefs({ ...loadPrefs(), incidentId: undefined })
     setActiveId(null); setActiveMeta(null); setForceReadOnly(false)
     setOverlay('history')
-  }, [selectIncident, syncRef])
+  }, [selectIncident, selection])
 
   // Which screen (lib/karte/home · appScreen — tested there): the Objektbesuche surface, «Karte &
   // Objekte», the boot's splash, an Einsatz, or — for a link session only — the launch card.
@@ -718,7 +719,7 @@ function IncidentApp() {
   const escapeToLanding = () => {
     savePrefs({ ...loadPrefs(), incidentId: undefined })
     clearCrash()
-    if (syncRef.current) { syncRef.current.dispose(); syncRef.current = null }
+    selection.close()
     setActiveId(null); setActiveMeta(null); setWorkspace(null); setForceReadOnly(false)
   }
 
@@ -835,7 +836,7 @@ function IncidentApp() {
           and the alarm's rows stand in the strip over that surface (IncidentWorkspace · covered;
           lead decision 16.10.2026). One element in one place, so covering and uncovering never
           remount it. */}
-      {(screen === 'einsatz' || (einsatzBehind && !linkScoped)) && activeId && activeMeta && syncRef.current ? (
+      {(screen === 'einsatz' || (einsatzBehind && !linkScoped)) && activeId && activeMeta && selection.current ? (
         <ErrorBoundary
           /* Keyed on activeId ONLY (not `remount`): a background remount — the live-follow
              poll, a resolved 409 calling onServerWorkspace — must NOT reset a latched crash,
@@ -845,18 +846,17 @@ function IncidentApp() {
           scopeId={activeId}
           onCloseIncident={escapeToLanding}
           onDiscardLocal={() => discardLocalAndReload(activeId)}
-          hasUnsyncedChanges={() => (syncRef.current?.syncStatus ?? 'synced') !== 'synced'}
+          hasUnsyncedChanges={() => (selection.current?.syncStatus ?? 'synced') !== 'synced'}
         >
         <IncidentWorkspace
           key={`${activeId}:${remount}`}
           incidentMeta={activeMeta}
           incidents={allIncidents}
           workspace={workspace}
-          sync={syncRef.current}
+          sync={selection.current}
           forceReadOnly={forceReadOnly}
-          tabLockLost={!tabLock.held}
-          tabLockHeldAtOpen={tabLock.heldAtOpen === true}
-          onTakeOverTab={tabLock.takeOver}
+          tabLockLost={!tabEditing}
+          onTakeOverTab={() => selection.takeOver()}
           // An abgeschlossener Einsatz opens read-only — the same rule «Alle Einsätze» follows
           // (HistoryPanel · onOpen), and it matters here because the menu's «Frühere» rows switch
           // straight to archived Einsätze: without it they would open editable AND join the list

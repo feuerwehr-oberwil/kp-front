@@ -23,6 +23,19 @@ the module they concern (`lib/connectivity`, `lib/eventScope`, `lib/jsonEqual`,
   only tiny device flags (update banners, install prompts, once-per-device hints) and migration
   flags. UI copy/locale/defaults/storage keys live in `src/config/appConfig.ts`; the neutral
   fallback incident is `src/data/demoIncident.ts`.
+- **One tab of a browser edits an Einsatz, and a handover never erases what a tab saved**
+  (25.11.2026, hunt offline-sync F1). Two tabs share the one cache slot per Einsatz, so the edit
+  lock (`lib/tabLock`, a Web Lock) decides who WRITES, not only what the screen offers: it answers
+  before the engine opens, and a tab without it opens a `follower` engine that writes nothing
+  (`api/workspaceSync · opts.lock`). A grant opens a FRESH editor engine, which writes its id
+  into the slot's fence and only then reads the slot; every main-slot write is fenced in its own
+  IndexedDB transaction (`idb · idbSetFenced`), so whatever the previous holder starts after a
+  «Hier bearbeiten» is refused. A holder that loses the lock retires at once: no write, push,
+  retry or merge round after it. The guarantee is at COMMITTED persistence: an edit still inside
+  the 300 ms cache debounce when another tab takes over (or when the tab dies) can be lost. The
+  media queue's read-modify-writes and flushes take a cross-tab Web Lock per Einsatz too, and a
+  receipt is linked and retired only while the tab still holds the edit lock
+  (`lib/incidentSelection` header).
 - **A half-typed form is a draft, not a record** (`src/lib/draftKeep.ts`): kept in memory across
   a surface switch or an outside tap, dropped on send, on «Abbrechen» and on an Einsatz switch.
   Two of them also survive a reload (owner call C2, 17.11.2026 – iOS drops a backgrounded PWA):

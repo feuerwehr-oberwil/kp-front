@@ -242,8 +242,6 @@ interface WorkspaceProps {
   forceReadOnly: boolean
   /** another tab of THIS browser is editing the incident → read-only here + take-over banner */
   tabLockLost: boolean
-  /** this tab got the edit lock at once when it opened the incident (lib/tabLock · heldAtOpen) */
-  tabLockHeldAtOpen?: boolean
   onTakeOverTab: () => void
   onSwitchIncident: (i: IncidentMeta) => void
   onOpenHistory: () => void
@@ -298,7 +296,7 @@ interface WorkspaceProps {
 
 
 export function IncidentWorkspace({
-  incidentMeta, incidents, workspace, sync, forceReadOnly, tabLockLost, tabLockHeldAtOpen = false, onTakeOverTab, onCompleteRapport, abschlussRef,
+  incidentMeta, incidents, workspace, sync, forceReadOnly, tabLockLost, onTakeOverTab, onCompleteRapport, abschlussRef,
   onSwitchIncident, onOpenHistory, onOpenObjectVisits, onOpenKarte, onOpenDivera, menuAlarms, menuFolded, onReactivateActive, onBackFromArchive,
   covered = false, onUncover, needsReview, onReviewDone, reviewedLocallyAt, onEditMeta, lifecycleElsewhere, openCover, onOpenCoverDone,
 }: WorkspaceProps) {
@@ -1416,7 +1414,7 @@ export function IncidentWorkspace({
     // on it (canSignRapport); nothing else writes a slice on a closed view — every writer gates
     // on the flags derived from `readOnly`. …and never the blob of a newer build (olderBuild):
     // the Verlauf and audit outboxes still deliver, the workspace is not pushed or flushed.
-    sync, readOnly: outboxReadOnly || olderBuild, incidentId: incidentMeta.id, lockHeldAtOpen: tabLockHeldAtOpen,
+    sync, readOnly: outboxReadOnly || olderBuild, incidentId: incidentMeta.id,
     buildPayload, applyWorkspace, flushEvents, flushEventsBeacon,
     // attendance-divergence note (both sides changed the same person → one Verlauf row)
     // Not for an Atemschutz-Link session: the server refuses every non-«team» row from it (403,

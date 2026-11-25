@@ -19,8 +19,9 @@ import type { ClosedMediaPending } from '../components/MediaPendingMeldung'
 import { closedMetaFor, closedNoticeAt, onIncidentClosed, onIncidentReopened, reopenedMetaFor, reportIncidentClosed, reportIncidentReopened, type IncidentClosedSignal, type IncidentReopenedSignal } from './incidentClosed'
 import { serverNow, serverNowIso } from './serverClock'
 import { ApiError, isUnverifiable } from './api'
-import { getIncident, isIncidentRunning, patchIncident, reactivateIncident, type IncidentMeta, type Workspace, type WorkspaceSync } from './incidents'
+import { getIncident, isIncidentRunning, patchIncident, reactivateIncident, type IncidentMeta, type Workspace } from './incidents'
 import { getWorkspace } from './api/workspace'
+import type { IncidentSelection } from './incidentSelection'
 import { sanitizeWorkspace } from './workspace'
 import { truppStillDeployed } from './atemschutz'
 import { insideAbschlussSpec } from './abschlussOpen'
@@ -181,7 +182,7 @@ export function useCloseReopen({
   activeId: string | null
   activeMeta: IncidentMeta | null
   incidents: IncidentMeta[] | null
-  syncRef: MutableRefObject<WorkspaceSync | null>
+  syncRef: Pick<IncidentSelection, 'current' | 'close'>
   archiveReturnRef: MutableRefObject<string | null>
   refreshList: () => Promise<IncidentMeta[]>
   selectIncident: (id: string, opts?: { readOnly?: boolean; meta?: IncidentMeta }) => Promise<void>
@@ -289,8 +290,7 @@ export function useCloseReopen({
       await refreshList()
       // The operator can open the next Einsatz while the close or list refresh is in flight.
       if (isSessionCurrent() && id === activeIdRef.current && syncRef.current?.incidentId === id) {
-        syncRef.current.dispose()
-        syncRef.current = null
+        syncRef.close()
         /* ⚠️ Land on the LAUNCHER, never inside another Einsatz. Until 25.09.2026 this opened the
            first OTHER open Einsatz in the list — silently, so the phone that had just closed an
            Übung stood inside somebody else's live Einsatz with its GPS banner, and the next tap

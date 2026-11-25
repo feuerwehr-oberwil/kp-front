@@ -4,8 +4,6 @@
  * and ignore grants that arrive after the owner stopped.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react'
-
 /**
  * Per-incident single-editor tab lock (Web Locks API).
  *
@@ -18,7 +16,9 @@ import { useCallback, useEffect, useRef, useState } from 'react'
  * fails the try-acquire, goes read-only (banner in the UI), and queues — when the holder
  * closes, the waiter is promoted to editing automatically. "Hier bearbeiten" steals the lock
  * the other way (the previous holder drops to read-only), so moving editing between tabs is
- * one tap, never a data race.
+ * one tap. The lock only orders the tabs; who may WRITE follows it in lib/incidentSelection (a
+ * follower engine writes nothing, a grant opens a fresh editor that fences the cache slot, a
+ * stolen holder retires at once).
  *
  * Browsers without Web Locks (none of our supported targets) just keep today's behaviour.
  */
@@ -119,36 +119,4 @@ export class IncidentTabLock {
     this.release?.()
     this.release = null
   }
-}
-
-/** React binding: editable-here state + take-over action for the active incident.
- *  `heldAtOpen`: the lock's FIRST answer for this incident — true when this tab got it at once
- *  (or there are no Web Locks), false when it opened behind another tab, null until it answers.
- *  `held` alone cannot say it: it starts true optimistically. */
-export function useIncidentTabLock(incidentId: string | null): { held: boolean; heldAtOpen: boolean | null; takeOver: () => void } {
-  // starts true so the common single-tab case never flashes the read-only banner; the
-  // try-acquire settles within milliseconds and corrects this if another tab holds the lock.
-  const [held, setHeld] = useState(true)
-  // keyed by the incident it answers for: on a switch the previous Einsatz's answer must not
-  // stand for the next one through the render before the effect resets it
-  const [firstAnswer, setFirstAnswer] = useState<{ id: string; held: boolean } | null>(null)
-  const ref = useRef<IncidentTabLock | null>(null)
-  useEffect(() => {
-    if (!incidentId) { setHeld(true); return }
-    const lock = new IncidentTabLock(`kp-front-incident-${incidentId}`, (now) => {
-      setHeld(now)
-      setFirstAnswer((first) => (first?.id === incidentId ? first : { id: incidentId, held: now }))
-    })
-    ref.current = lock
-    lock.start()
-    return () => {
-      ref.current = null
-      lock.stop()
-      setHeld(true)
-      setFirstAnswer(null) // a reopen asks again: another tab may hold it by then
-    }
-  }, [incidentId])
-  const takeOver = useCallback(() => ref.current?.takeOver(), [])
-  const heldAtOpen = firstAnswer && firstAnswer.id === incidentId ? firstAnswer.held : null
-  return { held, heldAtOpen, takeOver }
 }
