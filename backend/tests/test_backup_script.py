@@ -280,3 +280,20 @@ def test_retention_with_leading_zero_is_decimal(backup_shell):
     assert result.returncode == 0, result.stderr
     assert "keeping 8 pairs" in result.stdout
     assert "value too great for base" not in result.stderr
+
+
+# hunt 24.11.2026, ops-integrations F2: the 64 KB prefix check piped into `grep -q` under pipefail
+# refused most valid dumps larger than the pipe buffer – the backup was never kept
+def test_a_valid_dump_larger_than_the_pipe_buffer_is_kept(backup_shell):
+    run, backups, original, *_ = backup_shell
+    big = DUMP + b"-- row data padding\n" * 20_000
+    for _ in range(4):  # the refusal was a race: one pass could slip through
+        result = run(
+            tar_bytes(
+                {
+                    "db.sql.gz": gzip.compress(big),
+                    "storage.tar.gz": tar_bytes({"media/test": b"photo"}, compressed=True),
+                }
+            )
+        )
+        assert result.returncode == 0, result.stderr

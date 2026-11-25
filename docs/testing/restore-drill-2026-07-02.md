@@ -43,4 +43,5 @@ incident's audit hash chain verifies intact after restore.
   `postgres:16`. Dumps are portable (this drill restored an 18 dump into 18; a 16 target also
   accepts plain-SQL dumps), but keep `pg_dump`'s major ≥ the server's when dumping.
 - Ongoing backups: `scripts/backup.sh` (self-hosted, cron) + the automatic pre-migration dump in
-  `backend/start.sh`; for Railway, schedule `pg_dump` against `DATABASE_PUBLIC_URL` off-box.
+  `backend/start.sh`. For Railway, the paired backup in docs/DEPLOYMENT.md §6 (database AND
+  storage volume) – superseding the SQL-only `pg_dump` advice this drill first gave (24.11.2026).

@@ -25,8 +25,12 @@
 #     deleted; staging's variables carry its own values.
 #   · identity.appName becomes «KP Staging», so the installed app and every head say which
 #     one this is.
+#   · incidentArchive / objectVisits destinations and the sharepoint_export credentials would let
+#     staging's own scheduler file into prod's SharePoint (overwriting a Rapport version). →
+#     emptied and deleted; the app also refuses external delivery on staging (config ·
+#     external_delivery_allowed).
 # The restore and those cuts are ONE transaction: the app sees the empty database or the cut
-# copy, never prod's push targets. Read-only feeds (Divera poll, Traccar, SharePoint, STT,
+# copy, never prod's push targets. Read-only feeds (Divera poll, Traccar, the SharePoint import, STT,
 # CARTO) are deliberately kept – staging sees the same alarms and vehicles as prod.
 #
 # ⚠️ SECRET_KEY must be the same in both environments (the duplicate copies it): it peppers
@@ -44,10 +48,16 @@ for arg in "$@"; do
   case "$arg" in
     --yes|-y) ASSUME_YES=1 ;;
     --db-only) DB_ONLY=1 ;;
-    -h|--help) sed -n '2,32p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,36p' "$0"; exit 0 ;;
     *) echo "unknown option: $arg" >&2; exit 2 ;;
   esac
 done
+
+# the name goes into a SQL string literal (railway-staging-cuts.sql); refuse it before anything moves
+if [[ $STAGING_APP_NAME == *"'"* ]]; then
+  echo "refusing: STAGING_APP_NAME must not contain an apostrophe." >&2
+  exit 2
+fi
 
 if [ "$TARGET_ENV" = "production" ] || [ "$TARGET_ENV" = "$SOURCE_ENV" ]; then
   echo "refusing: the target environment is '$TARGET_ENV'." >&2
@@ -60,8 +70,16 @@ on()    { local env="$1"; shift; railway ssh -e "$env" -s "$SERVICE" -- "$*" 2> 
 
 # The staging variables must not point at prod's monitor: an env value outranks the stored one
 # we delete below, so a copied HEALTHCHECK_PING_URL would undo the cut.
-if railway variables -e "$TARGET_ENV" -s "$SERVICE" --kv 2>/dev/null | grep -q '^HEALTHCHECK_PING_URL=.'; then
+# …nor carry the archive's write registration or open the app's staging gate (config ·
+# external_delivery_allowed): those would hand staging prod's SharePoint again.
+target_vars="$(railway variables -e "$TARGET_ENV" -s "$SERVICE" --kv 2>/dev/null)" \
+  || { echo "refusing: could not read the variables of '$TARGET_ENV' – nothing was changed." >&2; exit 2; }
+if grep -q '^HEALTHCHECK_PING_URL=.' <<<"$target_vars"; then
   echo "refusing: HEALTHCHECK_PING_URL is set in '$TARGET_ENV' – it would ping prod's monitor." >&2
+  exit 2
+fi
+if grep -q -E '^(SHAREPOINT_EXPORT_[A-Z_]+|STAGING_EXTERNAL_DELIVERY)=.' <<<"$target_vars"; then
+  echo "refusing: '$TARGET_ENV' sets SHAREPOINT_EXPORT_* or STAGING_EXTERNAL_DELIVERY – it could write to prod's archive." >&2
   exit 2
 fi
 
@@ -133,26 +151,18 @@ app_name_json="$(printf '%s' "$STAGING_APP_NAME" | python3 -c 'import json,sys; 
   echo 'DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;'
   cat "$WORK/dump.sql"
 } > "$WORK/db.sql"
-cat >> "$WORK/db.sql" <<SQL
-
--- ─── staging cuts (railway-staging-refresh.sh) ───
-SET search_path = public;  -- the dump emptied it
-TRUNCATE push_subscriptions, print_jobs;
-DELETE FROM integration_credentials WHERE name IN (
-  'healthcheck_ping_url', 'print_agent_secret', 'alarm_webhook_secret', 'divera_webhook_secret',
-  'vapid_public_key', 'vapid_private_key', 'vapid_subject');
-UPDATE deployment_config SET config_json =
-  jsonb_set(
-    jsonb_set(coalesce(config_json, '{}'::jsonb), '{identity}',
-              coalesce(config_json->'identity', '{}'::jsonb) || jsonb_build_object('appName', '$app_name_json'::jsonb)),
-    '{alarms}', coalesce(config_json->'alarms', '{}'::jsonb) || '{"webhooks": []}'::jsonb);
-SQL
+# the cuts, in the same transaction (scripts/railway-staging-cuts.sql, tested against PostgreSQL)
+CUTS="$(dirname "$0")/railway-staging-cuts.sql"
+python3 -c 'import sys; print(open(sys.argv[1]).read().replace("__STAGING_APP_NAME__", sys.argv[2]))' \
+  "$CUTS" "$app_name_json" >> "$WORK/db.sql"
 
 on "$TARGET_ENV" 'psql "$DATABASE_URL" --single-transaction -v ON_ERROR_STOP=1 -q -o /dev/null -f -' < "$WORK/db.sql"
 
 on "$TARGET_ENV" 'psql "$DATABASE_URL" -At -F ", " -f -' <<'SQL'
 SELECT '  push subscriptions ' || (SELECT count(*) FROM push_subscriptions),
        'webhooks ' || jsonb_array_length(config_json->'alarms'->'webhooks'),
+       'archive destinations ' || jsonb_array_length(config_json->'incidentArchive'->'destinations'),
+       'visit destinations ' || jsonb_array_length(config_json->'objectVisits'->'destinations'),
        'app name «' || (config_json->'identity'->>'appName') || '»',
        'incidents ' || (SELECT count(*) FROM incidents)
   FROM deployment_config;
