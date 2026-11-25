@@ -13,7 +13,7 @@ import { appConfig } from '../config/appConfig'
 // The Abschluss block (moved out of IncidentWorkspace 23.09.2026). The confirm → flush → handover
 // order is pinned end to end in IncidentWorkspace.harness; these pin the derived values.
 const args = (over: Partial<Parameters<typeof useAbschluss>[0]> = {}): Parameters<typeof useAbschluss>[0] => ({
-  reportMeta: {} as ReportMeta, attendance: {}, mittel: [], openConflictCount: 0, trupps: [], openPendenzen: [], showVerlaufRow: vi.fn(),
+  reportMeta: {} as ReportMeta, attendance: {}, mittel: [], openConflictCount: 0, trupps: [], openPendenzen: [], showVerlaufRow: vi.fn(), reportBeforeNachtrag: false,
   incidentMeta: { is_archived: false, status: 'offen', closed_at: null }, replayActive: false,
   media: { pendingCount: 0, flush: vi.fn(async () => {}) } as never,
   onCompleteRapport: vi.fn(async () => true),

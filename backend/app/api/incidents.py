@@ -138,6 +138,22 @@ def operational_keys_changed(stored: dict, submitted: dict) -> list[str]:
     return sorted(k for k in keys if before.get(k) != after.get(k))
 
 
+def _paper_since(inc: Incident, since: datetime | None) -> bool:
+    """Was a Rapport made (a PDF, or a print the relay reported done – the client stamps
+    `reportMeta.reportMadeAt` in the workspace) after `since`, the close before this one? Read
+    BEFORE this request stamps its own close. Unreadable or absent → no."""
+    ws = inc.map_workspace_json if isinstance(inc.map_workspace_json, dict) else {}
+    meta = ws.get("reportMeta")
+    made = meta.get("reportMadeAt") if isinstance(meta, dict) else None
+    if not isinstance(made, str) or since is None:
+        return False
+    try:
+        at = datetime.fromisoformat(made.replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    return at.tzinfo is not None and at > since
+
+
 @router.get("", response_model=list[IncidentMeta])
 async def list_incidents(
     user: UserOrAdmin,
@@ -733,10 +749,16 @@ async def patch_incident(
             # each Rapport version was declared complete.
             # (a reopen clears report_done_at — see below — so an earlier close is what says
             # «again»: closed_at keeps the first Einsatzende across «Wieder öffnen»)
+            # ⚠️ «ersetzt frühere Version» only when a NEW paper exists (owner pick UX journeys
+            # B3·18, 25.11.2026): a walker re-closed over the PDF of before the Nachtrag, and this
+            # row claimed a version that was never made.
+            again = report_done_before is not None or inc.closed_at is not None
             text = (
                 "Rapport abgeschlossen"
-                if report_done_before is None and inc.closed_at is None
+                if not again
                 else "Rapport erneut abgeschlossen (ersetzt frühere Version)"
+                if _paper_since(inc, inc.last_closed_at or inc.closed_at or report_done_before)
+                else "Rapport erneut abgeschlossen"
             )
             await append_system_row(db, inc.id, icon="check", text=text)
     if "status" in data and data["status"] != status_before:

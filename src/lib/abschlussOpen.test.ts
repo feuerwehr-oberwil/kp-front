@@ -35,6 +35,15 @@ describe('abschlussOpenPoints', () => {
     expect(go.report).toHaveBeenCalledTimes(1)
     expect(abschlussSheet(abschlussOpenPoints([], 0, 0, { noReport: true }), go).anyOpen).toBe(true)
   })
+  // UX pick B3·18 (25.11.2026): a paper made before the Nachtrag is the same open point, by its time
+  it('names a paper made before the Nachtrag by its time, in the missing Rapport\'s place', () => {
+    const points = abschlussOpenPoints([], 0, 0, { reportBeforeNachtrag: '2026-11-25T13:30:00Z' })
+    expect(points).toEqual([{ kind: 'report', madeAt: '2026-11-25T13:30:00Z' }])
+    expect(abschlussOpenLabel(points[0])).toMatch(/^Rapport von \d\d:\d\d – vor dem Nachtrag$/)
+    expect(countsAsOpen(points[0])).toBe(true)
+    // «noch nicht erstellt» wins: there is no paper to be old
+    expect(abschlussOpenPoints([], 0, 0, { noReport: true, reportBeforeNachtrag: 'x' })).toEqual([{ kind: 'report' }])
+  })
   // UX pick B2·9 (25.11.2026): an open Pendenz is a gap the close must name – after the Trupps,
   // before the queue, by its own words; the row opens the Verlauf on it and turns the button
   // into «Trotzdem abschliessen»

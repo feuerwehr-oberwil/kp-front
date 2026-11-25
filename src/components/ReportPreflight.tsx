@@ -25,6 +25,7 @@ import { downloadUrl } from '../lib/download'
 import { thumbUrl } from '../lib/mediaUrl'
 import { geretteteFromLage, geretteteOffer } from '../lib/gerettete'
 import { rowPhotos } from '../lib/verlauf'
+import { reportBeforeNachtrag } from '../lib/reportNachtrag'
 // the geometry every full surface stands in — the Rapport is the fifth of them
 import surface from './Surface.module.css'
 import { usePageHeadFit } from '../lib/pageHeadFit'
@@ -725,6 +726,8 @@ export function ReportPreflight({
   }
   const alarm = parseAlarmText(meta.alarmText)
   const alarmiert = meta.alarmiertAt
+  // the paper predates the Nachtrag of this reopened Einsatz (lib/reportNachtrag, UX pick B3·18)
+  const paperOld = useMemo(() => reportBeforeNachtrag(reportMeta.reportMadeAt, events), [reportMeta.reportMadeAt, events])
   // Plausibility of the three clocks, as a HINT under the field that is wrong. Never a block:
   // printing must not depend on what somebody typed, and an Einsatz over midnight is normal.
   //
@@ -1292,11 +1295,14 @@ export function ReportPreflight({
   // «4 offen», and an EL never learnt that closing was theirs. Before that moment the close is the
   // Einsatz ▾ menu's (WorkspaceTopBar). Off the LIVE form state: an Einsatzende typed a second ago
   // turns it on without a round trip, exactly as it clears the head's «n offen».
-  const closeReady = !!onComplete && !!meta.reportMadeAt && missing.length === 0
+  // ⚠️ A paper made before the Nachtrag of a reopened Einsatz is no paper here (owner pick UX
+  // journeys B3·18, 25.11.2026, lib/reportNachtrag): the band asks for the PDF again.
+  const paperCurrent = !!meta.reportMadeAt && !paperOld
+  const closeReady = !!onComplete && paperCurrent && missing.length === 0
   // …and ONE step earlier (owner pick 15B, 28.10.2026): everything recorded, no PDF yet – the band
   // names the next step, «Einsatzrapport (PDF) erstellen». No «Später» on it (15x): it goes away by
   // itself once the PDF exists, and the head's green close takes over (`closeReady`).
-  const showReadyBand = !!onComplete && canEdit && !meta.reportMadeAt && missing.length === 0
+  const showReadyBand = !!onComplete && canEdit && !paperCurrent && missing.length === 0
 
   // The guide strip (owner pick 14 «top strip», 28.10.2026). A jump from the «n offen» list (or
   // from the «Angaben fehlen noch» confirm) remembers WHERE it went; the strip under the head then

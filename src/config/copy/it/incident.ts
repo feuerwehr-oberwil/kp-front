@@ -184,6 +184,7 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     reportMissing: 'Rapporto non ancora creato',
     pendenzOpenOne: '1 pendenza aperta',
     pendenzOpenMany: '{n} pendenze aperte',
+    reportBeforeNachtrag: 'Rapporto delle {t} – prima dell’aggiunta',
   },
   personnelSync: {
     title: 'Allinea l’effettivo con {provider}',

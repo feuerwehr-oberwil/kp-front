@@ -182,6 +182,7 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     reportMissing: 'Report not created yet',
     pendenzOpenOne: '1 open item',
     pendenzOpenMany: '{n} open items',
+    reportBeforeNachtrag: 'Report from {t} – before the late entry',
   },
   personnelSync: {
     title: 'Match personnel with {provider}',

@@ -68,7 +68,7 @@ describe('the Rapport\'s «noch offen» is ONE number', () => {
   it('the chip, the Abschluss, the phone badge and the chooser row agree', async () => {
     // 1 · the workspace's count — what the Abschluss confirm, the archive row and the badge read
     const r = renderHook(() => useAbschluss({
-      reportMeta, attendance, mittel: [], openConflictCount: openConflicts([conflict]).length, trupps: [], openPendenzen: [], showVerlaufRow: vi.fn(),
+      reportMeta, attendance, mittel: [], openConflictCount: openConflicts([conflict]).length, trupps: [], openPendenzen: [], showVerlaufRow: vi.fn(), reportBeforeNachtrag: false,
       incidentMeta: { is_archived: false, status: 'offen', closed_at: null }, replayActive: false,
       media: { pendingCount: 0, flush: vi.fn(async () => {}) } as never,
       onCompleteRapport: vi.fn(async () => true),

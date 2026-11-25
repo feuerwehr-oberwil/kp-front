@@ -545,6 +545,41 @@ async def test_a_reopen_clears_the_rapport_stamp_and_names_its_boundary(client, 
     assert rows[-1]["text"].startswith("Rapport erneut abgeschlossen")
 
 
+async def test_the_re_close_claims_a_new_version_only_when_a_new_paper_exists(client, editor):
+    """UX pick B3·18: «ersetzt frühere Version» only when a Rapport was made after the last close."""
+    from datetime import UTC, datetime, timedelta
+
+    await _login(client, editor)
+    inc = await _incident(client)
+    await _close(client, inc)
+
+    async def reopen_and_close() -> str:
+        assert (await client.patch(f"/api/incidents/{inc}", json={"is_archived": False})).status_code == 200
+        await _close(client, inc)
+        rows = [e["row"] for e in (await client.get(f"/api/incidents/{inc}/journal")).json()["entries"]]
+        return [r["text"] for r in rows if r["text"].startswith("Rapport")][-1]
+
+    # closed again over the paper of before – the row must not claim a new version
+    assert await reopen_and_close() == "Rapport erneut abgeschlossen"
+    # …a PDF made after that close (the client stamps reportMeta.reportMadeAt in the workspace)
+    made = (datetime.now(UTC) + timedelta(minutes=1)).isoformat()
+    ws = (await client.get(f"/api/incidents/{inc}/workspace")).json()
+    assert (await client.patch(f"/api/incidents/{inc}", json={"is_archived": False})).status_code == 200
+    r = await client.put(
+        f"/api/incidents/{inc}/workspace",
+        json={
+            "workspace": {**(ws["workspace"] or {}), "reportMeta": {"reportMadeAt": made}},
+            "base_rev": ws["workspace_rev"],
+        },
+    )
+    assert r.status_code == 200, r.text
+    await _close(client, inc)
+    rows = [e["row"] for e in (await client.get(f"/api/incidents/{inc}/journal")).json()["entries"]]
+    assert [r["text"] for r in rows if r["text"].startswith("Rapport")][-1] == (
+        "Rapport erneut abgeschlossen (ersetzt frühere Version)"
+    )
+
+
 async def test_rows_accepted_after_the_close_are_stamped_for_paper(client, editor):
     """A Kontakt from before the close that reaches the server after it: recorded in its time
     order, and marked as having come late, so the PDF prints it as a Nachtrag."""

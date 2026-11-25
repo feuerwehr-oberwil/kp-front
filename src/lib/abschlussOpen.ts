@@ -22,8 +22,11 @@ import { truppLogName } from './atemschutz'
  */
 export type AbschlussOpenPoint =
   /** no Rapport made yet – neither a PDF nor a finished print (`reportMadeAt` unset). The
-   *  Abschluss's own point (owner pick M5 · A, 17.11.2026); the print's list never carries it. */
-  | { kind: 'report' }
+   *  Abschluss's own point (owner pick M5 · A, 17.11.2026); the print's list never carries it.
+   *  With `madeAt`: one exists, but it was made before the Nachtrag of a reopened Einsatz
+   *  (lib/reportNachtrag, owner pick UX journeys B3·18, 25.11.2026) – «Rapport von 14:30 – vor
+   *  dem Nachtrag», the same open point with the same target. */
+  | { kind: 'report'; madeAt?: string }
   | { kind: 'step'; step: AbschlussStep }
   /** Trupps still recorded as being out there (lib/atemschutz · truppStillDeployed) */
   | { kind: 'trupps'; n: number }
@@ -65,11 +68,12 @@ export interface AbschlussOpenTargets {
  *  allowed, and the row only OPENS the Verlauf on it (the 11.11.2026 rule below). */
 export function abschlussOpenPoints(
   missing: AbschlussStep[], truppsStillOut: number, pendingMedia: number,
-  more: { noReport?: boolean; pendenzen?: readonly OpenPendenz[] } = {},
+  more: { noReport?: boolean; reportBeforeNachtrag?: string; pendenzen?: readonly OpenPendenz[] } = {},
 ): AbschlussOpenPoint[] {
   const pendenzen = more.pendenzen ?? []
   return [
-    ...(more.noReport ? [{ kind: 'report' } as const] : []),
+    ...(more.noReport ? [{ kind: 'report' } as const]
+      : more.reportBeforeNachtrag ? [{ kind: 'report', madeAt: more.reportBeforeNachtrag } as const] : []),
     ...missing.map((step): AbschlussOpenPoint => ({ kind: 'step', step })),
     ...(truppsStillOut > 0 ? [{ kind: 'trupps', n: truppsStillOut } as const] : []),
     ...(pendenzen.length > 0 ? [{ kind: 'pendenzen', items: pendenzen } as const] : []),
@@ -86,7 +90,9 @@ export type OpenTargetsFor<P extends AbschlussOpenPoint> = Pick<AbschlussOpenTar
 export function abschlussOpenLabel(p: AbschlussOpenPoint): string {
   const P = appConfig.copy.preflight
   switch (p.kind) {
-    case 'report': return appConfig.copy.abschluss.reportMissing
+    case 'report': return p.madeAt
+      ? fillTemplate(appConfig.copy.abschluss.reportBeforeNachtrag, { t: formatTime(new Date(p.madeAt)) })
+      : appConfig.copy.abschluss.reportMissing
     case 'step': return appConfig.copy.abschluss.steps[p.step]
     case 'trupps': return fillTemplate(P.truppsDeployedConfirm, { n: p.n })
     case 'pendenzen': {

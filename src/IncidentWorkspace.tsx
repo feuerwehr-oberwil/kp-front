@@ -91,6 +91,7 @@ import { TabLockBanner } from './components/TabLockBanner'
 import { SurfaceBoundary } from './components/SurfaceBoundary'
 import { RemindersHost } from './lib/useReminders'
 import { deriveReminders } from './lib/reminders'
+import { reportBeforeNachtrag } from './lib/reportNachtrag'
 import { useRenderStorm } from './lib/useRenderStorm'
 import { AtemschutzAlarmHost } from './lib/useAtemschutzAlarm'
 import { truppInNotfall, truppLogName, truppStillRegistered, type AtemschutzAlarmState, type CrewSlot } from './lib/atemschutz'
@@ -1631,8 +1632,10 @@ export function IncidentWorkspace({
   // it (owner pick UX journeys B2·9, 25.11.2026)
   const openPendenzen = useMemo(() => deriveReminders(timeline).map((r) => ({ rowId: r.rowId, text: r.text })), [timeline])
   const showVerlaufRow = useCallback((rowId: string) => { setJournalOpen(true); setJournalLandOn({ id: rowId, nonce: Date.now() }) }, [])
+  // after «Wieder öffnen» any change makes the paper old (lib/reportNachtrag, UX pick B3·18)
+  const paperBeforeNachtrag = useMemo(() => reportBeforeNachtrag(reportMeta.reportMadeAt, timeline), [reportMeta.reportMadeAt, timeline])
   const { abschlussMissing, azFrozenAt, azMonitoring, confirmAndComplete } = useAbschluss({
-    reportMeta, attendance, mittel, openConflictCount, trupps, openPendenzen, showVerlaufRow, incidentMeta, replayActive, media, onCompleteRapport,
+    reportMeta, attendance, mittel, openConflictCount, trupps, openPendenzen, showVerlaufRow, reportBeforeNachtrag: paperBeforeNachtrag, incidentMeta, replayActive, media, onCompleteRapport,
     setMode, setPanel, setOfflineReadyOpen, requestReportStep,
     // only where the Tafel may be written — a viewer's or a replay's Abschluss has nothing to close
     standDownTrupps: canEditTrupps ? standDownTrupps : undefined,

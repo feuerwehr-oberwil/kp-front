@@ -266,6 +266,9 @@ export const incidentCopy = {
     // open Pendenzen in the close's «Noch offen» (owner pick UX journeys B2·9, 25.11.2026)
     pendenzOpenOne: '1 Pendenz offen',
     pendenzOpenMany: '{n} Pendenzen offen',
+    // …and a paper made before the Nachtrag of a reopened Einsatz (owner pick UX journeys B3·18,
+    // 25.11.2026, lib/reportNachtrag)
+    reportBeforeNachtrag: 'Rapport von {t} – vor dem Nachtrag',
   },
   // sync the roster with the configured personnel source
   personnelSync: {

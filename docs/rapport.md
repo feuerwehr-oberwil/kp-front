@@ -93,8 +93,19 @@ scrolling body so it stays visible with the keyboard up):
   the «Noch offen» confirm with «Trotzdem abschliessen» – printing never blocks. A finished print
   counts exactly like a PDF. An operator's edit of a Rapport field after the paper DROPS
   `reportMadeAt` (ReportPreflight · `persist`, the app's bookkeeping does not count): the row comes
-  back and the head falls back to the band «… PDF erstellen» instead of the green close. Only the
-  Rapport's own fields – a Verlauf row, the Anwesenheit or Mittel do not make the paper stale.
+  back and the head falls back to the band «… PDF erstellen» instead of the green close. While the
+  Einsatz runs, only the Rapport's own fields count – a Verlauf row, the Anwesenheit or Mittel do
+  not make the paper stale.
+- **After «Wieder öffnen» every change makes the paper old** (owner pick UX journeys B3·18,
+  25.11.2026 – it overturns M5 · A of 17.11.2026 for a REOPENED Einsatz only): a Nachtrag exists to
+  change the record, and a walker closed again over the PDF of before it. Any row a hand wrote
+  after both the reopen and the paper (the Anwesenheit and the Mittel write their own) counts
+  (`lib/reportNachtrag`, derived from the Verlauf, `reportMadeAt` is not dropped). The close lists
+  «Rapport von 14:30 – vor dem Nachtrag» in the place of «Rapport noch nicht erstellt» (a tap opens
+  the Rapport, «Trotzdem abschliessen» goes on), and the head shows the PDF band, not the green
+  close. The server's Verlauf row says «Rapport erneut abgeschlossen (ersetzt frühere Version)» only
+  when a paper was made after the close before (`incidents · _paper_since`), else «Rapport erneut
+  abgeschlossen».
 - **Closed: one strip, the state** (owner, 12.11.2026: «either closed or the next step»). A closed
   Einsatz shows the amber «Einsatz abgeschlossen – zum Bearbeiten wieder öffnen» with «Wieder
   öffnen» beside it (the Einsatz card's action and confirm; «… – nur ansehen» without the button
