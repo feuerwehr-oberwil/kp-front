@@ -322,7 +322,7 @@ export function AnwesenheitView({
   shifts, bands, onCreateBand, onSaveBand, onRemoveBand, onCycleCell, onSetCellState, onPutCellState,
   startedAt, onAddShift, onAddShiftSpan, onReplaceShift, onSetShiftTime, onRemoveShift,
   onPrintZeitplan, onDownloadZeitplan, zeitplanPrintOnline,
-  livePositions, incidentCenter, onShowOnMap, incidentId, diveraResponsesFor,
+  livePositions, incidentCenter, onShowOnMap, incidentId, diveraResponsesFor, onBackToRapport,
 }: {
   people: Person[]
   attendance: AttendanceState
@@ -417,6 +417,10 @@ export function AnwesenheitView({
    *  set only for a running Einsatz on a station with Divera, for the EL and the editors.
    *  Absent = no block, and no request: a station without Divera never sees it. */
   diveraResponsesFor?: string
+  /** «‹ Rapport» in the page head – set only while this surface was opened from a Rapport row
+   *  (owner pick UX journeys M·8, 25.11.2026: it replaces the floating «Zurück zum Rapport» pill
+   *  here, which covered the list's last row – WorkspaceMeldungen keeps it for Material) */
+  onBackToRapport?: () => void
 }) {
   const [q, setQ] = useState('')
   const [rankSel, setRankSel] = useState<ReadonlySet<string>>(() => new Set())
@@ -720,6 +724,13 @@ export function AnwesenheitView({
   return (
     <div className={s.surface}>
       <header ref={headRef} className={s.head}>
+        {/* the way back where a page's way up stands – before the title, never over the list */}
+        {onBackToRapport && (
+          <button type="button" className={cx('head-tile', s.headBack)} onClick={onBackToRapport}
+            aria-label={appConfig.copy.abschluss.backToRapport} title={appConfig.copy.abschluss.backToRapport}>
+            <Icon id="chevron-left" />{A.backToRapportWord}
+          </button>
+        )}
         <div className={s.headTitles}>
           <h2>{A.title}</h2>
           {/* «12 anwesend · 3 gegangen» — and, once anybody is at the Magazin,
@@ -1094,24 +1105,45 @@ export function AnwesenheitView({
                 {/* THE one clock in the row, always there: it opens the sheet where several
                     stretches — came, went, came back — are added and corrected. The chip beside it
                     edits the single time shown; this is the way to all the others. */}
-                {/* Am Einsatzort oder noch im Magazin. ONE tap flips it, and the chip says
-                    which it is in a word — this is read at a glance down a column of 12 names,
-                    so it must not be a colour alone. Only on somebody who is HERE: «wo ist
-                    jemand, der gegangen ist» has no answer worth a control. */}
+                {/* Am Einsatzort oder noch im Magazin – a WORD on the row, «Vor Ort ▾» /
+                    «Magazin ▾», and a tap opens the two-row choice (owner pick UX journeys M·8,
+                    25.11.2026 – replaces the one-tap glyph flip of 09.08.2026: a stray tap moved
+                    somebody to the Magazin without a word, two taps and a named choice cannot).
+                    Only on somebody who is HERE: «wo ist jemand, der gegangen ist» has no answer
+                    worth a control. */}
                 {present && (
                   canEdit && onSetOrt ? (
-                    <button
-                      type="button"
-                      className={cx(s.ort, ortOf(a) === 'station' ? s.ortStation : s.ortScene)}
-                      title={fillTemplate(ortOf(a) === 'station' ? A.ortToScene : A.ortToStation, { name: p.displayName })}
-                      aria-label={fillTemplate(ortOf(a) === 'station' ? A.ortToScene : A.ortToStation, { name: p.displayName })}
-                      onClick={() => onSetOrt(p)}
-                    >
-                      <Icon id={ortOf(a) === 'station' ? 'station' : 'pin'} />
-                    </button>
+                    <Menu
+                      trigger={
+                        <button type="button" className={cx(s.ort, ortOf(a) === 'station' ? s.ortStation : s.ortScene)}
+                          title={fillTemplate(A.ortPick, { name: p.displayName })}
+                          aria-label={`${fillTemplate(A.ortPick, { name: p.displayName })}: ${ortOf(a) === 'station' ? A.ortStation : A.ortScene}`}>
+                          <span className={s.ortChip}>
+                            <Icon id={ortOf(a) === 'station' ? 'station' : 'pin'} />
+                            {ortOf(a) === 'station' ? A.ortStation : A.ortScene}
+                            <Icon id="chevron-down" />
+                          </span>
+                        </button>
+                      }
+                      popupClassName={c.menuPop}
+                      itemClassName={() => c.menuItem}
+                      items={[{
+                        kind: 'radio' as const,
+                        value: ortOf(a),
+                        // a pick of the place already set changes nothing – that is the point
+                        onChange: (v: string) => { if (v !== ortOf(a)) onSetOrt(p) },
+                        options: [
+                          { value: 'scene', label: <span className={cx(s.markRow, s.markOrt)}><Icon id="pin" />{A.ortScene}</span> },
+                          { value: 'station', label: <span className={cx(s.markRow, s.markOrt, s.markOrtStation)}><Icon id="station" />{ortOf(a) === 'station' ? A.ortStation : A.ortToStationPick}</span> },
+                        ],
+                      }]}
+                    />
                   ) : (
                     <span className={cx(s.ort, ortOf(a) === 'station' ? s.ortStation : s.ortScene)}>
-                      <Icon id={ortOf(a) === 'station' ? 'station' : 'pin'} />
+                      <span className={s.ortChip}>
+                        <Icon id={ortOf(a) === 'station' ? 'station' : 'pin'} />
+                        {ortOf(a) === 'station' ? A.ortStation : A.ortScene}
+                      </span>
                     </span>
                   )
                 )}
@@ -1135,6 +1167,9 @@ export function AnwesenheitView({
                     onClick={() => setBlocksFor(p.id)}
                   >
                     <Icon id="clock" />
+                    {/* its word under the glyph (pick M·8, 25.11.2026): the clock opened a sheet
+                        nobody could name before tapping */}
+                    <span className={s.actWord} aria-hidden="true">{A.zeitenWord}</span>
                   </button>
                 )}
               </div>
@@ -1187,7 +1222,7 @@ export function AnwesenheitView({
 
       {/* PHONE: the three readings as the docked strip above the nav bar — the Rapport's own
           (PhoneTabBar · 15-mobile.css `.rp-tabs`). Rendering it is what reserves its lane:
-          `--rp-tabs-safe` lifts this shell's bottom edge, the FAB and «Zurück zum Rapport». */}
+          `--rp-tabs-safe` lifts this shell's bottom edge and the FAB. */}
       {!empty && planAvailable && isPhone && (
         <PhoneTabBar<AnwesenheitTab> ariaLabel={A.viewLabel} value={view} onChange={pickView} options={viewOptions} />
       )}

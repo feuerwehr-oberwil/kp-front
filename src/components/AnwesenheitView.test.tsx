@@ -472,3 +472,44 @@ describe('the list goes by name, A–Z', () => {
     }
   })
 })
+
+// Owner pick UX journeys M·8, 25.11.2026: a stray tap on the row's Ort moved somebody to the Magazin
+// without a word. The Ort is a worded chip now, and a tap only opens the two-row choice.
+describe('the Ort is a word and a choice, never a one-tap flip', () => {
+  const A = appConfig.copy.anwesenheit
+  const here = {
+    p1: { status: 'present', intervals: [{ from: '2026-11-25T10:00:00.000Z' }] },
+  } as unknown as AttendanceState
+  const chip = () => screen.getByRole('button', { name: new RegExp(fillTemplate(A.ortPick, { name: 'Meier Anna' })) })
+
+  it('reads «Vor Ort», and the tap on it changes nothing by itself', () => {
+    const onSetOrt = vi.fn()
+    mount({ attendance: here, onSetOrt })
+    expect(chip().textContent).toContain(A.ortScene)
+    fireEvent.click(chip())
+    expect(onSetOrt).not.toHaveBeenCalled()
+  })
+
+  it('moves the person only when the other place is picked', () => {
+    const onSetOrt = vi.fn()
+    mount({ attendance: here, onSetOrt })
+    fireEvent.click(chip())
+    fireEvent.click(screen.getByRole('menuitemradio', { name: A.ortScene }))
+    expect(onSetOrt).not.toHaveBeenCalled()
+    cleanup()
+    mount({ attendance: here, onSetOrt })
+    fireEvent.click(chip())
+    fireEvent.click(screen.getByRole('menuitemradio', { name: A.ortToStationPick }))
+    expect(onSetOrt).toHaveBeenCalledTimes(1)
+  })
+
+  it('carries «‹ Rapport» in the head only while the Rapport opened the page', () => {
+    const back = vi.fn()
+    mount({ onBackToRapport: back })
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.abschluss.backToRapport }))
+    expect(back).toHaveBeenCalledTimes(1)
+    cleanup()
+    mount()
+    expect(screen.queryByRole('button', { name: appConfig.copy.abschluss.backToRapport })).toBeNull()
+  })
+})
