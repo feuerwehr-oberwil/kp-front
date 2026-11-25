@@ -1,11 +1,11 @@
 import { ShellLoader } from '../components/ShellLoader'
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import type { AlarmGroup, DeploymentConfig, DeploymentFleet, FleetVehicle } from '../lib/deploymentConfig'
+import type { AlarmGroup, DeploymentConfig, FleetVehicle } from '../lib/deploymentConfig'
 import { legacyFleetToAttributeLists, DEFAULT_MODULES, OFFLINE_RADIUS_M } from '../lib/deploymentConfig'
 import { CONTACT_BOUNDS } from '../lib/workspace'
 import { geoDatasetId, geoLayerUrl, inspectGeojson, listReference, uploadReference, type ReferenceDataset } from '../lib/incidents'
 import { ApiError, apiGet } from '../lib/api'
-import { useConfig, getPath } from './ConfigContext'
+import { useConfig, getPath, type ConfigPathTo } from './ConfigContext'
 // No `Field` any more: every setting on these pages is a row of the settings table now, and
 // the list editors' records are a divider plus their fields as rows of the same grid.
 import {
@@ -113,7 +113,7 @@ function useNumberField() {
   const { draft, set } = useConfig()
   const [editing, setEditing] = useState<Record<string, string>>({})
   return function numberField(opts: {
-    path: (string | number)[]
+    path: ConfigPathTo<number>
     label: string
     tip?: string
     guard: NumberGuard
@@ -130,12 +130,12 @@ function useNumberField() {
     onAccepted?: (value: number | null) => void
   }) {
     const key = opts.path.join('.')
-    const stored = numStr(getPath<number>(draft, opts.path) ?? opts.fallback)
+    const stored = numStr(getPath(draft, opts.path) ?? opts.fallback)
     const text = editing[key] ?? stored
     const value = guardedNumber(text, opts.guard)
     // ⚠️ The DOCUMENT's value, not `text`: a half-typed number is not a deviation yet, and the
     // Standard column must not flicker on every keystroke.
-    const standard = standardNote(getPath<number>(draft, opts.path), opts.standard ?? opts.fallback)
+    const standard = standardNote(getPath(draft, opts.path), opts.standard ?? opts.fallback)
     return (
       <Fragment key={key}>
         <SettingRow label={opts.label} tip={opts.tip} standard={standard}>
@@ -214,7 +214,7 @@ function pickerHex(raw: string): string {
 export function AccentColorField() {
   const { draft, set } = useConfig()
   const C = appConfig.copy.admin.identity
-  const stored = getPath<string>(draft, ['identity', 'accentColor'])
+  const stored = getPath(draft, ['identity', 'accentColor'])
   // The colour as it is being TYPED. Null until the first edit, so one arriving from elsewhere
   // (config import, history restore, CLI push) still shows through.
   const [editing, setEditing] = useState<string | null>(null)
@@ -304,7 +304,7 @@ export function IdentitySection() {
   // writing one: this page PUTs the whole config document, so a value materialised on render
   // would save a language the operator never picked (see ConfigContext · the full-document PUT).
   // The extra option exists only while nothing is chosen, so it cannot linger as a duplicate.
-  const localeChoice = resolveLocaleChoice(getPath<string>(draft, ['identity', 'locale']))
+  const localeChoice = resolveLocaleChoice(getPath(draft, ['identity', 'locale']))
   const localeOptions = [
     ...(localeChoice ? [] : [{ value: '', label: C.languageDefault }]),
     ...AVAILABLE_LOCALES.map((l) => ({ value: l.id, label: l.label })),
@@ -319,7 +319,7 @@ export function IdentitySection() {
         <input
           className="adm-input"
           type="text"
-          value={getPath<string>(draft, ['identity', 'appName']) ?? ''}
+          value={getPath(draft, ['identity', 'appName']) ?? ''}
           onChange={(e) => set(['identity', 'appName'], e.target.value || null)}
           placeholder={C.appNamePlaceholder}
         />
@@ -331,7 +331,7 @@ export function IdentitySection() {
           className="adm-input"
           type="text"
           maxLength={8}
-          value={getPath<string>(draft, ['identity', 'shortName']) ?? ''}
+          value={getPath(draft, ['identity', 'shortName']) ?? ''}
           onChange={(e) => set(['identity', 'shortName'], e.target.value || null)}
         />
       </SettingRow>
@@ -352,7 +352,7 @@ export function IdentitySection() {
           roster loaded yet and for a Kommandant who is not in this one's list. */}
       <SettingRow label={C.kommandant} tip={C.kommandantTip}>
         <NameCombo
-          value={getPath<string>(draft, ['identity', 'kommandant']) ?? ''}
+          value={getPath(draft, ['identity', 'kommandant']) ?? ''}
           onChange={(v) => set(['identity', 'kommandant'], v || null)}
           options={rosterNames}
           placeholder={C.kommandantPlaceholder}
@@ -370,7 +370,7 @@ export function IdentitySection() {
         <textarea
           className="adm-input adm-textarea"
           rows={4}
-          value={getPath<string>(draft, ['identity', 'helpIntro']) ?? ''}
+          value={getPath(draft, ['identity', 'helpIntro']) ?? ''}
           placeholder={appConfig.copy.help.introFallback}
           onChange={(e) => set(['identity', 'helpIntro'], e.target.value || null)}
         />
@@ -380,7 +380,7 @@ export function IdentitySection() {
           (see ConfigContext · applyServerAssets). */}
       <SettingsNote>
         <BrandingFields
-          assets={getPath<DeploymentConfig['identity']>(draft ?? {}, ['identity'])?.assets}
+          assets={getPath(draft ?? {}, ['identity'])?.assets}
           onApplied={applyServerAssets}
         />
       </SettingsNote>
@@ -434,8 +434,8 @@ export function MapSection() {
   // Array.isArray, not `?? []`: the document can also be written straight into the DB by the
   // `admin_config` CLI, and a hand-edited `center: {}` must not white-screen the one page
   // somebody would come to in order to fix it.
-  const rawWgs = getPath<unknown>(draft, ['map', 'defaultView', 'center'])
-  const rawLv95 = getPath<unknown>(draft, ['map', 'defaultView', 'centerLv95'])
+  const rawWgs = getPath(draft, ['map', 'defaultView', 'center'])
+  const rawLv95 = getPath(draft, ['map', 'defaultView', 'centerLv95'])
   const storedWgs = Array.isArray(rawWgs) ? (rawWgs as (number | null)[]) : []
   const storedLv95 = Array.isArray(rawLv95) ? (rawLv95 as (number | null)[]) : []
   // Which form the document is in decides which form the boxes show — until somebody switches.
@@ -539,7 +539,7 @@ export function MapSection() {
           className="adm-input adm-input-mono"
           type="number"
           step="any"
-          value={numStr(getPath<number>(draft, ['map', 'defaultView', 'zoom']))}
+          value={numStr(getPath(draft, ['map', 'defaultView', 'zoom']))}
           onChange={(e) => set(['map', 'defaultView', 'zoom'], numOrNull(e.target.value))}
         />
       </SettingRow>
@@ -588,7 +588,7 @@ function parseBboxLv95(raw: string): [number, number, number, number] | null {
 function GeocoderCard({ centre }: { centre: [number, number] | null }) {
   const { draft, set } = useConfig()
   const C = appConfig.copy.admin.map
-  const stored = getPath<string>(draft, ['map', 'geocoder', 'bboxLv95']) ?? ''
+  const stored = getPath(draft, ['map', 'geocoder', 'bboxLv95']) ?? ''
   const [editing, setEditing] = useState<string | null>(null)
   // «Nicht jetzt» for this visit only. Deliberately NOT persisted: there is nothing to remember
   // — the offer disappears for good the moment a bbox exists, and an operator who declined it
@@ -642,7 +642,7 @@ function GeocoderCard({ centre }: { centre: [number, number] | null }) {
         <input
           className="adm-input"
           type="text"
-          value={getPath<string>(draft, ['map', 'geocoder', 'defaultLocality']) ?? ''}
+          value={getPath(draft, ['map', 'geocoder', 'defaultLocality']) ?? ''}
           placeholder={C.localityPlaceholder}
           onChange={(e) => set(['map', 'geocoder', 'defaultLocality'], e.target.value || null)}
         />
@@ -690,7 +690,7 @@ function JournalGroup() {
   // with those actual values (not placeholder text), so editing one line preserves the rest.
   const [raw, setRaw] = useState<string>(
     () => {
-      const configured = getPath<string[]>(draft, ['journal', 'quickPhrases']) ?? []
+      const configured = getPath(draft, ['journal', 'quickPhrases']) ?? []
       return (configured.length > 0 ? configured : appConfig.journal.quickPhrases).join('\n')
     },
   )
@@ -728,7 +728,7 @@ export function DoctrineSection() {
   const { draft, set } = useConfig()
   const numberField = useNumberField()
   const C = appConfig.copy.admin.doctrine
-  const isDemo = getPath<boolean>(draft, ['identity', 'demoMode']) === true
+  const isDemo = getPath(draft, ['identity', 'demoMode']) === true
   // ⚠️ `NonNullable`: `doctrine` is optional on the document, and `keyof (T | undefined)` is
   // `never` — which silently made every key below assignable and the type check decorative.
   // …and NUMBERS only: `doctrine.equipment` is a list both sides carry (14.09.), and a number
@@ -749,8 +749,8 @@ export function DoctrineSection() {
   // Trupp stepper offers. A 999 above a max of 99 was autosaved to every device (sweep F.4,
   // 23.10.2026); out of range it now stays in the box with the field error, like the Rückzug line.
   const funkkanalRange = {
-    min: getPath<number>(draft, ['doctrine', 'funkkanalMin']) ?? appConfig.atemschutz.funkkanalMin,
-    max: getPath<number>(draft, ['doctrine', 'funkkanalMax']) ?? appConfig.atemschutz.funkkanalMax,
+    min: getPath(draft, ['doctrine', 'funkkanalMin']) ?? appConfig.atemschutz.funkkanalMin,
+    max: getPath(draft, ['doctrine', 'funkkanalMax']) ?? appConfig.atemschutz.funkkanalMax,
   }
   const funkkanalGuard: NumberGuard = { kind: 'int', ...funkkanalRange, nullable: true }
 
@@ -761,7 +761,7 @@ export function DoctrineSection() {
   // itself suggested. The last colour removed leaves `null`, which is how «none» is said here.
   // The Alarmdruck this station runs on right now — the stored value, or the shipped one while
   // the box is empty. It is the ceiling of the Rückzug line below it (see there).
-  const effectiveAlarmBar = getPath<number>(draft, ['doctrine', 'alarmBar']) ?? appConfig.atemschutz.alarmBar
+  const effectiveAlarmBar = getPath(draft, ['doctrine', 'alarmBar']) ?? appConfig.atemschutz.alarmBar
   const rueckzugMax = Math.min(300, effectiveAlarmBar)
 
   // The Rückzug line the operator actually CHOSE, as opposed to the one currently clamped into
@@ -775,10 +775,10 @@ export function DoctrineSection() {
   // Trupp at a pressure no cylinder reaches. Clamping the REMEMBERED value each time instead is
   // idempotent across the intermediate states: min(50, 1) → min(50, 15) → min(50, 150) = 50.
   const rueckzugIntentRef = useRef<number | null>(null)
-  const storedRueckzug = getPath<number>(draft, ['doctrine', 'alarmBarRueckzug'])
+  const storedRueckzug = getPath(draft, ['doctrine', 'alarmBarRueckzug'])
   if (rueckzugIntentRef.current === null && storedRueckzug != null) rueckzugIntentRef.current = storedRueckzug
 
-  const auftragColors = getPath<Record<string, string>>(draft, ['doctrine', 'auftragColors'])
+  const auftragColors = getPath(draft, ['doctrine', 'auftragColors'])
   const setAuftragColor = (id: string, color: string | null) => {
     if ((auftragColors?.[id] ?? null) === color) return // «Automatisch» on an automatic row writes nothing
     const next = { ...(auftragColors ?? {}) }
@@ -798,7 +798,7 @@ export function DoctrineSection() {
         path: ['doctrine', 'defaultFunkkanalEinfach'], label: C.defaultFunkkanalEinfach,
         tip: C.defaultFunkkanalEinfachTip, guard: funkkanalGuard,
         message: fillTemplate(C.funkkanalOutOfRange, funkkanalRange),
-        fallback: getPath<number>(draft, ['doctrine', 'defaultFunkkanal']) ?? appConfig.atemschutz.defaultFunkkanal,
+        fallback: getPath(draft, ['doctrine', 'defaultFunkkanal']) ?? appConfig.atemschutz.defaultFunkkanal,
       })}
       {numField(C.funkkanalMin, C.funkkanalMinTip, 'funkkanalMin')}
       {numField(C.funkkanalMax, C.funkkanalMaxTip, 'funkkanalMax')}
@@ -836,7 +836,7 @@ export function DoctrineSection() {
             const intent = rueckzugIntentRef.current
             if (intent == null) return
             const clamped = Math.min(intent, value ?? appConfig.atemschutz.alarmBar)
-            if (getPath<number>(draft, ['doctrine', 'alarmBarRueckzug']) !== clamped) {
+            if (getPath(draft, ['doctrine', 'alarmBarRueckzug']) !== clamped) {
               set(['doctrine', 'alarmBarRueckzug'], clamped)
             }
           },
@@ -903,12 +903,12 @@ export function DoctrineSection() {
       ] as const).map(([key, sizes, shipped, label, tip]) => {
         const labels = appConfig.copy.relay.hoseLabels
         const name = (h: HoseSize | undefined) => (h ? labels[h] : C.defaultLineHoseNone)
-        const stored = getPath<string>(draft, ['doctrine', key])
+        const stored = getPath(draft, ['doctrine', key])
         const value = sizes.find((h) => h === stored) ?? shipped
         return (
           <SettingRow key={key} label={label} tip={fillTemplate(tip, { n: name(shipped) })}
             standard={standardNote(stored == null ? null : name(value), name(shipped))}>
-            <Select value={value ?? ''} ariaLabel={label} onChange={(v) => set(['doctrine', key], v || null)}
+            <Select value={value ?? ''} ariaLabel={label} onChange={(v) => set(['doctrine', key], sizes.find((h) => h === v) ?? null)}
               options={[
                 ...(shipped ? [] : [{ value: '', label: C.defaultLineHoseNone }]),
                 ...sizes.map((h) => ({ value: h, label: labels[h] })),
@@ -956,7 +956,7 @@ export function DoctrineSection() {
 export function FleetSection() {
   const { draft, set } = useConfig()
   const C = appConfig.copy.admin.fleet
-  const fleet = getPath<DeploymentFleet>(draft, ['fleet'])
+  const fleet = getPath(draft, ['fleet'])
   // Two halves, and they are NOT the same kind of surface:
   //  · the vehicle list is edited here. «Einrichtung» sends a fresh station to this page for
   //    «Fahrzeuge hinterlegen», and until now it arrived at a viewer with no inputs — the
@@ -1022,7 +1022,7 @@ function FleetVehiclesEditor() {
   // Array.isArray, not `?? []`: the document can also be written straight into the DB by the
   // `admin_config` CLI, and a hand-edited `vehicles: {}` would otherwise white-screen the one
   // page somebody would come to in order to fix it.
-  const raw = getPath<FleetVehicle[]>(draft, ['fleet', 'vehicles'])
+  const raw = getPath(draft, ['fleet', 'vehicles'])
   const stored = Array.isArray(raw) ? raw : []
   // The rows as they are being EDITED — the stored ones plus any not finished yet. Null until
   // the first edit, so a config arriving from elsewhere still shows through.
@@ -1141,7 +1141,7 @@ export function LayersSection() {
   // first one to be touched kept a copy from BEFORE the other one wrote, and its next keystroke
   // put that copy back — a freshly uploaded GeoJSON layer vanished from the document (its file
   // still in the store) the moment somebody corrected a raster label afterwards.
-  const raw = getPath<DeploymentReferenceLayer[]>(draft, ['referenceLayers'])
+  const raw = getPath(draft, ['referenceLayers'])
   // Array.isArray, not `?? []`: a hand-edited `referenceLayers: {}` must not white-screen the
   // one page somebody would come to in order to fix it.
   const stored = Array.isArray(raw) ? raw : []
@@ -1406,7 +1406,7 @@ function ReferenceGeojsonEditor({ all, write, datasets, onUploaded }: {
   /** The same merge, addressed by the layer's OWN id rather than by its position. ⚠️ For the
    *  writes that land after an upload: the row may have moved (or been deleted) in the seconds
    *  the file took, and an index captured at click time would then patch a stranger. */
-  const patchRow = (id: string | undefined, over: Partial<DeploymentReferenceLayer>) =>
+  const patchRow = (id: string | null | undefined, over: Partial<DeploymentReferenceLayer>) =>
     write((prev) => prev.map((r) => (r.id != null && r.id === id ? { ...r, ...over } : r)))
 
   /** Why a row is not (fully) stored, or null when it is. ⚠️ A missing Bezeichnung does NOT hold
@@ -1504,7 +1504,7 @@ function ReferenceGeojsonEditor({ all, write, datasets, onUploaded }: {
   // ── replacing an existing layer's file (same dataset id → a new VERSION, not a sibling) ──
   const [rowBusy, setRowBusy] = useState<number | null>(null)
   const [rowMsg, setRowMsg] = useState<{ i: number; msg: string; hint?: string; ok?: boolean } | null>(null)
-  const replaceFile = async (i: number, rowId: string | undefined, datasetId: string, f: File) => {
+  const replaceFile = async (i: number, rowId: string | null | undefined, datasetId: string, f: File) => {
     // the row now carries the news; the previous «… gespeichert» line below the list would
     // otherwise still report the feature count of the file that was just replaced
     setRowBusy(i); setRowMsg(null); setDone(null)
@@ -1768,8 +1768,8 @@ export function ReportSection() {
   const { draft, set } = useConfig()
   const numberField = useNumberField()
   const C = appConfig.copy.admin.report
-  const stepMin = getPath<number>(draft, ['report', 'hoursRounding', 'stepMin']) ?? DEFAULT_HOURS_ROUNDING.stepMin
-  const graceMin = getPath<number>(draft, ['report', 'hoursRounding', 'graceMin']) ?? DEFAULT_HOURS_ROUNDING.graceMin
+  const stepMin = getPath(draft, ['report', 'hoursRounding', 'stepMin']) ?? DEFAULT_HOURS_ROUNDING.stepMin
+  const graceMin = getPath(draft, ['report', 'hoursRounding', 'graceMin']) ?? DEFAULT_HOURS_ROUNDING.graceMin
   // the three durations from the docs' own worked example, run through the LIVE rule
   const sample = [67, 23, 178]
   const rule = { stepMin, graceMin }
@@ -1817,7 +1817,7 @@ export function ReportSection() {
       <SettingRow label={C.groupPartners} tip={C.partnersTip} span>
         <StringList
           ariaLabel={C.groupPartners}
-          value={getPath<string[]>(draft, ['report', 'partnerOrgs']) ?? []}
+          value={getPath(draft, ['report', 'partnerOrgs']) ?? []}
           onChange={(next) => set(['report', 'partnerOrgs'], next)}
           placeholder={C.partnerAddPlaceholder}
         />
@@ -1835,12 +1835,12 @@ export function ReportSection() {
           station that turned it off. */}
       <SettingRow
         label={C.reverseOrder} tip={C.reverseOrderHint}
-        standard={standardNote(getPath<boolean>(draft, ['report', 'reversePrintOrder']), true)}
+        standard={standardNote(getPath(draft, ['report', 'reversePrintOrder']), true)}
       >
         <input
           className="adm-set-check"
           type="checkbox"
-          checked={getPath<boolean>(draft, ['report', 'reversePrintOrder']) ?? true}
+          checked={getPath(draft, ['report', 'reversePrintOrder']) ?? true}
           onChange={(e) => set(['report', 'reversePrintOrder'], e.target.checked)}
         />
       </SettingRow>
@@ -1927,7 +1927,7 @@ function AlarmGroupsEditor() {
   // Array.isArray, not `?? []`: the document can also be written straight into the DB by the
   // `admin_config` CLI, and a hand-edited `groups: {}` would otherwise white-screen the one page
   // somebody would come to in order to fix it.
-  const raw = getPath<AlarmGroup[]>(draft, ['alarms', 'groups'])
+  const raw = getPath(draft, ['alarms', 'groups'])
   const stored = Array.isArray(raw) ? raw : []
   // The rows as they are being EDITED — the stored ones plus any not finished yet. Null until
   // the first edit, so a config arriving from elsewhere still shows through.
@@ -2043,7 +2043,7 @@ function WebhooksEditor() {
   const C = appConfig.copy.admin.alarms
   // Array.isArray, not `?? []`: a hand-edited `webhooks: {}` must not white-screen the page
   // somebody would come to in order to fix it.
-  const raw = getPath<string[]>(draft, ['alarms', 'webhooks'])
+  const raw = getPath(draft, ['alarms', 'webhooks'])
   const stored = Array.isArray(raw) ? raw : []
   const [editing, setEditing] = useState<string[] | null>(null)
   const rows = editing ?? stored
@@ -2126,7 +2126,7 @@ function ReportLinksEditor() {
   // Array.isArray, not `?? []`: the document can also be written by the `admin_config` CLI
   // straight into the DB, and a hand-edited `links: {}` would otherwise white-screen this page
   // on `.map` — the one config surface somebody would go to in order to FIX that.
-  const raw = getPath<ReportLink[]>(draft, ['report', 'links'])
+  const raw = getPath(draft, ['report', 'links'])
   const stored = Array.isArray(raw) ? raw : []
   // The rows as they are being EDITED — the stored ones plus any that are not finished yet.
   // Null until the first edit, so a config arriving from elsewhere still shows through.

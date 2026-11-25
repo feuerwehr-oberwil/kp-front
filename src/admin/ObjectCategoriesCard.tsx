@@ -22,7 +22,7 @@ export function ObjectCategoriesCard() {
   const { draft, set } = useConfig()
   const C = appConfig.copy.admin.map
   const K = appConfig.copy.karte.kind
-  const raw = getPath<ObjectCategoryRule[]>(draft, ['map', 'objectCategories'])
+  const raw = getPath(draft, ['map', 'objectCategories'])
   const stored = Array.isArray(raw) ? raw : []
   const [editing, setEditing] = useState<ObjectCategoryRule[] | null>(null)
   const rows = editing ?? stored

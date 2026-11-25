@@ -22,7 +22,7 @@ import {
 } from '../objectVisits/api'
 import { DEFAULT_DESTINATION, DEFAULT_LOCATION_FOLDER, destinationValid, previewFolder, previewLocationFolder } from '../objectVisits/folders'
 import { personName, type DeliveryRow, type NotifyState, type VisitFiling, type VisitSummary, type VisitTemplate } from '../objectVisits/types'
-import { getPath, useConfig } from './ConfigContext'
+import { getPath, useConfig, type ConfigCtx } from './ConfigContext'
 import {
   Card, ConfirmButton, CopyChip, EmptyState, RecordRows, RecordTable, ResultChip, SettingRow, SettingsNote,
   SettingsSheet, StatusBadge, Table, fmtDateTime,
@@ -51,9 +51,9 @@ export function ObjectVisitsView({ onNavigate }: { onNavigate: (id: string) => v
   )
 }
 
-function useOv(): { ov: DeploymentObjectVisits; set: (path: (string | number)[], v: unknown) => void } {
+function useOv(): { ov: DeploymentObjectVisits; set: ConfigCtx['set'] } {
   const { draft, set } = useConfig()
-  const ov = getPath<DeploymentObjectVisits>(draft, ['objectVisits']) ?? {}
+  const ov = getPath(draft, ['objectVisits']) ?? {}
   return { ov: ov && typeof ov === 'object' ? ov : {}, set }
 }
 

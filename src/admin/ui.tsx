@@ -747,16 +747,17 @@ export function ActionMenu({ actions, ariaLabel, disabled }: {
   )
 }
 
-export interface SelectOption { value: string; label: string }
+export interface SelectOption<V extends string = string> { value: V; label: string }
 
 // Custom listbox dropdown — replaces the native <select> so the open list is themed
 // (tokens, day/night) instead of the OS chrome. Keyboard-accessible: ↑/↓ move, Enter/␣
 // open & choose, Esc closes; click-away dismisses. Same value/onChange contract as a
-// native select, so it drops into existing controlled fields.
-export function Select({ value, onChange, options, ariaLabel, mono }: {
-  value: string
-  onChange: (v: string) => void
-  options: SelectOption[]
+// native select, so it drops into existing controlled fields. `V` is the options' value type: a
+// list of literal values hands `onChange` that literal union, not a bare string.
+export function Select<V extends string>({ value, onChange, options, ariaLabel, mono }: {
+  value: V
+  onChange: (v: V) => void
+  options: SelectOption<V>[]
   ariaLabel?: string
   mono?: boolean
 }) {
@@ -778,7 +779,7 @@ export function Select({ value, onChange, options, ariaLabel, mono }: {
     return () => document.removeEventListener('pointerdown', onDoc)
   }, [open, options, value])
 
-  const choose = (v: string) => { onChange(v); setOpen(false) }
+  const choose = (v: V) => { onChange(v); setOpen(false) }
 
   const onKey = (e: React.KeyboardEvent) => {
     if (e.key === 'ArrowDown') {

@@ -23,16 +23,15 @@
 // one row per rule, and these functions are what the tests pin.
 
 import type { StationObject } from '../api/stationReference'
+import type { In } from '../api/wire'
 
 export type ObjectKind = StationObject['kind']
 
-export interface ObjectCategoryRule {
-  id: string
-  /** one string, or one per language (`{ de, fr, it, en }`) */
-  label: string | Record<string, string>
-  /** `#rrggbb`, or `ink` (`INK`): the theme's `--obj-plans` */
-  color: string
-  match?: { kinds?: (ObjectKind | 'depot')[] | null; modules?: string[] | null } | null
+/** One rule (backend `ObjectCategoryConfig`). `label` is one string, or one per language
+ *  (`{ de, fr, it, en }`); `color` is a `#rrggbb`, or `ink` (`INK`): the theme's `--obj-plans`.
+ *  `match` may be `null` in a config cached by an older build. */
+export type ObjectCategoryRule = Omit<In<'ObjectCategoryConfig'>, 'match'> & {
+  match?: In<'ObjectCategoryConfig'>['match'] | null
 }
 
 export interface ObjectCategory {

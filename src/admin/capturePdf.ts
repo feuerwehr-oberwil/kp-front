@@ -51,7 +51,7 @@ export async function downloadPosterPdf(url: string, stationName: string): Promi
 interface SheetInput {
   stationName: string
   names: string[]
-  catalogue: { label: string; unit?: string }[]
+  catalogue: { label: string; unit?: string | null }[]
   /** station alarm groups (config alarms.groups) — Alarmierzeit stubs; empty = row hidden */
   groups?: { id: string; label: string; color?: string | null }[]
   /** station vehicles (config fleet.vehicles) — Ausrückzeit stubs; empty = row hidden */
