@@ -7,8 +7,9 @@
     "The server refuses a save from a build OLDER than the blob (backend app/workspace_kinds.py ·",
     "refuse_older_build), but not one at the same version. So a new key or kind gets the NEXT",
     "version here AND bumps WORKSPACE_SCHEMA_VERSION to it.",
-    "`shipped` is the fingerprint of each version's set as builds in the field know it. Never edit a",
-    "shipped line: add the line for a new version. src/lib/workspaceManifest.test.ts checks all of it."
+    "`shipped` is the fingerprint of each version's set, the baseline from 25.11.2026 on (earlier",
+    "releases at one version did not all carry the same set). Never edit a shipped line: add the line",
+    "for a new version. src/lib/workspaceManifest.test.ts checks all of it."
   ],
   "keys": {
     "entities": 1,
