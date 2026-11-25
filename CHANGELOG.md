@@ -30,6 +30,17 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ## [Unreleased]
 
+### Added
+
+- **The Rapport has a Verursacher again.** Name and Telefon on one line under the Kontaktperson,
+  with the call button and «Entfällt», printed in the Details box the same way. It is optional:
+  an empty Verursacher does not keep the Rapport «noch offen». The bill for a Strassensperrung or
+  an Ölspur goes to the Verursacher, and the name was missing from the paper.
+- **The Einsatzleiter's «Ort, Datum» comes filled in.** A Rapport signed by pen prints the
+  station's place and the day of printing on the EL's line («Oberwil, 25.11.2026»; the place is
+  the station setting `map.geocoder.defaultLocality`). The Kommandant's line stays blank – he may
+  sign days later. A reprint on another day does not break an on-screen signature.
+
 ## [0.13.0] – 2026-11-19
 
 Work from 2026-10-13 to 2026-11-19, most of it from the station's own use. KP Front now has a

@@ -16,6 +16,7 @@ L = {
     "einsatzleiter": "Einsatzleiter",
     "kontaktperson": "Kontaktperson",
     "kontaktpersonTelefon": "Telefon",
+    "verursacher": "Verursacher",
     "alarmierung": "Zeit Alarmierung",
     "ausgerueckt": "Ausgerückt",
     "incidentEnd": "Einsatzende",

@@ -24,6 +24,8 @@ export type ReportForm = {
   summary: string
   kontaktperson: string
   kontaktTel: string
+  verursacher: string
+  verursacherTel: string
   einsatzleiter: string
   endedAt: string
   ausgerueckt: string
@@ -45,6 +47,8 @@ export function remoteForm(reportMeta: ReportMeta, sceneEntities: Entity[] | und
     summary: reportMeta.summary ?? '',
     kontaktperson: reportMeta.kontaktperson ?? '',
     kontaktTel: reportMeta.kontaktpersonTelefon ?? '',
+    verursacher: reportMeta.verursacher ?? '',
+    verursacherTel: reportMeta.verursacherTelefon ?? '',
     // ⚠️ The Kroki fallback belongs in here, not beside it: it is what an EMPTY blob shows, so a
     // field sitting on the seeded name is in agreement with the blob and must not count as an
     // edit this device has to defend (ReportPreflight · seededEinsatzleiter persists it, once).
@@ -95,6 +99,8 @@ export function formToMeta(f: ReportForm): Partial<ReportMeta> {
     summary: f.summary.trim() || undefined,
     kontaktperson: f.kontaktperson.trim() || undefined,
     kontaktpersonTelefon: f.kontaktTel.trim() || undefined,
+    verursacher: f.verursacher.trim() || undefined,
+    verursacherTelefon: f.verursacherTel.trim() || undefined,
     einsatzleiter: f.einsatzleiter.trim() || undefined,
     endedAt: f.endedAt || undefined,
     ausgeruecktAt: deriveAusgerueckt(f.fahrzeuge) ?? (f.ausgerueckt || undefined),
@@ -113,6 +119,8 @@ const SOURCES: [keyof ReportMeta, (keyof ReportForm)[]][] = [
   ['summary', ['summary']],
   ['kontaktperson', ['kontaktperson']],
   ['kontaktpersonTelefon', ['kontaktTel']],
+  ['verursacher', ['verursacher']],
+  ['verursacherTelefon', ['verursacherTel']],
   ['einsatzleiter', ['einsatzleiter']],
   ['endedAt', ['endedAt']],
   ['ausgeruecktAt', ['ausgerueckt', 'fahrzeuge']],

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { dirtyFormMeta, formToMeta, numOrU, type ReportForm } from './reportForm'
 
 const EMPTY: ReportForm = {
-  summary: '', kontaktperson: '', kontaktTel: '', einsatzleiter: '', endedAt: '', ausgerueckt: '',
+  summary: '', kontaktperson: '', kontaktTel: '', verursacher: '', verursacherTel: '', einsatzleiter: '', endedAt: '', ausgerueckt: '',
   remarks: '', lehren: '', gruppen: [], fahrzeuge: [], geretteteP: '', geretteteT: '', rueckName: '', rueckAt: '',
 }
 const CLEAN = Object.fromEntries(Object.keys(EMPTY).map((k) => [k, false])) as Record<keyof ReportForm, boolean>

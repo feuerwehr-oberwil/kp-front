@@ -108,13 +108,14 @@ export function canonicalJson(v: unknown): string {
 }
 
 /** The payload keys that are NOT the signed part: the print options, the Beilagen (Kroki, Pläne,
- *  Tafel, Atemschutz, Journal, Pendenzen, Fotos, Auswertung), the moment of printing and the
+ *  Tafel, Atemschutz, Journal, Pendenzen, Fotos, Auswertung), the moment of printing (and the
+ *  EL's prefilled «Ort, Datum», which is that day) and the
  *  deployment's partner presets. Deny-listed rather than allow-listed on purpose: a section added
  *  to the paper later is signed until somebody decides it is a Beilage. */
 const NOT_SIGNED = new Set([
   'options', 'attachments', 'generatedAt', 'kroki', 'krokiCaption', 'planPages', 'boardPages', 'boardMap',
   'atemschutzIntervalMin', 'atemschutzGraceSec', 'trupps', 'journal', 'pendenzen', 'auswertung', 'partnerPresets',
-  'signatures', 'messungen', 'messungenLimits',
+  'signatures', 'messungen', 'messungenLimits', 'elPlaceDate',
 ])
 /** …and inside `meta`: the Lehren print in the internal Auswertung; the Kommandant's name is the
  *  deployment's default for the line, not a fact of the Einsatz */

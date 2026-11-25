@@ -58,6 +58,7 @@ export const reportCopy = {
       partnerContacts: 'Partnerorganisationen', gruppen: 'Alarmzeiten', fahrzeuge: 'Fahrzeugzeiten',
       mittelConfirmedNone: 'Material «keine»', erfasser: 'Erfasser', krokiPrint: 'Kroki-Ausschnitt',
       kontaktpersonNone: 'Kontaktperson', rueckmeldungNone: 'Rückmeldung ELZ',
+      verursacher: 'Verursacher', verursacherTelefon: 'Telefon Verursacher', verursacherNone: 'Verursacher',
     } as Record<string, string>,
     erfasser: 'Erfasst durch',
     // print view chrome
@@ -558,6 +559,13 @@ export const reportCopy = {
     // letzte Moment, in dem gefragt wird. Ohne Zahlwort-Plural: «Noch im Einsatz: 1» liest sich
     // genauso wie «Noch im Einsatz: 3».
     truppsDeployedConfirm: 'Noch im Einsatz: {n} – nie rausgemeldet',
+    // Verursacher (25.11.2026): wer den Einsatz verursacht hat – an ihn geht die Rechnung. Gleiche
+    // Zeile wie die Kontaktperson (Name + Telefon + «Entfällt»), aber freiwillig.
+    verursacherLabel: 'Verursacher',
+    verursacherClear: 'Verursacher leeren',
+    verursacherPlaceholder: 'Name / Firma / Kennzeichen',
+    verursacherTelefon: 'Telefon Verursacher',
+    verursacherCall: 'Verursacher anrufen',
   },
   // Station print relay — «Drucken» (preflight + capture)
   printRelay: {

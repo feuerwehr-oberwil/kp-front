@@ -15,7 +15,7 @@ import { ShellLoader } from './ShellLoader'
 import { cx } from '../lib/cx'
 import { parseAlarmText } from '../lib/alarmText'
 import { confirmDialog, openPhoto, toast, type ToastAction } from '../lib/ui'
-import { buildDirectReportPayload, downloadDirectReportPdf, readyDirectReportPayload, signedPartOf, usedStackFloors } from '../lib/reportPdfDirect'
+import { buildDirectReportPayload, downloadDirectReportPdf, readyDirectReportPayload, signedPartOf, signPlace, signPlaceDate, usedStackFloors } from '../lib/reportPdfDirect'
 import { activeSignatures, sha256Hex, SIGNATURE_ROLES, signedRoster, type ReportSignature } from '../lib/reportSignature'
 import { newId } from '../lib/ids'
 import { serverNowIso } from '../lib/serverClock'
@@ -110,6 +110,82 @@ function clockOf(iso?: string): string {
 function ReadOut({ value }: { value?: string | null }) {
   const v = value?.trim()
   return <div className={cx('rp-readout', !v && 'report-meta-empty')}>{v || appConfig.copy.preflight.notRecorded}</div>
+}
+
+/** The words of one ContactRow (preflight copy). */
+type ContactCopy = { label: string; placeholder: string; clear: string; tel: string; telPlaceholder: string; telClear: string; call: string }
+
+/** A person on the Rapport — the Kontaktperson, the Verursacher: the name and its number as ONE
+ *  fact on one line, the call button once the number dials, and «Entfällt» while both halves are
+ *  empty. The parent owns the synced values and writes the blob; this only draws the row.
+ *  `step` marks it for the Abschluss guide (the Kontaktperson is a Mindestangabe, the Verursacher
+ *  is not). `syncName` / `syncTel` are the useSyncedField keys of the two halves. */
+function ContactRow({ step, syncName, syncTel, name, tel, none, canEdit, copy, onName, onTel, onNone }: {
+  step?: AbschlussStep
+  syncName: string
+  syncTel: string
+  name: string
+  tel: string
+  none: boolean | undefined
+  canEdit: boolean
+  copy: ContactCopy
+  onName: (v: string) => void
+  onTel: (v: string) => void
+  onNone: (on: boolean) => void
+}) {
+  const P = appConfig.copy.preflight
+  const call = telHref(tel) && (
+    <a className="ip-btn rz-call" href={telHref(tel)} aria-label={copy.call} title={copy.call}>
+      <Icon id="phone" />
+    </a>
+  )
+  return (
+    // ⚠️ A <div>, not a <label>: the row carries a BUTTON now, and a button inside a label steals
+    // its own tap for the input's focus. The input keeps its name through `aria-label`.
+    <div className="ip-field" data-step={step} data-sync={syncName}>
+      <span>{copy.label}</span>
+      {/* «Entfällt» — the third answer. A Fehlalarm in an empty Altersheim has nobody to name,
+          and «leer» and «gibt es nicht» are two different statements: without it the step stayed
+          open for ever and «Angaben fehlen noch» stood in front of every print. A trailing
+          affordance on the input line, not a checkbox elsewhere — both answers are equally near. */}
+      {none ? (
+        <div className="rz-none">
+          {/* dashed, never a tick: ANSWERED «nicht vorhanden» rather than filled in */}
+          <span className="rz-none-val">{P.entfaellt}</span>
+          {canEdit && <button type="button" className="ip-btn" onClick={() => onNone(false)}>{P.entfaelltUndo}</button>}
+        </div>
+      ) : !canEdit ? (
+        // the name and the number as one read-out, and the call stays (owner, 22.10.2026: a viewer
+        // keeps the Kontaktperson's working `tel:`)
+        <div className="rz-none">
+          <ReadOut value={[name.trim(), tel.trim()].filter(Boolean).join(' · ')} />
+          {call}
+        </div>
+      ) : (
+        <div className="rz-none rz-kontakt">
+          {/* ✕: the Rapport is filled in after the fact and corrected as the picture settles — a
+              name written down from a first guess is normal here. */}
+          <ClearableInput value={name} placeholder={copy.placeholder} aria-label={copy.label} clearLabel={copy.clear}
+            onChange={(raw) => onName(stripUnprintable(raw))} />
+          {/* The number beside the name, because it is ONE fact — and the reason it is recorded at
+              all: the callback in the Nachbearbeitung. Its own data-sync marker, or a value
+              arriving from the iPad would overwrite mid-typing. */}
+          <div className="rz-kontakt-tel" data-sync={syncTel}>
+            <ClearableInput value={tel} placeholder={copy.telPlaceholder} aria-label={copy.tel} clearLabel={copy.telClear}
+              inputMode="tel" autoComplete="off"
+              onChange={(raw) => onTel(stripUnprintable(raw))} />
+            {call}
+          </div>
+          {/* only while BOTH halves are empty (30.08.): «Entfällt» beside a typed name contradicted
+              it — the tap would silently wipe real content. Once something is typed, the ✕ is the
+              way back to the empty state. */}
+          {!name.trim() && !tel.trim() && (
+            <button type="button" className="ip-btn" onClick={() => onNone(true)}>{P.entfaellt}</button>
+          )}
+        </div>
+      )}
+    </div>
+  )
 }
 
 /** A dispatch fact the Rapport needs and the Einsatzdaten do not hold yet – Stichwort, Ort,
@@ -473,6 +549,8 @@ export function ReportPreflight({
   const [summary, setSummary, summaryDirty] = useSyncedField('summary', remote.summary, normText, blurTick)
   const [kontaktperson, setKontaktperson, kontaktpersonDirty] = useSyncedField('kontaktperson', remote.kontaktperson, normText, blurTick)
   const [kontaktTel, setKontaktTel, kontaktTelDirty] = useSyncedField('kontaktTel', remote.kontaktTel, normText, blurTick)
+  const [verursacher, setVerursacher, verursacherDirty] = useSyncedField('verursacher', remote.verursacher, normText, blurTick)
+  const [verursacherTel, setVerursacherTel, verursacherTelDirty] = useSyncedField('verursacherTel', remote.verursacherTel, normText, blurTick)
   // Seeded from the Kroki when the Rapport has none of its own: the EL was already named on the
   // map (Einsatzleiter glyph / KP Front), so typing it a second time is pure duplication. A
   // pre-fill only — the picker stays editable and the typed value wins from then on.
@@ -535,7 +613,7 @@ export function ReportPreflight({
 
   const rueckIso = rueckAt || undefined
   const form: ReportForm = {
-    summary, kontaktperson, kontaktTel, einsatzleiter, endedAt, ausgerueckt, remarks, lehren,
+    summary, kontaktperson, kontaktTel, verursacher, verursacherTel, einsatzleiter, endedAt, ausgerueckt, remarks, lehren,
     gruppen, fahrzeuge, geretteteP, geretteteT, rueckName, rueckAt,
   }
   /** The form AS IT STANDS ON SCREEN (reportForm · formToMeta), for everything that reads the
@@ -550,6 +628,7 @@ export function ReportPreflight({
   const dirtyMeta = (): Partial<ReportMeta> => ({
     ...dirtyFormMeta(form, remote, {
       summary: summaryDirty, kontaktperson: kontaktpersonDirty, kontaktTel: kontaktTelDirty,
+      verursacher: verursacherDirty, verursacherTel: verursacherTelDirty,
       einsatzleiter: einsatzleiterDirty, endedAt: endedAtDirty, ausgerueckt: ausgeruecktDirty,
       remarks: remarksDirty, lehren: lehrenDirty, gruppen: gruppenDirty, fahrzeuge: fahrzeugeDirty,
       geretteteP: gerettetePDirty, geretteteT: geretteteTDirty, rueckName: rueckNameDirty, rueckAt: rueckAtDirty,
@@ -733,8 +812,8 @@ export function ReportPreflight({
   /** this session signs the Rapport (not a viewer, a link, an archived view) – open or closed */
   const maySign = canEditIn && !!onSign
   const kdtDefault = getDeploymentConfig().identity?.kommandant ?? ''
-  // «Ort» of «Ort, Datum»: the station's town — without the postcode the setting may carry
-  const signPlace = (getDeploymentConfig().map?.geocoder?.defaultLocality ?? '').replace(/^\d{4,5}\s+/, '').trim()
+  // «Ort» of «Ort, Datum»: the station's town (reportPdfDirect · signPlace)
+  const place = signPlace()
   const doSign = async ({ role, slot, strokes }: SignSubmit): Promise<boolean> => {
     if (!onSign) return false
     try {
@@ -752,7 +831,7 @@ export function ReportPreflight({
       const scope = await sha256Hex(signedPartOf(pdfArgs({ ...buildDraft(), meta: m })))
       onSign({
         id: newId('sig'), role, name: slot.name, ...(slot.personId ? { personId: slot.personId } : {}),
-        ...(signPlace ? { place: signPlace } : {}), at: serverNowIso(), scope, strokes, roster,
+        ...(place ? { place } : {}), at: serverNowIso(), scope, strokes, roster,
       })
       return true
     } catch {
@@ -1247,7 +1326,7 @@ export function ReportPreflight({
       personen: attendanceCount,
       positionen: mittelCount,
     },
-    placeDate: [signPlace, formatDateTime(serverNowIso()).split(' ')[0]].filter(Boolean).join(', '),
+    placeDate: signPlaceDate(serverNowIso()),
     onViewPdf: () => void downloadPdf(),
     onSign: doSign,
     personnel, presentIds, rolesById,
@@ -1731,76 +1810,28 @@ export function ReportPreflight({
                 rankFirst officerFilter
               />}
               </div>
-              {/* ⚠️ A <div>, not a <label>: the row carries a BUTTON now, and a button inside a
-                  label steals its own tap for the input's focus. Same shape the Rückmeldung-Zeit
-                  row next to it already uses; the input keeps its name through `aria-label`. */}
-              <div className="ip-field" data-step="kontaktperson" data-sync="kontaktperson">
-                <span>{P.kontaktpersonLabel}</span>
-                {/* «Entfällt» — the third answer. A Fehlalarm in an empty Altersheim has nobody
-                    to name, and «leer» and «gibt es nicht» are two different statements: without
-                    this the step stayed open for ever and the «Angaben fehlen noch» dialog stood
-                    in front of every print until it was being tapped away unread. It is a
-                    trailing affordance on the input line, not a checkbox somewhere else — the
-                    two answers are the same distance away. */}
-                {meta.kontaktpersonNone ? (
-                  <div className="rz-none">
-                    {/* dashed, never a tick: erledigt, but ANSWERED «nicht vorhanden» rather than
-                        filled in — one glance tells the two apart */}
-                    <span className="rz-none-val">{P.entfaellt}</span>
-                    {canEdit && <button type="button" className="ip-btn" onClick={() => persist({ kontaktpersonNone: undefined })}>{P.entfaelltUndo}</button>}
-                  </div>
-                ) : !canEdit ? (
-                  // the name and the number as one read-out, and the call stays (owner, 22.10.2026:
-                  // a viewer keeps the Kontaktperson's working `tel:`)
-                  <div className="rz-none">
-                    <ReadOut value={[kontaktperson.trim(), kontaktTel.trim()].filter(Boolean).join(' · ')} />
-                    {telHref(kontaktTel) && (
-                      <a className="ip-btn rz-call" href={telHref(kontaktTel)}
-                        aria-label={P.kontaktpersonCall} title={P.kontaktpersonCall}>
-                        <Icon id="phone" />
-                      </a>
-                    )}
-                  </div>
-                ) : (
-                  <div className="rz-none rz-kontakt">
-                    {/* ✕: the Rapport is filled in after the fact and corrected as the picture
-                        settles — a name written down from a first guess is normal here. */}
-                    <ClearableInput value={kontaktperson} placeholder={P.kontaktpersonPlaceholder}
-                      aria-label={P.kontaktpersonLabel}
-                      clearLabel={P.kontaktpersonClear}
-                      onChange={(raw) => { const v = stripUnprintable(raw); setKontaktperson(v); persist({ kontaktperson: v.trim() || undefined }) }} />
-                    {/* The number beside the name, because it is ONE fact — and the reason it is
-                        recorded at all: the callback in the Nachbearbeitung. Its own data-sync
-                        marker, or a value arriving from the iPad would overwrite mid-typing. */}
-                    <div className="rz-kontakt-tel" data-sync="kontaktTel">
-                      <ClearableInput value={kontaktTel} placeholder={P.kontaktpersonTelefonPlaceholder}
-                        aria-label={P.kontaktpersonTelefon}
-                        clearLabel={P.kontaktpersonTelefonClear}
-                        inputMode="tel" autoComplete="off"
-                        onChange={(raw) => { const v = stripUnprintable(raw); setKontaktTel(v); persist({ kontaktpersonTelefon: v.trim() || undefined }) }} />
-                      {telHref(kontaktTel) && (
-                        <a className="ip-btn rz-call" href={telHref(kontaktTel)}
-                          aria-label={P.kontaktpersonCall} title={P.kontaktpersonCall}>
-                          <Icon id="phone" />
-                        </a>
-                      )}
-                    </div>
-                    {/* only while BOTH halves are empty (30.08.): «Entfällt» beside a typed
-                        name contradicted it — the tap would silently wipe real content. Once
-                        something is typed, the ✕ is the way back to the empty state. */}
-                    {!kontaktperson.trim() && !kontaktTel.trim() && (
-                      <button type="button" className="ip-btn"
-                        onClick={() => { persist({ kontaktperson: undefined, kontaktpersonTelefon: undefined, kontaktpersonNone: true }) }}>
-                        {P.entfaellt}
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
+              <ContactRow step="kontaktperson" syncName="kontaktperson" syncTel="kontaktTel"
+                name={kontaktperson} tel={kontaktTel} none={meta.kontaktpersonNone} canEdit={canEdit}
+                copy={{ label: P.kontaktpersonLabel, placeholder: P.kontaktpersonPlaceholder, clear: P.kontaktpersonClear,
+                  tel: P.kontaktpersonTelefon, telPlaceholder: P.kontaktpersonTelefonPlaceholder, telClear: P.kontaktpersonTelefonClear, call: P.kontaktpersonCall }}
+                onName={(v) => { setKontaktperson(v); persist({ kontaktperson: v.trim() || undefined }) }}
+                onTel={(v) => { setKontaktTel(v); persist({ kontaktpersonTelefon: v.trim() || undefined }) }}
+                onNone={(on) => persist(on
+                  ? { kontaktperson: undefined, kontaktpersonTelefon: undefined, kontaktpersonNone: true }
+                  : { kontaktpersonNone: undefined })} />
+              {/* who caused it — the bill goes to them (owner, 25.11.2026). It came back after the
+                  Eigentümer/Ursache/Verursacher trio was retired on 18.07.: the same row as the
+                  Kontaktperson, but OPTIONAL — no Abschluss step, so no `step`. */}
+              <ContactRow syncName="verursacher" syncTel="verursacherTel"
+                name={verursacher} tel={verursacherTel} none={meta.verursacherNone} canEdit={canEdit}
+                copy={{ label: P.verursacherLabel, placeholder: P.verursacherPlaceholder, clear: P.verursacherClear,
+                  tel: P.verursacherTelefon, telPlaceholder: P.kontaktpersonTelefonPlaceholder, telClear: P.kontaktpersonTelefonClear, call: P.verursacherCall }}
+                onName={(v) => { setVerursacher(v); persist({ verursacher: v.trim() || undefined }) }}
+                onTel={(v) => { setVerursacherTel(v); persist({ verursacherTelefon: v.trim() || undefined }) }}
+                onNone={(on) => persist(on
+                  ? { verursacher: undefined, verursacherTelefon: undefined, verursacherNone: true }
+                  : { verursacherNone: undefined })} />
             </div>
-            {/* one Kontaktperson carries all contact/ownership details (2026-07-18 —
-                the kantonale Eigentümer/Ursache/Verursacher trio was retired: cause is
-                not the Feuerwehr's to judge, one contact suffices) */}
             <div className="report-meta-grid">
               <div className="ip-field">
                 <span>{P.geretteteLabel}</span>

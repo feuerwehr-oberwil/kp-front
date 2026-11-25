@@ -170,7 +170,37 @@ def test_the_kontaktperson_row_carries_the_phone_number():
     answered = _text(
         compose_report_pdf(ReportPayload.model_validate({**base, "meta": {"kontaktpersonNone": True}}), {})
     )
-    assert "Telefon" not in answered
+    # one Telefon fewer: the Verursacher row below keeps its own
+    assert answered.count("Telefon") == filled.count("Telefon") - 1
+
+
+def test_the_verursacher_row_reads_like_the_kontaktperson_row():
+    """The Verursacher (25.11.2026) is the Kontaktperson's twin: name and Telefon on one row, a
+    dash for «Entfällt», and its own write-in line when nobody filled it in."""
+    base = {
+        "incident": {"title": "Ölspur Hauptstrasse", "id": "i"},
+        "generatedAt": "25.11.2026 09:00",
+        "proof": {"statusLabel": "intakt", "count": 1, "head": "0"},
+    }
+
+    def rows(meta: dict) -> dict[str, tuple[float, float]]:
+        return _details_rows(compose_report_pdf(ReportPayload.model_validate({**base, "meta": meta}), {}))
+
+    blank = rows({})
+    assert "Verursacher" in blank
+    assert blank["Verursacher"][1] < blank["Kontaktperson"][1]  # right under it
+
+    filled = _text(
+        compose_report_pdf(
+            ReportPayload.model_validate(
+                {**base, "meta": {"verursacher": "Max Muster", "verursacherTelefon": "076 555 11 22"}}
+            ),
+            {},
+        )
+    )
+    assert "Max Muster" in filled and "076 555 11 22" in filled
+    answered = _text(compose_report_pdf(ReportPayload.model_validate({**base, "meta": {"verursacherNone": True}}), {}))
+    assert answered.count("–") == 1
 
 
 def _details_rows(pdf: bytes) -> dict[str, tuple[float, float]]:
@@ -244,7 +274,15 @@ def test_a_kontaktperson_that_fits_leaves_the_box_exactly_as_it_was():
             f"«{label}» moved when a fitting Kontaktperson was printed"
         )
     # the box's rows still sit one uniform pitch apart, top row to bottom row
-    order = ["Kategorie", "Adresse / Objekt", "Ausgerückt", "Einsatzleiter", "Kontaktperson", "Rückmeldung ELZ"]
+    order = [
+        "Kategorie",
+        "Adresse / Objekt",
+        "Ausgerückt",
+        "Einsatzleiter",
+        "Kontaktperson",
+        "Verursacher",
+        "Rückmeldung ELZ",
+    ]
     pitches = [filled[a][1] - filled[b][1] for a, b in itertools.pairwise(order)]
     assert max(pitches) - min(pitches) < 0.5, f"the box lost its uniform pitch: {pitches}"
 
@@ -1141,6 +1179,17 @@ def test_a_drawn_signature_prints_on_its_line_with_ort_datum_and_its_small_line(
 def test_an_unsigned_rapport_prints_no_signature_line():
     page = _signoff_page(compose_report_pdf(_signature_payload([]), {}))
     assert "Am Bildschirm unterschrieben" not in page.get_textpage().get_text_range()
+
+
+def test_the_einsatzleiters_ort_datum_is_prefilled_and_the_kommandants_is_not():
+    """Signed by pen (25.11.2026, owner): the EL signs at the station on the day it prints, so his
+    «Ort, Datum» comes filled in. The Kommandant may sign days later — his stays blank."""
+    payload = _signature_payload([]).model_copy(update={"elPlaceDate": "Oberwil, 25.11.2026"})
+    text = _signoff_page(compose_report_pdf(payload, {})).get_textpage().get_text_range()
+    assert text.count("Oberwil, 25.11.2026") == 1
+    lines = [ln for ln in text.splitlines() if "Ort, Datum" in ln]
+    assert len(lines) == 2
+    assert "Oberwil" in lines[0] and "Oberwil" not in lines[1]
 
 
 def test_signature_strokes_are_bounded():
