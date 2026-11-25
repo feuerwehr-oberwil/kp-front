@@ -212,44 +212,39 @@ demo-reset:
 
 # --- Code quality  (run 'just ci' before pushing) -----------------------------
 
-# (Mirrors .github/workflows/ci.yml. It exists because «lint + test» was NOT that set: a ruff
-# FORMAT violation once passed locally and turned main red, because nothing here ran
-# `ruff format --check`. The same thing then happened with `mypy`, which CI runs and this did
-# not — so a fully green `just ci` still pushed a red main. And a third time with `pnpm build`,
-# which is the ONLY step that parses CSS — `tsc` and `pnpm lint` never open a stylesheet, so a
-# syntax error in one sailed through a green `just ci`. The landing page's drift check was
-# missing for the same reason. And a FOURTH time, differently: this recipe ran pytest with no
-# DATABASE_URL, so tests/conftest.py fell back to SQLite in-memory while ci.yml runs them
-# against Postgres 16 — and SQLite does NOT abort a transaction on a statement error, which is
-# the class of bug that difference hides. It now runs them where CI runs them, in their own
-# database so nobody's dev data is dropped. It now also runs the rest of CI's Frontend and
-# Backend jobs: e2e types, the coverage floor, hidden sourcemaps, the bundle budget, both
-# audits, both license checks and the schema-drift check. Not covered — they need more than
-# a container: the gitleaks scan, the image build, e2e, visual and perf.
-# It runs only the stacks the branch can affect — scripts/ci-scope.mjs decides from the diff
-# against origin/main and prints why; GitHub CI still runs all of them.)
+# (CI's Frontend, Backend and Static analysis jobs call the same recipes this one runs –
+# ci-frontend, ci-unit, ci-backend-checks, ci-static-analysis – so the local gate and CI cannot
+# drift apart. They did while this copied CI's steps by hand: ruff format, mypy, `pnpm build`
+# and Postgres-only test failures each passed here and turned main red. Each side keeps its own
+# Postgres: CI a service container, here a throwaway database on the dev Postgres. Not covered –
+# they need more than a container: the gitleaks scan, the KP Rück comparison, the image build,
+# e2e, visual and perf. It runs only the stacks the branch can affect – scripts/ci-scope.mjs
+# decides from the diff against origin/main and prints why; GitHub CI still runs all of them.)
 # Run the gates this branch's changes can affect (frontend, backend or both, in parallel).
 [group('Quality')]
 ci:
     #!/usr/bin/env bash
     set -euo pipefail
     gates=$(node scripts/ci-scope.mjs)
-    if [ -n "$gates" ]; then just "$gates"; else echo "ci: no gate reads what this branch changes"; fi
+    case "$gates" in
+      "") echo "ci: no gate reads what this branch changes" ;;
+      # ci-all and ci-no-backend run the static analysis beside their other gates
+      ci-backend) just ci-backend ci-static-analysis ;;
+      *) just "$gates" ;;
+    esac
 
 # (The pre-push hook's set: only checks that give the same answer on a busy box. The unit suites,
 # pytest and the schema check flaked under load when the hook ran all of `just ci` (22.11.2026:
 # two pushes, six different failures, each green alone) – they stay `just ci`'s and GitHub CI's.)
-# Run the deterministic gates this branch can affect: frontend lint/types/build, ruff + mypy.
+# Run the deterministic gates this branch can affect: frontend lint/types/build, ruff + mypy, static analysis.
 [group('Quality')]
 ci-static:
     #!/usr/bin/env bash
     set -euo pipefail
     gates=$(node scripts/ci-scope.mjs)
     case "$gates" in ci-all|ci-no-backend) just ci-frontend ;; esac
-    case "$gates" in ci-all|ci-backend)
-      cd backend && uv run ruff format --check . && uv run ruff check . && uv run mypy app ;;
-    esac
-    [ -n "$gates" ] || echo "ci-static: no gate reads what this branch changes"
+    case "$gates" in ci-all|ci-backend) just ci-backend-static ;; esac
+    if [ -n "$gates" ]; then just ci-static-analysis; else echo "ci-static: no gate reads what this branch changes"; fi
 
 # (Once per clone; every worktree of it then runs .githooks/. `git push --no-verify` skips it.
 # It stops when .git/hooks holds an installed hook – e.g. `pre-commit install` – that the switch
@@ -270,17 +265,25 @@ hooks:
     fi
     git config core.hooksPath .githooks
 
-# Run the frontend, coverage and backend gates together (just >=1.56); --jobs 1 runs them serially.
+# Run the frontend, coverage, backend and static-analysis gates together (just >=1.56); --jobs 1 runs them serially.
 [group('Quality')]
 [parallel]
-ci-all: ci-frontend ci-unit ci-backend
+ci-all: ci-frontend ci-unit ci-backend ci-static-analysis
 
 # (With no pytest beside it the suite takes 8 workers: 241 s → 178 s on 19.10.2026.)
-# The frontend gates only: static checks and build beside the unit suite.
+# The frontend gates only: static checks and build beside the unit suite and the static analysis.
 [group('Quality')]
 [parallel]
-ci-no-backend: ci-frontend (ci-unit "8")
+ci-no-backend: ci-frontend (ci-unit "8") ci-static-analysis
 
+# (CI's «Frontend static» job. lint: per-rule ratchet against scripts/eslint-baseline.json; knip:
+# against scripts/knip-baseline.json; the e2e specs have their own tsconfig; `pnpm build` holds
+# the app typecheck and is the only step that parses CSS; sourcemaps exist, are referenced by no
+# shipped file and are not precached (docs/SOURCEMAPS.md); the bundle budget is +5 % against
+# scripts/bundle-baseline.json; site/ is served verbatim, so its generated pages must match their
+# sources. Audits: high/critical production advisories, then the full tree at moderate – its
+# exceptions live in pnpm-workspace.yaml, each with one advisory and an expiry. The license audit
+# fails on a production dependency with an AGPL-incompatible license.)
 # Frontend static checks and production build (application tsc is part of pnpm build).
 [group('Quality')]
 ci-frontend:
@@ -296,48 +299,87 @@ ci-frontend:
     bash scripts/audit-toolchain.sh
     python3 scripts/check_licenses.py frontend
 
+# (CI's «Frontend unit tests» job. CI's 4-vCPU runner takes 4 workers too.)
 # Full frontend suite and unchanged coverage floor; 4 workers leave cores for tsc and pytest beside it.
 [group('Quality')]
 ci-unit workers="4":
     pnpm test:coverage --maxWorkers={{workers}}
 
-# Backend checks against disposable Postgres databases, including migration/model drift.
+# Backend checks against a throwaway database on the dev Postgres, including migration/model drift.
 [group('Quality')]
-ci-backend: schema-check test-backend
+ci-backend:
+    @just _on-test-db ci-backend-checks
+
+# (CI's «Backend» job, against its Postgres service; `ci-backend` gives it a throwaway database
+# here. pip-audit blocks on high/critical advisories – an exception is a narrow `--ignore-vuln ID`
+# with its expiry. The license audit runs from the repo root; the script cd's into backend/.
+# `-n 4` (pytest-xdist): each worker gets its own database (kpfront_test_gw0 …, tests/conftest.py)
+# and builds the schema once; `-n` is not in addopts, so a plain `uv run pytest` stays serial.
+# `--durations` keeps the slowest tests in sight – one slow test holds up a whole worker.)
+# Backend checks against the database in DATABASE_URL: ruff, mypy, audits, migration drift, pytest.
+[group('Quality')]
+ci-backend-checks: ci-backend-static _schema
+    cd backend && uv run --with pip-audit pip-audit
+    python3 scripts/check_licenses.py backend
+    cd backend && uv run pytest -q -n 4 --durations=15
+
+# (Scope is `.`, not `app tests`: alembic/ is lint-clean too. mypy covers the whole app tree; it
+# went in at zero errors – fix the types, never narrow the path.)
+# Backend format, lint and type checks – no database needed.
+[group('Quality')]
+ci-backend-static:
     cd backend && uv run ruff format --check .
     cd backend && uv run ruff check .
     cd backend && uv run mypy app
-    cd backend && uv run --with pip-audit pip-audit
-    python3 scripts/check_licenses.py backend
 
-# (CI's «alembic check» step, locally: a throwaway database on the dev Postgres, migrated to
-# head, compared with the models' metadata, dropped again — your dev data is never touched.)
+# (CI's «Static analysis» job. Today's findings are the baseline, so it fails only on new ones:
+# backend/vulture_whitelist.py and [tool.deptry] in backend/pyproject.toml. jscpd fails when the
+# share of duplicated lines goes above `threshold` in .jscpd.json or backend/.jscpd.json.)
+# Duplicates (jscpd), dead backend code (vulture), unused and missing backend dependencies (deptry).
+[group('Quality')]
+ci-static-analysis:
+    pnpm exec jscpd .
+    cd backend && uv run vulture
+    cd backend && uv run deptry .
+    cd backend && ../node_modules/.bin/jscpd .
+
+# (A throwaway database on the dev Postgres, migrated to head, compared with the models'
+# metadata, dropped again — your dev data is never touched.)
 # Check that the migrated schema matches the models (alembic check).
 [group('Quality')]
 schema-check:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    docker compose -f docker-compose.dev.yml up -d --wait --no-recreate
-    db="kpfront_schema_$$"
-    docker compose -f docker-compose.dev.yml exec -T db createdb -U kpfront "$db"
-    trap 'docker compose -f docker-compose.dev.yml exec -T db dropdb -U kpfront "$db"' EXIT
-    export DATABASE_URL="postgresql+asyncpg://kpfront:kpfront@localhost:5434/$db"
-    (cd backend && uv run alembic upgrade head && uv run alembic check)
+    @just _on-test-db _schema
+
+# (A column, index or constraint declared on one side only fails here instead of in the next
+# autogenerated migration. Fix the MODEL to match what the deployed migrations built; never
+# rewrite an old migration.)
+# The migrated schema must equal the models: migrate DATABASE_URL to head, then `alembic check`.
+_schema:
+    cd backend && uv run alembic upgrade head && uv run alembic check
 
 # (One database per invocation: concurrent worktrees must not drop each other's xdist databases.
-# The suite creates and drops its schema, so never point it at the dev database. Four workers
-# like CI; extra args go to pytest: `just test-backend -n 0 -x tests/test_x.py`.)
-# Backend tests on Postgres, the way CI runs them (not the SQLite fallback).
-[group('Quality')]
-test-backend *args:
+# The suite creates and drops its schema, so never point it at the dev database.)
+# Run `just <recipe> [args]` with DATABASE_URL on a fresh database on the dev Postgres, dropped after.
+[positional-arguments]
+_on-test-db *args:
     #!/usr/bin/env bash
     set -euo pipefail
     docker compose -f docker-compose.dev.yml up -d --wait --no-recreate
     db="kpfront_test_$$"
     docker compose -f docker-compose.dev.yml exec -T db createdb -U kpfront "$db"
     trap 'docker compose -f docker-compose.dev.yml exec -T db dropdb -U kpfront "$db"' EXIT
-    (cd backend && DATABASE_URL="postgresql+asyncpg://kpfront:kpfront@localhost:5434/$db" \
-      uv run pytest -q -n 4 {{args}})
+    DATABASE_URL="postgresql+asyncpg://kpfront:kpfront@localhost:5434/$db" just "$@"
+
+# (Four workers like CI; extra args go to pytest: `just test-backend -n 0 -x tests/test_x.py`.)
+# Backend tests on Postgres, the way CI runs them (not the SQLite fallback).
+[group('Quality')]
+[positional-arguments]
+test-backend *args:
+    @just _on-test-db _pytest "$@"
+
+[positional-arguments]
+_pytest *args:
+    cd backend && uv run pytest -q -n 4 "$@"
 
 # (Scope is CI's: `.`, not `app tests` — alembic/ is lint-clean too, and code CI checks but you
 # don't is code that breaks on push rather than on save. Includes the format check.)
@@ -348,15 +390,11 @@ lint:
     cd backend && uv run ruff format --check .
     cd backend && uv run ruff check .
 
-# (CI runs knip in «Frontend static» and the rest in its static-analysis job. Baselines:
-# scripts/knip-baseline.json, backend/vulture_whitelist.py, [tool.deptry] in
-# backend/pyproject.toml, and `threshold` in .jscpd.json and backend/.jscpd.json.)
+# (knip runs in `ci-frontend`, the rest in `ci-static-analysis`.)
 # Dead code, unused dependencies and duplicates: knip, jscpd, vulture, deptry.
 [group('Quality')]
-lint-dead:
-    pnpm lint:dead
-    cd backend && uv run vulture && uv run deptry .
-    cd backend && ../node_modules/.bin/jscpd .
+lint-dead: ci-static-analysis
+    pnpm knip
 
 # Test both stacks (vitest + pytest).
 [group('Quality')]

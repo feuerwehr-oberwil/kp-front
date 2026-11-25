@@ -1,0 +1,11 @@
+name: Install just
+description: >-
+  Install the pinned `just`, so a CI job runs the same recipe as `just ci` locally (justfile ·
+  ci). The justfile uses `[parallel]`, which needs just 1.56 or later; the runner's apt package
+  is older. taiki-e/install-action verifies the release archive against its checksum manifest.
+runs:
+  using: composite
+  steps:
+    - uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
+      with:
+        tool: just@1.57.0
