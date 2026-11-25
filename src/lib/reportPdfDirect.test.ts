@@ -1,6 +1,8 @@
 import { formatDateTime } from './report'
 import { fillTemplate, formatTime } from './format'
-import { describe, it, expect } from 'vitest'
+import { afterEach, describe, it, expect } from 'vitest'
+import { adoptSessionConfig } from './deploymentConfig'
+import { signatureScope } from './reportSignature'
 import { closeTimeOf } from './api/incidents'
 import { buildDirectReportPayload, einsatzleiterForPdf, floorStackPages, forPaper, planAnnosForPdf, usedStackFloors } from './reportPdfDirect'
 import { TILE_AR } from './whiteboard'
@@ -551,5 +553,36 @@ describe('buildDirectReportPayload · Messungen', () => {
     const out = build({ gebaeude: [{ id: 'f', kind: 'symbol', symbol: 'VKF Feuer', x: 0.2, y: 0.3 }] })
     expect(out.messungen).toEqual([])
     expect(out.messungenLimits).toBeUndefined()
+  })
+})
+
+// Unterschriften signed by pen (25.11.2026, owner): the Einsatzleiter's «Ort, Datum» comes filled
+// in — the station's place and the day it prints — and that never touches what a signature covers
+describe('buildDirectReportPayload · Verursacher and the EL\'s Ort, Datum', () => {
+  const build = (generatedAt: string, meta: Record<string, unknown> = {}) => buildDirectReportPayload({
+    incident: { id: 'i1', title: 'Ölspur', started_at: '2026-11-25T08:00:00.000Z' } as never,
+    draft: { meta, generatedAt, proof: {}, options: {} } as never,
+    trupps: [], attendance: {}, events: [], plans: [],
+  }) as { elPlaceDate: string; meta: Record<string, unknown> }
+  afterEach(() => adoptSessionConfig({}))
+
+  it('prefills «Oberwil, <day of printing>» for the EL and «Oberwil» for the Kdt, without the postcode', () => {
+    adoptSessionConfig({ map: { geocoder: { defaultLocality: '4104 Oberwil' } } } as never)
+    const out = build('2026-11-25T11:00:00.000Z') as { elPlaceDate: string; signPlace?: string }
+    expect(out.elPlaceDate).toBe('Oberwil, 25.11.2026')
+    expect(out.signPlace).toBe('Oberwil') // the Kommandant's: the place, his date by pen
+  })
+
+  it('a reprint on another day changes the Ort, Datum but not the signed part', () => {
+    const today = build('2026-11-25T11:00:00.000Z')
+    const later = build('2026-11-27T11:00:00.000Z')
+    expect(later.elPlaceDate).not.toBe(today.elPlaceDate)
+    expect(signatureScope(later)).toBe(signatureScope(today))
+  })
+
+  it('carries the Verursacher like the Kontaktperson — and an unset one leaves the signed part as it was', () => {
+    const out = build('2026-11-25T11:00:00.000Z', { verursacher: 'Max Muster', verursacherTelefon: '076 555 11 22' })
+    expect(out.meta).toMatchObject({ verursacher: 'Max Muster', verursacherTelefon: '076 555 11 22' })
+    expect(signatureScope(build('2026-11-25T11:00:00.000Z'))).not.toContain('verursacher')
   })
 })

@@ -213,26 +213,29 @@ def compose_report_pdf(
     # automatic facts and any recorded human facts printed ON the lines. Missing values stay
     # writable by hand; nothing blocks the print.
     #
-    # ⚠️ The two fields that can be answered «Entfällt» print that word instead of an empty
+    # ⚠️ The fields that can be answered «Entfällt» print that word instead of an empty
     # write-in rule. «Es gibt keine Kontaktperson» and «das hat niemand ausgefüllt» are two
     # different statements on a sheet that gets signed, and a blank line only ever said the
     # second one — which is exactly what the app's «Entfällt» exists to say (lib/workspace.ts).
-    kontaktperson = m.kontaktperson or (L["entfaellt"] if m.kontaktpersonNone else None)
     rueckmeldung = m.rueckmeldungElz or (L["entfaellt"] if m.rueckmeldungNone else None)
-    # Name and Telefon share the row (one person, one line) — except under «Entfällt», where a
-    # separate empty Telefon rule would read as a second field somebody forgot to fill in.
-    kontakt_row = (
-        [{"label": L["kontaktperson"], "w": 1.0, "value": kontaktperson}]
-        if m.kontaktpersonNone
-        else [
+
+    def person_row(label: str, name: str | None, tel: str | None, none: bool) -> list[dict]:
+        """Kontaktperson / Verursacher: name and Telefon share the row (one person, one line) —
+        except under «Entfällt», where a separate empty Telefon rule would read as a second
+        field somebody forgot to fill in."""
+        if none:
+            return [{"label": label, "w": 1.0, "value": name or L["entfaellt"]}]
+        return [
             # half/half like every other two-field row, so «Telefon» aligns with the right
             # column («Gerettet», «Einsatzende») instead of floating 10% off it
-            {"label": L["kontaktperson"], "w": 0.5, "value": kontaktperson},
+            {"label": label, "w": 0.5, "value": name},
             # …and the number is dialable from the PDF: this rapport is read on a phone the
             # morning after, by whoever has to call the owner back
-            {"label": L["kontaktpersonTelefon"], "w": 0.5, "value": m.kontaktpersonTelefon, "tel": True},
+            {"label": L["kontaktpersonTelefon"], "w": 0.5, "value": tel, "tel": True},
         ]
-    )
+
+    kontakt_row = person_row(L["kontaktperson"], m.kontaktperson, m.kontaktpersonTelefon, m.kontaktpersonNone)
+    verursacher_row = person_row(L["verursacher"], m.verursacher, m.verursacherTelefon, m.verursacherNone)
     half = 0.5
     story.append(
         _FormRows(
@@ -252,6 +255,7 @@ def compose_report_pdf(
                     {"label": L["gerettete"], "w": half, "value": m.gerettete},
                 ],
                 kontakt_row,
+                verursacher_row,
                 [{"label": L["rueckmeldungElz"], "w": 1.0, "value": rueckmeldung}],
             ],
             boxed=True,
@@ -410,14 +414,18 @@ def compose_report_pdf(
     # Only signatures that still hold arrive here; a line without one prints empty, as always.
     signed = {g.role: g for g in payload.signatures}
 
-    def visum(role: str, label: str, default_name: str | None) -> list[dict]:
+    def visum(
+        role: str, label: str, default_name: str | None, place_date: str = "", date_open: bool = False
+    ) -> list[dict]:
         g = signed.get(role)
         if g is None:
             return [
                 # «Ort, Datum: ______» is written ON its line like every other field on the sheet —
                 # it is a value somebody fills in, not a signature. Only the NAME field signs
                 # underneath, because that is the one that needs empty paper beneath it.
-                {"label": L["sigOrtDatum"], "w": 0.4},
+                # `place_date` prefills what is known at printing; `date_open` keeps the rule after
+                # it, for a date that is only known when the pen comes out (the Kdt's).
+                {"label": L["sigOrtDatum"], "w": 0.4, "value": place_date or None, "line": date_open},
                 {"label": label, "w": 0.6, "value": default_name, "sign": True},
             ]
         return [
@@ -435,8 +443,10 @@ def compose_report_pdf(
     sig = _FormRows(
         inner_w,
         [
-            visum("el", L["einsatzleiter"], m.einsatzleiter),
-            visum("kdt", L["sigKommandant"], m.kommandant),
+            # both sign at the station (owner, 25.11.2026): the EL the day it prints, so place AND
+            # date; the Kdt maybe days later, so the place and a rule for the date
+            visum("el", L["einsatzleiter"], m.einsatzleiter, payload.elPlaceDate),
+            visum("kdt", L["sigKommandant"], m.kommandant, f"{payload.signPlace}," if payload.signPlace else "", True),
         ],
         # Room to sign BESIDE the name, not under it — the rule is on the row's own line now,
         # so the pitch only has to keep the two Visum rows from crowding each other.

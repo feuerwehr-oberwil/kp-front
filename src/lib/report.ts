@@ -1120,7 +1120,7 @@ const META_QUIET = new Set(['erfasser', 'krokiPrint', 'linksDone', 'printJob'])
  *  Bemerkung is a paragraph — quoting it would turn the log into a second copy of the rapport,
  *  so those report only THAT they were written (see `_prose`). */
 const META_SHORT = new Set([
-  'einsatzleiter', 'kontaktperson', 'kontaktpersonTelefon', 'kommandant', 'endedAt',
+  'einsatzleiter', 'kontaktperson', 'kontaktpersonTelefon', 'verursacher', 'verursacherTelefon', 'kommandant', 'endedAt',
   'ausgeruecktAt', 'alarmiertAt',
 ])
 
@@ -1219,12 +1219,13 @@ export function normalizeReportMeta(
   const next = { ...prev, ...patch }
   const out = { ...patch }
   let changed = false
-  const clear = (flag: 'kontaktpersonNone' | 'rueckmeldungNone' | 'mittelConfirmedNone' | 'geretteteNone') => {
+  const clear = (flag: 'kontaktpersonNone' | 'verursacherNone' | 'rueckmeldungNone' | 'mittelConfirmedNone' | 'geretteteNone') => {
     if (!next[flag]) return
     if (prev[flag]) { out[flag] = false; changed = true }
     else if (flag in out) { delete out[flag]; changed = true }
   }
   if (_hasText(next.kontaktperson) || _hasText(next.kontaktpersonTelefon)) clear('kontaktpersonNone')
+  if (_hasText(next.verursacher) || _hasText(next.verursacherTelefon)) clear('verursacherNone')
   // a counted rescue and «keine» are the same contradiction the two above resolve
   const g = next.gerettete
   if ((g?.personen ?? 0) > 0 || (g?.tiere ?? 0) > 0) clear('geretteteNone')
@@ -1308,9 +1309,9 @@ function _structuredMetaLines(k: string, a: unknown, b: unknown): string[] | und
   if (k === 'geretteteNone') return [b ? P.metaGeretteteNone : P.metaGeretteteNoneOff]
   if (k === 'mittelConfirmedNone') return [b ? P.metaMittelNoneOn : P.metaMittelNoneOff]
   // «Entfällt» is a deliberate ANSWER, so it is recorded as one — a blank line in the record
-  // looks like something forgotten, which is the whole reason these two fields exist.
-  if (k === 'kontaktpersonNone') {
-    return [fillTemplate(b ? P.metaNoneOn : P.metaNoneOff, { label: metaFieldLabels().kontaktpersonNone })]
+  // looks like something forgotten, which is the whole reason these fields exist.
+  if (k === 'kontaktpersonNone' || k === 'verursacherNone') {
+    return [fillTemplate(b ? P.metaNoneOn : P.metaNoneOff, { label: metaFieldLabels()[k] })]
   }
   if (k === 'rueckmeldungNone') {
     return [fillTemplate(b ? P.metaNoneOn : P.metaNoneOff, { label: metaFieldLabels().rueckmeldungNone })]

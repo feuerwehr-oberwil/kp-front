@@ -496,6 +496,17 @@ function oneDay(isos: readonly (string | null)[]): string | undefined {
   return (days.size === 1 && day) || undefined
 }
 
+/** «Oberwil» — the «Ort» of a Visum's «Ort, Datum»: the station's town, without the postcode the
+ *  setting may carry (`map.geocoder.defaultLocality`, set per station in the Admin). */
+export function signPlace(): string {
+  return (getDeploymentConfig().map?.geocoder?.defaultLocality ?? '').replace(/^\d{4,5}\s+/, '').trim()
+}
+
+/** «Oberwil, 25.11.2026» — the whole «Ort, Datum» for a Visum given at `iso`. */
+export function signPlaceDate(iso: string): string {
+  return [signPlace(), formatDateTime(iso).split(' ')[0]].filter(Boolean).join(', ')
+}
+
 /** The ONE payload builder — shared by the PDF download and the station-printer enqueue
  *  (src/lib/printRelay.ts), so both always produce the identical document. */
 export function buildDirectReportPayload(args: DirectReportArgs): Record<string, unknown> {
@@ -611,6 +622,7 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
     meta: {
       alarmText: meta.alarmText, summary: meta.summary, lehren: meta.lehren, remarks: meta.remarks,
       kontaktperson: meta.kontaktperson, kontaktpersonTelefon: meta.kontaktpersonTelefon,
+      verursacher: meta.verursacher, verursacherTelefon: meta.verursacherTelefon,
       // …the succession when the Einsatzleitung rotated («A (bis 14:20), B (ab 14:20)»),
       // the plain name when it never did — see einsatzleiterForPdf above
       einsatzleiter: einsatzleiterForPdf(
@@ -621,7 +633,7 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
       // «Entfällt» travels as the answer it is: the sheet prints the word on the line, where a
       // field nobody filled in gets an empty write-in rule (backend/app/report). Without
       // it the deliberate «gibt es nicht» and the forgotten field looked identical on paper.
-      kontaktpersonNone: meta.kontaktpersonNone, rueckmeldungNone: meta.rueckmeldungNone,
+      kontaktpersonNone: meta.kontaktpersonNone, verursacherNone: meta.verursacherNone, rueckmeldungNone: meta.rueckmeldungNone,
       kommandant: cfg.identity?.kommandant ?? undefined,
       // the same bounds the Personalblatt uses, so every clock on the sheet follows one
       // midnight rule instead of two
@@ -668,6 +680,10 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
     })(),
     partnerPresets: cfg.report?.partnerOrgs ?? [],
     generatedAt: formatDateTime(draft.generatedAt),
+    // signed by pen at the station (owner, 25.11.2026): the Einsatzleiter's «Ort, Datum» comes
+    // filled in with the day it prints; the Kommandant's gets the place only — he may sign later
+    elPlaceDate: signPlaceDate(draft.generatedAt),
+    signPlace: signPlace(),
     kroki: kroki ?? undefined,
     krokiCaption: kroki ? krokiCaption : undefined,
     planPages,

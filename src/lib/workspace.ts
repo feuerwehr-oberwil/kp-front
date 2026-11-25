@@ -58,6 +58,14 @@ export interface ReportMeta {
    *  `mittelConfirmedNone` has given the Mittel step all along; «nicht ausgefüllt» and «gibt es
    *  nicht» are two different answers and only one of them was recordable. */
   kontaktpersonNone?: boolean
+  /** Verursacher — who caused the event (25.11.2026, owner): the bill for a Strassensperrung or
+   *  an Ölspur goes to them. Same shape as the Kontaktperson (name + Telefon + «Entfällt»), but
+   *  OPTIONAL: no Abschluss step, an empty one blocks nothing and prints its write-in rule. */
+  verursacher?: string
+  verursacherTelefon?: string
+  /** «Entfällt» for the Verursacher — there is none to name (a Brandmeldeanlage, a lightning
+   *  strike). Same meaning as `kontaktpersonNone`. */
+  verursacherNone?: boolean
   /** Einsatzleiter — picked from the Mannschaft roster (free text allowed) */
   einsatzleiter?: string
   /** Alarmierungszeit (prefilled from the Divera alarm / incident start) */

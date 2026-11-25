@@ -1157,6 +1157,12 @@ describe('normalizeReportMeta («entfällt» clears when the answer arrives)', (
     expect(out.kontaktpersonNone).toBe(false)
   })
 
+  it('…and the Verursacher\'s «Entfällt» falls the same way', () => {
+    expect(normalizeReportMeta({ verursacher: 'Max Muster' }, { verursacherNone: true }))
+      .toEqual({ verursacher: 'Max Muster', verursacherNone: false })
+    expect(normalizeReportMeta({ verursacherTelefon: '076 555 11 22' }, { verursacherNone: true }).verursacherNone).toBe(false)
+  })
+
   it('drops a flag the same patch tries to raise beside its value — nothing to widerrufen', () => {
     const out = normalizeReportMeta({ kontaktperson: 'Huber Res', kontaktpersonNone: true }, {})
     expect(out).toEqual({ kontaktperson: 'Huber Res' })

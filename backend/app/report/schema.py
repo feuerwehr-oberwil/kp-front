@@ -66,6 +66,12 @@ class ReportMetaIn(BaseModel):
     #: and on a signed sheet that must not read like a field somebody forgot: the row then prints
     #: the word instead of the empty write-in rule.
     kontaktpersonNone: bool = False
+    #: who caused the event (25.11.2026, owner) — the bill for a Strassensperrung or an Ölspur
+    #: goes to them. Same shape as the Kontaktperson: name + Telefon, or «Entfällt». Optional:
+    #: an empty one prints its write-in rule and blocks nothing.
+    verursacher: str | None = None
+    verursacherTelefon: str | None = None
+    verursacherNone: bool = False
     einsatzleiter: str | None = None
     kommandant: str | None = None  # station Kdt from the deployment config (identity.kommandant)
     alarmiertAt: str | None = None
@@ -831,3 +837,10 @@ class ReportPayload(BaseModel):
     boardMap: KrokiIn | None = None
     #: drawn signatures on the Visum lines (15.10.2026) — at most one per role, the last wins
     signatures: list[SignatureIn] = []
+    #: «Oberwil, 25.11.2026» — the Einsatzleiter's «Ort, Datum» when the line is signed by pen:
+    #: the station's place and the day of printing (25.11.2026, owner). Not part of the signed
+    #: scope (lib/reportSignature).
+    elPlaceDate: str = ""
+    #: «Oberwil» — the station's place alone, for the Kommandant's «Ort, Datum»: he signs at the
+    #: station too, but maybe days later, so his date stays a write-in (owner, 25.11.2026).
+    signPlace: str = ""
