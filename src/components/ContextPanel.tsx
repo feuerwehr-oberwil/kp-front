@@ -254,8 +254,9 @@ export interface ContextPanelProps {
   vehicleTimes?: { label: string; value: string }[]
   /** A placed Fahrzeug named like a GPS vehicle beside it (lib/gpsTwin, owner picks UX journeys
    *  B3·33/34): the hint under «Bezeichnung», and `onHold` – the symbol goes, the GPS vehicle is
-   *  held at its spot. Without `onHold` (a locked session) the hint alone. */
-  gpsTwin?: { name: string; distM: number; onHold?: () => void }
+   *  held at its spot. `onKeep` («Sind zwei», owner sign-off note, 25.11.2026): it is a second
+   *  vehicle, and the hint goes for this symbol. Without either (a locked session) the hint alone. */
+  gpsTwin?: { name: string; distM: number; onHold?: () => void; onKeep?: () => void }
   connectedLines?: { id: string; label: string }[]
   /** Angedockte Gefahrentafel (SymbolProps.dockedTo, lib/docking): the host's display name.
    *  Rendered with a «Lösen» action when `onUndock` is wired — the panel is the one place the
@@ -1055,13 +1056,18 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
             </label>
           ))}
           {/* …and the double it makes beside the GPS vehicle of that name: THE amber form warning,
-              its one action the way out (lib/gpsTwin). Under the name it is about, on every device. */}
+              its two ways out (lib/gpsTwin) – hold the GPS one here instead, or «Sind zwei», which
+              silences it for this symbol (owner sign-off note, 25.11.2026: «two TLFs can really be
+              there»). Under the name it is about, on every device. */}
           {labelled && gpsTwin && (
             <div className="form-warn form-warn-amber ctx-gps-twin" role="note">
               <Icon id="warn" />
               <span className="form-warn-text"><b>{gpsTwin.name}</b> {fillTemplate(C.gpsTwinHint, { m: Math.max(1, Math.round(gpsTwin.distM)) })}</span>
               {gpsTwin.onHold && (
                 <button type="button" className="form-warn-act" onClick={gpsTwin.onHold}>{fillTemplate(C.gpsTwinHold, { name: gpsTwin.name })}</button>
+              )}
+              {gpsTwin.onKeep && (
+                <button type="button" className="form-warn-act" onClick={gpsTwin.onKeep}>{C.gpsTwinKeep}</button>
               )}
             </div>
           )}

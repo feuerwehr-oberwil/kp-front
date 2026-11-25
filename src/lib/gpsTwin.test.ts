@@ -19,4 +19,7 @@ describe('gpsTwin', () => {
     expect(gpsTwin(placed('TLF'), [gps('gps-1', 'TLF', 0.003)])).toBeNull() // ≈ 225 m
     expect(gpsTwin(placed(''), [gps('gps-1', '', 0)])).toBeNull()
   })
+  it('stays quiet for a symbol the operator called a second vehicle («Sind zwei»)', () => {
+    expect(gpsTwin({ ...placed('TLF'), gpsTwinOk: true }, [gps('gps-1', 'TLF', 0.0001)])).toBeNull()
+  })
 })

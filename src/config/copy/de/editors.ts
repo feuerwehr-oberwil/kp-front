@@ -241,6 +241,10 @@ export const editorsCopy = {
       zurueck: 'Zurück im Magazin',
       notYet: 'noch nicht',
     },
+    /** …und der zweite Ausweg (Owner-Notiz zum Sign-off, 25.11.2026: «zwei TLF können wirklich da
+     *  sein»): «Sind zwei» blendet den Hinweis für dieses Symbol aus, ↶ holt ihn zurück. */
+    gpsTwinKeep: 'Sind zwei – Hinweis ausblenden',
+    gpsTwinKeepStep: 'Hinweis «zwei {name}» ausgeblendet',
   },
   drawingEditor: {
     area: 'Fläche',

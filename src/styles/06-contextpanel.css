@@ -232,8 +232,9 @@
    continues the rows above it rather than starting something, so it opens no gap of its own */
 .ctx-rows { display: block; }
 /* «TLF ist schon per GPS auf der Karte» under the Bezeichnung (ContextPanel · gpsTwin, owner picks
-   UX journeys B3·33/34): the form warning, its one way out a full-width row under the sentence
-   (the mock's «Stattdessen GPS-TLF hier festhalten»). */
+   UX journeys B3·33/34): the form warning, its two ways out full-width rows under the sentence –
+   the mock's «Stattdessen GPS-TLF hier festhalten», then «Sind zwei – Hinweis ausblenden» (owner
+   sign-off note, 25.11.2026). */
 .ctx-gps-twin { margin: 4px 0 8px; }
 .ctx-gps-twin .form-warn-act { flex: 1 0 100%; min-height: var(--tap); }
 .ctx-section-label {

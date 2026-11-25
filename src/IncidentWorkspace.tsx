@@ -2418,7 +2418,7 @@ export function IncidentWorkspace({
   })
   const {
     deleteGroup, deleteEntity, placed, goToModule, goToTrupp, viewsApi, toggleViews, selected,
-    undockTeam, setEntityDone, commitEntityFields, focusDrawing, noteEntity, pick, pickShape, resetVehicleGps, placeVehicle, holdGpsInstead,
+    undockTeam, setEntityDone, commitEntityFields, focusDrawing, noteEntity, pick, pickShape, resetVehicleGps, placeVehicle, holdGpsInstead, keepGpsTwin,
   } = mapActions
   // a generic (untracked) team marker — the map twin of the plan's placeTeamChip
   const teamMarkers = useTeamMarkerActions({
@@ -3330,7 +3330,7 @@ export function IncidentWorkspace({
         timeline, sym, entityTypedAt, titleLiveRef, beginDrag,
         setDocRaw, endDrag, emit, patchEntity, linkRosterFields, createCircle, doc, undockTeam, effTrupps,
         symbolCaptions, rosterNames, rosterRank, personStatus, rosterFieldHints, setEntityDone, commitEntityFields,
-        vehicleOverrides, canEditIncident, readOnly, stopPersonSharing, setVehicleOverrides, resetVehicleGps, placeVehicle, holdGpsInstead, log,
+        vehicleOverrides, canEditIncident, readOnly, stopPersonSharing, setVehicleOverrides, resetVehicleGps, placeVehicle, holdGpsInstead, keepGpsTwin, log,
         fahrzeuge: reportMeta.fahrzeuge,
         assignTypedName, drawings, entities, focusDrawing, noteEntity, notePlacedId, setNotePanelId,
         noteTextLive, setNoteDefaults, selectedDrawing, patchDrawing,

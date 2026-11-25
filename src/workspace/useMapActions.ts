@@ -819,6 +819,18 @@ export function useMapActions({
       log('truck', fillTemplate(appConfig.copy.contextPanel.logPinned, { name }), 'symbol', undefined, vehicleId)
     }).finally(end)
   }
+  /**
+   * «Sind zwei – Hinweis ausblenden» (owner sign-off note on B3·33/34, 25.11.2026: «two TLFs can
+   * really be there»): the placed Fahrzeug is a second vehicle, so its sheet stops asking
+   * (`gpsTwinOk`, lib/gpsTwin). An ordinary prop edit through `patchEntity` – audit event, synced
+   * with the object – and its own ↶ step, named, which brings the hint back. No Verlauf row: a
+   * hint going away is not something that happened at the Einsatz.
+   */
+  const keepGpsTwin = (symbolId: string, name: string) => {
+    if (tacticalLocked) return
+    stepLabelRef.current = fillTemplate(appConfig.copy.contextPanel.gpsTwinKeepStep, { name })
+    patchEntity(symbolId, { gpsTwinOk: true })
+  }
   const finishEntityMove = (id: string, c: LngLat, join?: { lineId: string; endpoint: LineEndpoint } | null, dock?: { hostId: string } | null) => {
     if (tacticalLocked) return
     if (liveIds.has(id)) placeVehicle(id, { coord: c })
@@ -1054,5 +1066,5 @@ export function useMapActions({
     patchEntity(ent.id, { ...(again ? {} : { fields }), ...(act && { readings: act.readings }) })
     if (act) log(READING_ICON, act.text, 'symbol', undefined, ent.id)
   }
-  return { deleteGroup, deleteEntity, duplicateSelection, placed, goToModule, finishSelection, onMapClick, startEntityMove, streamEntityMove, finishEntityMove, onMarquee, transformGroup, goToTrupp, viewsApi, toggleViews, selected, undockTeam, setEntityDone, commitEntityFields, focusDrawing, noteEntity, pick, pickShape, moveLiveOnSheet, resetVehicleGps, placeVehicle, holdGpsInstead }
+  return { deleteGroup, deleteEntity, duplicateSelection, placed, goToModule, finishSelection, onMapClick, startEntityMove, streamEntityMove, finishEntityMove, onMarquee, transformGroup, goToTrupp, viewsApi, toggleViews, selected, undockTeam, setEntityDone, commitEntityFields, focusDrawing, noteEntity, pick, pickShape, moveLiveOnSheet, resetVehicleGps, placeVehicle, holdGpsInstead, keepGpsTwin }
 }

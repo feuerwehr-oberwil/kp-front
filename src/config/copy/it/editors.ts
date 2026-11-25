@@ -152,6 +152,8 @@ export const editorsCopy: Localizable<Pick<Copy, Keys>> = {
     gpsTwinHold: 'Fissa invece qui il GPS-{name}',
     gpsTwinStep: 'GPS-{name} fissato al posto del simbolo',
     vehicleTimes: { ausgerueckt: 'Uscito', vorOrt: 'Sul posto', zurueck: 'Rientrato in caserma', notYet: 'non ancora' },
+    gpsTwinKeep: 'Sono due – nascondi l’avviso',
+    gpsTwinKeepStep: 'Avviso «due {name}» nascosto',
   },
   drawingEditor: {
     area: 'Superficie',

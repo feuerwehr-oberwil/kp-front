@@ -253,3 +253,17 @@ describe('holdGpsInstead', () => {
     expect(timeline.canUndo()).toBe(false)
   })
 })
+
+// owner sign-off note on B3·33/34 (25.11.2026): «two TLFs can really be there» – «Sind zwei»
+// silences the hint for this symbol, as its own named ↶ step
+describe('keepGpsTwin', () => {
+  it('marks the symbol a second vehicle in one named step', () => {
+    const { deps, given } = makeDeps([{ ...ent('p', [7.5, 47.5]), label: 'TLF' }], [])
+    const patchEntity = vi.fn()
+    Object.assign(deps, { patchEntity })
+    const { result } = renderHook(() => useMapActions(deps))
+    act(() => { result.current.keepGpsTwin('p', 'TLF') })
+    expect(patchEntity).toHaveBeenCalledWith('p', { gpsTwinOk: true })
+    expect(given.stepLabelRef.current).toBe('Hinweis «zwei TLF» ausgeblendet')
+  })
+})

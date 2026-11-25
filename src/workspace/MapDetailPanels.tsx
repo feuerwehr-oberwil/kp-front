@@ -77,6 +77,8 @@ export interface MapDetailPanelsProps {
   placeVehicle: (id: string, pos: VehiclePosition) => void
   /** a placed Fahrzeug goes and its GPS twin is held there instead (useMapActions · holdGpsInstead) */
   holdGpsInstead: (symbolId: string, vehicleId: string, name: string) => void
+  /** …or it stays, a second vehicle, and the hint goes for good (useMapActions · keepGpsTwin) */
+  keepGpsTwin: (symbolId: string, name: string) => void
   /** the Rapport's vehicle times – a vehicle's sheet reads its clocks (lib/vehicleTimes) */
   fahrzeuge: FahrzeugZeit[] | undefined
   log: (icon: string, text: string, kind?: TimelineEvent['kind'], audioUrl?: string, entityId?: string, opts?: { rowId?: string; subjectId?: string }) => void
@@ -127,7 +129,7 @@ export function MapDetailPanels({
   timeline, sym, entityTypedAt, titleLiveRef, beginDrag,
   setDocRaw, endDrag, emit, patchEntity, linkRosterFields, createCircle, doc, undockTeam, effTrupps,
   symbolCaptions, rosterNames, rosterRank, personStatus, rosterFieldHints, setEntityDone, commitEntityFields,
-  vehicleOverrides, canEditIncident, readOnly, stopPersonSharing, setVehicleOverrides, resetVehicleGps, placeVehicle, holdGpsInstead, fahrzeuge, log,
+  vehicleOverrides, canEditIncident, readOnly, stopPersonSharing, setVehicleOverrides, resetVehicleGps, placeVehicle, holdGpsInstead, keepGpsTwin, fahrzeuge, log,
   assignTypedName, drawings, entities, focusDrawing, noteEntity, notePlacedId, setNotePanelId,
   noteTextLive, setNoteDefaults, selectedDrawing, patchDrawing,
   selectedDrawingId, patchDrawingLabelLive, commitDrawingLabel,
@@ -379,7 +381,10 @@ export function MapDetailPanels({
             return {
               name,
               distM: twin.distM,
-              onHold: tacticalLocked || !canEditIncident ? undefined : () => holdGpsInstead(selected.id, twin.vehicle.id, name),
+              ...(tacticalLocked || !canEditIncident ? null : {
+                onHold: () => holdGpsInstead(selected.id, twin.vehicle.id, name),
+                onKeep: () => keepGpsTwin(selected.id, name),
+              }),
             }
           })() : undefined}
           // each row says what tells the lines apart — «Linie · 42 m → Hydrant H-142» (K11)
