@@ -128,6 +128,7 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     archiveConfirmMsg: 'The incident is closed and the end time recorded. After that it can only be read and signed – reopen it for corrections.',
     archiveConfirmBtn: 'Close',
     filterWord: 'Type',
+    groupLastClosed: 'Closed last',
   },
   abschluss: {
     leftEarly: 'until {t}',

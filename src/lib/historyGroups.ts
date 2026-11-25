@@ -49,6 +49,38 @@ export function historyGroupKey(i: { is_archived: boolean; started_at: string },
   return `m:${d.getFullYear()}-${d.getMonth() + 1}`
 }
 
+/** One heading of «Alle Einsätze» and its rows. */
+export interface HistoryGroup<T> { key: string; rows: T[] }
+
+type Groupable = { id: string; is_archived: boolean; started_at: string; closed_at?: string | null; last_closed_at?: string | null }
+
+/**
+ * The list's groups, in display order: 'open', then 'last' – the ONE Einsatz closed (or closed
+ * again) last, out of its time group – then the time groups as `historyGroupKey` reads them.
+ *
+ * ⚠️ 'last' is owner pick UX journeys B3·26 (25.11.2026): a walker corrected the wrong Einsatz.
+ * The one to correct is nearly always the one closed last, and by alarm time a second Einsatz the
+ * same day pushes it to row two (backend sorts by `started_at`). The rest keeps that order.
+ * `items` arrive sorted active-first then newest, so a key never comes back and a group opens on
+ * every key change.
+ */
+export function historyGroups<T extends Groupable>(items: readonly T[], now: Date): HistoryGroup<T>[] {
+  const closeOf = (i: T) => Date.parse(i.last_closed_at ?? i.closed_at ?? '')
+  const last = items.reduce<T | null>((best, i) => (
+    i.is_archived && Number.isFinite(closeOf(i)) && (!best || closeOf(i) > closeOf(best)) ? i : best
+  ), null)
+  const groups: HistoryGroup<T>[] = []
+  for (const i of items) {
+    if (i === last) continue
+    const key = historyGroupKey(i, now)
+    const tail = groups[groups.length - 1]
+    if (tail?.key === key) tail.rows.push(i)
+    else groups.push({ key, rows: [i] })
+  }
+  if (last) groups.splice(groups[0]?.key === 'open' ? 1 : 0, 0, { key: 'last', rows: [last] })
+  return groups
+}
+
 /** Format an 'm:YYYY-M' key as a localized month heading («Juli 2026»); '—' for the
  *  malformed-date bucket. Non-month keys are the caller's to label from copy. */
 export function monthLabel(key: string, locale: string): string {

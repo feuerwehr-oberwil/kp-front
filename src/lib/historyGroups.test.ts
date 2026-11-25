@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { NO_HISTORY_FILTER, applyHistoryFilter, filterIncidents, historyGroupKey, historyTypes, historyWhen, monthLabel } from './historyGroups'
+import { NO_HISTORY_FILTER, applyHistoryFilter, filterIncidents, historyGroupKey, historyGroups, historyTypes, historyWhen, monthLabel } from './historyGroups'
 
 const NOW = new Date('2026-07-12T18:00:00')
 const inc = (over: { is_archived?: boolean; started_at?: string; title?: string; address?: string | null }) => ({
@@ -122,5 +122,26 @@ describe('applyHistoryFilter', () => {
   })
   it('lists each Einsatzart once, sorted, without the empty ones', () => {
     expect(historyTypes([...items, row('x', { type: null })])).toEqual(['Brand', 'Technische Hilfe'])
+  })
+})
+
+// UX pick B3·26 (25.11.2026): the Einsatz closed (or closed again) last stands on top, out of its
+// time group; the open ones stay above it, the rest by alarm time
+describe('historyGroups — «Zuletzt abgeschlossen» on top', () => {
+  const row = (id: string, started_at: string, over: Partial<{ is_archived: boolean; closed_at: string; last_closed_at: string }> = {}) =>
+    ({ id, started_at, is_archived: true, ...over })
+  it('lifts the newest close out of its group, below the open ones', () => {
+    const items = [
+      row('run', '2026-07-12T17:00:00', { is_archived: false }),
+      row('b', '2026-07-12T15:00:00', { closed_at: '2026-07-12T16:00:00' }),
+      row('a', '2026-07-12T12:00:00', { closed_at: '2026-07-12T13:00:00', last_closed_at: '2026-07-12T17:30:00' }),
+      row('c', '2026-07-01T10:00:00', { closed_at: '2026-07-01T11:00:00' }),
+    ]
+    expect(historyGroups(items, NOW).map((g) => [g.key, g.rows.map((r) => r.id)])).toEqual([
+      ['open', ['run']], ['last', ['a']], ['today', ['b']], ['m:2026-7', ['c']],
+    ])
+  })
+  it('without a closed one there is no such group', () => {
+    expect(historyGroups([row('run', '2026-07-12T17:00:00', { is_archived: false })], NOW).map((g) => g.key)).toEqual(['open'])
   })
 })

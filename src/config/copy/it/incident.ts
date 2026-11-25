@@ -129,6 +129,7 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     confirmSubject: 'Ora dell’allarme {t}',
     confirmSubjectExercise: '{name} · Esercizio',
     filterWord: 'Tipo',
+    groupLastClosed: 'Chiuso per ultimo',
   },
   abschluss: {
     leftEarly: 'fino alle {t}',

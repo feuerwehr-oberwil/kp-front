@@ -192,6 +192,8 @@ export const incidentCopy = {
     // the filter tile's WORD, its facet (button sweep HEADS.2/.6, 17.11.2026 – it was a bare funnel):
     // «Ernstfall / Übung» and «Einsatzart» are both what KIND of Einsatz
     filterWord: 'Art',
+    // the Einsatz closed (or closed again) last, on top (owner pick UX journeys B3·26, 25.11.2026)
+    groupLastClosed: 'Zuletzt abgeschlossen',
   },
   // Abschluss-Assistent — the guided closing ritual over the EXISTING views. Every small
   // incident is a training run on the big-incident tool (practice rationale, 2026-07-08).
