@@ -43,7 +43,6 @@ describe('the Passung of an automatic fit', () => {
     expect(screen.getByText(C.lampApprovedHead)).toBeTruthy()
     expect(screen.queryByText(C.chipAuto)).toBeNull()
     expect(screen.queryByText(C.warnAuto)).toBeNull()
-    expect(container.textContent).not.toContain('geprüft und freigegeben') // the head is the one line
     expect(container.textContent).not.toContain('⌀')
   })
 

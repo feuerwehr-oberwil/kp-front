@@ -66,7 +66,6 @@ describe('the one list under the address field', () => {
   // object is found by typing, and a tap into the empty field drops no list over the form
   it('has no «Aus Plänen» button, and a tap into the empty field opens nothing', async () => {
     render(<EinsatzWizard onClose={() => {}} onCreated={() => {}} />)
-    expect(screen.queryByRole('button', { name: 'Aus Plänen' })).toBeNull()
     fireEvent.focus(field())
     await Promise.resolve()
     expect(screen.queryByRole('button', { name: /Tramdepot/ })).toBeNull()

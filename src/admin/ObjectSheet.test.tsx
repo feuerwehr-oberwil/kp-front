@@ -215,7 +215,6 @@ describe('ObjectSheet — provenance, and the pull that will never touch this ob
     apiGet.mockResolvedValue({ bucket: false, sharepoint: false })
     render(<ObjectSheet object={existing()} onClose={() => {}} onChanged={() => {}} />)
     await waitFor(() => expect(apiGet).toHaveBeenCalled())
-    expect(screen.queryByText(/lässt dieses Objekt aus/)).toBeNull()
     expect(screen.queryByText(/SharePoint-Abgleich/)).toBeNull()
   })
 

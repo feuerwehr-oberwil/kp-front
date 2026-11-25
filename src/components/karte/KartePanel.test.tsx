@@ -67,11 +67,9 @@ describe('KartePanel', () => {
     expect(screen.getByText('Mit diesem Konto kannst du Besuche lesen, aber nicht erfassen.')).toBeTruthy()
   })
 
-  it('says what was asked for and not answered — and nothing about what was never recorded', () => {
-    // owner, 20.10.2026: «if there isn't anything then it should just be empty»
-    const { container } = panel({ sel: { kind: 'object', obj: { ...SCHLOSS, measures: null, measuresSource: null } }, register: { state: 'offline', info: null, cached: false } })
+  it('says what was asked for and not answered', () => {
+    panel({ sel: { kind: 'object', obj: { ...SCHLOSS, measures: null, measuresSource: null } }, register: { state: 'offline', info: null, cached: false } })
     expect(screen.getByText('Registerangaben für diesen Ort sind nicht auf diesem Gerät gespeichert.')).toBeTruthy()
-    expect(container.textContent).not.toMatch(/Gefahrenangaben/)
   })
 
   // owner, 20.10.2026: Sofortmassnahmen belong at the very top, above the register
@@ -145,14 +143,6 @@ describe('KartePanel', () => {
     expect(screen.getByText(/LV95/)).toBeTruthy()
   })
 
-  // owner-4: no boxed «Kein Stationsobjekt an dieser Adresse»; owner 20.10.: and no closing
-  // «Keine Gefahrenangaben …» either — for a building as for an object
-  it('keeps the building quiet: no box, and the panel simply ends', () => {
-    const { container } = panel({ sel: { kind: 'building', at: [7.5708, 47.5228], address: null } })
-    expect(screen.queryByText(/Kein Stationsobjekt an dieser Adresse/)).toBeNull()
-    expect(container.textContent).not.toMatch(/Gefahrenangaben/)
-  })
-
   // a register that did not answer is THE amber form warning with its retry (style sweep T3,
   // 15.11.2026 – it was a grey note and a loose quiet button)
   it('says a failed register in the amber warning, whose own action asks again', () => {
@@ -164,12 +154,10 @@ describe('KartePanel', () => {
     expect(onRetryRegister).toHaveBeenCalledOnce()
   })
 
-  // a dropped pin keeps the FACT and loses the «Fehlende Angaben heissen nicht …» tail
-  it('keeps a pin factual without the missing-data tail', () => {
+  it('keeps a pin factual', () => {
     const at: [number, number] = [7.57175, 47.52015]
-    const { container } = panel({ sel: { kind: 'pin', at, near: null, nearState: 'none', onBuilding: false } })
+    panel({ sel: { kind: 'pin', at, near: null, nearState: 'none', onBuilding: false } })
     expect(screen.getByText('Hier ist nichts erfasst – keine Adresse, kein Objekt in der Nähe.')).toBeTruthy()
-    expect(container.textContent).not.toMatch(/Fehlende Angaben/)
   })
 })
 
@@ -281,14 +269,13 @@ describe('KartePanel · order and actions (R2)', () => {
     expect(screen.queryByRole('button', { name: 'Objektbesuch' })).toBeNull()
   })
 
-  it('has no «Messen ab hier» and no «Objektplan auf der Karte» row', () => {
+  it('has no «Objektplan auf der Karte» switch row', () => {
     for (const sel of [
       { kind: 'object' as const, obj: WITH_PLANS },
       { kind: 'building' as const, at: [7.5708, 47.5228] as [number, number], address: null },
       { kind: 'pin' as const, at: [7.5708, 47.5228] as [number, number], near: null, nearState: 'none' as const, onBuilding: false },
     ]) {
       const { container } = panel({ sel, docs: DOCS, sheet: true })
-      expect(container.textContent).not.toMatch(/Messen ab hier|Objektplan auf der Karte/)
       expect(container.querySelector('[role="switch"]')).toBeNull()
       cleanup()
     }

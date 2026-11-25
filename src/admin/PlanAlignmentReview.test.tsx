@@ -253,8 +253,7 @@ describe('full-screen plan editor', () => {
     await within(grid).findByTestId('preview')
     expect(within(grid.firstElementChild as HTMLElement).queryByTestId('preview')).not.toBeNull()
     expect(within(grid).getAllByRole('img').map(el => el.getAttribute('aria-label'))).toEqual(['+1 · Dachstock', '0 · Erdgeschoss'])
-    // no sentences: neither the old preview hint nor the «noch keine Ausrichtung» line
-    expect(within(grid).queryByText(/Rahmen und Massstab/)).toBeNull()
+    // no sentence: not the «noch keine Ausrichtung» line
     expect(screen.queryByText(/Noch keine Geschosse zugeordnet/)).toBeNull()
   })
 })

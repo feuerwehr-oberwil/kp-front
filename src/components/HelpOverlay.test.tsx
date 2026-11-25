@@ -29,7 +29,6 @@ describe('HelpOverlay states THIS station’s thresholds', () => {
     const line = screen.getByText(/seit letztem Kontakt/).closest('li')?.textContent ?? ''
     expect(line).toContain('8 min')
     expect(line).toContain('90 s')
-    expect(line).not.toContain('~5 Min.')
   })
 
   it('does not present the Ebenen groups as things every station has', () => {

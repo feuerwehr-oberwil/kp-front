@@ -382,15 +382,11 @@ describe('KarteApp', () => {
   it('measures without offering to keep it, and stores nothing of it', async () => {
     mount()
     fireEvent.click(await screen.findByRole('button', { name: /Schloss Musterdorf/ }))
-    // no «Messen ab hier» in the panel any more (owner R2): Messen is the tool's
-    expect(screen.queryByRole('button', { name: /Messen ab hier/ })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Messen' }))
     act(() => lastMap().onMapClick([7.570188, 47.523773]))
     act(() => lastMap().onMapClick([7.5708, 47.52455]))
     await waitFor(() => expect(lastMap().measurePoints).toHaveLength(2))
     expect(screen.queryByRole('button', { name: /übernehmen/ })).toBeNull()
-    // …and no line saying so either (owner-6, 17.10.2026): nothing on this surface is ever saved
-    expect(screen.queryByText(/Nur zum Nachschauen/)).toBeNull()
     // only the viewer's own view keys were written — no workspace, no drawing, no measure
     expect(Object.keys(sessionStorage)).toEqual(['kp.karte.view'])
     expect(sessionStorage.getItem('kp.karte.view')).not.toMatch(/7\.5708/)

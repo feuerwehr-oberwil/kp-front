@@ -136,11 +136,23 @@ describe('the shared ladder (lib/useHeadFit · climbLadder)', () => {
 
   // owner pick 24a (17.11.2026): the actions fold TOGETHER, and the CSS keys that fold on its step
   it('folds every action to a tile at ONE step, the one 10-journal styles', () => {
+    // what the app's global stylesheets (app.css, in its cascade order) give the bar's actions
+    // at each step of the ladder – jsdom applies no @media and lays nothing out
+    for (const [, f] of readFileSync('src/app.css', 'utf8').matchAll(/@import '\.\/(styles\/[^']+)'/g)) {
+      document.head.appendChild(Object.assign(document.createElement('style'), { textContent: readFileSync(`src/${f}`, 'utf8') }))
+    }
+    const bar = head(`<div class="tb-actions"><button class="tb-act quiet tb-act-history">Rückgängig</button>
+      <button class="tb-act">Verlauf</button><button class="tb-act tb-act-add">Eintrag</button></div>`)
+    bar.classList.add('topbar')
     const step = HEAD_FIT_STEPS.indexOf('action-words') + 1
-    const css = readFileSync('src/styles/10-journal.css', 'utf8')
-    expect(css).toMatch(new RegExp(`\\.topbar:is\\(\\.fit-${step}, \\[data-tiles\\]\\) \\.tb-act \\{[^}]*flex-direction: column`))
+    const folded = HEAD_FIT_STEPS.map((_, i) => {
+      let n = 0
+      fitHead(bar, () => n++ < i + 1)
+      return [...bar.querySelectorAll('.tb-act')].map((a) => getComputedStyle(a).flexDirection === 'column')
+    })
     // no action keeps a ladder step of its own («Verlauf» bare first, «Eintrag» bare last)
-    expect(css).not.toMatch(/\.topbar\.fit-\d+ \.tb-act[^-]/)
+    expect(folded).toEqual(HEAD_FIT_STEPS.map((_, i) => Array(3).fill(i + 1 >= step)))
+    bar.remove()
   })
 })
 

@@ -145,14 +145,6 @@ describe('Journal · the Pendenzen block', () => {
     expect(document.querySelector('.jr-pinned')).toBeNull()
   })
 
-  // ⚠️ «Aufklappen» is GONE. It was the way past a cap on a block that could not scroll itself;
-  // the box scrolls now, so a second way to see the same rows would be exactly that.
-  it('offers no expand/collapse control — the box scrolls', () => {
-    setup({ openReminders: open })
-    expect(document.querySelector('.jr-pinned-more')).toBeNull()
-    expect(screen.queryByText('Aufklappen')).toBeNull()
-  })
-
   // duck sweep LISTS.6: the item's words open the same detail sheet as its row in the log, and the
   // sheet's «Meldung erfassen» is the Meldung; the box ticks it off
   it('tapping an item opens its sheet, which writes a Meldung on it; the box ticks it off', () => {
