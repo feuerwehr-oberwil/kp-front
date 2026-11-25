@@ -276,6 +276,12 @@ describe('Messpunkt — the reading its mark wears (27.10.2026)', () => {
     expect(readingRows(p).map((r) => r.v)).toEqual([{ CO: '45', Ex: '0' }, { CO: '20' }])
   })
 
+  it('a stored row without values is not listed — the panel reads every gas of `v`', () => {
+    // the merge unions the rows off the server's raw blob, which no gate has checked
+    const bad = [{ t: 0, v: null }, null, { t: 10 * MIN, v: { CO: '20' } }] as unknown as Parameters<typeof mp>[1]
+    expect(readingRows(mp({}, bad)).map((r) => r.v)).toEqual([{ CO: '20' }])
+  })
+
   it('between two gases at the same stage, the one further past its limit wins', () => {
     // Ex 24 is 1.2 × its A2 of 20, CO 65 only 1.08 × its 60 – preset order no longer decides
     expect(symbolReading(mp({ CO: '65', Ex: '24' }))).toMatchObject({ text: 'Ex 24', level: 'a2' })

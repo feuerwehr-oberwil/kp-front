@@ -466,9 +466,11 @@ export function recordReading(props: SymbolProps, fields: Record<string, string>
 export const READING_BURST_MS = 2 * 60_000
 
 /** The history as the panel lists it: newest first, each burst of edits (one report typed gas by
- *  gas, a typo fixed) folded into its last row. */
+ *  gas, a typo fixed) folded into its last row. A stored row that is no object or has no values
+ *  (`v`) is not listed: no gate checks the rows (the merge unions them off the server's raw blob), and the
+ *  panel and the Rapport read every gas of `v`. The row itself stays in the history. */
 export function readingRows(props: SymbolProps): Reading[] {
-  const rs = props.readings ?? []
+  const rs = (props.readings ?? []).filter((r: unknown) => typeof r === 'object' && r !== null && 'v' in r && typeof r.v === 'object' && r.v !== null)
   return rs.filter((r, i) => !(i + 1 < rs.length && rs[i + 1].t - r.t < READING_BURST_MS)).reverse()
 }
 
