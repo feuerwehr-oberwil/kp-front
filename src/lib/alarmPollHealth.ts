@@ -13,24 +13,25 @@ export const READY_MAX_AGE_MS = 60_000
 export interface AlarmPollHealth {
   /** when a watch round last reached the server */
   okAt: number | null
-  /** when a watch round last failed (or was served from the device's cache) */
-  failAt: number | null
+  /** whether the last round reached the server (`false` = it failed or was served from the
+   *  device's cache); kept as the outcome, not a time – two rounds can end in the same millisecond */
+  lastOk: boolean | null
 }
 
-let health: AlarmPollHealth = { okAt: null, failAt: null }
+let health: AlarmPollHealth = { okAt: null, lastOk: null }
 const listeners = new Set<() => void>()
 
 /** A watch round ended: `ok` = the server answered. */
 export function markAlarmPoll(ok: boolean, now = Date.now()): void {
-  health = ok ? { ...health, okAt: now } : { ...health, failAt: now }
+  health = ok ? { okAt: now, lastOk: true } : { ...health, lastOk: false }
   for (const fn of listeners) fn()
 }
 
 /** `ready` while the last round reached the server less than 60 s ago, `down` once a round failed
  *  after it or it is older, `null` before any round has answered (the sign shows nothing). */
 export function pollReadiness(h: AlarmPollHealth, now: number): 'ready' | 'down' | null {
-  if (h.okAt == null) return h.failAt == null ? null : 'down'
-  if (h.failAt != null && h.failAt > h.okAt) return 'down'
+  if (h.lastOk == null) return null
+  if (!h.lastOk || h.okAt == null) return 'down'
   return now - h.okAt < READY_MAX_AGE_MS ? 'ready' : 'down'
 }
 
