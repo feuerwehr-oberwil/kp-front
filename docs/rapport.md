@@ -95,6 +95,8 @@ scrolling body so it stays visible with the keyboard up):
   for a session that cannot reopen). Nothing asks for a signature: closed means done, and signing
   is the optional card below – open or closed alike (14.11.2026). The closing device lands on the launcher anyway – the strip is what
   «Alle Einsätze» → a closed Einsatz shows. A print still out keeps its own amber band.
+  The Anwesenheit shows the same strip above its search (`components/ClosedStrip`, owner pick UX
+  journeys B3·24, 25.11.2026): its rows ignored a tap without a word.
 
 ## Times – one control, date + time everywhere (12.11.2026)
 

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
 import { ONE_LINE } from '../lib/fieldKeys'
 import { Icon } from '../lib/icons'
 import { SearchField } from './SearchField'
-import type { AttendanceState, LngLat, Person, PresenceInterval, Shift, ShiftBand } from '../types'
+import type { AttendanceState, LngLat, Person, PresenceInterval, ReactivateResult, Shift, ShiftBand } from '../types'
 import { ageMinutes, type LivePerson } from '../lib/usePersonPositions'
 import { fmtDistance, haversineM } from '../lib/geo'
 import type { ZeitplanSheet } from '../lib/zeitplanPrint'
@@ -37,6 +37,7 @@ import { AnrueckendBlock } from './AnrueckendBlock'
 import s from './Anwesenheit.module.css'
 import c from './SurfaceControls.module.css'
 import { FilterStrip } from './FilterStrip'
+import { ClosedStrip } from './ClosedStrip'
 
 /** Zeitraum stops for the Zeitplan axis, in hours — from one watch to a WEEK. The long tail
  *  (120 h, 168 h) is for the deployment that does not end on day four: an Elementarereignis
@@ -338,7 +339,7 @@ export function AnwesenheitView({
   shifts, bands, onCreateBand, onSaveBand, onRemoveBand, onCycleCell, onSetCellState, onPutCellState,
   startedAt, onAddShift, onAddShiftSpan, onReplaceShift, onSetShiftTime, onRemoveShift,
   onPrintZeitplan, onDownloadZeitplan, zeitplanPrintOnline,
-  livePositions, incidentCenter, onShowOnMap, incidentId, diveraResponsesFor, onBackToRapport, endedAt,
+  livePositions, incidentCenter, onShowOnMap, incidentId, diveraResponsesFor, onBackToRapport, endedAt, closed = false, onReopen,
 }: {
   people: Person[]
   attendance: AttendanceState
@@ -440,6 +441,11 @@ export function AnwesenheitView({
   /** the Rapport's Einsatzende (`reportMeta.endedAt`) – the Zeiten sheet reads an open stretch as
    *  running to it once it is set (PresenceSheet, pick B3·22) */
   endedAt?: string | null
+  /** the Einsatz is closed: the list is read-only, and the Rapport's amber strip says so above the
+   *  search, with «Wieder öffnen» for a session that may (owner pick UX journeys B3·24, 25.11.2026 –
+   *  a tap on a row did nothing, without a word) */
+  closed?: boolean
+  onReopen?: () => Promise<ReactivateResult>
 }) {
   const [q, setQ] = useState('')
   const [rankSel, setRankSel] = useState<ReadonlySet<string>>(() => new Set())
@@ -891,6 +897,9 @@ export function AnwesenheitView({
           </div>
         )}
       </header>
+
+      {/* a closed Einsatz says so before the first tap, the Rapport's own strip (ClosedStrip) */}
+      {closed && <ClosedStrip onReopen={onReopen} />}
 
       {/* always, even on an empty surface: the search is also the Gast entry */}
       <div className={c.controls}>

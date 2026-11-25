@@ -550,3 +550,24 @@ describe('an open stretch in an Einsatz with an Einsatzende', () => {
     expect(screen.getByText(A.running)).toBeTruthy()
   })
 })
+
+// Owner pick UX journeys B3·24, 25.11.2026: in a closed Einsatz a tap on a row did nothing, without a
+// word. The Rapport's closed strip stands above the search, with the same «Wieder öffnen».
+describe('a closed Einsatz says so before the first tap', () => {
+  const C = appConfig.copy.archived
+  it('shows the Rapport’s strip and reopens from it', () => {
+    const onReopen = vi.fn(() => Promise.resolve('ok' as const))
+    mount({ closed: true, canEdit: false, onReopen })
+    expect(screen.getByText(C.rapportClosedHint)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: C.reactivate }))
+    expect(onReopen).toHaveBeenCalledTimes(1)
+  })
+  it('says «nur ansehen» without a button for a session that cannot reopen, and nothing while open', () => {
+    mount({ closed: true, canEdit: false })
+    expect(screen.getByText(C.rapportClosedViewOnly)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: C.reactivate })).toBeNull()
+    cleanup()
+    mount()
+    expect(screen.queryByText(C.rapportClosedHint)).toBeNull()
+  })
+})

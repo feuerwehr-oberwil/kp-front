@@ -3187,6 +3187,9 @@ export function IncidentWorkspace({
         onBackToRapport={rapportReturn ? () => { setRapportReturn(false); openRapport() } : undefined}
         // an open stretch reads «bis Einsatzende» once there is one (pick B3·22, 25.11.2026)
         endedAt={reportMeta.endedAt}
+        // a closed Einsatz: the Rapport's strip with «Wieder öffnen» (pick B3·24, 25.11.2026)
+        closed={!running}
+        onReopen={onReactivateActive}
         livePositions={livePeople.byPerson}
         incidentCenter={incidentView.center}
         onShowOnMap={(personId) => { setMode('map'); setPanel(null); focusEntity(`pos-${personId}`) }}
