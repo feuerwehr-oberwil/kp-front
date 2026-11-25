@@ -618,7 +618,8 @@ describe('numbers, the Link\'s first Trupp, and «nicht eingesetzt»', () => {
       ...aktivTrupp(), status: 'raus', entryTime: '', exitTime: iso(60_000),
       readings: [{ t: iso(5 * 60_000), bar: 300, kind: 'registered' }, { t: iso(60_000), bar: 300, kind: 'exit' }],
     }
-    mount({ trupps: [stoodDown] })
+    // the full card (under «Name»; the slim one under «Draussen» keeps the state line, not the Verlauf)
+    mount({ order: 'name', trupps: [stoodDown] })
     // the card's state line says it (the «zuletzt: …» preview that used to is gone, 29.09.2026)…
     expect(document.querySelector(`.${s.stateLine}`)?.textContent).toBe(az.statusNotDeployed)
     // …and the Verlauf's last row, opened, reads the same — never «Austritt»

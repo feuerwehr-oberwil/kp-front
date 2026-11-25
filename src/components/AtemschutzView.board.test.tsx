@@ -40,8 +40,9 @@ describe('the board with Trupps that are not under Atemschutz', () => {
     expect(document.querySelector(`.${s.trowPlain}`)).toBeNull()
   })
 
+  // (the two halves stand under «Name» since owner pick M·15: every other order groups Drin · Draussen)
   it('splits into «Atemschutz» + «Weitere Trupps» and gives both halves the SAME card', () => {
-    mount({ trupps: [aktivTrupp(), plainTrupp()], truppColors: { tr1: '#e8392b', tr9: '#e2920a' } })
+    mount({ order: 'name', trupps: [aktivTrupp(), plainTrupp()], truppColors: { tr1: '#e8392b', tr9: '#e2920a' } })
     expect(screen.getByText(az.sectionAtemschutz)).toBeTruthy()
     expect(screen.getByText(az.sectionPlain)).toBeTruthy()
     const cards = [...document.querySelectorAll(`.${s.trowCard}`)]
@@ -98,7 +99,7 @@ describe('the board with Trupps that are not under Atemschutz', () => {
   })
 
   it('says so when the Atemschutz half is empty rather than leaving a bare heading', () => {
-    mount({ trupps: [plainTrupp()], truppColors: { tr9: '#e2920a' } })
+    mount({ order: 'name', trupps: [plainTrupp()], truppColors: { tr9: '#e2920a' } })
     expect(screen.getByText(az.sectionAtemschutzEmpty)).toBeTruthy()
     // the one card on the board is the work squad's, and it is the plain one
     expect(document.querySelectorAll(`.${s.trowCard}`)).toHaveLength(1)
@@ -467,7 +468,8 @@ describe('editing a Trupp that has come out', () => {
       trupps: [outTrupp(), { ...aktivTrupp(), id: 'tr2', name: 'Amstad', members: [], leaderPersonId: 'p1' }],
       truppColors: { tr1: '#e8392b', tr2: '#e2920a' },
     })
-    fireEvent.click(screen.getAllByRole('button', { name: az.cardMenu })[0])
+    // the out card is the slim one under «Draussen» (owner pick M·15)
+    fireEvent.click(within(document.querySelector<HTMLElement>(`.${s.trowSlim}`)!).getByRole('button', { name: az.cardMenu }))
     fireEvent.click(await screen.findByRole('menuitem', { name: az.edit }))
     fireEvent.change(screen.getByLabelText(az.zielLabel), { target: { value: 'Dach via Schiebeleiter' } })
     fireEvent.click(screen.getByRole('button', { name: az.save }))
@@ -628,21 +630,42 @@ describe('the Reihenfolge menu', () => {
 
   // the wide grid wears the phone's state heads where the order already reads that way, and
   // «Wie gesetzt» keeps one slot-keeping grid (hill climb r1, 04.11.2026)
-  it('stands the wide grid under Drin · Draussen for Dringlichkeit, never for «Wie gesetzt»', () => {
+  /* owner pick UX journeys M·15 (25.11.2026, «Drin zuerst, wie Handy»): «Wie gesetzt» too – the
+     hand-set order holds within a section, and a crew that is out is SLIM (its line, «Wieder in den
+     Einsatz», «⋯ Mehr» with the facts). «Name» stays one alphabet of full cards. */
+  it('stands the wide grid under Drin · Draussen for every order but «Name», the out crews slim', () => {
     vi.mocked(useIsPhone).mockReturnValue(false)
-    const out: Trupp = { ...aktivTrupp(), id: 'tr0', name: 'Fertig', status: 'raus', exitTime: iso(60_000) }
+    const out: Trupp = { ...aktivTrupp(), id: 'tr0', name: 'Fertig', status: 'raus', exitTime: iso(60_000), auftrag: 'loeschen', funkkanal: 11 }
     const heads = () => [...document.querySelectorAll(`.${s.sectTitle}`)].map((e) => e.textContent)
-    mount({ order: 'dringlichkeit', trupps: [out, aktivTrupp()] })
-    expect(heads()).toEqual([az.phoneSectionIn, az.phoneSectionOut])
-    expect(names()).toEqual(['Steiner', 'Fertig'])
-    // the clock captions (hill climb r2): under the «Draussen» head the break clock goes unnamed
-    expect(screen.queryByText(az.outFor)).toBeNull()
-    expect(screen.getByText(az.sinceContact)).toBeTruthy()
-    cleanup()
-    mount({ order: 'manuell', trupps: [out, aktivTrupp()] })
+    for (const order of ['dringlichkeit', 'manuell'] as const) {
+      mount({ order, trupps: [out, aktivTrupp()] })
+      expect(heads()).toEqual([az.phoneSectionIn, az.phoneSectionOut])
+      expect(names()).toEqual(['Steiner', 'Fertig'])
+      // the clock captions (hill climb r2): under the «Draussen» head the break clock goes unnamed
+      expect(screen.queryByText(az.outFor)).toBeNull()
+      expect(screen.getByText(az.sinceContact)).toBeTruthy()
+      // the out card is slim: no chips, no foot – its one act and «Mehr»
+      const slim = document.querySelector(`.${s.trowSlim}`)!
+      expect(slim.querySelector(`.${s.facts}`)).toBeNull()
+      expect(within(slim as HTMLElement).getByRole('button', { name: az.actReenter })).toBeTruthy()
+      cleanup()
+    }
+    mount({ order: 'name', trupps: [out, aktivTrupp()] })
     expect(heads()).toEqual([])
     expect(names()).toEqual(['Fertig', 'Steiner'])
     expect(screen.getByText(az.outFor)).toBeTruthy()
+    expect(document.querySelector(`.${s.trowSlim}`)).toBeNull()
+  })
+
+  it('says the slim card\'s facts at the top of its «Mehr»', async () => {
+    vi.mocked(useIsPhone).mockReturnValue(false)
+    mount({ trupps: [{ ...aktivTrupp(), status: 'raus', exitTime: iso(60_000), auftrag: 'loeschen', ziel: 'Westfassade', funkkanal: 11 }] })
+    fireEvent.click(screen.getByRole('button', { name: az.cardMenu }))
+    const menu = await screen.findByRole('menu')
+    expect(menu.textContent).toContain('Löschen · Westfassade')
+    expect(menu.textContent).toContain(`${az.funkkanalUnit} 11`)
+    expect(menu.textContent).toContain(`${az.footOutAt} 240 bar`)
+    expect(within(menu).getByRole('menuitem', { name: az.edit })).toBeTruthy()
   })
 
   it('…and within one of those groups the Auftrag still orders the alphabet, with none last', () => {

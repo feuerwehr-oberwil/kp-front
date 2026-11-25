@@ -161,7 +161,8 @@ describe('the contact times (the head of the Verlauf)', () => {
     // owner pick C18 (05.11.2026): an OUT card words its finished values; round 2b (13.11.2026): a
     // crew inside says the same «drin»; the Schätzung keeps its word on every width (pick 4C, 18.11.2026)
     it('words an out card\'s foot «drin … · raus mit … bar», and an inside one «drin … · Schätzung ≈ …»', () => {
-      mount({ trupps: [{ ...aktivTrupp(), status: 'raus', exitTime: iso(5 * 60_000) }] })
+      // the full out card (under «Name» – «Draussen» draws it slim, owner pick M·15)
+      mount({ order: 'name', trupps: [{ ...aktivTrupp(), status: 'raus', exitTime: iso(5 * 60_000) }] })
       const words = [...document.querySelectorAll(`.${s.metaLine} i`)].map((i) => i.textContent)
       expect(words).toEqual([az.footInside, az.footOutAt])
       expect(document.querySelector(`.${s.metaLine}`)!.textContent).toMatch(/\d+:\d{2} min.*\d+ bar/)
@@ -210,8 +211,9 @@ describe('the state a tier cannot say', () => {
    * cannot go back in until it has rested and re-equipped, so «wie lange ist der schon draussen»
    * is the next question about it. No tier and no contact word though — nobody is watching it.
    * And no «Draussen seit» under the word (22.09.): the band read «DRAUSSEN / Draussen seit». */
+  // the full out card: «Name» (the other orders draw it slim under «Draussen», owner pick M·15)
   it('gives an Atemschutz-Trupp that is out its break clock, and no tier', () => {
-    mount({ trupps: [{ ...aktivTrupp(), status: 'raus', exitTime: iso(5 * 60_000) }] })
+    mount({ order: 'name', trupps: [{ ...aktivTrupp(), status: 'raus', exitTime: iso(5 * 60_000) }] })
     // no «Draussen» line on the card (owner, 29.09.2026): the grey card with «Wieder in den Einsatz» says it
     expect(document.querySelector(`.${s.stateLine}`)).toBeNull()
     // «Draussen seit» names the break clock above it in the card's head (hill climb r2, 04.11.2026)

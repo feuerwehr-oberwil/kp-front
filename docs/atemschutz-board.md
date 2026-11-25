@@ -26,7 +26,7 @@ questions, and what the record keeps (`components/AtemschutzView`; the card and 
     pick B — as the facts' last chip it wrapped onto a 44px row of its own). What differs is only
     what the board has room for: on the grid every card stands open (the line is not a toggle, no
     chevron), the hand-set order keeps its ‹ › in the ⋯, and a card on a board without state heads
-    (the «Wie gesetzt» / «Name» grid, Tafel — `headed` false) says «Bereit» in its state line,
+    (the «Name» grid, Tafel — `headed` false) says «Bereit» in its state line,
     which on the phone and the grouped grid is the section head. The state line never says what the card's colour already says (29.09.2026,
     owner: «drop the überfällig – if the card is red it's pretty obvious»; «the draussen subtitle
     is probably not even required»): fällig / überfällig live on for a screen reader only
@@ -100,12 +100,19 @@ questions, and what the record keeps (`components/AtemschutzView`; the card and 
     Sicherungstrupp zone included (`.phoneBoard > * + :is(.sect, .safetyZone)`, 30.09.2026:
     Sicherungstrupp and Draussen sat flush on the card above). A head keeps 12px to its first
     card. Never give a section its own top/bottom margins.
-  - *The wide grid wears the phone's state heads where its order already reads that way* (hill
-    climb r1, 04.11.2026): under «Dringlichkeit» and «Auftrag» the grid stands as Drin · Bereit ·
-    Draussen (then Weitere Trupps), each section in the order's own sequence and with the same
-    24px air (`.stateBoard`). «Wie gesetzt» stays one slot-keeping grid (a card never jumps when
-    its Trupp comes out — 17.08., 23.10.2026) and «Name» an alphabet. No Sicherungstrupp section
-    on the grid: a standing «Sichern» crew is a Bereit card with its Auftrag chip.
+  - *The wide grid wears the phone's state heads* (hill climb r1, 04.11.2026): under
+    «Dringlichkeit», «Auftrag» and – since owner pick UX journeys M·15, 25.11.2026, «Drin zuerst,
+    wie Handy» – «Wie gesetzt» the grid stands as Drin · Bereit · Draussen (then Weitere Trupps),
+    each section in the order's own sequence (the hand-set one within each section) and with the
+    same 24px air (`.stateBoard`). «Wie gesetzt» was one slot-keeping grid until then (a card never
+    jumps when its Trupp comes out — 17.08., 23.10.2026); on the walkers' iPad three crews on their
+    break stood on top in full while the three under PA had their feet cut off. Under the
+    «Draussen» head an Atemschutz-Trupp that is out is SLIM (`TruppCard · slim`): its line, a
+    state word only where colour cannot say it («Nicht eingesetzt»), then «Wieder in den Einsatz»
+    and «⋯ Mehr», whose menu opens with the facts as plain lines (Auftrag · Ziel, Kanal, «drin
+    29:00 min · raus mit 175 bar»). «Name» stays an alphabet of full cards, and keeps the
+    «Atemschutz» / «Weitere Trupps» halves. No Sicherungstrupp section on the grid: a standing
+    «Sichern» crew is a Bereit card with its Auftrag chip.
   - *Quiet facts, one loud action per card* (04.11.2026): the fact chips are quiet fields (no edge,
     `--ink-5` fill, 500) that still open their sheets; the tiles and the head's tiles are 700, 800 is
     kept for Kontakt and the filled primaries. «Wieder in den Einsatz» stays the out card's one
@@ -157,7 +164,8 @@ questions, and what the record keeps (`components/AtemschutzView`; the card and 
     text under AA) – only «Wieder in den Einsatz» stays at full strength, so it reads as the card's
     one action. Since r17 the grid's out head sinks one step further: the name at 700 (dim ink),
     the crew in the faint ink of the «Draussen seit» caption, the clock dim 16/700; the phone's
-    Draussen row (name and time) keeps its 800. Slots never move.
+    Draussen row (name and time) keeps its 800. (Slots never moved until owner pick M·15,
+    25.11.2026: the grid now groups Drin · Bereit · Draussen under every order but «Name».)
     Since r11 the grid card's 5px left edge is drawn only for a tone that means something (amber
     fällig, red überfällig, blue angemeldet, green Sicherungstrupp); a calm inside card, an out
     card and a work squad have just the 1px card border — the phone rows too since owner pick C2

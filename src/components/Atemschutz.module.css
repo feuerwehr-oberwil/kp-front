@@ -1945,6 +1945,17 @@ button.crewLine { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .trowHead .trowNameTxt { white-space: normal; overflow-wrap: break-word;
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; line-height: 1.2; }
 .trowCard > .trowActs { margin-top: var(--sp-2); }
+/* ── The SLIM out card under the grid's «Draussen» head (owner pick UX journeys M·15, 25.11.2026 –
+   TruppCard · `slim`) ──────────────────────────────────────────────────────────────────────────
+   Its line, then ONE row: «Wieder in den Einsatz» at its own width and «⋯ Mehr» at the far end,
+   where the full card's foot ends with it – the facts stand in that menu. The card's bottom pad
+   is the air under the row; the row keeps the zone's 8px under the line. */
+/* the slim card's own hook (tests, and the rules below); its frame is the card's */
+.trowSlim { gap: 0; }
+.slimActs { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); padding-top: var(--sp-2); }
+.slimActs .actReenter { flex: none; }
+/* …a full 44px on touch beside the 44px tile (it is 36 in a foot line that owns the 44 itself) */
+.slimActs .footMore { margin: 0 0 0 auto; height: var(--tap); }
 /* ── The facts as chips (26.09.2026 evening, phone card slim-down, ③ — TruppCard · facts) ────────
    A wrapping strip of 36px chips: the crew, «Löschen · Test», «Ltg 1», «Kanal 11», the Kürzel of
    the Ausrüstung. Each is the door to its sheet, but what it SHOWS is a fact, so it reads as a quiet

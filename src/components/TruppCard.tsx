@@ -358,8 +358,12 @@ function TruppPair({ t, live, sev, nested = false, onPressure, onContact }: {
  * «Leitung» is exactly the knowledge that is gone after six months without practice.
  */
 export function TruppCard({
-  t, live, alarm, now, color, canEdit, intervalMin, frozen = false, focusNonce, focusScroll = true, flashSeen, onFlashed, onContact, onStatus, onStandDown, onAskExit, onAskPressure, onEdit, onQuick, onReenter, onDelete, onPlace, onShowPlan, onMove, onShowLine, hasLine, drawnLineNo, dockedAt, onCollapse, headed = false, lite = false, page = false, pageHead, pageSafety, onNotfall, onNotfallEnd, conflict = false,
+  t, live, alarm, now, color, canEdit, intervalMin, frozen = false, focusNonce, focusScroll = true, flashSeen, onFlashed, onContact, onStatus, onStandDown, onAskExit, onAskPressure, onEdit, onQuick, onReenter, onDelete, onPlace, onShowPlan, onMove, onShowLine, hasLine, drawnLineNo, dockedAt, onCollapse, headed = false, lite = false, page = false, pageHead, pageSafety, onNotfall, onNotfallEnd, conflict = false, slim = false,
 }: {
+  /** the tablet grid's «Draussen» section (AtemschutzView · gridGrouped, owner pick UX journeys
+   *  M·15): an Atemschutz-Trupp that is out is drawn SLIM – its line, «Wieder in den Einsatz» and
+   *  «⋯ Mehr», whose menu also says the facts the full card shows (Auftrag, Kanal, the foot line) */
+  slim?: boolean
   /** the card IS the page (the handed-over phone board, AtemschutzView · focusMode): drawn flat by
    *  the board, and a crew at the door says «Bereit» where its clock would stand (Atemschutz-Link
    *  redesign R1, 30.10.2026); its tiles stand at the page's foot, Druck | Kontakt lowest
@@ -752,7 +756,19 @@ export function TruppCard({
   const lowestShown = monitored && live.lowestBar < live.currentBar
   const timingShown = timesShown && lastContactAt != null && !lite
 
-  const menu = menuItems.length > 0 && (
+  /* ── The SLIM out card (owner pick UX journeys M·15, 25.11.2026) ─────────────────────────────
+   * Under the grid's «Draussen» head the crews that are out sink to one line and their one act,
+   * so the crews inside stand on top and whole (the walkers' iPad cut their feet). What the full
+   * card says below its tiles stands at the top of its «⋯ Mehr» as plain lines – the Auftrag, the
+   * Kanal, «drin 29:00 min · raus mit 175 bar» – then the card's own items. */
+  const slimDrawn = slim && status === 'raus' && monitored && !page && !onCollapse
+  const slimNotes = slimDrawn ? [
+    ...(auftrag || t.ziel ? [{ kind: 'note' as const, label: auftrag && t.ziel ? `${auftrag} · ${t.ziel}` : (auftrag || t.ziel) }] : []),
+    ...(t.funkkanal != null ? [{ kind: 'note' as const, label: `${az.funkkanalUnit} ${t.funkkanal}` }] : []),
+    ...(sockelLine.length ? [{ kind: 'note' as const, label: sockelLine.map((it) => (it.labelled ? `${it.label} ${it.value}` : it.value)).join(' · ') }] : []),
+    { kind: 'sep' as const },
+  ] : []
+  const menu = (menuItems.length > 0 || slimDrawn) && (
     <Menu
       trigger={
         // «⋯ Mehr», glyph BESIDE word in one framed chip at the line's end (owner pick 4C, 18.11.2026;
@@ -764,7 +780,7 @@ export function TruppCard({
       }
       popupClassName="rp-print-menu"
       itemClassName={() => 'rp-print-menu-item'}
-      items={menuItems}
+      items={[...slimNotes, ...menuItems]}
     />
   )
   /* ── The facts as CHIPS (26.09.2026 evening, phone card slim-down, ③; every board 29.09.2026) ──
@@ -1127,6 +1143,25 @@ export function TruppCard({
   ))
   // the static head and a page head carry the crew line themselves; the phone's collapse button cannot
   const crewBelow = rowMode && !pageHead && crewLine
+  if (slimDrawn) {
+    return (
+      <div ref={cardRef} className={cx(s.trow, s.trowCard, s.trowSlim, rowTone(t, status, sev), conflict && s.cardConflict)}>
+        <div className={cx(s.trowHead, s.trowHeadStatic)}>
+          <RowLine t={t} live={live} color={lite ? undefined : color} lite={lite} headed={headed} />
+        </div>
+        {/* what colour cannot say stays in words – «Nicht eingesetzt» on a crew stood down at the door */}
+        {stateLine}
+        <div className={s.slimActs}>
+          {canEdit && (
+            <button className={cx(s.actBtn, s.actReenter)} onClick={onReenter}>
+              <Icon id="flag" /><span>{neverDeployed ? az.actEnterFirst : az.actReenter}</span>
+            </button>
+          )}
+          {menu}
+        </div>
+      </div>
+    )
+  }
   return (
     <div ref={cardRef} data-az-open={rowMode ? '' : undefined} className={cx(s.trow, s.trowCard, rowTone(t, status, sev), conflict && s.cardConflict)}>
       {head}
