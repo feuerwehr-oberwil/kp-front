@@ -11,11 +11,11 @@ import { ShellLoader } from '../components/ShellLoader'
 // are in is decided in lib/incidentLink.ts — this renders it.
 
 import { useEffect, useRef, useState } from 'react'
+import { FieldApp } from './FieldApp'
 import { appConfig } from '../config/appConfig'
 import { Icon, IconSprite } from '../lib/icons'
 import { Splash } from '../components/Splash'
 import { AuthProvider, useAuth } from '../lib/auth'
-import App from '../App'
 import { LINK_AWAITING_POLL_MS, LINK_CLOSED_FOLLOW_MS, exchangeLinkToken, openIncidentLink, type LinkCandidate, type LinkExchange, type LinkFailure } from '../lib/incidentLink'
 import { EinsatzRow } from '../components/EinsatzRow'
 import { ListCard } from '../components/ListRow'
@@ -89,7 +89,7 @@ function LinkSession() {
   const { user, loading, probeUnreachable } = useAuth()
   if (loading) return <Splash />
   if (!user) return <LinkMessage reason={probeUnreachable ? 'offline' : 'invalid'} onRetry={() => window.location.reload()} />
-  return <App />
+  return <FieldApp />
 }
 
 /** The screen state an exchange answer leads to. */

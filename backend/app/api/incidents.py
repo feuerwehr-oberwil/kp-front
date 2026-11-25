@@ -246,12 +246,21 @@ async def create_incident(body: IncidentCreate, user: CurrentEditor, db: AsyncSe
 
 @router.get("/{incident_id}", response_model=IncidentFull)
 async def get_incident(
-    incident_id: uuid.UUID, user: CurrentUser, db: AsyncSession = Depends(get_db)
+    incident_id: uuid.UUID,
+    user: CurrentUser,
+    db: AsyncSession = Depends(get_db),
+    workspace: bool = Query(default=True, description="false: without the workspace blob"),
 ) -> Incident | IncidentFull:
+    """The Einsatz. `?workspace=false` leaves the blob out (hunt 24.11.2026, performance F4): the
+    link boot only needs the metadata – WorkspaceSync reads the workspace itself right after, and
+    a responder's phone downloaded it twice before the Einsatz opened."""
     inc = await get_incident_or_404(db, incident_id)
+    update: dict[str, object] = {}
     if is_link_session(user):  # who opened it is an account UUID — not for a page off the station
-        return IncidentFull.model_validate(inc).model_copy(update={"created_by": None})
-    return inc
+        update["created_by"] = None
+    if not workspace:
+        update["map_workspace_json"] = None
+    return IncidentFull.model_validate(inc).model_copy(update=update) if update else inc
 
 
 async def _latch_editor_opened(db: AsyncSession, incident_id: uuid.UUID) -> None:

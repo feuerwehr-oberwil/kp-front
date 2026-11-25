@@ -605,6 +605,9 @@ class SnapshotOut(BaseModel):
     occurred_at: datetime | None = None
     seq_at: int | None = None
     workspace: dict[str, Any] | None = None
+    #: when the NEXT snapshot was taken (null: none after this one) – every instant up to it folds
+    #: from this same anchor, so the Wiedergabe reuses it instead of asking again per frame
+    next_at: datetime | None = None
 
 
 class VehicleSampleOut(BaseModel):

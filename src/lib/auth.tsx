@@ -4,6 +4,7 @@ import { onReachable } from './connectivity'
 import { idbGet, idbSet, idbDel } from './idb'
 import { ensureSessionConfig, hasStationConfig, isDemoMode, loadDeploymentConfig } from './deploymentConfig'
 import { notifyAccountKnown } from './accountKnown'
+import { USER_CACHE } from './userCache'
 import { syncMediaCacheAuth } from './authMediaCache'
 import { denyWorkspaceCache, setWorkspaceCacheOwner } from './api/workspaceSync'
 import { linkPageOwnsSession } from './linkMode'
@@ -92,7 +93,6 @@ const AuthContext = createContext<AuthContextValue | null>(null)
 // a read-only Einsatz view long after that Einsatz ended, and no online probe would ever come
 // to correct it. It is also not the case the cache exists for: a personal phone opening a link
 // from an alert isn't the installed PWA that must survive a cellar with no signal.
-const USER_CACHE = 'kp-front-user'
 function readCachedUser(): Promise<AuthUser | null> {
   return idbGet<AuthUser>(USER_CACHE)
 }

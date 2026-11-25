@@ -23,6 +23,7 @@
  */
 import { pdfBytesKey, pinnedPdfVersion } from './pdfBytes'
 import { pdfPageOf } from './whiteboard'
+import { timeoutSignal } from './api'
 
 export interface TileLevel { z: number; width: number; height: number; cols: number; rows: number }
 export interface TilePage { page: number; widthPt: number; heightPt: number; levels: TileLevel[] }
@@ -173,17 +174,24 @@ export function paperMaxScale(drawnCssPxAtFit: number, paperMm: number, floor: n
 
 const manifests = new Map<string, Promise<TileManifest | null>>()
 
+/** How long a manifest may take before it counts as a network failure (hunt 24.11.2026,
+ *  performance F8): a link that stalls without disconnecting kept the Plan's spinner up, and the
+ *  background prewarm queue waited behind the same pending promise. A timed-out manifest is
+ *  evicted like any failure, so the pdf.js fallback and the queue go on. */
+export const MANIFEST_DEADLINE_MS = 12_000
+// (through api · timeoutSignal: AbortSignal.timeout is missing on iPadOS < 16 and threw there)
+
 /**
  * One source's manifest, or null when it has no pyramid. Held for the session: the geometry
- * cannot change under a pinned revision. A NETWORK failure is not an answer and is not kept —
- * offline the service worker serves the cached copy, and with none the caller falls back to
- * pdf.js exactly as before.
+ * cannot change under a pinned revision. A NETWORK failure (or the deadline above) is not an
+ * answer and is not kept — offline the service worker serves the cached copy, and with none the
+ * caller falls back to pdf.js exactly as before.
  */
 export function loadTileManifest(s: TileSource): Promise<TileManifest | null> {
   const key = tileManifestUrl(s)
   const held = manifests.get(key)
   if (held) return held
-  const p = fetch(key, { credentials: 'same-origin' }).then(async (res) => {
+  const p = fetch(key, { credentials: 'same-origin', signal: timeoutSignal(MANIFEST_DEADLINE_MS) }).then(async (res) => {
     if (res.status === 404) return null
     if (!res.ok) throw new Error(`tile manifest ${res.status}`)
     const doc = (await res.json()) as TileManifest

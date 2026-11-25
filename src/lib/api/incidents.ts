@@ -92,6 +92,10 @@ export function listIncidentsShared(): ReturnType<typeof listIncidentsResilient>
   return listInFlight
 }
 export const getIncident = (id: string) => apiGet<IncidentFull>(`/api/incidents/${id}`)
+/** The Einsatz without its workspace blob – for a boot that opens it through WorkspaceSync,
+ *  which reads the workspace itself (hunt 24.11.2026, performance F4: the link phone fetched it
+ *  twice). */
+export const getIncidentMeta = (id: string) => apiGet<IncidentFull>(`/api/incidents/${id}?workspace=false`)
 export const createIncident = (body: IncidentCreate) => apiPost<IncidentFull>('/api/incidents', body)
 // `text` (Meldungstext / Alarmmeldung) is not part of IncidentMeta but the backend PATCH
 // accepts it (and started_at) — the Einsatzdaten panel corrects both in place.

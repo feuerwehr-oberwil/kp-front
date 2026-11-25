@@ -186,7 +186,8 @@ export function ReplayBar({ incidentId, startedAt, onState, onVehicles, onExit, 
   }, [jrMoments, pieces, trackW, current])
 
   // Reconstruct + push state whenever the playhead (or bundle) changes. Folds locally —
-  // no per-frame server call; snapshots are memoised inside the bundle.
+  // no per-frame server call: an anchor snapshot serves its whole interval (lib/replay ·
+  // loadSnapshotAt), and a superseded frame's answer is dropped (`alive`).
   useEffect(() => {
     if (!bundle) return
     let alive = true

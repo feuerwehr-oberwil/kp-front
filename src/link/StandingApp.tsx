@@ -14,6 +14,7 @@
 // and lives on the cookie — the secret leaves the address bar, the bookmark, the history.
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { FieldApp } from './FieldApp'
 import { appConfig } from '../config/appConfig'
 import { deploymentName } from '../lib/deploymentConfig'
 import { fmtWhen, formatTime, formatLocale } from '../lib/format'
@@ -22,7 +23,6 @@ import { ListCard } from '../components/ListRow'
 import { Icon, IconSprite } from '../lib/icons'
 import { Splash } from '../components/Splash'
 import { AuthProvider, useAuth } from '../lib/auth'
-import App from '../App'
 import { TERMINAL_PATH } from '../lib/linkMode'
 import {
   STANDING_POLL_MS,
@@ -59,7 +59,7 @@ function StandingSession({ terminal, onRetry }: { terminal: boolean; onRetry: ()
   }, [stuck, onRetry])
   if (stuck) return <FailedCard reason="offline" terminal={terminal} onRetry={onRetry} />
   if (loading || !user) return <Splash />
-  return <App />
+  return <FieldApp />
 }
 
 function Shell({ children, role = 'status' }: { children: React.ReactNode; role?: 'status' | 'alert' }) {
