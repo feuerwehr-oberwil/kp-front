@@ -169,6 +169,35 @@ export function useMediaQueue({ incidentId, readOnly, writable, onUploaded, onRe
     await refresh()
   }, [replay, refresh])
 
+  /** Put each queued capture back on its row (or Beilage), a row's pictures in their captured
+   *  order, each at exactly its own place (placeOf). `again`: the edit lock came to this tab and
+   *  its workspace was replaced by the slot's – a Beilage is pointed at this page's object URL
+   *  once more (by id: no duplicate), a row only at a capture this page has not restored yet
+   *  (one the previous holder queued later). Resolves false when `alive` ended it. */
+  const reattach = useCallback(async (q: MediaQueueItem[], alive: () => boolean, again = false): Promise<boolean> => {
+    for (const item of inSlotOrder(q)) {
+      // a receipt has no bytes left to show — the replay links its server copy instead
+      if (isReceipt(item)) continue
+      if (!(item.blob instanceof Blob)) continue // retain corrupt legacy metadata, without throwing on restore
+      const had = restoredUrls.current.get(item.id)
+      if (had && (!again || item.target !== 'attachment')) continue
+      const url = had ?? URL.createObjectURL(item.blob)
+      if (!had) {
+        restoredUrls.current.set(item.id, url)
+        // ⚠️ The chip reads a session THUMBNAIL of the queued file (lib/mediaUrl); the full
+        // object URL is only for the viewer. Minted before the row shows it, one picture at a
+        // time: every pending photo re-minted at full size on every launch is what killed the
+        // tab of an offline phone, again on each reopen for as long as it stayed offline.
+        if (item.kind === 'photo') await mintLocalThumb(url, item.blob)
+        if (!alive()) { forgetLocalThumb(url); URL.revokeObjectURL(url); restoredUrls.current.delete(item.id); return false }
+      }
+      // the queued-with URL died with the previous session; hand it over so the restore
+      // replaces that dead entry instead of appending a duplicate picture to the row
+      cb.current.onRestore(item.rowId, item.kind, url, item.localUrl, item.target, placeOf(item, q))
+    }
+    return true
+  }, [])
+
   // On mount / incident switch: reattach any queued captures to their rows, then try to drain.
   useEffect(() => {
     let alive = true
@@ -176,24 +205,7 @@ export function useMediaQueue({ incidentId, readOnly, writable, onUploaded, onRe
     restored.current = new Promise<void>((resolve) => { done = resolve })
     void (async () => {
       const q = await listMediaQueue(incidentId)
-      if (!alive) { done(); return }
-      // a row's pictures in their captured order, each back at exactly its own place (placeOf)
-      for (const item of inSlotOrder(q)) {
-        // a receipt has no bytes left to show — the replay links its server copy instead
-        if (isReceipt(item)) continue
-        if (!(item.blob instanceof Blob)) continue // retain corrupt legacy metadata, without throwing on restore
-        const url = URL.createObjectURL(item.blob)
-        restoredUrls.current.set(item.id, url)
-        // ⚠️ The chip reads a session THUMBNAIL of the queued file (lib/mediaUrl); the full
-        // object URL is only for the viewer. Minted before the row shows it, one picture at a
-        // time: every pending photo re-minted at full size on every launch is what killed the
-        // tab of an offline phone, again on each reopen for as long as it stayed offline.
-        if (item.kind === 'photo') await mintLocalThumb(url, item.blob)
-        if (!alive) { forgetLocalThumb(url); URL.revokeObjectURL(url); done(); return }
-        // the queued-with URL died with the previous session; hand it over so the restore
-        // replaces that dead entry instead of appending a duplicate picture to the row
-        cb.current.onRestore(item.rowId, item.kind, url, item.localUrl, item.target, placeOf(item, q))
-      }
+      if (!alive || !(await reattach(q, () => alive))) { done(); return }
       done()
       status.current = mediaSyncStatus(q, isMediaQueueDurable(incidentId))
       setDurable(isMediaQueueDurable(incidentId))
@@ -205,16 +217,24 @@ export function useMediaQueue({ incidentId, readOnly, writable, onUploaded, onRe
       for (const url of restoredUrls.current.values()) { forgetLocalThumb(url); URL.revokeObjectURL(url) }
       restoredUrls.current.clear()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per Einsatz: the restore must not re-run per render
   }, [incidentId])
 
   // The edit lock came to this tab (read-only → writable): the queue as the previous holder left
-  // it – this tab's last look may predate its captures and receipts – is sent and replayed now.
+  // it – this tab's last look may predate its captures and receipts – goes back on the rows of
+  // the workspace this tab was just handed, then is sent and replayed.
   const wasReadOnly = useRef(readOnly)
   useEffect(() => {
-    if (wasReadOnly.current && !readOnly) void flush()
+    const promoted = wasReadOnly.current && !readOnly
     wasReadOnly.current = readOnly
-  }, [readOnly, flush])
+    if (!promoted) return
+    const after = restored.current
+    restored.current = after
+      .then(() => listMediaQueue(incidentId))
+      .then((q) => reattach(q, () => mounted.current, true))
+      .then(() => {}, () => {})
+    void restored.current.then(() => flush())
+  }, [readOnly, flush, incidentId, reattach])
 
   // Retry the moment the browser reports connectivity is back.
   useEffect(() => {

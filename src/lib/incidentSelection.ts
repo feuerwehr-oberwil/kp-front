@@ -81,6 +81,8 @@ export class IncidentSelection {
         seat.granted = held
         seat.answers++
         if (first) { answer(held); return }
+        // ⚠️ synchronously, inside the grant: the fresh engine requests its fence claim in this
+        // call, which orders the claims by grant (api/workspaceSync · claimFence)
         if (held) void this.promote(seat)
         else {
           seat.engine?.retire()

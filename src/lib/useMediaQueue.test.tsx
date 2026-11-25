@@ -85,3 +85,16 @@ it('a tab that loses the edit lock while linking leaves the receipt for the tab 
   expect(onUploaded).toHaveBeenCalledOnce() // no second link from a tab that does not hold it
   expect(state.store.get('kp-front-mediaq-handover')).toEqual([expect.objectContaining({ status: 'uploaded', url: '/media/7' })])
 })
+
+it('the tab that gets the edit lock puts back a Beilage the other tab queued after it opened', async () => {
+  vi.stubGlobal('URL', { createObjectURL: () => 'blob:here', revokeObjectURL: vi.fn() })
+  upload.mockReset().mockImplementation(() => new Promise(() => {})) // offline: nothing lands
+  const onRestore = vi.fn()
+  const view = renderHook(({ readOnly }: { readOnly: boolean }) => useMediaQueue({ incidentId: 'promoted', readOnly, onUploaded: () => true, onRestore }), { initialProps: { readOnly: true } })
+  await waitFor(() => expect(view.result.current.syncStatus).toBe('synced'))
+  // the other tab, still holding the lock, queues a Beilage
+  await enqueueMedia('promoted', 'att1', 'photo', new Blob(['jpg']), 'damage.jpg', new Date().toISOString(), 'blob:other-tab', 'attachment')
+  view.rerender({ readOnly: false })
+  await waitFor(() => expect(onRestore).toHaveBeenCalledWith('att1', 'photo', 'blob:here', 'blob:other-tab', 'attachment', undefined))
+  await waitFor(() => expect(upload).toHaveBeenCalledOnce())
+})

@@ -56,3 +56,32 @@ it('a tab whose write failed does not undo a voice memo the other tab re-recorde
   const stored = await (await tabModule()).listMediaQueue(id)
   expect(stored).toEqual([expect.objectContaining({ createdAt: '2026-11-25T10:05:00Z' })])
 })
+
+it('a tab whose write failed does not put back a capture the other tab has uploaded since', async () => {
+  Object.defineProperty(globalThis.navigator, 'locks', { value: new FakeLocks(), configurable: true })
+  const a = await tabWithStorage()
+  const b = await tabModule()
+  const id = 'receipt-inc'
+  await a.queue.enqueueMedia(id, 'r1', 'photo', new Blob(['one']), 'one.jpg', '2026-11-25T10:00:00Z', 'blob:one')
+  vi.spyOn(a.idb, 'idbSet').mockResolvedValueOnce(false).mockResolvedValueOnce(false)
+  await a.queue.flushMediaQueue(id, async () => { throw new Error('offline') })
+  vi.restoreAllMocks()
+  await b.flushMediaQueue(id, async () => ({ url: '/api/media/1' })) // B, holding the lock now, sends it
+  const upload = vi.fn(async () => ({ url: '/api/media/2' }))
+  await a.queue.flushMediaQueue(id, upload)
+  expect(upload).not.toHaveBeenCalled()
+  const stored = await (await tabModule()).listMediaQueue(id)
+  expect(stored).toEqual([expect.objectContaining({ status: 'uploaded', url: '/api/media/1' })])
+})
+
+it('a capture whose cross-tab lock is refused waits in memory, never written unlocked', async () => {
+  const refuse = { request: () => Promise.reject(new DOMException('Document is not fully active', 'InvalidStateError')) }
+  Object.defineProperty(globalThis.navigator, 'locks', { value: refuse, configurable: true })
+  const a = await tabModule()
+  const id = 'refused-inc'
+  expect(await a.enqueueMedia(id, 'r1', 'photo', new Blob(['one']), 'one.jpg', '2026-11-25T10:00:00Z', 'blob:one')).toBe(false)
+  expect(await a.listMediaQueue(id)).toEqual([expect.objectContaining({ rowId: 'r1', status: 'pending' })])
+  expect(a.isMediaQueueDurable(id)).toBe(false)
+  Reflect.deleteProperty(globalThis.navigator, 'locks')
+  expect(await (await tabModule()).listMediaQueue(id)).toEqual([])
+})
