@@ -640,6 +640,16 @@ async def patch_incident(
         )
         if lifecycle_change:
             raise HTTPException(status_code=403, detail="In der Demo kann der Einsatz nicht abgeschlossen werden.")
+    # «Wieder öffnen» on an Einsatz that was ALSO closed by its status (abgeschlossen) answered 200
+    # and wrote «wiedereröffnet», but the status kept it closed and read-only (hunt 24.11.2026,
+    # data-consistency F4). A reopen reopens: the status goes back to «in Arbeit» with it, and is
+    # recorded like any other status change below. The same for an Einsatz closed by its status
+    # ALONE (Sol review): «Wieder öffnen» sends is_archived=false, which changed nothing there.
+    reopen = (
+        data.get("is_archived") is False and "status" not in data and not lifecycle_open(inc.is_archived, inc.status)
+    )
+    if reopen and inc.status not in INCIDENT_ACTIVE_STATUSES:
+        data["status"] = "in_arbeit"
     status_before = inc.status
     archived_before = inc.is_archived
     exercise_before = inc.is_exercise
@@ -768,6 +778,12 @@ async def patch_incident(
             await append_system_row(
                 db, inc.id, icon="undo", text="Einsatz wiedereröffnet (Nachtrag)", lifecycle="reopened"
             )
+    elif reopen:
+        # a status-only close reopened: the same boundary row as the archive path, which the
+        # devices read to restart the Atemschutz clocks (lib/reopenClocks)
+        from .journal import append_system_row
+
+        await append_system_row(db, inc.id, icon="undo", text="Einsatz wiedereröffnet (Nachtrag)", lifecycle="reopened")
     # Self-reported crew positions live exactly as long as the Einsatz does — the promise
     # made on the phone when someone opted in. The link session that fed them is already
     # dead at this point (`_incident_still_open`), so the rows would only sit there going

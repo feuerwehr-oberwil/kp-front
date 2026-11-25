@@ -472,3 +472,143 @@ async def test_sweep_closes_an_exercise_twelve_hours_after_its_last_human_change
         .all()
     )
     assert any(r.get("text") == "Automatisch abgeschlossen (Übung)" and r.get("lifecycle") == "closed" for r in texts)
+
+
+@pytest.mark.parametrize("auto_opened,age_days,rev", [(True, 8, 0), (False, 40, 1)])
+async def test_a_fresh_verlauf_note_keeps_an_old_einsatz_open(db_session, auto_opened, age_days, rev):
+    """Hunt 24.11.2026, data-consistency F2: a note bumps neither the workspace nor
+    `updated_at`, and the sweep archived the Einsatz the crew was writing in."""
+    await _set_alarms_config(db_session, {"autoArchiveDays": 7, "staleIncidentDays": 30})
+    old = datetime.now(UTC) - timedelta(days=age_days)
+    inc = _incident(source="manual", auto_opened=auto_opened, started_at=old, updated_at=old, workspace_rev=rev)
+    db_session.add(inc)
+    await db_session.flush()
+    db_session.add(JournalEntry(incident_id=inc.id, client_id="note-1", seq=1, row_json={"text": "Nachkontrolle"}))
+    await db_session.commit()
+    assert await auto_archive_sweep(db_session) == 0
+
+
+async def test_an_einsatz_closed_while_the_sweep_decides_gets_no_second_close(db_session, session_factory):
+    """Hunt 24.11.2026, data-consistency F3: the editor closed the idle drill after the sweep had
+    picked it, and the sweep appended «Automatisch abgeschlossen» to the editor's close."""
+    await _set_alarms_config(db_session, {"autoArchiveDays": 0, "staleIncidentDays": 0, "exerciseAutoCloseHours": 12})
+    inc = _incident(
+        source="manual", is_exercise=True, workspace_rev=4, started_at=datetime.now(UTC) - timedelta(hours=20)
+    )
+    db_session.add(inc)
+    await db_session.commit()
+    execute = db_session.execute
+
+    async def close_first(stmt, *args, **kwargs):
+        # the editor's close lands between the sweep's pick and its locked re-read
+        if getattr(stmt, "_for_update_arg", None) is not None:
+            async with session_factory() as other:
+                (await other.get(Incident, inc.id)).is_archived = True
+                await other.commit()
+        return await execute(stmt, *args, **kwargs)
+
+    db_session.execute = close_first
+    try:
+        assert await auto_archive_sweep(db_session) == 0
+    finally:
+        db_session.execute = execute
+    await db_session.commit()
+    rows = (await db_session.execute(select(JournalEntry).where(JournalEntry.incident_id == inc.id))).scalars().all()
+    assert rows == []
+
+
+async def test_a_save_between_pick_and_lock_keeps_an_untouched_alarm_open(db_session, session_factory):
+    """Sol review (K10): a workspace save after the sweep's first read bumps workspace_rev with no
+    journal row – the clock is re-asked on the locked row, not on the first read."""
+    await _set_alarms_config(db_session, {"autoArchiveDays": 7, "staleIncidentDays": 0})
+    inc = _incident(
+        auto_opened=True, workspace_rev=0, started_at=datetime.now(UTC) - timedelta(days=8), source_ref="s1"
+    )
+    db_session.add(inc)
+    await db_session.commit()
+    execute = db_session.execute
+
+    async def save_first(stmt, *args, **kwargs):
+        if getattr(stmt, "_for_update_arg", None) is not None:
+            async with session_factory() as other:
+                (await other.get(Incident, inc.id)).workspace_rev = 1
+                await other.commit()
+        return await execute(stmt, *args, **kwargs)
+
+    db_session.execute = save_first
+    try:
+        assert await auto_archive_sweep(db_session) == 0
+    finally:
+        db_session.execute = execute
+
+
+async def test_an_old_alarm_turned_ubung_closes_by_the_ubung_clock(db_session):
+    """Sol review (K10): the untouched clock no longer hides the others – an auto-opened alarm
+    somebody wrote in two days ago is not «nicht verwendet», but as an idle Übung it closes."""
+    await _set_alarms_config(db_session, {"autoArchiveDays": 7, "staleIncidentDays": 0, "exerciseAutoCloseHours": 12})
+    now = datetime.now(UTC)
+    inc = _incident(
+        auto_opened=True, is_exercise=True, workspace_rev=0, started_at=now - timedelta(days=8), source_ref="u1"
+    )
+    db_session.add(inc)
+    await db_session.flush()
+    db_session.add(
+        JournalEntry(
+            incident_id=inc.id, client_id="n1", seq=1, row_json={"text": "Übung"}, created_at=now - timedelta(days=2)
+        )
+    )
+    await db_session.commit()
+    assert await auto_archive_sweep(db_session) == 1
+    await db_session.commit()
+    texts = (
+        await db_session.execute(select(JournalEntry.row_json).where(JournalEntry.incident_id == inc.id))
+    ).scalars()
+    assert any(t.get("text") == "Automatisch abgeschlossen (Übung)" for t in texts)
+
+
+async def test_the_intakes_own_events_do_not_count_as_touching_an_alarm(db_session):
+    """Sol review (K10): a late-delivered alarm writes its incident.create event now – that is
+    nobody touching it; the untouched clock still archives it."""
+    from app import audit
+
+    await _set_alarms_config(db_session, {"autoArchiveDays": 7, "staleIncidentDays": 0})
+    inc = _incident(
+        auto_opened=True, workspace_rev=0, started_at=datetime.now(UTC) - timedelta(days=8), source_ref="i1"
+    )
+    db_session.add(inc)
+    await db_session.flush()
+    await audit.append_event(
+        db_session, incident_id=inc.id, op_type="incident.create", source="status", user_id=None, payload={"auto": True}
+    )
+    await db_session.commit()
+    assert await auto_archive_sweep(db_session) == 1
+
+
+async def test_an_alarm_update_row_is_no_touch_but_an_atemschutz_link_write_is(db_session):
+    """Sol review (K10): the server's «Alarm aktualisiert» Verlauf row kept an unused alarm open;
+    an Atemschutz link's event (written without a user) is a person working it."""
+    from app import audit
+
+    await _set_alarms_config(db_session, {"autoArchiveDays": 7, "staleIncidentDays": 0})
+    old = datetime.now(UTC) - timedelta(days=8)
+    quiet = _incident(auto_opened=True, workspace_rev=0, started_at=old, source_ref="q1")
+    worked = _incident(auto_opened=True, workspace_rev=0, started_at=old, source_ref="w1")
+    db_session.add_all([quiet, worked])
+    await db_session.flush()
+    db_session.add(
+        JournalEntry(incident_id=quiet.id, client_id="sys0123456789ab", seq=1, row_json={"text": "Alarm aktualisiert"})
+    )
+    await audit.append_event(
+        db_session,
+        incident_id=worked.id,
+        op_type="atemschutz.contact",
+        source="atemschutz-link",
+        user_id=None,
+        payload={},
+    )
+    await db_session.commit()
+    assert await auto_archive_sweep(db_session) == 1
+    await db_session.commit()
+    await db_session.refresh(quiet)
+    await db_session.refresh(worked)
+    assert quiet.is_archived is True and worked.is_archived is False

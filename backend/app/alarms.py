@@ -16,12 +16,12 @@ Einsatz-Link responder is one). Unconfirmed incidents stay out of the stats expo
 
 import asyncio
 import logging
-import uuid
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from weakref import WeakValueDictionary
 
-from sqlalchemy import func, select
+from sqlalchemy import ColumnElement, and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from . import audit, live_wait
@@ -251,6 +251,13 @@ async def create_incident_from_alarm(
     return inc
 
 
+def _aware(dt: datetime | None) -> datetime:
+    """A stored stamp as an aware UTC instant (SQLite hands them back naive); none = long ago."""
+    if dt is None:
+        return datetime.min.replace(tzinfo=UTC)
+    return dt if dt.tzinfo else dt.replace(tzinfo=UTC)
+
+
 async def auto_archive_sweep(db: AsyncSession) -> int:
     """Archive the incidents nobody is coming back to. Three clocks, deliberately separate.
 
@@ -271,71 +278,93 @@ async def auto_archive_sweep(db: AsyncSession) -> int:
     """
     cfg = await get_alarms_config(db)
     now = datetime.now(UTC)
-    # (incident, why) — one list so a single pass writes the audit trail for both clocks, and
-    # so an untouched incident old enough for BOTH is archived once, by the clock that names it
-    # most precisely (`seen` keeps the first, i.e. the untouched one).
-    rows: list[tuple[Incident, str]] = []
-    seen: set[uuid.UUID] = set()
+    # The clocks, in the order that names an Einsatz most precisely (an untouched alarm old enough
+    # for every clock is «nicht verwendet»): (Verlauf row, cutoff, does it apply to this row, the
+    # SQL that pre-selects it, count only writes with a user). The last human write must lie
+    # before the cutoff too – asked under the lock, below.
+    clocks: list[tuple[str, datetime, Callable[[Incident, datetime], bool], ColumnElement[bool], bool]] = []
     if cfg.autoArchiveDays > 0:
-        cutoff = now - timedelta(days=cfg.autoArchiveDays)
-        untouched = (
-            await db.execute(
-                select(Incident).where(
-                    Incident.is_archived.is_(False),
-                    Incident.auto_opened.is_(True),
-                    Incident.workspace_rev == 0,
-                    Incident.started_at < cutoff,
-                )
-            )
-        ).scalars()
-        for inc in untouched:
-            seen.add(inc.id)
-            rows.append((inc, "Einsatz automatisch archiviert (nicht verwendet)"))
-    if cfg.exerciseAutoCloseHours > 0:
-        cutoff = now - timedelta(hours=cfg.exerciseAutoCloseHours)
-        # started before the cutoff narrows it in SQL (nothing started since can be due); the
-        # last human change is then asked per candidate — a station has a handful of Übungen open
-        drills = (
+        cut = now - timedelta(days=cfg.autoArchiveDays)
+        clocks.append(
             (
-                await db.execute(
-                    select(Incident).where(
-                        Incident.is_archived.is_(False),
-                        Incident.is_exercise.is_(True),
-                        Incident.started_at < cutoff,
-                    )
-                )
+                "Einsatz automatisch archiviert (nicht verwendet)",
+                cut,
+                lambda i, cut: bool(i.auto_opened) and i.workspace_rev == 0 and _aware(i.started_at) < cut,
+                and_(Incident.auto_opened.is_(True), Incident.workspace_rev == 0, Incident.started_at < cut),
+                # the intake's own events (incident.create, a Divera update) are nobody touching it
+                True,
             )
-            .scalars()
-            .all()
         )
-        for inc in drills:
-            if inc.id in seen or await last_activity(db, inc.id, inc.started_at) >= cutoff:
-                continue
-            seen.add(inc.id)
-            rows.append((inc, "Automatisch abgeschlossen (Übung)"))
+    if cfg.exerciseAutoCloseHours > 0:
+        cut = now - timedelta(hours=cfg.exerciseAutoCloseHours)
+        clocks.append(
+            (
+                "Automatisch abgeschlossen (Übung)",
+                cut,
+                lambda i, cut: bool(i.is_exercise) and _aware(i.started_at) < cut,
+                and_(Incident.is_exercise.is_(True), Incident.started_at < cut),
+                False,
+            )
+        )
     if cfg.staleIncidentDays > 0:
         # `updated_at`, not `started_at`: the question is when anybody last did anything with
         # this Einsatz, not how long ago it was alarmed. A month-old Einsatz that somebody
         # corrected yesterday is still being worked on.
-        cutoff = now - timedelta(days=cfg.staleIncidentDays)
-        stale = (
-            await db.execute(
-                select(Incident).where(
-                    Incident.is_archived.is_(False),
-                    Incident.updated_at < cutoff,
-                )
+        cut = now - timedelta(days=cfg.staleIncidentDays)
+        clocks.append(
+            (
+                f"Einsatz automatisch archiviert ({cfg.staleIncidentDays} Tage ohne Bearbeitung)",
+                cut,
+                lambda i, cut: _aware(i.updated_at) < cut,
+                Incident.updated_at < cut,
+                False,
             )
-        ).scalars()
-        for inc in stale:
-            if inc.id in seen:
-                continue
-            seen.add(inc.id)
-            rows.append((inc, f"Einsatz automatisch archiviert ({cfg.staleIncidentDays} Tage ohne Bearbeitung)"))
-    if not rows:
+        )
+    if not clocks:
+        return 0
+    ids = (
+        (
+            await db.execute(
+                select(Incident.id).where(Incident.is_archived.is_(False), or_(*(sql for *_, sql, _h in clocks)))
+            )
+        )
+        .scalars()
+        .all()
+    )
+    if not ids:
         return 0
     from .api.journal import append_system_row  # lazy — service module must not pull the API layer at import
 
-    for inc, why in rows:
+    archived = 0
+    # ⚠️ Decided UNDER the incident lock, on the row as it is now, one Einsatz at a time in id
+    # order. Hunt 24.11.2026:
+    # - data-consistency F3: an editor closing the drill between a first read and this write got
+    #   a second close («Automatisch abgeschlossen» after «Einsatz abgeschlossen»); a save in
+    #   between could likewise bump the workspace – every clock is re-asked on the locked row;
+    # - data-consistency F2: a Verlauf note neither bumps the workspace nor `updated_at`, so a
+    #   crew writing into an old Einsatz was archived under its hands. Every clock now also asks
+    #   for the last HUMAN write (journal row or audit event, observers excluded).
+    # SKIP LOCKED: the Divera poll locks its Einsätze in its own order; an Einsatz somebody holds
+    # right now is busy by definition and is simply looked at again on the next pass.
+    for inc_id in sorted(ids, key=str):
+        inc = (
+            await db.execute(
+                select(Incident)
+                .where(Incident.id == inc_id)
+                .with_for_update(skip_locked=True)
+                .execution_options(populate_existing=True)
+            )
+        ).scalar_one_or_none()
+        if inc is None or inc.is_archived:
+            continue
+        why = None
+        for text, cut, applies, _sql, humans_only in clocks:
+            if applies(inc, cut) and await last_activity(db, inc.id, inc.started_at, humans_only=humans_only) < cut:
+                why = text
+                break
+        if why is None:
+            continue
+        archived += 1
         inc.is_archived = True
         if inc.closed_at is None:
             inc.closed_at = now
@@ -351,5 +380,5 @@ async def auto_archive_sweep(db: AsyncSession) -> int:
         await append_system_row(db, inc.id, icon="flag", text=why, lifecycle="closed")
         # the devices following it hear the close at once, as for a hand close (lib/incidentClosed)
         live_wait.notify_after_commit(db, live_wait.workspace_topic(inc.id))
-    logger.info("Auto-archive sweep: %d incident(s) archived", len(rows))
-    return len(rows)
+    logger.info("Auto-archive sweep: %d incident(s) archived", archived)
+    return archived
