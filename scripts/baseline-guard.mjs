@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // `node scripts/baseline-guard.mjs [--base <ref>]` (CI's «Static analysis», `just ci-static-analysis`):
 // fails when a commit of this branch loosens a ratchet or a baseline and also changes anything
-// else. AGENTS.md: «put a deliberate change in its own commit, with the reason» – a raise beside
+// else. The repo rule (docs/testing/ci.md): a deliberate change goes in its own commit, with the reason – a raise beside
 // a feature hides in the feature's diff; alone it is a commit a reviewer reads.
 //
 // It walks the non-merge commits from the merge base with `--base` (default origin/main) to HEAD.
@@ -200,7 +200,7 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   if (problems.length) {
     console.error(
       '\nA ratchet or baseline moves the loose way only on purpose: in a commit of its own that touches' +
-        ' only baseline files, with the reason in its message (AGENTS.md, docs/testing/ci.md).',
+        ' only baseline files, with the reason in its message (docs/testing/ci.md).',
     )
     process.exit(1)
   }
