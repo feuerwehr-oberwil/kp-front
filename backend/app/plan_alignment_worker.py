@@ -36,7 +36,6 @@ from .schemas import load_stored_config
 logger = logging.getLogger(__name__)
 LEASE_SECONDS = 600
 MAX_ATTEMPTS = 3
-POLL_SECONDS = 10
 _render_limiter = anyio.CapacityLimiter(1)
 
 

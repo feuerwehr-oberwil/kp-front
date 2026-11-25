@@ -504,6 +504,34 @@ describe('Journal · correcting a line (append-only)', () => {
     expect(onEditText).toHaveBeenCalledWith('r3', 'Feuer aus, Nachkontrolle läuft')
   })
 
+  // «Text bearbeiten» closes the sheet and opens the field: the operator types next, without a tap
+  // ⚠️ The row holds focus, as a real tap leaves it: the sheet's focus return (a microtask after
+  // the close) went back to it and took the caret from the field. fireEvent.click alone focuses nothing.
+  it('puts the caret in the correction, at the end of the words', async () => {
+    setup({ onEditText: vi.fn() })
+    const rowEl = document.querySelector<HTMLElement>('[data-ev="r3"]')!
+    rowEl.focus()
+    fireEvent.click(rowEl)
+    fireEvent.click(penInSheet()!)
+    await act(async () => { await Promise.resolve() })
+    const box = document.querySelector('textarea')!
+    expect(document.activeElement).toBe(box)
+    expect(box.selectionStart).toBe('Feuer aus'.length)
+  })
+
+  // Space and Enter are the row's own «open» keys – typed in the field inside it, they are text
+  it('a key typed in the correction stays in the field and does not reopen the row', () => {
+    setup({ onEditText: vi.fn() })
+    fireEvent.click(screen.getByText('Feuer aus'))
+    fireEvent.click(penInSheet()!)
+    const box = document.querySelector('textarea')!
+    for (const key of [' ', 'Enter']) {
+      const typed = fireEvent.keyDown(box, { key })
+      expect(typed).toBe(true) // not preventDefault-ed: the space reaches the text
+    }
+    expect(penInSheet()).toBeNull()
+  })
+
   // the corrected words must never pass for the ones spoken at the time
   it('marks a corrected line with the time of the correction', () => {
     const at = new Date(1_060_000).toISOString()

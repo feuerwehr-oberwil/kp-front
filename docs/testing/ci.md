@@ -202,6 +202,13 @@ check` against the models); image, secrets, e2e, visual and perf stay CI's.
   way to pass. The gzipped entry, App, maplibre, pdf-worker and CSS chunks have a +5 % budget
   against `scripts/bundle-baseline.json` (`scripts/check-bundle-size.mjs`, CI); a deliberate
   growth is an `--update` in its own commit, with the reason.
+- **Dead code and duplicates beyond knip** (`just lint-dead`; CI's «Static analysis» job, not a
+  required check): jscpd fails when the share of duplicated lines goes above `threshold` in
+  `.jscpd.json` (frontend, 1 %) or `backend/.jscpd.json` (0.5 %). vulture (`[tool.vulture]` in
+  `backend/pyproject.toml`, confidence 60) fails on a name that is neither used nor in
+  `backend/vulture_whitelist.py`, and deptry on an unused or missing backend dependency. The
+  baselines are of 25.11.2026: fix a new finding, or add it to the whitelist under its reason.
+  Never raise a threshold to pass.
 - **`jsdom` is held on 30.0.x** (`~30.0.1`, Dependabot ignores everything from 30.1.0): since
   30.1 its blob URLs cannot read the Node `Blob` Vitest supplies, so maplibre-gl fails at import
   and MapView, mapTwist and the IncidentWorkspace harness stop loading. MapLibre 6 did not fix

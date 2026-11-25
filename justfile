@@ -348,6 +348,16 @@ lint:
     cd backend && uv run ruff format --check .
     cd backend && uv run ruff check .
 
+# (CI runs knip in «Frontend static» and the rest in its static-analysis job. Baselines:
+# scripts/knip-baseline.json, backend/vulture_whitelist.py, [tool.deptry] in
+# backend/pyproject.toml, and `threshold` in .jscpd.json and backend/.jscpd.json.)
+# Dead code, unused dependencies and duplicates: knip, jscpd, vulture, deptry.
+[group('Quality')]
+lint-dead:
+    pnpm lint:dead
+    cd backend && uv run vulture && uv run deptry .
+    cd backend && ../node_modules/.bin/jscpd .
+
 # Test both stacks (vitest + pytest).
 [group('Quality')]
 test:

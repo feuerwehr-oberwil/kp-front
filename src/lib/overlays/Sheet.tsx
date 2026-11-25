@@ -55,6 +55,12 @@ export interface SheetProps {
   /** Override where focus lands on open (default: Base UI picks the first focusable). */
   initialFocus?: RefObject<HTMLElement | null>
   /**
+   * Whether focus goes back to where it came from on close (default: yes). A function is asked at
+   * the moment of closing – return `false` for a close that hands over to a field outside the
+   * sheet, whose own focus the return would otherwise take away (Journal · «Text bearbeiten»).
+   */
+  finalFocus?: boolean | (() => boolean)
+  /**
    * Modality. Default `'trap-focus'`: focus is trapped, but pointer interaction with elements
    * OUTSIDE the popup stays enabled — required because our field pickers (Combo / PersonField,
    * e.g. the Einsatzleiter picker) portal their dropdown menu to <body>, which full `modal`
@@ -65,7 +71,7 @@ export interface SheetProps {
   modal?: boolean | 'trap-focus'
 }
 
-export function Sheet({ open, onClose, title, ariaLabel, children, footer, wide, fit, sheetClassName, grip, swipeToClose = true, initialFocus, modal = 'trap-focus' }: SheetProps) {
+export function Sheet({ open, onClose, title, ariaLabel, children, footer, wide, fit, sheetClassName, grip, swipeToClose = true, initialFocus, finalFocus, modal = 'trap-focus' }: SheetProps) {
   // the on-screen keyboard: a phone sheet lifts by margin, a tablet sheet rides up and caps its
   // height (`is-kb` + `--kb-inset`, see keyboardLift) — without a keyboard neither is rendered
   const kbInset = useKeyboardInset(open)
@@ -102,7 +108,7 @@ export function Sheet({ open, onClose, title, ariaLabel, children, footer, wide,
     >
       <Dialog.Portal>
         <Dialog.Backdrop ref={backdropRef} className="ui-backdrop" />
-        <Dialog.Popup ref={popupRef} {...kbFirst} className={cls} style={keyboardLift(kbInset)} initialFocus={initialFocus} aria-label={title == null ? ariaLabel : undefined} {...swipe}>
+        <Dialog.Popup ref={popupRef} {...kbFirst} className={cls} style={keyboardLift(kbInset)} initialFocus={initialFocus} finalFocus={finalFocus} aria-label={title == null ? ariaLabel : undefined} {...swipe}>
           {grip && <SheetGrip onClose={close} />}
           {!grip && swipeToClose && <SheetGrab />}
           <div className="ip-head">
