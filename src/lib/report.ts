@@ -710,6 +710,10 @@ export function readingBarShown(r: Pick<TruppReading, 'kind' | 'bar' | 'measured
  * The scalars stay as the per-side FALLBACK, for a Trupp whose log predates the row that would
  * carry it: `exit` rows only exist since 19.08., and a Trupp registered before 09.08. may carry no
  * log at all.
+ *
+ * Once the Trupp went in, the Austritte are those of its deployments (`truppRuns`): a stand-down
+ * before a later Eintritt is not one. A Trupp that never went in keeps its stand-down as its one
+ * Austritt – the sheet's «Nicht eingesetzt» line reads it.
  */
 export function truppRunTimes(
   readings: readonly Pick<TruppReading, 't' | 'kind'>[] | undefined,
@@ -717,11 +721,11 @@ export function truppRunTimes(
 ): { entries: string[]; exits: string[]; registered: string[] } {
   const of = (kind: TruppReading['kind']) =>
     (readings ?? []).filter((r) => r.kind === kind).map((r) => r.t).filter(Boolean)
-  const entries = of('entry')
+  const runs = truppRuns(readings, fallback)
   const exits = of('exit')
   return {
-    entries: entries.length ? entries : ([fallback.entryTime].filter(Boolean) as string[]),
-    exits: exits.length ? exits : ([fallback.exitTime].filter(Boolean) as string[]),
+    entries: runs.map((r) => r.entry),
+    exits: runs.length ? runs.flatMap((r) => (r.exit ? [r.exit] : [])) : exits.length ? exits : ([fallback.exitTime].filter(Boolean) as string[]),
     // ⚠️ The ANMELDUNG travels too (04.09.). A Trupp that never went in prints one line —
     // «Nicht eingesetzt: …» — and that line carried the Draussen stamp alone, so the sheet said
     // 06:50 about a crew that had stood ready since 06:32 and the reader had no way to see the
@@ -732,11 +736,57 @@ export function truppRunTimes(
   }
 }
 
+/**
+ * The Trupp's deployments, Eintritt → Austritt, read off its log in TIME order.
+ *
+ * ⚠️ Paired by time, never zipped by position (hunt 24.11.2026, records-rapport F3): a
+ * Sicherungstrupp that stood down at 09:20 and later went in 09:40–09:49 has two `exit` rows, and
+ * zipping the lists printed «09:40 – 09:20». An Austritt closes the running Eintritt; one with no
+ * Eintritt running is a stand-down (atemschutz · isStandDownExit) and opens nothing. An Eintritt
+ * or a new Anmeldung while one runs leaves that one without an Austritt. A log with no `entry` row falls back to the scalars; one
+ * with no `exit` row at all (before 19.08.) closes its last run with the scalar Austritt.
+ */
+export function truppRuns(
+  readings: readonly Pick<TruppReading, 't' | 'kind'>[] | undefined,
+  fallback: { entryTime?: string; exitTime?: string },
+): { entry: string; exit?: string; cut?: true; cutAt?: string }[] {
+  const rows = (readings ?? [])
+    .map((r, i) => ({ r, i }))
+    .filter(({ r }) => !!r.t && (r.kind === 'entry' || r.kind === 'exit' || r.kind === 'registered'))
+    .sort((a, b) => (Date.parse(a.r.t) || 0) - (Date.parse(b.r.t) || 0) || a.i - b.i)
+  if (!rows.some(({ r }) => r.kind === 'entry')) {
+    return fallback.entryTime ? [{ entry: fallback.entryTime, ...(fallback.exitTime ? { exit: fallback.exitTime } : {}) }] : []
+  }
+  const runs: { entry: string; exit?: string; cut?: true; cutAt?: string }[] = []
+  let open: { entry: string; exit?: string } | null = null
+  for (const { r } of rows) {
+    if (r.kind === 'entry') {
+      if (open) runs.push({ ...open, cut: true, cutAt: r.t })
+      open = { entry: r.t }
+    } else if (r.kind === 'registered') {
+      // a fresh Anmeldung ends a run whose Austritt was never written: its exit stays unknown
+      // (`cut`), and the stand-down that may follow is not dated onto it
+      if (open) runs.push({ ...open, cut: true, cutAt: r.t })
+      open = null
+    } else if (open) {
+      runs.push({ ...open, exit: r.t })
+      open = null
+    }
+  }
+  if (open) {
+    const late = !rows.some(({ r }) => r.kind === 'exit') && fallback.exitTime && Date.parse(fallback.exitTime) >= Date.parse(open.entry)
+    runs.push(late ? { ...open, exit: fallback.exitTime } : open)
+  }
+  return runs
+}
+
 /** One crew change on the Atemschutz page — dated, in the words of copy · atemschutz.crewChange. */
 export interface TruppCrewChange { t: string; text: string }
 /** One deployment cycle of a Trupp: its Eintritt/Austritt, the crew that went in, and what
  *  changed about that crew while it ran. */
-export interface TruppCycle { entry: string; exit?: string; crew: string[]; changes: TruppCrewChange[] }
+export interface TruppCycle { entry: string; exit?: string; crew: string[]; changes: TruppCrewChange[]
+  /** ended by a later Anmeldung or Eintritt with no Austritt written (truppRuns) – not still inside */
+  cut?: true }
 
 /** everybody a `crew` row names, leader first, blanks dropped */
 const crewNames = (c: { name: string; members: string[] }): string[] =>
@@ -775,13 +825,13 @@ export function truppCrewHistory(t: Trupp, all: readonly Trupp[] = []): { leader
   const ms = (s: string) => Date.parse(s) || 0
   const rows = crewRowsOf(t)
   const leader = rows[0]?.crew.name.trim() || t.name.trim()
-  const { entries, exits } = truppRunTimes(t.readings, { entryTime: t.entryTime, exitTime: t.exitTime })
+  const runs = truppRuns(t.readings, { entryTime: t.entryTime, exitTime: t.exitTime })
   const crewAt = (at: string): string[] => {
     let best: (typeof rows)[number] | undefined
     for (const r of rows) if (ms(r.t) <= ms(at)) best = r
     return best ? crewNames(best.crew) : crewNames({ name: t.name, members: t.members ?? [] })
   }
-  const cycles: TruppCycle[] = entries.map((entry, i) => ({ entry, exit: exits[i], crew: crewAt(entry), changes: [] }))
+  const cycles: TruppCycle[] = runs.map(({ entry, exit, cut }) => ({ entry, exit, crew: crewAt(entry), changes: [], ...(cut ? { cut } : {}) }))
   if (!cycles.length) return { leader, cycles }
 
   const C = appConfig.copy.atemschutz.crewChange
@@ -814,7 +864,9 @@ export function truppCrewHistory(t: Trupp, all: readonly Trupp[] = []): { leader
     for (let k = 0; k < cycles.length; k++) if (ms(cycles[k].entry) <= ms(at)) i = k
     // after that cycle's Austritt and before the next Eintritt → the next cycle, if there is one
     const c = cycles[i]
-    if (c.exit && ms(c.exit) <= ms(at) && i + 1 < cycles.length) return cycles[i + 1]
+    // …and after the Anmeldung / Eintritt that cut it short, the same (CodeRabbit on #734)
+    const ended = c.exit ?? runs[i]?.cutAt
+    if (ended && ms(ended) <= ms(at) && i + 1 < cycles.length) return cycles[i + 1]
     return c
   }
   for (let i = 0; i < rows.length; i++) {

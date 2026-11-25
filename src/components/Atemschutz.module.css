@@ -2459,3 +2459,28 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
   padding-left: 24px; }
 /* …and the cards it names wear the same amber as a steady ring, so they can be found on the board */
 .cardConflict { box-shadow: 0 0 0 2px var(--amber); }
+
+/* ── The phone turned sideways (hunt 24.11.2026, ux-3am F2, owner pick «Namen in der Meldung») ──
+   844×390 leaves the board ~120px under the Meldeleiste and its head, and one crew per line showed
+   only the top half of the first clock, its Kontakt below the fold. The crews INSIDE (`.rowListIn`,
+   not the Sicherungstrupp zone with its heading in the list) stand SIDE BY SIDE,
+   each still two lines (name + clock, then Druck | Kontakt), and the list stops short of the
+   «Eintrag» button that floats over the right edge (--fab-safe, 15-mobile). An opened card takes
+   the whole line: its tiles need the width.
+   Measured at 844×390 with the warning standing: 105px of board under the head for a 112px row,
+   so the head, the section line and the row each give up their air – and the row its «SEIT
+   KONTAKT» word, which the green clock in the row says anyway. */
+@media (--phone-landscape) {
+  .head { min-height: 0; padding-block: var(--sp-1); }
+  .body { padding-top: var(--sp-1); }
+  .phoneBoard .sect { margin-bottom: var(--sp-1); }
+  .rowListIn { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); align-items: start;
+    margin-right: var(--fab-safe); }
+  .rowListIn .trowCard { grid-column: 1 / -1; }
+  .rowListIn .trow.trowTwo { padding-block: var(--sp-1); row-gap: var(--sp-1); }
+  .rowListIn .trow.trowTwo .trowSub { display: none; }
+  .rowListIn .trow.trowTwo .trowClockVal { font-size: 24px; }
+  /* the chevron is a glyph inside the row's button, not a target of its own: 32px tall, not 44 */
+  .rowListIn .trow.trowTwo .trowChevron { height: 32px; }
+  .rowListIn .trow.trowTwo .trowAct :is(.trowKontakt, .trowPressBtn) { min-height: var(--tap); height: var(--tap); }
+}

@@ -248,7 +248,9 @@ describe('(j) «Wieder öffnen» with a crew still inside', () => {
     await settle(60)
     rerender(tree({ ...m, is_archived: false, closed_at: closedAt }, { event: 'reopened', at: heardAt }))
     await settle(60); await settle(1_100)
+    // the Atemschutz ALARM rows – not the calm «Kein Sicherungstrupp bereit», which names the crew too
     const rows = () => [...document.querySelectorAll('.ml-row')].map((r) => r.textContent ?? '')
+      .filter((t) => !t.includes(appConfig.copy.atemschutz.notfall.noSafetyHint))
     // …before the Verlauf has the reopen row: the alarm HOLDS rather than ring across the closed hour
     expect(rows().some((t) => t.includes('Tst Karl'))).toBe(false)
 

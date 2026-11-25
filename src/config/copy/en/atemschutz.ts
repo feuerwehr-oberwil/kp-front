@@ -464,6 +464,8 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     logRestored: 'Team {name} restored',
     logInsideAtClose: 'Team {name} still inside at closing',
     cycleEndAtClose: '{t} (still inside at closing)',
+    // a run ended by a new registration or entry with no exit written
+    cycleNoExit: 'exit not recorded',
     logClockRestart: 'Team {name}: contact clock restarted – incident reopened',
     cardMenuWord: 'More',
     // the Trupps head's «⋯ Mehr», where its rare tiles go on a crowded head (lib/pageHeadFit)
