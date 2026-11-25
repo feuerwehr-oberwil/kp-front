@@ -235,7 +235,9 @@ export const incidentCopy = {
     registeredSafety: '{name}, Sicherungstrupp',
     registeredToBoard: 'Zu den Trupps',
     registeredTitle: 'Noch angemeldet',
-    registeredStandDown: 'Als «nicht eingesetzt» schliessen',
+    // the button names the Trupp and says the close comes after (owner pick UX journeys B2·15,
+    // 25.11.2026 – «Als «nicht eingesetzt» schliessen» read as closing the Einsatz)
+    registeredStandDown: '{who} nicht eingesetzt – weiter',
     // Trupps, die beim Abschluss noch DRIN sind: eine eigene, erste Frage
     insideOne: '1 Trupp ist noch drin:',
     insideMany: '{n} Trupps sind noch drin:',
@@ -263,6 +265,10 @@ export const incidentCopy = {
     // the close sheet's first open point while neither a PDF nor a finished print exists (M5 · A,
     // 17.11.2026); an edit after the paper makes it «noch nicht erstellt» again
     reportMissing: 'Rapport noch nicht erstellt',
+    // «Noch angemeldet» with several Trupps: the button counts them (B2·15)
+    registeredStandDownMany: '{n} Trupps nicht eingesetzt – weiter',
+    // …and the line over the buttons that says where the Einsatz really closes (B2·15)
+    registeredNext: 'Danach folgt «Einsatz abschliessen» – erst dort schliesst der Einsatz.',
   },
   // sync the roster with the configured personnel source
   personnelSync: {

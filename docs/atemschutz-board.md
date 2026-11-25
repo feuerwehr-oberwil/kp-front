@@ -322,7 +322,9 @@ good but we don't need the triangle thing. red and notfall is already enough»):
   edit) or a new one registered on «Sichern». Its first Eintritt writes «Sicherungstrupp
   eingesetzt». The Abschluss (every width) asks about every Atemschutz-Trupp still angemeldet
   that was never inside (a Reserve after earlier sorties was — read the log, `entryTime` is
-  cleared on a re-park): «Zur Tafel» (focused) / «Als «nicht eingesetzt» schliessen». Not while
+  cleared on a re-park): «Zur Tafel» (focused) / «#2 nicht eingesetzt – weiter», with the line
+  «Danach folgt «Einsatz abschliessen» – erst dort schliesst der Einsatz.» over the buttons (owner
+  pick UX journeys B2·15, 25.11.2026; it said «Als «nicht eingesetzt» schliessen»). Not while
   a crew is still inside, and the stand-down runs only after the FINAL «Abschliessen», re-checked
   against the Trupps as they stand then — a crew sent in meanwhile never gets an Austritt.
   Crews still INSIDE are the Abschluss's own FIRST question, by name – «2 Trupps sind noch drin:»

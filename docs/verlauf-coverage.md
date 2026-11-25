@@ -86,7 +86,7 @@ Atemschutz-Trupp on Auftrag «Sichern» writes «Trupp N (…): Sicherungstrupp 
 (`logSafetyEntry`) instead of the plain «Eintritt» – whether it came from the phone slot's
 «Einsetzen» or the card's «Im Einsatz». Derived from the Trupp, not from the button. The log row
 underneath is an ordinary `entry`, and ↶ takes it back like any Eintritt. The Abschluss's
-«Als «nicht eingesetzt» schliessen» writes the existing «Trupp … nicht eingesetzt» row, one per
+«#2 nicht eingesetzt – weiter» writes the existing «Trupp … nicht eingesetzt» row, one per
 Trupp still angemeldet. «Bestimmen» at the Sicherungstrupp head on an existing Trupp is an
 ordinary edit («Auftrag Sichern»). The Notfall banner's «Sicherungstrupp bestimmen» (2026-10-30)
 can also name a crew that is inside: its own row «Trupp N (…): als Sicherungstrupp bestimmt –
