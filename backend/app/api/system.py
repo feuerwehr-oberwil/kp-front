@@ -18,6 +18,7 @@ import shutil
 import uuid
 from collections.abc import Awaitable, Callable
 
+import anyio
 from fastapi import APIRouter, Depends
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -101,7 +102,8 @@ async def _counts(db: AsyncSession) -> dict:
 def _storage() -> dict:
     """Walk the media dir summing file sizes + count, plus disk total/free.
 
-    Never reads file contents. A missing dir reports zeros for used/count but still
+    Blocking (the walk covers the tile cache too): call it on a worker thread, never on the
+    event loop. Never reads file contents. A missing dir reports zeros for used/count but still
     tries disk_usage on the nearest existing parent so the disk bar stays meaningful.
     """
     media_dir = os.path.abspath(settings.media_storage_dir)
@@ -377,7 +379,7 @@ async def get_system(
     counts = await _guarded(db, "counts section", lambda: _counts(db))
 
     try:
-        storage = _storage()
+        storage = await anyio.to_thread.run_sync(_storage)
     except Exception:
         logger.warning("system: storage section failed", exc_info=True)
         storage = None

@@ -174,6 +174,30 @@ async def test_untouched_export_reimports_as_a_no_op(client, station):
         assert after.get(path) == before.get(path) or path not in before
 
 
+async def test_openpyxl_work_runs_off_the_event_loop(client, station, monkeypatch):
+    """Parse and build run on a worker thread: on the loop, a large file stalls every other
+    request (an incoming alarm included) for as long as openpyxl takes."""
+    import threading
+
+    from app.api import station_workbook as api
+
+    ran_on: dict[str, int] = {}
+
+    def recorded(name, fn):
+        def wrapper(*args, **kwargs):
+            ran_on[name] = threading.get_ident()
+            return fn(*args, **kwargs)
+
+        return wrapper
+
+    monkeypatch.setattr(api, "build_workbook", recorded("build", api.build_workbook))
+    monkeypatch.setattr(api, "parse_workbook", recorded("parse", api.parse_workbook))
+    await preview(client, await export(client))
+
+    assert set(ran_on) == {"build", "parse"}
+    assert threading.get_ident() not in ran_on.values()
+
+
 async def test_export_carries_every_sheet_and_its_rows(client, station):
     data = sheets_of(await export(client))
     assert set(data) == set(COLUMNS)

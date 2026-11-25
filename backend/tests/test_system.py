@@ -273,6 +273,28 @@ async def test_one_failed_section_query_leaves_the_others_answering(client, edit
     assert body["loginLocks"] == [{"userId": str(editor.id), "displayName": editor.display_name, "minutesLeft": 2}]
 
 
+async def test_storage_walk_runs_off_the_event_loop(client, editor, admin_login, monkeypatch):
+    """The media walk covers the tile cache too; on the loop it stalls every other request."""
+    import threading
+
+    from app.api import system
+
+    ran_on: list[int] = []
+    walk = system._storage
+
+    def recorded() -> dict:
+        ran_on.append(threading.get_ident())
+        return walk()
+
+    monkeypatch.setattr(system, "_storage", recorded)
+    await _login(client, editor)
+    await admin_login(client)
+    assert (await client.get("/api/system")).json()["storage"] is not None
+
+    assert len(ran_on) == 1
+    assert ran_on[0] != threading.get_ident()
+
+
 async def test_system_requires_admin(client, editor):
     # A logged-in editor WITHOUT an admin session is locked out.
     await _login(client, editor)
