@@ -304,3 +304,24 @@ describe('ReportPreflight · a signature after an edit', () => {
     expect(calls[calls.length - 1][0].signatures).toEqual([])
   })
 })
+
+// Opening the Rapport fills a blank Einsatzleiter from the Kroki (seededEinsatzleiter). The app did
+// that, not the crew, so the write is marked unlogged and leaves no «Rapportangaben: …» Verlauf row
+// (owner pick UX journeys B3·15, 25.11.2026).
+describe('ReportPreflight · the Kroki-seeded Einsatzleiter', () => {
+  it('fills the blank field once and marks the write unlogged', async () => {
+    const onSaveMeta = vi.fn()
+    const el = { id: 'el', kind: 'symbol', layer: 'taktisch', coord: [7, 47], symbol: appConfig.symbols.einsatzleiterSymbols[0], fields: { Name: 'Hofer Simon' } }
+    render(
+      <ReportPreflight
+        incident={incident} reportMeta={{}} events={[]} scene={{ entities: [el], drawings: [] } as never} mapContentCount={0}
+        annotatedPlanCount={0} truppCount={0} attendanceCount={1} mittelCount={1}
+        onSaveMeta={onSaveMeta}
+      />,
+    )
+    await act(async () => {})
+    const seeds = onSaveMeta.mock.calls.filter(([m]) => m.einsatzleiter === 'Hofer Simon')
+    expect(seeds).toHaveLength(1)
+    expect(seeds[0][1]).toEqual({ unlogged: ['einsatzleiter'] })
+  })
+})

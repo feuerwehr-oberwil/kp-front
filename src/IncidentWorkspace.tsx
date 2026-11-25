@@ -21,7 +21,7 @@ import { useShareMyPosition } from './lib/useShareMyPosition'
 import { useViewportPan } from './lib/useViewportPan'
 import { useScrollFocusIntoView } from './lib/useScrollFocusIntoView'
 import { SharePositionSheet } from './components/SharePosition'
-import { autoActivateLayers, defaultLayers, deriveInitial, sanitizeWorkspace, type ReportMeta, type Saved } from './lib/workspace'
+import { autoActivateLayers, defaultLayers, deriveInitial, sanitizeWorkspace, type ReportMeta, type Saved, type SaveMetaOpts } from './lib/workspace'
 import { themeToken } from './lib/themeToken'
 import { UNDERGROUND_LAYER_ID, undergroundOverlay, useUnderground } from './lib/underground'
 import { type PlanFit } from './lib/tacticalObjects'
@@ -1525,7 +1525,7 @@ export function IncidentWorkspace({
    * reaches the workspace; it simply lays no step down.
    */
   const reportSetRef = useRef<UndoableSlice<ReportMeta>['set']>((u) => { setReportMeta(u); return false })
-  const saveReportMeta = useCallback((next: ReportMeta) => {
+  const saveReportMeta = useCallback((next: ReportMeta, opts?: SaveMetaOpts) => {
     reportSetRef.current((prev) => {
       // «Entfällt» and a value are two answers to the same question — resolve the contradiction
       // on EVERY meta write, here where all of them funnel through (lib/report ·
@@ -1536,6 +1536,14 @@ export function IncidentWorkspace({
       // the state the editing STARTED in, once the typing stops — one line per edit, naming what
       // actually moved between those two points.
       if (!metaLogBase.current) metaLogBase.current = prev
+      // ⚠️ A field the APP filled is no act of the crew (owner pick UX journeys B3·15, 25.11.2026:
+      // «Fill, no row»): opening the Rapport seeded a blank Einsatzleiter from the Kroki and the
+      // Verlauf said «Rapportangaben: Einsatzleiter «Hofer Simon»» at a minute nobody typed. Such a
+      // field joins the window's BASE, so the settle diff below does not see it move; a later hand
+      // edit of the same field still logs, from the seeded value.
+      if (opts?.unlogged?.length) {
+        metaLogBase.current = { ...metaLogBase.current, ...Object.fromEntries(opts.unlogged.map((k) => [k, clean[k]])) }
+      }
       metaLogNext.current = clean
       const settle = () => {
         // ⚠️ Mid-typing is not «settled»: the sheet saves per keystroke but a slow, thought-out

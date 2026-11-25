@@ -35,7 +35,7 @@ import { trackPrintJob } from '../lib/printJobToast'
 import { appConfig } from '../config/appConfig'
 import { fieldWhen, fillTemplate, fmtSpanShort, hhmm, stripUnprintable, telHref, unitLabel } from '../lib/format'
 import { closeTimeOf, getIncident, type IncidentMeta } from '../lib/incidents'
-import type { FahrzeugZeit, GruppeZeit, PartnerContact, ReportMeta } from '../lib/workspace'
+import type { FahrzeugZeit, GruppeZeit, PartnerContact, ReportMeta, SaveMetaOpts } from '../lib/workspace'
 import { deriveAusgerueckt, fahrzeugRows, gruppenRows, setFahrzeugZeit, setGruppeZeit, zeitIssues } from '../lib/alarmzeiten'
 import { fahrtenText } from '../lib/vehiclePresence'
 import type { ZeitKind } from '../lib/alarmzeiten'
@@ -345,8 +345,9 @@ export function ReportPreflight({
   onAddAttachments?: (files: File[]) => void
   onCaptionAttachment?: (id: string, caption: string) => void
   onRemoveAttachment?: (id: string) => void
-  /** persist the inline Rapportangaben edits (after-arrival fields) into the workspace */
-  onSaveMeta: (next: ReportMeta) => void
+  /** persist the inline Rapportangaben edits (after-arrival fields) into the workspace; `opts`
+   *  names fields the app filled, which write no Verlauf row (lib/workspace · SaveMetaOpts) */
+  onSaveMeta: (next: ReportMeta, opts?: SaveMetaOpts) => void
   /** does this session keep this Rapport (workspace/access · canEditRapport || canSignRapport)?
    *  False for a viewer: the fields render, filled in and readable, but nothing in them can be
    *  changed. On a CLOSED Einsatz the fields are read-only for everybody and a keeper only signs
@@ -653,22 +654,25 @@ export function ReportPreflight({
   // the green close, as if the Rapport were current – after «Wieder öffnen» + a corrected time
   // the green «Abschliessen» stood there at once over the old paper. Only the operator's fields
   // count (lib/reportUndo · reportStep): the app's bookkeeping (the Kroki framing) does not.
-  const persist = (over: Partial<ReportMeta>) => {
+  const persist = (over: Partial<ReportMeta>, opts?: SaveMetaOpts) => {
     if (!canEdit) return false
     const next: ReportMeta = { ...metaRef.current, ...dirtyMeta(), ...over }
     if (next.reportMadeAt && reportStep(metaRef.current, next)) delete next.reportMadeAt
-    return onSaveMeta(next)
+    return onSaveMeta(next, opts)
   }
 
   // Commit the Kroki-seeded Einsatzleiter to the blob once, so the Abschluss-Checkliste and a
   // rapport printed from another device see the same name this field shows — a value that only
   // lives in local state would leave the checklist nagging about an Einsatzleiter that is on
   // screen. Fills a BLANK field only, never overwrites, and only while the sheet is mounted.
+  // ⚠️ …and writes NO Verlauf row (owner pick UX journeys B3·15, 25.11.2026: «Fill, no row»): the
+  // app filled it on the first look, and «Rapportangaben: Einsatzleiter «…»» at that minute read
+  // as an edit of the crew's. Until then the seed went through the logged save like a typed name.
   const seededEinsatzleiter = useRef(false)
   useEffect(() => {
     if (seededEinsatzleiter.current || reportMeta.einsatzleiter?.trim() || !einsatzleiter.trim()) return
     seededEinsatzleiter.current = true
-    persist({ einsatzleiter: einsatzleiter.trim() })
+    persist({ einsatzleiter: einsatzleiter.trim() }, { unlogged: ['einsatzleiter'] })
     // `persist` is re-created every render (it closes over the live field state); depending on it
     // would re-run this on every keystroke — the ref guard is what makes it once-only.
     // eslint-disable-next-line react-hooks/exhaustive-deps

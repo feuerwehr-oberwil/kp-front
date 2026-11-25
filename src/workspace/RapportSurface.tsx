@@ -14,7 +14,7 @@ import { mittelLineCount } from '../lib/mittel'
 import type { AssignableRole } from '../lib/roleAssignment'
 import type { useMediaQueue } from '../lib/useMediaQueue'
 import type { useSymbols } from '../lib/useSymbols'
-import type { ReportMeta } from '../lib/workspace'
+import type { ReportMeta, SaveMetaOpts } from '../lib/workspace'
 import type { ReportSignature } from '../lib/reportSignature'
 import type { Person, TimelineEvent, Trupp, AttendanceState, MittelEntry, Entity, Drawing, PlanDocument, LayerDef, Incident, LngLat, BoardDoc, BuildingDoc, ReportAttachment, CaptionMode, ReactivateResult } from '../types'
 import { ReportPreflight } from './lazySurfaces'
@@ -60,7 +60,7 @@ export interface RapportSurfaceProps {
   running: boolean
   assignRole: (personId: string | undefined, role: AssignableRole, note?: string) => void
   assignTypedName: (name: string, role: AssignableRole, note?: string) => string | undefined
-  saveReportMeta: (next: ReportMeta) => void
+  saveReportMeta: (next: ReportMeta, opts?: SaveMetaOpts) => void
   canEditMeta: boolean
   onEditMeta: () => void
   setMode: Dispatch<SetStateAction<WorkspaceMode>>
