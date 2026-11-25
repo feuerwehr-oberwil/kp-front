@@ -872,8 +872,13 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
   box-shadow: var(--float-edge); }
 /* The ↶ caption's «✓ gespeichert» (lib/undoFlash, owner pick UX journeys M·11, 25.11.2026): the
    server has the step. A green word on its own tint, the state as a glyph colour – the pill
-   itself stays the message surface. */
-.hold-tip.with-saved { display: inline-flex; align-items: center; gap: var(--sp-2); text-wrap: nowrap; }
+   itself stays the message surface.
+   ⚠️ The chip stays INSIDE the pill (owner sign-off note, 25.11.2026: «‹Gespeichert› overflows
+   onto the image»): the words and the chip are two wrapping flex items, the pill may widen to the
+   viewport's gutter, and where both still do not fit on one line (the phone) the chip takes a
+   second line, centred. It was `nowrap` under the 320px cap, and the chip ran out of the pill. */
+.hold-tip.with-saved { display: flex; flex-wrap: wrap; justify-content: center; align-items: center;
+  gap: var(--sp-1) var(--sp-2); max-width: calc(100vw - 16px); }
 .hold-tip-saved { display: inline-flex; align-items: center; gap: var(--sp-1); flex: none;
   padding: 2px var(--sp-2); border-radius: var(--r-xs);
   background: var(--green-12); color: var(--green-strong); font-weight: var(--fw-bold); }

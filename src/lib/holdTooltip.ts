@@ -98,6 +98,9 @@ export function placeHoldBubble(b: HTMLElement, el: HTMLElement): void {
   // above the button, clamped into the viewport; below it when there is no room above
   // ⚠️ Measured AFTER `text-wrap: balance` has settled the line break, so `bw` is the pill's real
   // width and not the pre-wrap one — clamping on a stale width is what would push it off-screen.
+  // …and measured from the left edge: a re-place keeps the old `left`, and a fixed box that far
+  // right shrinks to the room left of it, so it would wrap a line it does not need to.
+  b.style.left = '0px'
   const bw = b.getBoundingClientRect().width
   const left = Math.max(8, Math.min(window.innerWidth - bw - 8, r.left + r.width / 2 - bw / 2))
   const top = r.top - b.offsetHeight - 8
