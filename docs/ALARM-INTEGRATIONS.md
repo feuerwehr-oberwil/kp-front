@@ -118,7 +118,7 @@ targets an existing incident by `divera_id` **or** the intake's `(source, source
 **404 while none matches** (send with retry/backoff; dispatch precedes take/auto-open by
 minutes at most). Idempotent per-key upsert into the incident's Rapport fields; entries an
 operator edited (`manual`) are never overwritten; unknown ids are kept verbatim. Each NEW
-value also appends a journal row («TLF ausgerückt 03:16»). Group/vehicle ids should match
+value also appends a journal row («TLF ausgerückt 03:16 Uhr»). Group/vehicle ids should match
 `alarms.groups[].id` / `fleet.vehicles[].id` in the deployment config.
 
 ```bash

@@ -496,7 +496,7 @@ const humanTrupp = (o: HasId): unknown => {
  * flat, the array is one value — so the moment the operator typed a single time into the grid,
  * `fahrzeuge` differed from the ancestor, «mine wins» took the whole array, and every row the
  * webhook had written was gone. That is exactly the report from 31.08.: the Verlauf carried
- * «PIO vor Ort 20:14» (the webhook only logs a row when it WRITES the value) while the grid
+ * «PIO vor Ort 20:14 Uhr» (the webhook only logs a row when it WRITES the value) while the grid
  * stayed empty. Merged by id, a machine-written row and a hand-typed one survive each other,
  * and `manual` keeps meaning what it means on the server: human beats machine, per row.
  *
