@@ -14,14 +14,16 @@
 // claiming to be armed.
 //
 // THE ONE ALARM LAYER: time-based alerts (Atemschutz
-// clock, reminders) go through this shared layer, not ad-hoc timers. Two voices, one per level
-// (FEEDBACK.10, 17.11.2026 – the faster square beeper `startAlarm` that a due Wiedervorlage still
-// used is gone):
+// clock, reminders, a new alarm) go through this shared layer, not ad-hoc timers. Two voices, one
+// per level (FEEDBACK.10, 17.11.2026 – the faster square beeper `startAlarm` that a due
+// Wiedervorlage still used is gone), and the calm one comes in two shapes:
 //   - `Alarm` – the Atemschutz alarm, the LOUDEST thing the app says: square pip 820 Hz every
 //     2.4 s at Kontakt fällig / Alarmdruck, a 1100 Hz double pip every 1.5 s at überfällig /
 //     Notfall, with vibration and the wake-lock;
 //   - `chime()` – one soft 660 Hz sine pip: «something is due», calm. A due Wiedervorlage rings it
 //     once (useReminders · RemindersHost), and so does a station's opt-in «Kontakt fällig».
+//   - `arrivalTone()` – the chime's voice, three rising pips: a new alarm row on the Karte home
+//     (owner pick UX journeys B3·7, 25.11.2026; lib/useArrivalTone).
 // Nothing louder than the Atemschutz warn may ever be added for a non-safety reminder. Delivery: foreground
 // tone/wake-lock + service-worker notification, plus – once the deployment sets VAPID keys
 // (`app.gen_vapid`) – server-side Web Push for killed apps: `backend/app/push.py` re-derives
@@ -99,11 +101,26 @@ export function audioUnlocked(): boolean {
 export function chime() {
   const c = getCtx()
   if (!c || c.state !== 'running') return
+  sinePip(c, 660, c.currentTime)
+}
+
+/** The «Neuer Alarm» voice (owner pick UX journeys B3·7, 25.11.2026): three rising sine pips
+ *  (660 · 880 · 1100 Hz, 0.18 s apart), once per alarm, on the Karte home – App ·
+ *  useArrivalTone. The chime's soft sine at the chime's gain, so it stays below the Atemschutz
+ *  `Alarm` (the rule in the header). No-op if audio isn't unlocked. */
+export function arrivalTone() {
+  const c = getCtx()
+  if (!c || c.state !== 'running') return
   const t = c.currentTime
+  ;[660, 880, 1100].forEach((f, i) => sinePip(c, f, t + i * 0.18))
+}
+
+/** One soft sine pip at `freq`, starting at `t` – its own short-lived nodes. */
+function sinePip(c: AudioContext, freq: number, t: number) {
   const o = c.createOscillator()
   const g = c.createGain()
   o.type = 'sine'
-  o.frequency.value = 660
+  o.frequency.value = freq
   o.connect(g).connect(c.destination)
   g.gain.setValueAtTime(0.0001, t)
   g.gain.exponentialRampToValueAtTime(0.14, t + 0.012)

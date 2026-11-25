@@ -47,6 +47,7 @@ import { actFailedText } from './lib/actFailed'
 import { dismissAlarm, loadDismissedAlarms, shownAlarms, waitingAlarms } from './lib/diveraDismiss'
 import { alarmUpdateHidden } from './lib/alarmUpdate'
 import { useIncidentWatch } from './lib/useIncidentWatch'
+import { useArrivalTone } from './lib/useArrivalTone'
 import { loadReviewedIncidents, needsIntakeReview, sameIncidentList, saveReviewedIncident, shouldReopenClosed, undoTakeReturn } from './lib/incidentAlerts'
 import { AlarmUpdateBanner, EinsatzWizard, FeedbackSheet, HistoryPanel, IncomingAlarmBanner, NewIncidentBanner, HomeDeviceSheet, type FoldedMenuRow } from './components/panels'
 import { Meldeleiste } from './components/Meldeleiste'
@@ -698,6 +699,12 @@ function IncidentApp() {
   })
   /** a surface stands in front of the open Einsatz, which stays mounted behind it (covered) */
   const einsatzBehind = screen === 'karte' || screen === 'visits'
+  // A new alarm row sounds once on the Karte home, not inside an Einsatz (owner pick UX journeys
+  // B3·7, 25.11.2026 – lib/useArrivalTone). The key is the row the strip shows: the untaken
+  // dispatch (IncomingAlarmBanner, editors) before an Einsatz that opened by itself
+  // (NewIncidentBanner, which steps aside while a dispatch row shows).
+  const topAlarm = isEditor ? shownAlarms(poolAlarms, dismissedAlarms)[0] : undefined
+  useArrivalTone(topAlarm ? `alarm:${topAlarm.divera_id}` : freshIncident ? `incident:${freshIncident.id}` : null, screen === 'karte')
 
   // Objektbesuche: the whole screen, home or not — and it does not wait for the Einsatz list.
   // The Meldeleiste and the toast/confirm host stay, the surface's own dialogs need them.

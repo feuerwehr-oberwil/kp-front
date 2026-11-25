@@ -227,6 +227,16 @@ describe('alarm delivery and lifecycle', () => {
     expect(oscillators[1].start.mock.calls[0][0]).toBeGreaterThan(oscillators[0].stop.mock.calls[0][0])
   })
 
+  it('arrivalTone: three rising sine pips once unlocked, silence before', () => {
+    api.arrivalTone() // a suspended context: nothing scheduled
+    expect(lastCtx.createOscillator).not.toHaveBeenCalled()
+    api.primeAudio()
+    api.arrivalTone()
+    const oscillators = lastCtx.createOscillator.mock.results.map((r) => r.value as FakeOsc)
+    expect(oscillators.map((o) => o.type)).toEqual(['sine', 'sine', 'sine'])
+    expect(oscillators.map((o) => o.frequency.value)).toEqual([660, 880, 1100])
+  })
+
   it('unlocks through the shared call-site alias without creating audio on a read-out', () => {
     expect(api.audioUnlocked()).toBe(false)
     api.unlockAlarm()
