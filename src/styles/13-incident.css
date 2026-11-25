@@ -1155,6 +1155,10 @@ button[data-folded]:not([data-fold-beside]):has(> :is(svg, .print-send-main):not
 /* the standing link's chooser (StandingApp · Chooser): the Einsatz rows on their card, read from
    the left inside the centred link card */
 .sl-choose { align-self: stretch; text-align: left; margin-top: var(--sp-3); }
+/* the Einsatz-Link waiting for the EL (link/LinkApp · AwaitingCard): the FIRST running Einsatz –
+   where a Nachalarm is merged – stands out with the accent's wash and a neutral tag that names it */
+.ip-badge-tag { background: var(--fill-soft); color: var(--ink-dim); }
+.sl-choose .link-original { background: var(--sel-wash); }
 .ip-ds-sub { font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-faint); margin-top: 2px; }
 /* offline line over the list: viewing works, the lifecycle buttons need the server */
 .ip-hist-offline { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; font: var(--fw-medium) var(--fs-1) var(--body); color: var(--amber-strong); }

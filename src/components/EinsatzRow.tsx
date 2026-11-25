@@ -29,12 +29,15 @@ export interface EinsatzRowFacts {
 /** The hatched «Übung» tag – the one Übung mark (13-incident · `.ip-badge-exercise`). */
 export const ExerciseTag = () => <span className="ip-badge ip-badge-exercise">{appConfig.copy.exerciseBadge}</span>
 
-export function EinsatzRow({ incident: i, when, alarm, onClick, disabled, className }: {
+export function EinsatzRow({ incident: i, when, alarm, tag, onClick, disabled, className }: {
   incident: EinsatzRowFacts
   /** the time line under the place – «Mo., 16.11. · seit 23:58 · 42 min», «10:42» */
   when?: ReactNode
   /** the red Atemschutz word (lib/foreignAlarm · foreignMark); null when nothing is at the alarm tier */
   alarm?: { word: string; names: string } | null
+  /** a word beside the title that marks this row among the others (the Einsatz-Link's «Erster
+   *  Einsatz», link/LinkApp) */
+  tag?: string
   onClick: () => void
   disabled?: boolean
   className?: string
@@ -46,6 +49,7 @@ export function EinsatzRow({ incident: i, when, alarm, onClick, disabled, classN
           <span className="einsatz-row-name" title={i.title}>{i.title}</span>
           {i.is_exercise && <ExerciseTag />}
           {i.is_archived && <span className="ip-badge ip-badge-arch">{appConfig.copy.history.statusArchived}</span>}
+          {tag && <span className="ip-badge ip-badge-tag">{tag}</span>}
         </span>
       )}
       sub={shortAddress(i.address) ?? appConfig.copy.history.noLocation}>
