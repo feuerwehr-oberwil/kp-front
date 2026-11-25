@@ -209,6 +209,15 @@ stay CI's.
   way to pass. The gzipped entry, App, maplibre, pdf-worker and CSS chunks have a +5 % budget
   against `scripts/bundle-baseline.json` (`scripts/check-bundle-size.mjs`, CI); a deliberate
   growth is an `--update` in its own commit, with the reason.
+- **The baseline guard holds that rule** (`scripts/baseline-guard.mjs`, first step of
+  `just ci-static-analysis`). For every commit since the merge base with `origin/main` it compares
+  the limits each baseline file sets with the commit's parent's: the eslint, knip and style-debt
+  counts, each chunk's bundle limit (size plus budget), the coverage floor, both jscpd thresholds,
+  each perf metric's limit (value plus tolerance, on every runner speed the gate scales to),
+  jscpd's `minTokens`, `minLines` and `maxLines`, and Stryker's `break` floor. A loosened limit
+  fails when the same commit changes any other file; tightening always passes, and so does a new
+  baseline file. A new rule's first count is a raise too: commit it on its own.
+  `controlDebt.test.ts` keeps its baseline in TypeScript and is not covered.
 - **Dead code and duplicates beyond knip** (`just ci-static-analysis`, part of `just ci` and the
   required «Static analysis» check; `just lint-dead` adds knip): jscpd fails when the share of duplicated lines goes above `threshold` in
   `.jscpd.json` (frontend, 1 %) or `backend/.jscpd.json` (0.5 %). vulture (`[tool.vulture]` in

@@ -334,10 +334,12 @@ ci-backend-static:
 
 # (CI's «Static analysis» job. Today's findings are the baseline, so it fails only on new ones:
 # backend/vulture_whitelist.py and [tool.deptry] in backend/pyproject.toml. jscpd fails when the
-# share of duplicated lines goes above `threshold` in .jscpd.json or backend/.jscpd.json.)
-# Duplicates (jscpd), dead backend code (vulture), unused and missing backend dependencies (deptry).
+# share of duplicated lines goes above `threshold` in .jscpd.json or backend/.jscpd.json. The
+# baseline guard fails a commit that loosens a ratchet or baseline beside other changes.)
+# Baselines loosened outside their own commit, duplicates (jscpd), dead backend code (vulture), backend deps (deptry).
 [group('Quality')]
 ci-static-analysis:
+    node scripts/baseline-guard.mjs
     pnpm exec jscpd .
     cd backend && uv run vulture
     cd backend && uv run deptry .
