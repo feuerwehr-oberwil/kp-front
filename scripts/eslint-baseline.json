@@ -6,7 +6,7 @@
     "kp/disable-reason": 102,
     "kp/no-raw-effect": 565,
     "kp/no-raw-timer": 157,
-    "react-hooks/exhaustive-deps": 19,
+    "react-hooks/exhaustive-deps": 18,
     "react-hooks/immutability": 20,
     "react-hooks/preserve-manual-memoization": 5,
     "react-hooks/purity": 11,
