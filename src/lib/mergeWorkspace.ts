@@ -739,7 +739,11 @@ function resolveTactical(ancestor: TacticalObject, mine: TacticalObject, theirs:
   return withMergedSymbolReadings(mineMachine && !theirsMachine ? theirs : mine, ancestor, mine, theirs)
 }
 
-const readingsOf = (o: TacticalObject) => o.entity?.readings ?? o.sheet?.anno?.readings
+/** The Messpunkt rows of a body: only a `symbol` carries them, and only a list of rows counts.
+ *  Any other body — a passenger above all — is never read or rewritten by the readings merge. */
+const symbolReadings = (body: { kind?: unknown; readings?: unknown } | undefined): Reading[] | undefined =>
+  body?.kind === 'symbol' && Array.isArray(body.readings) ? body.readings.filter(isObj) as unknown as Reading[] : undefined
+const readingsOf = (o: TacticalObject) => symbolReadings(o.entity) ?? symbolReadings(o.sheet?.anno)
 
 /**
  * A Messpunkt's history (SymbolProps.readings, lib/symbols · recordReading) when both sides changed
@@ -765,8 +769,8 @@ function withMergedSymbolReadings(won: TacticalObject, base: TacticalObject, min
     .sort((a, b) => a.t - b.t)
   return {
     ...won,
-    ...(won.entity && { entity: { ...won.entity, readings } }),
-    ...(won.sheet && { sheet: { ...won.sheet, anno: { ...won.sheet.anno, readings } } }),
+    ...(won.entity?.kind === 'symbol' && { entity: { ...won.entity, readings } }),
+    ...(won.sheet?.anno?.kind === 'symbol' && { sheet: { ...won.sheet, anno: { ...won.sheet.anno, readings } } }),
   }
 }
 

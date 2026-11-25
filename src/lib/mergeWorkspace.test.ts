@@ -650,6 +650,13 @@ describe('mergeWorkspace — a server blob this app did not write', () => {
     const sheetless = (label: string) => ({ id: 's1', sheet: { planId: 'p1' }, label })
     const out = mergeWorkspace({ objects: [sheetless('A')] }, { objects: [sheetless('M')] }, { objects: [sheetless('T')] }) as { objects: unknown[] }
     expect(out.objects).toEqual([sheetless('M')])
+    expect(JSON.parse(JSON.stringify(out)).board).toEqual({}) // no `null` anno in the legacy view
+  })
+
+  it('a passenger both sides changed merges whole and untouched, whatever its fields hold', () => {
+    const passenger = (text: string) => ({ id: 'z1', sheet: { planId: 'p1', anno: { id: 'z1', kind: 'hologram', text, readings: { not: 'a list' } } } })
+    const out = mergeWorkspace({ objects: [passenger('A')] }, { objects: [passenger('M')] }, { objects: [passenger('T')] }) as { objects: unknown[] }
+    expect(out.objects).toEqual([passenger('M')])
   })
 })
 
