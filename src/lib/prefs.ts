@@ -151,6 +151,12 @@ export interface Prefs {
   weatherRadarIn?: string
   /** its transparency (0..100), the Ebenen panel's own slider */
   weatherRadarOpacity?: number
+  /** «Name dieses Geräts» – «Tablet 2» (lib/deviceName, owner pick UX journeys B3·47,
+   *  25.11.2026): every Verlauf row this device writes carries it. The device's IDENTITY, not a
+   *  display pref, so «Gerät auf Standard zurücksetzen» leaves it (not in DEVICE_PREF_KEYS). */
+  deviceName?: string
+  /** the first-login ask for `deviceName` was answered – a name, or «Später»; never asked again */
+  deviceNameAsked?: boolean
 }
 
 /** What a twin row remembers: visibility (absent = the row's default, lib/georefTwins ·

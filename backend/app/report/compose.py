@@ -476,7 +476,11 @@ def compose_report_pdf(
             return min(hi, max(lo, widest + 10))
 
         # …and the «Nachtrag» mark under a row's time is a label of that column too
-        time_labels = [r.timeLabel for r in payload.journal] + [L["nachtrag"] for r in payload.journal if r.nachtrag]
+        time_labels = (
+            [r.timeLabel for r in payload.journal]
+            + [L["nachtrag"] for r in payload.journal if r.nachtrag]
+            + [r.device for r in payload.journal if r.device]
+        )
         time_w = col_w(time_labels, L["colTime"], 14 * mm, 29 * mm)
         area_w = col_w([r.area for r in payload.journal], L["colArea"], 18 * mm, 38 * mm)
         # the Eintrag column's content width — mirrors the colWidths below, minus the paddings
@@ -542,6 +546,10 @@ def compose_report_pdf(
             time_cell: list = [Paragraph(_esc(r.timeLabel), st["cell"])]
             if r.nachtrag:
                 time_cell.append(Paragraph(_esc(L["nachtrag"]), st["muted"]))
+            # …and the device that wrote it, where that changes (UX pick B3·47): a handover
+            # between tablets stands out under the time, the run below it says nothing again
+            if r.device:
+                time_cell.append(Paragraph(_esc(r.device), st["muted"]))
             body.append([time_cell, Paragraph(_esc(r.area), st["cell"]), entry_cells])
         # splitInRow: an entry longer than a page (a pasted Lagebericht) splits across pages
         # instead of failing the whole Rapport with a LayoutError (review of #338)

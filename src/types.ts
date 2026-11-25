@@ -749,6 +749,12 @@ export interface TimelineEvent {
    *  keep the poster's corrections to its own rows). Absent on everything else, and never set
    *  by this client: the app cannot vouch for its own provenance. */
   via?: 'atemschutz-link' | 'atemschutz-fix' | 'capture'
+  /** «Tablet 2» – the name of the device that wrote the row (lib/deviceName, owner pick UX
+   *  journeys B3·47, 25.11.2026), stamped by the journal store at append. Shown on the row's detail
+   *  line and in the printed Einsatzjournal, so a handover can be traced. Self-declared – a label
+   *  the station gave its tablet, not a proof; absent on rows from before, from a device without a
+   *  name, and on the server's own rows. */
+  device?: string
 }
 
 /** `'info'` · `'auftrag'` (Befehlsgebung) · `'sofort'` (Sofortmassnahme). See TimelineEvent. */

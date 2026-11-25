@@ -392,6 +392,8 @@ export const journalCopy = {
     timeCorrected: 'Zeit korrigiert {t} · erfasst {w}',
     detailTimeCorrected: 'Zeit korrigiert',
     detailTimeWritten: 'erfasst {t}',
+    // the row's detail line names the device that wrote it (B3·47, lib/deviceName)
+    detailDevice: 'auf {device}',
   },
   // ── The Tafel's «Aufträge / Pendenzen» page (05.11.2026, lib/pendenzenPage) ────────────────
   // A view on the Verlauf's Pendenzen and Erinnerungen: every act on the page appends a Verlauf

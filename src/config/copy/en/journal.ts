@@ -235,6 +235,7 @@ export const journalCopy: Localizable<Pick<Copy, 'journal' | 'tafelPendenzen' | 
     timeCorrected: 'time corrected {t} · logged {w}',
     detailTimeCorrected: 'Time corrected',
     detailTimeWritten: 'logged {t}',
+    detailDevice: 'on {device}',
   },
   tafelPendenzen: {
     createdLog: 'Item from the board ({page}): {text}',

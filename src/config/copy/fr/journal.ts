@@ -234,6 +234,7 @@ export const journalCopy: Localizable<Pick<Copy, 'journal' | 'tafelPendenzen' | 
     timeCorrected: 'heure corrigée {t} · saisi {w}',
     detailTimeCorrected: 'Heure corrigée',
     detailTimeWritten: 'saisi {t}',
+    detailDevice: 'sur {device}',
   },
   tafelPendenzen: {
     createdLog: 'Point en suspens du tableau ({page}) : {text}',

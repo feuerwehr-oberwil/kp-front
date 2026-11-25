@@ -142,6 +142,10 @@ class JournalRowIn(BaseModel):
     #: correction was made, and when the row was written. Both client-formatted HH:MM.
     timeCorrectedAt: str | None = None
     timeWritten: str | None = None
+    #: «Tablet 2» – the device that wrote the row (src/lib/deviceName, UX pick B3·47), sent only
+    #: where it CHANGES from the row above (src/lib/report · journalRows): printed small under the
+    #: time, like the Nachtrag mark, so a handover between tablets stands out on paper.
+    device: str | None = None
     #: the row reached the record after the Einsatzende — written after the close, or written
     #: before it and received after it (src/lib/report · journalRows, `receivedAfterClose`). The
     #: paper marks it the way the app does (D4, 25.09.2026: the flag was computed and dropped).

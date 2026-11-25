@@ -4,6 +4,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 // Mock the HTTP layer (same pattern as incidents.test.ts): the store calls apiGet/apiPost.
 const { apiGet, apiPost, apiBeacon } = vi.hoisted(() => ({ apiGet: vi.fn(), apiPost: vi.fn(), apiBeacon: vi.fn() }))
+// this device's name (lib/deviceName reads a cookie this environment has not got)
+const device = vi.hoisted(() => ({ name: undefined as string | undefined }))
+vi.mock('./deviceName', () => ({ deviceName: () => device.name }))
 vi.mock('./api', async () => {
   const actual = await vi.importActual<typeof import('./api')>('./api')
   return { ...actual, apiGet, apiPost, apiBeacon }
@@ -523,6 +526,24 @@ describe('JournalStore — enrichment patches + session overlay', () => {
     const d = s.display()
     expect(d).toHaveLength(1)
     expect(d[0]).toMatchObject({ id: 'a', transcript: 'Hallo', audioUrl: '/api/media/123' })
+  })
+
+  // owner pick UX journeys B3·47: every row this device writes says which device – never a patch
+  it('stamps this device\'s name on the rows it writes, not on their patches', async () => {
+    device.name = 'Tablet 2'
+    try {
+      const server = fakeServer()
+      const s = new JournalStore(INC, false)
+      await s.init([])
+      s.append(row('a'))
+      s.append(row('b', { device: 'KP-Laptop' }))
+      s.appendPatch('a', { textEdit: 'Zeile a, korrigiert' })
+      await settle(); await settle()
+      const sent = new Map(server.rows.map((r) => [r.row.id, r.row]))
+      expect(sent.get('a')?.device).toBe('Tablet 2')
+      expect(sent.get('b')?.device).toBe('KP-Laptop')
+      expect([...sent.values()].find((r) => r.patchOf)?.device).toBeUndefined()
+    } finally { device.name = undefined }
   })
 
   it('a textEdit patch corrects the target text (rows stay append-only)', async () => {

@@ -882,6 +882,24 @@ def test_a_journal_row_moved_to_its_real_time_says_when_it_was_written():
     assert text.count("Zeit korrigiert") == 1
 
 
+def test_the_device_that_wrote_a_row_prints_under_its_time():
+    """UX pick B3·47: «Tablet 2» under the time where the writing device changes."""
+    payload = ReportPayload.model_validate(
+        {
+            "incident": {"title": "Geräte-Probe", "id": "g"},
+            "generatedAt": "25.11.2026 15:00",
+            "journal": [
+                {"timeLabel": "14:40", "area": "Manuell", "text": "Erste Zeile", "device": "Tablet 2"},
+                {"timeLabel": "14:47", "area": "Manuell", "text": "Übergabe", "device": "KP-Laptop"},
+            ],
+        }
+    )
+    doc = pdfium.PdfDocument(io.BytesIO(compose_report_pdf(payload, {}, {})))
+    text = "\n".join(doc[i].get_textpage().get_text_range() for i in range(len(doc)))
+    assert "Tablet 2" in text
+    assert "KP-Laptop" in text
+
+
 def test_pendenzen_section_is_absent_without_any():
     """An Einsatz that raised none must not print an empty table — the blank form costs paper."""
     payload = ReportPayload.model_validate(

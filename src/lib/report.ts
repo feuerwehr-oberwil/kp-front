@@ -235,6 +235,10 @@ export interface JournalPrintRow {
    *  corrected time. Absent on rows whose time stands as written. */
   timeCorrectedAt?: string
   timeWritten?: string
+  /** «Tablet 2» – the device that wrote this row (lib/deviceName, owner pick UX journeys B3·47),
+   *  set only where it CHANGES from the row printed before: on paper the device is a heading of
+   *  its run, so a handover stands out and 200 rows do not repeat one name 200 times. */
+  device?: string
   /** how often this line repeated within the repeat window (lib/verlauf · repeatRuns). >1 prints
    *  as «6×» after the entry; the repeats themselves are in the record, not on the paper. */
   repeats?: number
@@ -481,6 +485,7 @@ export function journalRows(
         textOriginal: e.correctedAt && e.textOriginal ? withoutAreaPrefix(e.textOriginal) : undefined,
         timeCorrectedAt: e.timeCorrectedAt && e.atOriginal ? hhmm(new Date(e.timeCorrectedAt)) : undefined,
         timeWritten: e.timeCorrectedAt && e.atOriginal ? hhmm(new Date(e.atOriginal)) : undefined,
+        device: e.device,
       }
     })
     .sort((a, b) => {
@@ -489,6 +494,18 @@ export function journalRows(
       if (b.iso) return 1
       return a.timeLabel.localeCompare(b.timeLabel)
     })
+    .map(deviceWhereItChanges())
+}
+
+/** Keeps a row's `device` only where it differs from the last device printed above it
+ *  (JournalPrintRow · device) – a row without one changes nothing. Stateful: one per pass. */
+function deviceWhereItChanges(): (r: JournalPrintRow) => JournalPrintRow {
+  let last: string | undefined
+  return (r) => {
+    if (!r.device || r.device === last) return r.device ? { ...r, device: undefined } : r
+    last = r.device
+    return r
+  }
 }
 
 /** One row of the Rapport's «Aufträge / Pendenzen» section — the BGV form's columns. */

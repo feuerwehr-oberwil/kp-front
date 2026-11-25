@@ -234,6 +234,7 @@ export const journalCopy: Localizable<Pick<Copy, 'journal' | 'tafelPendenzen' | 
     timeCorrected: 'ora corretta {t} · registrato {w}',
     detailTimeCorrected: 'Ora corretta',
     detailTimeWritten: 'registrato {t}',
+    detailDevice: 'su {device}',
   },
   tafelPendenzen: {
     createdLog: 'Pendenza dalla lavagna ({page}): {text}',

@@ -581,6 +581,11 @@ class JournalAppendIn(BaseModel):
             target = e.get("patchOf")
             if "lifecycle" in e or rid.startswith("sys") or (isinstance(target, str) and target.startswith("sys")):
                 raise ValueError("Systemzeilen des Einsatzverlaufs dürfen nicht vom Gerät geschrieben werden")
+            # «Tablet 2» – the writing device's name (src/lib/deviceName, UX pick B3·47): a label,
+            # printed in the Einsatzjournal, so a short string or nothing
+            device = e.get("device")
+            if device is not None and (not isinstance(device, str) or len(device) > 32):
+                raise ValueError("Gerätename der Journalzeile: Text, höchstens 32 Zeichen")
             if len(_json.dumps(e)) > 32_768:
                 raise ValueError(f"Journalzeile {rid!r} zu gross (max. 32 KB)")
             _validate_row_urls(e, rid)

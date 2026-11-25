@@ -22,6 +22,7 @@ import { Brand } from './components/Brand'
 import { DemoWelcome } from './components/DemoWelcome'
 import { hasSeenDemoWelcome, markDemoWelcomeSeen } from './lib/demoWelcome'
 import { InstallBanner } from './components/InstallBanner'
+import { DeviceNameAsk } from './components/DeviceName'
 import { InstallGuide } from './components/InstallGuide'
 import { getInstallPlatform, isStandalone } from './lib/installPrompt'
 import { installOffered } from './lib/installPolicy'
@@ -951,6 +952,9 @@ function IncidentApp() {
           10.11.2026: it took 115 px of every page there), and not on the demo: a visitor is not
           installing the demo as their command app. */}
       {screen !== 'einsatz' && !asLink && !isDemoMode() && <InstallBanner onOpenGuide={() => setLandingSheet('install')} />}
+      {/* «Name dieses Geräts», asked once at the first login on a device (B3·47, components/
+          DeviceName) – on home only, and never over another sheet or a link's single surface */}
+      {screen !== 'einsatz' && !linkScoped && !isDemoMode() && !landingSheet && !feedbackFor && !overlay && !showWelcome && <DeviceNameAsk />}
       {screen !== 'einsatz' && feedbackFor && (
         <FeedbackSheet
           trouble={feedbackFor === 'plain' ? undefined : feedbackFor}

@@ -1264,6 +1264,17 @@ describe('krokiFitMaxZoom', () => {
 })
 
 // staging r3
+// owner pick UX journeys B3·47: the writing device prints where it changes, not on every row
+describe('journalRows · the device', () => {
+  it('keeps the device only where it changes', () => {
+    const at = (m: number) => `2026-11-25T14:${String(m).padStart(2, '0')}:00`
+    const row = (id: string, m: number, device?: string) =>
+      ({ id, t: '', at: at(m), icon: 'type', text: id, kind: 'journal' as const, ...(device ? { device } : {}) })
+    const rows = journalRows([row('d', 4, 'KP-Laptop'), row('c', 3), row('b', 2, 'Tablet 2'), row('a', 1, 'Tablet 2')], [])
+    expect(rows.map((r) => [r.id, r.device])).toEqual([['a', 'Tablet 2'], ['b', undefined], ['c', undefined], ['d', 'KP-Laptop']])
+  })
+})
+
 // owner pick UX journeys B2·6: a row moved to its real time prints there, and says when it was written
 describe('journalRows · a corrected time', () => {
   it('sorts at the corrected time and carries the written one', () => {

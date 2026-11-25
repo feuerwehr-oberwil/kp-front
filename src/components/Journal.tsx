@@ -1011,6 +1011,9 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
             e.at ? stamp(e.at) : null,
             disc?.label,
             byHand ? C.detailSourceManual : C.detailSourceSystem,
+            // …and on which device (B3·47, lib/deviceName) – «auf Tablet 2»; rows from before, or
+            // from a device without a name, say nothing
+            e.device ? fillTemplate(C.detailDevice, { device: e.device }) : null,
           ].filter(Boolean).join(' · ')
           // THE FACTS: what the meta line does not say, in the order the questions get asked after
           // the fact — what came with it, and what happened to it afterwards

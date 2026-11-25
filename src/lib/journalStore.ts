@@ -6,6 +6,7 @@ import { ApiError, apiBeacon, apiGet, apiPost, LONG_POLL_TIMEOUT_MS } from './ap
 import { idbDel, idbKeys, idbRead, idbSet } from './idb'
 import { journalSlot as KEY, legacyJournalSlot as LEGACY_KEY } from './journalSlots'
 import { newId } from './ids'
+import { deviceName } from './deviceName'
 import { rowPhotos, swapUrl, type PhotoSlot } from './verlauf'
 import type { TimelineEvent } from '../types'
 import type { SyncStatus } from './api/workspaceSync'
@@ -361,7 +362,11 @@ export class JournalStore {
     // the overlay holds the FULL list (uploaded + pending) — it replaces the field wholesale
     // in display(), so a partial list here would hide the row's already-uploaded pictures
     if (row.photoUrls?.some(isBlob)) this.overlaySession(row.id, { photoUrls: row.photoUrls })
-    const clean = stripSessionUrls(row)
+    // every row THIS device writes says which device it was (lib/deviceName, B3·47) – never a
+    // patch: its fields fold onto the target, and a correction made on another tablet must not
+    // rename the device the row was written on
+    const device = row.patchOf || row.device ? undefined : deviceName()
+    const clean = stripSessionUrls(device ? { ...row, device } : row)
     this.state.outbox.push(clean)
     if (!this.initDone || this.readFailed) {
       this.preHydrationAppends.set(clean.id, clean)

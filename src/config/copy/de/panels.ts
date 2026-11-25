@@ -189,6 +189,15 @@ export const panelsCopy = {
     deviceSumOffline: 'Offline',
     deviceSumApp: 'App installiert',
     deviceSumNoApp: 'Nicht installiert',
+    // «Name dieses Geräts» (owner pick UX journeys B3·47, 25.11.2026, lib/deviceName): every Verlauf row
+    // this device writes says it – the row's detail and the printed Einsatzjournal show it. Asked once,
+    // at the first login on the device (DeviceNameAsk), and set here.
+    deviceName: 'Name dieses Geräts',
+    deviceNameSub: 'Steht bei jedem Eintrag im Verlauf, z. B. «Tablet 2».',
+    deviceNamePlaceholder: 'z. B. Tablet 2',
+    deviceNameAskBody: 'Jeder Eintrag im Verlauf merkt sich, auf welchem Gerät er erfasst wurde – so lässt sich eine Übergabe nachvollziehen. Der Name gilt nur auf diesem Gerät und lässt sich in den Einstellungen ändern.',
+    deviceNameSave: 'Speichern',
+    deviceNameLater: 'Später',
   },
   // Rückmeldung — the feedback composer + the prompt after something went wrong. Nothing here
   // is sent automatically: the app writes the text, the operator sends it (see lib/feedbackReport).
