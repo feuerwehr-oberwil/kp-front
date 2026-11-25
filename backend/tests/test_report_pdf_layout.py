@@ -1181,15 +1181,16 @@ def test_an_unsigned_rapport_prints_no_signature_line():
     assert "Am Bildschirm unterschrieben" not in page.get_textpage().get_text_range()
 
 
-def test_the_einsatzleiters_ort_datum_is_prefilled_and_the_kommandants_is_not():
-    """Signed by pen (25.11.2026, owner): the EL signs at the station on the day it prints, so his
-    «Ort, Datum» comes filled in. The Kommandant may sign days later — his stays blank."""
-    payload = _signature_payload([]).model_copy(update={"elPlaceDate": "Oberwil, 25.11.2026"})
+def test_ort_datum_is_prefilled_with_the_place_and_only_the_einsatzleiter_gets_the_date():
+    """Signed by pen (25.11.2026, owner): both sign at the station. The EL signs the day it prints,
+    so his «Ort, Datum» is filled in whole; the Kommandant may sign days later, so his carries the
+    place and leaves the date to the pen."""
+    payload = _signature_payload([]).model_copy(update={"elPlaceDate": "Oberwil, 25.11.2026", "signPlace": "Oberwil"})
     text = _signoff_page(compose_report_pdf(payload, {})).get_textpage().get_text_range()
-    assert text.count("Oberwil, 25.11.2026") == 1
     lines = [ln for ln in text.splitlines() if "Ort, Datum" in ln]
     assert len(lines) == 2
-    assert "Oberwil" in lines[0] and "Oberwil" not in lines[1]
+    assert "Oberwil, 25.11.2026" in lines[0]
+    assert "Oberwil," in lines[1] and "25.11.2026" not in lines[1]
 
 
 def test_signature_strokes_are_bounded():

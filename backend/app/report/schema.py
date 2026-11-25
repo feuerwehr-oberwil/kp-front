@@ -838,6 +838,9 @@ class ReportPayload(BaseModel):
     #: drawn signatures on the Visum lines (15.10.2026) — at most one per role, the last wins
     signatures: list[SignatureIn] = []
     #: «Oberwil, 25.11.2026» — the Einsatzleiter's «Ort, Datum» when the line is signed by pen:
-    #: the station's place and the day of printing (25.11.2026, owner). The Kommandant's stays
-    #: blank — he may sign days later. Not part of the signed scope (lib/reportSignature).
+    #: the station's place and the day of printing (25.11.2026, owner). Not part of the signed
+    #: scope (lib/reportSignature).
     elPlaceDate: str = ""
+    #: «Oberwil» — the station's place alone, for the Kommandant's «Ort, Datum»: he signs at the
+    #: station too, but maybe days later, so his date stays a write-in (owner, 25.11.2026).
+    signPlace: str = ""

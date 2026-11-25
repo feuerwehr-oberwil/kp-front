@@ -414,15 +414,18 @@ def compose_report_pdf(
     # Only signatures that still hold arrive here; a line without one prints empty, as always.
     signed = {g.role: g for g in payload.signatures}
 
-    def visum(role: str, label: str, default_name: str | None, place_date: str = "") -> list[dict]:
+    def visum(
+        role: str, label: str, default_name: str | None, place_date: str = "", date_open: bool = False
+    ) -> list[dict]:
         g = signed.get(role)
         if g is None:
             return [
                 # «Ort, Datum: ______» is written ON its line like every other field on the sheet —
                 # it is a value somebody fills in, not a signature. Only the NAME field signs
                 # underneath, because that is the one that needs empty paper beneath it.
-                # `place_date` prefills it where the answer is known at printing (the EL's).
-                {"label": L["sigOrtDatum"], "w": 0.4, "value": place_date or None},
+                # `place_date` prefills what is known at printing; `date_open` keeps the rule after
+                # it, for a date that is only known when the pen comes out (the Kdt's).
+                {"label": L["sigOrtDatum"], "w": 0.4, "value": place_date or None, "line": date_open},
                 {"label": label, "w": 0.6, "value": default_name, "sign": True},
             ]
         return [
@@ -440,10 +443,10 @@ def compose_report_pdf(
     sig = _FormRows(
         inner_w,
         [
-            # the EL signs at the station, the day it prints (owner, 25.11.2026); the Kdt's line
-            # stays blank — he may sign days later
+            # both sign at the station (owner, 25.11.2026): the EL the day it prints, so place AND
+            # date; the Kdt maybe days later, so the place and a rule for the date
             visum("el", L["einsatzleiter"], m.einsatzleiter, payload.elPlaceDate),
-            visum("kdt", L["sigKommandant"], m.kommandant),
+            visum("kdt", L["sigKommandant"], m.kommandant, f"{payload.signPlace}," if payload.signPlace else "", True),
         ],
         # Room to sign BESIDE the name, not under it — the rule is on the row's own line now,
         # so the pitch only has to keep the two Visum rows from crowding each other.

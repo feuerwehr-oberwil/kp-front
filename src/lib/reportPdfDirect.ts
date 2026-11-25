@@ -680,9 +680,10 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
     })(),
     partnerPresets: cfg.report?.partnerOrgs ?? [],
     generatedAt: formatDateTime(draft.generatedAt),
-    // the Einsatzleiter signs by pen at the station, on the day it prints: his «Ort, Datum» comes
-    // filled in (owner, 25.11.2026). The Kommandant's stays blank — he may sign days later.
+    // signed by pen at the station (owner, 25.11.2026): the Einsatzleiter's «Ort, Datum» comes
+    // filled in with the day it prints; the Kommandant's gets the place only — he may sign later
     elPlaceDate: signPlaceDate(draft.generatedAt),
+    signPlace: signPlace(),
     kroki: kroki ?? undefined,
     krokiCaption: kroki ? krokiCaption : undefined,
     planPages,

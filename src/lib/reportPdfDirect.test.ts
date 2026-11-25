@@ -566,9 +566,11 @@ describe('buildDirectReportPayload · Verursacher and the EL\'s Ort, Datum', () 
   }) as { elPlaceDate: string; meta: Record<string, unknown> }
   afterEach(() => adoptSessionConfig({}))
 
-  it('prefills «Oberwil, <day of printing>» from the station place, without its postcode', () => {
+  it('prefills «Oberwil, <day of printing>» for the EL and «Oberwil» for the Kdt, without the postcode', () => {
     adoptSessionConfig({ map: { geocoder: { defaultLocality: '4104 Oberwil' } } } as never)
-    expect(build('2026-11-25T11:00:00.000Z').elPlaceDate).toBe('Oberwil, 25.11.2026')
+    const out = build('2026-11-25T11:00:00.000Z') as { elPlaceDate: string; signPlace?: string }
+    expect(out.elPlaceDate).toBe('Oberwil, 25.11.2026')
+    expect(out.signPlace).toBe('Oberwil') // the Kommandant's: the place, his date by pen
   })
 
   it('a reprint on another day changes the Ort, Datum but not the signed part', () => {

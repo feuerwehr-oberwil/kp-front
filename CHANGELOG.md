@@ -38,8 +38,9 @@ so this file – not the log – is the record of what shipped up to that point.
   an Ölspur goes to the Verursacher, and the name was missing from the paper.
 - **The Einsatzleiter's «Ort, Datum» comes filled in.** A Rapport signed by pen prints the
   station's place and the day of printing on the EL's line («Oberwil, 25.11.2026»; the place is
-  the station setting `map.geocoder.defaultLocality`). The Kommandant's line stays blank – he may
-  sign days later. A reprint on another day does not break an on-screen signature.
+  the station setting `map.geocoder.defaultLocality`). The Kommandant's line gets the place only
+  («Oberwil, ____») – he may sign days later. A reprint on another day does not break an
+  on-screen signature.
 
 ## [0.13.0] – 2026-11-19
 
