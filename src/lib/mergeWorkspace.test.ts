@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { MERGE_POLICY, mergeById, mergeRecord, mergeWorkspace, splitDuplicateTruppIds, type RecordConflict } from './mergeWorkspace'
+import { MERGE_POLICY, mergeById, mergeRecord, mergeWorkspace, splitDuplicateTruppIds, type RecordConflict, type SyncedKey } from './mergeWorkspace'
 import { conflictWhat } from './attendanceConflict'
 import { truppRenumberings } from './truppNumbers'
 import { nextTruppNo } from './placedTrupps'
@@ -670,6 +670,121 @@ describe('mergeWorkspace — every field of the blob has a declared merge policy
 
   it('a key this build does not know rides with mine, as before the policy map', () => {
     expect(mergeWorkspace({ future: 1 }, { future: 1 }, { future: 2 }).future).toBe(1)
+  })
+})
+
+describe('mergeWorkspace — a change survives the merge on every synced field', () => {
+  // One row per synced field. Typed Record<SyncedKey, …>, so a field that joins MERGE_POLICY
+  // without a row fails tsc here, and the first test fails at runtime. Each row holds the
+  // ancestor, the server's change, this device's change, and what the field's policy promises
+  // when BOTH sides changed it. `base` and `theirs` take the JSONB round trip, as on the wire.
+  type Row = { base: unknown; theirs: unknown; mine: unknown; both: unknown }
+  const at = (h: number) => `2026-11-25T${String(h).padStart(2, '0')}:00:00.000Z`
+  const entity = (label: string) => ({ id: 'e1', kind: 'symbol', layer: 'ops', coord: [8, 47], label })
+  const binding = (override?: unknown) => ({
+    id: 'pb1', objectId: 'ob1', planId: 'p1', datasetId: 'ds1', planVersion: 1, page: 0, title: 'EG',
+    georef: { pairs: [] }, source: 'approved', ...(override ? { override } : {}),
+  })
+  const pair = (x: number) => ({ plan: { x, y: 0 }, lngLat: { lng: 8, lat: 47 } })
+  const ROWS: Record<SyncedKey, Row> = {
+    // whole-object last-writer-wins: a same-object clash keeps mine
+    objects: { base: [{ id: 'e1', entity: entity('A') }], theirs: [{ id: 'e1', entity: entity('T') }], mine: [{ id: 'e1', entity: entity('M') }], both: [{ id: 'e1', entity: entity('M') }] },
+    entities: { base: [entity('A')], theirs: [entity('T')], mine: [entity('M')], both: [entity('M')] },
+    drawings: {
+      base: [{ id: 'd1', kind: 'line', coords: [[8, 47], [8.1, 47.1]], color: 'A' }],
+      theirs: [{ id: 'd1', kind: 'line', coords: [[8, 47], [8.1, 47.1]], color: 'T' }],
+      mine: [{ id: 'd1', kind: 'line', coords: [[8, 47], [8.1, 47.1]], color: 'M' }],
+      both: [{ id: 'd1', kind: 'line', coords: [[8, 47], [8.1, 47.1]], color: 'M' }],
+    },
+    board: {
+      base: { p1: [{ id: 'a1', kind: 'text', x: 0.1, y: 0.1, text: 'A' }] },
+      theirs: { p1: [{ id: 'a1', kind: 'text', x: 0.1, y: 0.1, text: 'T' }] },
+      mine: { p1: [{ id: 'a1', kind: 'text', x: 0.1, y: 0.1, text: 'M' }] },
+      both: { p1: [{ id: 'a1', kind: 'text', x: 0.1, y: 0.1, text: 'M' }] },
+    },
+    timeline: { base: [o('r1', { text: 'A' })], theirs: [o('r1', { text: 'T' })], mine: [o('r1', { text: 'M' })], both: [o('r1', { text: 'M' })] },
+    mittel: { base: [o('m1', { qty: 1 })], theirs: [o('m1', { qty: 2 })], mine: [o('m1', { qty: 3 })], both: [o('m1', { qty: 3 })] },
+    bands: { base: [o('b1', { label: 'A' })], theirs: [o('b1', { label: 'T' })], mine: [o('b1', { label: 'M' })], both: [o('b1', { label: 'M' })] },
+    cameraViews: { base: [o('c1', { zoom: 1 })], theirs: [o('c1', { zoom: 2 })], mine: [o('c1', { zoom: 3 })], both: [o('c1', { zoom: 3 })] },
+    trails: { base: [o('g1', { sourceId: 's1' })], theirs: [o('g1', { sourceId: 's1', removedAt: at(9) })], mine: [o('g1', { sourceId: 's1', color: 'M' })], both: [o('g1', { sourceId: 's1', color: 'M' })] },
+    attachments: { base: [o('f1', { caption: 'A' })], theirs: [o('f1', { caption: 'T' })], mine: [o('f1', { caption: 'M' })], both: [o('f1', { caption: 'M' })] },
+    // per field: one device's crew list and the other's name both stand
+    trupps: {
+      base: [o('t1', { name: 'A', members: [] })],
+      theirs: [o('t1', { name: 'A', members: ['Meier'] })],
+      mine: [o('t1', { name: 'M', members: [] })],
+      both: [o('t1', { name: 'M', members: ['Meier'] })],
+    },
+    // per field: one device's start and the other's end both stand
+    shifts: {
+      base: [o('s1', { from: at(8), to: at(16) })],
+      theirs: [o('s1', { from: at(9), to: at(16) })],
+      mine: [o('s1', { from: at(8), to: at(17) })],
+      both: [o('s1', { from: at(9), to: at(17) })],
+    },
+    // two voids of one signature keep the EARLIER one, whichever side it came from
+    reportSignatures: {
+      base: [o('sig1', { name: 'A' })],
+      theirs: [o('sig1', { name: 'A', voidedAt: at(9) })],
+      mine: [o('sig1', { name: 'A', voidedAt: at(10) })],
+      both: [o('sig1', { name: 'A', voidedAt: at(9) })],
+    },
+    // per vehicle, per field: the Fahrer on one device and the Herkunft on the other both stand
+    vehicleOverrides: {
+      base: { v1: { driver: 'A', origin: 'A' } },
+      theirs: { v1: { driver: 'T', origin: 'A' } },
+      mine: { v1: { driver: 'A', origin: 'M' } },
+      both: { v1: { driver: 'T', origin: 'M' } },
+    },
+    // per tick: different items of one list both keep their tick
+    checklists: {
+      base: { tpl: { ticks: { i1: true } } },
+      theirs: { tpl: { ticks: { i1: true, i2: true } } },
+      mine: { tpl: { ticks: { i1: true, i3: true } } },
+      both: { tpl: { ticks: { i1: true, i2: true, i3: true } } },
+    },
+    // per fact: presence on one device and the Funktion on the other both stand
+    attendance: {
+      base: { p1: { status: 'present', note: 'A' } },
+      theirs: { p1: { status: 'present', note: 'T' } },
+      mine: { p1: { status: 'left', note: 'A' } },
+      both: { p1: { status: 'left', note: 'T' } },
+    },
+    // per key
+    planScale: { base: { p1: 1, p2: 1 }, theirs: { p1: 2, p2: 1 }, mine: { p1: 1, p2: 3 }, both: { p1: 2, p2: 3 } },
+    settings: {
+      base: { contactIntervalMin: 10, contactGraceSec: 60 },
+      theirs: { contactIntervalMin: 5, contactGraceSec: 60 },
+      mine: { contactIntervalMin: 10, contactGraceSec: 30 },
+      both: { contactIntervalMin: 5, contactGraceSec: 30 },
+    },
+    reportMeta: { base: { summary: 'A', remarks: 'A' }, theirs: { summary: 'T', remarks: 'A' }, mine: { summary: 'A', remarks: 'M' }, both: { summary: 'T', remarks: 'M' } },
+    // the frozen backdrop stays; an override of it is mine when both corrected it
+    planBindings: { base: [binding()], theirs: [binding({ pairs: [pair(1)] })], mine: [binding({ pairs: [pair(2)] })], both: [binding({ pairs: [pair(2)] })] },
+    // whole singletons: a clash keeps mine
+    building: { base: { floors: [0], rings: [] }, theirs: { floors: [0, 1], rings: [] }, mine: { floors: [-1, 0], rings: [] }, both: { floors: [-1, 0], rings: [] } },
+    pickedObjectId: { base: 'ob1', theirs: 'obT', mine: 'obM', both: 'obM' },
+    intakeReviewedAt: { base: undefined, theirs: at(9), mine: at(10), both: at(10) },
+  }
+  const merged = (k: string, base: unknown, mine: unknown, theirs: unknown) =>
+    mergeWorkspace(serverRoundTrip({ [k]: base }), { [k]: mine }, serverRoundTrip({ [k]: theirs }))[k]
+  const rows = Object.entries(ROWS)
+
+  it('has a row for exactly the synced fields', () => {
+    const synced = Object.keys(MERGE_POLICY).filter((k) => MERGE_POLICY[k as keyof Saved] !== 'local')
+    expect(rows.map(([k]) => k).sort()).toEqual(synced.sort())
+  })
+
+  it.each(rows)('%s: a change made only on the server survives', (k, r) => {
+    expect(merged(k, r.base, r.base, r.theirs)).toEqual(r.theirs)
+  })
+
+  it.each(rows)('%s: a change made only on this device survives', (k, r) => {
+    expect(merged(k, r.base, r.mine, r.base)).toEqual(r.mine)
+  })
+
+  it.each(rows)('%s: a change on both sides merges as its policy promises', (k, r) => {
+    expect(merged(k, r.base, r.mine, r.theirs)).toEqual(r.both)
   })
 })
 
