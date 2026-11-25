@@ -212,8 +212,9 @@ interface Props {
   /** name → rank key, for the officer-first sort + "nur Offiziere" filter on leadership symbols */
   rosterRank?: Record<string, string | undefined>
   /** a roster field on a plan symbol («Fahrer», «Name») names somebody who is standing there —
-   *  same rule as on the Lage, so the Anwesenheit learns about it from either surface */
-  onRosterField?: (symbol: string | undefined, label: string | undefined, key: string, name: string) => void
+   *  the Lage's own call (workspace/useRosterRoles · linkRosterFields) with the Lage's arguments:
+   *  the symbol before the edit, the fields after it, `force` when its label changed */
+  onRosterFields?: (prev: Pick<BoardAnno, 'symbol' | 'label' | 'fields'>, fields: Record<string, string>, opts?: { force?: boolean }) => void
   /** What is already known about a roster NAME — «unter Atemschutz», «Magazin», «gegangen» —
    *  shown ON the dropdown entry (lib/roleAssignment · personStatusHint). Handed to the plan for
    *  the same reason it is handed to the map: the picker is the moment you learn that the person
@@ -426,7 +427,7 @@ export interface PlanLogExtra {
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
 
-export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange: onChangeAll, building, floorPack, sheetFloors, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, authorName, onStepLabel, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], truppColors, placedTeamNames, teamNameTaken, onLinkTrupp, onShowTrupp, truppFinder, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, historyGroup, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, buildingInfo, readingsChip, incidentId, incidentAddress, incidentPos, onObjectSwitch, planScale = {}, onCalibrate, live = [], photos = [], liveFacts, onPlanLiveMove, onStepEnd, slimTools: slimToolsProp = false, linkViewer = false, railLabels, tafel, presentation, replay = false }: Props) {
+export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange: onChangeAll, building, floorPack, sheetFloors, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterFields, personStatus, fieldHints, onRecent, log, authorName, onStepLabel, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], truppColors, placedTeamNames, teamNameTaken, onLinkTrupp, onShowTrupp, truppFinder, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, historyGroup, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, buildingInfo, readingsChip, incidentId, incidentAddress, incidentPos, onObjectSwitch, planScale = {}, onCalibrate, live = [], photos = [], liveFacts, onPlanLiveMove, onStepEnd, slimTools: slimToolsProp = false, linkViewer = false, railLabels, tafel, presentation, replay = false }: Props) {
   // ⚠️ RIDERS: what lives on a sheet but is not drawn ON it — the Tafel's pages (kind `form`,
   // lib/boardForm) and any board object this build does not understand (lib/workspace ·
   // isPassengerAnno). Nothing positional may see them: every drawing path below reads `annos` —
@@ -3159,14 +3160,10 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
             titleLive.current = null
             if (live) emit('board.edit', { id: selSymbol.id, patch: { label: v }, planId: activeId })
             else patchCommit(selSymbol.id, { label: v })
+            // the Fahrer's Bemerkung is «Fahrer {Label}» – a renamed vehicle re-files its driver
+            onRosterFields?.({ ...selSymbol, label: v }, selSymbol.fields ?? {}, { force: true })
           }}
-          onFields={(fields) => {
-            const before = selSymbol.fields ?? {}
-            commitAnnoFields(selSymbol, fields)
-            for (const [k, v] of Object.entries(fields)) {
-              if (v.trim() && before[k] !== v) onRosterField?.(selSymbol.symbol, selSymbol.label, k, v)
-            }
-          }}
+          onFields={(fields) => { commitAnnoFields(selSymbol, fields); onRosterFields?.(selSymbol, fields) }}
           onReadingAgain={() => commitAnnoFields(selSymbol, selSymbol.fields ?? {}, true)}
           onNotes={(v) => patchCommit(selSymbol.id, { notes: v || undefined })}
           // Stockwerk — the Lage has always offered it, the Modul boards never did, so a Brand

@@ -208,7 +208,7 @@ export function PlansSurface({
           sym={sym}
           rosterNames={rosterNames}
           rosterRank={rosterRank}
-          onRosterField={tacticalLocked ? undefined : (symbol, label, key, name) => linkRosterFields({ symbol, label } as Entity, { [key]: name })}
+          onRosterFields={tacticalLocked ? undefined : linkRosterFields}
           // the same two roster read-outs the Lage's symbol panel has shown all along: who that
           // name already is ON the dropdown entry, and the contradiction a filled field carries
           // UNDER it. A plan symbol is not an Entity, so the hint call is fed its parts.
