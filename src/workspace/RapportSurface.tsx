@@ -73,6 +73,8 @@ export interface RapportSurfaceProps {
   confirmAndComplete: () => Promise<boolean>
   setJournalOpen: Dispatch<SetStateAction<boolean>>
   setJournalFromRapport: Dispatch<SetStateAction<boolean>>
+  /** open the Verlauf on that row (a Verlauf photo in «Beilagen › Fotos») */
+  showVerlaufRow: (rowId: string) => void
   reportSignatures: ReportSignature[]
   signRapport?: (sig: ReportSignature) => void
 }
@@ -84,7 +86,7 @@ export function RapportSurface({
   attachments, canEditRapport, canSignRapport, onReactivateActive, addAttachments, captionAttachment, removeAttachment, canShareLink,
   running, assignRole, assignTypedName, saveReportMeta, canEditMeta, onEditMeta, setMode,
   setRapportReturn, canWriteRecord, resolveAttendanceConflict, canCloseIncident, readOnly,
-  confirmAndComplete, setJournalOpen, setJournalFromRapport, reportSignatures, signRapport,
+  confirmAndComplete, setJournalOpen, setJournalFromRapport, showVerlaufRow, reportSignatures, signRapport,
 }: RapportSurfaceProps) {
   return (
     <>
@@ -163,6 +165,9 @@ export function RapportSurface({
           onComplete={canCloseIncident && !readOnly ? confirmAndComplete : undefined}
           // «Im Verlauf ergänzen» is a write – only for a session that writes the record
           onFixTranscripts={canWriteRecord ? () => { setJournalOpen(true); setJournalFromRapport(true) } : undefined}
+          // a Verlauf photo opens its row – reading, so for every session; closing the Verlauf
+          // comes back here (JournalLayer · journalFromRapport)
+          onShowEntry={(rowId) => { showVerlaufRow(rowId); setJournalFromRapport(true) }}
         /></Suspense>
       ))}
     </>

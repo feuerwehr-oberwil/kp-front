@@ -559,6 +559,12 @@ export const reportCopy = {
     verursacherPlaceholder: 'Name / Firma / Kennzeichen',
     verursacherTelefon: 'Telefon Verursacher',
     verursacherCall: 'Verursacher anrufen',
+    // «Beilagen › Fotos» lists the Verlauf's photos too, read-only (owner pick UX journeys B3·13,
+    // 25.11.2026) – «Verlauf», never «Beilage»: they print in the Einsatzjournal, not as a Beilage
+    attachmentsCountOne: '1 Foto',
+    attachmentsJournalPhoto: 'Foto',
+    attachmentsJournalPrints: 'Verlauf {t} · druckt im Einsatzjournal',
+    attachmentsJournalAt: 'Verlauf {t}',
   },
   // Station print relay — «Drucken» (preflight + capture)
   printRelay: {

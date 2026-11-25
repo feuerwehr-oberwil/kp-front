@@ -3427,7 +3427,7 @@ export function IncidentWorkspace({
         attachments, canEditRapport, addAttachments, captionAttachment, removeAttachment, canShareLink,
         running, assignRole, assignTypedName, saveReportMeta, canEditMeta, onEditMeta, setMode,
         setRapportReturn, canWriteRecord, resolveAttendanceConflict, canCloseIncident, readOnly,
-        confirmAndComplete, setJournalOpen, setJournalFromRapport, reportSignatures,
+        confirmAndComplete, setJournalOpen, setJournalFromRapport, showVerlaufRow, reportSignatures,
         canSignRapport, onReactivateActive,
         // open or closed alike (owner, 14.11.2026)
         signRapport: canEditRapport || canSignRapport ? signRapport : undefined,

@@ -46,7 +46,7 @@ import { addPartnerOrg, partnerOrgOffer, partnerOrgsFromLage } from '../lib/part
 import { linkTokenValues, resolveLinkUrl, type ReportLink } from '../lib/reportLinks'
 import type { ReportDraft, ReportOptions } from '../lib/report'
 import {
-  defaultReportOptions, formatDateTime, hasVisiblePlanAnnotation, missingTranscriptCount, pendenzRows, proofLabel,
+  defaultReportOptions, formatDateTime, hasVisiblePlanAnnotation, journalRows, missingTranscriptCount, pendenzRows, proofLabel,
 } from '../lib/report'
 import { TAFEL_ID } from '../lib/boardForm'
 import { EF_PAGE_ID, RAPPORT_PAGE_ID, tafelKindPrints, tafelMenuKinds, tafelPrintKinds } from '../lib/tafelPicks'
@@ -279,7 +279,7 @@ function ClosedStrip({ onReopen }: { onReopen?: () => Promise<ReactivateResult> 
 }
 
 export function ReportPreflight({
-  incident, reportMeta, personnel = [], presentIds = NO_IDS, onRolePicked, onAddGuest, events, annotatedPlanCount, truppCount, attendanceCount, mittelCount, mittel = [], mapContentCount = 1, pendingMediaCount = 0, attendance = {}, trupps = [], contactIntervalMin, contactGraceSec, checklists, plans = [], scene, board, building, captureUsage, canEdit: canEditIn = true, canShare = canEditIn, attachments = [], onAddAttachments, onCaptionAttachment, onRemoveAttachment, onSaveMeta, onEditDispatch, onOpenAnwesenheit, onOpenMittel, onResolveConflict, onComplete, onFixTranscripts,
+  incident, reportMeta, personnel = [], presentIds = NO_IDS, onRolePicked, onAddGuest, events, annotatedPlanCount, truppCount, attendanceCount, mittelCount, mittel = [], mapContentCount = 1, pendingMediaCount = 0, attendance = {}, trupps = [], contactIntervalMin, contactGraceSec, checklists, plans = [], scene, board, building, captureUsage, canEdit: canEditIn = true, canShare = canEditIn, attachments = [], onAddAttachments, onCaptionAttachment, onRemoveAttachment, onSaveMeta, onEditDispatch, onOpenAnwesenheit, onOpenMittel, onResolveConflict, onComplete, onFixTranscripts, onShowEntry,
   closed = false, onReopen, reportSignatures = NO_SIGNATURES, onSign,
 }: {
   incident: IncidentMeta
@@ -379,6 +379,8 @@ export function ReportPreflight({
   onComplete?: () => Promise<boolean>
   /** jump to the Verlauf to fill the still-missing audio transcripts */
   onFixTranscripts?: () => void
+  /** open the Verlauf on that row – a Verlauf photo listed under «Beilagen › Fotos» */
+  onShowEntry?: (rowId: string) => void
   /** the Einsatz is closed: the form is read-only (owner, 12.11.2026). Signing does not care
    *  (owner, 14.11.2026): a signature holds, open or closed, while the signed part is unchanged */
   closed?: boolean
@@ -726,6 +728,15 @@ export function ReportPreflight({
   }
   const alarm = parseAlarmText(meta.alarmText)
   const alarmiert = meta.alarmiertAt
+  // The Verlauf's photos, as the Einsatzjournal prints them (lib/report · journalRows, one entry per
+  // picture). «Beilagen › Fotos» lists and counts them as their own read-only group (owner pick UX
+  // journeys B3·13, 25.11.2026): it said «keine» while the PDF carried the photo, and both walkers
+  // took it a second time. They stay the Verlauf's – the group says «Verlauf», never «Beilage»
+  // (glossary, 17.11.2026) – and the PDF does not change.
+  const journalPhotos = useMemo(() => journalRows(events, plans).flatMap((r) => (r.photoUrls ?? []).map((url, i) => ({
+    key: `${r.id}:${i}`, rowId: r.id, url, text: r.text, iso: r.iso,
+  }))), [events, plans])
+  const photoCount = attachments.length + journalPhotos.length
   // the paper predates the Nachtrag of this reopened Einsatz (lib/reportNachtrag, UX pick B3·18)
   const paperOld = useMemo(() => reportBeforeNachtrag(reportMeta.reportMadeAt, events), [reportMeta.reportMadeAt, events])
   // Plausibility of the three clocks, as a HINT under the field that is wrong. Never a block:
@@ -2469,14 +2480,28 @@ export function ReportPreflight({
                 (lib/ui · openPhoto), because a 52px square is not something you can check. */}
             <CheckRow
               tab="beilagen"
-              done={attachments.length > 0}
+              done={attachments.length + journalPhotos.length > 0}
               label={P.attachmentsHead}
-              sub={attachments.length ? fillTemplate(P.attachmentsCount, { n: attachments.length }) : P.attachmentsNone}
+              sub={photoCount === 0 ? P.attachmentsNone : photoCount === 1 ? P.attachmentsCountOne : fillTemplate(P.attachmentsCount, { n: photoCount })}
             >
               {/* No explainer paragraph. «Fotos» with «Foto hinzufügen» under it is not a card
                   anybody needs a sentence for, and four lines of prose at the top of a row
                   pushed the pictures themselves below the fold. Same for the links row. */}
               <div className="rp-check-extra">
+                {/* the Verlauf's photos first, read-only: a tap opens their row in the Verlauf (B3·13) */}
+                {journalPhotos.length > 0 && (
+                  <ListCard className="report-att-journal">
+                    {journalPhotos.map((ph) => (
+                      <ListRow
+                        key={ph.key}
+                        lead={<img className="report-att-journal-thumb" src={thumbUrl(ph.url)} alt="" loading="lazy" decoding="async" />}
+                        title={ph.text.trim() || P.attachmentsJournalPhoto}
+                        sub={fillTemplate(options.journal ? P.attachmentsJournalPrints : P.attachmentsJournalAt, { t: hhmm(ph.iso) })}
+                        onClick={onShowEntry ? () => onShowEntry(ph.rowId) : undefined}
+                      />
+                    ))}
+                  </ListCard>
+                )}
                 {attachments.length > 0 && (
                   <ul className="report-att-list">
                     {attachments.map((a) => (

@@ -354,6 +354,10 @@ export const reportCopy: Localizable<Pick<Copy, 'auswertung' | 'report' | 'print
     verursacherPlaceholder: 'Name / company / plate',
     verursacherTelefon: 'Party responsible phone',
     verursacherCall: 'Call party responsible',
+    attachmentsCountOne: '1 photo',
+    attachmentsJournalPhoto: 'Photo',
+    attachmentsJournalPrints: 'Log {t} · prints in the incident journal',
+    attachmentsJournalAt: 'Log {t}',
   },
   printRelay: {
     send: 'Print',

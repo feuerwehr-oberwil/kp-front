@@ -325,3 +325,26 @@ describe('ReportPreflight · the Kroki-seeded Einsatzleiter', () => {
     expect(seeds[0][1]).toEqual({ unlogged: ['einsatzleiter'] })
   })
 })
+
+// UX pick B3·13 (25.11.2026): «Beilagen › Fotos» said «keine» while the Verlauf photo printed in the
+// Einsatzjournal. It lists and counts that photo as the Verlauf's, read-only; a tap opens its row.
+describe('ReportPreflight · Verlauf photos under «Fotos»', () => {
+  it('counts the Verlauf photo, says where it prints, and opens its row', async () => {
+    const onShowEntry = vi.fn()
+    const photo = { id: 'j1', t: '14:43', at: '2026-09-14T12:43:00.000Z', icon: 'photo', kind: 'photo' as const, text: 'Schadenstelle 2. OG', photoUrl: '/api/media/p1.jpg' }
+    render(
+      <ReportPreflight
+        incident={incident} reportMeta={{}} events={[photo]} mapContentCount={0}
+        annotatedPlanCount={0} truppCount={0} attendanceCount={1} mittelCount={1}
+        onSaveMeta={() => {}} onShowEntry={onShowEntry}
+      />,
+    )
+    await act(async () => {})
+    expect(screen.getAllByText(P.attachmentsCountOne).length).toBeGreaterThan(0)
+    expect(screen.queryByText(P.attachmentsNone)).toBeNull()
+    const row = screen.getByRole('button', { name: /Schadenstelle 2\. OG/ })
+    expect(row.textContent).toMatch(/Verlauf \d\d:\d\d · druckt im Einsatzjournal/)
+    fireEvent.click(row)
+    expect(onShowEntry).toHaveBeenCalledWith('j1')
+  })
+})

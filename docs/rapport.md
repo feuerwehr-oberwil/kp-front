@@ -14,6 +14,17 @@ keeping its caption. A deleted attachment is never recreated by a late upload or
 snapshots learn the uploaded URL too, so undo/redo cannot put back an expired session URL after
 the queue has acknowledged its bytes. A queue entry without a target remains journal media.
 
+## «Beilagen › Fotos» lists the Verlauf's photos (25.11.2026)
+
+Owner pick UX journeys B3·13: the section said «keine» while a photo taken in the Verlauf printed
+inline in the Einsatzjournal, and both walkers took it a second time. It now lists the Verlauf's
+photos first, as their own read-only group (`ReportPreflight · journalPhotos`, off `lib/report ·
+journalRows`, so exactly what prints): thumbnail, the entry's text, «Verlauf 14:43 · druckt im
+Einsatzjournal» («Verlauf 14:43» while the Journal section is off). They count in «1 Foto». A tap
+opens the row in the Verlauf; closing it comes back to the Rapport. «Foto hinzufügen» stays for
+real Beilagen, and the PDF does not change. The glossary's word rule holds (17.11.2026): a
+«Beilage» is only the Rapport's – the group says «Verlauf».
+
 ## Abschluss – the «Noch offen» sheet (23.10.2026)
 
 `useAbschluss · confirmAndComplete` asks the one closing question over `lib/abschluss`'s
