@@ -141,6 +141,10 @@ Owner pick A «Ein Feld» (`components/TimeField · DateTimeField`, header there
   («20.09.2026 14:05») – it is the Einsatz's own date, so the year rule would never show its year. A
   vehicle's grey «vor Ort / zurück» line is a server read-out, not a field: a bare clock, with its
   day only when that is not the row's. **The PDF keeps its own formats** (`report · formatDateTime`).
+- **The time can be typed on a phone too** (owner pick UX journeys B2·28, 25.11.2026): a tap on the
+  hour or minute under the band swaps the wheels for the typed field a keyboard gets – «2339», OK –
+  with the day as a list beside it. Swiping the wheel stays as it is. Every time field, not only the
+  Einsatzende: they all open `WheelPopover`. Both walkers had missed the minute on the wheel.
 - **«Jetzt» is the deployment's clock** (`lib/serverClock`), on the two form buttons (Einsatzende,
   Rückmeldung ELZ – tablet, phone and QR-Erfassung) and inside every picker. Grid rows have no form
   button. The QR-Erfassung learns the clock from its own answers (`captureClient · req`).

@@ -56,6 +56,27 @@ describe('WheelPicker · looping clock wheels', () => {
     expect(onCommit).toHaveBeenCalledWith(expect.objectContaining({ h: 0, mi: 47 }))
   })
 
+  // UX pick B2·28 (25.11.2026): a tap on the time under the band types it – «2339», OK
+  it('a tap on the selected hour swaps the wheels for a typed field that commits', () => {
+    const days = [new Date(2026, 10, 24)]
+    const onCommit = vi.fn()
+    render(<WheelPopover anchor={anchor} initial={new Date(2026, 10, 24, 23, 42)} days={days} dayAlways onCommit={onCommit} onClose={() => {}} />)
+    fireEvent.click(wheel('Stunde').querySelector('[aria-selected="true"]')!)
+    expect(screen.queryByRole('listbox', { name: 'Stunde' })).toBeNull()
+    const field = screen.getByRole('textbox', { name: 'Stunde / Minute' })
+    expect(field).toHaveProperty('value', '23:42')
+    fireEvent.change(field, { target: { value: '2339' } })
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }))
+    expect(onCommit).toHaveBeenCalledWith({ y: 2026, mo: 11, d: 24, h: 23, mi: 39 })
+  })
+  it('a tap on another row still only moves the wheel', () => {
+    open(new Date(2026, 7, 8, 22, 47))
+    const other = [...wheel('Minute').querySelectorAll('[role="option"]')].find((b) => b.textContent === '30')!
+    fireEvent.click(other)
+    expect(screen.getByRole('listbox', { name: 'Minute' })).toBeTruthy()
+    expect(screen.queryByRole('textbox')).toBeNull()
+  })
+
   it('does NOT loop the incident-day wheel — running off that end means the day does not exist', () => {
     const days = [new Date(2026, 7, 8), new Date(2026, 7, 9)]
     render(

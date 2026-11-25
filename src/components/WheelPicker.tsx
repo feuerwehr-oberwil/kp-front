@@ -4,7 +4,9 @@
 // scroll-snap lists (hour/minute, plus a bounded day column when more than one day is on offer —
 // the ONE date control, 05.10.2026: no day/month/year wheels anywhere); the value is whatever rests
 // under the center band. «Jetzt» is the fast path (stamp the DEPLOYMENT's clock, lib/serverClock,
-// and close – 12.11.2026, it was the device's), «OK» commits a scrolled selection. Portalled to <body> so no card/accordion can clip it.
+// and close – 12.11.2026, it was the device's), «OK» commits a scrolled selection. A tap on the time
+// under the band swaps the wheels for a typed field («2339», OK – owner pick UX journeys B2·28,
+// 25.11.2026). Portalled to <body> so no card/accordion can clip it.
 
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
@@ -31,11 +33,13 @@ const ITEM_H = 44 // px, one wheel row — a full ≥44px tap target; must match
 const LOOPS = 7
 const MID_BAND = 3
 
-function Wheel({ items, index, onIndex, ariaLabel, loop = false, day = false }: {
+function Wheel({ items, index, onIndex, ariaLabel, loop = false, day = false, onTapSelected }: {
   items: string[]
   index: number
   onIndex: (i: number) => void
   ariaLabel: string
+  /** a tap on the row ALREADY under the band – the hour/minute wheels type the time then */
+  onTapSelected?: () => void
   /** wrap around — for the values that genuinely have no ends (hour, minute). A bounded list
    *  (the incident's days, a month, a year) must NOT loop: running off the end of those means
    *  the value does not exist, and a wheel that silently returns to January says it does. */
@@ -96,7 +100,10 @@ function Wheel({ items, index, onIndex, ariaLabel, loop = false, day = false }: 
           <button
             key={i} type="button" role="option" aria-selected={on}
             className={`wheel-item${on ? ' on' : ''}`}
-            onClick={() => { onIndex(value); const el = ref.current; if (el) el.scrollTo({ top: i * ITEM_H, behavior: scrollBehavior() }) }}
+            onClick={() => {
+              if (on && onTapSelected) { onTapSelected(); return }
+              onIndex(value); const el = ref.current; if (el) el.scrollTo({ top: i * ITEM_H, behavior: scrollBehavior() })
+            }}
           >{it}</button>
         )
       })}
@@ -175,6 +182,10 @@ export function WheelPopover({ anchor, initial, onCommit, onClose, onClear, shor
   const [invalid, setInvalid] = useState(false)
   const C = appConfig.copy.wheel
   const coarse = isCoarse()
+  // A finger on the wheels may TYPE the time instead: a tap on the hour or minute under the band
+  // swaps them for the field a keyboard gets (owner pick UX journeys B2·28, 25.11.2026 – both
+  // walkers missed the Einsatzende's minute on the wheel and asked to type «2339»)
+  const [typing, setTyping] = useState(!coarse)
   const [v, setV] = useState<WheelValue>({
     y: initial.getFullYear(), mo: initial.getMonth() + 1, d: initial.getDate(),
     h: initial.getHours(), mi: initial.getMinutes(),
@@ -223,7 +234,7 @@ export function WheelPopover({ anchor, initial, onCommit, onClose, onClear, shor
   const noteRef = useRef<HTMLParagraphElement>(null)
 
   const commit = () => {
-    if (!coarse) {
+    if (typing) {
       const time = parseTyped(typed)
       if (!time) { setInvalid(true); return }
       const out = { ...v, h: time[0], mi: time[1] }
@@ -234,6 +245,8 @@ export function WheelPopover({ anchor, initial, onCommit, onClose, onClear, shor
     // a blocked «OK» stays tappable and rings the note that says why (lib/pointAtField)
     else pointAtField(noteRef.current)
   }
+
+  const startTyping = () => { setTyped(`${pad2(v.h)}:${pad2(v.mi)}`); setInvalid(false); setTyping(true) }
 
   const stampNow = () => {
     if (onNow) { onNow(); return }
@@ -249,7 +262,7 @@ export function WheelPopover({ anchor, initial, onCommit, onClose, onClear, shor
   // the popover grew past it, so «OK» ended up under the bottom edge of the screen with no way to
   // reach it. Measured: 9px padding ×2 + 5×44px of wheel + 40px actions + its 8px gap, plus the
   // shortcut row when there is one.
-  const height = 18 + (title ? 30 : 0) + (coarse ? 220 : 52) + 48 + (shortcut || (onClear && clearLabel) ? 52 : 0)
+  const height = 18 + (title ? 30 : 0) + (typing ? 52 : 220) + 48 + (shortcut || (onClear && clearLabel) ? 52 : 0)
     + (note ? 30 : 0) + (invalid ? 56 : 0)
   const up = window.innerHeight - anchor.bottom < height + 16
   // Leave room for all three footer actions, including longer translations such as «Maintenant».
@@ -301,28 +314,32 @@ export function WheelPopover({ anchor, initial, onCommit, onClose, onClear, shor
         </div>
       )}
       <div className="wheelpop-cols">
-        {dayShown && coarse && (
+        {dayShown && !typing && (
           <Wheel day ariaLabel={C.day} items={dayList.map(fmtWheelDay)} index={Math.max(0, dayIndex)}
             onIndex={(i) => {
               const d = dayList[i]
               if (d) setV((p) => ({ ...p, y: d.getFullYear(), mo: d.getMonth() + 1, d: d.getDate() }))
             }} />
         )}
-        {/* ONE input, not two. A keyboard gets a field and a day list; a finger gets the wheels.
-            Showing both at once meant the same value had two controls sitting on top of each
-            other, and it was never clear which one the popover would actually commit. */}
-        {coarse ? (
+        {/* ONE input at a time. A keyboard gets a field and a day list; a finger gets the wheels –
+            and, since a tap on the time under the band (owner pick UX journeys B2·28, 25.11.2026),
+            the same field in their place. It overturns «ONE input, not two» (28.07.2026, commit
+            9aca858f) only so far: the two never stand side by side – the same value with two
+            controls on top of each other left unclear which one the popover would commit. */}
+        {!typing ? (
           <>
             {/* the two that loop: a clock has no first and no last minute, so 23:59 → 00:05 is
                 one flick down rather than a drag back through the whole day */}
-            <Wheel loop ariaLabel={C.hour} items={HOURS} index={v.h} onIndex={(i) => setV((p) => ({ ...p, h: i }))} />
-            <Wheel loop ariaLabel={C.minute} items={MINUTES} index={v.mi} onIndex={(i) => setV((p) => ({ ...p, mi: i }))} />
+            <Wheel loop ariaLabel={C.hour} items={HOURS} index={v.h} onIndex={(i) => setV((p) => ({ ...p, h: i }))} onTapSelected={startTyping} />
+            <Wheel loop ariaLabel={C.minute} items={MINUTES} index={v.mi} onIndex={(i) => setV((p) => ({ ...p, mi: i }))} onTapSelected={startTyping} />
             <div className="wheelpop-band" aria-hidden />
           </>
         ) : (
           <div className={w.typedRow}>
             <input
               className={w.typed} value={typed} inputMode="numeric" enterKeyHint="done" autoFocus
+              // from the wheels the time stands selected, so «2339» replaces it instead of trailing it
+              onFocus={coarse ? (e) => e.currentTarget.select() : undefined}
               aria-label={`${C.hour} / ${C.minute}`} placeholder="--:--"
               aria-invalid={invalid || undefined} aria-describedby={invalid ? errorId : undefined}
               onChange={(e) => {
