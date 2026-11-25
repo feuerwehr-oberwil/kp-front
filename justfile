@@ -398,6 +398,8 @@ lint:
 lint-dead: ci-static-analysis
     pnpm knip
 
+# (A first look, not a gate: pytest gets no DATABASE_URL here, so it may run on in-memory SQLite,
+# where the Postgres-only test modules skip. `just ci` before you push.)
 # Test both stacks (vitest + pytest).
 [group('Quality')]
 test:

@@ -219,11 +219,11 @@ stay CI's.
   baseline file. A new rule's first count is a raise too: commit it on its own.
   `controlDebt.test.ts` keeps its baseline in TypeScript and is not covered.
 - **Dead code and duplicates beyond knip** (`just ci-static-analysis`, part of `just ci` and the
-  required «Static analysis» check; `just lint-dead` adds knip): jscpd fails when the share of duplicated lines goes above `threshold` in
-  `.jscpd.json` (frontend, 1 %) or `backend/.jscpd.json` (0.5 %). vulture (`[tool.vulture]` in
-  `backend/pyproject.toml`, confidence 60) fails on a name that is neither used nor in
-  `backend/vulture_whitelist.py`, and deptry on an unused or missing backend dependency. The
-  baselines are of 25.11.2026: fix a new finding, or add it to the whitelist under its reason.
+  required «Static analysis» check; `just lint-dead` adds knip): jscpd fails when the share of
+  duplicated lines goes above `threshold` in `.jscpd.json` (frontend, 1 %) or `backend/.jscpd.json`
+  (0.5 %). vulture (`[tool.vulture]` in `backend/pyproject.toml`, confidence 60) fails on a name
+  that is neither used nor in `backend/vulture_whitelist.py`, and deptry on an unused or missing
+  backend dependency. The baselines are of 25.11.2026: fix a new finding, or add it to the whitelist under its reason.
   Never raise a threshold to pass.
 - **`jsdom` is held on 30.0.x** (`~30.0.1`, Dependabot ignores everything from 30.1.0): since
   30.1 its blob URLs cannot read the Node `Blob` Vitest supplies, so maplibre-gl fails at import
