@@ -469,6 +469,8 @@ export class WorkspaceSync {
   private disposed = false
   /** the edit lock went to another tab (see `retire`) */
   private retired = false
+  /** the last main-slot write was refused by the fence: another tab holds the slot now */
+  private fencedOut = false
   private saveSeq = 0 // bumped on each save(); lets a flush detect an edit that landed mid-PUT
   private readonly debounceMs: number
   // Automatic retry after a FAILED flush (server 5xx / network drop): without it a dirty
@@ -580,7 +582,10 @@ export class WorkspaceSync {
   /** Every write of the main slot: fenced while this engine runs under the edit lock. */
   private writeMain(entry: CacheEntry): Promise<boolean> {
     const fence = this.fence
-    return fence ? idbSetFenced(cacheKey(this.incidentId), entry, fence) : idbSet(cacheKey(this.incidentId), entry)
+    this.fencedOut = false
+    return fence
+      ? idbSetFenced(cacheKey(this.incidentId), entry, fence, () => { this.fencedOut = true })
+      : idbSet(cacheKey(this.incidentId), entry)
   }
   private get sessionActive(): boolean {
     return this.canWrite && !cacheDenied
@@ -694,7 +699,7 @@ export class WorkspaceSync {
         return stored
       })
       return this.retiredWrite
-    })
+    }, () => !this.fencedOut)
     writes.add(write)
     this.cacheWrite = write.finally(() => {
       writes.delete(write)
@@ -1103,7 +1108,9 @@ export class WorkspaceSync {
     // so the read below sees that tab's last committed draft and nothing lands over it after.
     const fence = this.opts.lock === 'editor' ? this.fence : undefined
     if (fence) {
-      await idbSet(fence.key, fence.token)
+      // a claim that did not land leaves the slot to the tab that holds the fence: this session
+      // runs from memory and says the cache is not durable (mainSlotBlocked), never writes blind
+      if (!(await idbSet(fence.key, fence.token))) { this.mainSlotBlocked = true; this.cacheDurable = false }
       this.requireOpeningOwner()
     }
     const opened = this.opts.lock === 'follower' ? await this.openFollower() : await this.open()

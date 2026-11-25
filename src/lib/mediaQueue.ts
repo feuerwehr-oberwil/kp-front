@@ -180,12 +180,22 @@ async function readQueue(incidentId: string): Promise<{ items: MediaQueueItem[];
   if (!read.ok) return held ?? { items: [], known: false }
   const stored = read.value ?? []
   if (!held) return { items: stored, known: true }
-  // `known`: the newer whole queue whose write failed – newer for every entry it holds. An entry
-  // only the store has was stored since by ANOTHER tab (this one's writes are in `held`), and is
-  // kept: a receipt this tab had retired comes back as a receipt, whose link is idempotent.
+  if (!held.known) {
+    const heldIds = new Set(held.items.map((i) => i.id))
+    return { items: [...stored.filter((i) => !heldIds.has(i.id)), ...held.items], known: true }
+  }
+  // `known`: the whole queue whose write failed – newer than the store for what THIS tab did. But
+  // another tab can have written the store since (the Einsatz's edit lock moved, hunt 24.11.2026):
+  // an entry only the store has is kept (a receipt this tab had retired comes back as a receipt,
+  // whose link is idempotent), and under one id the later CAPTURE wins – a voice memo re-recorded
+  // there is not undone by this tab's older one; this tab's own status changes keep `createdAt`.
+  const storedById = new Map(stored.map((i) => [i.id, i]))
   const heldIds = new Set(held.items.map((i) => i.id))
-  const others = stored.filter((i) => !heldIds.has(i.id))
-  return { items: held.known ? [...held.items, ...others] : [...others, ...held.items], known: true }
+  const merged = held.items.map((h) => {
+    const s = storedById.get(h.id)
+    return s && s.createdAt > h.createdAt ? s : h
+  })
+  return { items: [...merged, ...stored.filter((i) => !heldIds.has(i.id))], known: true }
 }
 /** Returns whether the queue is durably stored. A queued photo/voice memo is an incident record
  *  that exists ONLY here until it uploads, so a full device evicts map tiles to make room rather

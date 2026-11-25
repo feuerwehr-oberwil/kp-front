@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto'
 import { IDBFactory } from 'fake-indexeddb'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { idbGet, idbRead, idbKeys, idbSet, idbDel, idbUpdate, readThrough, __resetIdbForTests } from './idb'
+import { idbGet, idbRead, idbKeys, idbSet, idbSetFenced, idbDel, idbUpdate, readThrough, __resetIdbForTests } from './idb'
 import { ApiError } from './api'
 
 beforeEach(() => {
@@ -11,6 +11,19 @@ beforeEach(() => {
 })
 
 describe('idb key-value store (IndexedDB backend)', () => {
+  it('a fenced write lands only while the fence holds its token (or none)', async () => {
+    const fence = { key: 'slot::writer', token: 'tab-a' }
+    const refused = vi.fn()
+    expect(await idbSetFenced('slot', 'a1', fence, refused)).toBe(true) // nobody claimed yet
+    await idbSet(fence.key, 'tab-a')
+    expect(await idbSetFenced('slot', 'a2', fence, refused)).toBe(true)
+    await idbSet(fence.key, 'tab-b') // the other tab took the Einsatz
+    expect(await idbSetFenced('slot', 'a3', fence, refused)).toBe(false)
+    expect(await idbUpdate('slot', () => 'a4', fence)).toBe(false)
+    expect(await idbGet('slot')).toBe('a2')
+    expect(refused).toHaveBeenCalledOnce()
+  })
+
   it('round-trips a structured-clone value (no JSON serialization)', async () => {
     const value = { a: 1, nested: { list: [1, 2, 3] }, flag: true }
     await idbSet('k1', value)

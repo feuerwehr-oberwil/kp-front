@@ -599,3 +599,21 @@ describe('useIncidentSync · the edit lock comes to this tab', () => {
     expect(fresh.pushOwed).toHaveBeenCalledOnce()
   })
 })
+
+describe('useIncidentSync · the edit lock comes to this tab, in a commit that changes the payload', () => {
+  it('saves nothing from the follower’s view into the fresh engine', async () => {
+    pollWorkspaceSince.mockImplementation(() => new Promise(() => {}))
+    const follower = { ...makeSync(), incidentId: 'i1', workspace: {} }
+    const fresh = { ...makeSync(), incidentId: 'i1', rev: 3, workspace: { reportMeta: { remarks: 'from the other tab' } } }
+    const stale = { reportMeta: { summary: 'what the follower showed' } } as unknown as Saved
+    const view = renderHook(
+      ({ sync, readOnly, bp }: { sync: typeof follower; readOnly: boolean; bp: () => Saved }) => useIncidentSync({
+        sync: sync as unknown as WorkspaceSync, readOnly, incidentId: 'i1', buildPayload: bp,
+        applyWorkspace: vi.fn(), flushEvents: vi.fn(), flushEventsBeacon: vi.fn(),
+      }),
+      { initialProps: { sync: follower, readOnly: true, bp: () => ({}) as Saved } },
+    )
+    view.rerender({ sync: fresh, readOnly: false, bp: () => stale })
+    expect(fresh.save).not.toHaveBeenCalled()
+  })
+})

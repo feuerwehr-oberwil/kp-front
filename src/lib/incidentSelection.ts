@@ -11,7 +11,8 @@
 //   · a lost lock (another tab's «Hier bearbeiten») retires the editor at once – no write, push
 //     or retry after it, and the fence refuses any write it had not started yet;
 //   · leaving the Einsatz releases the lock only after the engine's last cache write settled.
-// The view reads `editing`/`current` through `subscribe` (App · useSyncExternalStore).
+// The view reads `editing`/`current` through `subscribe` (App · useSyncExternalStore): a
+// notify for every change of the open Einsatz's lock or engine; an open answers its caller instead.
 import { archiveIncident, getIncident, type IncidentMeta } from './api/incidents'
 import { clearIncidentMedia } from './mediaQueue'
 import { WorkspaceSync, type WorkspaceSyncOptions } from './api/workspaceSync'
@@ -148,13 +149,16 @@ export class IncidentSelection {
 
   async open(id: string, meta: IncidentMeta | undefined, options: WorkspaceSyncOptions) {
     const generation = ++this.generation
-    const previous = this.current
-    const stillOpening = () => generation === this.generation && this.current === previous
+    // ⚠️ The SEAT, not its engine: a grant for the Einsatz on screen swaps its engine while this
+    // switch runs, and must not cancel it (Sol r1) – the flush below asks the seat's engine then.
+    const previous = this.seat
+    const stillOpening = () => generation === this.generation && this.seat === previous
     if (this.pending?.seat.id !== id) this.cancelPending()
     try {
       const incident = meta ?? await getIncident(id)
       if (!stillOpening()) return null
-      if (previous?.incidentId === id) return { meta: incident, workspace: previous.workspace, rev: previous.rev }
+      const shown = this.current
+      if (shown?.incidentId === id) return { meta: incident, workspace: shown.workspace, rev: shown.rev }
 
       // A second tap on the same Einsatz joins its load. Two candidates for one id
       // would both write the same cache, including on teardown of the losing request.
@@ -172,7 +176,9 @@ export class IncidentSelection {
         seat.lock.start()
         const loaded = seat.answered.then((held) => {
           if (seat.released) throw new Error('Incident selection cancelled')
-          seat.engine = new WorkspaceSync(id, { ...seat.options, lock: held ? 'editor' : 'follower' })
+          // without Web Locks nothing orders the tabs: no fence either, as before (Sol r1)
+          const lock = seat.lock.coordinated ? (held ? 'editor' : 'follower') : undefined
+          seat.engine = new WorkspaceSync(id, { ...seat.options, lock })
           return seat.engine.init()
         })
         this.pending = { seat, loaded }
@@ -180,7 +186,7 @@ export class IncidentSelection {
       const candidate = this.pending
       const opened = await candidate.loaded
       if (!stillOpening()) return null
-      await previous?.flush()
+      await previous?.engine?.flush()
       if (!stillOpening()) return null
       const seat = candidate.seat
       this.release(this.seat)
@@ -191,7 +197,10 @@ export class IncidentSelection {
       // the lock moved while the engine opened: catch the view up with it
       if (seat.granted && !engine.editor) void this.promote(seat)
       else if (!seat.granted && engine.editor) engine.retire()
-      this.notify()
+      // ⚠️ No notify: the caller installs this Einsatz's id, meta and workspace from the answer, and
+      // the view must get this engine in that same render – a notify now rendered the PREVIOUS
+      // Einsatz's view over it for one commit, which drained this engine's merge notes into the
+      // other Einsatz's Verlauf (Sol r1). `current`/`editing` are read in that render.
       const { workspace, rev } = engine
       // An untouched new Einsatz has a null initial blob (the engine represents it as {}).
       const stillEmpty = opened.workspace === null && rev === opened.rev && !Object.keys(workspace).length

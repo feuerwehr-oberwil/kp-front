@@ -42,6 +42,11 @@ export class IncidentTabLock {
     private readonly locks: LocksAPI | null = defaultLocks(),
   ) {}
 
+  /** Is there a Web Locks API to order the tabs? Without one every tab just edits. */
+  get coordinated(): boolean {
+    return this.locks !== null
+  }
+
   start(): void {
     if (this.stopped) return
     if (!this.locks) {

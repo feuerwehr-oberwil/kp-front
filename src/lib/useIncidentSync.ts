@@ -119,6 +119,9 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
    *  Held as the serialized string — or, after a skipped mid-gesture compare (below), as the
    *  payload itself, serialized only when the next compare needs it. */
   const lastPushed = useRef<string | Saved | null>(null)
+  /** The engine whose workspace the view shows. A fresh engine (the edit lock came to this tab,
+   *  lib/incidentSelection) is not it until the hand-over below ran – no save before that. */
+  const shownSync = useRef(sync)
   const hydrate = (ws: Workspace) => { skipSave.current = true; applyWorkspace(ws) }
 
   // Attendance divergence → ONE Verlauf note per affected person: a merge kept LWW but saw
@@ -195,6 +198,11 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
   // an incident doesn't immediately re-push the just-loaded state.
   const firstSave = useRef(true)
   useEffect(() => {
+    // ⚠️ The commit that brings a fresh editor engine can also bring a new payload – from the view
+    // the FOLLOWER showed. Saved into the fresh engine it would replace the draft that engine just
+    // read from the slot, and the hand-over would then show that stale copy (Sol r1, 25.11.2026).
+    // This effect runs before the hand-over in the same commit, so it waits for it.
+    if (shownSync.current !== sync) return
     const payload = buildPayload()
     if (firstSave.current) { firstSave.current = false; lastPushed.current = JSON.stringify(payload); return }
     if (skipSave.current) { skipSave.current = false; lastPushed.current = JSON.stringify(payload); return }
@@ -306,7 +314,6 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
   // view can run: a save from the follower's view would write that tab's older copy over the
   // draft (hunt 24.11.2026, offline-sync F1). The follower's poll round was aborted with its
   // loop in this same commit (useLongPoll restarts on `sync`), so its late answer cannot land.
-  const shownSync = useRef(sync)
   useEffect(() => {
     if (shownSync.current === sync) return
     const handed = shownSync.current.incidentId === sync.incidentId
