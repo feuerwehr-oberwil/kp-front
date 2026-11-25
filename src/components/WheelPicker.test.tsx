@@ -69,6 +69,23 @@ describe('WheelPicker · looping clock wheels', () => {
     fireEvent.click(screen.getByRole('button', { name: 'OK' }))
     expect(onCommit).toHaveBeenCalledWith({ y: 2026, mo: 11, d: 24, h: 23, mi: 39 })
   })
+  // owner, UX journeys sign-off (26.11.2026): «day – time» on one line, opened ABOVE the field so
+  // it covers nothing under it (the Rückmeldung's «Entfällt» under the Einsatzende)
+  it('types on one line, the day first, and opens above its field when it fits', () => {
+    const low = { ...anchor, top: 420, bottom: 460 } as DOMRect
+    const days = [new Date(2026, 10, 25)]
+    render(<WheelPopover anchor={low} initial={new Date(2026, 10, 25, 23, 42)} days={days} dayAlways onCommit={() => {}} onClose={() => {}} />)
+    const pop = screen.getByRole('dialog')
+    const wheelTop = parseFloat(pop.style.top)
+    fireEvent.click(wheel('Minute').querySelector('[aria-selected="true"]')!)
+    const field = screen.getByRole('textbox', { name: 'Stunde / Minute' })
+    const day = screen.getByRole('combobox', { name: 'Tag' })
+    expect(field.parentElement).toBe(day.parentElement)
+    expect(day.compareDocumentPosition(field) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    // the wheels stood below the field; the typed line stands above it
+    expect(wheelTop).toBeGreaterThan(low.bottom)
+    expect(parseFloat(pop.style.top)).toBeLessThan(low.top)
+  })
   it('a tap on another row still only moves the wheel', () => {
     open(new Date(2026, 7, 8, 22, 47))
     const other = [...wheel('Minute').querySelectorAll('[role="option"]')].find((b) => b.textContent === '30')!

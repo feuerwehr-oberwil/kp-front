@@ -6,7 +6,8 @@
 // under the center band. «Jetzt» is the fast path (stamp the DEPLOYMENT's clock, lib/serverClock,
 // and close – 12.11.2026, it was the device's), «OK» commits a scrolled selection. A tap on the time
 // under the band swaps the wheels for a typed field («2339», OK – owner pick UX journeys B2·28,
-// 25.11.2026). Portalled to <body> so no card/accordion can clip it.
+// 25.11.2026): one line «day – time», opened above its field (owner sign-off, 26.11.2026).
+// Portalled to <body> so no card/accordion can clip it.
 
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
@@ -264,7 +265,11 @@ export function WheelPopover({ anchor, initial, onCommit, onClose, onClear, shor
   // shortcut row when there is one.
   const height = 18 + (title ? 30 : 0) + (typing ? 52 : 220) + 48 + (shortcut || (onClear && clearLabel) ? 52 : 0)
     + (note ? 30 : 0) + (invalid ? 56 : 0)
-  const up = window.innerHeight - anchor.bottom < height + 16
+  // ⚠️ The TYPED time opens ABOVE its field when it fits (owner, UX journeys sign-off, 26.11.2026):
+  // below, it lay over the next row – the Rückmeldung's «Entfällt» under the Einsatzende – and the
+  // phone's keyboard comes up from the bottom anyway. The wheels keep below-first.
+  const roomBelow = window.innerHeight - anchor.bottom >= height + 16
+  const up = typing ? anchor.top >= height + 16 || !roomBelow : !roomBelow
   // Leave room for all three footer actions, including longer translations such as «Maintenant».
   // A shortcut or a named state choice needs its sentence on one line; bare wheels do not.
   // The day column is the widest label in the popover («Mo 05.10.», «lun 05.10.») and gets the
@@ -335,7 +340,21 @@ export function WheelPopover({ anchor, initial, onCommit, onClose, onClear, shor
             <div className="wheelpop-band" aria-hidden />
           </>
         ) : (
+          /* ONE line, the date first: «Mi 25.11. – 23:39» (owner, UX journeys sign-off, 26.11.2026 –
+             the day list under the field read as a second question) */
           <div className={w.typedRow}>
+            {dayShown && (
+              <>
+                <select className={w.daySel} aria-label={C.day} value={Math.max(0, dayIndex)}
+                  onChange={(e) => {
+                    const d = dayList[Number(e.target.value)]
+                    if (d) setV((p) => ({ ...p, y: d.getFullYear(), mo: d.getMonth() + 1, d: d.getDate() }))
+                  }}>
+                  {dayList.map((d, i) => <option key={i} value={i}>{fmtWheelDay(d)}</option>)}
+                </select>
+                <span className={w.dash} aria-hidden>–</span>
+              </>
+            )}
             <input
               className={w.typed} value={typed} inputMode="numeric" enterKeyHint="done" autoFocus
               // from the wheels the time stands selected, so «2339» replaces it instead of trailing it
@@ -350,15 +369,6 @@ export function WheelPopover({ anchor, initial, onCommit, onClose, onClear, shor
               }}
               onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); commit() } }}
             />
-            {dayShown && (
-              <select className={w.daySel} aria-label={C.day} value={Math.max(0, dayIndex)}
-                onChange={(e) => {
-                  const d = dayList[Number(e.target.value)]
-                  if (d) setV((p) => ({ ...p, y: d.getFullYear(), mo: d.getMonth() + 1, d: d.getDate() }))
-                }}>
-                {dayList.map((d, i) => <option key={i} value={i}>{fmtWheelDay(d)}</option>)}
-              </select>
-            )}
           </div>
         )}
       </div>
