@@ -189,7 +189,8 @@ export function JournalRow({
       role={clickable ? 'button' : undefined}
       tabIndex={clickable ? 0 : undefined}
       onClick={onRow}
-      onKeyDown={onRow ? (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); onRow() } } : undefined}
+      // only the row's OWN keys: a Space or Enter typed in the correction field inside it is text
+      onKeyDown={onRow ? (ev) => { if (ev.target === ev.currentTarget && (ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); onRow() } } : undefined}
     >
       <span className="t" data-same={sameMinute || undefined}>{rowTime(e)}</span>
       {/* ⚠️ The box is the tick, HERE as well as in the pinned block. It was taken

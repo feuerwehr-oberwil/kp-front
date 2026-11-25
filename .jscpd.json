@@ -1,0 +1,21 @@
+{
+  "threshold": 1,
+  "minTokens": 70,
+  "format": ["typescript", "tsx", "javascript", "css"],
+  "gitignore": true,
+  "ignore": [
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/coverage/**",
+    "**/test-results/**",
+    "**/playwright-report/**",
+    "**/*.snap",
+    "**/fixtures/**",
+    "**/*.fixture.ts",
+    "backend/**",
+    "src/lib/api/schema.d.ts",
+    "pnpm-lock.yaml"
+  ],
+  "reporters": ["console"],
+  "absolute": false
+}

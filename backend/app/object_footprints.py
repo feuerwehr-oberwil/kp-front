@@ -126,8 +126,6 @@ TIMEOUT_S = 15.0
 TICK_SECONDS = 120
 #: a register entrance farther from the pin than this is not «the address at the pin»
 PLACE_MAX_M = 45.0
-#: the station's outline choices (ObjectSite.outline); NULL = the automatic rule
-OUTLINE_MODES = ("auto", "building", "none")
 
 _USER_AGENT = "kp-front (+https://github.com/feuerwehr-oberwil/kp-front)"
 
