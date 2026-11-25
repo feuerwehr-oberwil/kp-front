@@ -632,6 +632,25 @@ describe('mergeWorkspace — a server blob this app did not write', () => {
     const out = mergeWorkspace({}, { entities: [o('a')] }, { entities: [null, 'junk', { noId: 1 }, o('b')] }) as { entities: { id: string }[] }
     expect(out.entities.map((e) => e.id)).toEqual(['b', 'a'])
   })
+
+  it('a bad object row is skipped, and an object of a kind this build does not know rides along', () => {
+    const valid = { id: 'e1', entity: { id: 'e1', kind: 'symbol', layer: 'ops', coord: [8, 47], label: 'A' } }
+    const future = { id: 'z1', hologram: { at: [8, 47] } }
+    const passenger = { id: 'z2', sheet: { planId: 'p1', anno: { id: 'z2', kind: 'hologram' } } }
+    const bad = [null, { noId: true }, 'junk']
+    const base = { objects: [...bad, valid, future, passenger] }
+    const theirs = { objects: [...bad, valid, future, passenger] }
+    const mine = { objects: [{ ...valid, entity: { ...valid.entity, label: 'M' } }, future, passenger] }
+    const out = mergeWorkspace(base, mine, theirs) as { objects: { id: string }[]; board: Record<string, unknown[]> }
+    expect(out.objects).toEqual([mine.objects[0], future, passenger])
+    expect(out.board).toEqual({ p1: [passenger.sheet.anno] })
+  })
+
+  it('an object whose sheet body has no anno merges without throwing', () => {
+    const sheetless = (label: string) => ({ id: 's1', sheet: { planId: 'p1' }, label })
+    const out = mergeWorkspace({ objects: [sheetless('A')] }, { objects: [sheetless('M')] }, { objects: [sheetless('T')] }) as { objects: unknown[] }
+    expect(out.objects).toEqual([sheetless('M')])
+  })
 })
 
 describe('mergeWorkspace — every field of the blob has a declared merge policy', () => {

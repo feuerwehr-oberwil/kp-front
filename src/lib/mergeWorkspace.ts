@@ -694,7 +694,7 @@ void everySyncedFieldHasASlot
 function resolveTactical(ancestor: TacticalObject, mine: TacticalObject, theirs: TacticalObject, onFormConflict?: (c: RecordConflict) => void): TacticalObject {
   // …and a Tafel PAGE is merged cell by cell (lib/boardFormMerge, review of #338): two devices
   // on one page must both keep what they wrote, and a cell both changed goes to the later edit
-  const page = (o: TacticalObject) => (o.sheet?.anno.kind === 'form' && isFormData(o.sheet.anno.form) ? o.sheet.anno.form : null)
+  const page = (o: TacticalObject) => (o.sheet?.anno?.kind === 'form' && isFormData(o.sheet.anno.form) ? o.sheet.anno.form : null)
   const [pa, pm, pt] = [page(ancestor), page(mine), page(theirs)]
   if (pa && pm && pt && mine.sheet && theirs.sheet) {
     const title = labelText(pm.page.title)
@@ -737,7 +737,7 @@ function resolveTactical(ancestor: TacticalObject, mine: TacticalObject, theirs:
   return withMergedSymbolReadings(mineMachine && !theirsMachine ? theirs : mine, ancestor, mine, theirs)
 }
 
-const readingsOf = (o: TacticalObject) => o.entity?.readings ?? o.sheet?.anno.readings
+const readingsOf = (o: TacticalObject) => o.entity?.readings ?? o.sheet?.anno?.readings
 
 /**
  * A Messpunkt's history (SymbolProps.readings, lib/symbols · recordReading) when both sides changed
@@ -814,9 +814,11 @@ export function mergeWorkspace(
   // its views), the objects merge per id like any collection, and the three legacy views
   // are then DERIVED from the merged result. Merging views independently beside the
   // objects could let the two disagree about the same id — one truth, derived twice.
+  // A row without an id is no object and is skipped, like in every other list. A row with one
+  // is kept whatever its bodies are: an object of a kind this build does not know is a passenger.
   const objectsOf = (ws: Record<string, unknown>): TacticalObject[] =>
     Array.isArray(ws.objects)
-      ? (ws.objects as TacticalObject[])
+      ? listOf<TacticalObject>(ws.objects)
       : objectsFromLegacy(
           listOf<Entity>(ws.entities),
           listOf<Drawing>(ws.drawings),
