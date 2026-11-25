@@ -1250,7 +1250,8 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
         // source's error at the map with the `sourceId` it belongs to (style.ts · setEventedParent);
         // react-map-gl's ErrorEvent type does not carry it, hence the structural read.
         const sourceId = (e as { sourceId?: string }).sourceId
-        if (sourceId && !navigator.onLine && layers.some((l) => l.base && `s-${l.id}` === sourceId)) onBasemapUnavailable?.()
+        // …the night variant included (`s-<id>-night`, MapLayers): at night it is the base on screen
+        if (sourceId && !navigator.onLine && layers.some((l) => l.base && (`s-${l.id}` === sourceId || `s-${l.id}-night` === sourceId))) onBasemapUnavailable?.()
       }}
       onClick={handleClick}
       // ⚠️ BOTH fill layers. `l-draw-hit` is line-only, so a polygon's INTERIOR is picked through

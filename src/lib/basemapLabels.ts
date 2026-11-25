@@ -1,6 +1,6 @@
 import type { SymbolLayerSpecification } from 'maplibre-gl'
 import vendored from '../data/cartoLabelLayers.json'
-import { fillTileTemplate, tilesForBounds, type LngLatBounds } from './offlineTiles'
+import { tileRequestUrl, tilesForBounds, type LngLatBounds } from './offlineTiles'
 
 // The CARTO base's street, place and house-number names, drawn as VECTOR text over the
 // unlabelled raster (owner pick «C», 21.10.2026). CARTO's labelled raster tiles carry almost no
@@ -61,7 +61,7 @@ export const LABEL_WARM_BYTES = 100 * 1024
  *  tiles (z14 only – everything above is overzoomed from them) and every glyph range. */
 export function labelWarmUrls(bounds: LngLatBounds): string[] {
   return [
-    ...tilesForBounds(bounds, LABEL_MAXZOOM, LABEL_MAXZOOM).map((t) => fillTileTemplate(LABEL_TILES[0], t.z, t.x, t.y)),
+    ...tilesForBounds(bounds, LABEL_MAXZOOM, LABEL_MAXZOOM).map((t) => tileRequestUrl(LABEL_TILES, t.z, t.x, t.y)),
     ...GLYPH_FILES,
   ]
 }

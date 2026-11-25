@@ -12,7 +12,8 @@ import { LABEL_WARM_BYTES, labelWarmUrls } from '../lib/basemapLabels'
 import { fillTemplate, fmtFileSize } from '../lib/format'
 import { isStorageDegraded } from '../lib/idb'
 import { isStandalone } from '../lib/installPrompt'
-import { bulkFetchAllowed, fillTileTemplate, predownloadArea, tilesForBounds } from '../lib/offlineTiles'
+import { bulkFetchAllowed, fillTileTemplate, predownloadArea, tileRequestUrl, tilesForBounds } from '../lib/offlineTiles'
+import { useNightTheme } from '../lib/useNightTheme'
 import { WARM_BYTES, estimateStorage, fittedTileCap, prefetchFit, tileBytesFor } from '../lib/storageBudget'
 import { confirmDialog, toast } from '../lib/ui'
 import { useOnline } from '../lib/useOnline'
@@ -26,7 +27,14 @@ export interface OfflinePrefetchInputs {
   backendPlans: Record<string, string>
 }
 
+/** The tiles the map draws for `base` right now – its dark variant at night, as MapLayers swaps
+ *  it (hunt 24.11.2026, karte F8: the download warmed the daylight style at night). */
+function activeBaseTiles(base: LayerDef | undefined, night: boolean): string[] | undefined {
+  return night && base?.nightTiles?.length ? base.nightTiles : base?.tiles
+}
+
 export function useOfflinePrefetch({ incidentId, center, mapRef, layers, backendPlans }: OfflinePrefetchInputs) {
+  const night = useNightTheme()
   // PWA: pre-download the current map area + plans/symbols/geodata so the base map and
   // reference data render offline at the scene (delivers the `offline`/`cachedTiles` promise).
   // One box around the incident (the STATION's radius, `map.offlineRadiusM`, default 1200 m –
@@ -67,13 +75,15 @@ export function useOfflinePrefetch({ incidentId, center, mapRef, layers, backend
   // no toasts — the Offline-Bereitschaft sheet is where the resulting truth is read. A tight
   // storage budget silently takes the reduced download instead of asking; the manual button
   // remains the place where that trade is offered as a question.
-  const downloadOffline = useCallback(async ({ quiet = false } = {}) => {
+  /** Resolves true when everything fetchable came back (no retryable failure), else false. */
+  const downloadOffline = useCallback(async ({ quiet = false } = {}): Promise<boolean> => {
     const map = mapRef.current?.getMap()
-    if (!map) return
+    if (!map) return false
     const base = layers.find((l) => l.base && l.visible)
     // OSM's own servers may be viewed but not bulk-fetched (offlineTiles · bulkFetchAllowed):
     // with OSM as base, Carto is warmed instead — the same OSM data, from a host that allows it.
-    const templates = base?.tiles?.every(bulkFetchAllowed) ? base.tiles : cartoRasterTiles('rastertiles/voyager', ['a'])
+    const active = activeBaseTiles(base, night)
+    const templates = active?.every(bulkFetchAllowed) ? active : cartoRasterTiles('rastertiles/voyager', ['a'])
     const rasterOverlays = layers.filter((l) => !l.base && l.tiles?.length).map((l) => l.tiles as string[])
     const bounds = incidentBounds
     // warm: per-object plan PDFs and the geojson overlays cropped to the box. NOT the symbol
@@ -95,7 +105,9 @@ export function useOfflinePrefetch({ incidentId, center, mapRef, layers, backend
     const rasterSourceCount = 1 + rasterOverlays.length
     const tileCount = coverageTileCount * rasterSourceCount
     // a retina base costs ~3× per tile (lib/storageBudget · tileBytesFor): the mean over the stack
-    const bytesPerTile = [templates, ...rasterOverlays].reduce((sum, t) => sum + tileBytesFor(t), 0) / rasterSourceCount
+    // priced as fetched: a `{ratio}` template is the @2x tile on a retina screen (offlineTiles)
+    const asFetched = (t: string[]) => t.map((u) => fillTileTemplate(u, 0, 0, 0, window.devicePixelRatio))
+    const bytesPerTile = [templates, ...rasterOverlays].reduce((sum, t) => sum + tileBytesFor(asFetched(t)), 0) / rasterSourceCount
     const extraBytes = (warmUrls.length - labelUrls.length) * WARM_BYTES + labelUrls.length * LABEL_WARM_BYTES
     const budget = await estimateStorage()
     const fit = prefetchFit(budget, tileCount, extraBytes, bytesPerTile)
@@ -107,7 +119,7 @@ export function useOfflinePrefetch({ incidentId, center, mapRef, layers, backend
       if (reduced === 0) {
         // not even the plans fit — nothing useful to offer but the honest refusal
         if (!quiet) toast(fillTemplate(co.dlNoSpace, { free: fmtFileSize(budget.free) }), { icon: 'map', tone: 'warn' })
-        return
+        return false
       }
       if (!quiet) {
         const ok = await confirmDialog({
@@ -118,11 +130,13 @@ export function useOfflinePrefetch({ incidentId, center, mapRef, layers, backend
           confirmLabel: co.dlTightConfirm,
           cancelLabel: appConfig.copy.cancel,
         })
-        if (!ok) return
+        if (!ok) return false
       }
       cap = reduced
     }
     setOfflineProgress({ done: 0, total: 1 })
+    // one run at a time: a new one (the night style coming on mid-download) replaces the old
+    offlineAbort.current?.abort()
     const ctrl = new AbortController()
     offlineAbort.current = ctrl
     // throttle progress to whole-percent changes so we don't re-render this (huge) component
@@ -141,7 +155,7 @@ export function useOfflinePrefetch({ incidentId, center, mapRef, layers, backend
         signal: ctrl.signal,
         onProgress: (done, total) => {
           const pct = total ? Math.floor((done / total) * 100) : 0
-          if (pct !== lastPct) { lastPct = pct; setOfflineProgress({ done, total }) }
+          if (pct !== lastPct && offlineAbort.current === ctrl) { lastPct = pct; setOfflineProgress({ done, total }) }
         },
       })
       // ⚠️ FOUR OUTCOMES, FOUR MESSAGES — not one message with different numbers. The bar
@@ -158,7 +172,8 @@ export function useOfflinePrefetch({ incidentId, center, mapRef, layers, backend
       const co = appConfig.copy.offline
       const got = res.fetched + res.warmFetched
       const retry = { label: co.dlRetry, onClick: () => { void downloadOfflineRef.current() } }
-      if (quiet) return // self-warm: the Offline-Bereitschaft sheet reports the resulting truth
+      const complete = res.failed === 0
+      if (quiet) return complete // self-warm: the Offline-Bereitschaft sheet reports the resulting truth
       if (got === 0 && res.failed > 0) {
         toast(co.dlNone, { icon: 'map', tone: 'warn', action: retry })
       } else if (got === 0 && res.notFound > 0) {
@@ -170,14 +185,18 @@ export function useOfflinePrefetch({ incidentId, center, mapRef, layers, backend
         toast(fillTemplate(res.capped ? co.dlPartialCapped : co.dlPartial, { n: got, total: got + res.failed }), { icon: 'map', tone: 'warn', action: { ...retry, label: co.dlContinue } })
       }
       // a full load says nothing here: the sheet's own ✓ «bereit» shows it (panels/OfflineReadiness)
+      return complete
     } catch {
       // a cancel is not a failure: the operator (or the unmount) asked for it, nothing to report
       if (!quiet && !ctrl.signal.aborted) toast(appConfig.copy.offline.dlFailed, { icon: 'map', tone: 'warn' })
+      return false
     } finally {
-      if (offlineAbort.current === ctrl) offlineAbort.current = null
-      setOfflineProgress(null)
+      if (offlineAbort.current === ctrl) {
+        offlineAbort.current = null
+        setOfflineProgress(null)
+      }
     }
-  }, [layers, backendPlans, incidentBounds, withGeoBbox, mapRef])
+  }, [layers, backendPlans, incidentBounds, withGeoBbox, mapRef, night])
   // «Weiterladen» / «Nochmals» re-runs the same download. Through a ref because the action rides
   // on a toast that outlives the render it was made in, and the callback cannot name itself.
   const downloadOfflineRef = useRef(downloadOffline)
@@ -195,7 +214,10 @@ export function useOfflinePrefetch({ incidentId, center, mapRef, layers, backend
   // measures against the CURRENT bbox, so a warm run for the old radius would keep reporting
   // «nicht geladen» forever. Centre and raster-reference ids are explicit too: a corrected
   // Einsatz location or newly configured WMS/WMTS layer owes the device another warm pass.
-  const offlineWarmSig = `${incidentId}|${center.join(',')}|${offlineRadiusM}|${Object.values(backendPlans).sort().join(',')}|${layers.filter((l) => l.geojson || (!l.base && l.tiles?.length)).map((l) => l.id).join(',')}`
+  // …and the tiles the map shows (its dark variant at night): only a style that asks for other
+  // tiles owes another pass
+  const warmBase = activeBaseTiles(layers.find((l) => l.base && l.visible), night)?.join(' ') ?? ''
+  const offlineWarmSig = `${incidentId}|${warmBase}|${center.join(',')}|${offlineRadiusM}|${Object.values(backendPlans).sort().join(',')}|${layers.filter((l) => l.geojson || (!l.base && l.tiles?.length)).map((l) => l.id).join(',')}`
   const offlineWarmed = useRef('')
   useEffect(() => {
     if (!isStandalone()) return
@@ -203,18 +225,20 @@ export function useOfflinePrefetch({ incidentId, center, mapRef, layers, backend
     const t = setTimeout(() => {
       if (!navigator.onLine || isStorageDegraded()) return // this round stays owed — the ref is only stamped on a start
       offlineWarmed.current = offlineWarmSig
-      void downloadOfflineRef.current({ quiet: true })
+      // a pass cut short (the link dropped mid-way) stays owed: the next reconnect re-arms it
+      void downloadOfflineRef.current({ quiet: true }).then((complete) => {
+        if (!complete && offlineWarmed.current === offlineWarmSig) offlineWarmed.current = ''
+      })
     }, 30_000)
     return () => clearTimeout(t)
-  }, [offlineWarmSig])
+  }, [offlineWarmSig, online]) // a warm owed while offline re-arms when the link is back
   // Offline-readiness: the representative URLs the readiness sheet probes against the SW
   // Cache to report REAL offline presence (not a guess) for the runtime-cached resources.
   const offlineProbeUrls = useMemo(() => {
     const base = layers.find((l) => l.base && l.visible)
-    const tpls = base?.tiles ?? []
-    // The downloader cycles tile subdomains (Carto = a/b/c/d), so a given tile lands under ONE
-    // of them. Probe the incident-centre tile across ALL subdomains and pass if any is cached —
-    // checking only [0] gave a false "nicht geladen".
+    const tpls = activeBaseTiles(base, night) ?? []
+    // The incident-centre tile under the URL MapLibre requests (offlineTiles · tileRequestUrl) –
+    // the only one the worker serves; a copy under another host is no offline map.
     let tiles: string[] = []
     if (tpls.length) {
       const z = 16
@@ -222,15 +246,13 @@ export function useOfflinePrefetch({ incidentId, center, mapRef, layers, backend
       const x = Math.floor(((lng + 180) / 360) * 2 ** z)
       const r = (lat * Math.PI) / 180
       const y = Math.floor(((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2) * 2 ** z)
-      tiles = tpls.map((t) => t.replace('{z}', String(z)).replace('{x}', String(x)).replace('{y}', String(y)))
+      tiles = [tileRequestUrl(tpls, z, x, y)]
     }
     const z = 16
     const [lng, lat] = center
     const x = Math.floor(((lng + 180) / 360) * 2 ** z)
     const r = (lat * Math.PI) / 180
     const y = Math.floor(((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2) * 2 ** z)
-    const covered = tilesForBounds(incidentBounds, 14, 17).slice(0, 1200)
-    const centreIndex = covered.findIndex((tile) => tile.z === z && tile.x === x && tile.y === y)
     return {
       tiles,
       plan: Object.values(backendPlans)[0] ?? null,
@@ -240,11 +262,10 @@ export function useOfflinePrefetch({ incidentId, center, mapRef, layers, backend
         ...layers.filter((l) => l.geojson).map((l) => withGeoBbox(l.geojson as string)),
         ...layers.filter((l) => !l.base && l.tiles?.length).map((l) => {
           const templates = l.tiles as string[]
-          const template = templates[Math.max(0, centreIndex) % templates.length]
-          return fillTileTemplate(template, z, x, y)
+          return tileRequestUrl(templates, z, x, y)
         }),
       ],
     }
-  }, [layers, center, incidentBounds, backendPlans, withGeoBbox])
+  }, [layers, center, backendPlans, withGeoBbox, night])
   return { incidentBounds, withGeoBbox, online, offlineProgress, cancelOffline, downloadOffline, offlineProbeUrls }
 }

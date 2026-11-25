@@ -40,7 +40,7 @@ export interface WorkspaceSheetsProps {
   personnel: Person[]
   syncStatus: SyncStatus
   lastSyncedAt: number | null
-  downloadOffline: (opts?: { quiet?: boolean }) => Promise<void>
+  downloadOffline: (opts?: { quiet?: boolean }) => Promise<unknown>
   reloadPersonnel: () => Promise<void>
   cancelOffline: () => void
   offlineProgress: { done: number; total: number } | null
