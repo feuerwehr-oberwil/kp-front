@@ -419,7 +419,7 @@ export function journalRows(
 ): JournalPrintRow[] {
   // …and a line the app repeated while nothing changed prints ONCE, with its count — the same
   // rule the Verlauf reads by, so paper and screen tell the same story (lib/verlauf).
-  const repeats = repeatRuns(events)
+  const repeats = repeatRuns(events, closedAt)
   return events
     .filter((e) => {
       if (repeats.hidden.has(e.id)) return false

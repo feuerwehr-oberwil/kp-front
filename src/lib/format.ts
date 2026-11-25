@@ -223,6 +223,34 @@ export function compareText(a: string, b: string): number {
   return a.localeCompare(b, formatLocale())
 }
 
+const HOUR_MS = 3_600_000
+const sameWall = (a: Date, b: Date) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth()
+  && a.getDate() === b.getDate() && a.getHours() === b.getHours() && a.getMinutes() === b.getMinutes()
+
+/**
+ * The instant a local wall time names (picker wheels: year, month 1–12, day, hour, minute), across
+ * the clock changes (hunt 24.11.2026, records-rapport F6): null when the spring change skips it
+ * (02:15 on the last Sunday of March never happened); at the autumn change 02:15 happens twice,
+ * and `prefer` – the value the picker opened on – keeps its own one, else the first.
+ */
+export function wallInstant(v: { y: number; mo: number; d: number; h: number; mi: number }, prefer?: Date): Date | null {
+  const guess = new Date(v.y, v.mo - 1, v.d, v.h, v.mi, 0, 0).getTime()
+  const hits = [-HOUR_MS, 0, HOUR_MS].map((dt) => new Date(guess + dt)).filter((c) => c.getFullYear() === v.y
+    && c.getMonth() === v.mo - 1 && c.getDate() === v.d && c.getHours() === v.h && c.getMinutes() === v.mi)
+  if (!hits.length) return null
+  return hits.find((c) => prefer && c.getTimezoneOffset() === prefer.getTimezoneOffset()) ?? hits[0]
+}
+
+/** « MEZ» / « MESZ» when the autumn change shows this wall time twice (the printed Verlauf tells
+ *  the two 02:15 apart), else ''. */
+export function zoneIfTwice(date: Date): string {
+  const twice = [-HOUR_MS, HOUR_MS].some((dt) => sameWall(new Date(date.getTime() + dt), date))
+  if (!twice) return ''
+  const zone = new Intl.DateTimeFormat(formatLocale(), { timeZoneName: 'short' }).formatToParts(date)
+    .find((p) => p.type === 'timeZoneName')?.value
+  return zone ? ` ${zone}` : ''
+}
+
 /** HH:MM (24 h, two digits; with seconds on request) in the deployment's locale (formatLocale). */
 export function formatTime(date: Date, withSeconds = false): string {
   return date.toLocaleTimeString(formatLocale(), {

@@ -170,19 +170,35 @@ async def append_system_row(
     text: str,
     lifecycle: str | None = None,
     subject: str | None = None,
+    at: datetime | None = None,
 ) -> None:
     """Server-authored boundary row (Einsatz abgeschlossen / wiedereröffnet). `t` stays empty —
     clients localise the display time from `at` (the server clock is UTC).
 
     A close ends the Einsatz's Präsentation first (app/presentation · end_for_close), so its
     «beendet» row stands before the close row – every close path writes this row, so this is
-    the one place that catches them all."""
+    the one place that catches them all.
+
+    `at`: the moment the row records, when that is not now (an alarm milestone reported late,
+    records-rapport F7) – the arrival is kept as `writtenAt` (types · TimelineEvent.writtenAt),
+    and a row that arrives while the Einsatz is closed is a Nachtrag like any late device row
+    (`receivedAfterClose`, see append_journal)."""
     if lifecycle == "closed":
         from .. import presentation
 
         await presentation.end_for_close(db, incident_id)
-    at = datetime.now(UTC).isoformat()
-    row: dict = {"id": f"sys{uuid.uuid4().hex[:12]}", "t": "", "at": at, "icon": icon, "text": text}
+    now = datetime.now(UTC)
+    row: dict = {
+        "id": f"sys{uuid.uuid4().hex[:12]}",
+        "t": "",
+        "at": (at or now).isoformat(),
+        "icon": icon,
+        "text": text,
+    }
+    if at is not None:
+        row["writtenAt"] = now.isoformat()
+        if not (await incident_lifecycle(db, incident_id, lock=True)).is_open:
+            row["receivedAfterClose"] = True
     # `lifecycle` ("closed" | "reopened") names the boundary for the clients, which must not parse
     # the German sentence: after a reopen the Atemschutz clocks of the crews still inside restart
     # from THIS row's `at` (lib/reopenClocks), and they hold the alarm until it has arrived.

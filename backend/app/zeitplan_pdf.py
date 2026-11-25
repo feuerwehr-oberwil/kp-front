@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import io
 import math
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Literal
 from zoneinfo import ZoneInfo
 
@@ -49,11 +49,23 @@ from .report.styles import _esc, _logo_flowable, _NumberedCanvas, _styles
 TZ = ZoneInfo("Europe/Zurich")
 
 
+def wall(dt: datetime) -> datetime:
+    """Into the station's wall clock, as a FIXED offset (+02:00 in summer, +01:00 in winter).
+
+    ⚠️ Not a ZoneInfo datetime: two of those share one tzinfo, and Python then subtracts and
+    compares them by WALL clock – a watch from 02:15 CEST to 02:15 CET on the autumn change
+    measured zero minutes and its person dropped out of the staffing count (hunt 24.11.2026,
+    data-consistency F6). Fixed offsets compute on the instant and still print local hours.
+    Naive input is assumed to be local already."""
+    if not dt.tzinfo:
+        return dt
+    loc = dt.astimezone(TZ)
+    return loc.astimezone(timezone(loc.utcoffset() or timedelta(0)))
+
+
 def _local(dt: datetime | None) -> datetime | None:
-    """Into the station's wall clock. Naive input is assumed to be local already."""
-    if dt is None:
-        return None
-    return dt.astimezone(TZ) if dt.tzinfo else dt
+    """`wall` for an optional stamp."""
+    return None if dt is None else wall(dt)
 
 
 SLOT_MIN = 30
@@ -90,10 +102,8 @@ class ZeitplanBlock(BaseModel):
     start: datetime = Field(alias="from")
     end: datetime | None = Field(default=None, alias="to")
     confirmed: bool = False
-    #: the Schichtband this block was entered into, when it was entered into one at all. Only the
-    #: «Schichtplan» sheet reads it; this sheet prints every block regardless, which is the whole
-    #: reason it is the one that exists without bands.
-    band_id: str | None = Field(default=None, alias="bandId")
+    # (A block's `bandId` is ignored: both sheets place a block by its time, not by the band it
+    # was entered into.)
 
     model_config = {"populate_by_name": True}
 
@@ -167,18 +177,18 @@ def _window(payload: ZeitplanPayload) -> tuple[datetime, datetime]:
     # attendance that ran past it, which is exactly the overrun worth seeing
     stamps = [b.start for r in payload.rows for b in (*r.blocks, *r.actual)]
     stamps += [b.end for r in payload.rows for b in (*r.blocks, *r.actual) if b.end]
-    printed = payload.printedAt or datetime.now(TZ)
+    printed = payload.printedAt or wall(datetime.now(TZ))
     began = payload.startedAt or (min(stamps) if stamps else printed)
     anchor = max(began, printed - timedelta(hours=LOOKBACK_H))
     start = anchor.replace(minute=0, second=0, microsecond=0)
-    end = start + timedelta(hours=DEFAULT_WINDOW_H)
+    end = wall(start + timedelta(hours=DEFAULT_WINDOW_H))
     for s in stamps:
         if s > end:
             end = s
     # round the tail up to a full hour so the last column is a whole one
     if end.minute or end.second:
-        end = end.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
-    return start, min(end, start + timedelta(hours=MAX_SPAN_H))
+        end = wall(end.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1))
+    return start, wall(min(end, start + timedelta(hours=MAX_SPAN_H)))
 
 
 class _Grid(Flowable):
@@ -247,7 +257,8 @@ class _Grid(Flowable):
                     labels.pop()
                 else:
                     labels.append((t, lx, midnight))
-            t += timedelta(hours=1)
+            # re-read on the wall clock: across a clock change the next hour has the other offset
+            t = wall(t + timedelta(hours=1))
         label_x = {lt: lx for lt, lx, _ in labels}
 
         c.setFont("Helvetica", 6.5)
@@ -255,7 +266,7 @@ class _Grid(Flowable):
         while t <= self.end:
             on_hour = t.minute == 0
             if not on_hour and not half_hours:
-                t += timedelta(minutes=SLOT_MIN)
+                t = wall(t + timedelta(minutes=SLOT_MIN))
                 continue
             x = self._x(t)
             midnight = on_hour and t.hour == 0
@@ -276,7 +287,7 @@ class _Grid(Flowable):
                 label = f"{WEEKDAYS[t.weekday()]} {t.strftime('%d.%m.')}" if midnight else t.strftime("%H:%M")
                 c.drawCentredString(label_x[t], top - self.HEAD_H + 2 * mm, label)
                 c.setFont("Helvetica", 6.5)
-            t += timedelta(minutes=SLOT_MIN)
+            t = wall(t + timedelta(minutes=SLOT_MIN))
 
         # ---- one lane per person
         c.setFont("Helvetica", 8.5)
@@ -366,7 +377,7 @@ def compose_zeitplan_pdf(payload: ZeitplanPayload, logo: bytes | None = None) ->
     inner_w = lw - 2 * margin
 
     start, end = _window(payload)
-    printed = payload.printedAt or datetime.now(TZ)
+    printed = payload.printedAt or wall(datetime.now(TZ))
     # The axis is anchored near the print time and capped (see _window), so on a long deployment
     # it does NOT begin at the alarm. The heading has to say which stretch is on the paper, or the
     # sheet quietly implies it shows the whole Einsatz.

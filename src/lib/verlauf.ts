@@ -289,7 +289,7 @@ const REPEAT_WINDOW_MS = 2 * 60_000
  * ⚠️ Hand-written rows are never collapsed. Somebody who types the same sentence twice meant it
  * both times, and the journal is their record, not the app's.
  */
-export function repeatRuns(events: TimelineEvent[]): {
+export function repeatRuns(events: TimelineEvent[], closedAt?: string | null): {
   counts: Map<string, number>
   hidden: Set<string>
   /** ISO instant of the LAST repeat in each run — the detail sheet says «6× bis 14:34», because
@@ -311,7 +311,10 @@ export function repeatRuns(events: TimelineEvent[]): {
     if (!text) continue
     const obj = e.entityId ?? e.annoId ?? e.subjectId ?? ''
     // NUL joins the two halves so an object id can never run into the text and fake a match.
-    const key = `${obj}\u0000${text}`
+    // ⚠️ …and a Nachtrag never folds into a row that was on the record in time (hunt 24.11.2026,
+    // records-rapport F9): «Kontakt 2×» hid that the second one reached the record after the close.
+    const late = isNachtrag(e, closedAt)
+    const key = `${obj}\u0000${text}\u0000${late ? 'n' : ''}`
     const ms = Date.parse(e.at!)
     if (!Number.isFinite(ms)) continue
     // ⚠️ A ↶ / ↷ row ends EVERY open run (staging walk-through 25.09.2026, F2c). It names no
@@ -331,6 +334,8 @@ export function repeatRuns(events: TimelineEvent[]): {
     // a fresh run under the same key REPLACES the closed one, so the second Austritt keeps its own
     // row rather than joining a run the Eintritt between them had already ended
     open.set(key, { id: e.id, lastMs: ms })
+    // …and it ENDS the same line's run of the other kind: in time, Nachtrag, in time is three rows
+    open.delete(`${obj}\u0000${text}\u0000${late ? '' : 'n'}`)
     if (obj) openOf.set(obj, key)
   }
   return { counts, hidden, lastAt }

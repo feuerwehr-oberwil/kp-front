@@ -41,8 +41,32 @@ export interface ReportSignature {
   strokes: SignatureStrokes
   /** the login it was signed on (shared station accounts: the account is not the signer) */
   account?: string
+  /** the station roster the Personal sheet listed when this was signed (hunt 24.11.2026,
+   *  records-rapport F5): a closed Rapport reprints with it, so a later roster change does not
+   *  break the signature (signedRoster). Absent on signatures before 24.11.2026. */
+  roster?: RosterRow[]
   voidedAt?: string
   voidReason?: SignatureVoidReason
+}
+
+/** one line of the Personal sheet's station roster (lib/reportPdfDirect · DirectReportArgs.roster) */
+export interface RosterRow { id: string; name: string }
+
+const isRosterRow = (v: unknown): v is RosterRow =>
+  !!v && typeof v === 'object' && typeof (v as RosterRow).id === 'string' && typeof (v as RosterRow).name === 'string'
+
+/**
+ * The roster a Rapport prints: on a CLOSED Einsatz the one its newest live signature froze, else
+ * today's active roster. A member deactivated after the close no longer drops off the reprint and
+ * takes the signature with it (records-rapport F5); an open Einsatz follows the station roster.
+ */
+export function signedRoster(live: Partial<Record<SignatureRole, ReportSignature>>, closed: boolean, active: RosterRow[]): RosterRow[] {
+  if (!closed) return active
+  // the NEWEST live signature decides – one from before 24.11.2026 has no roster and was signed
+  // against the active one, so an older signature's snapshot must not stand in for it
+  const newest = SIGNATURE_ROLES.flatMap((r) => live[r] ?? []).sort((a, b) => b.at.localeCompare(a.at))[0]
+  const roster = newest?.roster
+  return Array.isArray(roster) && roster.every(isRosterRow) ? roster : active
 }
 
 /** The live signature per role: the newest one that was not voided. Older ones stay in the list

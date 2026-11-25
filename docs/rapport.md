@@ -153,6 +153,11 @@ the three mockup rounds: `docs/planning/signature-2026-10-15/` (local, gitignore
   öffnen». The «Ändern» that voided signatures by hand is gone with that; voided ones from before
   stay in `Saved.reportSignatures` with `voidedAt`/`voidReason` and in the Verlauf. Signing writes
   the Einsatzleiter back only while no other signature holds – that change would break it.
+- **The station roster is frozen with the signature** (hunt 24.11.2026). The Personal sheet lists
+  the whole active roster, so a member deactivated after the close would drop off the reprint and
+  take every signature with it. Each signature stores the roster it signed (`ReportSignature.roster`),
+  and a CLOSED Rapport prints that one (`reportSignature · signedRoster`); an open one follows the
+  station roster. Signatures from before 24.11.2026 carry none and keep today's roster.
 - **The server never refuses a save to keep a signature valid.** An offline tablet's Anwesenheit
   must still arrive. Validity is COMPUTED on every device (hash of now vs hash at signing); a
   signature that no longer holds shows «ungültig ›» and a tap signs anew.

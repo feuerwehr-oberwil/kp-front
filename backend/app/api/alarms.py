@@ -103,7 +103,9 @@ async def intake(
 # The alarm pipeline (e.g. fwo-divera's Traccar geofence state machine) pushes per-group
 # alarm times and per-vehicle Ausrück/Vor-Ort/Zurück times as they happen. They land as
 # structured reportMeta entries (the Zeiten grid + stats export read them) plus one
-# journal row per NEW value, so the Verlauf shows «TLF ausgerückt 03:16» for free.
+# journal row per NEW value, so the Verlauf shows «TLF ausgerückt 03:16» for free. The row is
+# dated by the milestone, not by its arrival (hunt 24.11.2026, records-rapport F7): a departure
+# reported half an hour late still stands at its own minute in the Verlauf and on paper.
 
 
 def _fmt_clock(dt: datetime) -> str:
@@ -115,13 +117,13 @@ def apply_milestones(
     payload: MilestonesIn,
     group_labels: dict[str, str],
     vehicle_labels: dict[str, str],
-) -> tuple[dict, int, list[str]]:
+) -> tuple[dict, int, list[tuple[str, datetime]]]:
     """Pure upsert of milestone values into a workspace blob's reportMeta.
 
     Idempotent: replayed identical values change nothing. Operator edits win: an entry
     carrying `manual: True` is never touched. Unknown ids are stored verbatim (the form
     renders them as unmatched lines — never dropped). Returns (new_ws, changed_count,
-    journal_texts).
+    journal rows as (text, the milestone's own time)).
 
     ⚠️ FIRST WRITER WINS against the server's own GPS observation (24.09.2026, D2-b): a
     `vorOrt` the server already stamped from the tracker's time (`gps.owns`, written by
@@ -131,7 +133,7 @@ def apply_milestones(
     base = dict(ws or {})
     rm = dict(base.get("reportMeta") or {})
     changed = 0
-    journal: list[str] = []
+    journal: list[tuple[str, datetime]] = []
 
     gruppen = [dict(g) for g in (rm.get("gruppen") or []) if isinstance(g, dict)]
     by_id = {g.get("id"): g for g in gruppen}
@@ -143,7 +145,7 @@ def apply_milestones(
             gruppen.append(entry)
             by_id[g.id] = entry
             changed += 1
-            journal.append(f"{group_labels.get(g.id, g.id)} alarmiert {_fmt_clock(g.alarmedAt)}")
+            journal.append((f"{group_labels.get(g.id, g.id)} alarmiert {_fmt_clock(g.alarmedAt)}", g.alarmedAt))
         elif not cur.get("manual") and cur.get("alarmedAt") != iso:
             cur["alarmedAt"] = iso
             changed += 1
@@ -171,7 +173,7 @@ def apply_milestones(
                 cur[field] = iso
                 changed += 1
                 if first:
-                    journal.append(f"{vehicle_labels.get(v.id, v.id.upper())} {verb} {_fmt_clock(val)}")
+                    journal.append((f"{vehicle_labels.get(v.id, v.id.upper())} {verb} {_fmt_clock(val)}", val))
 
     rm["gruppen"] = gruppen
     rm["fahrzeuge"] = fahrzeuge
@@ -232,10 +234,10 @@ async def _apply_and_store(
     payload: MilestonesIn,
     group_labels: dict[str, str],
     vehicle_labels: dict[str, str],
-) -> tuple[int, list[str]]:
+) -> tuple[int, list[tuple[str, datetime]]]:
     """Upsert the milestone values into the incident's workspace blob. Returns
-    (changed_count, journal_texts) — both empty when the values were already there."""
-    out: tuple[int, list[str]] = (0, [])
+    (changed_count, journal rows as (text, at)) — both empty when the values were already there."""
+    out: tuple[int, list[tuple[str, datetime]]] = (0, [])
 
     def mutate(ws: dict | None) -> tuple[dict, bool]:
         nonlocal out
@@ -312,7 +314,7 @@ async def milestones(
     if changed:
         from .journal import append_system_row
 
-        for text in journal_texts:
-            await append_system_row(db, inc.id, icon="truck", text=text)
+        for text, at in journal_texts:
+            await append_system_row(db, inc.id, icon="truck", text=text, at=at)
         await db.flush()
     return MilestonesOut(incident_id=inc.id, applied=changed)

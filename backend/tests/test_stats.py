@@ -366,3 +366,25 @@ async def test_admin_endpoints_require_admin(client, stats_secret):
     assert r.status_code in (401, 403)
     r = await client.post("/api/stats/secret/rotate")
     assert r.status_code in (401, 403)
+
+
+def test_the_export_departs_with_the_first_vehicle_like_the_rapport():
+    """Hunt 24.11.2026, records-rapport F8: two webhook departures and no hand-entered scalar
+    exported `ausgeruecktAt: null`; a stale manual one was exported over the vehicle times."""
+    from app.api.stats import _record
+
+    fz = [
+        {"id": "tlf", "ausgerueckt": "2026-11-24T08:16:00+00:00"},
+        {"id": "pio", "ausgerueckt": "2026-11-24T08:10:00+00:00"},
+    ]
+    for rm in ({"fahrzeuge": fz}, {"fahrzeuge": fz, "ausgeruecktAt": "2026-11-24T08:30:00+00:00"}):
+        assert _record(_incident(map_workspace_json={"reportMeta": rm}))["ausgeruecktAt"] == "2026-11-24T08:10:00+00:00"
+    # no vehicle time: the hand-entered value stands
+    # an offsetless departure (stored before intake normalised it) is station time, and counts
+    naive = [*fz, {"id": "mtf", "ausgerueckt": "2026-11-24T09:05:00"}]  # 08:05 UTC in Zurich winter
+    assert (
+        _record(_incident(map_workspace_json={"reportMeta": {"fahrzeuge": naive}}))["ausgeruecktAt"]
+        == "2026-11-24T09:05:00"
+    )
+    manual = {"reportMeta": {"ausgeruecktAt": "2026-11-24T08:30:00+00:00"}}
+    assert _record(_incident(map_workspace_json=manual))["ausgeruecktAt"] == "2026-11-24T08:30:00+00:00"
