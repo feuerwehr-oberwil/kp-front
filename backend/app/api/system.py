@@ -5,7 +5,9 @@ DB liveness probe, row counts, media-storage + disk usage, and the env-derived
 integration flags (handy on the same screen).
 
 Resilience is the contract: this endpoint must NEVER 500. Each sub-section is computed
-defensively — a failing probe yields a null/error section while the rest still render.
+defensively — a failing probe yields a null/error section while the rest still render. Every
+guarded read runs in its own SAVEPOINT (`_guarded`): on Postgres a failed statement aborts the
+whole transaction, so a bare try/except would leave every later section reading a dead session.
 There is no new schema class; the response is a plain dict (docs/CONFIGURATION.md is the
 source of truth for the config document, not this status payload).
 """
@@ -14,6 +16,7 @@ import logging
 import os
 import shutil
 import uuid
+from collections.abc import Awaitable, Callable
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import func, select, text
@@ -50,23 +53,33 @@ def _version() -> dict:
     }
 
 
+async def _guarded[T](db: AsyncSession, what: str, read: Callable[[], Awaitable[T]]) -> T | None:
+    """Run one guarded read inside a SAVEPOINT; None (logged as `what`) when it fails.
+
+    The savepoint is what makes the guard real on Postgres: rolling it back undoes only the
+    failed statement, so the request's transaction stays usable for the sections after it.
+    """
+    try:
+        async with db.begin_nested():
+            return await read()
+    except Exception:
+        logger.warning("system: %s failed", what, exc_info=True)
+        return None
+
+
 async def _database_ok(db: AsyncSession) -> dict:
     """Trivial liveness probe; any failure → ok:false (never raises)."""
-    try:
-        await db.execute(text("SELECT 1"))
-        return {"ok": True}
-    except Exception:
-        logger.warning("system: SELECT 1 probe failed", exc_info=True)
-        return {"ok": False}
+    ok = await _guarded(db, "SELECT 1 probe", lambda: db.execute(text("SELECT 1")))
+    return {"ok": ok is not None}
 
 
 async def _count(db: AsyncSession, stmt) -> int | None:
     """Run a COUNT, returning None on failure so one bad query can't sink the section."""
-    try:
+
+    async def read() -> int:
         return int((await db.execute(stmt)).scalar_one())
-    except Exception:
-        logger.warning("system: count query failed", exc_info=True)
-        return None
+
+    return await _guarded(db, "count query", read)
 
 
 async def _counts(db: AsyncSession) -> dict:
@@ -308,11 +321,9 @@ async def _setup(db: AsyncSession, counts: dict | None) -> dict:
     geocoder = map_cfg.get("geocoder") or {}
     users = (counts or {}).get("users") or 0
     personnel_active = (counts or {}).get("personnel_active") or 0
-    try:
-        sharepoint_configured = bool((await sharepoint_status(db)).get("configured"))
-    except Exception:  # one unreadable connector must not sink the whole card
-        logger.warning("system: SharePoint setup row failed", exc_info=True)
-        sharepoint_configured = False
+    # One unreadable connector must not sink the whole card.
+    sharepoint = await _guarded(db, "SharePoint setup row", lambda: sharepoint_status(db))
+    sharepoint_configured = bool((sharepoint or {}).get("configured"))
 
     done = {
         "name": bool((identity.get("appName") or "").strip()),
@@ -363,12 +374,7 @@ async def get_system(
         version = None
 
     database = await _database_ok(db)
-
-    try:
-        counts = await _counts(db)
-    except Exception:
-        logger.warning("system: counts section failed", exc_info=True)
-        counts = None
+    counts = await _guarded(db, "counts section", lambda: _counts(db))
 
     try:
         storage = _storage()
@@ -376,24 +382,15 @@ async def get_system(
         logger.warning("system: storage section failed", exc_info=True)
         storage = None
 
-    try:
+    async def read_integrations() -> dict:
         await load_credentials(db)
-        integrations = provider_integrations().model_dump()
-    except Exception:
-        logger.warning("system: integrations section failed", exc_info=True)
-        integrations = None
+        return provider_integrations().model_dump()
 
-    try:
-        connectors = await _connectors(db)
-    except Exception:
-        logger.warning("system: connectors section failed", exc_info=True)
-        connectors = None
-
-    try:
-        setup = await _setup(db, counts)
-    except Exception:
-        logger.warning("system: setup section failed", exc_info=True)
-        setup = None
+    integrations = await _guarded(db, "integrations section", read_integrations)
+    connectors = await _guarded(db, "connectors section", lambda: _connectors(db))
+    setup = await _guarded(db, "setup section", lambda: _setup(db, counts))
+    # [] rather than None on failure: SystemView only defaults a MISSING key, not a null one.
+    login_locks = await _guarded(db, "login-lock section", lambda: _login_locks(db)) or []
 
     return {
         "version": version,
@@ -414,5 +411,5 @@ async def get_system(
         "monitoring": {"heartbeatConfigured": bool(credential("healthcheck_ping_url").strip())},
         # Accounts whose PIN somebody is guessing at: new devices are refused for them right now
         # (auth/pin_limiter · NewDeviceBudget). Empty on every ordinary day.
-        "loginLocks": await _login_locks(db),
+        "loginLocks": login_locks,
     }

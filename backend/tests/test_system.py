@@ -240,6 +240,39 @@ async def test_setup_rows_tick_on_the_station_s_own_data(client, editor, admin_l
     assert setup["complete"] is True
 
 
+async def test_one_failed_section_query_leaves_the_others_answering(client, editor, admin_login, monkeypatch):
+    """A section whose query fails is the ONE section marked failed; everything after it still
+    reads real values.
+
+    ⚠️ Only Postgres shows the failure this guards: a failed statement aborts the whole
+    transaction there, so without a savepoint per guarded read every later section on the
+    request's session failed too – and the unguarded login-lock read turned the page into a 500.
+    SQLite does not abort a transaction on a statement error, so it passes either way."""
+    from sqlalchemy import text
+
+    from app import connector_state
+    from app.api.system import SETUP_ROWS
+    from app.auth.pin_limiter import new_device_budget
+
+    async def broken_states(db):
+        await db.execute(text("SELECT * FROM no_such_table"))
+
+    monkeypatch.setattr(connector_state, "states", broken_states)
+    await _login(client, editor)
+    await admin_login(client)
+    # A live new-device lock on the editor, so the login-lock read has a query to run.
+    monkeypatch.setattr(new_device_budget, "locked", lambda: {str(editor.id): 120})
+
+    r = await client.get("/api/system")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["connectors"] is None  # the section whose query failed
+    assert body["counts"]["users"] >= 1
+    assert body["database"] == {"ok": True}
+    assert tuple(row["id"] for row in body["setup"]["rows"]) == SETUP_ROWS
+    assert body["loginLocks"] == [{"userId": str(editor.id), "displayName": editor.display_name, "minutesLeft": 2}]
+
+
 async def test_system_requires_admin(client, editor):
     # A logged-in editor WITHOUT an admin session is locked out.
     await _login(client, editor)
