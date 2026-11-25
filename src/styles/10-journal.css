@@ -910,15 +910,23 @@ button.jr-link-go:focus-visible { outline: 2px solid var(--blue); outline-offset
    veil: the same ink pill, as strong as by day. */
 :root[data-theme="night"] .tb-act.on { background: color-mix(in srgb, var(--here-fill), var(--on-here) 24%); color: var(--on-here); }
 
-/* open-reminders count badge on the Verlauf button */
-.tb-rem-count { z-index: 2; }
-/* the ONE count badge (05-navrail · .nav-count, 28.09.2026): 16px, 11/800, --r-xs; amber = open.
-   ⚠️ Inside the bar's plate (05.11.2026, hill climb r13): at -5px it stood 2px under the bar's top
-   edge, where the bar's corner seemed to clip it; at -1px it sits 6px in, and a 2px ring in the
-   bar's own glass cuts it off the button's corner instead of the bar's edge (day and night). */
-.tb-rem-count { position: absolute; top: -1px; right: -1px; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box;
-  border-radius: var(--r-xs); background: var(--amber); color: var(--on-amber); line-height: 16px; text-align: center;
-  font: var(--fw-heavy) var(--fs-micro) var(--body); box-shadow: 0 0 0 2px var(--glass); }
+/* open-Pendenzen count on the Verlauf button: «1 offen», a pill IN THE ROW after the word (owner
+   pick UX journeys B2·35, 25.11.2026 – the Pendenzen box's own words; a bare «1» in the corner read
+   as «not logged»). The ONE count badge's fill and face (05-navrail · .nav-count): amber = open,
+   11/800, --r-xs. */
+.tb-rem-count { z-index: 2; flex: none; min-width: 16px; height: 18px; padding: 0 var(--sp-2); box-sizing: border-box;
+  border-radius: var(--r-xs); background: var(--amber); color: var(--on-amber); line-height: 18px; text-align: center;
+  font: var(--fw-heavy) var(--fs-micro) var(--body); white-space: nowrap; }
+.tb-rem-n { display: none; }
+/* Folded to tiles (fit-6, a phone's `data-tiles`) the tile has no row for a word: the bare number in
+   the corner, as before 25.11.2026. ⚠️ Inside the bar's plate (05.11.2026, hill climb r13): at -5px
+   it stood 2px under the bar's top edge, where the bar's corner seemed to clip it; at -1px it sits
+   6px in, and a 2px ring in the bar's own glass cuts it off the button's corner instead of the bar's
+   edge (day and night). */
+.topbar:is(.fit-6, [data-tiles]) .tb-rem-count { position: absolute; top: -1px; right: -1px; height: 16px; padding: 0 4px;
+  line-height: 16px; box-shadow: 0 0 0 2px var(--glass); }
+.topbar:is(.fit-6, [data-tiles]) .tb-rem-word { display: none; }
+.topbar:is(.fit-6, [data-tiles]) .tb-rem-n { display: inline; }
 
 /* ⚠️ TOMBSTONE, 23.08. — the whole banner layer that stood here is gone.
    Removed: `.reminder-banner` + 9 `rb-*` rules (the due Wiedervorlage, a 440px card at z-45 that
