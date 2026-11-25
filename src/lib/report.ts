@@ -1390,13 +1390,19 @@ function _partnerLines(before: PartnerContact[], after: PartnerContact[]): strin
   return [...adds, ...changes, ...removals]
 }
 
+/** The rows `before` had and `after` dropped, as empty rows. Clearing a row's last time drops the
+ *  row (lib/alarmzeiten), and that clear is a change the Verlauf has to name. */
+const _droppedRows = (before: { id: string }[], after: { id: string }[]): { id: string }[] =>
+  before.filter((x) => !after.some((y) => y.id === x.id)).map((x) => ({ id: x.id }))
+
 /** Alarmzeit per Gruppe, named by its configured label — «g2» means nothing on paper. */
 function _gruppenLines(before: GruppeZeit[], after: GruppeZeit[]): string[] {
   const P = appConfig.copy.preflight
   const labels = new Map((getDeploymentConfig().alarms?.groups ?? []).map((g) => [g.id, g.label || g.id]))
   const A = new Map(before.map((g) => [g.id, g]))
   const out: string[] = []
-  for (const g of after) {
+  const rows: GruppeZeit[] = [...after, ..._droppedRows(before, after)]
+  for (const g of rows) {
     if (A.get(g.id)?.alarmedAt === g.alarmedAt) continue
     const gruppe = labels.get(g.id) ?? g.id
     out.push(g.alarmedAt
@@ -1416,7 +1422,8 @@ function _fahrzeugLines(before: FahrzeugZeit[], after: FahrzeugZeit[]): string[]
   const slots: [keyof FahrzeugZeit, string][] = [
     ['ausgerueckt', P.metaFahrzeugAus], ['vorOrt', P.metaFahrzeugVorOrt], ['zurueck', P.metaFahrzeugZurueck],
   ]
-  for (const v of after) {
+  const rows: FahrzeugZeit[] = [...after, ..._droppedRows(before, after)]
+  for (const v of rows) {
     const fahrzeug = labels.get(v.id) ?? v.id
     const prev = A.get(v.id)
     for (const [slot, tpl] of slots) {

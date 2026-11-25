@@ -836,6 +836,13 @@ describe('changedReportMetaFields (what the Verlauf row says)', () => {
     expect(out[0]).toContain('TLF') // the configured label, never the raw id
   })
 
+  // clearing a row's last time drops the row (lib/alarmzeiten) – that clear still writes its line
+  it('names a cleared Gruppe or Fahrzeug time whose row the clear dropped', () => {
+    const set = { ...base, gruppen: [{ id: 'g1', alarmedAt: '2026-08-10T12:00:00Z' }], fahrzeuge: [{ id: 'tlf', ausgerueckt: '2026-08-10T12:05:00Z' }] }
+    expect(changedReportMetaLines(set, { ...set, gruppen: undefined }).statements).toEqual(['Alarmzeit Gr. 1 entfernt'])
+    expect(changedReportMetaLines(set, { ...set, fahrzeuge: [] }).statements).toEqual(['TLF: Zeit entfernt'])
+  })
+
   it('never prints a raw field identifier on the signed rapport', () => {
     // `startedAt` has no human name; a row reading «startedAt» is worse than no row
     expect(changedReportMetaFields(base, { ...base, startedAt: '2026-08-10T12:00:00Z' })).toEqual([])
