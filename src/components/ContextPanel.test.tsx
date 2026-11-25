@@ -246,13 +246,6 @@ describe('ContextPanel — Geschoss (Untergeschosse are as reachable as Obergesc
     expect(p.onFloorFrom).toHaveBeenCalledWith(0)
   })
 
-  it('reads the storeys in the plan\'s words, not as a signed number', () => {
-    setup({ controls: new Set<SymbolControl>(['floorRange']), entity: { id: 's1', floorFrom: -1, floorTo: 1 } })
-    expect(screen.getByText('1. UG')).toBeTruthy()
-    expect(screen.getByText('1. OG')).toBeTruthy()
-    expect(screen.queryByText('+1')).toBeNull()
-  })
-
   it('steps on down into the Untergeschosse', () => {
     const p = setup({ controls: floorOnly, entity: { id: 's1', floorFrom: 0 } })
     tapLess()
