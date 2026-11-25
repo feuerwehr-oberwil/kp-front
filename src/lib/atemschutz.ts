@@ -106,6 +106,13 @@ export function deriveTruppLive(
   return { elapsedSec, outSec, sinceContactSec, currentBar, lowestBar, overdue, status }
 }
 
+/** The wide grid's state section a Trupp stands under – Drin · Bereit · Draussen (AtemschutzView ·
+ *  gridGrouped). The hand-set order holds within each, so a ‹ › move steps inside it and never
+ *  past a card in another section (truppActions/lifecycle · moveTrupp). */
+export function truppGridSection(t: Pick<Trupp, 'status'>): 'in' | 'ready' | 'out' {
+  return t.status === 'angemeldet' ? 'ready' : t.status === 'raus' ? 'out' : 'in'
+}
+
 /**
  * True while a Trupp's contact clock is running — entered the field and not yet out. This is the
  * same "in the field" condition `deriveTruppLive` uses, but time-independent, so it can gate the

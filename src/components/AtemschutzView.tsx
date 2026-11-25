@@ -20,7 +20,7 @@ import { FilterStrip } from './FilterStrip'
 import { Menu, Overlay, Popover } from '../lib/overlays'
 import { NotfallBanner, NotfallPageHead, NotfallPageSafety, NotfallStrip, type SafetyActProps } from './AtemschutzNotfall'
 import { DoubleAssignmentBanner } from './DoubleAssignmentBanner'
-import { alarmBarFor, deriveTruppLive, entryPressureAsks, safetyCandidates, safetyInside, safetyReady, truppInNotfall, earlyEntryCorrection, truppEditPatch, truppFieldGroupsChanged, truppLogName, type TruppFieldGroup, fmtClock, isAtemschutzTrupp, truppAlarm, truppFieldsOf, truppHeadName, truppInField, truppStillDeployed, truppGroupTransfer, truppTransferState, type TruppAlarm, type TruppLive, type TruppTransferState } from '../lib/atemschutz'
+import { alarmBarFor, deriveTruppLive, entryPressureAsks, safetyCandidates, safetyInside, safetyReady, truppInNotfall, earlyEntryCorrection, truppEditPatch, truppFieldGroupsChanged, truppLogName, type TruppFieldGroup, fmtClock, isAtemschutzTrupp, truppAlarm, truppFieldsOf, truppHeadName, truppInField, truppGridSection, truppStillDeployed, truppGroupTransfer, truppTransferState, type TruppAlarm, type TruppLive, type TruppTransferState } from '../lib/atemschutz'
 import { foreignContactAgo } from '../lib/contactEcho'
 import { serverNow, serverNowIso } from '../lib/serverClock'
 import { isPresent } from '../lib/attendanceIntervals'
@@ -687,9 +687,9 @@ export function AtemschutzView({
    * since the Übung of 23.09.2026; the hand-set order now holds WITHIN each section.
    * «Name» stays an alphabet. Not on the handed-over Tafel (its arrangement is fixed). */
   const gridGrouped = !compact && !lite && order !== 'name'
-  const gridIn = paBoard.filter((t) => t.status !== 'angemeldet' && t.status !== 'raus')
-  const gridReady = paBoard.filter((t) => t.status === 'angemeldet')
-  const gridOut = paBoard.filter((t) => t.status === 'raus')
+  const gridIn = paBoard.filter((t) => truppGridSection(t) === 'in')
+  const gridReady = paBoard.filter((t) => truppGridSection(t) === 'ready')
+  const gridOut = paBoard.filter((t) => truppGridSection(t) === 'out')
   /* The Atemschutznotfall (F1, 08.10.2026): who is in one, and who can go in for them — the one
    * model of a READY Sicherungstrupp the board has (lib/atemschutz · safetyReady), in hand order.
    * A closed Einsatz shows none: its Tafel alarms nothing (R3). */
