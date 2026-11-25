@@ -141,3 +141,19 @@ it('a crew switched to «ohne Atemschutz» while waiting goes in unwatched, what
   })
   expect(truppStretches(t, Date.parse(time(55))).watched).toEqual([])
 })
+
+it('a crew change after a cut run and before the next Eintritt belongs to the next run', () => {
+  const t = trupp({
+    name: 'Müller Lea', members: ['Frei Nina'],
+    readings: [
+      { kind: 'crew', t: time(1), bar: 300, crew: { name: 'Müller Lea', members: ['Frei Nina'] } },
+      { kind: 'entry', t: time(5), bar: 300 },
+      { kind: 'registered', t: time(30), bar: 300 },
+      { kind: 'crew', t: time(32), bar: 300, crew: { name: 'Müller Lea', members: ['Keller Tim'] } },
+      { kind: 'entry', t: time(35), bar: 300 },
+    ],
+  })
+  const { cycles } = truppCrewHistory(t)
+  expect(cycles.map((c) => [c.entry, c.changes.length])).toEqual([[time(5), 0], [time(35), cycles[1].changes.length]])
+  expect(cycles[1].changes.length).toBeGreaterThan(0)
+})

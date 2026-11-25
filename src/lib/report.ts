@@ -749,7 +749,7 @@ export function truppRunTimes(
 export function truppRuns(
   readings: readonly Pick<TruppReading, 't' | 'kind'>[] | undefined,
   fallback: { entryTime?: string; exitTime?: string },
-): { entry: string; exit?: string; cut?: true }[] {
+): { entry: string; exit?: string; cut?: true; cutAt?: string }[] {
   const rows = (readings ?? [])
     .map((r, i) => ({ r, i }))
     .filter(({ r }) => !!r.t && (r.kind === 'entry' || r.kind === 'exit' || r.kind === 'registered'))
@@ -757,16 +757,16 @@ export function truppRuns(
   if (!rows.some(({ r }) => r.kind === 'entry')) {
     return fallback.entryTime ? [{ entry: fallback.entryTime, ...(fallback.exitTime ? { exit: fallback.exitTime } : {}) }] : []
   }
-  const runs: { entry: string; exit?: string; cut?: true }[] = []
+  const runs: { entry: string; exit?: string; cut?: true; cutAt?: string }[] = []
   let open: { entry: string; exit?: string } | null = null
   for (const { r } of rows) {
     if (r.kind === 'entry') {
-      if (open) runs.push({ ...open, cut: true })
+      if (open) runs.push({ ...open, cut: true, cutAt: r.t })
       open = { entry: r.t }
     } else if (r.kind === 'registered') {
       // a fresh Anmeldung ends a run whose Austritt was never written: its exit stays unknown
       // (`cut`), and the stand-down that may follow is not dated onto it
-      if (open) runs.push({ ...open, cut: true })
+      if (open) runs.push({ ...open, cut: true, cutAt: r.t })
       open = null
     } else if (open) {
       runs.push({ ...open, exit: r.t })
@@ -864,7 +864,9 @@ export function truppCrewHistory(t: Trupp, all: readonly Trupp[] = []): { leader
     for (let k = 0; k < cycles.length; k++) if (ms(cycles[k].entry) <= ms(at)) i = k
     // after that cycle's Austritt and before the next Eintritt → the next cycle, if there is one
     const c = cycles[i]
-    if (c.exit && ms(c.exit) <= ms(at) && i + 1 < cycles.length) return cycles[i + 1]
+    // …and after the Anmeldung / Eintritt that cut it short, the same (CodeRabbit on #734)
+    const ended = c.exit ?? runs[i]?.cutAt
+    if (ended && ms(ended) <= ms(at) && i + 1 < cycles.length) return cycles[i + 1]
     return c
   }
   for (let i = 0; i < rows.length; i++) {
