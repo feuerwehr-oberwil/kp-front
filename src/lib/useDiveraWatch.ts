@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { getDiveraPool, type DiveraAlarm } from './incidents'
 import { markAlarmPoll } from './alarmPollHealth'
 import { useResumingPoll, WATCH_POLL_MS, WATCH_RESUME_GAP_MS } from './useResumingPoll'
@@ -19,16 +19,25 @@ import { useResumingPoll, WATCH_POLL_MS, WATCH_RESUME_GAP_MS } from './useResumi
  */
 export function useDiveraWatch(enabled: boolean): { alarms: DiveraAlarm[]; refresh: () => Promise<void> } {
   const [alarms, setAlarms] = useState<DiveraAlarm[]>([])
+  // A round can settle after this watch unmounted (sign-out remounts the app): its answer must not
+  // reach the shared readiness sign, which the next session's watches own.
+  const mounted = useRef(false)
+  useEffect(() => {
+    mounted.current = true
+    return () => { mounted.current = false }
+  }, [])
 
   // The cadence, the foreground resume and the one-round-at-a-time guard are useResumingPoll's
   // (which also keeps the last-known pool on a transient failure — never blank the banner).
   // Every round reports to the readiness sign (lib/alarmPollHealth · «Bereit für Alarme»).
   const refresh = useCallback(async () => {
     try {
-      setAlarms(await getDiveraPool())
+      const pool = await getDiveraPool()
+      if (!mounted.current) return
+      setAlarms(pool)
       markAlarmPoll(true)
     } catch (e) {
-      markAlarmPoll(false)
+      if (mounted.current) markAlarmPoll(false)
       throw e
     }
   }, [])
