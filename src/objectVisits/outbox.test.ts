@@ -11,10 +11,17 @@ import {
 } from './outbox'
 import type { PutResult } from './api'
 import {
-  __resetStoreForTests, createLocalVisit, deviceId, putAttachment, readAttachment, readVisit, updateVisit, type LocalVisit,
+  __resetStoreForTests, createLocalVisit, deviceId, listLocalVisits, putAttachment, readAttachment, readVisit, updateVisit, type LocalVisit,
 } from './store'
 import type { ServerVisit, VisitDoc } from './types'
 import { delivery } from './wire.test-utils'
+
+// the real store, with its listing watched: the runner's start flush has seen the visits once its
+// listing resolved (see `started` below)
+vi.mock('./store', async (importOriginal) => {
+  const real = await importOriginal<typeof import('./store')>()
+  return { ...real, listLocalVisits: vi.fn(real.listLocalVisits) }
+})
 
 // ─── a small in-memory server with the contract's PUT semantics ────────────────────────────
 
@@ -375,6 +382,13 @@ describe('reconnect and reload resume by themselves', () => {
     let stop: (() => void) | null = null
     beforeEach(() => { vi.stubGlobal('window', new EventTarget()) })
     afterEach(() => { stop?.(); stop = null; vi.unstubAllGlobals() })
+    /** Start the runner and wait until its start flush has listed the visits: what is saved
+     *  after this is the next trigger's work, not the start's. */
+    const started = async () => {
+      const before = vi.mocked(listLocalVisits).mock.results.length
+      stop = startOutboxRunner(server.deps())
+      await vi.mocked(listLocalVisits).mock.results[before].value
+    }
 
     it('flushes once at start', async () => {
       const doc = await newDraft()
@@ -386,8 +400,7 @@ describe('reconnect and reload resume by themselves', () => {
 
     it('sends a save point that failed offline as soon as the server answers again', async () => {
       const doc = await newDraft()
-      stop = startOutboxRunner(server.deps())
-      await new Promise((r) => setTimeout(r, 50))
+      await started()
       server.failWith = new ApiError(0, 'offline')
       noteUnreached()
       expect(await requestSave(doc.id, server.deps())).toBe('offline')
@@ -397,8 +410,7 @@ describe('reconnect and reload resume by themselves', () => {
 
     it('…and on the browser\'s online event', async () => {
       const doc = await newDraft()
-      stop = startOutboxRunner(server.deps())
-      await new Promise((r) => setTimeout(r, 50))
+      await started()
       server.failWith = new ApiError(0, 'offline')
       await requestSave(doc.id, server.deps())
       window.dispatchEvent(new Event('online'))

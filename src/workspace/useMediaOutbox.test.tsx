@@ -11,7 +11,7 @@ import type { ReportAttachment, TimelineEvent } from '../types'
 
 const disk = vi.hoisted(() => ({
   store: new Map<string, unknown>(),
-  hang: (_key: string): boolean => false,
+  hang: (_key: string, _value: unknown): boolean => false,
   /** a read that has to wait for this (a slow IndexedDB on a cold start) */
   held: null as { key: string; until: Promise<void> } | null,
 }))
@@ -26,7 +26,7 @@ vi.mock('../lib/idb', async (importOriginal) => ({
   },
   // a hung write never lands: the page is killed before IndexedDB commits it
   idbSet: async (key: string, value: unknown) => {
-    if (disk.hang(key)) return new Promise<boolean>(() => {})
+    if (disk.hang(key, value)) return new Promise<boolean>(() => {})
     disk.store.set(key, value)
     return true
   },
@@ -169,10 +169,16 @@ afterEach(() => {
 })
 
 it('killed after the upload answered, before the queue write: the capture uploads again and links once', async () => {
-  disk.hang = (key) => key === QUEUE
+  // every queue write hangs; the page dies once the one holding the upload's receipt did
+  let receiptHung = false
+  disk.hang = (key, value) => {
+    if (key !== QUEUE) return false
+    if ((value as MediaQueueItem[]).some((item) => item.status === 'uploaded')) receiptHung = true
+    return true
+  }
   const first = await open()
   await waitFor(() => expect(upload).toHaveBeenCalledTimes(1))
-  await act(async () => { await new Promise((r) => setTimeout(r, 20)) })
+  await waitFor(() => expect(receiptHung).toBe(true))
   first.kill()
   disk.hang = () => false
   // nothing was written: still the capture, bytes and all

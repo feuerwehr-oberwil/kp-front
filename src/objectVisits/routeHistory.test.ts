@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { appHistoryDepth, isWalkPop, leaveAppEntries, navigateTo, pushAppEntry, walkBack } from './route'
 
 // iOS offers its edge-swipe back exactly when there is an entry to go back to (route · the ⚠️
@@ -43,7 +43,6 @@ describe('the app counts its own history entries', () => {
 // sweep 28.10.2026 #11 — iOS's swipe from the right edge is a forward traversal, offered exactly
 // when a walk left entries forward (the Checkliste's levels after leaving them)
 describe('never a step forward', () => {
-  const settle = () => new Promise((r) => setTimeout(r, 20))
   it('walks a forward traversal straight back, and no surface hears it as the user\'s', async () => {
     window.history.replaceState(null, '', '/')
     pushAppEntry('/')
@@ -57,11 +56,9 @@ describe('never a step forward', () => {
     expect(appHistoryDepth()).toBe(0)
     heard.length = 0
     window.history.forward()
-    await settle()
-    await settle()
-    expect(appHistoryDepth()).toBe(0)
     // the forward pop never reached the surface; the walk back did, as a walk
-    expect(heard).toEqual([true])
+    await vi.waitFor(() => expect(heard).toEqual([true]))
+    expect(appHistoryDepth()).toBe(0)
     window.removeEventListener('popstate', surface)
   })
 
@@ -71,8 +68,9 @@ describe('never a step forward', () => {
     const heard: boolean[] = []
     const surface = (e: Event) => heard.push(isWalkPop(e))
     window.addEventListener('popstate', surface)
+    const back = popped()
     window.history.back()
-    await settle()
+    await back
     expect(appHistoryDepth()).toBe(0)
     expect(heard).toEqual([false])
     window.removeEventListener('popstate', surface)

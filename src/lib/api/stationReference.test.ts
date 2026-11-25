@@ -26,7 +26,10 @@ import { loadHouses, loadUnderground, outlineRings, type UndergroundSet } from '
 const sq = (lng: number, lat: number) => [[lng, lat], [lng + 0.001, lat], [lng + 0.001, lat + 0.001], [lng, lat + 0.001], [lng, lat]]
 const SET: UndergroundSet = { fetchedAt: '2026-10-17T03:00:00+00:00', count: 2, geometry: { type: 'MultiPolygon', coordinates: [[sq(7.5, 47.5)], [sq(7.6, 47.6)]] } }
 const answer = (over: Record<string, unknown> = {}) => ({ enabled: true, ...SET, ...over })
-const flush = () => new Promise((r) => setTimeout(r, 20))
+// the device copy is written and dropped fire-and-forget: wait until the store says so
+const held = (key: string) => vi.waitFor(async () => { const r = await idbRead(key); expect(r.ok && r.value != null).toBe(true) })
+const dropped = (key: string) => vi.waitFor(async () => { const r = await idbRead(key); expect(r.ok && r.value != null).toBe(false) })
+const UG = 'kp-front-station-underground'
 
 beforeEach(() => {
   globalThis.indexedDB = new IDBFactory()
@@ -39,7 +42,7 @@ describe('loadUnderground', () => {
     apiGet.mockResolvedValueOnce(answer())
     expect((await loadUnderground())?.count).toBe(2)
     expect(apiGet).toHaveBeenLastCalledWith('/api/reference/underground')
-    await flush()
+    await held(UG)
     apiGet.mockResolvedValueOnce({ enabled: true, fetchedAt: SET.fetchedAt, count: 2, unchanged: true })
     expect(await loadUnderground()).toEqual(SET)
     expect(apiGet).toHaveBeenLastCalledWith(`/api/reference/underground?have=${encodeURIComponent(SET.fetchedAt)}`)
@@ -50,7 +53,7 @@ describe('loadUnderground', () => {
     expect(await loadUnderground()).toBeNull()
     apiGet.mockResolvedValueOnce(answer())
     await loadUnderground()
-    await flush()
+    await held(UG)
     apiGet.mockRejectedValueOnce(new ApiError(503, 'down'))
     expect(await loadUnderground()).toEqual(SET)
   })
@@ -58,14 +61,12 @@ describe('loadUnderground', () => {
   it('a refusal throws instead of showing the copy, and «switched off» forgets it', async () => {
     apiGet.mockResolvedValueOnce(answer())
     await loadUnderground()
-    await flush()
+    await held(UG)
     apiGet.mockRejectedValueOnce(new ApiError(403, 'link'))
     await expect(loadUnderground()).rejects.toBeInstanceOf(ApiError)
     apiGet.mockResolvedValueOnce({ enabled: false })
     expect(await loadUnderground()).toBeNull()
-    await flush()
-    const left = await idbRead('kp-front-station-underground')
-    expect(left.ok && left.value != null).toBe(false)
+    await dropped(UG)
   })
 
   it('not asked by the server yet: nothing to draw', async () => {
@@ -79,10 +80,10 @@ describe('loadHouses', () => {
     apiGet.mockResolvedValueOnce(answer())
     expect((await loadHouses())?.count).toBe(2)
     expect(apiGet).toHaveBeenLastCalledWith('/api/reference/houses')
-    await flush()
+    await held('kp-front-station-houses')
     const kept = await idbRead('kp-front-station-houses')
     expect(kept.ok && kept.value).toEqual(SET)
-    const other = await idbRead('kp-front-station-underground')
+    const other = await idbRead(UG)
     expect(other.ok && other.value).toBeFalsy()
   })
 })

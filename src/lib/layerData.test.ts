@@ -31,9 +31,7 @@ const peek = (id: string) => layerDataSnapshot().get(id)
 
 /** the store settles asynchronously (fetch → stream → parse) */
 async function settled(id: string) {
-  for (let i = 0; i < 100 && (peek(id)?.state ?? 'loading') === 'loading'; i++) {
-    await new Promise((r) => setTimeout(r, 5))
-  }
+  await vi.waitFor(() => expect(peek(id)?.state ?? 'loading').not.toBe('loading'))
   return peek(id)
 }
 

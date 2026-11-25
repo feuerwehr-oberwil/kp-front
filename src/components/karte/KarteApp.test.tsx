@@ -108,6 +108,7 @@ import { appConfig } from '../../config/appConfig'
 import { __setUnHazardData, type UnHazardEntry } from '../../lib/unHazard'
 import adr from '../../../public/un-hazard.json'
 import { loadPrefs, savePrefs } from '../../lib/prefs'
+import { LONG_PRESS_MS } from '../../lib/useLongPress'
 
 class RO { observe() {} unobserve() {} disconnect() {} }
 beforeAll(() => {
@@ -162,11 +163,22 @@ const canvasHarness = (at: { lng: number; lat: number } | (() => { lng: number; 
   }
   return { box, canvas }
 }
-/** finger down and still for longer than the long press (lib/useLongPress · LONG_PRESS_MS) */
-const hold = async (canvas: HTMLCanvasElement, x: number, y: number) => {
-  act(() => { canvas.dispatchEvent(touchEvent('pointerdown', x, y)) })
-  await act(() => new Promise((r) => setTimeout(r, 700)))
+/** Run `press`, then let the long press (lib/useLongPress · LONG_PRESS_MS) run out on a fake
+ *  clock: the hold's timer is the press handler's own, so no real time has to pass.
+ *  `pressed` checks the screen between the press and the end of the hold. */
+const runOutHold = async (press: () => void, pressed?: () => void) => {
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+  try {
+    act(press)
+    pressed?.()
+    await act(() => vi.advanceTimersByTimeAsync(LONG_PRESS_MS))
+  } finally {
+    vi.useRealTimers()
+  }
 }
+/** finger down and still for longer than the long press */
+const hold = (canvas: HTMLCanvasElement, x: number, y: number) =>
+  runOutHold(() => { canvas.dispatchEvent(touchEvent('pointerdown', x, y)) })
 
 const mount = (over: Partial<KarteAppProps> = {}) => {
   const onOpenVisits = vi.fn()
@@ -428,10 +440,8 @@ describe('KarteApp', () => {
     const lit = () => overlays().some((o) => o.id === 'karte-hover-object')
 
     // the finger lands on the Schloss: the outline answers AT ONCE, before the hold is over
-    act(() => { canvas.dispatchEvent(touchEvent('pointerdown', 40, 40)) })
-    expect(lit()).toBe(true)
+    await runOutHold(() => { canvas.dispatchEvent(touchEvent('pointerdown', 40, 40)) }, () => expect(lit()).toBe(true))
     // …and holding it there is still no pin — the release opens the object, as a tap always did
-    await act(() => new Promise((r) => setTimeout(r, 700)))
     expect(screen.queryByText('Gesetzter Punkt')).toBeNull()
     act(() => { canvas.dispatchEvent(touchEvent('pointerup', 40, 40)) })
     expect(lit()).toBe(false)
@@ -1256,8 +1266,7 @@ describe('KarteApp', () => {
     await screen.findByRole('button', { name: /Schloss Musterdorf/ })
     const hold = async () => {
       const compass = screen.getAllByRole('button', { name: appConfig.copy.mapViews.title })[0]
-      fireEvent.pointerDown(compass, { clientX: 0, clientY: 0, button: 0, pointerType: 'touch' })
-      await act(async () => { await new Promise((r) => setTimeout(r, 600)) })
+      await runOutHold(() => { fireEvent.pointerDown(compass, { clientX: 0, clientY: 0, button: 0, pointerType: 'touch' }) })
     }
     await hold()
     expect(easeTo).toHaveBeenLastCalledWith(expect.objectContaining({ center: [7.571, 47.524], zoom: 17 }))

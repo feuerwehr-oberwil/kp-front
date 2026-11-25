@@ -40,7 +40,7 @@ beforeEach(() => {
   vi.spyOn(deploymentConfig, 'ensureSessionConfig').mockResolvedValue()
   vi.spyOn(deploymentConfig, 'hasStationConfig').mockReturnValue(true)
 })
-afterEach(() => vi.restoreAllMocks())
+afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks() }) // a failed fake-clock case leaves no fake clock behind
 
 describe('AuthProvider — offline user cache', () => {
   it('caches a real login (that is what keeps the PWA usable with no signal)', async () => {
@@ -78,11 +78,12 @@ describe('AuthProvider — the boot probe reads the config again once the sessio
     const ensure = vi.spyOn(deploymentConfig, 'ensureSessionConfig')
       .mockReturnValue(new Promise<void>((resolve) => { release = resolve }))
     apiGet.mockResolvedValue(EDITOR_USER)
-    const { result } = renderHook(() => useAuth(), { wrapper })
-    await waitFor(() => expect(ensure).toHaveBeenCalledTimes(1))
     // no budget here: without the answer the app has no fleet, no map layers and the shipped
-    // Atemschutz numbers, so it stays on the splash
-    await new Promise((r) => setTimeout(r, 50))
+    // Atemschutz numbers, so it stays on the splash – also long past the bounded wait below
+    vi.useFakeTimers()
+    const { result } = renderHook(() => useAuth(), { wrapper })
+    try { await act(() => vi.advanceTimersByTimeAsync(10_000)) } finally { vi.useRealTimers() }
+    expect(ensure).toHaveBeenCalledTimes(1)
     expect(result.current.user).toBeNull()
     has.mockReturnValue(true)
     release()
@@ -107,8 +108,9 @@ describe('AuthProvider — the boot probe reads the config again once the sessio
     let release!: () => void
     vi.spyOn(deploymentConfig, 'ensureSessionConfig').mockReturnValue(new Promise<void>((resolve) => { release = resolve }))
     apiGet.mockResolvedValue(EDITOR_USER)
+    vi.useFakeTimers()
     const { result } = renderHook(() => useAuth(), { wrapper })
-    await new Promise((r) => setTimeout(r, 50))
+    try { await act(() => vi.advanceTimersByTimeAsync(10_000)) } finally { vi.useRealTimers() } // past every wait the probe has
     expect(result.current.user).toBeNull()
     has.mockReturnValue(true)
     release()
