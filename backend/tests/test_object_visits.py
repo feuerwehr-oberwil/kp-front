@@ -111,6 +111,30 @@ async def test_create_read_and_revise(client, editor, on, obj):
     assert len((await client.get("/api/object-visits", params={"mine": 1})).json()) == 1
 
 
+async def test_a_visit_read_answers_every_key(client, editor, on, obj):
+    """The response models (app/object_visit_schemas.py) drop every key they do not name, without
+    an error: a list row keeps all its keys, and a visit passes its document's keys through."""
+    await login(client, editor)
+    vid = new_id("ov")
+    assert (await put(client, vid, visit_doc(vid, obj), None)).status_code == 200
+    visit = (await client.get(f"/api/object-visits/{vid}")).json()
+    assert sorted(visit) == sorted(
+        [
+            *visit_doc(vid, obj),
+            *("revision", "ready", "missing", "createdBy", "createdAt", "updatedAt", "updatedBy", "findings"),
+            *("url", "deliveries", "target_kind", "location", "completedAt", "lockedAt"),
+        ]
+    )
+    assert sorted(visit["location"]) == ["address", "label", "lat", "lng"]
+    row = (await client.get("/api/object-visits")).json()[0]
+    assert sorted(row) == sorted(
+        [
+            *("id", "objectId", "objectName", "target_kind", "location", "workRef", "lifecycle", "revision"),
+            *("ready", "visitedAt", "updatedAt", "by", "with", "findings", "checklist"),
+        ]
+    )
+
+
 async def test_same_op_id_twice_replays_the_first_answer(client, editor, on, obj):
     """The lost response: the device sends the same opId again and gets the STORED first answer —
     even after a newer revision exists — and no second revision is written."""

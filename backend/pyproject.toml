@@ -138,6 +138,8 @@ extend-immutable-calls = [
 "app/traccar.py" = ["N815"]
 # Deployment-config schemas mirror the frontend's camelCase config contract (CONFIGURATION.md §1)
 "app/schemas.py" = ["N815"]
+# Objektbesuche answers mirror the camelCase visit contract (docs/object-visits.md)
+"app/object_visit_schemas.py" = ["N815"]
 # Geodata manifest entries mirror the same camelCase referenceLayer contract
 "app/admin_geodata.py" = ["N815"]
 # Objects manifest entries use the same camelCase contract (sourceNote)

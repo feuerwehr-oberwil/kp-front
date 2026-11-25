@@ -13171,9 +13171,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Get Catalogue Api Object Visits Catalogue Get"
+                  "$ref": "#/components/schemas/ObjectVisitCatalogueOut"
                 }
               }
             }
@@ -13310,8 +13308,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "type": "object",
-                    "additionalProperties": true
+                    "$ref": "#/components/schemas/ObjectVisitSummaryOut"
                   },
                   "title": "Response List Visits Api Object Visits Get"
                 }
@@ -13387,9 +13384,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Get Visit Api Object Visits  Visit Id  Get"
+                  "$ref": "#/components/schemas/ObjectVisitOut"
                 }
               }
             }
@@ -13474,9 +13469,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Put Visit Api Object Visits  Visit Id  Put"
+                  "$ref": "#/components/schemas/ObjectVisitPutOut"
                 }
               }
             }
@@ -13591,7 +13584,19 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ObjectVisitAttachmentOut"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "The same bytes were already stored",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ObjectVisitAttachmentOut"
+                }
               }
             }
           },
@@ -13755,8 +13760,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "type": "object",
-                    "additionalProperties": true
+                    "$ref": "#/components/schemas/ObjectVisitRevisionOut"
                   },
                   "title": "Response List Revisions Api Object Visits  Visit Id  Revisions Get"
                 }
@@ -13841,9 +13845,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Get Revision Api Object Visits  Visit Id  Revisions  Revision  Get"
+                  "$ref": "#/components/schemas/ObjectVisitRevisionDocOut"
                 }
               }
             }
@@ -15087,8 +15089,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "type": "object",
-                    "additionalProperties": true
+                    "$ref": "#/components/schemas/ObjectVisitAdminSummaryOut"
                   },
                   "title": "Response Admin List Api Admin Object Visits Get"
                 }
@@ -15140,9 +15141,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Admin Notify Api Admin Object Visits Notify Get"
+                  "$ref": "#/components/schemas/ObjectVisitNotifyOut"
                 }
               }
             }
@@ -15202,9 +15201,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Admin Set Notify Api Admin Object Visits Notify Put"
+                  "$ref": "#/components/schemas/ObjectVisitNotifyOut"
                 }
               }
             }
@@ -15287,8 +15284,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "type": "object",
-                    "additionalProperties": true
+                    "$ref": "#/components/schemas/ObjectVisitDeliveryRowOut"
                   },
                   "title": "Response Admin Deliveries Api Admin Object Visits Deliveries Get"
                 }
@@ -15352,9 +15348,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Admin Retry Api Admin Object Visits Deliveries Retry Post"
+                  "$ref": "#/components/schemas/ObjectVisitRetryOut"
                 }
               }
             }
@@ -15413,9 +15407,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Admin Test Destination Api Admin Object Visits Destinations  Destination Id  Test Post"
+                  "$ref": "#/components/schemas/ObjectVisitDestinationTestOut"
                 }
               }
             }
@@ -21784,6 +21776,481 @@
         "title": "ObjectUpsertIn",
         "description": "``PUT /api/objects/{id}`` — ``ObjectIn`` plus the OPTIONAL fields the manifest push\n(``admin_objects push``) carries: the station key the plan pull matches on, where the object's\ndocuments are filed, its outside ids and its Modul-1 notes. All are written only when SENT, so\na caller that does not know them (the admin's object mask) never clears them; ``refs`` are\nadded, never removed."
       },
+      "ObjectVisitAdminSummaryOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "objectId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Objectid"
+          },
+          "objectName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Objectname"
+          },
+          "target_kind": {
+            "type": "string",
+            "enum": [
+              "object",
+              "location"
+            ],
+            "title": "Target Kind"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ObjectVisitLocationOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "workRef": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workref"
+          },
+          "lifecycle": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "completed",
+              "discarded"
+            ],
+            "title": "Lifecycle"
+          },
+          "revision": {
+            "type": "integer",
+            "title": "Revision"
+          },
+          "ready": {
+            "type": "boolean",
+            "title": "Ready"
+          },
+          "visitedAt": {
+            "type": "string",
+            "title": "Visitedat"
+          },
+          "updatedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updatedat"
+          },
+          "by": {
+            "$ref": "#/components/schemas/ObjectVisitPersonOut"
+          },
+          "with": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "With"
+          },
+          "findings": {
+            "type": "integer",
+            "title": "Findings"
+          },
+          "checklist": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ObjectVisitChecklistRefOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "deliveries": {
+            "items": {
+              "$ref": "#/components/schemas/ObjectVisitFilingOut"
+            },
+            "type": "array",
+            "title": "Deliveries"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "objectId",
+          "objectName",
+          "target_kind",
+          "location",
+          "workRef",
+          "lifecycle",
+          "revision",
+          "ready",
+          "visitedAt",
+          "updatedAt",
+          "by",
+          "with",
+          "findings",
+          "checklist",
+          "deliveries"
+        ],
+        "title": "ObjectVisitAdminSummaryOut",
+        "description": "One row of ``GET /api/admin/object-visits``: the summary plus where the visit was filed."
+      },
+      "ObjectVisitAttachmentOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "sha256": {
+            "type": "string",
+            "title": "Sha256"
+          },
+          "size": {
+            "type": "integer",
+            "title": "Size"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "sha256",
+          "size"
+        ],
+        "title": "ObjectVisitAttachmentOut",
+        "description": "``PUT /{id}/attachments/{attId}``: the photo the server now holds (201 new · 200 already there)."
+      },
+      "ObjectVisitCatalogueObjectOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "lat": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lat"
+          },
+          "lng": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lng"
+          },
+          "folder": {
+            "type": "string",
+            "title": "Folder"
+          },
+          "refs": {
+            "items": {
+              "$ref": "#/components/schemas/ObjectVisitRefOut"
+            },
+            "type": "array",
+            "title": "Refs"
+          },
+          "hasPlans": {
+            "type": "boolean",
+            "title": "Hasplans"
+          },
+          "lastVisit": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ObjectVisitLastVisitOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "address",
+          "lat",
+          "lng",
+          "folder",
+          "refs",
+          "hasPlans",
+          "lastVisit"
+        ],
+        "title": "ObjectVisitCatalogueObjectOut",
+        "description": "One station object as the field app caches it."
+      },
+      "ObjectVisitCatalogueOut": {
+        "properties": {
+          "generatedAt": {
+            "type": "string",
+            "title": "Generatedat"
+          },
+          "canCapture": {
+            "type": "boolean",
+            "title": "Cancapture"
+          },
+          "objects": {
+            "items": {
+              "$ref": "#/components/schemas/ObjectVisitCatalogueObjectOut"
+            },
+            "type": "array",
+            "title": "Objects"
+          },
+          "templates": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Templates"
+          },
+          "lists": {
+            "items": {
+              "$ref": "#/components/schemas/ObjectVisitListOut"
+            },
+            "type": "array",
+            "title": "Lists"
+          },
+          "proposalFields": {
+            "items": {
+              "$ref": "#/components/schemas/ObjectVisitProposalField"
+            },
+            "type": "array",
+            "title": "Proposalfields"
+          }
+        },
+        "type": "object",
+        "required": [
+          "generatedAt",
+          "canCapture",
+          "objects",
+          "templates",
+          "lists",
+          "proposalFields"
+        ],
+        "title": "ObjectVisitCatalogueOut",
+        "description": "``GET /catalogue``: everything the field app caches for offline use."
+      },
+      "ObjectVisitChecklistRefOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title"
+        ],
+        "title": "ObjectVisitChecklistRefOut",
+        "description": "The checklist a visit was made with; ``title`` null when the snapshot has none."
+      },
+      "ObjectVisitDeliveryOut": {
+        "properties": {
+          "destination": {
+            "type": "string",
+            "title": "Destination"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "delivered",
+              "failed",
+              "paused"
+            ],
+            "title": "State"
+          },
+          "revision": {
+            "type": "integer",
+            "title": "Revision"
+          },
+          "at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "At"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "destination",
+          "state",
+          "revision",
+          "at"
+        ],
+        "title": "ObjectVisitDeliveryOut",
+        "description": "One destination's state for one visit, as the visit itself reports it."
+      },
+      "ObjectVisitDeliveryRowOut": {
+        "properties": {
+          "destination": {
+            "type": "string",
+            "title": "Destination"
+          },
+          "visitId": {
+            "type": "string",
+            "title": "Visitid"
+          },
+          "objectName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Objectname"
+          },
+          "wantedRevision": {
+            "type": "integer",
+            "title": "Wantedrevision"
+          },
+          "deliveredRevision": {
+            "type": "integer",
+            "title": "Deliveredrevision"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "delivered",
+              "failed",
+              "paused"
+            ],
+            "title": "State"
+          },
+          "attempts": {
+            "type": "integer",
+            "title": "Attempts"
+          },
+          "nextAttemptAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nextattemptat"
+          },
+          "lastError": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lasterror"
+          },
+          "updatedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updatedat"
+          }
+        },
+        "type": "object",
+        "required": [
+          "destination",
+          "visitId",
+          "objectName",
+          "wantedRevision",
+          "deliveredRevision",
+          "state",
+          "attempts",
+          "nextAttemptAt",
+          "lastError",
+          "updatedAt"
+        ],
+        "title": "ObjectVisitDeliveryRowOut",
+        "description": "One row of the delivery outbox (``GET /deliveries``)."
+      },
       "ObjectVisitDestination": {
         "properties": {
           "id": {
@@ -21866,6 +22333,558 @@
         "title": "ObjectVisitDestination",
         "description": "Where the server files a copy of every visit (docs/object-visits.md «Delivery»).\n\n⚠️ NO CREDENTIAL HERE — this document is served by the public ``GET /api/config``. The\nwriter's app registration lives in the encrypted credential group ``sharepoint_export``."
       },
+      "ObjectVisitDestinationTestOut": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "detail": {
+            "type": "string",
+            "title": "Detail"
+          },
+          "webUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weburl"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ok",
+          "status",
+          "detail"
+        ],
+        "title": "ObjectVisitDestinationTestOut",
+        "description": "``POST /destinations/{id}/test``: Graph's answer to the test upload, or why none was tried."
+      },
+      "ObjectVisitFilingOut": {
+        "properties": {
+          "destination": {
+            "type": "string",
+            "title": "Destination"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "delivered",
+              "failed",
+              "paused"
+            ],
+            "title": "State"
+          },
+          "revision": {
+            "type": "integer",
+            "title": "Revision"
+          },
+          "at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "At"
+          },
+          "folder": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Folder"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "destination",
+          "state",
+          "revision",
+          "at",
+          "folder"
+        ],
+        "title": "ObjectVisitFilingOut",
+        "description": "One destination's filing of a visit, as the admin list reports it."
+      },
+      "ObjectVisitLastVisitOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "visitedAt": {
+            "type": "string",
+            "title": "Visitedat"
+          },
+          "lifecycle": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "completed",
+              "discarded"
+            ],
+            "title": "Lifecycle"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "visitedAt",
+          "lifecycle"
+        ],
+        "title": "ObjectVisitLastVisitOut",
+        "description": "The latest visit to a catalogue object that was not discarded."
+      },
+      "ObjectVisitListOut": {
+        "properties": {
+          "ref": {
+            "type": "string",
+            "title": "Ref"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "closesAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closesat"
+          },
+          "scheduledOn": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scheduledon"
+          },
+          "archived": {
+            "type": "boolean",
+            "title": "Archived"
+          },
+          "objectIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Objectids"
+          },
+          "unresolved": {
+            "items": {
+              "$ref": "#/components/schemas/ObjectVisitRefOut"
+            },
+            "type": "array",
+            "title": "Unresolved"
+          },
+          "done": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ObjectVisitPriorDoneOut"
+            },
+            "type": "object",
+            "title": "Done"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ref",
+          "title",
+          "note",
+          "closesAt",
+          "scheduledOn",
+          "archived",
+          "objectIds",
+          "unresolved",
+          "done"
+        ],
+        "title": "ObjectVisitListOut",
+        "description": "A work list (visit programme): its stops resolved to object ids, the refs nothing knows yet."
+      },
+      "ObjectVisitLocationOut": {
+        "properties": {
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "lat": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lat"
+          },
+          "lng": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lng"
+          }
+        },
+        "type": "object",
+        "required": [
+          "label",
+          "address",
+          "lat",
+          "lng"
+        ],
+        "title": "ObjectVisitLocationOut",
+        "description": "Where a visit was (contract C2): the place of a location visit, the object for an object visit."
+      },
+      "ObjectVisitNotifyAccountOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          },
+          "notify": {
+            "type": "boolean",
+            "title": "Notify"
+          },
+          "devices": {
+            "type": "integer",
+            "title": "Devices"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "username",
+          "role",
+          "notify",
+          "devices"
+        ],
+        "title": "ObjectVisitNotifyAccountOut",
+        "description": "One active account: whether it gets «Neuer Objektbesuch», and how many browsers can receive it."
+      },
+      "ObjectVisitNotifyOut": {
+        "properties": {
+          "pushEnabled": {
+            "type": "boolean",
+            "title": "Pushenabled"
+          },
+          "accounts": {
+            "items": {
+              "$ref": "#/components/schemas/ObjectVisitNotifyAccountOut"
+            },
+            "type": "array",
+            "title": "Accounts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "pushEnabled",
+          "accounts"
+        ],
+        "title": "ObjectVisitNotifyOut",
+        "description": "``GET``/``PUT /notify``: who is told about a new visit."
+      },
+      "ObjectVisitOut": {
+        "properties": {
+          "revision": {
+            "type": "integer",
+            "title": "Revision"
+          },
+          "ready": {
+            "type": "boolean",
+            "title": "Ready"
+          },
+          "missing": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Missing"
+          },
+          "createdBy": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ObjectVisitPersonOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "createdAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Createdat"
+          },
+          "updatedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updatedat"
+          },
+          "updatedBy": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ObjectVisitPersonOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "findings": {
+            "type": "integer",
+            "title": "Findings",
+            "default": 0
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          },
+          "deliveries": {
+            "items": {
+              "$ref": "#/components/schemas/ObjectVisitDeliveryOut"
+            },
+            "type": "array",
+            "title": "Deliveries"
+          },
+          "target_kind": {
+            "type": "string",
+            "enum": [
+              "object",
+              "location"
+            ],
+            "title": "Target Kind",
+            "default": "object"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ObjectVisitLocationOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "completedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completedat"
+          },
+          "lockedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lockedat"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "revision",
+          "ready",
+          "missing"
+        ],
+        "title": "ObjectVisitOut",
+        "description": "``GET /{id}``: the document plus the server's fields (docs/object-visits.md «Server-added on read»).\n\nOnly ``revision``/``ready``/``missing`` are required: the same model reads the visit inside a\nreplayed PUT answer, stored by whichever server version accepted the revision."
+      },
+      "ObjectVisitPersonOut": {
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "ObjectVisitPersonOut",
+        "description": "Who did it: an account's id and display name; both null for the admin session or an organizer."
+      },
+      "ObjectVisitPriorDoneOut": {
+        "properties": {
+          "at": {
+            "type": "string",
+            "title": "At"
+          },
+          "by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "By"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "type": "object",
+        "required": [
+          "at"
+        ],
+        "title": "ObjectVisitPriorDoneOut",
+        "description": "A completion the organizer already holds for a stop (``at`` YYYY-MM-DD); never a visit."
+      },
       "ObjectVisitProposalField": {
         "properties": {
           "id": {
@@ -21888,6 +22907,272 @@
         ],
         "title": "ObjectVisitProposalField",
         "description": "One entry of the Korrekturvorschlag field list. The id is opaque to KP Front — the\norganizer maps it to its own master data (docs/object-visits.md)."
+      },
+      "ObjectVisitPutOut": {
+        "properties": {
+          "revision": {
+            "type": "integer",
+            "title": "Revision"
+          },
+          "ready": {
+            "type": "boolean",
+            "title": "Ready"
+          },
+          "missing": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Missing"
+          },
+          "visit": {
+            "$ref": "#/components/schemas/ObjectVisitOut"
+          }
+        },
+        "type": "object",
+        "required": [
+          "revision",
+          "ready",
+          "missing",
+          "visit"
+        ],
+        "title": "ObjectVisitPutOut",
+        "description": "``PUT /{id}`` accepted (200) — also the replay of a known ``opId``."
+      },
+      "ObjectVisitRefOut": {
+        "properties": {
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "id": {
+            "type": "string",
+            "title": "Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source",
+          "id"
+        ],
+        "title": "ObjectVisitRefOut",
+        "description": "An object's id in another system (the organizer's ``source`` + its own ``id``)."
+      },
+      "ObjectVisitRetryOut": {
+        "properties": {
+          "retried": {
+            "type": "integer",
+            "title": "Retried"
+          }
+        },
+        "type": "object",
+        "required": [
+          "retried"
+        ],
+        "title": "ObjectVisitRetryOut",
+        "description": "``POST /deliveries/retry``: how many deliveries went back to ``pending``."
+      },
+      "ObjectVisitRevisionDocOut": {
+        "properties": {
+          "revision": {
+            "type": "integer",
+            "title": "Revision"
+          },
+          "ready": {
+            "type": "boolean",
+            "title": "Ready"
+          },
+          "acceptedAt": {
+            "type": "string",
+            "title": "Acceptedat"
+          },
+          "acceptedBy": {
+            "$ref": "#/components/schemas/ObjectVisitPersonOut"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "revision",
+          "ready",
+          "acceptedAt",
+          "acceptedBy"
+        ],
+        "title": "ObjectVisitRevisionDocOut",
+        "description": "``GET /{id}/revisions/{n}``: that revision's document plus when and by whom it was accepted."
+      },
+      "ObjectVisitRevisionOut": {
+        "properties": {
+          "revision": {
+            "type": "integer",
+            "title": "Revision"
+          },
+          "lifecycle": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "completed",
+              "discarded"
+            ],
+            "title": "Lifecycle"
+          },
+          "acceptedAt": {
+            "type": "string",
+            "title": "Acceptedat"
+          },
+          "acceptedBy": {
+            "$ref": "#/components/schemas/ObjectVisitPersonOut"
+          },
+          "ready": {
+            "type": "boolean",
+            "title": "Ready"
+          }
+        },
+        "type": "object",
+        "required": [
+          "revision",
+          "lifecycle",
+          "acceptedAt",
+          "acceptedBy",
+          "ready"
+        ],
+        "title": "ObjectVisitRevisionOut",
+        "description": "One row of ``GET /{id}/revisions``."
+      },
+      "ObjectVisitSummaryOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "objectId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Objectid"
+          },
+          "objectName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Objectname"
+          },
+          "target_kind": {
+            "type": "string",
+            "enum": [
+              "object",
+              "location"
+            ],
+            "title": "Target Kind"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ObjectVisitLocationOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "workRef": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workref"
+          },
+          "lifecycle": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "completed",
+              "discarded"
+            ],
+            "title": "Lifecycle"
+          },
+          "revision": {
+            "type": "integer",
+            "title": "Revision"
+          },
+          "ready": {
+            "type": "boolean",
+            "title": "Ready"
+          },
+          "visitedAt": {
+            "type": "string",
+            "title": "Visitedat"
+          },
+          "updatedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updatedat"
+          },
+          "by": {
+            "$ref": "#/components/schemas/ObjectVisitPersonOut"
+          },
+          "with": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "With"
+          },
+          "findings": {
+            "type": "integer",
+            "title": "Findings"
+          },
+          "checklist": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ObjectVisitChecklistRefOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "objectId",
+          "objectName",
+          "target_kind",
+          "location",
+          "workRef",
+          "lifecycle",
+          "revision",
+          "ready",
+          "visitedAt",
+          "updatedAt",
+          "by",
+          "with",
+          "findings",
+          "checklist"
+        ],
+        "title": "ObjectVisitSummaryOut",
+        "description": "One row of ``GET /api/object-visits`` (newest first)."
       },
       "ObjectVisitsConfig": {
         "properties": {

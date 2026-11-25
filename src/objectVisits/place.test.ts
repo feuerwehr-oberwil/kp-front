@@ -8,6 +8,7 @@ import {
 } from './place'
 import { findOpenDraft, type LocalVisit } from './store'
 import type { PlaceTarget } from './types'
+import { summaryRow } from './wire.test-utils'
 
 const PLACE: PlaceTarget = { kind: 'location', label: 'bei Talholzstrasse 15', address: 'Talholzstrasse 15, 4103 Bottmingen', lat: 47.52015, lng: 7.57175 }
 
@@ -78,9 +79,9 @@ describe('a place in the device list', () => {
     // the k5 capture run: one Fehlermeldung from the tablet, one from the phone, same pin
     const a = { ...newVisitDoc({ place: PLACE, checklist: null }), lifecycle: 'completed' as const }
     const known = knownVisits([rec(a)], [
-      { id: 'ov-srv', objectId: null, objectName: null, target_kind: 'location', location: { label: 'x', address: null, lat: PLACE.lat, lng: PLACE.lng }, lifecycle: 'completed', revision: 1, ready: true, visitedAt: '2026-10-15T10:00:00Z' },
-      { id: 'ov-obj', objectId: 'u1', objectName: 'Schulhaus', lifecycle: 'completed', revision: 1, ready: true, visitedAt: '2026-10-15T10:00:00Z' },
-      { id: 'ov-obj2', objectId: 'u1', objectName: 'Schulhaus', lifecycle: 'completed', revision: 1, ready: true, visitedAt: '2026-10-15T11:00:00Z' },
+      summaryRow({ id: 'ov-srv', objectId: null, objectName: null, target_kind: 'location', location: { label: 'x', address: null, lat: PLACE.lat, lng: PLACE.lng }, lifecycle: 'completed', revision: 1, ready: true, visitedAt: '2026-10-15T10:00:00Z' }),
+      summaryRow({ id: 'ov-obj', objectId: 'u1', objectName: 'Schulhaus', lifecycle: 'completed', revision: 1, ready: true, visitedAt: '2026-10-15T10:00:00Z' }),
+      summaryRow({ id: 'ov-obj2', objectId: 'u1', objectName: 'Schulhaus', lifecycle: 'completed', revision: 1, ready: true, visitedAt: '2026-10-15T11:00:00Z' }),
     ])
     expect(visitsAtStop(known, stopKeyOf(a), null).map((v) => v.id)).toEqual([a.id])
     expect(visitsAtStop(known, summaryStopKey({ id: 'ov-srv', objectId: null, target_kind: 'location' }), null).map((v) => v.id)).toEqual(['ov-srv'])
