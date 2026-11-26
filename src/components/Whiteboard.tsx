@@ -614,7 +614,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // session, then stream each keystroke live into the anno — like the Lage note title), the
   // sheet it is typed on and its text so far (typeText … endTextEdit)
   const textEdit = useRef<{ id: string; planId: string; text: string } | null>(null)
-  // …a field that went without a blur, settled after the commit (settleTextField), and the
+  // …a field that went without a blur, settled after the commit (settleTextEdit), and the
   // leave-document end of an open session, re-pointed every commit like releaseRef
   const textFieldGone = useRef<string | null>(null)
   const leaveTextRef = useRef(() => {})
@@ -1388,17 +1388,21 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   }
   /** The field went without a blur (PlanAnno · NoteField). Its closure is the last render's, which
    *  cannot tell whether the Notiz left the sheet (another device removed it), so the end is
-   *  settled after the commit (settleTextField). */
+   *  settled after the commit (settleTextEdit). */
   const textFieldEnded = (id: string) => { if (textEdit.current?.id === id) textFieldGone.current = id }
-  /** After every commit: a field that went ends its session – with no row for a Notiz that is no
-   *  longer on the sheet. */
-  const settleTextField = () => {
-    const id = textFieldGone.current
+  /** After every commit, against the sheet as it now stands. A session whose Notiz no longer holds
+   *  the text it typed ends with NO row: the history moved under it – a ↶ / ↷ of either history (a
+   *  Notiz the Karte lends to the sheet steps on the Karte's, which never calls onRestore), another
+   *  device's write, the Notiz removed. Otherwise a field that went ends its session with its row. */
+  const settleTextEdit = () => {
+    const gone = textFieldGone.current
     textFieldGone.current = null
     const open = textEdit.current
-    if (!id || open?.id !== id) return
+    if (!open) return
+    if (annos.find((a) => a.id === open.id)?.text !== open.text) { textEdit.current = null; return }
+    if (gone !== open.id) return
     textEdit.current = null
-    if (annos.some((a) => a.id === id)) writeTextEdit(open, open.text, open.text)
+    writeTextEdit(open, open.text, open.text)
   }
   /** Leaving the sheet or closing the board (the document effect's cleanup): the open session
    *  ends on the sheet it was typed on. */
@@ -1411,7 +1415,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // re-point the leave-document release every commit (see releaseRef above for why a ref), and
   // release on a TOOL change — below usePlanDraft, whose commit machinery the release is.
   // …and settle a Notiz field that went in this commit, against the sheet as it now stands
-  useEffect(() => { releaseRef.current = releaseDraft; leaveTextRef.current = leaveTextEdit; settleTextField() })
+  useEffect(() => { releaseRef.current = releaseDraft; leaveTextRef.current = leaveTextEdit; settleTextEdit() })
   useEffect(() => {
     const from = prevTool.current
     prevTool.current = tool

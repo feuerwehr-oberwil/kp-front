@@ -263,6 +263,18 @@ describe('a Notiz typed in the editor on the plan, which goes without a blur', (
     expect(noteEdits()).toEqual([])
   })
 
+  // a Notiz the Karte lends to the sheet: its ↶ is the Karte's, which hands the sheet the old text
+  // back from outside (no board onRestore)
+  it('the Karte’s ↶ gives a projected Notiz its old text back while it is typed: ✓ writes no row', () => {
+    const start: BoardAnno[] = [{ ...vehicle, ...at }, { id: 'n1', kind: 'text', x: 0.3, y: 0.3, floor: 0, text: 'Alt' }]
+    const { noteEdits, drive } = mount(start)
+    fireEvent.doubleClick(screen.getByText('Alt'))
+    typeOnSheet('Wasser ab 14:20')
+    act(() => drive().setAnnos(start))
+    done()
+    expect(noteEdits()).toEqual([])
+  })
+
   it('a sheet switch while it is typed ends the edit on the sheet it was typed on', () => {
     const { noteEditSheets, drive } = mount([{ ...vehicle, ...at }, { id: 'n1', kind: 'text', x: 0.3, y: 0.3, floor: 0, text: 'Alt' }])
     fireEvent.doubleClick(screen.getByText('Alt'))
