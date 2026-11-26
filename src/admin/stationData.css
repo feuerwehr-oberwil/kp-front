@@ -83,12 +83,18 @@
   background: var(--surface-2); border: 1px solid var(--border-soft);
   display: flex; flex-direction: column; gap: 8px; align-items: flex-start;
 }
+/* compact like the cards around it: the block's gap is the only spacing – its two lines are
+   inline text (headline, failure under the button), not `.adm-state` empty states */
+.adm-ck-orphans > p { margin: 0; font-size: var(--fs-1); line-height: var(--lh-1); }
+.adm-ck-orphans .adm-ck-facts { margin: 0; }
 
 @media (max-width: 720px) {
   .adm-slot { grid-template-columns: 1fr; align-items: start; gap: 6px; }
   .adm-slot-act { justify-self: start; }
   .adm-ck-facts li { flex-direction: column; gap: 2px; }
   .adm-ck-facts li > span:first-child { flex: none; }
+  /* a leftover is four short facts: they wrap as one row instead of stacking four lines */
+  .adm-ck-orphans .adm-ck-facts li { flex-direction: row; flex-wrap: wrap; gap: var(--sp-1) var(--sp-2); }
 }
 
 /* ── «Lage korrigieren» (ObjectPositionSheet) ─────────────────────────────── */

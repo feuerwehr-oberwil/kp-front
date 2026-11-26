@@ -175,7 +175,7 @@ export function ChecklistsView() {
         {state.kind === 'loading' && <EmptyState loading message={C.loading} />}
         {state.kind === 'error' && <EmptyState tone="err" message={C.loadError} />}
         {/* a cleanup that failed while the re-read failed too: the leftovers block is gone, its error stays */}
-        {state.kind === 'error' && cleanError && <p className="adm-state adm-state-err">{cleanError}</p>}
+        {state.kind === 'error' && cleanError && <p className="adm-save-err">{cleanError}</p>}
         {state.kind === 'ok' && rows.length === 0 && <EmptyState message={C.none} hint={C.noneHint} />}
         {/* Typ und Quelle mirror the Geodaten table (DataView · GeodataView), down to the
             column names — the same two facts, asked of the same registry. */}
@@ -226,9 +226,7 @@ export function ChecklistsView() {
         )}
         {orphanAssets.length > 0 && (
           <div className="adm-ck-orphans">
-            <p className="adm-state adm-state-err">
-              {fillTemplate(C.orphans, { n: orphanAssets.length })}
-            </p>
+            <p className="adm-state-err">{fillTemplate(C.orphans, { n: orphanAssets.length })}</p>
             {/* Labelled, not a bare id dump: which template each ghost was filed under, which
                 page it is and what kind of file — the three facts that make «Reste löschen» a
                 decision rather than a leap. */}
@@ -245,7 +243,7 @@ export function ChecklistsView() {
             <button type="button" className="btn adm-int-btn" disabled={cleaning} onClick={() => void cleanOrphans()}>
               {cleaning ? C.deleting : C.cleanOrphans}
             </button>
-            {cleanError && <p className="adm-state adm-state-err">{cleanError}</p>}
+            {cleanError && <p className="adm-save-err">{cleanError}</p>}
           </div>
         )}
       </Card>
