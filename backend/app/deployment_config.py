@@ -4,21 +4,60 @@ Everything a deployment configures about itself hangs off that single row: the c
 document, the plan scales, and the station-level secrets each
 admin surface mints (statistics export, Erfassungs-Poster, Einsatz-Link).
 
-Those secret surfaces are the reason this helper exists. They write to the row *before*
-anything has ever written a config document, so each of them needed the same
-get-or-create — read id=1, insert an empty row when it is not there yet, flush so the
-caller can assign to it. Byte-identical copies of that shape had drifted apart once on what
-"empty" means; there is one now.
+Two ways in, one per side:
+
+* READERS of the config document call :func:`read_config` (or :func:`safe_config` on a raw
+  document they already hold). It is the one validated read, and it never raises on the
+  document — see there. A reader that needs the raw JSON on purpose reads the column itself
+  and says why: a version hash, a key the schema drops, or a value that feeds an unattended
+  write (the roster sync, the snapshot cap, the area jobs, unattended geocoding), where the
+  fallback's defaults would write something the station did not choose.
+* WRITERS take :func:`config_row`. The secret surfaces write to the row *before* anything has
+  ever written a config document, so each of them needed the same get-or-create — read id=1,
+  insert an empty row when it is not there yet, flush so the caller can assign to it.
+  Byte-identical copies of that shape had drifted apart once on what "empty" means; there is
+  one now.
 """
+
+import logging
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .models import DeploymentConfig
+from .schemas import DeploymentConfigIn, load_stored_config
+
+logger = logging.getLogger(__name__)
+
+
+def safe_config(raw: object) -> DeploymentConfigIn:
+    """A stored config document as the validated model, or the shipped defaults.
+
+    Validated as STORED (``schemas · load_stored_config``): a field that has grown a rule since
+    it was written is dropped, not refused. A document that fails even that (a hand-edited row)
+    is logged and answered with ``DeploymentConfigIn()`` — every reader then sees the shipped
+    defaults instead of an exception. That matters most where a raise is invisible: the push
+    sweep would stop sending «Trupp überfällig», a background worker would stop for good.
+    """
+    try:
+        return load_stored_config({} if raw is None else raw)
+    except Exception:  # a bad stored row must never break a reader
+        logger.warning("deployment config failed validation; reading the shipped defaults", exc_info=True)
+        return DeploymentConfigIn()
+
+
+async def read_config(db: AsyncSession) -> DeploymentConfigIn:
+    """The stored config document for a READER — :func:`safe_config` of row id=1.
+
+    A missing row reads as the empty document. Never creates the row and never locks it: a
+    read-modify-write takes :func:`config_row` with ``lock=True`` and edits the raw JSON instead.
+    """
+    row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
+    return safe_config(row.config_json if row else None)
 
 
 async def config_row(db: AsyncSession, *, lock: bool = False) -> DeploymentConfig:
-    """The singleton row, created empty if this deployment has none yet.
+    """The singleton row for a WRITER, created empty if this deployment has none yet.
 
     Flushed before it is handed back, so the caller can set a column on a row that is already
     in the session's identity map. Not committed: it belongs to the caller's transaction.

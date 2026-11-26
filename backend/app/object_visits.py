@@ -41,6 +41,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from . import storage
 from .checklist_templates import visit_items
 from .config import settings
+from .deployment_config import read_config
 from .models import (
     DeploymentConfig,
     ObjectRef,
@@ -54,7 +55,7 @@ from .models import (
     VisitList,
 )
 from .push import notify_object_visit
-from .schemas import ObjectVisitDestination, ObjectVisitsConfig, load_stored_config
+from .schemas import ObjectVisitDestination, ObjectVisitsConfig
 
 logger = logging.getLogger("kpfront.objectvisits")
 
@@ -131,16 +132,15 @@ class Actor:
 
 async def ov_config(db: AsyncSession) -> ObjectVisitsConfig:
     """The module's section of the stored config document. A broken document reads as «off»."""
-    row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
-    raw = row.config_json if (row and row.config_json) else {}
-    try:
-        return load_stored_config(raw).objectVisits
-    except Exception:  # a bad stored row must not 500 the module
-        logger.warning("deployment config failed validation — Objektbesuche read as off", exc_info=True)
-        return ObjectVisitsConfig()
+    return (await read_config(db)).objectVisits
 
 
 async def station_name(db: AsyncSession) -> str:
+    """`identity.appName`, or the build's project name when the station has none.
+
+    ⚠️ Reads the raw document on purpose, not `deployment_config.read_config`: the name goes into
+    the PDF the unattended delivery uploads, and the fallback on a document broken elsewhere
+    would overwrite the station's PDF with the build's name."""
     row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
     identity = ((row.config_json if row else None) or {}).get("identity") or {}
     name = identity.get("appName") if isinstance(identity, dict) else None

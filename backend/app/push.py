@@ -930,17 +930,18 @@ async def check_and_push(db: AsyncSession, now_ms: float | None = None) -> int:
     # Demo workspaces are rebased to each visitor's arrival in the browser. The persisted seed
     # timestamps therefore look stale to this server-side sweep and must never notify demo
     # subscribers about an alarm that does not exist in their view.
-    from .alarms import get_config_model, is_demo_deployment
+    from .alarms import is_demo_deployment
+    from .deployment_config import read_config
 
     if await is_demo_deployment(db):
         return 0
     now_ms = now_ms if now_ms is not None else datetime.now(UTC).timestamp() * 1000
-    # ⚠️ Through `get_config_model`, never `load_stored_config` bare. This sweep is the ONLY
+    # ⚠️ Through `read_config`, never `load_stored_config` bare. This sweep is the ONLY
     # reader whose failure is invisible: a raise here reaches `scheduler._push_sweep`, which
     # rolls back and logs — and the station then receives no «Trupp überfällig» and no
     # low-pressure push at all, with nothing on screen to say so. Falling back to the shipped
     # doctrine keeps alarming; refusing would silently stop it.
-    doctrine = (await get_config_model(db)).doctrine.model_dump()
+    doctrine = (await read_config(db)).doctrine.model_dump()
 
     sent = 0
     # who a due Wiedervorlage reaches — read once per sweep, and only when one is due

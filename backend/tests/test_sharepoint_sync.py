@@ -21,6 +21,7 @@ from app import sharepoint_sync
 from app.admin_objects import object_id_for_key
 from app.config import settings
 from app.models import DeploymentConfig, ObjectSite, ReferenceDataset, SharePointSyncState
+from app.schemas import SharePointConfig
 from app.services.station_workbook import build_workbook
 from app.sharepoint_sync import _module_for, _ModuleRule, sharepoint_status, sync_sharepoint
 
@@ -640,6 +641,17 @@ async def test_nothing_runs_without_all_three_credentials(db_session, blank_env,
 
     assert result["status"] == "disabled"
     assert tenant.seen == []
+
+
+async def test_a_config_document_that_fails_validation_reads_as_the_defaults(db_session):
+    """A hand-edited row that even the stored read refuses (both map centres set) must not make
+    every SharePoint tick raise: the settings and the filename rules read as the shipped ones."""
+    both_centres = {"map": {"defaultView": {"center": [7.5, 47.5], "centerLv95": [2600000.0, 1260000.0]}}}
+    db_session.add(DeploymentConfig(id=1, config_json=both_centres))
+    await db_session.flush()
+
+    assert await sharepoint_sync.sharepoint_settings(db_session) == SharePointConfig()
+    assert await sharepoint_sync._module_rules(db_session) == []
 
 
 async def test_repointing_a_source_forgets_the_resume_point(db_session, blank_env, storage_root):

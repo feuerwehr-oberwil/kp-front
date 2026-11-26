@@ -699,14 +699,14 @@ async def observe(db: AsyncSession, positions: list[VehiclePosition], now: datet
     """One tick: close out what stopped being observed, advance every vehicle at every active
     Einsatz, write what became true. The caller commits, THEN calls `tick.commit()` — see
     `_state`. Works through the Einsätze in id order (see `_open_incidents`)."""
-    from .alarms import get_config_model
+    from .deployment_config import read_config
 
     tick = Tick()
     active, ended = await observed_incidents(db, now)
     tick.live = {str(i.id) for i in active}
     tick.drop = {k for k in _state if k[0] not in tick.live}
     candidates = await _closeout_candidates(db, now, ended)
-    fleet: list = (await get_config_model(db)).fleet.vehicles if (candidates or (active and positions)) else []
+    fleet: list = (await read_config(db)).fleet.vehicles if (candidates or (active and positions)) else []
 
     actives = {str(i.id): i for i in active}
     closing = {str(c[0]): c for c in candidates}

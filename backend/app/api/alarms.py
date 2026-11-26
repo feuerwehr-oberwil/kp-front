@@ -17,11 +17,12 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..alarms import create_incident_from_alarm, find_by_source_ref, get_config_model, lock_alarm_identity
+from ..alarms import create_incident_from_alarm, find_by_source_ref, lock_alarm_identity
 from ..auth.secret_token import SecretGate
 from ..credentials import get as credential
 from ..credentials import load as load_credentials
 from ..database import execute_dml, get_db
+from ..deployment_config import read_config
 from ..live_wait import notify_after_commit, workspace_topic
 from ..models import DiveraEmergency, Incident
 from ..push import notify_new_alarm
@@ -292,7 +293,7 @@ async def milestones(
     if inc is None:
         raise HTTPException(status_code=404, detail="Kein passender Einsatz (später erneut versuchen)")
 
-    cfg = await get_config_model(db)
+    cfg = await read_config(db)
     group_labels = {g.id: g.label for g in cfg.alarms.groups}
     vehicle_labels = {v.id: v.label for v in cfg.fleet.vehicles}
 

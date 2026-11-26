@@ -52,7 +52,7 @@ const onLage = (entity: Entity) => {
     pickablePersonnel: [], objects: [], timeline: [], titleLiveRef: { current: false }, entityTypedAt: { current: new Map() },
     sym: { byName: {}, symbols: [] } as unknown as MapDetailPanelsProps['sym'], doc: { entities: [entity], drawings: [] },
     rosterFieldHints: () => undefined, personStatus: () => undefined, rosterRank: {}, isVisible: () => true,
-    linkRosterFields, commitEntityFields: vi.fn(), patchEntity: vi.fn(), vehicleOverrides: {},
+    linkRosterFields, commitEntityFields: vi.fn(), patchEntity: vi.fn(), vehicleOverrides: {}, layers: [],
   }
   render(<MapDetailPanels {...given as MapDetailPanelsProps} />)
   const props = panel.props!

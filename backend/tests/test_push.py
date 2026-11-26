@@ -301,7 +301,7 @@ async def test_sweep_keeps_alarming_on_a_config_row_todays_rules_would_refuse(db
 
     A raise here reaches `scheduler._push_sweep`, which rolls back and logs — and the station
     then gets no «Trupp überfällig» and no low-pressure push at all, with nothing on screen to
-    say so. The sweep therefore reads through `alarms.get_config_model`, which degrades a stored
+    say so. The sweep therefore reads through `deployment_config.read_config`, which degrades a stored
     row instead of refusing it. The row below holds an Alarmdruck from before the bounds existed.
     """
     import app.push as push_mod

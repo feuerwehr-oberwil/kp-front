@@ -12,7 +12,6 @@ unless the station switched them off (``map.buildingRegister: false``). 3–4 ar
 and come either way. The device caches the whole answer per Einsatz for offline.
 """
 
-import logging
 import uuid
 
 from fastapi import APIRouter, Depends, Query
@@ -22,8 +21,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..auth.dependencies import CurrentUser
 from ..building_facts import in_switzerland, registers_cached
 from ..database import get_db
+from ..deployment_config import read_config
 from ..incident_service import get_incident_or_404
-from ..models import DeploymentConfig, Incident, ObjectSite, ObjectVisit
+from ..models import Incident, ObjectSite, ObjectVisit
 from ..object_visits import ov_config
 from ..schemas import (
     BuildingGwrOut,
@@ -31,11 +31,8 @@ from ..schemas import (
     BuildingOut,
     BuildingPlantOut,
     BuildingVisitOut,
-    load_stored_config,
 )
 from .objects import object_match, ranked_objects_near
-
-logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/incidents", tags=["objects"])
 
@@ -44,12 +41,7 @@ _LANGS = {"de", "fr", "it", "en"}
 
 async def _register_switch(db: AsyncSession) -> bool | None:
     """``map.buildingRegister`` from the stored config; None (= auto) when unset or unreadable."""
-    row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
-    try:
-        return load_stored_config((row.config_json if row else None) or {}).map.buildingRegister
-    except Exception:  # a broken stored document must not take the card down
-        logger.warning("deployment config failed validation — Gebäude registers read as auto", exc_info=True)
-        return None
+    return (await read_config(db)).map.buildingRegister
 
 
 async def fill_registers(
