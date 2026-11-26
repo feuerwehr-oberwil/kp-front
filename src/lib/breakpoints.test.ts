@@ -13,7 +13,9 @@ const composed = new Set(cssFiles.flatMap(f =>
     .map(m => join(dirname(f), m[1]))))
 const stripComments = (css: string) => css.replace(/\/\*[\s\S]*?\*\//g, '')
 /** every `@media` prelude in a file, comments removed */
-const preludes = (css: string) => [...stripComments(css).matchAll(/@media\s+([^{;]+)\{/g)].map(m => m[1].trim())
+const preludes = (css: string) => [...stripComments(css).matchAll(/@media\s*([^{;]+)\{/gi)].map(m => m[1].trim())
+/** a bare phone width – half of PHONE_QUERY, it misses the phone turned sideways */
+const BARE_PHONE_WIDTH = /\(\s*max-width\s*:\s*600px\s*\)/i
 
 describe('custom media (lib/breakpoints)', () => {
   it('is the query useIsPhone asks', () => {
@@ -47,7 +49,7 @@ describe('custom media (lib/breakpoints)', () => {
     for (const f of cssFiles) {
       if (composed.has(f)) continue
       for (const p of preludes(read(f))) {
-        if (p.includes('(max-height: 520px)') || p.includes(NOT_PHONE_QUERY)
+        if (p.includes('(max-height: 520px)') || BARE_PHONE_WIDTH.test(p) || p.includes(NOT_PHONE_QUERY)
           || p.includes(TABLET_QUERY)) copies.push(`${f}: @media ${p}`)
       }
     }
@@ -60,7 +62,7 @@ describe('custom media (lib/breakpoints)', () => {
     for (const f of composed) {
       for (const p of preludes(read(f))) {
         expect(p, `${f}: custom media is not resolved in a composed file`).not.toContain('(--')
-        if (p.includes('(max-height: 520px)')) expect(p, f).toBe(PHONE_QUERY)
+        if (p.includes('(max-height: 520px)') || BARE_PHONE_WIDTH.test(p)) expect(p, f).toBe(PHONE_QUERY)
       }
     }
   })

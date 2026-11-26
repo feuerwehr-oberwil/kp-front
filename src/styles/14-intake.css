@@ -130,7 +130,7 @@
    — the pair fits, its name beside it does not (it broke into three lines of one word). So the
    name stands OVER the pair, as a field label does over its field, and the ± sit on the pair's
    baseline. */
-@media (max-width: 600px) {
+@media (--phone) {
   .kf-ctl-cluster { gap: var(--sp-1); align-items: flex-end; }
   .kf-ctl-follow { flex-direction: column; align-items: flex-start; gap: 4px; }
   .kf-ctl-follow-l { font: var(--field-label); white-space: nowrap; text-align: left; }

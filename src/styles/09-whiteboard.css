@@ -122,7 +122,7 @@
 .wb-nearby-x { flex: none; width: 44px; height: 44px; border: none; border-radius: var(--r-msg-in); cursor: pointer;
   background: var(--ink-8); color: var(--ink-dim); display: grid; place-items: center; }
 .wb-nearby-x .i { width: 16px; height: 16px; }
-@media (max-width: 600px) {
+@media (--phone) {
   /* the NavRail is a bottom bar here – the banner takes the full width and wraps its actions. ⚠️
      The phone's top bar floats over the sheet (15-mobile · .topbar), so the banner starts under
      it, where the weather chip does – at 12px its first lines were hidden (owner, 22.10.2026) */

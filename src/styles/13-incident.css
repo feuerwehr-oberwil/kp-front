@@ -1430,7 +1430,7 @@ button.rp-sign-row:disabled { cursor: default; }
 .sl-state { margin: 24px 0 0; font: var(--fw-bold) var(--fs-5) var(--body); color: var(--ink); letter-spacing: -.01em; }
 .sl-state small { display: block; margin-top: 12px; max-width: 32ch;
   font: var(--fw-medium) var(--fs-2)/1.55 var(--body); color: var(--ink-dim); }
-@media (max-width: 600px) { .sl-state { margin-top: 16px; } }
+@media (--phone) { .sl-state { margin-top: 16px; } }
 
 /* «Zuletzt geprüft 03:14:22» — the proof that a calm screen is not a dead one (the last
    standing poll, STANDING_POLL_MS). The dot blips once per 10s cycle and then stands down. */
