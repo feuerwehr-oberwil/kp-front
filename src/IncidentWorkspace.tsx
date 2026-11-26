@@ -574,7 +574,7 @@ export function IncidentWorkspace({
     },
   )
   const {
-    objects, doc, board, setDocRaw, setBoard, beginSheetStep, endSheetStep, commit, beginDrag, endDrag, gestureOpen, rebake,
+    objects, doc, board, setDocRaw, setBoard, beginSheetStep, endSheetStep, commit, beginDrag, endDrag, dropDrag, gestureOpen, rebake,
     undo: undoDoc, redo: redoDoc, rebaseObjects, replaceObjects, liveObjects, liveViews, stepKeys: storeStepKeys,
   } = store
   // ⚠️ Through refs: the entry outlives the render that pushed it, and `undoDoc` closes over that
@@ -1322,10 +1322,18 @@ export function IncidentWorkspace({
       ? { ...e, label: v, ...(e.noteAutoW ? { noteW: autoNoteWPx(v, e.noteSize) } : null) }
       : e)) }))
   }
-  const noteTextCommit = (id: string, v: string) => {
-    if (tacticalLocked) { setEditNoteId(null); return }
-    if (titleLiveRef.current) { titleLiveRef.current = false; endDrag(); emit('entity.edit', { id, patch: { label: v } }) }
+  /** …and its end, from the editor on the map and from the Notiz panel alike. A Notiz a ↶ took
+   *  away while it was being typed (the ↶ took back placing it) ends the edit with no step: one
+   *  would bring the Notiz back and clear ↷, which already holds it with what was typed. */
+  const noteTextEnd = (id: string, v: string) => {
+    const live = titleLiveRef.current
+    titleLiveRef.current = false
+    if (!liveObjects().some((o) => o.id === id)) { if (live) dropDrag(); return }
+    if (live) { endDrag(); emit('entity.edit', { id, patch: { label: v } }) }
     else patchEntity(id, { label: v })
+  }
+  const noteTextCommit = (id: string, v: string) => {
+    if (!tacticalLocked) noteTextEnd(id, v)
     setEditNoteId(null)
   }
   // which note has its detail panel open. NOT derived from selectedId: unlike a symbol, selecting
@@ -3355,7 +3363,7 @@ export function IncidentWorkspace({
         vehicleOverrides, canEditIncident, readOnly, stopPersonSharing, setVehicleOverrides, resetVehicleGps, placeVehicle, holdGpsInstead, keepGpsTwin, log,
         fahrzeuge: reportMeta.fahrzeuge,
         assignTypedName, drawings, entities, focusDrawing, noteEntity, notePlacedId, setNotePanelId,
-        noteTextLive, setNoteDefaults, selectedDrawing, patchDrawing,
+        noteTextLive, noteTextEnd, setNoteDefaults, selectedDrawing, patchDrawing,
         selectedDrawingId, patchDrawingLabelLive, commitDrawingLabel,
         changeMapEnding, reverseDrawing, setDrawingWallRole, objects, syncLineNoToTrupp, pickablePersonnel, linkTruppLine,
         unlinkLine, setSelectedDrawingId, setMode, setPanel, showTrupp, setGpsRouting, revertAll, gpsEndOf, releaseHere,

@@ -66,8 +66,8 @@ const vehicle = { id: 'v1', kind: 'symbol', symbol: appConfig.symbols.vehicleNam
 
 type Open = 'note' | 'symbol' | null
 /** The Lage's two panels over the Karte's own history; every step it lays is a timeline entry, as
- *  IncidentWorkspace records them. `show` picks the panel; `noteTextLive` is IncidentWorkspace's,
- *  minus the auto-width. */
+ *  IncidentWorkspace records them. `show` picks the panel; `noteTextLive` / `noteTextEnd` are
+ *  IncidentWorkspace's, minus the auto-width (the workspace itself: harness.writes › (n)). */
 function LageRig({ entities, timeline, karte, show }: { entities: Entity[]; timeline: UndoTimeline; karte: RefObject<UndoableDoc<Doc> | null>; show: RefObject<((open: Open) => void) | null> }) {
   const kd = useUndoableDoc<Doc>({ entities, drawings: [] }, false, (step) => {
     timeline.push({ domain: 'karte', label: 'Karte', undo: () => karte.current?.undo(step), redo: () => karte.current?.redo(step) })
@@ -92,6 +92,13 @@ function LageRig({ entities, timeline, karte, show }: { entities: Entity[]; time
     noteTextLive: (id, v) => {
       if (!titleLiveRef.current) { titleLiveRef.current = true; kd.beginDrag() }
       kd.setDocRaw((d) => ({ ...d, entities: d.entities.map((e) => (e.id === id ? { ...e, label: v } : e)) }))
+    },
+    noteTextEnd: (id, v) => {
+      const live = titleLiveRef.current
+      titleLiveRef.current = false
+      if (!kd.current().entities.some((e) => e.id === id)) { if (live) kd.dropDrag(); return }
+      if (live) kd.endDrag()
+      else patchEntity(id, { label: v })
     },
     deleteEntity: async (id) => { kd.commit((d) => ({ ...d, entities: d.entities.filter((e) => e.id !== id) })); return true },
   }

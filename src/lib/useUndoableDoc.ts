@@ -18,6 +18,9 @@ export interface UndoableDoc<D> {
   beginDrag: () => void
   /** fold the whole gesture into a single undo step on release */
   endDrag: () => void
+  /** end the gesture with NO step – for one whose object a ↶ took away mid-gesture, where a
+   *  step would bring the object back and clear ↷ */
+  dropDrag: () => void
   /** is a `beginDrag` gesture open right now (read live, not a render snapshot) */
   dragging: () => boolean
   /** step back one checkpoint; returns true if the doc changed (so the caller can log it).
@@ -113,6 +116,7 @@ export function useUndoableDoc<D>(init: D, readOnly: boolean, onCheckpoint?: (st
     const id = lay(snap) // ⚠️ not inside `onCheckpoint?.(…)`: an absent callback skips its arguments
     onCheckpoint?.(id, snap, docRef.current)
   }
+  const dropDrag = () => { dragSnap.current = null }
   const undo = (expect?: string): boolean => {
     const top = past.current[past.current.length - 1]
     if (readOnly || !top || (expect !== undefined && top.id !== expect)) return false
@@ -160,7 +164,7 @@ export function useUndoableDoc<D>(init: D, readOnly: boolean, onCheckpoint?: (st
   }
 
   return {
-    doc, current: () => docRef.current, setDocRaw, commit, beginDrag, endDrag, dragging: () => dragSnap.current !== null,
+    doc, current: () => docRef.current, setDocRaw, commit, beginDrag, endDrag, dropDrag, dragging: () => dragSnap.current !== null,
     undo, redo, canUndo: depth.past > 0, canRedo: depth.future > 0, replace, rebase, stepKeys, checkpoint,
   }
 }

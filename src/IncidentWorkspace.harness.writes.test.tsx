@@ -298,6 +298,49 @@ describe('(g) a Link-registered crew reaches the Anwesenheit through the editor 
   })
 })
 
+/* A Notiz placed and being typed, and a ↶ that takes back the placing: the Notiz goes, and its editor
+   goes with it, without a blur. Its typing must end with no step – one would bring the Notiz back
+   empty and clear ↷ (sweep 26.11.2026, after #801). */
+describe('(n) ↶ takes back a Notiz while it is being typed', () => {
+  const historyButton = (label: string) => screen.getAllByRole('button').find((b) => (b.getAttribute('aria-label') ?? '').startsWith(label))!
+  const notes = () => lastMap().entities.filter((e) => e.kind === 'note').map((e) => e.label)
+  /** the Notiz tool, one tap on the map: the Notiz is placed and its panel opens with the caret in it */
+  const placeNote = async () => {
+    key('n')
+    act(() => (lastMap() as unknown as { onMapClick: (c: [number, number]) => void }).onMapClick([7.601, 47.501]))
+    await settle()
+    return lastMap().entities.find((e) => e.kind === 'note')!.id
+  }
+  const press = async (label: string) => { fireEvent.click(historyButton(label)); await settle() }
+
+  it('in its panel: ↷ brings it back with what was typed', async () => {
+    await mount()
+    await placeNote()
+    const field = document.querySelector<HTMLTextAreaElement>('.ctx-note-input')!
+    expect(document.activeElement).toBe(field)
+    fireEvent.change(field, { target: { value: 'Wasser ab 14:20' } })
+    await press(appConfig.copy.undo)
+    expect(notes()).toEqual([])
+    await press(appConfig.copy.redo)
+    expect(notes()).toEqual(['Wasser ab 14:20'])
+  })
+
+  it('in the editor on the map: ↷ brings it back with what was typed', async () => {
+    await mount()
+    const id = await placeNote()
+    const map = () => lastMap() as unknown as { onNoteEdit: (id: string) => void; onNoteText: (id: string, v: string) => void; onNoteCommit: (id: string, v: string) => void }
+    act(() => map().onNoteEdit(id))
+    act(() => map().onNoteText(id, 'Wasser ab 14:20'))
+    await settle()
+    await press(appConfig.copy.undo)
+    expect(notes()).toEqual([])
+    // the editor went with the Notiz, and ends its edit as it goes (EntityMarker · NoteField)
+    act(() => map().onNoteCommit(id, 'Wasser ab 14:20'))
+    await press(appConfig.copy.redo)
+    expect(notes()).toEqual(['Wasser ab 14:20'])
+  })
+})
+
 /* RBAC audit 22.10.2026 (§2): a session that cannot write the Einsatz is handed no door that
    changes this device's picture of it – nothing it took could ever sync. */
 describe('(m) a read-only session writes nothing', () => {

@@ -95,6 +95,8 @@ export interface MapDetailPanelsProps {
   notePlacedId: string | null
   setNotePanelId: Dispatch<SetStateAction<string | null>>
   noteTextLive: (id: string, v: string) => void
+  /** a Notiz's typed text is done: one ↶ step, none for a Notiz a ↶ took away (IncidentWorkspace) */
+  noteTextEnd: (id: string, v: string) => void
   setNoteDefaults: Dispatch<SetStateAction<{ size: NoteSize; plain: boolean; color: string }>>
   selectedDrawing: Drawing | null
   patchDrawing: (patch: Partial<Drawing>) => void
@@ -138,7 +140,7 @@ export function MapDetailPanels({
   symbolCaptions, rosterNames, rosterRank, personStatus, rosterFieldHints, setEntityDone, commitEntityFields,
   vehicleOverrides, canEditIncident, readOnly, stopPersonSharing, setVehicleOverrides, resetVehicleGps, placeVehicle, holdGpsInstead, keepGpsTwin, fahrzeuge, log,
   assignTypedName, drawings, entities, focusDrawing, noteEntity, notePlacedId, setNotePanelId,
-  noteTextLive, setNoteDefaults, selectedDrawing, patchDrawing,
+  noteTextLive, noteTextEnd, setNoteDefaults, selectedDrawing, patchDrawing,
   selectedDrawingId, patchDrawingLabelLive, commitDrawingLabel,
   changeMapEnding, reverseDrawing, setDrawingWallRole, objects, syncLineNoToTrupp, pickablePersonnel, linkTruppLine,
   unlinkLine, setSelectedDrawingId, setMode, setPanel, showTrupp, setGpsRouting, revertAll, gpsEndOf, releaseHere,
@@ -194,16 +196,14 @@ export function MapDetailPanels({
       if (Object.keys(rest).length) patchEntity(ent.id, rest)
     } finally { end() }
   }
-  /** …and a Notiz's: its text streams like a name, and each style edit is remembered as the NEXT
+  /** …and a Notiz's: its text goes through the workspace's two Notiz doors, the ones the editor on
+   *  the map uses (`noteTextLive` / `noteTextEnd`), and each style edit is remembered as the NEXT
    *  note's default too («D pur», 09.09.: the Notiz dock carries no style controls any more —
    *  this is the stickiness). */
   const patchNote = (note: Entity, patch: SymbolPatch, phase: PatchPhase) => {
     if (phase === 'typing') { noteTextLive(note.id, patch.label ?? ''); return }
     const { label, noteSize, ...rest } = patch
-    if (label !== undefined) {
-      if (titleLiveRef.current) { titleLiveRef.current = false; endDrag(); emit('entity.edit', { id: note.id, patch: { label } }) }
-      else patchEntity(note.id, { label })
-    }
+    if (label !== undefined) noteTextEnd(note.id, label)
     // setting a width in the panel is a hand-made decision too — it ends the auto-fit the S/M/L
     // step keeps following the text, so it re-measures at the new font size
     if ('noteSize' in patch) {
