@@ -82,11 +82,11 @@ from .config import settings
 from .config_history import keep_previous
 from .credentials import get as credential
 from .credentials import load as load_credentials
-from .deployment_config import config_row
+from .deployment_config import config_row, read_config
 from .geocode import locate_coordinates
 from .models import DeploymentConfig, ObjectSite, SharePointSyncState
 from .plans import plan_max_bytes, store_plan
-from .schemas import SharePointArea, SharePointConfig, SharePointSource, load_stored_config
+from .schemas import SharePointArea, SharePointConfig, SharePointSource
 from .sharepoint_graph import GraphAuthError, GraphClient, GraphDeltaExpiredError, GraphError, RemoteFile
 
 logger = logging.getLogger(__name__)
@@ -159,10 +159,8 @@ async def _module_rules(db: AsyncSession) -> list[_ModuleRule]:
     Entries without a `match` are display-only and claim nothing. A regex a station has broken
     is dropped and named rather than taking the whole run down with it.
     """
-    row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
-    stored = load_stored_config((row.config_json if row else None) or {})
     rules: list[_ModuleRule] = []
-    for module in stored.modules:
+    for module in (await read_config(db)).modules:
         if not module.match:
             continue
         try:
@@ -252,10 +250,8 @@ def sharepoint_credentials() -> tuple[str, str, str] | None:
 
 
 async def sharepoint_settings(db: AsyncSession) -> SharePointConfig:
-    """The `sharepoint` section of the stored config document, defaults where it is silent."""
-    row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
-    stored = load_stored_config((row.config_json if row else None) or {})
-    return stored.sharepoint
+    """The `sharepoint` section of the stored config document, defaults where it is silent or broken."""
+    return (await read_config(db)).sharepoint
 
 
 def secret_expiry_days() -> int | None:

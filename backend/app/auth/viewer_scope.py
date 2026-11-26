@@ -15,7 +15,6 @@ condition in SQL. `editor`, `el`, the deployment admin and link sessions are unt
 have their own scope: auth/incident_link).
 """
 
-import logging
 import uuid
 from datetime import UTC, datetime, timedelta
 
@@ -23,10 +22,8 @@ from fastapi import HTTPException, Request, status
 from sqlalchemy import ColumnElement, and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models import INCIDENT_ACTIVE_STATUSES, DeploymentConfig, Incident, Media, PrintJob, User, lifecycle_open
-from ..schemas import AccessConfig, load_stored_config
-
-logger = logging.getLogger(__name__)
+from ..deployment_config import read_config
+from ..models import INCIDENT_ACTIVE_STATUSES, Incident, Media, PrintJob, User, lifecycle_open
 
 _not_found = HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Einsatz nicht gefunden")
 #: the print routes' own «no such job» (api/print_relay)
@@ -40,13 +37,7 @@ def is_viewer(user: User) -> bool:
 
 async def viewer_history(db: AsyncSession) -> timedelta:
     """`access.viewerHistoryDays` of the stored config. A broken document reads as the default."""
-    row = (await db.execute(select(DeploymentConfig.config_json).where(DeploymentConfig.id == 1))).scalar_one_or_none()
-    try:
-        days = load_stored_config(row or {}).access.viewerHistoryDays
-    except Exception:  # a bad stored row must not 500 every viewer request
-        logger.warning("deployment config failed validation — viewer window read as the default", exc_info=True)
-        days = AccessConfig().viewerHistoryDays
-    return timedelta(days=days)
+    return timedelta(days=(await read_config(db)).access.viewerHistoryDays)
 
 
 def _ended(last_closed: datetime | None, closed: datetime | None, started: datetime) -> datetime:

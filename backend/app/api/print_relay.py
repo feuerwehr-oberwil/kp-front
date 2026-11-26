@@ -26,13 +26,13 @@ from pydantic import BaseModel
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..alarms import get_config_model
 from ..auth.dependencies import CurrentUser
 from ..auth.secret_token import SecretGate
 from ..auth.viewer_scope import is_viewer
 from ..credentials import get as credential
 from ..credentials import load as load_credentials
 from ..database import execute_dml, get_db
+from ..deployment_config import read_config
 from ..incident_archive import keep_report_safely
 from ..models import Incident, PrintJob
 from ..report import ReportPayload
@@ -183,7 +183,7 @@ def reverse_pdf_pages(pdf: bytes) -> bytes:
 
 async def wants_reverse_order(db: AsyncSession) -> bool:
     """Station setting `report.reversePrintOrder` (default on) — see the schema for why."""
-    report = (await get_config_model(db)).report
+    report = (await read_config(db)).report
     return bool(report is None or report.reversePrintOrder)
 
 
