@@ -96,6 +96,7 @@ export function ChecklistsView() {
   const [assetFor, setAssetFor] = useState<ChecklistRow | null>(null)
   const [deleting, setDeleting] = useState<ChecklistRow | null>(null)
   const [cleaning, setCleaning] = useState(false)
+  const [cleanError, setCleanError] = useState<string | null>(null)
   const [flash, setFlash] = useState<string | null>(null)
 
   /**
@@ -120,14 +121,18 @@ export function ChecklistsView() {
   const datasets = state.kind === 'ok' ? state.data : []
   const { rows, orphanAssets } = groupChecklists(datasets)
 
+  /** «Reste löschen»: one prune for every orphan. A failure stays on the card under the button,
+   *  and the list is read again either way, so what was deleted is gone and the rest stays. */
   const cleanOrphans = async () => {
     setCleaning(true)
+    setCleanError(null)
     try {
-      const gone = new Set(orphanAssets.map((a) => a.id))
-      const res = await deleteChecklistDatasets([...gone])
+      const res = await deleteChecklistDatasets(orphanAssets.map((a) => a.id))
       setFlash(fillTemplate(C.deleted, { n: res.pruned.length }))
-      await reload()
-    } catch { /* the list reload below tells the truth either way */ }
+    } catch (e) {
+      setCleanError(apiErrorText(e, C.deleteFailed))
+    }
+    await reload()
     setCleaning(false)
   }
 
@@ -236,6 +241,7 @@ export function ChecklistsView() {
             <button type="button" className="btn adm-int-btn" disabled={cleaning} onClick={() => void cleanOrphans()}>
               {cleaning ? C.deleting : C.cleanOrphans}
             </button>
+            {cleanError && <p className="adm-state adm-state-err">{cleanError}</p>}
           </div>
         )}
       </Card>
