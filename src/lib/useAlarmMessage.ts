@@ -8,7 +8,9 @@ import { parseAlarmText } from './alarmText'
 // the Einsatz (without its workspace). What is shown is what a person wrote: the gateway's
 // machinery (Ausrückeordnung, Einsatzplan, our own link) is parsed off as the Rapport's
 // «Alarmmeldung» does (lib/alarmText) – the words themselves are never touched, never searched
-// for keywords, never highlighted.
+// for keywords, never highlighted. One thing only changes: a space between two digits becomes a
+// no-break space, so a number reads whole (owner, sign-off 25.11.2026: the iPad broke «079 12…»
+// off the rest of the caller's phone number).
 
 /** last answer per Einsatz, so the menu opens on the text the band already fetched */
 const known = new Map<string, string>()
@@ -28,7 +30,7 @@ export function useAlarmMessage(id: string, updatedAt?: string): string | null {
     newest.set(id, ticket)
     getIncidentMeta(id)
       .then((full) => {
-        const msg = parseAlarmText(full.text).message
+        const msg = parseAlarmText(full.text).message.replace(/(\d) (?=\d)/g, '$1\u00a0')
         if (newest.get(id) === ticket) known.set(id, msg)
         if (alive) setRead({ id, msg })
       })

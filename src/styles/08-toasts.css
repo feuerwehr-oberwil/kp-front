@@ -127,16 +127,19 @@
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
 /* a row that carries a text to READ in full (Meldung.quote – «Einsatzdaten prüfen» with the
    Stichwort and the Alarmmeldung, owner pick UX journeys B3·4, 25.11.2026): title and sub-line on
-   one line, the Stichwort in a title's size and the text as sent under them, never clamped. The
-   glyph and the buttons stand at the top, level with the title. */
+   one line, the Stichwort and the text as sent under them, never clamped. Both are READ values,
+   so both stand at the read-out step, --fs-2 (owner, sign-off 25.11.2026: «check the font sizes
+   and the visual hierarchy» – they were 19 and 16, louder than the row's own title and buttons):
+   the row's title, then the Stichwort in its weight, the text a weight lighter. The glyph and the
+   buttons stand at the top, level with the title. */
 .ml-row.quote { align-items: flex-start; }
 .ml-row.quote .ml-ic { margin-top: calc(var(--sp-3) + 1px); }
 .ml-row.quote .ml-txt { flex-direction: row; flex-wrap: wrap; justify-content: flex-start; align-items: baseline; column-gap: var(--sp-1);
   padding: var(--sp-3) 0 var(--sp-2); }
 .ml-row.quote .ml-sub::before { content: '· '; }
 .ml-quote { flex: 1 1 100%; display: grid; gap: var(--sp-1); margin-top: var(--sp-2); max-width: 600px; }
-.ml-quote-head { font: var(--fw-bold) var(--fs-4)/var(--lh-4) var(--body); color: var(--ink); overflow-wrap: anywhere; }
-.ml-quote-text { font: var(--fw-medium) var(--fs-3)/var(--lh-3) var(--body); color: var(--ink); white-space: pre-line; overflow-wrap: anywhere; }
+.ml-quote-head { font: var(--fw-bold) var(--fs-2)/var(--lh-2) var(--body); color: var(--ink); overflow-wrap: anywhere; }
+.ml-quote-text { font: var(--fw-medium) var(--fs-2)/var(--lh-2) var(--body); color: var(--ink); white-space: pre-line; overflow-wrap: anywhere; }
 /* a sub-line's emphasis (lib/meldungen · MeldungSpan) – «Alarm aktualisiert»: what is new on an
    amber wash in the ink, what it replaces struck through and faint, a value to read in the ink */
 .ml-sub ins { text-decoration: none; font-weight: var(--fw-bold); color: var(--ink); border-radius: 4px; padding: 0 var(--sp-1);

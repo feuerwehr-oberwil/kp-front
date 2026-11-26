@@ -29,6 +29,12 @@ describe('useAlarmMessage', () => {
     await waitFor(() => expect(result.current).toBe(''))
   })
 
+  it('a number stays whole: the spaces between its digits do not break', async () => {
+    getIncidentMeta.mockResolvedValueOnce({ text: 'Meldet: Hauswart Meier, 079 123 45 67. 2. OG' })
+    const { result } = renderHook(() => useAlarmMessage('e4'))
+    await waitFor(() => expect(result.current).toBe('Meldet: Hauswart Meier, 079\u00a0123\u00a045\u00a067. 2. OG'))
+  })
+
   it('an older read that answers last does not overwrite the newer answer', async () => {
     let answerOld: (v: { text: string }) => void = () => {}
     getIncidentMeta.mockReturnValueOnce(new Promise((r) => { answerOld = r }))
