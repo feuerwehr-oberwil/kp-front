@@ -261,18 +261,14 @@ describe('(d) the render budget', () => {
    Atemschutz.module · `.body` – a layout fact jsdom cannot measure.) */
 describe('(h) the phone FAB stays on the Trupps page', () => {
   it('shows on the Karte and on the Trupps page', async () => {
-    const before = window.matchMedia
+    // the harness's afterEach unstubs it
     stubMatchMedia((q) => q.includes('max-width: 600px'))
-    try {
-      await mount()
-      expect(document.querySelector('.fab-entry')).toBeTruthy()
-      key('a')
-      await settle()
-      expect(mode()).toBe('atemschutz')
-      expect(document.querySelector('.fab-entry')).toBeTruthy()
-    } finally {
-      window.matchMedia = before
-    }
+    await mount()
+    expect(document.querySelector('.fab-entry')).toBeTruthy()
+    key('a')
+    await settle()
+    expect(mode()).toBe('atemschutz')
+    expect(document.querySelector('.fab-entry')).toBeTruthy()
   })
 })
 
