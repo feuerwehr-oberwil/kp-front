@@ -33,8 +33,11 @@ function reactBindings(program, names) {
   for (const node of program.body) {
     if (node.type !== 'ImportDeclaration' || node.source.value !== 'react') continue
     for (const s of node.specifiers) {
-      if (s.type === 'ImportSpecifier' && names.has(s.imported.name)) direct.add(s.local.name)
-      else namespaces.add(s.local.name) // default or namespace import
+      // `import R`, `import * as R` and `import { default as R }` all reach React's namespace
+      const imported = s.type !== 'ImportSpecifier' ? 'default'
+        : s.imported.type === 'Identifier' ? s.imported.name : String(s.imported.value)
+      if (names.has(imported)) direct.add(s.local.name)
+      else if (imported === 'default') namespaces.add(s.local.name)
     }
   }
   return { direct, namespaces }

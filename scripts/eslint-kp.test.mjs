@@ -8,12 +8,18 @@ RuleTester.it = it
 const tester = new RuleTester({ languageOptions: { sourceType: 'module', parserOptions: { ecmaFeatures: { jsx: true } } } })
 
 tester.run('no-raw-effect', kp.rules['no-raw-effect'], {
-  valid: ['useMemo(() => 1, [])', 'useEffectOnce()', 'other.useEffect()', "import { useEffect as e } from './mine'\ne()"],
+  valid: [
+    'useMemo(() => 1, [])', 'useEffectOnce()', 'other.useEffect()', "import { useEffect as e } from './mine'\ne()",
+    "import { useMemo as m } from 'react'\nm.useEffect()",
+  ],
   invalid: [
     { code: 'useEffect(() => {}, [])', errors: 1 },
     { code: 'React.useLayoutEffect(() => {})', errors: 1 },
     { code: "import { useEffect as onMount } from 'react'\nonMount(() => {})", errors: 1 },
     { code: "import * as R from 'react'\nR.useEffect(() => {})", errors: 1 },
+    { code: "import { 'useEffect' as onMount } from 'react'\nonMount(() => {})", errors: 1 },
+    { code: "import { default as R } from 'react'\nR.useEffect(() => {})", errors: 1 },
+    { code: "import { 'default' as R } from 'react'\nR.useEffect(() => {})", errors: 1 },
   ],
 })
 
