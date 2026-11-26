@@ -10,5 +10,7 @@ import { useCommitDraftOnUnmount } from '../lib/useCommitDraftOnUnmount'
  */
 export function NoteField({ onEnd, ...field }: ComponentProps<'textarea'> & { onEnd: () => void }) {
   useCommitDraftOnUnmount(onEnd)
+  // raw, not `ip-textarea`: it IS the Notiz drawn on the canvas (its pill's box, font and tint),
+  // not a form field beside it – moved here from EntityMarker and PlanAnno, one count for both
   return <textarea {...field} />
 }
