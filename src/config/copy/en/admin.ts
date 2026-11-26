@@ -136,6 +136,7 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
       standardOn: 'Yes',
       standardOff: 'No',
       newEntry: 'New entry',
+      textTooLong: '{field}: at most {n} characters – the entry is not saved like this.',
     },
     numbers: {
       integer: 'Value not saved yet – a whole number is expected.',
@@ -686,6 +687,7 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
       catModulesTip: 'Only objects with a plan of this module, comma-separated; * stands for any characters (modul5-pv* matches modul5-pv, modul5-pv15 …). Empty = any plans.',
       catModulesPlaceholder: 'modul5-pv*, modul5-wasser*',
       catAdd: 'Add category',
+      catId: 'Key',
     },
     doctrine: {
       defaultFunkkanal: 'Radio channel (default)',

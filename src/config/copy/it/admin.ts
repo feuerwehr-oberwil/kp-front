@@ -136,6 +136,7 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
       standardOn: 'Sì',
       standardOff: 'No',
       newEntry: 'Nuova voce',
+      textTooLong: '{field}: al massimo {n} caratteri – così la voce non viene salvata.',
     },
     numbers: {
       integer: 'Valore non ancora salvato – è atteso un numero intero.',
@@ -687,6 +688,7 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
       catModulesTip: 'Solo oggetti con un piano di questo modulo, separati da virgole; * sta per qualsiasi carattere (modul5-pv* trova modul5-pv, modul5-pv15 …). Vuoto = qualsiasi piano.',
       catModulesPlaceholder: 'modul5-pv*, modul5-wasser*',
       catAdd: 'Aggiungi categoria',
+      catId: 'Chiave',
     },
     doctrine: {
       defaultFunkkanal: 'Canale radio (predefinito)',

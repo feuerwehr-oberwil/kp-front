@@ -132,3 +132,36 @@ describe('map.objectCategories — the plan modules of a colour rule', () => {
     expect(sent()?.map?.objectCategories?.[0]?.match?.modules).toEqual([`${'m'.repeat(59)}🚒`])
   })
 })
+
+// Sweep 26.11.2026: a row held for its length said nothing: it stayed in the form and out of the save.
+describe('a row held for its length names the limit', () => {
+  const R = appConfig.copy.admin.report
+  const T = appConfig.copy.admin.objectVisits
+  const M = appConfig.copy.admin.map
+  const line = (label: string, n: number) => screen.queryByText(`${label}: höchstens ${n} Zeichen – so wird der Eintrag nicht gespeichert.`)
+
+  it('says so under a title typed past the limit, and not once it fits', async () => {
+    await mount(<ReportSection />, R.linkAdd)
+    await type(screen.getByPlaceholderText(R.linkUrlPlaceholder), 'https://formulare.example/schaden')
+    await type(box(R.linkTitlePlaceholder), 'T'.repeat(121))
+    expect(line(R.linkTitle, 120)).not.toBeNull()
+    await type(box(R.linkTitlePlaceholder), 'T'.repeat(120))
+    expect(line(R.linkTitle, 120)).toBeNull()
+  })
+
+  it('says so under a stored field that is already over the limit', async () => {
+    const fields = [{ id: 'lang', label: 'L'.repeat(121) }, { id: 'kurz', label: 'Kurz' }]
+    apiGet.mockResolvedValue({ ...structuredClone(STATION), objectVisits: { proposalFields: fields } })
+    await act(async () => { render(<ConfigProvider><ProposalFieldsEditor /></ConfigProvider>) })
+    const note = await waitFor(() => line(T.fieldLabel, 120)!)
+    expect(note.closest('.adm-rec')?.textContent).toContain('lang')
+    expect(screen.getAllByText(/höchstens/)).toHaveLength(1)
+  })
+
+  it('says so under a stored colour rule with a module glob past 60', async () => {
+    const rule = { id: 'pv', label: 'Photovoltaik', color: '#f59e0b', match: { modules: ['m'.repeat(61)] } }
+    apiGet.mockResolvedValue({ ...structuredClone(STATION), map: { objectCategories: [rule] } })
+    await act(async () => { render(<ConfigProvider><ObjectCategoriesCard /></ConfigProvider>) })
+    await waitFor(() => expect(line(M.catModules, 60)).not.toBeNull())
+  })
+})

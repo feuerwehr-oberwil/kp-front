@@ -150,6 +150,8 @@ export const adminCopy = {
       // Überschrift einer Listen-Zeile, solange sie noch keinen eigenen Namen trägt
       // (Alarmgruppe, Fahrzeug, Formular).
       newEntry: 'Neuer Eintrag',
+      // ein Feld über der Länge, die der Server annimmt (configGuards · tooLongNote)
+      textTooLong: '{field}: höchstens {n} Zeichen – so wird der Eintrag nicht gespeichert.',
       // Zeilentitel des frisch erzeugten Werts auf jeder Schlüssel-Seite. Er steht genau
       // einmal – nach dem Erzeugen –, darum sagt der Titel, dass er neu ist, und nicht bloss
       // noch einmal «Schlüssel».
@@ -796,6 +798,7 @@ export const adminCopy = {
       catModulesTip: 'Nur Objekte mit einem Plan dieses Moduls, durch Komma getrennt; * steht für beliebig viele Zeichen (modul5-pv* trifft modul5-pv, modul5-pv15 …). Leer = egal welche Pläne.',
       catModulesPlaceholder: 'modul5-pv*, modul5-wasser*',
       catAdd: 'Kategorie hinzufügen',
+      catId: 'Kennung',
     },
     journal: {
       quickPhrases: 'Textbausteine',

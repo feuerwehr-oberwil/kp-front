@@ -23,7 +23,7 @@ import {
 import { DEFAULT_DESTINATION, DEFAULT_LOCATION_FOLDER, destinationValid, previewFolder, previewLocationFolder } from '../objectVisits/folders'
 import { personName, type DeliveryRow, type NotifyState, type VisitFiling, type VisitSummary, type VisitTemplate } from '../objectVisits/types'
 import { getPath, useConfig, type ConfigCtx } from './ConfigContext'
-import { NUMBER_GUARDS, TEXT_MAX_LENGTH, fitsText } from './configGuards'
+import { NUMBER_GUARDS, TEXT_MAX_LENGTH, tooLongNote } from './configGuards'
 import { apiErrorText } from './apiErrors'
 import {
   Card, ConfirmButton, CopyChip, EmptyState, RecordRows, RecordTable, ResultChip, SettingRow, SettingsNote,
@@ -145,14 +145,16 @@ export function ProposalFieldsEditor() {
   const problem = (f: { id: string; label: string }, i: number, all: { id: string; label: string }[]): string | null => {
     const id = f.id?.trim()
     if (!id || !f.label?.trim()) return T.fieldIncomplete
-    return all.findIndex((o) => o.id?.trim() === id) === i ? null : T.fieldDuplicate
+    if (all.findIndex((o) => o.id?.trim() === id) !== i) return T.fieldDuplicate
+    // …and none longer than the schema allows: the boxes hold typing to it (configGuards)
+    return tooLongNote([
+      ['objectVisits.proposalFields.0.label', T.fieldLabel, f.label.trim()],
+      ['objectVisits.proposalFields.0.id', T.fieldId, id],
+    ])
   }
   const write = (next: { id: string; label: string }[]) => {
     setEditing(next)
-    // …and none longer than the schema allows: the boxes hold typing to it (configGuards)
-    const fits = (f: { id: string; label: string }) =>
-      fitsText('objectVisits.proposalFields.0.id', f.id.trim()) && fitsText('objectVisits.proposalFields.0.label', f.label.trim())
-    set(['objectVisits', 'proposalFields'], next.filter((f, i) => problem(f, i, next) === null && fits(f)).map((f) => ({ id: f.id.trim(), label: f.label.trim() })))
+    set(['objectVisits', 'proposalFields'], next.filter((f, i) => problem(f, i, next) === null).map((f) => ({ id: f.id.trim(), label: f.label.trim() })))
   }
   const patch = (i: number, over: Partial<{ id: string; label: string }>) => write(rows.map((r, j) => (j === i ? { ...r, ...over } : r)))
   const setLabel = (i: number, label: string) => {
@@ -197,6 +199,10 @@ export function ProposalFieldsEditor() {
 }
 
 // ─── Ablageziel · SharePoint ───────────────────────────────────────────────────────────────
+
+/** The destination's boxes with a schema length (configGuards · TEXT_MAX_LENGTH). */
+const DEST_TEXT = ['siteUrl', 'library', 'root', 'objectFolder', 'visitFolder', 'locationFolder'] as const
+type DestText = (typeof DEST_TEXT)[number]
 
 function DestinationCard({ onNavigate }: { onNavigate: (id: string) => void }) {
   const T = C()
@@ -250,7 +256,8 @@ function DestinationCard({ onNavigate }: { onNavigate: (id: string) => void }) {
     objectName: T.previewPlace, locationLabel: T.previewPlace, date: new Date().toISOString().slice(0, 10),
     checklist: T.previewPlaceChecklist, visitId: 'ov0000000000000-7f3a',
   })
-  const text = (key: 'siteUrl' | 'library' | 'root' | 'objectFolder' | 'visitFolder' | 'locationFolder', label: string, opts: { mono?: boolean; placeholder?: string; tip?: string } = {}) => (
+  const tooLong = tooLongNote(DEST_TEXT.map((k) => [`objectVisits.destinations.0.${k}`, T[k], dest[k]] as const))
+  const text = (key: DestText, label: string, opts: { mono?: boolean; placeholder?: string; tip?: string } = {}) => (
     <SettingRow label={label} tip={opts.tip} span>
       <input className={`adm-input${opts.mono ? ' adm-input-mono' : ''}`} type="text" value={dest[key] ?? ''}
         maxLength={TEXT_MAX_LENGTH[`objectVisits.destinations.0.${key}`]}
@@ -272,7 +279,9 @@ function DestinationCard({ onNavigate }: { onNavigate: (id: string) => void }) {
           ))}
         </span>
       </SettingRow>
-      {!destinationValid(dest) && <SettingsNote tone="warn">{T.destIncomplete}</SettingsNote>}
+      {/* a value past its length names that box – the general line («https:// …, beide Ordner»)
+          would send the admin to the wrong one */}
+      {!destinationValid(dest) && <SettingsNote tone="warn">{tooLong ?? T.destIncomplete}</SettingsNote>}
       {text('siteUrl', T.siteUrl, { mono: true, placeholder: T.siteUrlPlaceholder })}
       {text('library', T.library)}
       {text('root', T.root, { mono: true })}

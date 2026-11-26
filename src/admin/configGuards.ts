@@ -5,7 +5,9 @@
 // (docs/openapi.json). A form reads its bound from here and never types one inline; a bound that
 // lives only in a backend validator is a named exception in that test.
 
+import { appConfig } from '../config/appConfig'
 import { OFFLINE_RADIUS_M } from '../lib/deploymentConfig'
+import { fillTemplate } from '../lib/format'
 import { CONTACT_BOUNDS } from '../lib/workspace'
 import type { ConfigPathTo } from './ConfigContext'
 
@@ -114,4 +116,15 @@ export const TEXT_MAX_LENGTH = {
  *  UTF-16 units here, so `.length` would hold back a stored note the server accepted. */
 export function fitsText(field: keyof typeof TEXT_MAX_LENGTH, value: string | null | undefined): boolean {
   return [...(value ?? '')].length <= TEXT_MAX_LENGTH[field]
+}
+
+/** The reason line under a row that its writer holds for a length: the first of `fields`
+ *  (bound, the form's label for the box, the value the writer checks) past its bound, as
+ *  «<label>: höchstens <n> Zeichen – …». Null when every value fits. One sentence for every
+ *  bound, so a stored row that is already too long says so too. */
+export function tooLongNote(
+  fields: ReadonlyArray<readonly [field: keyof typeof TEXT_MAX_LENGTH, label: string, value: string | null | undefined]>,
+): string | null {
+  const over = fields.find(([field, , value]) => !fitsText(field, value))
+  return over ? fillTemplate(appConfig.copy.admin.common.textTooLong, { field: over[1], n: TEXT_MAX_LENGTH[over[0]] }) : null
 }
