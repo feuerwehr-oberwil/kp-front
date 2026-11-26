@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { stubMatchMedia } from '../test/dom.test-utils'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { AnwesenheitView } from './AnwesenheitView'
 import { appConfig } from '../config/appConfig'
@@ -9,14 +10,10 @@ import type { AttendanceState, Person } from '../types'
 import { PHONE_QUERY } from '../lib/useIsPhone'
 
 afterEach(cleanup)
-/** jsdom has no matchMedia; the surface asks it whether it is on a phone (useIsPhone) */
+/** the surface asks whether it is on a phone (useIsPhone) */
 let phone = false
 beforeAll(() => {
-  window.matchMedia = ((q: string) => ({
-    matches: phone && q === PHONE_QUERY, media: q, onchange: null,
-    addEventListener: () => {}, removeEventListener: () => {},
-    addListener: () => {}, removeListener: () => {}, dispatchEvent: () => false,
-  })) as unknown as typeof window.matchMedia
+  stubMatchMedia((q) => phone && q === PHONE_QUERY)
 })
 
 const people: Person[] = [{ id: 'p1', displayName: 'Meier Anna', active: true, updatedAt: 't' }]

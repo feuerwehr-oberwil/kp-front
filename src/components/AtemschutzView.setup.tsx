@@ -12,7 +12,7 @@ import type { AttendanceState, Trupp } from '../types'
 // `vi.mock('../lib/useIsPhone', …)` — vi.mock is hoisted per test file and cannot live here —
 // and calls `registerAtemschutzViewHooks()` once at the top level.
 
-/** cleanup, the kept drafts, and the jsdom gaps (matchMedia, scrollIntoView) */
+/** cleanup, the kept drafts, and the jsdom gap (scrollIntoView) */
 export function registerAtemschutzViewHooks() {
   afterEach(cleanup)
   // ⚠️ …and the kept DRAFTS with it (lib/draftKeep is a module-level store): a form that was
@@ -20,11 +20,6 @@ export function registerAtemschutzViewHooks() {
   // half-typed crew to the next test in this file.
   afterEach(clearAllDrafts)
   beforeAll(() => {
-    window.matchMedia = ((q: string) => ({
-      matches: false, media: q, onchange: null,
-      addEventListener: () => {}, removeEventListener: () => {},
-      addListener: () => {}, removeListener: () => {}, dispatchEvent: () => false,
-    })) as unknown as typeof window.matchMedia
     Element.prototype.scrollIntoView = () => {}
   })
 }

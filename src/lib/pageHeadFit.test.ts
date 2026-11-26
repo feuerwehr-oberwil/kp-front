@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
-import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { fitPageHead, foldLevel, foldRanks, partRanks } from './pageHeadFit'
 import { climbLadder, fitHead, headCrowded, HEAD_FIT_STEPS, STREET_BEFORE_STEP } from './useHeadFit'
+import { addStyles, appStylesheets } from '../test/dom.test-utils'
 
 /** A head in the shape the pages draw: titles (h2 + quiet line) and tiles carrying ranks. */
 function head(html: string): HTMLElement {
@@ -138,9 +138,7 @@ describe('the shared ladder (lib/useHeadFit · climbLadder)', () => {
   it('folds every action to a tile at ONE step, the one 10-journal styles', () => {
     // what the app's global stylesheets (app.css, in its cascade order) give the bar's actions
     // at each step of the ladder – jsdom applies no @media and lays nothing out
-    for (const [, f] of readFileSync('src/app.css', 'utf8').matchAll(/@import '\.\/(styles\/[^']+)'/g)) {
-      document.head.appendChild(Object.assign(document.createElement('style'), { textContent: readFileSync(`src/${f}`, 'utf8') }))
-    }
+    addStyles(...appStylesheets())
     const bar = head(`<div class="tb-actions"><button class="tb-act quiet tb-act-history">Rückgängig</button>
       <button class="tb-act">Verlauf</button><button class="tb-act tb-act-add">Eintrag</button></div>`)
     bar.classList.add('topbar')

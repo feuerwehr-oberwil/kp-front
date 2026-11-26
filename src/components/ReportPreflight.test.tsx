@@ -49,12 +49,6 @@ const incident: IncidentMeta = {
 
 const scrollTo = vi.fn()
 beforeEach(() => {
-  // useIsPhone → matchMedia, which jsdom does not implement; pinned to «not a phone»
-  window.matchMedia = ((q: string) => ({
-    matches: false, media: q, onchange: null,
-    addEventListener: () => {}, removeEventListener: () => {},
-    addListener: () => {}, removeListener: () => {}, dispatchEvent: () => false,
-  })) as unknown as typeof window.matchMedia
   scrollTo.mockReset()
   vi.mocked(downloadDirectReportPdf).mockClear()
   // jsdom has no scrollTo on elements, and the jump measures a frame after switching tabs —

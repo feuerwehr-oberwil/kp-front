@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, afterEach, vi } from 'vitest'
+import { stubMatchMedia } from '../test/dom.test-utils'
 import { StrictMode, useState } from 'react'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { TafelFormPage } from './TafelFormPage'
@@ -341,9 +342,7 @@ describe('a Tafel page by keyboard, like a spreadsheet', () => {
 // opens THE time picker; under a mouse it stays a cell you type «1124» into
 describe('a Tafel time cell', () => {
   const W = appConfig.copy.wheel
-  const pointer = (coarse: boolean) => vi.stubGlobal('matchMedia', (q: string) => ({
-    matches: coarse && q === '(pointer: coarse)', addEventListener: () => {}, removeEventListener: () => {},
-  }))
+  const pointer = (coarse: boolean) => stubMatchMedia((q) => coarse && q === '(pointer: coarse)')
   afterEach(() => vi.unstubAllGlobals())
   const firstWann = () => document.querySelector('[data-sec="mittel"]')!.querySelectorAll<HTMLTextAreaElement>('[aria-label="Wann"]')[0]
 

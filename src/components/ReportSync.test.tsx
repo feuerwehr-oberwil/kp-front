@@ -10,7 +10,7 @@
 // These tests pin the two halves of the fix (ReportPreflight · useSyncedField / dirtyMeta):
 // what this operator did NOT touch follows the blob, and what they did NOT touch is not written.
 import { render, screen, cleanup, fireEvent, act } from '@testing-library/react'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ReportMeta } from '../lib/workspace'
 
 // ⚠️ Required, not an optimisation: ReportPreflight imports KrokiFramingPanel statically, which
@@ -18,14 +18,6 @@ import type { ReportMeta } from '../lib/workspace'
 vi.mock('./KrokiFramingPanel', () => ({ KrokiFramingPanel: () => null }))
 
 import { ReportPreflight } from './ReportPreflight'
-
-beforeAll(() => {
-  window.matchMedia = ((q: string) => ({
-    matches: false, media: q, onchange: null,
-    addEventListener: () => {}, removeEventListener: () => {},
-    addListener: () => {}, removeListener: () => {}, dispatchEvent: () => false,
-  })) as unknown as typeof window.matchMedia
-})
 
 afterEach(cleanup)
 

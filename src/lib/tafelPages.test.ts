@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { SKIZZE, pickedTafelPage, resetTafelPageMemory, setTafelPage, stepPage, useTafelPage } from './tafelPages'
-import { readFileSync } from 'node:fs'
+import { addStyles, appStylesheets } from '../test/dom.test-utils'
 
 describe('which Tafel page this device has open', () => {
   it('is remembered per Einsatz across a reload (IndexedDB), never shared', async () => {
@@ -57,10 +57,7 @@ describe('the page strip stands in the row where a plan says «which place»', (
   it('wears the floating family (the bars’ corner, pick 20), not a bar of its own', () => {
     // what the app's global stylesheets (app.css, in its cascade order) give a strip – jsdom
     // applies no @media and lays nothing out
-    const read = (f: string) => readFileSync(`${process.cwd()}/src/${f}`, 'utf8')
-    for (const [, f] of read('app.css').matchAll(/@import '\.\/(styles\/[^']+)'/g)) {
-      document.head.appendChild(Object.assign(document.createElement('style'), { textContent: read(f) }))
-    }
+    addStyles(...appStylesheets())
     const row = document.body.appendChild(Object.assign(document.createElement('div'), { className: 'wb-botleft' }))
     const strip = getComputedStyle(row.appendChild(Object.assign(document.createElement('div'), { className: 'tps' })))
     expect([strip.minHeight, strip.background, strip.boxShadow, strip.borderRadius])

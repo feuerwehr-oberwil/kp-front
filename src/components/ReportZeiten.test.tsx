@@ -1,23 +1,12 @@
 // @vitest-environment jsdom
 import { render, screen, cleanup, fireEvent, within } from '@testing-library/react'
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { stubMatchMedia } from '../test/dom.test-utils'
 
 vi.mock('./KrokiFramingPanel', () => ({ KrokiFramingPanel: () => null }))
 
 import { ReportPreflight } from './ReportPreflight'
 import { appConfig } from '../config/appConfig'
-
-// The Rapport asks whether it is on a phone (useIsPhone → matchMedia) to decide whether the
-// Kroki map may be mounted; jsdom implements no matchMedia. Pinned to «not a phone», which is
-// the surface these tests are about.
-beforeAll(() => {
-  window.matchMedia = ((q: string) => ({
-    matches: false, media: q, onchange: null,
-    addEventListener: () => {}, removeEventListener: () => {},
-    addListener: () => {}, removeListener: () => {}, dispatchEvent: () => false,
-  })) as unknown as typeof window.matchMedia
-})
-
 
 afterEach(() => { cleanup(); vi.useRealTimers() })
 
@@ -143,11 +132,7 @@ describe('Zeiten · a grid row over midnight stores the day that was shown', () 
 
   beforeEach(() => {
     Element.prototype.scrollTo = Element.prototype.scrollTo ?? (() => {})
-    window.matchMedia = ((q: string) => ({
-      matches: q.includes('coarse'), media: q, onchange: null,
-      addEventListener: () => {}, removeEventListener: () => {},
-      addListener: () => {}, removeListener: () => {}, dispatchEvent: () => false,
-    })) as unknown as typeof window.matchMedia
+    stubMatchMedia((q) => q.includes('coarse'))
     vi.useFakeTimers()
     vi.setSystemTime(new Date(2026, 7, 11, 1, 0)) // …the Rapport written at 01:00
   })

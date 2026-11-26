@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest'
+import { stubMatchMedia } from './test/dom.test-utils'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { useState } from 'react'
 import type { BoardAnno, MittelEntry } from './types'
@@ -260,21 +261,14 @@ describe('(d) the render budget', () => {
    Atemschutz.module · `.body` – a layout fact jsdom cannot measure.) */
 describe('(h) the phone FAB stays on the Trupps page', () => {
   it('shows on the Karte and on the Trupps page', async () => {
-    const before = window.matchMedia
-    window.matchMedia = ((q: string) => ({
-      matches: q.includes('max-width: 600px'), media: q, onchange: null, addListener: () => {}, removeListener: () => {},
-      addEventListener: () => {}, removeEventListener: () => {}, dispatchEvent: () => false,
-    })) as unknown as typeof window.matchMedia
-    try {
-      await mount()
-      expect(document.querySelector('.fab-entry')).toBeTruthy()
-      key('a')
-      await settle()
-      expect(mode()).toBe('atemschutz')
-      expect(document.querySelector('.fab-entry')).toBeTruthy()
-    } finally {
-      window.matchMedia = before
-    }
+    // the harness's afterEach unstubs it
+    stubMatchMedia((q) => q.includes('max-width: 600px'))
+    await mount()
+    expect(document.querySelector('.fab-entry')).toBeTruthy()
+    key('a')
+    await settle()
+    expect(mode()).toBe('atemschutz')
+    expect(document.querySelector('.fab-entry')).toBeTruthy()
   })
 })
 

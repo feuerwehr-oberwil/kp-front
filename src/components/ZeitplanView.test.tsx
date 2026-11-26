@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { ZeitplanView } from './ZeitplanView'
 import { appConfig } from '../config/appConfig'
@@ -7,17 +7,6 @@ import { fillTemplate, hhmm } from '../lib/format'
 import type { AttendanceState, Person, Shift } from '../types'
 
 afterEach(cleanup)
-
-// TimeField picks its input mode from the pointer type; jsdom has no matchMedia, so pin it to
-// the desktop (typing) variant — the wheel popover is TimeField's own concern, not this surface's
-beforeAll(() => {
-  window.matchMedia = ((q: string) => ({
-    matches: false, media: q, onchange: null,
-    addEventListener: () => {}, removeEventListener: () => {},
-    addListener: () => {}, removeListener: () => {}, dispatchEvent: () => false,
-  })) as unknown as typeof window.matchMedia
-})
-
 
 // jsdom implements no PointerEvent, and fireEvent.pointerDown silently drops clientX with it —
 // a gesture test that cannot say WHERE the finger landed tests nothing. MouseEvent carries the

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { MapDetailPanels, type MapDetailPanelsProps } from './MapDetailPanels'
 import { appConfig } from '../config/appConfig'
@@ -15,12 +15,6 @@ const withInert = <T,>(given: Partial<T>): T => new Proxy(given, {
   get: (t, k) => (k in t ? t[k as keyof typeof t] : inert()),
 }) as T
 
-beforeAll(() => {
-  window.matchMedia ??= ((q: string) => ({
-    matches: false, media: q, onchange: null,
-    addEventListener: () => {}, removeEventListener: () => {}, dispatchEvent: () => false,
-  })) as unknown as typeof window.matchMedia
-})
 afterEach(cleanup)
 
 const D = appConfig.copy.drawingEditor

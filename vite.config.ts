@@ -526,6 +526,8 @@ export default defineConfig(({ mode }) => {
       // the DOM (the hook test); most run in the default node environment.
       environment: 'node',
       include: ['src/**/*.test.ts', 'src/**/*.test.tsx', 'scripts/**/*.test.mjs'],
+      // jsdom files start with a matchMedia that matches no query (the file says why)
+      setupFiles: ['src/test/jsdom.setup.ts'],
       // Coverage (08.10.2026): CI runs the suite ONCE, with coverage (`pnpm test:coverage`), and
       // fails below the floor in scripts/coverage-floor.json. The floor only goes up —
       // `pnpm coverage:raise` after a run lifts it to what was measured (minus half a point of

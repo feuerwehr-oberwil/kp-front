@@ -2,7 +2,7 @@
 // The Rapport for a session that cannot edit it (viewer, view link, a closed Einsatz it may not
 // correct): read-outs, never a disabled form (RBAC audit 22.10.2026, §3 «Rapport for viewer»).
 import { render, screen, cleanup, fireEvent } from '@testing-library/react'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { appConfig } from '../config/appConfig'
 import type { ReportMeta } from '../lib/workspace'
 
@@ -11,13 +11,6 @@ vi.mock('./KrokiFramingPanel', () => ({ KrokiFramingPanel: () => null }))
 
 import { ReportPreflight } from './ReportPreflight'
 
-beforeAll(() => {
-  window.matchMedia = ((q: string) => ({
-    matches: false, media: q, onchange: null,
-    addEventListener: () => {}, removeEventListener: () => {},
-    addListener: () => {}, removeListener: () => {}, dispatchEvent: () => false,
-  })) as unknown as typeof window.matchMedia
-})
 afterEach(cleanup)
 
 const INCIDENT = {

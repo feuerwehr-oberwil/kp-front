@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest'
+import { stubMatchMedia } from '../test/dom.test-utils'
 import { act, render, screen, cleanup, fireEvent, waitFor, within } from '@testing-library/react'
 import { JournalComposer, type JournalDraft } from './JournalComposer'
 import { clearAllDrafts } from '../lib/draftKeep'
@@ -25,11 +26,7 @@ vi.mock('../lib/photoGeo', async (orig) => ({
 /** the time picker draws wheels on a coarse pointer (a phone) and a typed field on a fine one */
 function pointer(kind: 'coarse' | 'fine') {
   Element.prototype.scrollTo = Element.prototype.scrollTo ?? (() => {})
-  vi.stubGlobal('matchMedia', (q: string) => ({
-    matches: q.includes(kind), media: q, onchange: null,
-    addListener: () => {}, removeListener: () => {},
-    addEventListener: () => {}, removeEventListener: () => {}, dispatchEvent: () => false,
-  }))
+  stubMatchMedia((q) => q.includes(kind))
 }
 
 const OPEN = [
@@ -908,7 +905,7 @@ describe('JournalComposer · swiping the suggestion band', () => {
 describe('the mobile composer caret', () => {
   afterEach(() => vi.unstubAllGlobals())
   it('keeps the sentence focused through a Pendenz pick', async () => {
-    vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener: () => {}, removeEventListener: () => {} }))
+    stubMatchMedia(() => true)
     setup()
     const field = screen.getByRole('textbox')
     fireEvent.change(field, { target: { value: 'EL meldet' } })

@@ -8,7 +8,6 @@
 // OPEN-ONLY (showing never logs, never counts as Kontakt). The Druck stepper is back inline
 // (a Druckmeldung must never cost an opening tap); its ± only stages a pending value and the
 // explicit «Bestätigen» commits.
-import { readFileSync } from 'node:fs'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { AtemschutzView } from './AtemschutzView'
@@ -19,6 +18,7 @@ import type { Trupp } from '../types'
 import { fillTemplate } from '../lib/format'
 import { Overlays } from '../lib/ui'
 import { fmtTime } from './truppCardText'
+import { addStyles, cssModuleText } from '../test/dom.test-utils'
 
 /** Put the board's own stylesheet on the document under this run's class names, once – no other
  *  sheet can name its (module) classes – so getComputedStyle answers what its cascade gives an
@@ -27,9 +27,7 @@ let styled = false
 function useBoardStyles() {
   if (styled) return
   styled = true
-  const css = readFileSync(`${process.cwd()}/src/components/Atemschutz.module.css`, 'utf8')
-    .replace(/\.([A-Za-z_][\w-]*)/g, (m, n: string) => (s[n] ? `.${s[n]}` : m))
-  document.head.appendChild(Object.assign(document.createElement('style'), { textContent: css }))
+  addStyles(cssModuleText('components/Atemschutz.module.css', s))
 }
 
 vi.mock('../lib/useIsPhone', async (original) => ({ ...await original<typeof import('../lib/useIsPhone')>(), useIsPhone: vi.fn(() => false) }))

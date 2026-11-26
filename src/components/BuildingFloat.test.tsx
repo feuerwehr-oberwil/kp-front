@@ -5,16 +5,14 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { readFileSync } from 'node:fs'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { stubMatchMedia } from '../test/dom.test-utils'
 import { BuildingFloat } from './BuildingFloat'
 import type { BuildingInfo } from '../lib/api/building'
 
 afterEach(() => { cleanup(); vi.unstubAllGlobals() })
 
 /** every media query matches — useIsPhone reads a phone */
-const asPhone = () => vi.stubGlobal('matchMedia', (q: string) => ({
-  matches: true, media: q, onchange: null, addEventListener: () => {}, removeEventListener: () => {},
-  addListener: () => {}, removeListener: () => {}, dispatchEvent: () => false,
-}))
+const asPhone = () => stubMatchMedia(() => true)
 
 const base: BuildingInfo = {
   registers: 'on', egid: '409428', address: 'Mühlemattstrasse 18, 4104 Oberwil',

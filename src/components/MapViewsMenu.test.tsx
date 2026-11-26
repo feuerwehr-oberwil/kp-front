@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { stubMatchMedia } from '../test/dom.test-utils'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MapViewsButton, type ViewsApi } from './MapViewsMenu'
 import { appConfig } from '../config/appConfig'
@@ -8,13 +9,10 @@ import { setLiveBearing } from '../lib/liveBearing'
 
 afterEach(cleanup)
 
-// jsdom implements no matchMedia, and this dock asks whether it is on a phone (useIsPhone).
-// Pinned per test, because the phone is the case with the different behaviour.
+// The dock asks whether it is on a phone (useIsPhone). Pinned per test, because the phone is the
+// case with the different behaviour.
 const pinViewport = (phone: boolean) => {
-  window.matchMedia = ((q: string) => ({
-    matches: q === PHONE_QUERY ? phone : false,
-    media: q, addEventListener: () => {}, removeEventListener: () => {},
-  })) as unknown as typeof window.matchMedia
+  stubMatchMedia((q) => phone && q === PHONE_QUERY)
 }
 
 const api = (): ViewsApi => ({

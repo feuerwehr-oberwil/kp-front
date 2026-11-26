@@ -76,7 +76,6 @@ for (const [title, templates] of [['sharded raster', shards], ['WMS bounds', wms
 
 it('offline preparation downloads the basemap that the night map shows', async () => {
   document.documentElement.dataset.theme = 'night'
-  vi.stubGlobal('matchMedia', () => ({ matches: false }))
   const base: LayerDef = {
     id: 'example-base', label: 'Base', group: 'test', icon: 'map', visible: true, base: true,
     tiles: ['https://base.example.invalid/day/{z}/{x}/{y}.png'],

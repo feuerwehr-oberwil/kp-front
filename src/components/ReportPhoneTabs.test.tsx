@@ -5,24 +5,12 @@
 // each block — not pixels. That pair IS the mechanism: get it wrong and a section either never
 // appears or appears in all three tabs.
 import { act, render, screen, cleanup, fireEvent, waitFor, within } from '@testing-library/react'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 
 vi.mock('./KrokiFramingPanel', () => ({ KrokiFramingPanel: () => null }))
 
 import { ReportPreflight, requestReportStep } from './ReportPreflight'
-
-// The Rapport asks whether it is on a phone (useIsPhone → matchMedia) to decide whether the
-// Kroki map may be mounted; jsdom implements no matchMedia. Pinned to «not a phone», which is
-// the surface these tests are about.
-beforeAll(() => {
-  window.matchMedia = ((q: string) => ({
-    matches: false, media: q, onchange: null,
-    addEventListener: () => {}, removeEventListener: () => {},
-    addListener: () => {}, removeListener: () => {}, dispatchEvent: () => false,
-  })) as unknown as typeof window.matchMedia
-})
-
 
 afterEach(cleanup)
 
@@ -228,7 +216,6 @@ describe('Einsatzrapport · phone tabs', () => {
     expect(isChecked(journal())).toBe(true)
   })
 })
-
 
 // ── the head→first-card distance, which has to be the same on all three tabs ──────────────
 //

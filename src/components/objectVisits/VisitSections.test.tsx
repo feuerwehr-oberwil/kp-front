@@ -6,7 +6,6 @@ import { DetailsCard } from './VisitSections'
 import type { VisitDoc } from '../../objectVisits/types'
 
 beforeEach(() => {
-  vi.stubGlobal('matchMedia', (q: string) => ({ matches: false, media: q, onchange: null, addListener() {}, removeListener() {}, addEventListener() {}, removeEventListener() {}, dispatchEvent() { return false } }))
   Element.prototype.scrollTo = () => {}
 })
 afterEach(() => { cleanup(); resetPopoverGuard(); vi.unstubAllGlobals(); vi.useRealTimers() })

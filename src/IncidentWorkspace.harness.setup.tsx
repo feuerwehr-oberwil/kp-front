@@ -59,10 +59,6 @@ class RO { observe() {} unobserve() {} disconnect() {} }
 export function registerHarnessHooks() {
   beforeAll(() => {
     ;(globalThis as unknown as { ResizeObserver: unknown }).ResizeObserver ??= RO
-    window.matchMedia = ((q: string) => ({
-      matches: false, media: q, onchange: null, addListener: () => {}, removeListener: () => {},
-      addEventListener: () => {}, removeEventListener: () => {}, dispatchEvent: () => false,
-    })) as unknown as typeof window.matchMedia
     // jsdom has none; the Atemschutz board scrolls an alarmed card into view
     Element.prototype.scrollIntoView = () => {}
   })

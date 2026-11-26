@@ -7,6 +7,7 @@
 
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { stubMatchMedia } from '../../test/dom.test-utils'
 import type { ReactNode } from 'react'
 import type { StationObjects, UndergroundSet } from '../../lib/api/stationReference'
 import type { BuildingInfo } from '../../lib/api/building'
@@ -113,12 +114,10 @@ import { LONG_PRESS_MS } from '../../lib/useLongPress'
 class RO { observe() {} unobserve() {} disconnect() {} }
 beforeAll(() => {
   ;(globalThis as unknown as { ResizeObserver: unknown }).ResizeObserver ??= RO
-  window.matchMedia = ((q: string) => ({
-    matches: rec.phone, media: q, onchange: null, addListener: () => {}, removeListener: () => {},
-    addEventListener: () => {}, removeEventListener: () => {}, dispatchEvent: () => false,
-  })) as unknown as typeof window.matchMedia
 })
 beforeEach(() => {
+  // each test: the afterEach's unstubAllGlobals takes it down
+  stubMatchMedia(() => rec.phone)
   rec.map.length = 0
   rec.board.length = 0
   rec.phone = false
