@@ -12,7 +12,8 @@ export const GPS_TWIN_M = 150
  * GPS vehicle at the symbol's spot instead (useMapActions · holdGpsInstead) – «Festhalten» is
  * THE one vehicle behaviour (copy · editors · pinGps). Doubles in old Einsätze are left alone:
  * this only speaks while the placed one is open. Once the operator said «Sind zwei» for this
- * symbol (`gpsTwinOk`, owner sign-off note, 25.11.2026) it does not ask again.
+ * symbol (`gpsTwinOk`, owner sign-off note, 25.11.2026) it does not ask again – until the symbol
+ * is renamed (`relabel`).
  * `entities` is the Karte's list, live vehicles included (IncidentWorkspace · entities).
  */
 export function gpsTwin(placed: Entity, entities: readonly Entity[]): { vehicle: Entity; distM: number } | null {
@@ -25,6 +26,18 @@ export function gpsTwin(placed: Entity, entities: readonly Entity[]): { vehicle:
     if (distM < GPS_TWIN_M && (!best || distM < best.distM)) best = { vehicle: e, distM }
   }
   return best
+}
+
+/**
+ * A symbol with a new Bezeichnung – every write of a typed title goes through here (the sheet's
+ * title live and on commit, IncidentWorkspace · patchEntity). A RENAME takes back «Sind zwei»
+ * (owner pick, morning round 26.11.2026): the operator said that about THIS name beside THAT GPS
+ * vehicle, so a «TLF» renamed to «MTF» beside the GPS MTF is checked again. The same name (case
+ * and spaces ignored, as gpsTwin compares) keeps it. Clearing it with the rename puts it in the
+ * rename's own undo step, so ↶ brings both back.
+ */
+export function relabel<E extends Entity>(e: E, label: string): E {
+  return e.gpsTwinOk && norm(label) !== norm(e.label) ? { ...e, label, gpsTwinOk: undefined } : { ...e, label }
 }
 
 const norm = (s: string | undefined) => (s ?? '').replace(/\s+/g, '').toLowerCase()
