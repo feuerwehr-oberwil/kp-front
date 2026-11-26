@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { ApiError } from '../lib/api'
 import { PlanAlignmentEditor, PlanAlignmentReview } from './PlanAlignmentReview'
-import { alignmentPreview, alignmentThumbnail, approveAlignment, loadAlignmentDetail, loadAlignmentOutline, loadAlignmentQueue, rejectAlignment, undoAlignmentApproval, savePlanFloors, alignmentPagePreview, type AlignmentItem, type AlignmentListItem } from './planAlignmentApi'
+import { alignmentPreview, alignmentThumbnail, approveAlignment, loadAlignmentDetail, loadAlignmentOutline, loadAlignmentQueue, rejectAlignment, retryAlignment, undoAlignmentApproval, savePlanFloors, alignmentPagePreview, type AlignmentItem, type AlignmentListItem } from './planAlignmentApi'
 
 vi.mock('./planAlignmentApi', () => ({ savePlanFloors: vi.fn(), alignmentPagePreview: vi.fn(), loadAlignmentQueue: vi.fn(), loadAlignmentDetail: vi.fn(), loadAlignmentOutline: vi.fn(), alignmentPreview: vi.fn(), alignmentThumbnail: vi.fn(), approveAlignment: vi.fn(), rejectAlignment: vi.fn(), undoAlignmentApproval: vi.fn(), retryAlignment: vi.fn() }))
 vi.mock('./AlignmentPreview', () => ({ default: () => <div data-testid="preview" /> }))
@@ -319,3 +319,21 @@ it('turns the marker warning codes into German sentences under the editor header
   expect(screen.getByText('Keine Geschosse – die Marker im PDF sind unvollständig (siehe Hinweis oben).')).toBeTruthy()
   expect(screen.queryByText(/Noch keine Geschosse zugeordnet/)).toBeNull()
 })
+
+// The worker ends a job on a station config it cannot read (#783). Once the admin has repaired
+// the config, a fresh run is the only way out short of a new upload.
+// A multi-page sheet the worker left before reading its markers cannot be approved yet
+// (`can_approve` false), and still gets the fresh run.
+it.each([
+  ['an approvable sheet', {}],
+  ['a multi-page sheet', { page_count: 3, can_approve: false }],
+])('repeats a config error in the editor and offers «Neu berechnen» for it – %s', async (_, sheet) => {
+  const failed: AlignmentItem = { ...detail, status: 'failed', reason: 'config_unreadable', pairs: [], ...sheet }
+  vi.mocked(loadAlignmentDetail).mockResolvedValue(failed)
+  vi.mocked(retryAlignment).mockResolvedValue({ ...failed, status: 'pending', reason: null, edit_version: 6 })
+  render(<PlanAlignmentEditor item={failed} onClose={vi.fn()} onChange={vi.fn()} onConflict={vi.fn(async () => {})} />)
+  await screen.findByText('Die Stationskonfiguration konnte nicht gelesen werden – in der Verwaltung prüfen.')
+  fireEvent.click(screen.getByRole('button', { name: 'Neu berechnen' }))
+  await waitFor(() => expect(retryAlignment).toHaveBeenCalledWith(failed))
+})
+

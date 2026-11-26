@@ -45,9 +45,9 @@ const SECTIONS: Section[] = ['ready', 'needs_review', 'none', 'waiting', 'approv
  *  they want an admin, a config or the server. `low_coverage`, `no_matching_geometry`,
  *  `invalid_match` and `manual_module` are exactly what this modal is for – the card already
  *  said «Kein Treffer», and saying it twice only shouts at someone already setting points. */
-const BEYOND_PAIRING = new Set(['reference_unreachable', 'printed_scale_missing', 'object_coordinates_missing', 'pdf_unavailable', 'revision_missing', 'preparation_failed', 'georef_dependencies_missing', 'overpass_unconfigured', 'worker_retry_limit', 'multi_page_document', 'unsupported_module'])
+const BEYOND_PAIRING = new Set(['reference_unreachable', 'printed_scale_missing', 'object_coordinates_missing', 'pdf_unavailable', 'revision_missing', 'preparation_failed', 'georef_dependencies_missing', 'overpass_unconfigured', 'worker_retry_limit', 'multi_page_document', 'unsupported_module', 'config_unreadable'])
 /** …and of those, the ones a fresh run can still fix, which is when «Neu berechnen» is offered. */
-const RETRYABLE = new Set(['reference_unreachable', 'worker_retry_limit', 'preparation_failed', 'invalid_match'])
+const RETRYABLE = new Set(['reference_unreachable', 'worker_retry_limit', 'preparation_failed', 'invalid_match', 'config_unreadable'])
 
 /**
  * A page that ALREADY holds the queue hands it in, and the wall then fetches nothing of its own.
@@ -560,6 +560,9 @@ function SheetDetail({ item, onChange, onConflict, onDirty }: DetailProps) {
   // looked at, so it lands in the overlay view however the modal was opened.
   const pairing = manual && editable
   const reason = BEYOND_PAIRING.has(item.reason ?? '') ? reasonText(item.reason) : null
+  // Not gated on `can_approve`: a multi-page sheet the worker gave up on before it read the
+  // markers (an unreadable config) cannot be approved yet, and a fresh run is its way forward.
+  const retryable = item.is_current && ['no_match', 'failed', 'unavailable'].includes(item.status) && RETRYABLE.has(item.reason ?? '')
 
   useEffect(() => {
     mounted.current = true
@@ -592,13 +595,12 @@ function SheetDetail({ item, onChange, onConflict, onDirty }: DetailProps) {
       aside={item.status === 'approved'
         ? <button type="button" className="btn adm-editor-quiet" disabled={busy} onClick={() => void save('undo')}>{C.withdrawApproval}</button>
         : undefined}
-      actions={editable ? <>
+      actions={editable || retryable ? <>
       <span className="adm-editor-rule" aria-hidden />
       {/* a fresh worker run is the only thing this editor can do that aligning by hand cannot,
           so it stands with the actions – the footer that used to hold it is gone */}
-      {['no_match', 'failed', 'unavailable'].includes(item.status) && RETRYABLE.has(item.reason ?? '')
-        && <button type="button" className="btn" disabled={busy || !!draft} onClick={() => void save('retry')}>{C.retry}</button>}
-      <button type="button" className="btn primary" disabled={busy || stale || !image || imageFailed || !reviewableAlignment(pairs, item.aspect)} onClick={() => void save('approve')}>{busy && <ShellLoader />}{busy ? C.saving : C.approve}</button>
+      {retryable && <button type="button" className="btn" disabled={busy || !!draft} onClick={() => void save('retry')}>{C.retry}</button>}
+      {editable && <button type="button" className="btn primary" disabled={busy || stale || !image || imageFailed || !reviewableAlignment(pairs, item.aspect)} onClick={() => void save('approve')}>{busy && <ShellLoader />}{busy ? C.saving : C.approve}</button>}
     </> : undefined} />
     <nav className="adm-editor-tabs">
       <Segmented<boolean> value={manual} onChange={setManual} ariaLabel={C.title} options={[
