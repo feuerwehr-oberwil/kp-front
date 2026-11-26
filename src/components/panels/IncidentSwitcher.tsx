@@ -173,7 +173,7 @@ export function IncidentSwitcher({
   // a tablet, open and closed; the name stays the menu card's head and the button's name. It was
   // «Stichwort · street» since 12.11., and a squeezed Stichwort left «· Allschwilerstrasse 10…».
   const isPhone = useIsPhone()
-  const uhr = useEinsatzuhr(startedAt, endedAt, undefined, !isPhone)
+  const uhr = useEinsatzuhr(startedAt, endedAt, !isPhone)
   const U = appConfig.copy.einsatzuhr
   const twoLine = isPhone && !!active
   const headName = active ? einsatzHeadName(active.title, active.address) : cp.noIncident
