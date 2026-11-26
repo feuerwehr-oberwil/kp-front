@@ -1,7 +1,8 @@
 {
   // The build configs run in Node, outside tsconfig.json's src/ (no Node globals there).
-  // `just check` and ci-frontend type-check them here. The .mjs scripts they import are read for
-  // their inferred types, not checked.
+  // `just check` and ci-frontend type-check them here, and the house ESLint plugin with its test.
+  // A .mjs file is checked only with `// @ts-check` at its top; the others are read for their
+  // inferred types.
   "compilerOptions": {
     "target": "ES2022",
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
@@ -19,5 +20,5 @@
     "checkJs": false,
     "types": ["node"]
   },
-  "include": ["vite.config.ts", "vitest.mutation.config.ts"]
+  "include": ["vite.config.ts", "vitest.mutation.config.ts", "scripts/eslint-kp.mjs", "scripts/eslint-kp.test.mjs"]
 }

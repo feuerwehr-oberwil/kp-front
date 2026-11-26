@@ -1,9 +1,14 @@
+// @ts-check
 // The house eslint plugin: where an owner correction becomes a check (docs/testing/ci.md ·
 // «Corrections become checks»). eslint.config.js registers it as `kp` and scopes each rule.
 //
 // A rule starts as a WARNING that the per-rule ratchet holds (scripts/lint-ratchet.mjs ·
 // scripts/eslint-baseline.json): the existing count may only go down, a new occurrence fails
 // `pnpm lint`. Once its count reaches 0 it becomes an error in eslint.config.js.
+//
+// Type-checked by tsconfig.node.json: ESTree node types from @types/estree-jsx (ESTree plus JSX).
+/** @import { ESLint, Rule } from 'eslint' */
+/** @import * as ESTree from 'estree-jsx' */
 import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 
@@ -26,6 +31,8 @@ const REASON = /\s-{2,}\s/u
 /**
  * The names a call to one of `names` can take in this file: the bare names, a local alias from
  * `import { useEffect as x } from 'react'`, and `React.` / `import * as R` namespaces.
+ * @param {ESTree.Program} program
+ * @param {ReadonlySet<string>} names
  */
 function reactBindings(program, names) {
   const direct = new Set(names)
@@ -43,7 +50,13 @@ function reactBindings(program, names) {
   return { direct, namespaces }
 }
 
-/** a rule that reports every call to one of `names`; `owners` are the objects it may be reached through */
+/**
+ * A rule that reports every call to one of `names`; `owners` are the objects it may be reached through.
+ * @param {ReadonlySet<string>} names
+ * @param {string} message
+ * @param {{ react: boolean }} options
+ * @returns {Rule.RuleModule}
+ */
 const callRule = (names, message, { react }) => ({
   meta: { type: 'suggestion', schema: [], messages: { call: message } },
   create: (context) => {
@@ -68,9 +81,15 @@ const callRule = (names, message, { react }) => ({
   },
 })
 
-/** the string pieces an expression renders: a literal, a template's text and interpolations, either branch of `?:`, the right of `&&`, both sides of `||` / `??` */
+/** @typedef {{ node: ESTree.Node, text: string }} Piece a string on screen and the node to report it on */
+
+/**
+ * The string pieces an expression renders: a literal, a template's text and interpolations, either
+ * branch of `?:`, the right of `&&`, both sides of `||` / `??`.
+ * @param {ESTree.Expression | ESTree.JSXEmptyExpression} e
+ * @returns {Piece[]}
+ */
 function rendered(e) {
-  if (!e) return []
   if (e.type === 'Literal') return typeof e.value === 'string' ? [{ node: e, text: e.value }] : []
   if (e.type === 'TemplateLiteral') return [...e.quasis.map((q) => ({ node: e, text: q.value.cooked ?? '' })), ...e.expressions.flatMap(rendered)]
   if (e.type === 'ConditionalExpression') return [...rendered(e.consequent), ...rendered(e.alternate)]
@@ -78,7 +97,7 @@ function rendered(e) {
   return []
 }
 
-/** @type {import('eslint').ESLint.Plugin} */
+/** @satisfies {ESLint.Plugin} */
 export default {
   // ESLint's cache keys on the config, where a plugin is its name and version: the content hash
   // makes an edited rule re-lint every file instead of reusing stale counts.
@@ -96,21 +115,22 @@ export default {
 
     // Words on a screen come from appConfig.copy.* (German first, then en/fr/it) –
     // docs/copy-and-wording.md. Text written into JSX is never translated.
-    'no-literal-copy': {
+    'no-literal-copy': /** @satisfies {Rule.RuleModule} */ ({
       meta: { type: 'suggestion', schema: [], messages: { literal: 'Text on a screen comes from appConfig.copy.* – docs/copy-and-wording.md.' } },
       create: (context) => {
-        // one report per literal (both branches of a `?:` count), one per template
+        /** one report per literal (both branches of a `?:` count), one per template @param {Piece[]} pieces */
         const reportWords = (pieces) => {
           const words = pieces.filter((p) => WORDS.test(p.text.replace(NEUTRAL, '')))
           for (const node of new Set(words.map((p) => p.node))) context.report({ node, messageId: 'literal' })
         }
-        /** a child of `<code>` / `<kbd>` */
+        /** a child of `<code>` / `<kbd>` @param {Rule.Node} node */
         const inCode = (node) => {
           const open = node.parent?.type === 'JSXElement' ? node.parent.openingElement.name : undefined
           return open?.type === 'JSXIdentifier' && CODE_TAGS.has(open.name)
         }
         return {
           JSXText(node) { if (!inCode(node)) reportWords([{ node, text: node.value }]) },
+          /** @param {ESTree.JSXExpressionContainer & Rule.NodeParentExtension} node */
           'JSXElement > JSXExpressionContainer, JSXFragment > JSXExpressionContainer'(node) {
             if (!inCode(node)) reportWords(rendered(node.expression))
           },
@@ -122,21 +142,21 @@ export default {
           },
         }
       },
-    },
+    }),
 
     // A disable is an escape hatch; its reason is the one place a reviewer learns why the rule
     // is wrong here. Written after the rule list: `// eslint-disable-next-line rule -- why`.
-    'disable-reason': {
+    'disable-reason': /** @satisfies {Rule.RuleModule} */ ({
       meta: { type: 'suggestion', schema: [], messages: { bare: 'Say why after `--`: `eslint-disable… <rule> -- <reason>`.' } },
       create: (context) => ({
         Program() {
           for (const c of context.sourceCode.getAllComments()) {
             if (!DIRECTIVE.test(c.value)) continue
             const [, ...rest] = c.value.split(REASON)
-            if (!rest.join(' ').replace(/^-+/, '').trim()) context.report({ loc: c.loc, messageId: 'bare' })
+            if (!rest.join(' ').replace(/^-+/, '').trim()) context.report({ loc: context.sourceCode.getLoc(c), messageId: 'bare' })
           }
         },
       }),
-    },
+    }),
   },
 }

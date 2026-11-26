@@ -1,3 +1,4 @@
+// @ts-check
 import { RuleTester } from 'eslint'
 import { describe, it } from 'vitest'
 import kp from './eslint-kp.mjs'
