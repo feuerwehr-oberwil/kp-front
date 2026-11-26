@@ -59,35 +59,34 @@ const TITLE_FLOOR = 112
  */
 export const STREET_BEFORE_STEP = HEAD_FIT_STEPS.indexOf('redo') + 1
 
-/** How much wider the bar's running entrance animations will make it: per animated element, the
- *  content it still holds back (scrollWidth past its clientWidth). 0 when nothing is arriving. */
-function arrivingSlack(bar: HTMLElement): number {
-  let slack = 0
-  for (const a of bar.getAnimations?.({ subtree: true }) ?? []) {
-    const el = a.effect && 'target' in a.effect ? a.effect.target : null
-    if (a.playState !== 'running' || !(el instanceof HTMLElement) || el === bar) continue
-    slack += Math.max(0, el.scrollWidth - el.clientWidth)
+/**
+ * Run `measure` with every chip that is still arriving shown at its settled width, then put the
+ * animations back where they were. The weather grows in from max-width 0 (10-journal · tb-chip-in),
+ * and while it grows its content runs past its own box: measured mid-arrival, the ladder read that
+ * as the bar's overflow, folded the weather, and every refit that showed it again replayed the
+ * arrival – it never stood in a 1180 px bar with room to spare (Üben recorder, 26.11.2026).
+ * Seeking to 1 ms before the end (not past it) leaves the animation unfinished: no end event, and
+ * the arrival goes on from where it was.
+ */
+function asSettled<T>(bar: HTMLElement, measure: () => T): T {
+  const arriving = (bar.getAnimations?.({ subtree: true }) ?? []).filter((a) =>
+    a.playState === 'running' && 'animationName' in a && a.animationName === 'tb-chip-in')
+  const at = arriving.map((a) => a.currentTime)
+  for (const a of arriving) {
+    const end = a.effect?.getComputedTiming().endTime
+    if (typeof end === 'number') a.currentTime = end - 1
   }
-  return slack
-}
-
-/** The bar's max-width in px (Infinity for `none`). */
-function maxWidthPx(bar: HTMLElement): number {
-  const v = parseFloat(getComputedStyle(bar).maxWidth)
-  return Number.isFinite(v) ? v : Infinity
+  try { return measure() } finally { arriving.forEach((a, i) => { a.currentTime = at[i] }) }
 }
 
 /** Does the bar NOT fit — something painting past its edge, or the Einsatz pill squeezed?
  *  `step` is the ladder step being tried (Infinity = judge by the floors alone). */
 export function headCrowded(bar: HTMLElement, step = Infinity): boolean {
-  // a chip still in its entrance (the weather grows in from max-width 0, 10-journal · tb-chip-in)
-  // lets its content run past its own box – that is not the bar's overflow. Measured as if grown:
-  // the bar fits when it may still widen by that much. Without this the ladder read the arrival as
-  // «crowded» and folded the weather, and every refit that showed it again replayed the arrival –
-  // the weather never stood in a 1180 px bar with 70 px to spare (Üben recorder, 26.11.2026).
-  const growing = arrivingSlack(bar)
-  if (bar.scrollWidth > bar.clientWidth + growing + 1) return true
-  if (growing && bar.offsetWidth + growing > maxWidthPx(bar) + 1) return true
+  return asSettled(bar, () => crowdedNow(bar, step))
+}
+
+function crowdedNow(bar: HTMLElement, step: number): boolean {
+  if (bar.scrollWidth > bar.clientWidth + 1) return true
   const btn = bar.querySelector<HTMLElement>('.ip-switch-btn')
   if (!btn) return false
   // a glyph, a chevron or a sync chip painting out of the pill: the pill was squeezed
