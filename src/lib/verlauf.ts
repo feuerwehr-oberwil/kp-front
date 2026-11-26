@@ -1,5 +1,5 @@
 import { appConfig } from '../config/appConfig'
-import { formatTime, formatLocale } from './format'
+import { formatDate, formatTime } from './format'
 import type { BoardDoc, JournalEntryType, TimelineEvent } from '../types'
 
 /**
@@ -113,6 +113,9 @@ export interface DayGroup {
 
 const dayKey = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
 
+const DAY_LABEL: Intl.DateTimeFormatOptions = { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' }
+const DAY_MONTH: Intl.DateTimeFormatOptions = { day: '2-digit', month: '2-digit' }
+
 /** Group a newest-first Verlauf into calendar-day runs. Rows without `at` (old data)
  *  stick to the running group rather than fragmenting the list.
  *  ⚠️ Once the Verlauf spans MORE THAN ONE calendar day, every run carries its date — today's
@@ -139,9 +142,7 @@ export function groupByDay(events: readonly TimelineEvent[], now: Date = new Dat
         label:
           k === todayKey && !multiDay
             ? null
-            : (d ?? now).toLocaleDateString(formatLocale(), {
-                weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric',
-              }),
+            : formatDate(d ?? now, DAY_LABEL),
         events: [],
       })
     }
@@ -155,7 +156,7 @@ export function groupByDay(events: readonly TimelineEvent[], now: Date = new Dat
  *  detail sheet, staging review 06.11.2026 S5). */
 export function otherDay(at: Date, now: Date): string | null {
   if (Number.isNaN(at.getTime()) || dayKey(at) === dayKey(now)) return null
-  return at.toLocaleDateString(formatLocale(), { day: '2-digit', month: '2-digit' })
+  return formatDate(at, DAY_MONTH)
 }
 
 /** Every picture on a row, old shape and new: rows written before 2026-08-06 carry a single

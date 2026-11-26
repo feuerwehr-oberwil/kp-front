@@ -9,7 +9,7 @@
 import type { AttendanceState, BoardDoc, Drawing, Entity, LngLat, MittelEntry, PlanDocument, TimelineEvent, Trupp, TruppReading } from '../types'
 import type { FahrzeugZeit, GruppeZeit, PartnerContact, ReportMeta } from './workspace'
 import { allAuftragTypes, appConfig } from '../config/appConfig'
-import { fillTemplate, fmtDuration, hhmm, pad2, restoreUmlauts, unitLabel, compareText, formatLocale } from './format'
+import { fillTemplate, fmtDuration, formatDate, formatTime, hhmm, pad2, restoreUmlauts, unitLabel, compareText, formatLocale } from './format'
 import { fahrzeugRows, gruppenRows } from './alarmzeiten'
 import { fahrtenText } from './vehiclePresence'
 import { intervalsOf, mergeCloseBlocks } from './attendanceIntervals'
@@ -613,6 +613,8 @@ export function krokiStandLabel(ms: number | null): string {
     : new Date(ms).toLocaleString(formatLocale(), { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
 }
 
+const DMY: Intl.DateTimeFormatOptions = { day: '2-digit', month: '2-digit', year: 'numeric' }
+
 /**
  * «16.08.2026 15:35» — date and time, one space between them.
  *
@@ -624,9 +626,7 @@ export function krokiStandLabel(ms: number | null): string {
 export function formatDateTime(iso: string): string {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return iso
-  const date = d.toLocaleDateString(formatLocale(), { day: '2-digit', month: '2-digit', year: 'numeric' })
-  const time = d.toLocaleTimeString(formatLocale(), { hour: '2-digit', minute: '2-digit' })
-  return `${date} ${time}`
+  return `${formatDate(d, DMY)} ${formatTime(d)}`
 }
 
 export function proofLabel(proof: AuditProof): string {

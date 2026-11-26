@@ -216,15 +216,52 @@ export function formatLocale(): string {
   return id.includes('-') ? id : `${id}-CH`
 }
 
-/** `Date#toLocaleDateString` in the deployment's locale (formatLocale) — the options stay the
- *  caller's, so each surface keeps its own shape («08.10.», «08.10.2026», «Mi 08.10.»). */
-export function localeDate(date: Date | string | number, opts?: Intl.DateTimeFormatOptions): string {
-  return new Date(date).toLocaleDateString(formatLocale(), opts)
+// One formatter per (time zone, locale, option set): `toLocale*String(locale, opts)` builds a new
+// ICU formatter on every call, ~50× the cost of `format()` on a cached one, and the Verlauf and the
+// Rapport format several stamps per row. A formatter keeps the zone it was built in, so the cache
+// starts over when the local zone's January or July offset changes (a TZ switch in a test, a
+// device that changes zone).
+const formatters = new Map<string, Intl.DateTimeFormat>()
+let formattersZone = ''
+
+/** The deployment-locale `Intl.DateTimeFormat` for these options, built once and reused. Callers
+ *  that format per row or per tick take it from here; hoist the options object to a constant. */
+export function dateFormat(opts: Intl.DateTimeFormatOptions): Intl.DateTimeFormat {
+  const zone = `${new Date(2000, 0, 1).getTimezoneOffset()} ${new Date(2000, 6, 1).getTimezoneOffset()}`
+  if (zone !== formattersZone) {
+    formatters.clear()
+    formattersZone = zone
+  }
+  const locale = formatLocale()
+  const key = `${locale} ${JSON.stringify(opts)}`
+  let f = formatters.get(key)
+  if (!f) {
+    f = new Intl.DateTimeFormat(locale, opts)
+    formatters.set(key, f)
+  }
+  return f
 }
 
-/** `Date#toLocaleString` (date AND time) in the deployment's locale (formatLocale). */
-export function localeDateTime(date: Date | string | number, opts?: Intl.DateTimeFormatOptions): string {
-  return new Date(date).toLocaleString(formatLocale(), opts)
+/** `date` through the cached formatter for `opts`; an invalid date reads «Invalid Date», as
+ *  `toLocale*String` says it. */
+export function formatDate(date: Date, opts: Intl.DateTimeFormatOptions): string {
+  return Number.isNaN(date.getTime()) ? String(date) : dateFormat(opts).format(date)
+}
+
+const DATE_DEFAULT: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'numeric', day: 'numeric' }
+const DATE_TIME_DEFAULT: Intl.DateTimeFormatOptions = { ...DATE_DEFAULT, hour: 'numeric', minute: 'numeric', second: 'numeric' }
+
+/** A date in the deployment's locale (formatLocale) — the options stay the caller's, so each
+ *  surface keeps its own shape («08.10.», «08.10.2026», «Mi 08.10.»). Without options: numeric day,
+ *  month and year, as `toLocaleDateString` says it. Options must name a date field. */
+export function localeDate(date: Date | string | number, opts: Intl.DateTimeFormatOptions = DATE_DEFAULT): string {
+  return formatDate(new Date(date), opts)
+}
+
+/** Date AND time in the deployment's locale (formatLocale). Without options: the numeric date and
+ *  the time with seconds, as `toLocaleString` says it. */
+export function localeDateTime(date: Date | string | number, opts: Intl.DateTimeFormatOptions = DATE_TIME_DEFAULT): string {
+  return formatDate(new Date(date), opts)
 }
 
 /** Text order by the deployment's language (names, catalogue labels, Gerät groups). */
@@ -250,23 +287,25 @@ export function wallInstant(v: { y: number; mo: number; d: number; h: number; mi
   return hits.find((c) => prefer && c.getTimezoneOffset() === prefer.getTimezoneOffset()) ?? hits[0]
 }
 
+const ZONE_NAME: Intl.DateTimeFormatOptions = { timeZoneName: 'short' }
+
 /** « MEZ» / « MESZ» when the autumn change shows this wall time twice (the printed Verlauf tells
  *  the two 02:15 apart), else ''. */
 export function zoneIfTwice(date: Date): string {
   const twice = [-HOUR_MS, HOUR_MS].some((dt) => sameWall(new Date(date.getTime() + dt), date))
   if (!twice) return ''
-  const zone = new Intl.DateTimeFormat(formatLocale(), { timeZoneName: 'short' }).formatToParts(date)
+  const zone = dateFormat(ZONE_NAME).formatToParts(date)
     .find((p) => p.type === 'timeZoneName')?.value
   return zone ? ` ${zone}` : ''
 }
 
-/** HH:MM (24 h, two digits; with seconds on request) in the deployment's locale (formatLocale). */
+const HM: Intl.DateTimeFormatOptions = { hour: '2-digit', minute: '2-digit' }
+const HMS: Intl.DateTimeFormatOptions = { ...HM, second: '2-digit' }
+
+/** HH:MM (24 h, two digits; with seconds on request) in the deployment's locale (formatLocale).
+ *  An invalid date reads «Invalid Date». */
 export function formatTime(date: Date, withSeconds = false): string {
-  return date.toLocaleTimeString(formatLocale(), {
-    hour: '2-digit',
-    minute: '2-digit',
-    ...(withSeconds ? { second: '2-digit' as const } : {}),
-  })
+  return formatDate(date, withSeconds ? HMS : HM)
 }
 
 export function fillTemplate(template: string, values: Record<string, string | number>): string {
