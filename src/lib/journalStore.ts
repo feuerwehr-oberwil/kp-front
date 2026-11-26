@@ -60,6 +60,23 @@ interface Persisted { rows: ServerRow[]; latestSeq: number; outbox: TimelineEven
  *  `adoptsLegacy` says whether it takes over the shared pre-owner slot (the device login only). */
 export interface JournalOwner { key: string; adoptsLegacy: boolean }
 
+/** What the Verlauf's React binding renders from (useJournal, through `JournalStore.view`).
+ *  Compared by value: a change that moves none of it – an IndexedDB write landing while the
+ *  status stays, a pull of rows this device already holds – renders nothing. */
+export interface JournalView {
+  /** changes exactly when `display()` or `rowShown` may answer differently */
+  rowsKey: string
+  syncStatus: SyncStatus
+  pendingCount: number
+  rejectedCount: number
+  refusedCount: number
+  /** see `unsentRowIds`; the same Set until its content changes */
+  unsentIds: ReadonlySet<string>
+  blobTimeline: TimelineEvent[]
+}
+
+const sameSet = (a: ReadonlySet<string>, b: ReadonlySet<string>) => a.size === b.size && [...a].every((id) => b.has(id))
+
 /** Merge snapshot `from` into `into`: rows by id; outbox, refused and dead deduped against what
  *  the server accepted and against each other. */
 function mergePersisted(into: Persisted, from: Persisted): void {
@@ -239,6 +256,11 @@ export class JournalStore {
   /** the server has answered a pull since this store was made (see rowShown) */
   private pulled = false
   private rereadTimer: ReturnType<typeof setTimeout> | null = null
+  /** bumped when the legacy set or the session overlay changes – both feed `display` (see view) */
+  private legacyGen = 0
+  private overlayGen = 0
+  private lastView: JournalView | null = null
+  /** called after every change; the listener asks `view()` whether anything it shows moved */
   onChange?: () => void
 
   /** this store's IndexedDB slot (KEY) — per identity, see JournalOwner */
@@ -341,7 +363,7 @@ export class JournalStore {
     const changed =
       next.length !== this.legacy.length || next.some((r, i) => r.id !== this.legacy[i]?.id)
     this.legacy = next
-    if (changed) this.blobEcho = [...this.legacy].reverse()
+    if (changed) { this.blobEcho = [...this.legacy].reverse(); this.legacyGen++ }
     if (!this.readOnly && this.legacy.length) {
       const known = this.knownIds()
       const fresh = this.legacy.filter((r) => !known.has(r.id)).map(stripSessionUrls)
@@ -397,6 +419,7 @@ export class JournalStore {
   /** Session-only display fields (blob: URLs from a fresh capture / the media-queue restore). */
   overlaySession(id: string, fields: Partial<TimelineEvent>) {
     this.overlay.set(id, { ...this.overlay.get(id), ...fields })
+    this.overlayGen++
     this.emit()
   }
 
@@ -433,6 +456,7 @@ export class JournalStore {
     const { [field]: _dropped, ...rest } = cur
     if (Object.keys(rest).length) this.overlay.set(id, rest)
     else this.overlay.delete(id)
+    this.overlayGen++
   }
 
   /** Concurrent callers await the same drain, including every successful follow-on batch.
@@ -561,15 +585,21 @@ export class JournalStore {
         if (firstPull) this.emit()
         return 'none'
       }
-      this.adoptRows(res.entries)
+      const before = { seq: this.state.latestSeq, outbox: this.state.outbox.length, dead: this.state.dead?.length ?? 0, refused: this.state.refused?.length ?? 0 }
+      const added = this.adoptRows(res.entries)
       this.state.latestSeq = Math.max(this.state.latestSeq, res.latest_seq)
       // another device may have pushed rows we still hold in the outbox (migration overlap)
       const server = new Set(this.state.rows.map((r) => r.row.id))
       this.state.outbox = this.state.outbox.filter((r) => !server.has(r.id))
       this.state.dead = (this.state.dead ?? []).filter((r) => !server.has(r.id))
       this.state.refused = (this.state.refused ?? []).filter((r) => !server.has(r.id))
-      this.persist()
-      this.emit()
+      // A page of rows already held (the drain's pull, a long-poll wake) changes nothing to keep
+      // or show. Even then it may advance the cursor or acknowledge a queued row – the queues
+      // only shrink here, so their lengths tell – and that must be written.
+      const changed = added > 0 || this.state.latestSeq !== before.seq || this.state.outbox.length !== before.outbox
+        || this.state.dead.length !== before.dead || this.state.refused.length !== before.refused
+      if (changed) this.persist()
+      if (changed || firstPull) this.emit()
       return 'new'
     } catch {
       /* offline (or the round was aborted) — the cached copy stands */
@@ -708,9 +738,11 @@ export class JournalStore {
     this.disposed = false
   }
 
-  /** merge fetched/accepted rows into the local set — display state, no cursor movement */
-  private adoptRows(entries: ServerRow[]) {
+  /** merge fetched/accepted rows into the local set — display state, no cursor movement.
+   *  Returns how many rows were new. */
+  private adoptRows(entries: ServerRow[]): number {
     const have = new Set(this.state.rows.map((r) => r.row.id))
+    let added = 0
     for (const e of entries) {
       // the journal API validates no row shape — a row without a string id is not a row, and
       // `text`/`t` are what the Verlauf trims and prints, so they are coerced rather than trusted
@@ -718,9 +750,10 @@ export class JournalStore {
       if (!row || typeof row.id !== 'string') continue
       if (typeof row.text !== 'string') row.text = ''
       if (typeof row.t !== 'string') row.t = ''
-      if (!have.has(row.id)) { have.add(row.id); this.state.rows.push(e) }
+      if (!have.has(row.id)) { have.add(row.id); this.state.rows.push(e); added++ }
     }
-    this.state.rows.sort((a, b) => a.seq - b.seq)
+    if (added) this.state.rows.sort((a, b) => a.seq - b.seq)
+    return added
   }
 
   /**
@@ -733,6 +766,32 @@ export class JournalStore {
   rowShown(id: string): boolean | undefined {
     if (this.display().some((r) => r.id === id)) return true
     return this.initDone && !this.readFailed && this.pulled ? false : undefined
+  }
+
+  /**
+   * The values the Verlauf renders from, as one snapshot that keeps its identity until one of
+   * them changes (a `useSyncExternalStore` snapshot, see useJournal). `rowsKey` stands for the
+   * inputs of `display` and `rowShown`: server rows only grow, so their count is enough; the
+   * outbox and dead letters by id; the legacy set and overlay by generation; and whether
+   * `rowShown` can answer yet – a receipt waiting on the first pull replays when it flips.
+   */
+  view(): JournalView {
+    const prev = this.lastView
+    const ready = this.initDone && !this.readFailed && this.pulled
+    const queued = [...this.state.outbox, ...(this.state.dead ?? [])].map((r) => r.id).join(',')
+    const rowsKey = `${this.state.rows.length}|${this.legacyGen}|${this.overlayGen}|${ready ? 1 : 0}|${queued}`
+    let unsentIds = prev?.unsentIds ?? new Set<string>()
+    if (prev?.rowsKey !== rowsKey) {
+      const next = this.unsentRowIds()
+      if (!sameSet(next, unsentIds)) unsentIds = next
+    }
+    const next: JournalView = {
+      rowsKey, syncStatus: this.syncStatus, pendingCount: this.pendingCount, rejectedCount: this.rejectedCount,
+      refusedCount: this.refusedCount, unsentIds, blobTimeline: this.blobEcho,
+    }
+    if (prev && (Object.keys(next) as (keyof JournalView)[]).every((k) => prev[k] === next[k])) return prev
+    this.lastView = next
+    return next
   }
 
   private knownIds(): Set<string> {

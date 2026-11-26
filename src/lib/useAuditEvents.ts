@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { AuditEventStore } from './auditEventStore'
+import { useCallback, useEffect, useMemo, useSyncExternalStore } from 'react'
+import { AuditEventStore, type AuditView } from './auditEventStore'
 import { onReachable } from './connectivity'
 import { newId } from './ids'
 import { serverNowIso } from './serverClock'
@@ -10,12 +10,19 @@ import type { SyncStatus } from './api/workspaceSync'
  *  deduplicates client_id, so a lost response or unacknowledged teardown can safely retry.
  *  `scope` is what this session's role may append (lib/eventScope) — anything outside it is
  *  never queued, and a 403 for it is parked rather than held red (auditEventStore · refused). */
+/** what a session without an outbox (no owner yet) reports: nothing owed */
+const NO_OUTBOX: AuditView = { pendingCount: 0, rejectedCount: 0, refusedCount: 0, closedCount: 0, cacheDurable: true, status: 'synced' }
+const noSubscription = () => () => {}
+
 export function useAuditEvents(incidentId: string, readOnly: boolean, ownerId: string | null = null, scope: EventScope = ALL_EVENTS) {
-  const [, changed] = useState(0)
   const store = useMemo(() => ownerId ? new AuditEventStore(incidentId, ownerId, readOnly, scope) : null, [incidentId, ownerId]) // eslint-disable-line react-hooks/exhaustive-deps
+  // renders only when a value below changes (AuditEventStore · view), not for every write landing
+  const view = useSyncExternalStore(
+    useCallback((notify: () => void) => store?.subscribe(notify) ?? noSubscription(), [store]),
+    () => store?.view() ?? NO_OUTBOX,
+  )
   useEffect(() => {
     if (!store) return
-    const unsubscribe = store.subscribe(() => changed((n) => n + 1))
     store.start()
     const online = () => { void store.flush() }
     const hidden = () => { if (document.visibilityState === 'hidden') store.flushKeepalive() }
@@ -26,7 +33,6 @@ export function useAuditEvents(incidentId: string, readOnly: boolean, ownerId: s
     document.addEventListener('visibilitychange', hidden)
     window.addEventListener('pagehide', pagehide)
     return () => {
-      unsubscribe()
       store.stop()
       window.removeEventListener('online', online)
       offReachable()
@@ -57,10 +63,5 @@ export function useAuditEvents(incidentId: string, readOnly: boolean, ownerId: s
   const getStatus = useCallback((): SyncStatus => store?.status ?? 'synced', [store])
   const getRecoveryData = useCallback(() => store?.getRecoveryData() ?? null, [store])
 
-  return {
-    emit, flushEvents, flushEventsBeacon, retry, requeueClosed, getStatus, getRecoveryData,
-    pendingCount: store?.pendingCount ?? 0, rejectedCount: store?.rejectedCount ?? 0, refusedCount: store?.refusedCount ?? 0,
-    closedCount: store?.closedCount ?? 0,
-    cacheDurable: store?.cacheDurable ?? true, status: store?.status ?? 'synced',
-  }
+  return { emit, flushEvents, flushEventsBeacon, retry, requeueClosed, getStatus, getRecoveryData, ...view }
 }
