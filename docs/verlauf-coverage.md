@@ -434,7 +434,8 @@ taken back. Two causes, both closed:
 
 ## What a Verlauf row can carry since 17.08.
 
-The row is no longer just text and a timestamp. Four properties have been added, and all four
+The row is no longer just text and a timestamp. Four properties have been added (the
+Zeitkorrektur and the Gerät on 25.11.2026), and all of them
 are **properties of an entry**, not row kinds of their own – which is why they fit existing
 incidents without a migration:
 
@@ -443,7 +444,9 @@ incidents without a migration:
 | **Pendenz** (open ring) | the row is not done; its own thread of **Meldungen** | at the top of the Verlauf, urgent first; on the Rapport as «Aufträge / Pendenzen» with «offen» |
 | **Fälligkeit** (reminder) | Wiedervorlage with **day** and time; a moment in the past is rejected | clock in the meta row; on the Rapport «fällig HH:MM» |
 | **Korrektur** | a typed row was rewritten; both wordings stay in the record and in the hash chain | «korrigiert HH:MM»; on the Rapport additionally «ursprünglich: ‹…›» |
+| **Zeitkorrektur** (25.11.2026, UX pick B2·6) | a typed row's event happened at another time; an `atEdit` patch, the written `at` stays in the record and the hash chain | the row sorts and prints at the corrected time; «Zeit korrigiert HH:MM · erfasst HH:MM» under it, on screen and on paper |
 | **Transcript sections** | the words of a voice memo, each with an offset into the recording | subtitle lines under the row, same on paper |
+| **Gerät** (25.11.2026, UX pick B3·47) | the name of the device that wrote the row («Tablet 2», `lib/deviceName`), stamped at append; self-declared, absent on older rows | «auf Tablet 2» under the row, beside its other footnotes (owner note on the sign-off, 25.11.2026), and in its detail line; on paper under the time, where it changes |
 
 ⚠️ **Only what a human typed is correctable** – composer entries, Meldungen,
 Nachdokumentation. **Never** what the app wrote about an action: «Trupp 2 eingerückt»

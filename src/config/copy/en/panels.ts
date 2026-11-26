@@ -120,6 +120,12 @@ export const panelsCopy: Localizable<Pick<Copy, Keys>> = {
     deviceSumOffline: 'Offline',
     deviceSumApp: 'App installed',
     deviceSumNoApp: 'Not installed',
+    deviceName: 'Name of this device',
+    deviceNameSub: 'Shown with every log entry, e.g. «Tablet 2».',
+    deviceNamePlaceholder: 'e.g. Tablet 2',
+    deviceNameAskBody: 'Every log entry remembers which device it was written on – so a handover can be traced. The name applies to this device only and can be changed in the settings.',
+    deviceNameSave: 'Save',
+    deviceNameLater: 'Later',
   },
   offline: {
     browserTitle: 'Reliably offline as the installed app',

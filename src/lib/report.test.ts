@@ -1301,6 +1301,32 @@ describe('krokiFitMaxZoom', () => {
 })
 
 // staging r3
+// owner pick UX journeys B3·47: the writing device prints where it changes, not on every row
+describe('journalRows · the device', () => {
+  it('keeps the device only where it changes', () => {
+    const at = (m: number) => `2026-11-25T14:${String(m).padStart(2, '0')}:00`
+    const row = (id: string, m: number, device?: string) =>
+      ({ id, t: '', at: at(m), icon: 'type', text: id, kind: 'journal' as const, ...(device ? { device } : {}) })
+    const rows = journalRows([row('d', 4, 'KP-Laptop'), row('c', 3), row('b', 2, 'Tablet 2'), row('a', 1, 'Tablet 2')], [])
+    expect(rows.map((r) => [r.id, r.device])).toEqual([['a', 'Tablet 2'], ['b', undefined], ['c', undefined], ['d', 'KP-Laptop']])
+  })
+})
+
+// owner pick UX journeys B2·6: a row moved to its real time prints there, and says when it was written
+describe('journalRows · a corrected time', () => {
+  it('sorts at the corrected time and carries the written one', () => {
+    const events = [
+      { id: 'b', t: '', at: '2026-11-25T00:41:00', icon: 'type', text: 'Eintreffen TLF', kind: 'journal' as const },
+      { id: 'a', t: '', at: '2026-11-25T00:40:00', icon: 'type', text: 'Wasserversorgung sichergestellt', kind: 'journal' as const,
+        atOriginal: '2026-11-25T00:44:00', timeCorrectedAt: '2026-11-25T01:04:00' },
+    ]
+    const rows = journalRows(events, [])
+    expect(rows.map((r) => r.id)).toEqual(['a', 'b'])
+    expect(rows[0]).toMatchObject({ timeCorrectedAt: '01:04', timeWritten: '00:44' })
+    expect(rows[1].timeCorrectedAt).toBeUndefined()
+  })
+})
+
 describe('journalRows · Nachtrag', () => {
   it('prints a row the server received after the close as a Nachtrag, in its own time order', () => {
     const closed = '2026-07-02T18:00:00Z'

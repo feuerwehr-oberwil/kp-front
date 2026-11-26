@@ -74,6 +74,9 @@ export interface JournalLayerProps {
   openTafelPendenzen?: () => void
   /** «Trupp N» in a row: the Atemschutz board at that Trupp's card (IncidentWorkspace · showTrupp) */
   showTrupp?: (truppId: string) => void
+  /** the Trupps in Notfall as a sentence names them (lib/notfall · notfallTerms) – the composer
+   *  offers no open Pendenz on a sentence that names one */
+  notfallNames: readonly string[]
 }
 
 export function JournalLayer({
@@ -82,7 +85,7 @@ export function JournalLayer({
   setJournalOpen, setJournalLandOn, journalFromRapport, setJournalFromRapport, openRapport, readOnly,
   enterReplay, reminders, setNoteOn, setComposerOpen, reRaisePendenz, media, setPlayer, photoOnMap,
   tacticalLocked, placePhotos, showPhotoOnMap, player, isEditor, addPlayerEntry, composerOpen, roleReadOnly,
-  addJournal, noteOn, linkScoped, openTafelPendenzen, showTrupp,
+  addJournal, noteOn, linkScoped, openTafelPendenzen, showTrupp, notfallNames,
 }: JournalLayerProps) {
   return (
     <>
@@ -92,7 +95,8 @@ export function JournalLayer({
         <Journal
           deliveryNotice={<JournalDeliveryNotice
             status={combinedSyncStatus(journal.syncStatus, auditDelivery.status)}
-            count={journal.pendingCount + journal.rejectedCount + auditDelivery.pendingCount + auditDelivery.rejectedCount}
+            // Verlauf rows, not rows plus their audit events (JournalDeliveryNotice · count)
+            count={journal.unsentIds.size || auditDelivery.pendingCount + auditDelivery.rejectedCount}
             refused={auditDelivery.refusedCount + workspaceRoleParked}
             closedRefused={closedRefusedTotal}
             onRetry={async () => { await Promise.all([journal.retry(), auditDelivery.retry()]) }}
@@ -131,8 +135,11 @@ export function JournalLayer({
           } : undefined}
           onReminderAgain={!readOnly && !replayActive ? reRaisePendenz : undefined}
           mediaStatusOf={media.statusOf}
+          // only while the notice says they wait: an in-flight row is no news (JournalDeliveryNotice)
+          unsentIds={['offline', 'error'].includes(combinedSyncStatus(journal.syncStatus, auditDelivery.status)) ? journal.unsentIds : undefined}
           onOpenPlayer={(e, seekSec) => setPlayer({ row: e, seekSec })}
           onEditText={!readOnly ? (id, text) => journal.appendPatch(id, { textEdit: text }) : undefined}
+          onEditTime={!readOnly ? (id, at) => journal.appendPatch(id, { atEdit: at }) : undefined}
           photoPlacement={photoOnMap}
           onPhotoPlace={!tacticalLocked && !replayActive ? (e) => placePhotos(e) : undefined}
           onPhotoShow={!replayActive ? showPhotoOnMap : undefined}
@@ -194,6 +201,7 @@ export function JournalLayer({
           // sentence already names, and holds a picker for the rest.
           openPendenzen={reminders.open.map((r) => ({ id: r.id, text: r.text, urgent: !!r.urgent, createdAt: r.createdAt }))}
           onLinkPendenz={(pdz) => setNoteOn(pdz)}
+          quietTerms={notfallNames}
           incidentStartAt={incidentMeta.started_at}
           uploadAudio={(blob, filename) => uploadMedia(incidentMeta.id, blob, 'audio', filename)}
           // generic Beilagen (PDF & Co.) ride the same endpoint under kind 'file' — the server

@@ -71,7 +71,7 @@ export type AudioWindow = { row: TimelineEvent; start: number; end: number }
 type Draft = { id: string; value: string } | null
 
 type JournalRowProps = Pick<JournalProps,
-  'live' | 'closedAt' | 'replayAtMs' | 'onSelect' | 'onSeekTo' | 'onTranscript' | 'onEditText' | 'onOpenPlayer'
+  'live' | 'closedAt' | 'replayAtMs' | 'onSelect' | 'onSeekTo' | 'onTranscript' | 'onEditText' | 'onEditTime' | 'onOpenPlayer'
   | 'onReminderTick' | 'onReminderNote' | 'onReminderAgain' | 'mediaStatusOf'> & {
   e: TimelineEvent
   plans: PlanDocument[]
@@ -81,6 +81,8 @@ type JournalRowProps = Pick<JournalProps,
   openMap: ReadonlyMap<string, OpenReminder>
   /** how many times this row's state was re-stated in a run (lib/verlauf · repeatRuns); 1 = once */
   repeated: number
+  /** the row is only on this device (Journal · unsentIds): «nur auf diesem Gerät» under it */
+  unsent: boolean
   /** the row above it prints the same clock: this one's stamp steps back (`.t[data-same]`) */
   sameMinute: boolean
   /** reminder id → the item's own words, and → the row that raised it (a Meldung's anchor) */
@@ -109,9 +111,9 @@ type JournalRowProps = Pick<JournalProps,
 /** One Verlauf row: time, disc, the sentence, its trail of footnotes/media/controls, and the
  *  transcript lines and inline editors under it. Rendered by Journal once per shown row. */
 export function JournalRow({
-  e, plans, live, closedAt, now, replayAtMs, openMap, repeated, sameMinute, pendenzTitles, pendenzRowIds, reRaised, audioWindows, playing,
+  e, plans, live, closedAt, now, replayAtMs, openMap, repeated, unsent, sameMinute, pendenzTitles, pendenzRowIds, reRaised, audioWindows, playing,
   editTx, editRow, marked, jumpToRow, onTogglePlay, onOpenDetail, setEditTx, setEditRow, saveTranscript, saveRowText,
-  onSelect, onSeekTo, onTranscript, onEditText, onOpenPlayer, onReminderTick, onReminderNote, onReminderAgain, mediaStatusOf,
+  onSelect, onSeekTo, onTranscript, onEditText, onEditTime, onOpenPlayer, onReminderTick, onReminderNote, onReminderAgain, mediaStatusOf,
 }: JournalRowProps) {
   const C = appConfig.copy.journal
   const target = rowTarget(e, live)
@@ -132,7 +134,7 @@ export function JournalRow({
   // …and an open Pendenz's row, whose sheet offers «Meldung erfassen» – the pinned block's text
   // opens the same sheet, so the item's words mean one thing in both places (duck sweep LISTS.6)
   const hasDetail = (!!e.audioUrl && ((!!e.audioMeta && !!onOpenPlayer) || !!onTranscript))
-    || (!!onEditText && isHandWritten(e) && !e.audioUrl)
+    || ((!!onEditText || !!onEditTime) && isHandWritten(e) && !e.audioUrl)
     || (!!onReminderNote && e.reminder?.op === 'created' && openMap.has(e.reminder.id))
   const opensDetail = !seekable && hasDetail
   const clickable = seekable || opensDetail || target != null
@@ -177,14 +179,14 @@ export function JournalRow({
   const glyph = rowGlyph(e)
   // the footnotes on the row — appended facts about it, so they read AFTER the sentence
   const nachtrag = isNachtrag(e, closedAt)
-  const hasFootnotes = nachtrag || !!e.correctedAt || repeated > 1 || e.via === 'atemschutz-link' || e.via === 'atemschutz-fix'
+  const hasFootnotes = nachtrag || !!e.correctedAt || !!e.timeCorrectedAt || repeated > 1 || e.via === 'atemschutz-link' || e.via === 'atemschutz-fix' || !!e.device
   const txMissing = !!e.audioUrl && !!onTranscript && !hasTx
   const mediaState = (rowPhotos(e).length > 0 || !!e.audioUrl) ? mediaStatusOf?.(e.id) : undefined
   const offersAgain = closedRow && !!onReminderAgain
-  const hasMeta = hasFootnotes || txMissing || !!mediaState || offersAgain
+  const hasMeta = hasFootnotes || txMissing || !!mediaState || offersAgain || unsent
   return (
     <div
-      className={`hist-ev ${clickable ? 'clickable' : ''} ${future ? 'jr-future' : ''}`}
+      className={`hist-ev ${clickable ? 'clickable' : ''} ${future ? 'jr-future' : ''} ${unsent ? 'jr-unsent' : ''}`}
       data-ev={e.id}
       role={clickable ? 'button' : undefined}
       tabIndex={clickable ? 0 : undefined}
@@ -241,6 +243,11 @@ export function JournalRow({
                 {e.correctedAt && (
                   <span title={C.correctHint}>{fillTemplate(C.corrected, { t: formatTime(new Date(e.correctedAt)) })}</span>
                 )}
+                {/* moved to when it happened (B2·6): the time column says the real time, and this says
+                    it was set later and when the row was written – nothing in the record is lost */}
+                {e.timeCorrectedAt && e.atOriginal && (
+                  <span title={C.correctHint}>{fillTemplate(C.timeCorrected, { t: formatTime(new Date(e.timeCorrectedAt)), w: formatTime(new Date(e.atOriginal)) })}</span>
+                )}
                 {repeated > 1 && (
                   <span className="jr-foot-rep" title={C.repeatedTitle}>{fillTemplate(C.repeated, { n: String(repeated) })}</span>
                 )}
@@ -255,6 +262,13 @@ export function JournalRow({
                 {(e.via === 'atemschutz-link' || e.via === 'atemschutz-fix') && (
                   <span title={C.viaAtemschutzLinkTitle}>{C.viaAtemschutzLink}</span>
                 )}
+                {/* …and the device that wrote it, the same «where» for a row written in the app (owner
+                    note on the B3·47 sign-off, 25.11.2026: on the row, not only in its detail sheet –
+                    nobody has to open a row to see which tablet wrote it). Rows from before, or from a
+                    device without a name, say nothing (lib/deviceName). */}
+                {e.device && (
+                  <span className="jr-foot-device">{fillTemplate(C.detailDevice, { device: e.device })}</span>
+                )}
               </span>
             )}
             {/* ── Durchhören + Transkript sind aus der Zeile gezogen (29.08., Variante 2) ──
@@ -265,6 +279,11 @@ export function JournalRow({
                 missing-transcript state keeps its amber ON the row — as a chip on the row
                 meta, since the button that carried it is no longer here. The transcript
                 TEXT still gets its own lines below (see .jr-subs): content, not a control. */}
+            {/* the row that waits for the network (owner pick UX journeys B2·37, 25.11.2026): the
+                delivery notice above counts it, this says which one it is */}
+            {unsent && (
+              <span className="jr-media-state jr-unsent-mark"><Icon id="cloud-off" /><span>{C.delivery.onlyHere}</span></span>
+            )}
             {txMissing && (
               <span className="jr-media-state jr-tx-miss" title={C.transcriptAdd}>
                 <Icon id="warn" />

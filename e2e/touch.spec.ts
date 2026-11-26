@@ -46,12 +46,13 @@ test('touch time picker stays reachable, commits a wheel selection and can clear
 })
 
 // The composer's ONE row (owner pick B «One row», 19.11.2026; 10-journal.css · .jc-row): the Art
-// track as «I · A · S» on a phone, the ⏱ | □ track and ONE paper-clip that holds mic · upload ·
-// camera – on one line. At 320 (an SE 1st gen) too, idle and recording, every option and the clip
-// (or the stop control in its place) answers a glove's 44 × 44: measured where a finger lands
-// (`elementFromPoint`), so a track's padding does not count for the option inside it (Sol review,
-// PR #704 – the options were 39.7px wide idle and 34 while recording).
-test('composer one row: I · A · S, ⏱ □ and the clip on one line, each a 44px target at 320', async ({ page }, testInfo) => {
+// track as «I · A · S» on a phone, the worded «Pendenz» button (UX pick B2·40, 25.11.2026 – it
+// replaced the ⏱ | □ pair) and ONE paper-clip that holds mic · upload · camera – on one line. At
+// 320 (an SE 1st gen) too, idle and recording, every option and the clip (or the stop control in
+// its place) answers a glove's 44 × 44: measured where a finger lands (`elementFromPoint`), so a
+// track's padding does not count for the option inside it (Sol review, PR #704 – the options were
+// 39.7px wide idle and 34 while recording; 39.3 beside the first «Pendenz», 15-mobile.css).
+test('composer one row: I · A · S, «Pendenz» and the clip on one line, each a 44px target at 320', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'touch-phone', 'the letters are the phone layout')
   // a microphone that records at once: the stop control only has to stand in the row
   await page.addInitScript(() => {
@@ -91,7 +92,7 @@ test('composer one row: I · A · S, ⏱ □ and the clip on one line, each a 44
   }, count)
   const expectTargets = async (state: string, count?: string) => {
     const hits = await targets(count)
-    expect(hits, state).toHaveLength(6) // I · A · S, ⏱, □, the clip / the stop control
+    expect(hits, state).toHaveLength(5) // I · A · S, «Pendenz», the clip / the stop control
     for (const t of hits) {
       // the span's edges are inclusive (within ½px), so the box holds the width to the px
       expect(Math.min(t.w, t.box), `${state}: ${t.name} wide`).toBeGreaterThanOrEqual(44)
@@ -104,6 +105,8 @@ test('composer one row: I · A · S, ⏱ □ and the clip on one line, each a 44
   await expectTargets('idle')
   await expect(row.locator('.jc-chip-letter').first()).toHaveText('I')
   await expect(row.locator('.jc-chip-word').first()).toBeHidden()
+  // the pick's point is the word: the row never buys its 44px back by hiding it
+  await expect(row.locator('.jc-open-word')).toBeVisible()
   await row.getByRole('button', { name: 'Anhang' }).tap()
   for (const word of ['Aufnehmen', 'Datei anhängen', 'Foto']) await expect(page.getByRole('menuitem', { name: word })).toBeVisible()
   await page.getByRole('menuitem', { name: 'Aufnehmen' }).tap()

@@ -113,6 +113,8 @@ L = {
     # the printed counterpart of the app's «korrigiert HH:MM»-chip + «Der ursprüngliche
     # Wortlaut bleibt im Protokoll»
     "correctedLine": "korrigiert {t} · ursprünglich: «{text}»",
+    # …and a row moved to when it happened (owner pick UX journeys B2·6) — the app's footnote
+    "timeCorrectedLine": "Zeit korrigiert {t} · erfasst {w}",
     # a row that reached the record after the Einsatzende — under its time, like the app's badge
     "nachtrag": "Nachtrag",
     # sub-line under «Was» when an Auftrag / eine Pendenz carried a timed Erinnerung

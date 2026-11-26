@@ -1,5 +1,5 @@
 import type { APIRequestContext, Locator, Page } from '@playwright/test'
-import { EINSATZ_RAIL, dismissFirstViewGebaeude, expect, login, openApp, test } from './helpers'
+import { EINSATZ_RAIL, dismissFirstViewGebaeude, expect, login, openApp, rememberIncident, test } from './helpers'
 
 // Worst-case text never runs out of its box (design pass D, 18.11.2026). The other overflow checks
 // look at the page's `scrollWidth` with demo names, so a name clipped INSIDE an `overflow: hidden`
@@ -145,17 +145,14 @@ for (const device of [
     test.use({ ...use, serviceWorkers: 'block' })
     let incidentId = ''
 
-    test.beforeEach(async ({ page, context, browserName }) => {
+    test.beforeEach(async ({ page, browserName }) => {
       test.skip(browserName !== 'chromium', 'runs on chromium only')
       const config = await page.request.get('/api/config')
       test.skip(config.ok() && (await config.json()).identity?.demoMode === true, 'opens Einsätze — never against a shared demo')
       await login(page)
       incidentId = await seed(page.request)
       // remembered as the Einsatz picked by hand (lib/prefs), so the open lands in it
-      await context.addCookies([{
-        name: 'kp-front-prefs', url: new URL(page.url()).origin,
-        value: encodeURIComponent(JSON.stringify({ incidentId, incidentChosenAt: Date.now() })),
-      }])
+      await rememberIncident(page, incidentId)
     })
 
     test.afterEach(async ({ page }) => {

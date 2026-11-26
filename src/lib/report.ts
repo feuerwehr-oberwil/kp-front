@@ -230,6 +230,15 @@ export interface JournalPrintRow {
    *  HH:MM · ursprünglich: …») and skips intermediate revisions. Absent on untouched rows. */
   correctedAt?: string
   textOriginal?: string
+  /** HH:MM when the row's TIME was corrected + HH:MM it was written («Zeit korrigiert 01:04 ·
+   *  erfasst 00:44», owner pick UX journeys B2·6) – the row itself sorts and prints at the
+   *  corrected time. Absent on rows whose time stands as written. */
+  timeCorrectedAt?: string
+  timeWritten?: string
+  /** «Tablet 2» – the device that wrote this row (lib/deviceName, owner pick UX journeys B3·47),
+   *  set only where it CHANGES from the row printed before: on paper the device is a heading of
+   *  its run, so a handover stands out and 200 rows do not repeat one name 200 times. */
+  device?: string
   /** how often this line repeated within the repeat window (lib/verlauf · repeatRuns). >1 prints
    *  as «6×» after the entry; the repeats themselves are in the record, not on the paper. */
   repeats?: number
@@ -474,6 +483,9 @@ export function journalRows(
         // the original through the same prefix-strip as the latest text, or the two would
         // differ by the «Auftrag · » tag alone and read as a phantom correction
         textOriginal: e.correctedAt && e.textOriginal ? withoutAreaPrefix(e.textOriginal) : undefined,
+        timeCorrectedAt: e.timeCorrectedAt && e.atOriginal ? hhmm(new Date(e.timeCorrectedAt)) : undefined,
+        timeWritten: e.timeCorrectedAt && e.atOriginal ? hhmm(new Date(e.atOriginal)) : undefined,
+        device: e.device,
       }
     })
     .sort((a, b) => {
@@ -482,6 +494,18 @@ export function journalRows(
       if (b.iso) return 1
       return a.timeLabel.localeCompare(b.timeLabel)
     })
+    .map(deviceWhereItChanges())
+}
+
+/** Keeps a row's `device` only where it differs from the last device printed above it
+ *  (JournalPrintRow · device) – a row without one changes nothing. Stateful: one per pass. */
+function deviceWhereItChanges(): (r: JournalPrintRow) => JournalPrintRow {
+  let last: string | undefined
+  return (r) => {
+    if (!r.device || r.device === last) return r.device ? { ...r, device: undefined } : r
+    last = r.device
+    return r
+  }
 }
 
 /** One row of the Rapport's «Aufträge / Pendenzen» section — the BGV form's columns. */

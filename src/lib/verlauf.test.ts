@@ -56,6 +56,11 @@ describe('isNachtrag', () => {
     expect(isNachtrag(row('no-at'), closed)).toBe(false) // legacy rows can't be judged
   })
 
+  // owner pick UX journeys B2·6: a time correction moves the event, not when the row was written
+  it('judges a time-corrected row by when it was written', () => {
+    expect(isNachtrag({ ...row('moved', '2026-07-02T17:50:00Z'), atOriginal: '2026-07-02T18:20:00Z' }, closed)).toBe(true)
+  })
+
   // staging r3
   it('flags a row the server RECEIVED after the close, whatever time it carries', () => {
     // a Kontakt from 17:55 that reached the server at 18:05, after an 18:00 close: in its time

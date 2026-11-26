@@ -547,6 +547,10 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
       // a corrected line prints its first wording beside the latest — the paper says the same
       // thing the «korrigiert»-chip says on screen
       correctedAt: r.correctedAt, textOriginal: r.textOriginal,
+      // …and a row moved to when it happened says when it was written (B2·6)
+      timeCorrectedAt: r.timeCorrectedAt, timeWritten: r.timeWritten,
+      // …and which device wrote it, where that changes (B3·47)
+      device: r.device,
       // …and a row that reached the record after the Einsatzende says so on paper (D4)
       nachtrag: r.nachtrag || undefined,
       // only pictures the SERVER can fetch — a blob: URL is one that never finished uploading

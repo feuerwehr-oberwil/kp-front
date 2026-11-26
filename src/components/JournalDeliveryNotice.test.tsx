@@ -58,3 +58,14 @@ it('a parked event on an undurable cache is still the storage alert', () => {
   render(<JournalDeliveryNotice status="storage" count={0} refused={1} onRetry={vi.fn()} onExport={vi.fn()} />)
   expect(screen.getByRole('alert').textContent).toContain('App offen lassen')
 })
+
+// owner pick UX journeys B2·37: offline is one calm line – no retry until the network is back
+it('offline is one calm line with the export and no retry', () => {
+  const save = vi.fn()
+  render(<JournalDeliveryNotice status="offline" count={1} onRetry={vi.fn()} onExport={save} />)
+  expect(screen.queryByRole('alert')).toBeNull()
+  expect(screen.getByRole('status').textContent).toContain('Offline · 1 Eintrag nur auf diesem Gerät')
+  expect(screen.queryByRole('button', { name: 'Erneut versuchen' })).toBeNull()
+  fireEvent.click(screen.getByRole('button', { name: 'Einträge herunterladen' }))
+  expect(save).toHaveBeenCalledOnce()
+})

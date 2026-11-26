@@ -6,6 +6,7 @@ import { ApiError, apiBeacon, apiGet, apiPost, LONG_POLL_TIMEOUT_MS } from './ap
 import { idbDel, idbKeys, idbRead, idbSet } from './idb'
 import { journalSlot as KEY, legacyJournalSlot as LEGACY_KEY } from './journalSlots'
 import { newId } from './ids'
+import { deviceName } from './deviceName'
 import { rowPhotos, swapUrl, type PhotoSlot } from './verlauf'
 import type { TimelineEvent } from '../types'
 import type { SyncStatus } from './api/workspaceSync'
@@ -164,7 +165,7 @@ export function foldJournalRows(out: readonly TimelineEvent[]): TimelineEvent[] 
     if (!p.patchOf) continue
     const target = patched.get(p.patchOf)
     if (!target || target.id.startsWith('sys')) continue // server boundaries cannot be corrected by a client patch
-    const { id: _i, t: _t, at: _a, icon: _ic, text: _tx, patchOf: _p, textEdit, transcriptSection, transcriptSectionEdit, ...fields } = p
+    const { id: _i, t: _t, at: _a, icon: _ic, text: _tx, patchOf: _p, textEdit, atEdit, transcriptSection, transcriptSectionEdit, ...fields } = p
     const folded = patched.get(p.patchOf)!
     patched.set(target.id, {
       ...folded,
@@ -175,6 +176,12 @@ export function foldJournalRows(out: readonly TimelineEvent[]): TimelineEvent[] 
       // `textOriginal` keeps the FIRST wording across any number of corrections — the printed
       // rapport shows original + latest and skips the intermediates.
       ...(textEdit ? { text: textEdit, correctedAt: p.at, textOriginal: folded.textOriginal ?? folded.text } : {}),
+      // a TIME correction moves the row to when it happened (B2·6): the folded `at` is the real
+      // time, so every reader sorts and prints it there; the written one rides along as
+      // `atOriginal` (the FIRST, across any number of corrections) and `timeCorrectedAt` says when
+      ...(atEdit && Number.isFinite(Date.parse(atEdit))
+        ? { at: atEdit, timeCorrectedAt: p.at, atOriginal: folded.atOriginal ?? folded.at }
+        : {}),
       // transcript sections ACCUMULATE (each patch carries one; its id addresses the section),
       // sorted by offset so the subtitle list reads in recording order however they arrived
       ...(transcriptSection
@@ -355,7 +362,11 @@ export class JournalStore {
     // the overlay holds the FULL list (uploaded + pending) — it replaces the field wholesale
     // in display(), so a partial list here would hide the row's already-uploaded pictures
     if (row.photoUrls?.some(isBlob)) this.overlaySession(row.id, { photoUrls: row.photoUrls })
-    const clean = stripSessionUrls(row)
+    // every row THIS device writes says which device it was (lib/deviceName, B3·47) – never a
+    // patch: its fields fold onto the target, and a correction made on another tablet must not
+    // rename the device the row was written on
+    const device = row.patchOf || row.device ? undefined : deviceName()
+    const clean = stripSessionUrls(device ? { ...row, device } : row)
     this.state.outbox.push(clean)
     if (!this.initDone || this.readFailed) {
       this.preHydrationAppends.set(clean.id, clean)
@@ -369,7 +380,7 @@ export class JournalStore {
   /** Later-arriving enrichment (transcript, uploaded media URL) — a NEW row, never an edit.
    *  Clearing a field sends '' (never undefined: JSON.stringify drops undefined keys, and
    *  the clear would un-apply once the outbox copy is replaced by the server row). */
-  appendPatch(targetId: string, fields: Partial<Pick<TimelineEvent, 'transcript' | 'transcriptSection' | 'transcriptSectionEdit' | 'audioUrl' | 'photoUrl' | 'photoUrls' | 'photoGeo' | 'textEdit' | 'retracted'>>) {
+  appendPatch(targetId: string, fields: Partial<Pick<TimelineEvent, 'transcript' | 'transcriptSection' | 'transcriptSectionEdit' | 'audioUrl' | 'photoUrl' | 'photoUrls' | 'photoGeo' | 'textEdit' | 'atEdit' | 'retracted'>>) {
     const at = new Date().toISOString()
     // a server URL supersedes the session one: the overlay would keep winning in display() and
     // point the player at a blob: the media queue revokes once the link is acknowledged
@@ -578,6 +589,14 @@ export class JournalStore {
 
   get rejectedCount(): number {
     return this.state.dead?.length ?? 0
+  }
+
+  /** The Verlauf rows still only on this device – queued or rejected – by the id of the row they
+   *  write or correct (a patch counts as its target). The delivery notice counts these and the
+   *  Verlauf marks them «nur auf diesem Gerät» (owner pick UX journeys B2·37, 25.11.2026: one
+   *  entry used to read «2 Einträge», the second being its audit event). */
+  unsentRowIds(): ReadonlySet<string> {
+    return new Set([...this.state.outbox, ...(this.state.dead ?? [])].map((r) => r.patchOf ?? r.id))
   }
 
   /** rows the closed Einsatz no longer took — parked, not owed (see Persisted · refused) */

@@ -1,5 +1,5 @@
 import type { Locator, Page } from '@playwright/test'
-import { EINSATZ_RAIL, dismissFirstViewGebaeude, expect, login, openApp, test } from './helpers'
+import { EINSATZ_RAIL, dismissFirstViewGebaeude, expect, login, openApp, rememberIncident, test } from './helpers'
 
 // A tap on a node pad on the Karte is the pad's, never the map's (round 15.11.2026). Until then
 // the pad's click bubbled from its Marker to maplibre's listener on the canvas container, the map
@@ -35,7 +35,7 @@ const NODES: Point[] = [[60, 180], [220, 290], [280, 190], [340, 260]]
 
 let incidentId = ''
 
-test.beforeEach(async ({ page, context, browserName }, testInfo) => {
+test.beforeEach(async ({ page, browserName }, testInfo) => {
   test.skip(browserName !== 'chromium', 'runs on chromium only')
   const config = await page.request.get('/api/config')
   test.skip(config.ok() && (await config.json()).identity?.demoMode === true, 'opens Einsätze — never against a shared demo')
@@ -44,10 +44,7 @@ test.beforeEach(async ({ page, context, browserName }, testInfo) => {
   const created = await page.request.post('/api/incidents', { data: { title: `E2E ${testInfo.title.slice(0, 40)}`, lat: 47.523718, lng: 7.570345 } })
   expect(created.status(), 'creating the Einsatz').toBe(201)
   incidentId = (await created.json() as { id: string }).id
-  await context.addCookies([{
-    name: 'kp-front-prefs', url: new URL(page.url()).origin,
-    value: encodeURIComponent(JSON.stringify({ incidentId, incidentChosenAt: Date.now() })),
-  }])
+  await rememberIncident(page, incidentId)
   await openApp(page, '/')
   await expect(page.locator(EINSATZ_RAIL)).toBeVisible()
   await expect(page.locator('canvas.maplibregl-canvas')).toBeVisible()

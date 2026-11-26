@@ -664,6 +664,18 @@ export interface TimelineEvent {
    *  corrections. The printed rapport shows it beside the latest text («korrigiert HH:MM ·
    *  ursprünglich: …») — intermediate revisions stay in the record but are not printed. */
   textOriginal?: string
+  /** patch payload only: the time the target row's event really HAPPENED (ISO), when it was typed
+   *  late or wrong (owner pick UX journeys B2·6, 25.11.2026). The fold sets the row's `at` to it,
+   *  so the Verlauf, the Rapport, the Wiedergabe and the Tafel all sort and print the row at its
+   *  real time; the written `at` stays in the record and the hash chain, and on the row as
+   *  `atOriginal`. Offered only on rows a human typed, like `textEdit` (lib/verlauf · isHandWritten). */
+  atEdit?: string
+  /** DERIVED by the fold of an `atEdit` patch: when the time was corrected (the patch's own `at`).
+   *  The row says «Zeit korrigiert HH:MM · erfasst HH:MM» under it, on screen and on paper. */
+  timeCorrectedAt?: string
+  /** DERIVED, with `timeCorrectedAt`: the `at` the row was WRITTEN with – kept through any number
+   *  of time corrections. What «erfasst HH:MM» and the Nachtrag test (lib/verlauf · isNachtrag) read. */
+  atOriginal?: string
   /** retraction (append-only "delete"): a later patch sets this and the row folds out of
    *  display/report — both the original and the retraction stay in the record. Only
    *  player-created Nachdokumentation rows offer this; incident log lines never do. */
@@ -742,6 +754,12 @@ export interface TimelineEvent {
    *  keep the poster's corrections to its own rows). Absent on everything else, and never set
    *  by this client: the app cannot vouch for its own provenance. */
   via?: 'atemschutz-link' | 'atemschutz-fix' | 'capture'
+  /** «Tablet 2» – the name of the device that wrote the row (lib/deviceName, owner pick UX
+   *  journeys B3·47, 25.11.2026), stamped by the journal store at append. Shown on the row's detail
+   *  line and in the printed Einsatzjournal, so a handover can be traced. Self-declared – a label
+   *  the station gave its tablet, not a proof; absent on rows from before, from a device without a
+   *  name, and on the server's own rows. */
+  device?: string
 }
 
 /** `'info'` · `'auftrag'` (Befehlsgebung) · `'sofort'` (Sofortmassnahme). See TimelineEvent. */

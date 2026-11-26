@@ -10,7 +10,6 @@ export const journalCopy = {
       storageTitle: 'Einträge nicht auf diesem Gerät gespeichert',
       storageBody: 'App offen lassen und Einträge herunterladen. Beim Schliessen können diese Einträge verloren gehen.',
       savedBody: 'Auf diesem Gerät gespeichert. Auf anderen Geräten fehlen diese Einträge.',
-      offlineBody: 'Auf diesem Gerät gespeichert. Wird mit Netz synchronisiert.',
       retry: 'Erneut versuchen',
       retrying: 'Wird versucht …',
       export: 'Einträge herunterladen',
@@ -27,6 +26,12 @@ export const journalCopy = {
       closedBody: 'Der Einsatz war bereits abgeschlossen, als diese Einträge ankamen. Sie stehen nicht im Verlauf, bleiben aber auf diesem Gerät und lassen sich herunterladen. Wird der Einsatz wieder geöffnet, werden sie synchronisiert.',
       // die Statusleuchte, solange solche Einträge nur auf dem Gerät liegen
       closedShort: 'Einträge nach dem Abschluss nicht übernommen – herunterladen',
+      // offline, the notice is one calm line (owner pick UX journeys B2·37, 25.11.2026) – and the row that waits says so
+      offlineTitleOne: 'Offline · 1 Eintrag nur auf diesem Gerät',
+      offlineTitle: 'Offline · {n} Einträge nur auf diesem Gerät',
+      offlineLine: 'Wird mit Netz von selbst synchronisiert.',
+      exportShort: 'Herunterladen',
+      onlyHere: 'nur auf diesem Gerät',
     },
     open: 'Verlauf',
     add: 'Eintrag',
@@ -239,16 +244,14 @@ export const journalCopy = {
     // ⚠️ The arrow is a WORD-shaped suggestion, not a control: it inserts « → » and nothing else.
     arrowTitle: 'Pfeil einsetzen – wer an wen',
     arrowBackTitle: 'Pfeil einsetzen – wer von wem',
-    dueHead: 'Erinnern',
-    dueNone: 'Ohne Erinnerung',
-    dueSetTitle: 'Erinnert um {t}',
+    // a time of day says «Uhr» (owner pick UX journeys B2·43, 25.11.2026)
+    dueSetTitle: 'Erinnert um {t} Uhr',
     dueExactTitle: 'Erinnern um',
     dayToday: 'Heute',
     dayTomorrow: 'Morgen',
     duePast: 'Zeitpunkt liegt in der Vergangenheit',
     reminderExact: 'Uhrzeit …',
-    reminderChips: [5, 10, 15, 30, 60] as number[],
-    reminderChipLabel: 'in {n} min',
+    reminderChips: [10, 30, 60] as number[],
     reminderTomorrow: ' · morgen',
     reminderSaved: 'Erinnerung gesetzt',
     // ⚠️ The row a reminder writes WHEN IT IS SET. It used to carry the bare reminder text, so
@@ -317,25 +320,16 @@ export const journalCopy = {
     // after the shared «Keine Einträge in dieser Auswahl.» (copy.filterNoHits): the way out
     filterEmptyHint: '«Alle zeigen» hebt den Filter auf.',
     // ── Pendenzen ─────────────────────────────────────────────────────────────────────────
-    // The ○ switch beside the Art chips. THREE states on one control; the accessible name says
-    // what a tap will leave behind, because the ring alone cannot.
-    // ⚠️ `openStates[0]` is what the resting ring announces — «offen halten», an instruction, not
-    // a status. The other two are statuses, because by then it is one.
-    openStates: ['Offen halten', 'Bleibt offen – steht in den Pendenzen', 'Dringend – steht zuoberst'] as string[],
     // an undatierte Pendenz never called itself an Erinnerung, so its done row must not either
     pendenzDoneLog: 'Pendenz erledigt: {text}',
     pendenzReopenLog: 'Pendenz wieder offen: {text}',
     // Meldungen ON a Pendenz — written in the ORDINARY composer, opened from the item's row
     noteOnTitle: 'Meldung',
     noteOnLabel: 'zu ',
-    noteOnClear: 'Verknüpfung lösen',
-    // The ○ switch's menu. ⚠️ «Neue Pendenz» is deliberately the FIRST row and «Meldung zu» the
-    // heading of the second block: the menu has to read as one question — what is this line? — so
-    // that «a new open item» and «a report on an existing one» are visibly the same kind of answer
-    // rather than two features that happen to share a control.
+    // The «Pendenz» button's menu (owner pick UX journeys B2·40, 25.11.2026): one question – does this
+    // line stay open, and when does it come back? – with «Meldung zu» as the heading of its last
+    // block, so «a new open item» and «a report on an existing one» read as the same kind of answer.
     linkPendenzTitle: 'Meldung zu',
-    pendenzNew: 'Neue Pendenz',
-    pendenzNewUrgent: 'Dringende Pendenz',
     pendenzNotOpen: 'Keine Pendenz',
     noteChip: 'Pendenz',
     noteOpen: 'Meldung erfassen',
@@ -374,6 +368,33 @@ export const journalCopy = {
     openCountDoorOne: 'Verlauf – 1 Pendenz offen',
     // the heading over the ring key at the end of the «Art» menu (pick 25 B)
     filterRingHead: 'Pendenzen – was der Ring sagt',
+    // the open-Pendenz offer in «Neuer Eintrag» (lib/reminders · suggestPendenzen): words that name
+    // the app's own things match half the Verlauf, so they never count as a hit (owner pick UX
+    // journeys B2·45, 25.11.2026 – «Trupp» offered to file a Mayday under an old Pendenz)
+    pendenzWeakWords: ['Trupp', 'Lage', 'Leitung', 'Gebäude', 'Einsatz', 'Pendenz', 'Meldung', 'Auftrag', 'Info', 'Karte', 'Plan', 'Tafel', 'Verlauf', 'Atemschutz', 'Kontakt', 'Notfall', 'Rapport', 'Mittel', 'Fahrzeug', 'Geschoss', 'Raum', 'Sektor', 'Abschnitt', 'Person', 'Personen'] as string[],
+    // …and a sentence with one of these is an emergency: no Pendenz offer at all
+    pendenzNeverWords: ['Mayday'] as string[],
+    // the composer's ONE «Pendenz» button and its menu (owner pick UX journeys B2·40, 25.11.2026): the
+    // clock and the ring became one worded button – a reminder already implies a Pendenz
+    pendenzButton: 'Pendenz',
+    pendenzButtonTitle: 'Pendenz – {state}',
+    pendenzStateNone: 'keine',
+    pendenzStateOpen: 'offen',
+    pendenzStateUrgent: 'dringend',
+    pendenzRemindHead: 'Pendenz – erinnern in',
+    pendenzRemindMins: '{n} min',
+    pendenzNoRemind: 'Ohne Erinnern',
+    pendenzUrgent: 'Dringend',
+    // «Zeit korrigieren» in a hand-written row's detail sheet (owner pick UX journeys B2·6, 25.11.2026):
+    // the row moves to when it happened, and says so under it – on paper too (report · timeCorrected)
+    editTime: 'Zeit korrigieren',
+    editTimeTitle: 'Geschehen um',
+    editTimeFuture: 'Zeitpunkt liegt in der Zukunft',
+    timeCorrected: 'Zeit korrigiert {t} · erfasst {w}',
+    detailTimeCorrected: 'Zeit korrigiert',
+    detailTimeWritten: 'erfasst {t}',
+    // the row's footnotes and its detail line name the device that wrote it (B3·47, lib/deviceName)
+    detailDevice: 'auf {device}',
   },
   // ── The Tafel's «Aufträge / Pendenzen» page (05.11.2026, lib/pendenzenPage) ────────────────
   // A view on the Verlauf's Pendenzen and Erinnerungen: every act on the page appends a Verlauf
