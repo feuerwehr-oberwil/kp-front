@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { AnwesenheitView } from './AnwesenheitView'
 import { appConfig } from '../config/appConfig'
 import { applyLocale } from '../config/copy'
@@ -504,6 +504,16 @@ describe('the Ort is a glyph and a choice, never a one-tap flip', () => {
     fireEvent.click(chip())
     fireEvent.click(screen.getByRole('menuitemradio', { name: A.ortToStationPick }))
     expect(onSetOrt).toHaveBeenCalledTimes(1)
+  })
+
+  // owner note 26.11.2026: the menu stayed open over the row it had just moved
+  it('closes the menu on a pick', async () => {
+    const onSetOrt = vi.fn()
+    mount({ attendance: here, onSetOrt })
+    fireEvent.click(chip())
+    fireEvent.click(screen.getByRole('menuitemradio', { name: A.ortToStationPick }))
+    expect(onSetOrt).toHaveBeenCalledTimes(1)
+    await waitFor(() => expect(screen.queryByRole('menuitemradio')).toBeNull())
   })
 
   it('carries «‹ Rapport» in the head only while the Rapport opened the page', () => {

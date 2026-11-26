@@ -1156,6 +1156,8 @@ export function AnwesenheitView({
                       itemClassName={() => c.menuItem}
                       items={[{
                         kind: 'radio' as const,
+                        // the menu IS this one choice: a pick closes it (owner note 26.11.2026)
+                        closeOnPick: true,
                         value: ortOf(a),
                         // a pick of the place already set changes nothing – that is the point
                         onChange: (v: string) => { if (v !== ortOf(a)) onSetOrt(p) },
