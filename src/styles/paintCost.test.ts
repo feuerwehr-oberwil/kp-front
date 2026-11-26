@@ -2,7 +2,8 @@
 // CI has no GPU, so the stylesheet is the only place these can be checked):
 //   · the floating blur lives in ONE token, and the night theme turns it off (its glass is 97 %
 //     opaque, the blur showed through at 3 %);
-//   · the Plan's open-drawing dashes step at the Karte's cadence (lib/draftAnts), not at 60 Hz.
+//   · the Plan's open-drawing dashes step at the Karte's cadence (lib/draftAnts), not at 60 Hz;
+//   · the Karte's «Einsatz läuft» dot pulses a few times, never forever, inside the blurred bar.
 import { globSync, readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { DRAFT_ANTS, DRAFT_ANTS_STEP, DRAFT_ANTS_TICK_MS } from '../lib/draftAnts'
@@ -49,5 +50,22 @@ describe('the Plan’s open dashes step like the Karte’s', () => {
 
   it('stands still while the ink layer is held (WbControls.test · the class)', () => {
     expect(ruleBody(css, '.wb-ink-svg.held .wb-draft-open')).toMatch(/animation-play-state:\s*paused/)
+  })
+})
+
+describe('the «Einsatz läuft» dot', () => {
+  const css = read('src/components/karte/Karte.module.css')
+  const pulse = ruleBody(css, '.pulse')
+
+  it('pulses a bounded number of times', () => {
+    expect(pulse).toMatch(/animation:\s*koPulse\b/)
+    expect(pulse).not.toMatch(/infinite/)
+  })
+
+  it('rests fully visible: no fill mode holds a dim frame, and the ends stay at the base', () => {
+    expect(pulse).not.toMatch(/\b(forwards|both)\b/)
+    const frames = /@keyframes koPulse\s*\{([\s\S]*?\})\s*\}/.exec(css)?.[1] ?? ''
+    expect(frames).toMatch(/opacity/)
+    expect(frames).not.toMatch(/(?:^|[\s,])(?:from|to|0%|100%)\s*[{,]/)
   })
 })

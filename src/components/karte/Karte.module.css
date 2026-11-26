@@ -70,7 +70,11 @@
 }
 .runningText { min-width: 0; overflow: hidden; }
 .runningText b { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pulse { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; animation: koPulse 1.4s infinite; }
+/* «Einsatz läuft»: three pulses, then the dot stands still, fully on (the keyframes end on the
+   base opacity) – like the rail's nudge (04b-rail · .rail-more-down): an endless animation in the
+   blurred top bar kept a device on this screen compositing for the whole Einsatz. A chip that
+   mounts again (a new Einsatz, back from a route) pulses again. */
+.pulse { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; animation: koPulse 1.4s 3; }
 @keyframes koPulse { 50% { opacity: .3; } }
 @media (prefers-reduced-motion: reduce) { .pulse { animation: none; } }
 /* a live Ernstfall's Atemschutz alarm on the SAME chip (KarteApp · runningChip, round 2b): ⚠ before
