@@ -24,6 +24,10 @@ Imports lock and reload the singleton BEFORE planning and hold it through apply.
 stays read-only. A connector may already hold a cached config from before its download; that
 copy must never become the ancestor of an import that overwrites a newer admin save.
 
+The openpyxl work (``parse_workbook``, ``build_workbook``) runs on a worker thread: a large
+file would otherwise stall the event loop, and with it every other request – an incoming alarm
+included – for as long as the parse takes.
+
 ⚠️ There is no ``replace`` mode and there must never be one. See app/services/station_workbook.
 """
 
@@ -31,6 +35,7 @@ import hashlib
 import uuid
 from datetime import UTC, datetime
 
+import anyio
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -115,8 +120,9 @@ async def plan_workbook(db: AsyncSession, data: bytes, *, lock: bool = False) ->
     """
     _row, raw = await _stored_config(db, lock=lock)
     stored = load_stored_config(raw).model_dump(mode="json")
+    known = known_keys(stored)
     try:
-        parsed = parse_workbook(data, known=known_keys(stored))
+        parsed = await anyio.to_thread.run_sync(lambda: parse_workbook(data, known=known))
     except WorkbookFileError as exc:
         # ⚠️ openpyxl's own exception text is logged, never forwarded: it is a parser's words
         # about a zip member, and the operator gets a sentence they can act on instead.
@@ -148,12 +154,10 @@ async def export_workbook(
     """
     _row, raw = await _stored_config(db)
     stored = load_stored_config(raw).model_dump(mode="json")
-    data = build_workbook(
-        stored,
-        list(await _people(db)),
-        await _identity_pairs(db),
-        await personnel_svc.load_roster_name_order(db),
-    )
+    people = await _people(db)
+    identities = await _identity_pairs(db)
+    order = await personnel_svc.load_roster_name_order(db)
+    data = await anyio.to_thread.run_sync(lambda: build_workbook(stored, list(people), identities, order))
     name = f"stationsdaten-{datetime.now(UTC).date().isoformat()}.xlsx"
     return Response(
         content=data,

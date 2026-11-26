@@ -99,5 +99,6 @@ export const captureCopy: Localizable<Pick<Copy, 'capture'>> = {
     groupCurrent: 'Actuel',
     groupBacklog: 'Encore ouvert',
     beilageRemoved: 'Annexe retirée',
+    logMetaStatement: '{statement} (QR)',
   },
 }

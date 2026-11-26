@@ -487,9 +487,13 @@ lands.
   (`src/lib/captureClient.ts`), which appends a row after the accepted workspace write –
   with «(QR)», because the legal document has to state that no signed-in person is behind it.
   Best effort: the state is already saved, and a poster is a phone at the station door – a
-  failed journal write must not make the tap fail, but it is logged loudly.
-- **Rapport details and partner organisations write a row** – one per save, naming
-  *which* fields changed (`changedReportMetaFields`, `src/lib/report.ts`).
+  failed journal write must not make the tap fail, but it is logged loudly. A save that changed
+  nothing (the tablet removed the person whose times the poster edits) writes no row (25.11.2026).
+- **Rapport details and partner organisations write the tablet's rows** – the scalar fields in
+  one row, each structured statement («Partnerorganisation Polizei ergänzt») in its own, each
+  with «(QR)» (`changedReportMetaLines`, `src/lib/report.ts`). Until 25.11.2026 the poster kept
+  its own copy of that rule, and it drifted: a Polizei tick wrote «Rapportangaben geändert (QR):
+  Partnerorganisationen».
 
 ⚠️ **Superseded 2026-08-28 (commit `99c4348`):** this section used to also list the Atemschutz
 safety values (contact interval, grace period, default Funkkanal) writing a row with old and
