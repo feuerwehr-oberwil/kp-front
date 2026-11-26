@@ -89,7 +89,11 @@ export function PlanAlignmentReview({ compact = false, embedded = false, source 
 }) {
   const C = appConfig.copy.admin.alignment
   const [ownQueue, setOwnQueue] = useState<AlignmentQueue | null>(null)
+  // Two lines, because a 409 refreshes the queue: a read that succeeds clears its own failure,
+  // never the reason the server just gave for refusing a decision – that one goes with the
+  // reviewer's own «Aktualisieren» or the next decision.
   const [error, setError] = useState<string | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [open, setOpen] = useState<number | null>(null)
   const [busy, setBusy] = useState<Set<number>>(() => new Set())
   const [notice, setNotice] = useState<string | null>(null)
@@ -116,10 +120,10 @@ export function PlanAlignmentReview({ compact = false, embedded = false, source 
       try {
         const next = await loadAlignmentQueue()
         if (!alive.current || seq !== loadSeq.current) return
-        setOwnQueue(next); setError(null)
+        setOwnQueue(next); setLoadError(null)
         setOpen(o => o != null && next.items.some(item => item.id === o) ? o : null)
       } catch (e) {
-        if (alive.current && seq === loadSeq.current) setError(apiErrorText(e, appConfig.copy.admin.alignment.loadFailed))
+        if (alive.current && seq === loadSeq.current) setLoadError(apiErrorText(e, appConfig.copy.admin.alignment.loadFailed))
       }
     })()
     inFlight.current = request
@@ -213,7 +217,7 @@ export function PlanAlignmentReview({ compact = false, embedded = false, source 
   const actions = <div className="adm-align-actions">
     {staged.length > 0 && <span className="adm-hint adm-apply-summary">{batch ? fillTemplate(C.grid.applying, batch) : fillTemplate(C.grid.applySummary, { yes: yesCount, no: staged.length - yesCount })}</span>}
     {overrides.size > 0 && <button type="button" className="btn" disabled={!!batch} onClick={() => setOverrides(new Map())}>{C.grid.resetMarks}</button>}
-    {!embedded && <button type="button" className="btn" disabled={refreshing || !!batch} onClick={async () => { setRefreshing(true); await refresh(); if (alive.current) setRefreshing(false) }}>{refreshing && <ShellLoader />}{refreshing ? C.loading : C.refresh}</button>}
+    {!embedded && <button type="button" className="btn" disabled={refreshing || !!batch} onClick={async () => { setError(null); setRefreshing(true); await refresh(); if (alive.current) setRefreshing(false) }}>{refreshing && <ShellLoader />}{refreshing ? C.loading : C.refresh}</button>}
     {staged.length > 0 && <button type="button" className="btn primary" disabled={!!batch || busy.size > 0} onClick={() => void apply()}>{batch && <ShellLoader />}{fillTemplate(C.grid.apply, { n: staged.length })}</button>}
   </div>
   const searchField = <input className="adm-input adm-align-search" type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder={C.search} aria-label={C.search} />
@@ -224,14 +228,14 @@ export function PlanAlignmentReview({ compact = false, embedded = false, source 
       <div><h2>{C.title}</h2>{!compact && <p className="adm-hint">{C.intro}</p>}</div>
       {actions}
     </div>}
-    {error && <p className="adm-state adm-state-err" role="alert">{error}</p>}
+    {(error ?? loadError) && <p className="adm-state adm-state-err" role="alert">{error ?? loadError}</p>}
     {queue && !queue.capability.available && <p className="adm-align-notice" role="status">{C.unavailableHint}</p>}
     {embedded
       ? <div className="adm-align-toolbar">{searchField}{applied}{(staged.length > 0 || overrides.size > 0) && actions}</div>
       : <div className="adm-align-filters"><Segmented<Filter> value={filter} onChange={setFilter} ariaLabel={C.filterLabel} options={[
         { value: 'open', label: fillTemplate(C.openCount, { n: count }) }, { value: 'approved', label: C.grid.decided }, { value: 'all', label: C.all },
       ]} />{applied}{searchField}</div>}
-    {!queue && !error && <p className="adm-state"><LoadingStatus>{C.loading}</LoadingStatus></p>}
+    {!queue && !loadError && <p className="adm-state"><LoadingStatus>{C.loading}</LoadingStatus></p>}
     {queue && visible.length === 0 && <p className="adm-hint adm-align-empty">{items.length === 0 ? C.empty : C.noResults}</p>}
     {sections.map(({ section, items: list }) => <div key={section} className="adm-grid-section">
       <div className="adm-grid-head"><h3>{C.grid.sections[section]}</h3><span className="adm-hint">{fillTemplate(C.queueCount, { n: list.length })}</span></div>

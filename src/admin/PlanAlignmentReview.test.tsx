@@ -338,6 +338,27 @@ it.each([
   await waitFor(() => expect(retryAlignment).toHaveBeenCalledWith(failed))
 })
 
+it('keeps the server\'s reason for a refused decision on the wall after the queue re-reads', async () => {
+  vi.mocked(approveAlignment).mockRejectedValue(new ApiError(409, 'Dieser Plan wurde ersetzt – aktuelle Version prüfen'))
+  render(<PlanAlignmentReview compact />)
+  await screen.findByRole('listitem', { name: /^Testobjekt/ })
+  fireEvent.click(screen.getByRole('button', { name: 'Übernehmen (1)' }))
+  // the 409 re-reads the queue, and that read succeeds
+  await waitFor(() => expect(loadAlignmentQueue).toHaveBeenCalledTimes(2))
+  await act(async () => {})
+  expect(screen.getByRole('alert').textContent).toBe('Dieser Plan wurde ersetzt – aktuelle Version prüfen')
+  // …until the reviewer re-reads it themselves
+  fireEvent.click(screen.getByRole('button', { name: 'Aktualisieren' }))
+  await waitFor(() => expect(screen.queryByRole('alert')).toBeNull())
+})
+
+it('stops loading when the wall\'s first queue read fails', async () => {
+  vi.mocked(loadAlignmentQueue).mockRejectedValue(new ApiError(503, 'Server nicht bereit'))
+  render(<PlanAlignmentReview compact />)
+  await screen.findByRole('alert')
+  expect(screen.queryByText(appConfig.copy.admin.alignment.loading)).toBeNull()
+})
+
 describe('a refused save', () => {
   const floorItem: AlignmentItem = { ...detail, module: 'modul6', status: 'unsupported', pairs: [], floors: [{ page: 0, index: 0, name: null }] }
   const saveRefusedWith = async (refusal: ApiError) => {
