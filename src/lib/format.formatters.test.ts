@@ -46,8 +46,11 @@ describe('date and time formatters are built once per option set', () => {
         localeDateTime(d, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
       }
     })
-    // one per option set: HH:MM, HH:MM:SS, the date, day.month, the zone name, the row date+time
-    expect(n).toBeLessThanOrEqual(6)
+    // one per option set: HH:MM, HH:MM:SS, the date, day.month, the row date+time – plus the zone
+    // name, built fresh for each stamp in the two hours the autumn change shows 02:xx twice
+    const twice = stamps.filter((d) => d >= new Date('2026-10-25T00:00:00Z') && d < new Date('2026-10-25T02:00:00Z')).length
+    expect(twice).toBeGreaterThan(0)
+    expect(n).toBeLessThanOrEqual(5 + twice)
   })
 
   it('says exactly what toLocale*String said, in every locale the cache is keyed by', async () => {
@@ -74,12 +77,17 @@ describe('date and time formatters are built once per option set', () => {
     process.env.TZ = 'Europe/Zurich'
     expect(formatTime(d)).toBe('14:00')
     expect(formatDateTime('2026-07-01T23:30:00Z')).toBe('02.07.2026 01:30')
-    // the same offsets in 2000, not today
+    // zones with the same offsets in January and July, but not on every day
     const jan = new Date('2026-01-10T23:30:00Z')
     process.env.TZ = 'Europe/Helsinki'
     expect(formatTime(jan)).toBe('01:30')
     process.env.TZ = 'Europe/Minsk'
     expect(formatTime(jan)).toBe('02:30')
+    const mar = new Date('2026-03-28T23:30:00Z')
+    process.env.TZ = 'Europe/Helsinki'
+    expect(formatTime(mar)).toBe('01:30')
+    process.env.TZ = 'Asia/Beirut'
+    expect(formatTime(mar)).toBe(mar.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' }))
   })
 
   it('keeps what an invalid date gave', () => {

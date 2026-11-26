@@ -216,38 +216,34 @@ export function formatLocale(): string {
   return id.includes('-') ? id : `${id}-CH`
 }
 
-// One formatter per (time zone, locale, option set): `toLocale*String(locale, opts)` builds a new
-// ICU formatter on every call, ~50× the cost of `format()` on a cached one, and the Verlauf and the
-// Rapport format several stamps per row. A formatter keeps the zone it was built in, so the cache
-// starts over when the local zone's January or July offset changes, in 2000 or this year (a TZ
-// switch in a test, a device that changes zone). Asking for the zone's name instead costs as much
-// as the formatter it would save.
+// One formatter per (locale, option set): `toLocale*String(locale, opts)` builds a new ICU
+// formatter on every call, ~50× the cost of `format()` on a cached one, and the Verlauf and the
+// Rapport format several stamps per row. A formatter keeps the zone it was built in, so the cached
+// ones are UTC formatters fed the date's LOCAL wall time (`getHours()` & co. always read the
+// current zone): a TZ switch in a test or a device that changes zone can never leave one stale.
+// Not for a zone name – zoneIfTwice builds its own.
 const formatters = new Map<string, Intl.DateTimeFormat>()
-let formattersZone = ''
 
-/** The deployment-locale `Intl.DateTimeFormat` for these options, built once and reused. Callers
- *  that format per row or per tick take it from here; hoist the options object to a constant. */
-export function dateFormat(opts: Intl.DateTimeFormatOptions): Intl.DateTimeFormat {
-  const y = new Date().getFullYear()
-  const zone = [2000, y].map((yr) => `${new Date(yr, 0, 1).getTimezoneOffset()} ${new Date(yr, 6, 1).getTimezoneOffset()}`).join(' ')
-  if (zone !== formattersZone) {
-    formatters.clear()
-    formattersZone = zone
-  }
+function utcFormat(opts: Intl.DateTimeFormatOptions): Intl.DateTimeFormat {
   const locale = formatLocale()
   const key = `${locale} ${JSON.stringify(opts)}`
   let f = formatters.get(key)
   if (!f) {
-    f = new Intl.DateTimeFormat(locale, opts)
+    f = new Intl.DateTimeFormat(locale, { ...opts, timeZone: 'UTC' })
     formatters.set(key, f)
   }
   return f
 }
 
-/** `date` through the cached formatter for `opts`; an invalid date reads «Invalid Date», as
- *  `toLocale*String` says it. */
+/** `date` in the deployment's locale (formatLocale) and the local zone, through a cached
+ *  formatter for `opts` – for anything that formats per row or per tick; hoist `opts` to a
+ *  constant. An invalid date reads «Invalid Date», as `toLocale*String` says it. */
 export function formatDate(date: Date, opts: Intl.DateTimeFormatOptions): string {
-  return Number.isNaN(date.getTime()) ? String(date) : dateFormat(opts).format(date)
+  if (Number.isNaN(date.getTime())) return String(date)
+  const wall = new Date(0)
+  wall.setUTCFullYear(date.getFullYear(), date.getMonth(), date.getDate())
+  wall.setUTCHours(date.getHours(), date.getMinutes(), date.getSeconds(), date.getMilliseconds())
+  return utcFormat(opts).format(wall)
 }
 
 const DATE_DEFAULT: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'numeric', day: 'numeric' }
@@ -289,14 +285,13 @@ export function wallInstant(v: { y: number; mo: number; d: number; h: number; mi
   return hits.find((c) => prefer && c.getTimezoneOffset() === prefer.getTimezoneOffset()) ?? hits[0]
 }
 
-const ZONE_NAME: Intl.DateTimeFormatOptions = { timeZoneName: 'short' }
-
 /** « MEZ» / « MESZ» when the autumn change shows this wall time twice (the printed Verlauf tells
- *  the two 02:15 apart), else ''. */
+ *  the two 02:15 apart), else ''. Builds its formatter fresh: the zone name needs the live zone,
+ *  and only one hour a year asks for it. */
 export function zoneIfTwice(date: Date): string {
   const twice = [-HOUR_MS, HOUR_MS].some((dt) => sameWall(new Date(date.getTime() + dt), date))
   if (!twice) return ''
-  const zone = dateFormat(ZONE_NAME).formatToParts(date)
+  const zone = new Intl.DateTimeFormat(formatLocale(), { timeZoneName: 'short' }).formatToParts(date)
     .find((p) => p.type === 'timeZoneName')?.value
   return zone ? ` ${zone}` : ''
 }
