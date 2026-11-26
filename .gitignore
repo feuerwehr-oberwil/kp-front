@@ -96,6 +96,3 @@ docker-compose.override.yml
 
 # local pnpm content-addressable store (created by a store-dir override); never ours
 .pnpm-store/
-
-# «Üben» clip deploy dir (scripts/ueben-publish.mjs) – the videos never go into git
-/.ueben-publish/

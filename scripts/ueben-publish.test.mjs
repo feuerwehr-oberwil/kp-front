@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { buildCatalogue, catalogueFiles, cueText, MAX_FILE_BYTES, nextApps, oversized, toVtt } from './ueben-publish.mjs'
+import { buildCatalogue, catalogueFiles, cueText, MAX_FILE_BYTES, oversized, toVtt, withBytes } from './ueben-publish.mjs'
 
 const clip = (id, chapter, extra = {}) => ({
   id, chapter, title: id, src: `rec-${id}.mp4`, dur: 60,
   steps: [{ t: 4, text: 'Eins.', html: 'Eins.' }, { t: 20, text: 'Zwei.', html: 'Zwei.' }],
   ...extra,
 })
-const meta = { app: 'front', title: 'KP Front – Üben', sizeOf: () => 1234 }
+const meta = { app: 'front', title: 'KP Front – Üben' }
 
 describe('buildCatalogue', () => {
   it('numbers chapters and clips in recording order and names every file by the clip id', () => {
@@ -18,7 +18,7 @@ describe('buildCatalogue', () => {
     ])
     expect(catalogue.chapters[0].clips[0]).toEqual({
       id: 'tafel-a', n: 1, title: 'tafel-a', dur: 60,
-      video: 'tafel-a.mp4', bytes: 1234, poster: 'posters/tafel-a.jpg', vtt: 'tafel-a.vtt', steps: [4, 20],
+      video: 'tafel-a.mp4', poster: 'posters/tafel-a.jpg', vtt: 'tafel-a.vtt', steps: [4, 20],
     })
     expect(files[0]).toMatchObject({ id: 'tafel-a', from: '/r7/rec-tafel-a.mp4', poster: 5 })
   })
@@ -57,6 +57,11 @@ describe('toVtt', () => {
   it('escapes a step without html instead of dropping its «<…»', () => {
     expect(toVtt(clip('a', 'A', { steps: [{ t: 0, text: 'Druck <5 bar & mehr' }] }))).toContain('\nDruck &lt;5 bar &amp; mehr\n')
   })
+
+  it('keeps a cue on one line, so a blank line in its text cannot end it early', () => {
+    const vtt = toVtt(clip('a', 'A', { steps: [{ t: 0, text: 'Erst das.\r\n\n  Dann das.' }, { t: 5, html: 'Und\n\n<b>dies</b>.' }] }))
+    expect(vtt).toBe('WEBVTT\n\n1\n00:00:00.000 --> 00:00:05.000\nErst das. Dann das.\n\n2\n00:00:05.000 --> 00:01:00.000\nUnd <b>dies</b>.\n')
+  })
 })
 
 describe('cueText', () => {
@@ -77,9 +82,19 @@ describe('oversized', () => {
   })
 })
 
+describe('withBytes', () => {
+  it('adds each video size where it is missing and keeps a stated one', () => {
+    const { catalogue } = buildCatalogue([{ dir: '/r', clips: [clip('tafel-a', 'Tafel'), clip('tafel-b', 'Tafel')] }], meta)
+    catalogue.chapters[0].clips[1].bytes = 7
+    const { catalogue: filled, changed } = withBytes(catalogue, (video) => video.length)
+    expect([changed, filled.chapters[0].clips.map((k) => k.bytes)]).toEqual([true, [11, 7]])
+    expect(withBytes(filled, () => 0).changed).toBe(false)
+  })
+})
+
 describe('catalogueFiles', () => {
   it('lists the files a live app folder needs with the video size, and refuses a path that leaves it', () => {
-    const { catalogue } = buildCatalogue([{ dir: '/r', clips: [clip('tafel-a', 'Tafel')] }], meta)
+    const { catalogue } = withBytes(buildCatalogue([{ dir: '/r', clips: [clip('tafel-a', 'Tafel')] }], meta).catalogue, () => 1234)
     expect(catalogueFiles(catalogue, 'front')).toEqual([{ path: 'tafel-a.mp4', bytes: 1234 }, { path: 'posters/tafel-a.jpg' }, { path: 'tafel-a.vtt' }])
     catalogue.chapters[0].clips[0].video = '../../etc/passwd'
     expect(() => catalogueFiles(catalogue, 'front')).toThrow('unsafe path')
@@ -89,17 +104,5 @@ describe('catalogueFiles', () => {
     const { catalogue } = buildCatalogue([{ dir: '/r', clips: [clip('tafel-a', 'Tafel')] }], meta)
     expect(() => catalogueFiles(catalogue, 'rueck')).toThrow('expected format 1 for app «rueck», got format 1 for «front»')
     expect(() => catalogueFiles({ ...catalogue, format: 2 }, 'front')).toThrow('got format 2')
-  })
-})
-
-describe('nextApps', () => {
-  it('keeps every live app and adds this one', () => {
-    expect(nextApps(['rueck', 'front'], 'front')).toEqual(['front', 'rueck'])
-    expect(nextApps(['rueck'], 'front')).toEqual(['front', 'rueck'])
-  })
-
-  it('refuses a live list with an entry that is no app name, rather than drop its folder', () => {
-    expect(() => nextApps(['rueck', '../x', 3], 'front')).toThrow('not app names: ["../x",3]')
-    expect(() => nextApps({ rueck: 1 }, 'front')).toThrow('not a list')
   })
 })

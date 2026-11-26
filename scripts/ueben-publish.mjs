@@ -5,8 +5,8 @@
 // the app, title, project and URL are arguments; «front» is only the default.
 //
 //   node scripts/ueben-publish.mjs [--app front] [--title …] [--order order.json]
-//     [--project kp-ueben] [--base-url https://kp-ueben.pages.dev] [--out .ueben-publish]
-//     [--dry-run] [--drop-others] <recorder dir | clips.json>…
+//     [--project kp-ueben] [--dry-run] <recorder dir | clips.json>…
+//   node scripts/ueben-publish.mjs --seed-from-live [--project kp-ueben] [--base-url …]
 //
 // A recorder dir holds clips.json (or tab-clips.json): [{ id, chapter, title, src, dur,
 // steps: [{ t, text, html }] }], `src` relative to that file. Later inputs win per clip id – a
@@ -16,17 +16,19 @@
 // Listed chapters come first in that order, then the others as they first appear; in a chapter
 // the listed clips come first, then the others as they appear.
 //
-// A Pages deployment replaces the WHOLE site, so the deploy dir is the current production
-// deployment (apps.json and every other app's folder, read from its immutable URL) plus this
-// app's new folder and the root files (apps.json, _headers, _worker.js from
-// ueben-pages-worker.mjs for Range requests). It is built in <out>/next and swapped into
-// <out>/site once complete (default .ueben-publish/, gitignored – video never goes into git).
-// `--dry-run` builds it and stops. Every run holds an flock on LOCK_PATH from start to deploy,
-// so a Front and a Rück publish on this box cannot overlap.
+// The source of truth is a LOCAL MIRROR of the whole site, shared by every app's copy of this
+// script on this box: $UEBEN_SITE_DIR, default ~/.local/share/kp-ueben-site/. Its `site/` is
+// what gets deployed (front/, rueck/, apps.json, _headers, _worker.js); `.lock` and the
+// `next-<app>/` staging dirs sit beside it, outside the upload. A publish holds an flock on
+// `.lock` until wrangler returns, stages the app in next-<app>/ (videos copied, posters and
+// `bytes` taken from the copies), swaps it into site/, regenerates the root files and deploys
+// all of site/ – so every deploy carries every app. `--dry-run` stages and stops (nothing is
+// swapped). `--seed-from-live` fills an EMPTY mirror from the live site, the one recovery path.
 
 import { spawnSync, execFileSync } from 'node:child_process'
-import { copyFileSync, existsSync, linkSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join, relative, resolve } from 'node:path'
+import { homedir } from 'node:os'
 import { pathToFileURL } from 'node:url'
 
 /** Cloudflare Pages refuses a file above this. */
@@ -35,8 +37,9 @@ export const MAX_FILE_BYTES = 25 * 1024 * 1024
 /** The catalogue format this script writes; a reader refuses another number. */
 export const CATALOGUE_FORMAT = 1
 
-/** One lock for every app's publisher on this box – KP Rück's copy must keep the same path. */
-const LOCK_PATH = process.env.UEBEN_PUBLISH_LOCK || '/tmp/kp-ueben-publish.lock'
+/** The mirror every app's publisher on this box shares – KP Rück's copy must keep the default. */
+const MIRROR = resolve(process.env.UEBEN_SITE_DIR || join(homedir(), '.local/share/kp-ueben-site'))
+const LOCK_PATH = join(MIRROR, '.lock')
 
 /** CORS and content types for the whole project: the players fetch catalogue.json and the .vtt
  *  cross-origin, and seek the videos with Range requests. */
@@ -55,12 +58,12 @@ export const HEADERS = `/*
 `
 
 /**
- * The catalogue and the files behind it, from parsed recorder lists. `sizeOf` gives a video's
- * byte count (statSync in the CLI) – the worker needs it to answer a range.
+ * The catalogue and the files behind it, from parsed recorder lists (pure – no disk). The
+ * videos' `bytes` come later, from the staged copies (withBytes).
  * @param {{ dir: string, clips: { id: string, chapter: string, title: string, src: string, dur: number, steps: { t: number, text: string, html?: string }[] }[] }[]} inputs
- * @param {{ app: string, title: string, order?: { chapter: string, clips?: string[] }[], sizeOf: (path: string) => number }} meta
+ * @param {{ app: string, title: string, order?: { chapter: string, clips?: string[] }[] }} meta
  */
-export function buildCatalogue(inputs, { app, title, order = [], sizeOf }) {
+export function buildCatalogue(inputs, { app, title, order = [] }) {
   /** the latest recording per id, in first-seen order */
   const byId = new Map()
   for (const { dir, clips } of inputs) for (const clip of clips) byId.set(clip.id, { clip, dir })
@@ -89,16 +92,28 @@ export function buildCatalogue(inputs, { app, title, order = [], sizeOf }) {
       title: chapterTitle,
       clips: sorted.map(({ clip, dir }, i) => {
         const steps = clip.steps.map((s) => s.t)
-        const from = resolve(dir, clip.src)
-        files.push({ id: clip.id, from, poster: Math.min(clip.dur / 2, (steps[0] ?? 0) + 1), vtt: toVtt(clip) })
-        return {
-          id: clip.id, n: i + 1, title: clip.title, dur: clip.dur,
-          video: `${clip.id}.mp4`, bytes: sizeOf(from), poster: `posters/${clip.id}.jpg`, vtt: `${clip.id}.vtt`, steps,
-        }
+        files.push({ id: clip.id, from: resolve(dir, clip.src), poster: Math.min(clip.dur / 2, (steps[0] ?? 0) + 1), vtt: toVtt(clip) })
+        return { id: clip.id, n: i + 1, title: clip.title, dur: clip.dur, video: `${clip.id}.mp4`, poster: `posters/${clip.id}.jpg`, vtt: `${clip.id}.vtt`, steps }
       }),
     })
   }
   return { catalogue: { format: CATALOGUE_FORMAT, app, title, chapters }, files, warnings }
+}
+
+/** The catalogue with `bytes` (the worker answers ranges from it) on every clip that lacks it,
+ *  from `sizeOf(video path)`; `changed` says whether any was added. */
+export function withBytes(catalogue, sizeOf) {
+  let changed = false
+  const chapters = catalogue.chapters.map((c) => ({
+    ...c,
+    clips: c.clips.map((k) => {
+      if (Number.isInteger(k.bytes)) return k
+      changed = true
+      // right after `video`, where a reader looks for it
+      return Object.fromEntries(Object.entries(k).flatMap(([key, v]) => (key === 'video' ? [[key, v], ['bytes', sizeOf(v)]] : [[key, v]])))
+    }),
+  }))
+  return { catalogue: { ...catalogue, chapters }, changed }
 }
 
 const vttTime = (ms) => {
@@ -111,20 +126,21 @@ const ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' 
 /** Plain text as VTT cue text: & < > escaped, nothing dropped. */
 export const escapeVtt = (text) => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 
+/** One line: a line break inside a cue's text would end the cue (a blank line) or split it. */
+const oneLine = (text) => text.replace(/\s*[\r\n]+\s*/g, ' ').trim()
+
 /** A caption's html as cue text, in one pass over its tokens: <b> and </b> stay, any other
  *  complete tag is dropped, the text between is decoded and escaped – so a stray «<» or a tag
  *  split by another one comes out as text, never as markup. */
 export function cueText(html) {
-  return html
+  return oneLine(html
     .split(/(<[^<>]*>)/)
     .map((token, i) => {
       if (i % 2) return /^<\/?b>$/i.test(token) ? token.toLowerCase() : ''
       return escapeVtt(token.replace(/&(#\d+|#x[0-9a-f]+|[a-z]+);/gi, (m, e) =>
         e[0] === '#' ? String.fromCodePoint(Number(e[1].toLowerCase() === 'x' ? `0${e.slice(1)}` : e.slice(1))) : (ENTITIES[e.toLowerCase()] ?? m)))
     })
-    .join('')
-    .replace(/\s*\n\s*/g, ' ')
-    .trim()
+    .join(''))
 }
 
 /** One clip's WebVTT: cue i from step i to step i+1, the last one to the clip's end. Throws on
@@ -135,7 +151,7 @@ export function toVtt({ id, dur, steps }) {
     const start = Math.round(s.t * 1000)
     const end = Math.round((steps[i + 1]?.t ?? dur) * 1000)
     if (!(start >= 0 && end > start)) throw new Error(`${id}: step ${i + 1} starts at ${s.t}s, but the next cue or the clip end is at ${end / 1000}s`)
-    return `${i + 1}\n${vttTime(start)} --> ${vttTime(end)}\n${s.html === undefined ? escapeVtt(s.text) : cueText(s.html)}\n`
+    return `${i + 1}\n${vttTime(start)} --> ${vttTime(end)}\n${s.html === undefined ? escapeVtt(oneLine(s.text)) : cueText(s.html)}\n`
   })
   return ['WEBVTT\n', ...cues].join('\n')
 }
@@ -162,28 +178,20 @@ export function catalogueFiles(catalogue, app) {
 
 const APP_NAME = /^[a-z][a-z0-9-]*$/
 
-/** The apps of the site after this publish: every live one plus `app`. Throws on a live list
- *  that is not a list of app names – dropping an entry would drop its folder. */
-export function nextApps(live, app) {
-  if (!Array.isArray(live)) throw new Error('live apps.json: not a list')
-  const bad = live.filter((a) => typeof a !== 'string' || !APP_NAME.test(a))
-  if (bad.length) throw new Error(`live apps.json: not app names: ${JSON.stringify(bad)}`)
-  return [...new Set([...live, app])].sort()
-}
-
 function parseArgs(argv) {
-  const flags = new Set(['--dry-run', '--drop-others'])
-  const opts = { app: 'front', project: 'kp-ueben', out: '.ueben-publish', inputs: [] }
+  const flags = { '--dry-run': 'dryRun', '--seed-from-live': 'seed' }
+  const opts = { app: 'front', project: 'kp-ueben', inputs: [] }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
-    if (flags.has(a)) opts[a === '--dry-run' ? 'dryRun' : 'dropOthers'] = true
+    if (flags[a]) opts[flags[a]] = true
     else if (a.startsWith('--')) opts[a.slice(2).replace(/-(\w)/g, (_, c) => c.toUpperCase())] = argv[++i]
     else opts.inputs.push(a)
   }
   opts.baseUrl ??= `https://${opts.project}.pages.dev`
   opts.title ??= opts.app === 'front' ? 'KP Front – Üben' : undefined
-  if (!opts.inputs.length || !opts.title || !APP_NAME.test(opts.app)) {
-    console.error('usage: node scripts/ueben-publish.mjs [--app front] [--title …] [--order order.json] [--project kp-ueben] [--base-url …] [--out dir] [--dry-run] [--drop-others] <recorder dir | clips.json>…')
+  if (!opts.seed && (!opts.inputs.length || !opts.title || !APP_NAME.test(opts.app))) {
+    console.error('usage: node scripts/ueben-publish.mjs [--app front] [--title …] [--order order.json] [--project kp-ueben] [--dry-run] <recorder dir | clips.json>…')
+    console.error('       node scripts/ueben-publish.mjs --seed-from-live [--project kp-ueben] [--base-url …]')
     console.error('       --title is required for an app other than «front»; --app is lower-case letters, digits, «-»')
     process.exit(2)
   }
@@ -199,12 +207,14 @@ function listFile(input) {
 }
 
 const readJson = (p) => JSON.parse(readFileSync(p, 'utf8'))
+const writeJson = (p, v) => writeFileSync(p, `${JSON.stringify(v, null, 1)}\n`)
 
-/** A whole file's bytes: a 200 (never a partial 206) whose length matches Content-Length and,
- *  when given, the byte count the catalogue states. */
+/** A whole, uncompressed file's bytes: a 200 (never a partial 206), no Content-Encoding, a
+ *  length matching Content-Length and, when given, the byte count the catalogue states. */
 async function fetchWhole(url, bytes) {
-  const res = await fetch(url, { cache: 'no-store' })
+  const res = await fetch(url, { cache: 'no-store', headers: { 'Accept-Encoding': 'identity' } })
   if (res.status !== 200) throw new Error(`${url}: HTTP ${res.status}, expected 200`)
+  if (res.headers.has('Content-Encoding')) throw new Error(`${url}: sent ${res.headers.get('Content-Encoding')}, expected the plain file`)
   const body = Buffer.from(await res.arrayBuffer())
   const length = res.headers.get('Content-Length')
   if (length !== null && Number(length) !== body.length) throw new Error(`${url}: ${body.length} bytes, Content-Length says ${length}`)
@@ -212,113 +222,127 @@ async function fetchWhole(url, bytes) {
   return body
 }
 
-function wrangler(args, cwd) {
-  return execFileSync(process.env.WRANGLER || 'wrangler', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] })
-}
-
-/** The immutable URL of the deployment production serves. wrangler lists the newest first; the
- *  alias must serve the same apps.json, which catches a dashboard rollback. */
-async function productionUrl({ project, baseUrl }, cwd) {
-  const latest = JSON.parse(wrangler(['pages', 'deployment', 'list', '--project-name', project, '--environment', 'production', '--json'], cwd))[0]?.Deployment
-  if (!latest) throw new Error(`${project}: no production deployment – pass --drop-others for the first publish`)
-  const [a, b] = await Promise.all([fetchWhole(`${latest}/apps.json`), fetchWhole(`${baseUrl}/apps.json`)])
-  if (!a.equals(b)) throw new Error(`${baseUrl} does not serve the newest production deployment ${latest} (rolled back?) – publish from the one it serves, or roll forward first`)
-  return latest
-}
-
-/** The other apps' folders from the deployment at `from`, copied into `deploy`, byte for byte;
- *  returns the live app list. */
-async function copyLiveApps({ app }, from, deploy) {
-  const live = JSON.parse((await fetchWhole(`${from}/apps.json`)).toString('utf8'))
-  nextApps(live, app)
-  for (const other of live.filter((a) => a !== app)) {
-    const raw = await fetchWhole(`${from}/${other}/catalogue.json`)
-    const files = catalogueFiles(JSON.parse(raw.toString('utf8')), other)
-    console.log(`keeping ${other}/: ${files.length + 1} files from ${from}`)
-    mkdirSync(join(deploy, other), { recursive: true })
-    writeFileSync(join(deploy, other, 'catalogue.json'), raw)
-    for (const f of files) {
-      const to = join(deploy, other, f.path)
-      mkdirSync(dirname(to), { recursive: true })
-      writeFileSync(to, await fetchWhole(`${from}/${other}/${f.path}`, f.bytes))
-    }
-  }
-  return live
+function wrangler(args) {
+  return execFileSync(process.env.WRANGLER || 'wrangler', args, { cwd: MIRROR, encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] })
 }
 
 function walk(dir) {
   return readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(join(dir, e.name)) : [join(dir, e.name)]))
 }
 
-const MARKER = '.ueben-publish-out'
+/** Refuses any file above Pages' limit under `dir`; returns the file list. */
+function checkSizes(dir) {
+  const all = walk(dir).map((p) => ({ path: relative(dir, p), bytes: statSync(p).size }))
+  const tooBig = oversized(all)
+  if (tooBig.length) throw new Error(`refused:\n${tooBig.join('\n')}`)
+  return all
+}
 
-async function main(argv) {
-  const opts = parseArgs(argv)
-  const lists = opts.inputs.map(listFile)
+/** Fills an EMPTY mirror from the live site – the recovery path, e.g. on a new box. */
+async function seedFromLive({ baseUrl }, site) {
+  if (existsSync(site) && readdirSync(site).length) throw new Error(`${site} is not empty – --seed-from-live only fills an empty mirror`)
+  const next = join(MIRROR, 'seeding')
+  rmSync(next, { recursive: true, force: true })
+  const apps = JSON.parse((await fetchWhole(`${baseUrl}/apps.json`)).toString('utf8'))
+  if (!Array.isArray(apps) || !apps.every((a) => typeof a === 'string' && APP_NAME.test(a))) throw new Error(`${baseUrl}/apps.json: not a list of app names`)
+  for (const app of apps) {
+    const raw = await fetchWhole(`${baseUrl}/${app}/catalogue.json`)
+    const files = catalogueFiles(JSON.parse(raw.toString('utf8')), app)
+    console.log(`seeding ${app}/: ${files.length + 1} files from ${baseUrl}`)
+    mkdirSync(join(next, app), { recursive: true })
+    writeFileSync(join(next, app, 'catalogue.json'), raw)
+    for (const f of files) {
+      const to = join(next, app, f.path)
+      mkdirSync(dirname(to), { recursive: true })
+      writeFileSync(to, await fetchWhole(`${baseUrl}/${app}/${f.path}`, f.bytes))
+    }
+  }
+  rmSync(site, { recursive: true, force: true })
+  renameSync(next, site)
+}
+
+/** Stages one app's folder in next-<app>/: each video copied (never linked – a recorder that
+ *  rewrites its file must not change what was measured), its poster and `bytes` taken from
+ *  that copy. Returns the staging dir. */
+function stageApp(opts) {
   const { catalogue, files, warnings } = buildCatalogue(
-    lists.map((p) => ({ dir: dirname(resolve(p)), clips: readJson(p) })),
-    { app: opts.app, title: opts.title, order: opts.order ? readJson(opts.order) : [], sizeOf: (p) => (existsSync(p) ? statSync(p).size : 0) },
+    opts.inputs.map(listFile).map((p) => ({ dir: dirname(resolve(p)), clips: readJson(p) })),
+    { app: opts.app, title: opts.title, order: opts.order ? readJson(opts.order) : [] },
   )
   for (const w of warnings) console.warn(`! ${w}`)
   for (const f of files) if (!existsSync(f.from)) throw new Error(`${f.id}: no video at ${f.from}`)
   const tooBig = oversized(files.map((f) => ({ path: f.from, bytes: statSync(f.from).size })))
   if (tooBig.length) throw new Error(`refused:\n${tooBig.join('\n')}`)
 
-  // <out> is ours (it carries MARKER) – refuse one that holds anything else. The site is built in
-  // <out>/next and swapped into <out>/site once complete, so a failed run leaves the last good
-  // site/ and the dir reusable. wrangler runs in <out> (never from ~, where a ~/.wrangler folder
-  // hides the login), so its own .wrangler cache stays out of the upload.
-  const work = resolve(opts.out)
-  if (existsSync(work) && readdirSync(work).length && !existsSync(join(work, MARKER))) {
-    throw new Error(`${work}: not empty and not a deploy dir of this script (no ${MARKER}) – pick an empty --out`)
-  }
-  mkdirSync(work, { recursive: true })
-  writeFileSync(join(work, MARKER), '')
-  const next = join(work, 'next')
+  const next = join(MIRROR, `next-${opts.app}`)
   rmSync(next, { recursive: true, force: true })
-  mkdirSync(next)
-
-  const projects = JSON.parse(wrangler(['pages', 'project', 'list', '--json'], work))
-  const projectIsNew = !projects.some((p) => p['Project Name'] === opts.project)
-  const keep = !projectIsNew && !opts.dropOthers
-  const live = keep ? await copyLiveApps(opts, await productionUrl(opts, work), next) : []
-  const apps = nextApps(live, opts.app)
-
-  const appDir = join(next, opts.app)
-  mkdirSync(join(appDir, 'posters'), { recursive: true })
+  mkdirSync(join(next, 'posters'), { recursive: true })
   const ffmpeg = process.env.FFMPEG || 'ffmpeg'
   for (const f of files) {
-    const video = join(appDir, `${f.id}.mp4`)
-    try { linkSync(f.from, video) } catch { copyFileSync(f.from, video) }
-    writeFileSync(join(appDir, `${f.id}.vtt`), f.vtt)
-    execFileSync(ffmpeg, ['-v', 'error', '-y', '-ss', String(f.poster), '-i', f.from, '-frames:v', '1', '-vf', 'scale=800:-2', '-q:v', '4', join(appDir, 'posters', `${f.id}.jpg`)])
+    const video = join(next, `${f.id}.mp4`)
+    copyFileSync(f.from, video)
+    writeFileSync(join(next, `${f.id}.vtt`), f.vtt)
+    execFileSync(ffmpeg, ['-v', 'error', '-y', '-ss', String(f.poster), '-i', video, '-frames:v', '1', '-vf', 'scale=800:-2', '-q:v', '4', join(next, 'posters', `${f.id}.jpg`)])
   }
-  writeFileSync(join(appDir, 'catalogue.json'), `${JSON.stringify(catalogue, null, 1)}\n`)
-  writeFileSync(join(next, 'apps.json'), `${JSON.stringify(apps)}\n`)
-  writeFileSync(join(next, '_headers'), HEADERS)
-  copyFileSync(new URL('./ueben-pages-worker.mjs', import.meta.url), join(next, '_worker.js'))
-
-  const all = walk(next).map((p) => ({ path: relative(next, p), bytes: statSync(p).size }))
-  const tooBigAll = oversized(all)
-  if (tooBigAll.length) throw new Error(`refused:\n${tooBigAll.join('\n')}`)
-  const site = join(work, 'site')
-  rmSync(site, { recursive: true, force: true })
-  renameSync(next, site)
-
+  writeJson(join(next, 'catalogue.json'), withBytes(catalogue, (v) => statSync(join(next, v)).size).catalogue)
+  const staged = checkSizes(next)
   const clips = catalogue.chapters.reduce((a, c) => a + c.clips.length, 0)
-  const mib = (all.reduce((a, f) => a + f.bytes, 0) / 2 ** 20).toFixed(0)
-  console.log(`${site}: ${opts.app}/ with ${catalogue.chapters.length} chapters, ${clips} clips; apps ${apps.join(', ')}; ${all.length} files, ${mib} MiB`)
-  if (opts.dryRun) return
+  console.log(`${next}: ${catalogue.chapters.length} chapters, ${clips} clips, ${staged.length} files`)
+  return { next, clips }
+}
 
+/** The root files from the app folders present; backfills `bytes` in any catalogue without. */
+function writeRoot(site) {
+  const apps = readdirSync(site, { withFileTypes: true }).filter((e) => e.isDirectory() && existsSync(join(site, e.name, 'catalogue.json'))).map((e) => e.name).sort()
+  for (const app of apps) {
+    const path = join(site, app, 'catalogue.json')
+    const { catalogue, changed } = withBytes(readJson(path), (v) => statSync(join(site, app, v)).size)
+    if (changed) {
+      writeJson(path, catalogue)
+      console.log(`${app}/catalogue.json: added the videos' bytes`)
+    }
+  }
+  writeFileSync(join(site, 'apps.json'), `${JSON.stringify(apps)}\n`)
+  writeFileSync(join(site, '_headers'), HEADERS)
+  copyFileSync(new URL('./ueben-pages-worker.mjs', import.meta.url), join(site, '_worker.js'))
+  return apps
+}
+
+async function main(argv) {
+  const opts = parseArgs(argv)
+  const site = join(MIRROR, 'site')
+  if (opts.seed) {
+    await seedFromLive(opts, site)
+    console.log(`${site}: seeded, apps ${writeRoot(site).join(', ')} – nothing deployed`)
+    return
+  }
+  const { next, clips } = stageApp(opts)
+  if (opts.dryRun) return console.log('dry run: staged only – site/ and the live site are unchanged')
+
+  // swap: the old folder steps aside first, so site/ never holds half of either
+  mkdirSync(site, { recursive: true })
+  const live = join(site, opts.app)
+  const old = join(MIRROR, `old-${opts.app}`)
+  rmSync(old, { recursive: true, force: true })
+  if (existsSync(live)) renameSync(live, old)
+  renameSync(next, live)
+  rmSync(old, { recursive: true, force: true })
+  const apps = writeRoot(site)
+  const all = checkSizes(site)
+  console.log(`${site}: apps ${apps.join(', ')}; ${all.length} files, ${(all.reduce((a, f) => a + f.bytes, 0) / 2 ** 20).toFixed(0)} MiB`)
+
+  const projects = JSON.parse(wrangler(['pages', 'project', 'list', '--json']))
   // --force: wrangler ≥ 4.159 otherwise turns a new Pages project into a Workers one (no pages.dev)
-  if (projectIsNew) wrangler(['pages', 'project', 'create', opts.project, '--production-branch', 'main', '--force'], work)
-  execFileSync(process.env.WRANGLER || 'wrangler', ['pages', 'deploy', 'site', '--project-name', opts.project, '--branch', 'main', '--commit-dirty=true', '--commit-message', `${opts.app}: ${clips} clips`], { cwd: work, stdio: 'inherit' })
+  if (!projects.some((p) => p['Project Name'] === opts.project)) wrangler(['pages', 'project', 'create', opts.project, '--production-branch', 'main', '--force'])
+  execFileSync(process.env.WRANGLER || 'wrangler', ['pages', 'deploy', 'site', '--project-name', opts.project, '--branch', 'main', '--commit-dirty=true', '--commit-message', `${opts.app}: ${clips} clips`], { cwd: MIRROR, stdio: 'inherit' })
   console.log(`live: ${opts.baseUrl}/${opts.app}/catalogue.json`)
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
   if (process.env.UEBEN_PUBLISH_LOCKED !== LOCK_PATH) {
-    // re-run under flock: the kernel drops the lock when the run ends, crash or not
+    // re-run under flock on the mirror's own lock file (not /tmp, which a cleaner may unlink);
+    // the kernel drops the lock when the run ends, crash or not
+    mkdirSync(MIRROR, { recursive: true })
     console.log(`ueben-publish: taking ${LOCK_PATH} (waits while another publish runs)`)
     const run = spawnSync('flock', [LOCK_PATH, process.execPath, process.argv[1], ...process.argv.slice(2)], {
       stdio: 'inherit', env: { ...process.env, UEBEN_PUBLISH_LOCKED: LOCK_PATH },
