@@ -1374,6 +1374,7 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
       deleteNote: 'I tablet che hanno già caricato il modello ne conservano la copia fino alla prossima sincronizzazione.',
       orphans: '{n} schemi senza modello – resti di una checklist rinominata o eliminata.',
       cleanOrphans: 'Elimina i resti',
+      cleanFailed: 'Resti non eliminati ({reason}) – restano nell’elenco.',
       uploadTitle: 'Carica modello di checklist',
       uploadHint: 'È il file a decidere dove appartiene: il suo «id» è la chiave. Stessa chiave = sostituzione.',
       pickFile: 'Scegli JSON',

@@ -23,7 +23,7 @@ import {
   type ParsedChecklist,
 } from './stationDataApi'
 import './stationData.css'
-import { apiErrorText } from './apiErrors'
+import { apiErrorText, describeApiError } from './apiErrors'
 
 // «Checklisten» — the station's FU/EL checklist templates, in a browser.
 //
@@ -122,7 +122,9 @@ export function ChecklistsView() {
   const { rows, orphanAssets } = groupChecklists(datasets)
 
   /** «Reste löschen»: one prune for every orphan. A failure stays on the card under the button,
-   *  and the list is read again either way, so what was deleted is gone and the rest stays. */
+   *  and the list is read again either way, so what was deleted is gone and the rest stays.
+   *  The failure is one sentence of this card's own: the reason (the server's, or the transport's)
+   *  goes in brackets, without `ApiError.hint` – that instruction is written for the field app. */
   const cleanOrphans = async () => {
     setCleaning(true)
     setCleanError(null)
@@ -130,7 +132,7 @@ export function ChecklistsView() {
       const res = await deleteChecklistDatasets(orphanAssets.map((a) => a.id))
       setFlash(fillTemplate(C.deleted, { n: res.pruned.length }))
     } catch (e) {
-      setCleanError(apiErrorText(e, C.deleteFailed))
+      setCleanError(fillTemplate(C.cleanFailed, { reason: describeApiError(e).message }))
     }
     await reload()
     setCleaning(false)

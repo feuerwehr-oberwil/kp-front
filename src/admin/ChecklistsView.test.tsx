@@ -25,6 +25,7 @@ import { ChecklistsView } from './ChecklistsView'
 import { parseChecklistTemplate } from './stationDataApi'
 import { appConfig } from '../config/appConfig'
 import { ApiError } from '../lib/api'
+import { fillTemplate } from '../lib/format'
 
 const C = appConfig.copy.admin.checklists
 
@@ -141,7 +142,7 @@ describe('Checklisten — cleaning up the leftovers', () => {
     render(<ChecklistsView />)
     fireEvent.click(await screen.findByRole('button', { name: C.cleanOrphans }))
 
-    expect((await screen.findByText('Datenbank nicht erreichbar')).className).toContain('adm-state-err')
+    expect(await screen.findByText(fillTemplate(C.cleanFailed, { reason: 'Datenbank nicht erreichbar' }))).toBeTruthy()
     expect(screen.getByText('checklists:alt:p2')).toBeTruthy()
     expect(screen.queryByText('checklists:alt:p1')).toBeNull()
   })
@@ -157,7 +158,22 @@ describe('Checklisten — cleaning up the leftovers', () => {
     fireEvent.click(await screen.findByRole('button', { name: C.cleanOrphans }))
 
     await screen.findByText(C.loadError)
-    expect(screen.getByText('Datenbank nicht erreichbar')).toBeTruthy()
+    expect(screen.getByText(fillTemplate(C.cleanFailed, { reason: 'Datenbank nicht erreichbar' }))).toBeTruthy()
+  })
+
+  // Sweep 26.11.2026: offline, the line carried the field app's «Gespeicherte Einsätze bleiben
+  // offline verfügbar.» – the transport's hint, not this card's.
+  it('says offline what was not deleted, without the field app\'s hint', async () => {
+    const E = appConfig.copy.errors
+    const orphan = ds('checklists:alt:p1', { content_type: 'image/png' })
+    apiGet.mockResolvedValue([...REGISTRY, orphan])
+    apiPost.mockRejectedValue(Object.assign(new ApiError(0, E.serverUnreachable), { hint: E.serverUnreachableHint }))
+    render(<ChecklistsView />)
+    fireEvent.click(await screen.findByRole('button', { name: C.cleanOrphans }))
+
+    const line = await screen.findByText(fillTemplate(C.cleanFailed, { reason: E.serverUnreachable }))
+    expect(line.textContent).not.toContain(E.serverUnreachableHint)
+    expect(screen.getByText('checklists:alt:p1')).toBeTruthy()
   })
 })
 

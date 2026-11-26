@@ -1664,6 +1664,8 @@ export const adminCopy = {
       deleteNote: 'Tablets, die die Vorlage schon geladen haben, behalten ihre Kopie bis zum nächsten Abgleich.',
       orphans: '{n} Diagramme ohne Vorlage – Reste einer umbenannten oder gelöschten Checkliste.',
       cleanOrphans: 'Reste löschen',
+      // a failed «Reste löschen»: what did not happen, the reason in brackets, what is still there
+      cleanFailed: 'Reste nicht gelöscht ({reason}) – sie bleiben in der Liste.',
       uploadTitle: 'Checklisten-Vorlage hochladen',
       uploadHint: 'Die Datei bestimmt selbst, wohin sie gehört: ihre eigene «id» ist die Kennung. '
         + 'Gleiche Kennung heisst ersetzen.',
