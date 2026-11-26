@@ -1713,7 +1713,7 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
       liveSnapshot: 'Live system status',
       updatedAt: 'Updated {time}',
       healthSummary: 'System health',
-      loginLocksTitle: 'Sign-in locked for new devices',
+      loginLocksTitle: 'Sign-in locks',
       loginLocksTip: 'Too many wrong PINs were entered for this account from unknown devices. Devices that have signed in to the account before are not affected. The lock ends by itself; if the guessing continues, it returns. If in doubt, reset the account\'s PIN.',
       loginLockRow: '{name} – new devices locked for another {minutes} min',
       server: 'Server',
