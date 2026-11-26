@@ -111,7 +111,7 @@ export interface ReportReadingPoint {
 /**
  * The Rapport's «Messungen» (owner pick 1B): every Messpunkt of the Einsatz that was measured,
  * each with its readings in time order – one row per radio report (readingRows, the panel's own
- * fold). A row leads with the gas the pill would wear for those values (worstGas: highest stage
+ * fold, over the rows that hold a gas the station still measures). A row leads with the gas the pill would wear for those values (worstGas: highest stage
  * first), so a point's last row is what stood on the map at the end. Points in the one Messpunkt
  * order of their LAST reading, worst first (compareReadings, staleness aside – paper does not age).
  * One block per object however many surfaces draw it (the Gebäude's annos, the Karte's entities,
@@ -137,7 +137,7 @@ export function readingsForReport(entities: readonly Entity[], board: BoardDoc):
     for (const a of annos) add(a.id, a, donePlace(a.floorFrom ?? a.storey, a.floorTo))
   }
   const points = [...bodies.values()].flatMap(({ props, place }) => {
-    const rows = readingRows(props).reverse().flatMap((r): ReportReading[] => {
+    const rows = readingRows(props, { configured: true }).reverse().flatMap((r): ReportReading[] => {
       const gas = worstGas({ symbol: props.symbol, fields: r.v })
       if (!gas) return []
       return [{

@@ -265,6 +265,9 @@ Einsatzjournal and the Pendenzen (`lib/readingLog · readingsForReport` → `Rep
   then the history, oldest first, the newest row bold. One row per radio report (the panel's
   `readingRows` fold); it leads with the gas the map's pill wore for those values (`worstGas`), the
   other gases beside the Stufe. Points worst first by their last reading (`compareReadings`).
+  A row that holds no gas the station config still measures (one removed since) is no reading
+  here, so it cannot fold the measured row before it away (`readingRows · configured`, 26.11.2026).
+  The panel's history and the stored data keep it.
 - **The Stufe is a word** – «A1 Voralarm», «A2 Hauptalarm», «über Messbereich, A2 Hauptalarm»,
   «unlesbar». The square before it and the colour only repeat it: a monochrome print says the
   same. Worded by the composer (`labels.py`), the client sends the state.

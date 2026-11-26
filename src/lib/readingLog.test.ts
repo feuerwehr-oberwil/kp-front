@@ -110,6 +110,15 @@ describe('reading rows on paper – in the «Messungen» table only', () => {
     expect(points.map((p) => [p.name, p.place, p.rows.length])).toEqual([['Treppenhaus', '1. OG', 1]])
   })
 
+  it('a row holding only a gas the station no longer measures does not hide the measured row before it', () => {
+    // NH₃ was a configured gas when it was typed, 30 s after the CO report; it is not one now
+    const p = point('k', { fields: { Raum: 'Keller', CO: '180' }, readings: [reading(2, { CO: '180' }), { t: reading(2, {}).t + 30_000, v: { 'NH₃': '5' } }] })
+    const { points } = readingsForReport([p], {})
+    expect(points.map((x) => x.rows.map((r) => [r.gas, r.value]))).toEqual([[['CO', '180 ppm']]])
+    // the stored row stays where it is
+    expect(p.readings).toHaveLength(2)
+  })
+
   it('no reading anywhere: no points, no limits line', () => {
     expect(readingsForReport([point('e', { fields: { Raum: 'Dach' } })], {})).toEqual({ points: [], limits: '' })
   })
