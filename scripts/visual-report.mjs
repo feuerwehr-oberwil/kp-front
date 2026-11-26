@@ -13,6 +13,7 @@
 // No dependencies: the report is JSON, and a PNG's size sits at a fixed offset of its header.
 import { copyFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { stripVTControlCharacters } from 'node:util'
 
 const [reportPath, outDir] = process.argv.slice(2)
 if (!reportPath || !outDir) {
@@ -50,7 +51,7 @@ for (const suite of report.suites ?? []) {
     const diff = attach('-diff.png')
     if (actual) { mkdirSync(join(outDir, 'actual'), { recursive: true }); copyFileSync(actual, join(outDir, 'actual', `${title}.png`)) }
     if (diff) { mkdirSync(join(outDir, 'diff'), { recursive: true }); copyFileSync(diff, join(outDir, 'diff', `${title}.png`)) }
-    const message = (result.errors ?? []).map((e) => e.message ?? '').join('\n').replace(/\u001b\[[0-9;]*m/g, '')
+    const message = stripVTControlCharacters((result.errors ?? []).map((e) => e.message ?? '').join('\n'))
     let verdict
     if (result.status === 'skipped') verdict = '⏭️ skipped'
     else if (result.status === 'passed') verdict = '✅ same'

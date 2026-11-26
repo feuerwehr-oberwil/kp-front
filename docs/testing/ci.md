@@ -30,8 +30,9 @@ own Postgres: CI a service container, `just ci-backend` a throwaway database on 
 `just ci-all` forces everything (it requires just 1.56 or later); its five dependencies run
 in parallel, and `just ci-no-backend` runs all but the backend:
 
-- `just ci-frontend`: lint, browser-spec types and inventory, production build (including app
-  types), hidden sourcemaps, bundle/site checks, vulnerability and license audits.
+- `just ci-frontend`: lint (the app, the e2e specs, the build configs and `scripts/`),
+  browser-spec types and inventory, build-config types (`tsconfig.node.json`: `vite.config.ts`,
+  `vitest.mutation.config.ts`), production build (including app types), hidden sourcemaps, bundle/site checks, vulnerability and license audits.
 - `just ci-lint-typed`: the type-aware lint of `src/` (`pnpm lint:typed`, `eslint.typed.config.js`),
   today one rule, `no-floating-promises`. CI's Frontend job runs it after `ci-frontend`. It is not
   part of `ci-frontend`, so the pre-push hook skips it: with the untyped rules in one process eslint

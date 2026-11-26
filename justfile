@@ -277,7 +277,8 @@ ci-all: ci-frontend ci-lint-typed ci-unit ci-backend ci-static-analysis
 ci-no-backend: ci-frontend ci-lint-typed (ci-unit "8") ci-static-analysis
 
 # (CI's «Frontend static» job. lint: per-rule ratchet against scripts/eslint-baseline.json; knip:
-# against scripts/knip-baseline.json; the e2e specs have their own tsconfig; `pnpm build` holds
+# against scripts/knip-baseline.json; the e2e specs and the build configs have their own tsconfig
+# (tsconfig.e2e.json, tsconfig.node.json); `pnpm build` holds
 # the app typecheck and is the only step that parses CSS; sourcemaps exist, are referenced by no
 # shipped file and are not precached (docs/SOURCEMAPS.md); the bundle budget is +5 % against
 # scripts/bundle-baseline.json; site/ is served verbatim, so its generated pages must match their
@@ -290,6 +291,7 @@ ci-frontend:
     pnpm lint
     pnpm knip
     pnpm exec tsc -p tsconfig.e2e.json
+    pnpm exec tsc -p tsconfig.node.json
     node scripts/check-e2e-suites.mjs
     pnpm build
     node scripts/check-sourcemaps.mjs
@@ -530,11 +532,12 @@ visual-accept run-id:
     rm -rf tmp/visual-accept
     git status --short e2e/visual/baseline
 
-# Type-check the frontend and the e2e specs without emitting.
+# Type-check the frontend, the e2e specs and the build configs without emitting.
 [group('Quality')]
 check:
     pnpm exec tsc --noEmit
     pnpm exec tsc -p tsconfig.e2e.json
+    pnpm exec tsc -p tsconfig.node.json
 
 # (Read-only unless `--apply`. «Finished» = merged into origin/main, or its PR merged; a PR
 # closed unmerged only with `--closed`. `--apply` removes only what is clean (no change, no
