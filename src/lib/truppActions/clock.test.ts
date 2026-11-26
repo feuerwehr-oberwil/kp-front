@@ -181,8 +181,9 @@ describe('truppClockActions — the Eingangsdruck asked for', () => {
     expect(ui.toasts).toEqual([tooLate(180)])
   })
 
-  // CodeRabbit r4701810325 + r4702782444: `liveTrupps` is the last render; React applies queued
-  // updaters later – and the notice and the Verlauf say what the updater applied, not the guess
+  // CodeRabbit r4701810325 + r4702782444 + r4702935755: `liveTrupps` is the last render; React
+  // applies queued updaters later – and the notice, the Verlauf and the ↶ ↷ follow what the
+  // updater applied, not the guess
   it('never overwrites an Eingangsdruck a merged update measured before the next render', async () => {
     const b = clockBoard([inside()])
     const queue: ((ts: Trupp[]) => Trupp[])[] = []
@@ -203,12 +204,20 @@ describe('truppClockActions — the Eingangsdruck asked for', () => {
     queue.push(() => measured.state.trupps)
     batched.recordPressure('T1', 180, { as: 'entry' })
     expect(b.rows).toEqual([]) // nothing said before the updater has decided
-    b.state.trupps = queue.reduce((ts, up) => up(ts), rendered)
+    const render = () => { b.state.trupps = queue.splice(0).reduce((ts, up) => up(ts), b.state.trupps) }
+    render()
     await Promise.resolve()
     expect(b.t().entryPressureBar).toBe(280)
     expect(last(b.t())).toMatchObject({ kind: 'pressure', bar: 180 })
     expect(ui.toasts).toEqual([tooLate(180)])
     expect(b.rows).toEqual([{ icon: 'drop', text: fillTemplate(appConfig.copy.atemschutz.logPressure, { name: truppLogName(inside()), bar: 180 }) }])
+    const reported = b.t()
+    // ↶ gives back the merged Trupp, the measured 280 standing – not the 300 this render saw
+    b.timeline.undo(); render()
+    expect(b.t()).toEqual(measured.t())
+    // ↷ is the Druckmeldung again, never the correction the guess would have made
+    b.timeline.redo(); render()
+    expect(b.t()).toEqual(reported)
   })
 })
 
