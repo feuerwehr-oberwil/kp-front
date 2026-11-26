@@ -272,3 +272,17 @@ export function mergeRoleNote(existing: string | undefined, add: string): string
   const kept = parts.filter((p) => lead(p) !== lead(next) && !sameSlot(p, next))
   return [...kept, next].join(', ')
 }
+
+/**
+ * Who the close puts on the Anwesenheit for the Kroki's Einsatzleiter it stores (useAbschluss ·
+ * fileEinsatzleiterAtClose; owner, sign-off of PR #750, 26.11.2026): the roster person of that
+ * name, when they have no row yet. Their block then runs from the alarm, so it covers the whole
+ * Einsatz – what a Nachtrag on the Anwesenheit gives. A name the roster does not know files
+ * nobody (a Gast comes only from a typed name, `assignTypedName`), and a row already there stays.
+ */
+export function einsatzleiterToFile(
+  name: string, idForName: (name: string) => string | undefined, attendance: AttendanceState,
+): string | undefined {
+  const id = idForName(name)
+  return id && !attendance[id] ? id : undefined
+}

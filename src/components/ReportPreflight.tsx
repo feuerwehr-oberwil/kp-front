@@ -26,6 +26,7 @@ import { downloadUrl } from '../lib/download'
 import { thumbUrl } from '../lib/mediaUrl'
 import { geretteteFromLage, geretteteOffer } from '../lib/gerettete'
 import { rowPhotos } from '../lib/verlauf'
+import { reportBeforeNachtrag } from '../lib/reportNachtrag'
 // the geometry every full surface stands in — the Rapport is the fifth of them
 import surface from './Surface.module.css'
 import { usePageHeadFit } from '../lib/pageHeadFit'
@@ -46,7 +47,7 @@ import { addPartnerOrg, partnerOrgOffer, partnerOrgsFromLage } from '../lib/part
 import { linkTokenValues, resolveLinkUrl, type ReportLink } from '../lib/reportLinks'
 import type { ReportDraft, ReportOptions } from '../lib/report'
 import {
-  defaultReportOptions, formatDateTime, hasVisiblePlanAnnotation, missingTranscriptCount, pendenzRows, proofLabel,
+  defaultReportOptions, formatDateTime, hasVisiblePlanAnnotation, journalRows, missingTranscriptCount, pendenzRows, proofLabel,
 } from '../lib/report'
 import { TAFEL_ID } from '../lib/boardForm'
 import { EF_PAGE_ID, RAPPORT_PAGE_ID, tafelKindPrints, tafelMenuKinds, tafelPrintKinds } from '../lib/tafelPicks'
@@ -253,7 +254,7 @@ function RpStrip({ lead, count, title, icon, done = false, busy = false, onGo, o
 }
 
 export function ReportPreflight({
-  incident, reportMeta, personnel = [], presentIds = NO_IDS, onRolePicked, onAddGuest, events, annotatedPlanCount, truppCount, attendanceCount, mittelCount, mittel = [], mapContentCount = 1, pendingMediaCount = 0, attendance = {}, trupps = [], contactIntervalMin, contactGraceSec, checklists, plans = [], scene, board, building, captureUsage, canEdit: canEditIn = true, canShare = canEditIn, attachments = [], onAddAttachments, onCaptionAttachment, onRemoveAttachment, onSaveMeta, onEditDispatch, onOpenAnwesenheit, onOpenMittel, onResolveConflict, onComplete, onFixTranscripts,
+  incident, reportMeta, personnel = [], presentIds = NO_IDS, onRolePicked, onAddGuest, events, annotatedPlanCount, truppCount, attendanceCount, mittelCount, mittel = [], mapContentCount = 1, pendingMediaCount = 0, attendance = {}, trupps = [], contactIntervalMin, contactGraceSec, checklists, plans = [], scene, board, building, captureUsage, canEdit: canEditIn = true, canShare = canEditIn, attachments = [], onAddAttachments, onCaptionAttachment, onRemoveAttachment, onSaveMeta, onEditDispatch, onOpenAnwesenheit, onOpenMittel, onResolveConflict, onComplete, onFixTranscripts, onShowEntry,
   closed = false, onReopen, reportSignatures = NO_SIGNATURES, onSign,
 }: {
   incident: IncidentMeta
@@ -352,6 +353,8 @@ export function ReportPreflight({
   onComplete?: () => Promise<boolean>
   /** jump to the Verlauf to fill the still-missing audio transcripts */
   onFixTranscripts?: () => void
+  /** open the Verlauf on that row – a Verlauf photo listed under «Beilagen › Fotos» */
+  onShowEntry?: (rowId: string) => void
   /** the Einsatz is closed: the form is read-only (owner, 12.11.2026). Signing does not care
    *  (owner, 14.11.2026): a signature holds, open or closed, while the signed part is unchanged */
   closed?: boolean
@@ -528,7 +531,8 @@ export function ReportPreflight({
   const [verursacherTel, setVerursacherTel, verursacherTelDirty] = useSyncedField('verursacherTel', remote.verursacherTel, normText, blurTick)
   // Seeded from the Kroki when the Rapport has none of its own: the EL was already named on the
   // map (Einsatzleiter glyph / KP Front), so typing it a second time is pure duplication. A
-  // pre-fill only — the picker stays editable and the typed value wins from then on.
+  // pre-fill only — SHOWN, not stored (see «writes nothing» below); the picker stays editable
+  // and the typed value wins from then on.
   const [einsatzleiter, setEinsatzleiter, einsatzleiterDirty] = useSyncedField('einsatzleiter', remote.einsatzleiter, normText, blurTick)
   const [endedAt, setEndedAt, endedAtDirty] = useSyncedField('endedAt', remote.endedAt, normIso, blurTick)
   const [ausgerueckt, setAusgerueckt, ausgeruecktDirty] = useSyncedField('ausgerueckt', remote.ausgerueckt, normIso, blurTick)
@@ -635,34 +639,14 @@ export function ReportPreflight({
     return onSaveMeta(next)
   }
 
-  // Commit the Kroki-seeded Einsatzleiter to the blob once, so the Abschluss-Checkliste and a
-  // rapport printed from another device see the same name this field shows — a value that only
-  // lives in local state would leave the checklist nagging about an Einsatzleiter that is on
-  // screen. Fills a BLANK field only, never overwrites, and only while the sheet is mounted.
-  const seededEinsatzleiter = useRef(false)
-  useEffect(() => {
-    if (seededEinsatzleiter.current || reportMeta.einsatzleiter?.trim() || !einsatzleiter.trim()) return
-    seededEinsatzleiter.current = true
-    persist({ einsatzleiter: einsatzleiter.trim() })
-    // `persist` is re-created every render (it closes over the live field state); depending on it
-    // would re-run this on every keystroke — the ref guard is what makes it once-only.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reportMeta.einsatzleiter, einsatzleiter])
-
-  // …and put that Einsatzleiter on the ANWESENHEIT, once.
-  //
-  // ⚠️ The EL is the one person a rapport names on its front page — and until 10.08. that name
-  // was only ever a string on `reportMeta` (or on the Kroki symbol it was seeded from). Nothing
-  // guaranteed a matching Anwesenheits-Zeile, so an Einsatz could be led by somebody who
-  // appeared on NO list: not on the Anwesenheit, not in the Trupp picker's «schon: Einsatzleiter»
-  // hint, and not on the printed Personalblatt — which is also the Soldblatt. The interactive
-  // pick already writes it (onRolePicked · lib/roleAssignment); this covers every other route a
-  // name arrives by (seeded data, a sync from another device, the symbol).
-  //
-  // Only when the name RESOLVES to a roster row. A name that arrives this way was NOT typed
-  // here — it comes from seeded data, another device's sync or the Kroki symbol — and minting a
-  // Gast for one would put people on the Soldblatt that nobody recorded on this screen. Typing a
-  // name into the picker itself is the deliberate act, and that path files a Gast (onAddGuest).
+  // ⚠️ OPENING THE RAPPORT WRITES NOTHING (owner, sign-off of UX journeys, 25.11.2026 – «Opening
+  // is read-only»). Until then two effects wrote on the first look: the Kroki's Einsatzleiter into
+  // the blob (with a «Rapportangaben: Einsatzleiter …» Verlauf row at a minute nobody typed – owner
+  // pick B3·15 had only muted the row) and that person onto the Anwesenheit. Both went. The Kroki's
+  // name is SHOWN in the field (reportForm · remoteForm) and printed, the checklist counts it
+  // (useAbschluss · shownEinsatzleiter), and it is stored when somebody saves it: a pick or a typed
+  // name in the field, the EL's signature (both also file the Anwesenheit), or the close (which
+  // files the Anwesenheit too – useAbschluss · fileEinsatzleiterAtClose, owner, 26.11.2026).
   /** person id → the job they already hold, off their Anwesenheits-Bemerkung — shown on every
    *  option of the two person pickers below (lib/roleAssignment writes these notes). Same shape
    *  the Atemschutz board's pickers use; a roster that reads differently depending on which
@@ -675,17 +659,6 @@ export function ReportPreflight({
     ),
     [attendance],
   )
-  const linkedEinsatzleiter = useRef(false)
-  useEffect(() => {
-    if (linkedEinsatzleiter.current || !onRolePicked) return
-    const name = (reportMeta.einsatzleiter ?? einsatzleiter).trim()
-    if (!name) return
-    const p = personnel.find((x) => x.displayName.trim().toLowerCase() === name.toLowerCase())
-    if (!p || attendance[p.id]) return
-    linkedEinsatzleiter.current = true
-    onRolePicked(p.id, 'el', appConfig.copy.anwesenheit.roleEinsatzleiter)
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per mount, guarded by the ref
-  }, [reportMeta.einsatzleiter, einsatzleiter, personnel, attendance])
 
   const meta: ReportMeta = {
     ...reportMeta,
@@ -696,6 +669,17 @@ export function ReportPreflight({
   }
   const alarm = parseAlarmText(meta.alarmText)
   const alarmiert = meta.alarmiertAt
+  // The Verlauf's photos, as the Einsatzjournal prints them (lib/report · journalRows, one entry per
+  // picture). «Beilagen › Fotos» lists and counts them as their own read-only group (owner pick UX
+  // journeys B3·13, 25.11.2026): it said «keine» while the PDF carried the photo, and both walkers
+  // took it a second time. They stay the Verlauf's – the group says «Verlauf», never «Beilage»
+  // (glossary, 17.11.2026) – and the PDF does not change.
+  const journalPhotos = useMemo(() => journalRows(events, plans).flatMap((r) => (r.photoUrls ?? []).map((url, i) => ({
+    key: `${r.id}:${i}`, rowId: r.id, url, text: r.text, iso: r.iso,
+  }))), [events, plans])
+  const photoCount = attachments.length + journalPhotos.length
+  // the paper predates the Nachtrag of this reopened Einsatz (lib/reportNachtrag, UX pick B3·18)
+  const paperOld = useMemo(() => reportBeforeNachtrag(reportMeta.reportMadeAt, events), [reportMeta.reportMadeAt, events])
   // Plausibility of the three clocks, as a HINT under the field that is wrong. Never a block:
   // printing must not depend on what somebody typed, and an Einsatz over midnight is normal.
   //
@@ -1263,11 +1247,14 @@ export function ReportPreflight({
   // «4 offen», and an EL never learnt that closing was theirs. Before that moment the close is the
   // Einsatz ▾ menu's (WorkspaceTopBar). Off the LIVE form state: an Einsatzende typed a second ago
   // turns it on without a round trip, exactly as it clears the head's «n offen».
-  const closeReady = !!onComplete && !!meta.reportMadeAt && missing.length === 0
+  // ⚠️ A paper made before the Nachtrag of a reopened Einsatz is no paper here (owner pick UX
+  // journeys B3·18, 25.11.2026, lib/reportNachtrag): the band asks for the PDF again.
+  const paperCurrent = !!meta.reportMadeAt && !paperOld
+  const closeReady = !!onComplete && paperCurrent && missing.length === 0
   // …and ONE step earlier (owner pick 15B, 28.10.2026): everything recorded, no PDF yet – the band
   // names the next step, «Einsatzrapport (PDF) erstellen». No «Später» on it (15x): it goes away by
   // itself once the PDF exists, and the head's green close takes over (`closeReady`).
-  const showReadyBand = !!onComplete && canEdit && !meta.reportMadeAt && missing.length === 0
+  const showReadyBand = !!onComplete && canEdit && !paperCurrent && missing.length === 0
 
   // The guide strip (owner pick 14 «top strip», 28.10.2026). A jump from the «n offen» list (or
   // from the «Angaben fehlen noch» confirm) remembers WHERE it went; the strip under the head then
@@ -2434,14 +2421,28 @@ export function ReportPreflight({
                 (lib/ui · openPhoto), because a 52px square is not something you can check. */}
             <CheckRow
               tab="beilagen"
-              done={attachments.length > 0}
+              done={attachments.length + journalPhotos.length > 0}
               label={P.attachmentsHead}
-              sub={attachments.length ? fillTemplate(P.attachmentsCount, { n: attachments.length }) : P.attachmentsNone}
+              sub={photoCount === 0 ? P.attachmentsNone : photoCount === 1 ? P.attachmentsCountOne : fillTemplate(P.attachmentsCount, { n: photoCount })}
             >
               {/* No explainer paragraph. «Fotos» with «Foto hinzufügen» under it is not a card
                   anybody needs a sentence for, and four lines of prose at the top of a row
                   pushed the pictures themselves below the fold. Same for the links row. */}
               <div className="rp-check-extra">
+                {/* the Verlauf's photos first, read-only: a tap opens their row in the Verlauf (B3·13) */}
+                {journalPhotos.length > 0 && (
+                  <ListCard className="report-att-journal">
+                    {journalPhotos.map((ph) => (
+                      <ListRow
+                        key={ph.key}
+                        lead={<img className="report-att-journal-thumb" src={thumbUrl(ph.url)} alt="" loading="lazy" decoding="async" />}
+                        title={ph.text.trim() || P.attachmentsJournalPhoto}
+                        sub={fillTemplate(options.journal ? P.attachmentsJournalPrints : P.attachmentsJournalAt, { t: hhmm(ph.iso) })}
+                        onClick={onShowEntry ? () => onShowEntry(ph.rowId) : undefined}
+                      />
+                    ))}
+                  </ListCard>
+                )}
                 {attachments.length > 0 && (
                   <ul className="report-att-list">
                     {attachments.map((a) => (

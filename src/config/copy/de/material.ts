@@ -23,9 +23,8 @@ export const materialCopy = {
     categoryOther: 'Übrige',
     // trailing group for free-typed (incident-local) lines in the unified list
     customGroup: 'Weitere',
-    // remaining-stock readout: dots up to 7 Stück, «noch N» beyond; aria/tooltip spells it out
+    // what a pick in «Gesetzt, aber nicht erfasst» leaves at its source
     noch: 'noch {n}',
-    stockAria: '{label}: noch {remaining} von {total}',
     // Kompakte Ruhezeile: eine unberührte Position (0 verwendet) zeigt nur Bezeichnung,
     // Restbestand und dieses «+» statt des ganzen ±Stellers – ein voller Katalog ist sonst auf
     // dem Telefon zwei Zeilen pro Position, von denen die zweite nur eine Null zeigt. Der erste
@@ -115,6 +114,10 @@ export const materialCopy = {
     // Retablierung per equipment row (consumable Mittel end up in the resupply list)
     viewBySourceWord: 'Verwendet',
     customMaterialWord: 'Anderes',
+    // remaining stock in WORDS, red only past what is there (owner pick UX journeys B2·31, 25.11.2026 –
+    // the dots meant «used», the red ring «none left», and both walkers read it as a fault)
+    stockLeft: '{n} von {total} übrig',
+    stockOver: '{n} mehr als vorhanden',
   },
   // Checkliste surface (ChecklistsView · ChecklistRunner · ChecklistReference)
   checklists: {

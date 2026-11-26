@@ -92,6 +92,9 @@ import { loudForeignAlarms } from './lib/foreignAlarm'
 import { TabLockBanner } from './components/TabLockBanner'
 import { SurfaceBoundary } from './components/SurfaceBoundary'
 import { RemindersHost } from './lib/useReminders'
+import { deriveReminders } from './lib/reminders'
+import type { CloseKnown } from './lib/useAbschluss'
+import { reportBeforeNachtrag } from './lib/reportNachtrag'
 import { useRenderStorm } from './lib/useRenderStorm'
 import { AtemschutzAlarmHost } from './lib/useAtemschutzAlarm'
 import { truppInNotfall, truppLogName, truppStillRegistered, type AtemschutzAlarmState, type CrewSlot } from './lib/atemschutz'
@@ -135,7 +138,8 @@ import { AtemschutzView, type TruppOrder } from './components/AtemschutzView'
 import { AnwesenheitView } from './components/AnwesenheitView'
 import { MittelView } from './components/MittelView'
 import { usePersonnel } from './lib/usePersonnel'
-import { assignedPersonIds, linkTrupps, rosterIdByName as rosterIdByNameOf, truppByPersonId, truppCrewSlots } from './lib/personnel'
+import { einsatzleiterToFile } from './lib/roleAssignment'
+import { assignedPersonIds, linkTrupps, personIdForName, rosterIdByName as rosterIdByNameOf, truppByPersonId, truppCrewSlots } from './lib/personnel'
 import { rosterWithGuests } from './lib/guests'
 import type { Item } from './lib/checklists'
 import { warmTemplates } from './lib/checklists'
@@ -151,7 +155,7 @@ import { clockRestartRowId, clocksAfterReopen } from './lib/reopenClocks'
 import { IncidentClosedMeldung, LinkRefusedMeldung } from './components/IncidentClosedMeldung'
 import { useGhostTrails } from './lib/useGhostTrails'
 import { ghostRevival, ghostTrailLabel, removeGhostTrail, restoreGhostTrail, trailSources } from './lib/truppTrails'
-import { annotatedPlans, changedReportMetaLines, normalizeReportMeta } from './lib/report'
+import { annotatedPlans, changedReportMetaLines, einsatzleiterFromScene, normalizeReportMeta } from './lib/report'
 import { useAbschluss } from './lib/useAbschluss'
 import { useRowMediaUpload } from './lib/useRowMediaUpload'
 import { useGeorefFits } from './lib/useGeorefFits'
@@ -278,7 +282,7 @@ interface WorkspaceProps {
    *  handover (offline, server error) does not pretend to have archived anything.
    *  ⚠️ There is deliberately no second «archive the active one» prop. Both doors — the Rapport
    *  and the Einsatz-Menü row — go through the one confirm and end in this one callback. */
-  onCompleteRapport: () => Promise<boolean>
+  onCompleteRapport: (known: CloseKnown) => Promise<boolean>
   /** App's handle on that same confirm, for «Abschliessen» in «Alle Einsätze» (lib/
    *  useIncidentLifecycle · archiveFromList): set while this Einsatz can be closed here, else null. */
   abschlussRef?: MutableRefObject<(() => Promise<boolean>) | null>
@@ -1230,6 +1234,9 @@ export function IncidentWorkspace({
   // unified journal (Verlauf): a single append-only stream shared by both
   // surfaces, plus its quick-add composer — both reachable from the TopBar.
   const [journalOpen, setJournalOpen] = useState(false)
+  // …and the row it lands on (a nonce, so the same row twice points again): a Wiedergabe caption,
+  // a Tafel Pendenz, an open Pendenz on the close's «Noch offen» (useAbschluss)
+  const [journalLandOn, setJournalLandOn] = useState<{ id: string; nonce: number } | null>(null)
   // «Nur ansehen» in the head pill, true for the surface on screen (workspace/access · viewOnlyReason)
   const viewOnly = viewOnlyReason({
     flags: { running, elView, canEditRecord, canEditTrupps, tacticalLocked }, roleReadOnly, linkScoped, isEl, mode, journalOpen,
@@ -1629,13 +1636,25 @@ export function IncidentWorkspace({
   // What the Abschluss writes on its way to the close is part of the close (staging r6, F3):
   // `pushEvent` marks every row made between the confirm and the close's answer `atClose`, so it
   // never prints as a Nachtrag for being stamped a moment past the server's `closed_at`.
+  // …and the Kroki's Einsatzleiter onto the Anwesenheit when the close stores that name
+  // (useAbschluss · fileEinsatzleiterAtClose), pointed the same way once the roster's doors exist
+  const fileElRef = useRef<(name: string) => void>(() => {})
+  const fileEinsatzleiterAtClose = useCallback((name: string) => fileElRef.current(name), [])
   const closingRowsRef = useRef(false)
   const markClosing = useCallback((on: boolean) => { closingRowsRef.current = on }, [])
   // the Rapport counts an unsettled Abweichung as open — so does every door to it (lib/abschluss ·
   // abschlussFacts): the phone's «Einsatz» badge, the chooser, the Abschluss, the archive count
   const openConflictCount = useMemo(() => openConflicts(timeline).length, [timeline])
+  // the Pendenzen still open – a point of the close's «Noch offen», whose row opens the Verlauf on
+  // it (owner pick UX journeys B2·9, 25.11.2026)
+  const openPendenzen = useMemo(() => deriveReminders(timeline).map((r) => ({ rowId: r.rowId, text: r.text })), [timeline])
+  const showVerlaufRow = useCallback((rowId: string) => { setJournalOpen(true); setJournalLandOn({ id: rowId, nonce: Date.now() }) }, [setJournalOpen, setJournalLandOn])
+  // after «Wieder öffnen» any change makes the paper old (lib/reportNachtrag, UX pick B3·18)
+  const paperBeforeNachtrag = useMemo(() => reportBeforeNachtrag(reportMeta.reportMadeAt, timeline), [reportMeta.reportMadeAt, timeline])
+  // the Kroki's EL the Rapport shows but – opening being read-only – has not stored
+  const shownEinsatzleiter = useMemo(() => einsatzleiterFromScene(entities), [entities])
   const { abschlussMissing, azFrozenAt, azMonitoring, confirmAndComplete } = useAbschluss({
-    reportMeta, attendance, mittel, openConflictCount, trupps, incidentMeta, replayActive, media, onCompleteRapport,
+    reportMeta, attendance, mittel, openConflictCount, trupps, openPendenzen, showVerlaufRow, reportBeforeNachtrag: paperBeforeNachtrag, incidentMeta, replayActive, media, onCompleteRapport,
     setMode, setPanel, setOfflineReadyOpen, requestReportStep,
     // only where the Tafel may be written — a viewer's or a replay's Abschluss has nothing to close
     standDownTrupps: canEditTrupps ? standDownTrupps : undefined,
@@ -1648,6 +1667,8 @@ export function IncidentWorkspace({
     markClosing,
     // the rows' buttons and the pre-filled Einsatzende write the Rapport — only where it may be edited
     patchReportMeta: canEditRapport ? patchReportMeta : undefined,
+    shownEinsatzleiter,
+    fileEinsatzleiterAtClose: canWriteRecord ? fileEinsatzleiterAtClose : undefined,
   })
   // «Alle Einsätze» closes THIS Einsatz through the same confirm (prop `abschlussRef`) — offered
   // exactly where the Einsatz-Menü row is (WorkspaceTopBar · onArchive)
@@ -2217,7 +2238,6 @@ export function IncidentWorkspace({
   // Verlauf row, and hands its seek down through a ref — the same imperative-handle pattern the
   // Plan's fit and history already use. Together those two make a row a way into the moment.
   const replaySeek = useRef<((ms: number) => void) | null>(null)
-  const [journalLandOn, setJournalLandOn] = useState<{ id: string; nonce: number } | null>(null)
   const [replayAtMs, setReplayAtMs] = useState<number | null>(null)
   const onReplayPlayhead = useCallback((ms: number) => setReplayAtMs(ms), [])
   const seekToEvent = (e: TimelineEvent) => {
@@ -2877,8 +2897,16 @@ export function IncidentWorkspace({
   useEffect(() => { tafelTickWrites.current = applyTickWrites })
   // the Checkliste says whether a ticked problem already stands on a Tafel page (lib/problemLink)
   const problemsOnTafel = findForms(board?.[TAFEL_ID] ?? []).some((a) => hasProblems(a.form))
-  // in an effect, not during render: it is read only when a step is TAKEN, long after this commit
-  useEffect(() => { checklistDescribeRef.current = describeChecklistStep })
+  // in an effect, not during render: these are read only when a step is TAKEN or the Einsatz is
+  // closed, long after this commit. The second is the close's door (fileElRef above): the roster
+  // person the Kroki names as Einsatzleiter, filed as a pick in the Rapport's field files them.
+  useEffect(() => {
+    checklistDescribeRef.current = describeChecklistStep
+    fileElRef.current = (name) => {
+      const id = einsatzleiterToFile(name, (n) => personIdForName(rosterIdByName, n), attendance)
+      if (id) assignRole(id, 'el', appConfig.copy.anwesenheit.roleEinsatzleiter)
+    }
+  })
   // Deep links: an item's `action` jumps to the matching surface (best-effort, reusing
   // existing setters). journal → open the composer (a read-only session: the Verlauf, the same
   // gate as the TopBar's «Eintrag» – RBAC audit V4); plan → Plan tab; draw → Lage + pen.
@@ -3437,7 +3465,7 @@ export function IncidentWorkspace({
         attachments, canEditRapport, addAttachments, captionAttachment, removeAttachment, canShareLink,
         running, assignRole, assignTypedName, saveReportMeta, canEditMeta, onEditMeta, setMode,
         setRapportReturn, canWriteRecord, resolveAttendanceConflict, canCloseIncident, readOnly,
-        confirmAndComplete, setJournalOpen, setJournalFromRapport, reportSignatures,
+        confirmAndComplete, setJournalOpen, setJournalFromRapport, showVerlaufRow, reportSignatures,
         canSignRapport, onReactivateActive,
         // open or closed alike (owner, 14.11.2026)
         signRapport: canEditRapport || canSignRapport ? signRapport : undefined,

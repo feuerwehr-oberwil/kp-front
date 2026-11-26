@@ -14,6 +14,17 @@ keeping its caption. A deleted attachment is never recreated by a late upload or
 snapshots learn the uploaded URL too, so undo/redo cannot put back an expired session URL after
 the queue has acknowledged its bytes. A queue entry without a target remains journal media.
 
+## «Beilagen › Fotos» lists the Verlauf's photos (25.11.2026)
+
+Owner pick UX journeys B3·13: the section said «keine» while a photo taken in the Verlauf printed
+inline in the Einsatzjournal, and both walkers took it a second time. It now lists the Verlauf's
+photos first, as their own read-only group (`ReportPreflight · journalPhotos`, off `lib/report ·
+journalRows`, so exactly what prints): thumbnail, the entry's text, «Verlauf 14:43 · druckt im
+Einsatzjournal» («Verlauf 14:43» while the Journal section is off). They count in «1 Foto». A tap
+opens the row in the Verlauf; closing it comes back to the Rapport. «Foto hinzufügen» stays for
+real Beilagen, and the PDF does not change. The glossary's word rule holds (17.11.2026): a
+«Beilage» is only the Rapport's – the group says «Verlauf».
+
 ## Abschluss – the «Noch offen» sheet (23.10.2026)
 
 `useAbschluss · confirmAndComplete` asks the one closing question over `lib/abschluss`'s
@@ -23,12 +34,36 @@ sweep had put on the rows («Jetzt setzen», «Nichts verwendet», «Entfällt»
 are gone from all three lists – this sheet, the print's «Angaben fehlen noch» and the Kontrolle
 chip's popover. The fast tap was often the wrong answer («Entfällt» for a Rückmeldung ELZ that was
 given). An empty **Einsatzende is pre-filled with «jetzt»** on the deployment clock
-(`serverNowIso`), shown as a done row in the step's own place on the list (a tap changes it); the
-close writes it before the handover, so «Einsatzende» (the step `zeiten`) is only open on a sheet
-that may not write the Rapport. The success toast says «Einsatz abgeschlossen» and carries «Wieder
-öffnen» for 10 s (docs/undo.md). Close and reopen stamps come off `lib/serverClock`, like the
+(`serverNowIso`), shown as a done row in the step's own place on the list (a tap opens the field
+and writes nothing – it wrote «jetzt» first until 25.11.2026); the close writes it before the handover, so «Einsatzende» (the step `zeiten`) is only open on a sheet
+that may not write the Rapport. **The Kroki's Einsatzleiter is written with it**: opening the
+Rapport is read-only (owner, UX journeys sign-off, 25.11.2026 – until then the first look stored
+the Kroki's name, with a «Rapportangaben: Einsatzleiter …» Verlauf row, and filed that person on
+the Anwesenheit). The field shows the name, the paper prints it and every door counts it as given
+(`useAbschluss · shownEinsatzleiter`); a pick, a typed name or the EL's signature stores it earlier.
+**The same close puts that person on the Anwesenheit** – a roster person with no row yet, from the
+alarm, so for the whole Einsatz, with the Bemerkung «Einsatzleiter» and the Verlauf row «… anwesend –
+Einsatzleiter» (`lib/roleAssignment · einsatzleiterToFile`; owner, sign-off of PR #750,
+26.11.2026). A name the roster does not know files nobody. No toast: the launcher's Meldeleiste carries the receipt «Einsatz
+abgeschlossen» – title · Einsatzende, «Einsatzrapport erstellt 14:30» (or «Rapport noch nicht
+erstellt»), «Rapport öffnen» (read-only, on the Rapport) – until «Ausblenden» or until the Einsatz
+runs again (`components/ClosedReceiptMeldung`, owner pick UX journeys B2·13, 25.11.2026; it
+overturns pick 28 of 17.11.2026, «the screen moving to the launcher says it happened»). The way back
+is «Alle Einsätze» → «Wieder öffnen» (docs/undo.md). Close and reopen stamps come off `lib/serverClock`, like the
 Rapport's own «Jetzt» buttons. A single lifecycle PATCH commits `report_done_at` and
 `is_archived`. Retrying a close preserves its stamp and writes each journal entry once.
+
+**One Einsatzende** (owner pick UX journeys B3·20, 25.11.2026): an Einsatzende the Rapport already
+holds stays, and the sheet says so – «Das Einsatzende bleibt 25.11. 14:27 – wie im Rapport.»
+(«wieder abgeschlossen» on a re-close) instead of «… festgehalten». «Alle Einsätze» shows that end
+too (`IncidentMeta.report_ended_at`, list route only), the close only when the Rapport has none;
+`last_closed_at` stays for the audit and the «Zuletzt abgeschlossen» group.
+
+**An open Pendenz is an open point** (owner pick UX journeys B2·9, 25.11.2026): the Pendenzen and
+Erinnerungen still open in the Verlauf stand on the sheet after the Trupps as «1 Pendenz offen» /
+«{n} Pendenzen offen», their own words on a line under it (`ConfirmItem.sub`). They count as open
+(«Trotzdem abschliessen»); the row opens the Verlauf on the first of them – it does not tick it
+off (the 11.11.2026 rule above). The print's list does not carry them.
 
 **The crews question comes first, once** (`useAbschluss`): a Notfall, then Trupps still inside,
 then Trupps still angemeldet. «Zur Tafel» is the focused answer only for a closer who can write the
@@ -87,8 +122,19 @@ scrolling body so it stays visible with the keyboard up):
   the «Noch offen» confirm with «Trotzdem abschliessen» – printing never blocks. A finished print
   counts exactly like a PDF. An operator's edit of a Rapport field after the paper DROPS
   `reportMadeAt` (ReportPreflight · `persist`, the app's bookkeeping does not count): the row comes
-  back and the head falls back to the band «… PDF erstellen» instead of the green close. Only the
-  Rapport's own fields – a Verlauf row, the Anwesenheit or Mittel do not make the paper stale.
+  back and the head falls back to the band «… PDF erstellen» instead of the green close. While the
+  Einsatz runs, only the Rapport's own fields count – a Verlauf row, the Anwesenheit or Mittel do
+  not make the paper stale.
+- **After «Wieder öffnen» every change makes the paper old** (owner pick UX journeys B3·18,
+  25.11.2026 – it overturns M5 · A of 17.11.2026 for a REOPENED Einsatz only): a Nachtrag exists to
+  change the record, and a walker closed again over the PDF of before it. Any row a hand wrote
+  after both the reopen and the paper (the Anwesenheit and the Mittel write their own) counts
+  (`lib/reportNachtrag`, derived from the Verlauf, `reportMadeAt` is not dropped). The close lists
+  «Rapport von 14:30 – vor dem Nachtrag» in the place of «Rapport noch nicht erstellt» (a tap opens
+  the Rapport, «Trotzdem abschliessen» goes on), and the head shows the PDF band, not the green
+  close. The server's Verlauf row says «Rapport erneut abgeschlossen (ersetzt frühere Version)» only
+  when a paper was made after the close before (`incidents · _paper_since`), else «Rapport erneut
+  abgeschlossen».
 - **Closed: one strip, the state** (owner, 12.11.2026: «either closed or the next step»). A closed
   Einsatz shows the amber «Einsatz abgeschlossen – zum Bearbeiten wieder öffnen» with «Wieder
   öffnen» beside it (the Einsatz card's action and confirm; «… – nur ansehen» without the button
@@ -116,6 +162,17 @@ Owner pick A «Ein Feld» (`components/TimeField · DateTimeField`, header there
   («20.09.2026 14:05») – it is the Einsatz's own date, so the year rule would never show its year. A
   vehicle's grey «vor Ort / zurück» line is a server read-out, not a field: a bare clock, with its
   day only when that is not the row's. **The PDF keeps its own formats** (`report · formatDateTime`).
+- **The time can be typed on a phone too** (owner pick UX journeys B2·28, 25.11.2026): a tap on the
+  hour or minute under the band swaps the wheels for the typed field a keyboard gets – «23:39», OK.
+  Day and time stand on ONE line, «Mi 25.11. – 23:39», and the popover opens above its field, so
+  it covers nothing under it, the Rückmeldung's «Entfällt» included (owner sign-off, 26.11.2026).
+  The typed time is HH:MM («2359 isn't a time, 23:53 is», owner, 26.11.2026), and the colon appears
+  as you type, on the phone's digit pad: «2» «3» → «23:», «5» «3» → «23:53» (owner pick «variant
+  B», 26.11.2026 – it replaces «the colon must be typed»). Hours take two digits («0930»); backspace
+  over the colon takes the digit before it too. «24:00», «23:60» or a half time saves nothing and
+  says «Zeit als HH:MM, z. B. 23:53» under the field.
+  Swiping the wheel stays as it is. Every time field, not only the
+  Einsatzende: they all open `WheelPopover`. Both walkers had missed the minute on the wheel.
 - **«Jetzt» is the deployment's clock** (`lib/serverClock`), on the two form buttons (Einsatzende,
   Rückmeldung ELZ – tablet, phone and QR-Erfassung) and inside every picker. Grid rows have no form
   button. The QR-Erfassung learns the clock from its own answers (`captureClient · req`) and stamps

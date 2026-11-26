@@ -5,14 +5,18 @@ import { closeTimeOf, isIncidentRunning, type IncidentMeta } from './api/inciden
 import type { ReportMeta } from './workspace'
 import type { MediaQueueApi } from './useMediaQueue'
 import { abschlussFacts, missingSteps, type AbschlussStep } from './abschluss'
-import { abschlussEndeItem, abschlussOpenPoints, abschlussSheet, insideAbschlussSpec, registeredAbschlussMessage } from './abschlussOpen'
+import { abschlussEndeItem, abschlussOpenPoints, abschlussSheet, insideAbschlussSpec, registeredAbschlussMessage, type OpenPendenz } from './abschlussOpen'
 import { serverNowIso } from './serverClock'
 import { truppInNotfall, truppLogName, truppStillDeployed, truppStillRegistered } from './atemschutz'
-import { fillTemplate } from './format'
+import { fieldWhen, fillTemplate } from './format'
 import { mittelLineCount } from './mittel'
 import { confirmDialog } from './ui'
 import { einsatzSubject } from './einsatzSubject'
 import type { ConfirmSpec } from './overlays/ConfirmCard'
+import type { ClosedReceipt } from '../components/ClosedReceiptMeldung'
+
+/** What the confirm knew of the Rapport it closed – for the receipt on the launcher. */
+export type CloseKnown = Pick<ClosedReceipt, 'endedAt' | 'reportMadeAt'>
 
 interface Args {
   reportMeta: ReportMeta
@@ -23,13 +27,21 @@ interface Args {
   openConflictCount: number
   /** the board's Trupps (removed ones already filtered out) */
   trupps: Trupp[]
+  /** the Pendenzen and Erinnerungen still open in the Verlauf (lib/reminders · deriveReminders) –
+   *  one more open point of the close (owner pick UX journeys B2·9, 25.11.2026) */
+  openPendenzen: readonly OpenPendenz[]
+  /** open the Verlauf on that row – where an open Pendenz is ticked off */
+  showVerlaufRow: (rowId: string) => void
+  /** the paper predates the Nachtrag of this reopened Einsatz (lib/reportNachtrag) – the close
+   *  names it like a missing Rapport (owner pick UX journeys B3·18, 25.11.2026) */
+  reportBeforeNachtrag: boolean
   /** …and `title` / `started_at` / `is_exercise` for the line that names the Einsatz above every
    *  close button (lib/einsatzSubject, LISTS.11) */
   incidentMeta: Pick<IncidentMeta, 'is_archived' | 'status' | 'closed_at' | 'last_closed_at'> & Partial<Pick<IncidentMeta, 'title' | 'started_at' | 'is_exercise'>>
   replayActive: boolean
   media: MediaQueueApi
   /** App's handover: stamp report_done_at + close. TRUE only when the close really happened. */
-  onCompleteRapport: () => Promise<boolean>
+  onCompleteRapport: (known: CloseKnown) => Promise<boolean>
   /** the confirm's rows are links — to the Rapport step, the Trupps, the offline media sheet */
   setMode: (mode: 'rapport' | 'atemschutz') => void
   setPanel: (panel: null) => void
@@ -60,6 +72,15 @@ interface Args {
    *  the pre-filled Einsatzende. Absent (a caller that may not edit the Rapport) ⇒ nothing is
    *  pre-filled. */
   patchReportMeta?: (over: Partial<ReportMeta>) => void
+  /** the Einsatzleiter the Kroki names (lib/report · einsatzleiterFromScene) – what the Rapport's
+   *  field SHOWS while the Rapport has none of its own. Counted as given, and written with the
+   *  close; opening the Rapport no longer stores it (owner, UX journeys sign-off, 25.11.2026). */
+  shownEinsatzleiter?: string
+  /** …and when the close stores that name, the same close puts the person on the Anwesenheit:
+   *  a roster person with no row yet, for the whole Einsatz (IncidentWorkspace · lib/roleAssignment
+   *  · einsatzleiterToFile; owner, sign-off of PR #750, 26.11.2026). Absent (a caller that may not
+   *  write the record) ⇒ nobody is filed. Never at open. */
+  fileEinsatzleiterAtClose?: (name: string) => void
 }
 
 /**
@@ -73,15 +94,19 @@ interface Args {
  * used to stand, so the hook order and every identity downstream are unchanged.
  */
 export function useAbschluss({
-  reportMeta, attendance, mittel, openConflictCount, trupps, incidentMeta, replayActive, media, onCompleteRapport,
+  reportMeta, attendance, mittel, openConflictCount, trupps, openPendenzen, showVerlaufRow, reportBeforeNachtrag, incidentMeta, replayActive, media, onCompleteRapport,
   setMode, setPanel, setOfflineReadyOpen, requestReportStep, standDownTrupps, noteInsideAtClose, noteNotfallAtClose, flushOutboxes, markClosing,
-  patchReportMeta,
+  patchReportMeta, shownEinsatzleiter, fileEinsatzleiterAtClose,
 }: Args) {
   // the Rapport's own «closed» (RapportSurface · `!running`), so its chip and every door count alike
   const closedNow = !isIncidentRunning(incidentMeta)
+  /** the Kroki's Einsatzleiter while the Rapport names none – the field shows it, so every door
+   *  counts it as the Rapport's own form does (ReportPreflight · `meta`), and the close stores it */
+  const pendingEl = (!reportMeta.einsatzleiter?.trim() && shownEinsatzleiter?.trim()) || undefined
   const abschlussMissing = useMemo(
-    () => missingSteps(abschlussFacts(reportMeta, Object.keys(attendance).length, mittelLineCount(mittel), openConflictCount, closedNow)),
-    [reportMeta, attendance, mittel, openConflictCount, closedNow],
+    () => missingSteps(abschlussFacts(pendingEl ? { ...reportMeta, einsatzleiter: pendingEl } : reportMeta,
+      Object.keys(attendance).length, mittelLineCount(mittel), openConflictCount, closedNow)),
+    [reportMeta, pendingEl, attendance, mittel, openConflictCount, closedNow],
   )
   /** How many Trupps are still recorded as being out there (lib/atemschutz · truppStillDeployed).
    *  NOT an ABSCHLUSS_STEP: those are the Rapport's Mindestangaben, and this is a state of the
@@ -92,6 +117,9 @@ export function useAbschluss({
   // so the confirm is not re-created on every Kontakt somebody writes while the Rapport is open
   const truppsRef = useRef(trupps)
   useEffect(() => { truppsRef.current = trupps }, [trupps])
+  // …and the open Pendenzen, for the same reason: the Verlauf grows while the Rapport is open
+  const pendenzenRef = useRef(openPendenzen)
+  useEffect(() => { pendenzenRef.current = openPendenzen }, [openPendenzen])
   // …and their tiers and clock, for the same reason
   /** The moment every Trupp clock is read against once the Einsatz is abgeschlossen — after that
    *  no more time passes on this Einsatz, and a board that kept counting was describing a
@@ -187,6 +215,7 @@ export function useAbschluss({
       report: () => { setMode('rapport'); setPanel(null) },
       step: (st: AbschlussStep) => { setMode('rapport'); setPanel(null); requestReportStep(st) },
       trupps: () => { setMode('atemschutz'); setPanel(null) },
+      pendenzen: showVerlaufRow,
       media: () => setOfflineReadyOpen(true),
     }
     /* ⚠️ The Einsatzende is PRE-FILLED with «jetzt» (owner's pick): «Zeiten» stood open on
@@ -196,6 +225,14 @@ export function useAbschluss({
        ⚠️ Closing-only: the print's «Angaben fehlen noch» does not pre-fill (printing sets no
        Einsatzende), its row is open like the others (ReportPreflight · startOutput). */
     const pendingEnde = patchReportMeta && !reportMeta.endedAt ? serverNowIso() : null
+    /* ⚠️ An Einsatzende the Rapport already holds STAYS, and the sheet says so (owner pick UX
+       journeys B3·20, 25.11.2026): «… und das Einsatzende festgehalten» on a re-close read as if
+       the close moved it, and «Alle Einsätze» did move to the close then. «Das Einsatzende bleibt
+       25.11. 14:27 – wie im Rapport.»; «wieder» when the Einsatz was closed before. */
+    const keptEnde = reportMeta.endedAt ? fieldWhen(reportMeta.endedAt, new Date(incidentMeta.started_at ?? reportMeta.endedAt).getFullYear()) : ''
+    const confirmMsg = keptEnde
+      ? fillTemplate(incidentMeta.closed_at ? A.confirmMsgKeepAgain : A.confirmMsgKeep, { t: keptEnde })
+      : A.confirmMsg
     /* The rows and their order are the ONE list both confirms read (lib/abschlussOpen ·
        abschlussSheet). ⚠️ Every row is a LINK, and only that (owner, 11.11.2026: no one-tap
        answers): naming a gap on the last screen before the Akte closes and leaving the operator
@@ -203,8 +240,12 @@ export function useAbschluss({
        resolves the ask false — going there is not going ahead. */
     // a Trupp still out counts as open for the WORDING, the way a missing Angabe does: the
     // message and the button both have to say that something is being closed over
-    const { items, anyOpen } = abschlussSheet(abschlussOpenPoints(abschlussMissing, inside.length > 0 ? 0 : truppsStillOut, media.pendingCount, !reportMeta.reportMadeAt), go,
-      pendingEnde ? { zeiten: abschlussEndeItem(pendingEnde, () => { patchReportMeta!({ endedAt: pendingEnde }); go.step('zeiten') }) } : undefined)
+    const { items, anyOpen } = abschlussSheet(abschlussOpenPoints(abschlussMissing, inside.length > 0 ? 0 : truppsStillOut, media.pendingCount, {
+      noReport: !reportMeta.reportMadeAt,
+      reportBeforeNachtrag: reportBeforeNachtrag ? reportMeta.reportMadeAt : undefined,
+      pendenzen: pendenzenRef.current,
+    }), go,
+      pendingEnde ? { zeiten: abschlussEndeItem(pendingEnde, () => go.step('zeiten')) } : undefined)
     const { title, started_at: startedAt } = incidentMeta
     const subject = title && startedAt ? einsatzSubject({ title, started_at: startedAt, is_exercise: !!incidentMeta.is_exercise }) : undefined
     const askCrew = (which: NonNullable<typeof lastAsked>, spec: Pick<ConfirmSpec, 'title' | 'message' | 'items' | 'confirmLabel'>) => {
@@ -212,7 +253,7 @@ export function useAbschluss({
       /* the stand-down answer is not the close (owner pick UX journeys B2·15, 25.11.2026): the line
          over the buttons says the Einsatz closes only at the next question */
       const next = which === 'registered' && standDownTrupps ? A.registeredNext : ''
-      const note = [standDownTrupps ? '' : A.boardNotYours, next, isConfirm ? A.confirmMsg : ''].filter(Boolean).join(' ')
+      const note = [standDownTrupps ? '' : A.boardNotYours, next, isConfirm ? confirmMsg : ''].filter(Boolean).join(' ')
       const ask = {
         ...spec,
         /* ⚠️ The question that IS the confirm shows what the confirm showed (lead review of FLOW.4,
@@ -267,9 +308,9 @@ export function useAbschluss({
     // …asked only when no crew question already was the confirm (FLOW.4, above)
     const ok = crewConfirms || await confirmDialog({
       title: A.confirmTitle,
-      message: anyOpen ? P.exportIncompleteLead : A.confirmMsg,
+      message: anyOpen ? P.exportIncompleteLead : confirmMsg,
       items,
-      note: anyOpen ? A.confirmMsg : undefined,
+      note: anyOpen ? confirmMsg : undefined,
       subject,
       // the button names what is actually about to happen — closing an Einsatz with open points
       // is allowed, and the label is where that is said out loud
@@ -283,10 +324,17 @@ export function useAbschluss({
       safeAnswer: anyOpen ? ('cancel' as const) : undefined,
     })
     if (!ok) return false
-    // the pre-filled Einsatzende becomes the record's with the close — one task for React to
-    // commit it, so the handover's flush carries it (useIncidentLifecycle · completeRapport flushes the sync)
-    if (pendingEnde) {
-      patchReportMeta!({ endedAt: pendingEnde })
+    // the pre-filled Einsatzende and the shown Einsatzleiter become the record's with the close —
+    // one write, one task for React to commit it, so the handover's flush carries it
+    // (useIncidentLifecycle · completeRapport flushes the sync). The Einsatzleiter also goes onto
+    // the Anwesenheit in that task, as a pick in the field would have put them there.
+    const fill: Partial<ReportMeta> = {
+      ...(pendingEnde ? { endedAt: pendingEnde } : {}),
+      ...(patchReportMeta && pendingEl ? { einsatzleiter: pendingEl } : {}),
+    }
+    if (patchReportMeta && Object.keys(fill).length) {
+      patchReportMeta(fill)
+      if (fill.einsatzleiter) fileEinsatzleiterAtClose?.(fill.einsatzleiter)
       await new Promise((r) => setTimeout(r, 0))
     }
     // From the confirm to the close's answer, every row this device writes is the Abschluss's
@@ -322,9 +370,14 @@ export function useAbschluss({
     // …and the answer is the REAL outcome, not the firing of the request: App reports whether
     // the close went through, so the Rapport's kept scroll position survives a failed Abschluss
     // (offline, server error) instead of being forgotten for an Einsatz that is still open.
-    return onCompleteRapport().finally(() => markClosing?.(false))
+    // …with what the receipt on the launcher says (components/ClosedReceiptMeldung, UX pick B2·13):
+    // the Einsatzende kept or just written, and the paper's time (none when it predates the Nachtrag)
+    return onCompleteRapport({
+      endedAt: reportMeta.endedAt ?? pendingEnde ?? undefined,
+      reportMadeAt: reportBeforeNachtrag ? undefined : reportMeta.reportMadeAt,
+    }).finally(() => markClosing?.(false))
   // requestReportStep is a module-level loader of the caller's — stable, so naming it changes nothing
-  }, [abschlussMissing, incidentMeta, reportMeta.endedAt, reportMeta.reportMadeAt, truppsStillOut, media, onCompleteRapport, setMode, setPanel, setOfflineReadyOpen, requestReportStep, standDownTrupps, noteInsideAtClose, noteNotfallAtClose, flushOutboxes, markClosing, patchReportMeta])
+  }, [abschlussMissing, incidentMeta, reportMeta.endedAt, reportMeta.reportMadeAt, reportBeforeNachtrag, truppsStillOut, showVerlaufRow, media, onCompleteRapport, setMode, setPanel, setOfflineReadyOpen, requestReportStep, standDownTrupps, noteInsideAtClose, noteNotfallAtClose, flushOutboxes, markClosing, patchReportMeta, pendingEl, fileEinsatzleiterAtClose])
 
   return { abschlussMissing, truppsStillOut, azFrozenAt, azMonitoring, confirmAndComplete }
 }

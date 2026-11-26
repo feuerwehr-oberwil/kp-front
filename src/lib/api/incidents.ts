@@ -33,11 +33,12 @@ export function closeTimeOf(i: Pick<IncidentMeta, 'closed_at' | 'last_closed_at'
  *  Übung since creation, never marked real — the only kind an editor may hard-delete;
  *  `editor_opened_at` / `capture_*` are the QR ↔ KP cross-visibility; `atemschutz_due` the
  *  Trupps of a running Einsatz at the alarm tier, list route only (lib/foreignAlarm);
- *  `alarm_update` the pending «Alarm aktualisiert» (backend app/alarm_update). Those seven are
- *  optional here because a list cached before they existed lacks them, and a meta read from any
- *  other route has no `atemschutz_due`. */
+ *  `alarm_update` the pending «Alarm aktualisiert» (backend app/alarm_update); `report_ended_at`
+ *  the Rapport's Einsatzende of a closed one, list route only (lib/historyGroups · historyWhen). Those
+ *  eight are optional here because a list cached before they existed lacks them, and a meta read
+ *  from any other route has no `atemschutz_due` or `report_ended_at`. */
 export type IncidentMeta = CachedWithout<Out<'IncidentMeta'>,
-  'last_closed_at' | 'exercise_since_creation' | 'editor_opened_at' | 'capture_writes' | 'capture_last_at' | 'atemschutz_due' | 'alarm_update'>
+  'last_closed_at' | 'exercise_since_creation' | 'editor_opened_at' | 'capture_writes' | 'capture_last_at' | 'atemschutz_due' | 'alarm_update' | 'report_ended_at'>
 export type IncidentFull = IncidentMeta & Pick<Out<'IncidentFull'>, 'text' | 'map_workspace_json' | 'details_json'>
 /** `started_at` is the Alarmierungszeit — backdatable so an analog incident can be nachgetragen. */
 export type IncidentCreate = In<'IncidentCreate'>

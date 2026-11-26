@@ -92,8 +92,8 @@ describe('ConfirmCard · safeAnswer on the alternative', () => {
 
 describe('ConfirmCard · open-point rows', () => {
   it('a done row shows its read-out and a check, no chevron', () => {
-    render(<ConfirmCard open {...ask} items={[{ label: 'Einsatzende', end: 'jetzt 23:41', done: true, onClick: vi.fn() }]} onResolve={vi.fn()} />)
-    expect(screen.getByText('jetzt 23:41')).toBeTruthy()
+    render(<ConfirmCard open {...ask} items={[{ label: 'Einsatzende', end: 'jetzt 23:41 Uhr', done: true, onClick: vi.fn() }]} onResolve={vi.fn()} />)
+    expect(screen.getByText('jetzt 23:41 Uhr')).toBeTruthy()
     expect(document.querySelector('.confirm-list-done')).toBeTruthy()
     expect(document.querySelector('.confirm-list-chev')).toBeNull()
   })

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { AttendanceState, Trupp } from '../types'
 import { appConfig } from '../config/appConfig'
-import { mergeRoleNote, personStatusHint, roleConflictHint, rosterFieldRole, truppRoleNote, unrecordedCrewNames } from './roleAssignment'
+import { einsatzleiterToFile, mergeRoleNote, personStatusHint, roleConflictHint, rosterFieldRole, truppRoleNote, unrecordedCrewNames } from './roleAssignment'
 
 const trupp = (over: Partial<Trupp>): Trupp => ({
   id: 't1', name: 'Trupp 2', entryPressureBar: 300, entryTime: '', lastContactTime: '',
@@ -291,5 +291,18 @@ describe('unrecordedCrewNames (who a Trupp still owes an Anwesenheit)', () => {
 
   it('counts the same name typed into two slots once', () => {
     expect(unrecordedCrewNames({ name: 'Bobo DJ', members: ['Bobo DJ', '  '] }, resolve)).toEqual(['Bobo DJ'])
+  })
+})
+
+// owner, sign-off of PR #750 (26.11.2026): the close files the Kroki's Einsatzleiter it stores
+describe('einsatzleiterToFile', () => {
+  const idForName = (n: string) => (n === 'Schmid Peter' ? 'p1' : undefined)
+  it('files a roster person with no row yet', () => {
+    expect(einsatzleiterToFile('Schmid Peter', idForName, {})).toBe('p1')
+  })
+  it('files nobody for a name the roster does not know, or a person already on the list', () => {
+    expect(einsatzleiterToFile('Gast Nachbarwehr', idForName, {})).toBeUndefined()
+    expect(einsatzleiterToFile('Schmid Peter', idForName, present)).toBeUndefined()
+    expect(einsatzleiterToFile('Schmid Peter', idForName, left)).toBeUndefined()
   })
 })

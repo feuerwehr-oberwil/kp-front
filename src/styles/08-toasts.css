@@ -507,6 +507,10 @@
 .confirm-list-go .confirm-list-btn { flex: 1 1 auto; min-width: 0; }
 .confirm-list-btn > span:first-child { flex: 1 1 auto; min-width: 0; }
 .confirm-list-end { font: var(--fw-medium) var(--fs-1)/1.3 var(--body); color: var(--ink-faint); white-space: nowrap; }
+/* which one is open, under the point's name (ConfirmItem.sub – the Pendenz's own words); the row
+   grows to hold it, so the 44px is a floor, not the height */
+.confirm-list-sub { display: block; margin: 2px 0 0; font: var(--fw-medium) var(--fs-1)/1.35 var(--body); color: var(--ink-dim); }
+.confirm-list-btn:has(.confirm-list-sub) { padding-top: var(--sp-2); padding-bottom: var(--sp-2); }
 .confirm-list-done { width: 18px; height: 18px; flex: 0 0 auto; color: var(--green); }
 /* …and the consequence AFTER them, where it reads as the answer to the list rather than as
    more of the same sentence */

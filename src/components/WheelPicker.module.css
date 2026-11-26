@@ -60,7 +60,10 @@
 .green.tabOn { background: var(--green-fill); border-color: var(--green-fill); color: var(--on-fill); }
 
 /* desktop: the typed field and the day, side by side — one control per value. */
-.typedRow { display: flex; flex-wrap: wrap; gap: var(--sp-2); width: 100%; }
+/* ONE line «Mi 25.11. – 23:39»: the day, an en dash, the time (owner, UX journeys sign-off,
+   26.11.2026 – the day used to wrap under the field) */
+.typedRow { display: flex; align-items: center; gap: var(--sp-2); width: 100%; }
+.dash { flex: none; color: var(--ink-dim); font: var(--fw-bold) var(--fs-3) var(--body); }
 .daySel {
   flex: none; min-height: 44px; padding: 0 8px; border-radius: var(--r-sm);
   border: 1px solid var(--glass-edge); background: var(--fill-soft); color: var(--ink);

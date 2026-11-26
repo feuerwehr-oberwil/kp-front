@@ -20,7 +20,7 @@ it('invalid typed time stays open and can be corrected', () => {
   expect((screen.getByRole('textbox') as HTMLInputElement).value).toBe('25:99')
   fireEvent.click(screen.getByRole('button', {name:'OK'}))
   expect(onCommit).not.toHaveBeenCalled()
-  expect(screen.getByRole('alert').textContent).toContain('00:00')
+  expect(screen.getByRole('alert').textContent).toContain('HH:MM')
   fireEvent.keyDown(screen.getByRole('textbox'), {key:'Enter'})
   expect(onCommit).not.toHaveBeenCalled()
   fireEvent.change(screen.getByRole('textbox'), {target:{value:'14:35'}})

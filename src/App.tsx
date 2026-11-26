@@ -31,6 +31,7 @@ import { muteAtemschutzFor } from './lib/useAtemschutzMute'
 import { useIncidentTabLock } from './lib/tabLock'
 import { listMediaQueue } from './lib/mediaQueue'
 import { MediaPendingMeldung, type ClosedMediaPending } from './components/MediaPendingMeldung'
+import { ClosedReceiptMeldung, type ClosedReceipt } from './components/ClosedReceiptMeldung'
 import { clearAppBadge, ensurePushSubscription } from './lib/push'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { isAtemschutzLinkKind, useAuth } from './lib/auth'
@@ -169,6 +170,8 @@ function IncidentApp() {
   // closed Einsätze whose captures are still queued on this device (completeRapport) — a Meldung
   // each while true; re-read whenever the list refreshes, gone once the queue is empty
   const [closedMedia, setClosedMedia] = useState<ClosedMediaPending[]>([])
+  // …and the receipt of the last close made here, until «Ausblenden» (UX pick B2·13, 25.11.2026)
+  const [closedReceipt, setClosedReceipt] = useState<ClosedReceipt | null>(null)
   useEffect(() => {
     if (closedMedia.length === 0) return
     let live = true
@@ -669,7 +672,7 @@ function IncidentApp() {
   const abschlussHereRef = useRef<(() => Promise<boolean>) | null>(null)
   const { completeRapport, archiveFromList, reactivateById } = useCloseReopen({
     closingLocallyRef, reopeningLocallyRef, activeId, activeMeta, incidents, syncRef, archiveReturnRef, refreshList, isSessionCurrent,
-    selectIncident, markOpened, setIncidents, setClosedMedia, setActiveId, setActiveMeta, setWorkspace, setForceReadOnly,
+    selectIncident, markOpened, setIncidents, setClosedMedia, setClosedReceipt, setActiveId, setActiveMeta, setWorkspace, setForceReadOnly,
     abschlussHereRef,
     // the list steps aside and the Einsatz comes to the front: its confirm can answer «Zur Tafel»
     showEinsatz: useCallback(() => { setOverlay(null); uncoverEinsatz() }, [uncoverEinsatz]),
@@ -888,7 +891,7 @@ function IncidentApp() {
           // used to hang off `archiveById`, which archived plainly — no report_done_at, nothing
           // checked — while the Rapport path stamped and counted. Both doors run the SAME confirm
           // in IncidentWorkspace now and end here (mockup 06 · Fall 4).
-          onCompleteRapport={() => completeRapport(activeMeta.id)}
+          onCompleteRapport={(known) => completeRapport(activeMeta.id, known)}
           abschlussRef={abschlussHereRef}
           onReactivateActive={canLifecycle && activeMeta.is_archived ? () => reactivateById(activeMeta.id) : undefined}
           onBackFromArchive={activeMeta.is_archived ? () => void backFromArchive() : undefined}
@@ -1028,6 +1031,21 @@ function IncidentApp() {
       {closedMedia.map((p) => (
         <MediaPendingMeldung key={p.id} pending={p} onDismiss={() => setClosedMedia((cur) => cur.filter((q) => q.id !== p.id))} />
       ))}
+      {/* the receipt of this device's close – gone once that Einsatz runs again (a reopen here or
+          on another device puts it back on the open list) and while it is the one on screen */}
+      {closedReceipt && activeId !== closedReceipt.id && !openIncidents.some((i) => i.id === closedReceipt.id) && (
+        <ClosedReceiptMeldung
+          receipt={closedReceipt}
+          onDismiss={() => setClosedReceipt(null)}
+          onOpenRapport={() => {
+            const { id } = closedReceipt
+            setClosedReceipt(null)
+            // lands on the Rapport: the workspace reads its first mode off the prefs (lib/prefs · initialMode)
+            savePrefs({ ...loadPrefs(), mode: 'rapport', modeIncidentId: id })
+            void openIncident(id, { readOnly: true })
+          }}
+        />
+      )}
       {freshIncident && shownAlarms(poolAlarms, dismissedAlarms).length === 0 && (
         <NewIncidentBanner
           inc={freshIncident}

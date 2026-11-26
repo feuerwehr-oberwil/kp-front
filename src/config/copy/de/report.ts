@@ -134,7 +134,7 @@ export const reportCopy = {
   },
   // Einsatzrapport drucken — preflight sheet (ReportPreflight)
   wheel: {
-    invalidTime: 'Bitte eine gültige Uhrzeit eingeben (00:00–23:59).',
+    invalidTime: 'Zeit als HH:MM, z. B. 23:53',
     skippedTime: 'Diese Uhrzeit gibt es wegen der Zeitumstellung nicht – bitte 03:00 oder später wählen.',
     day: 'Tag',
     hour: 'Stunde',
@@ -562,6 +562,12 @@ export const reportCopy = {
     verursacherPlaceholder: 'Name / Firma / Kennzeichen',
     verursacherTelefon: 'Telefon Verursacher',
     verursacherCall: 'Verursacher anrufen',
+    // «Beilagen › Fotos» lists the Verlauf's photos too, read-only (owner pick UX journeys B3·13,
+    // 25.11.2026) – «Verlauf», never «Beilage»: they print in the Einsatzjournal, not as a Beilage
+    attachmentsCountOne: '1 Foto',
+    attachmentsJournalPhoto: 'Foto',
+    attachmentsJournalPrints: 'Verlauf {t} · druckt im Einsatzjournal',
+    attachmentsJournalAt: 'Verlauf {t}',
   },
   // Station print relay — «Drucken» (preflight + capture)
   printRelay: {

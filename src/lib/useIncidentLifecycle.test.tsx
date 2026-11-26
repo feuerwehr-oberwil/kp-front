@@ -88,7 +88,7 @@ describe('useCloseReopen · reopenNow', () => {
       closingLocallyRef: { current: null }, reopeningLocallyRef: { current: null }, activeId, activeMeta: null,
       incidents: [], syncRef: { current: null }, archiveReturnRef: { current: 'inc-0' as string | null },
       refreshList: vi.fn(() => new Promise<IncidentMeta[]>(() => {})), // never answers: must not be waited for
-      selectIncident: vi.fn(async () => {}), markOpened: vi.fn(), setIncidents: vi.fn(), setClosedMedia: vi.fn(),
+      selectIncident: vi.fn(async () => {}), markOpened: vi.fn(), setIncidents: vi.fn(), setClosedMedia: vi.fn(), setClosedReceipt: vi.fn(),
       setActiveId: vi.fn(), setActiveMeta: vi.fn(), setWorkspace: vi.fn(), setForceReadOnly: vi.fn(),
       abschlussHereRef: { current: null }, showEinsatz: vi.fn(),
     }
@@ -125,7 +125,7 @@ describe('useCloseReopen · archiveFromList', () => {
       closingLocallyRef: { current: null }, reopeningLocallyRef: { current: null }, activeId, activeMeta: null,
       incidents, syncRef: { current: null as WorkspaceSync | null }, archiveReturnRef: { current: null },
       refreshList: vi.fn(async () => []), selectIncident: vi.fn(async () => {}), markOpened: vi.fn(),
-      setIncidents: vi.fn(), setClosedMedia: vi.fn(), setActiveId: vi.fn(), setActiveMeta: vi.fn(),
+      setIncidents: vi.fn(), setClosedMedia: vi.fn(), setClosedReceipt: vi.fn(), setActiveId: vi.fn(), setActiveMeta: vi.fn(),
       setWorkspace: vi.fn(), setForceReadOnly: vi.fn(),
       abschlussHereRef: { current: abschlussHere }, showEinsatz: vi.fn(),
     }
@@ -162,6 +162,19 @@ describe('useCloseReopen · archiveFromList', () => {
     expect(next.dispose).not.toHaveBeenCalled()
     expect(deps.setActiveId).not.toHaveBeenCalled()
     expect(deps.refreshList).toHaveBeenCalledOnce()
+  })
+
+  // UX pick B2·13 (25.11.2026): the close leaves a standing receipt on the launcher, with what the
+  // confirm knew of the Rapport – and none when the close failed
+  it('a close that went through leaves its receipt; a failed one none', async () => {
+    vi.mocked(patchIncident).mockResolvedValueOnce({ ...meta({ is_archived: true }), text: null, map_workspace_json: null, details_json: null })
+    const { result, deps } = list(null, null, [meta()])
+    await expect(result.current.completeRapport('inc-1', { endedAt: '2026-11-25T13:27:00Z', reportMadeAt: '2026-11-25T13:30:00Z' })).resolves.toBe(true)
+    expect(deps.setClosedReceipt).toHaveBeenCalledWith({ id: 'inc-1', title: 'Brand', endedAt: '2026-11-25T13:27:00Z', reportMadeAt: '2026-11-25T13:30:00Z' })
+    vi.mocked(patchIncident).mockRejectedValueOnce(new Error('offline'))
+    deps.setClosedReceipt.mockClear()
+    await expect(result.current.completeRapport('inc-1')).resolves.toBe(false)
+    expect(deps.setClosedReceipt).not.toHaveBeenCalled()
   })
 
   it('names the Trupps still inside another Einsatz before closing it', async () => {
