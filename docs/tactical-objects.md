@@ -118,7 +118,16 @@ One object, two surfaces: how a tactical object is stored, anchored, projected a
   (phone-layout.md · «The floating row»).
 - **One detail card, one set of controls** (`components/ContextPanel`, owner decisions
   31.10.2026). The Karte and every plan open the SAME card for a symbol, so a control added or
-  removed there is added or removed on both surfaces. «Erledigt» is ONE toggle in the foot, in
+  removed there is added or removed on both surfaces. ⚠️ Its writes leave through ONE door
+  (`ContextPanel · onPatch`, sweep 25.11.2026 #27): the changed fields as a `SymbolPatch` in the
+  card's own vocabulary, plus the few acts that are no field change (remove, centre, release,
+  «Übernehmen» …). Each surface turns the patch into its own commit and its own ↶ step
+  (`MapDetailPanels · patchSelected`, `Whiteboard · patchSymbol`) – 31 callbacks mapped by hand
+  on each surface had let the Anwesenheit filing drift (#762). What a card offers follows its
+  `subject` (`symbol` · `object` · `live` · `note`), never which callbacks a surface wired. The
+  differences that are on purpose: the Schutzabstand rings and «Übernehmen» are the Karte's
+  (`erg`, a plan has no metric scale); the Plan maps the card's storey to `storey`, and on the
+  Gebäude stack, where the tile is the storey, to nothing. «Erledigt» is ONE toggle in the foot, in
   the same spot whether the matter is open or over: set, the tile stands pressed (check, green
   tint) and a tap reopens it; when it was set is the header's subtitle («Schadenlage · erledigt
   10:57»), which a read-only card shows too. Both directions stay ordinary undoable prop edits

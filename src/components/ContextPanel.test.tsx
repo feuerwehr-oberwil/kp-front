@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, afterEach } from 'vitest'
+import { describe, it, expect, vi, afterEach, type Mock } from 'vitest'
 import { render, screen, cleanup, fireEvent, within } from '@testing-library/react'
-import { ContextPanel, type SymbolView } from './ContextPanel'
+import { ContextPanel, type PatchPhase, type SymbolPatch, type SymbolView } from './ContextPanel'
 import type { SymbolControl } from '../types'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
@@ -19,24 +19,39 @@ afterEach(cleanup)
 // Steppers are keyed by their German labels (appConfig.copy.contextPanel).
 const L = { floor: 'Geschoss', floorFrom: 'Von Geschoss', floorTo: 'Bis Geschoss', count: 'Anzahl', rotation: 'Drehung' }
 
-function setup(over: Partial<React.ComponentProps<typeof ContextPanel>> = {}) {
+type Writes = Record<'onTitle' | 'onTitleLive' | 'onFields' | 'onNotes', Mock>
+
+/** The panel's one write door (`onPatch`), with a spy per field it writes, so a test asserts the
+ *  write it is about: `onTitle` a committed name, `onTitleLive` a keystroke in it, `onFields` the
+ *  detail record, `onNotes` the Notizen. Every other write is read off `onPatch` itself. */
+function writes(given: Partial<Writes> = {}) {
+  const w: Writes = {
+    onTitle: given.onTitle ?? vi.fn(), onTitleLive: given.onTitleLive ?? vi.fn(),
+    onFields: given.onFields ?? vi.fn(), onNotes: given.onNotes ?? vi.fn(),
+  }
+  const onPatch = vi.fn((patch: SymbolPatch, phase: PatchPhase) => {
+    if ('label' in patch) (phase === 'typing' ? w.onTitleLive : w.onTitle)(patch.label)
+    if ('fields' in patch) w.onFields(patch.fields)
+    if ('notes' in patch) w.onNotes(patch.notes)
+  })
+  return { ...w, onPatch }
+}
+
+/** A symbol's panel – the storey control is Von/Bis (15.09.2026); a `floor` preset shows it just
+ *  like `floorRange` – so stepper visibility is driven purely by `controls`. */
+function setup({ onTitle, onTitleLive, onFields, onNotes, ...over }: Partial<React.ComponentProps<typeof ContextPanel>> & Partial<Writes> = {}) {
   const entity: SymbolView = { id: 's1', symbol: 'VKF Feuer', label: 'Brand', ...(over.entity ?? {}) }
+  const w = writes({ onTitle, onTitleLive, onFields, onNotes })
   const props: React.ComponentProps<typeof ContextPanel> = {
     entity,
+    subject: 'symbol',
+    onPatch: w.onPatch,
     onClose: vi.fn(),
-    onTitle: vi.fn(),
-    onFields: vi.fn(),
     onDelete: vi.fn(),
-    // wire every glyph-stepper callback so visibility is driven purely by `controls` – the storey
-    // control is Von/Bis (15.09.2026); a `floor` preset shows it just like `floorRange`
-    onFloorFrom: vi.fn(),
-    onFloorTo: vi.fn(),
-    onCount: vi.fn(),
-    onRotate: vi.fn(),
     ...over,
   }
   render(<ContextPanel {...props} />)
-  return props
+  return { ...props, ...w }
 }
 
 // a stepper is present iff its label text is rendered
@@ -64,11 +79,12 @@ describe('ContextPanel — stepper gating by the `controls` prop', () => {
     expect(hasStepper(L.rotation)).toBe(false)
   })
 
-  it('with no controls prop, shows every WIRED stepper (back-compat for non-symbols)', () => {
+  it('with no controls prop, shows every stepper', () => {
     setup({ controls: undefined })
     expect(hasStepper(L.floorFrom)).toBe(true)
     expect(hasStepper(L.count)).toBe(true)
-    expect(hasStepper(L.rotation)).toBe(true)
+    // …the second rotation among them, which names the first one «Fahrzeug»
+    expect(hasStepper(appConfig.copy.contextPanel.rotationVehicle)).toBe(true)
   })
 
   it('shows the von/bis storeys for a symbol that declares ONLY floorRange (the Lift)', () => {
@@ -81,11 +97,10 @@ describe('ContextPanel — stepper gating by the `controls` prop', () => {
     expect(hasStepper(L.floor)).toBe(false) // the single «Geschoss» stepper is gone (15.09.): Von/Bis IS the storey control
   })
 
-  it('a declared control whose callback is NOT wired stays hidden', () => {
-    // controls allows floor, but onFloor is not provided ⇒ the surface can't do it ⇒ hidden
-    setup({ controls: new Set<SymbolControl>(['floor', 'rotation']), onFloor: undefined })
-    expect(hasStepper(L.floor)).toBe(false)
-    expect(hasStepper(L.rotation)).toBe(true)
+  it('an object that is no symbol offers no glyph control, whatever its preset says', () => {
+    setup({ subject: 'object', controls: new Set<SymbolControl>(['floor', 'rotation']) })
+    expect(hasStepper(L.floorFrom)).toBe(false)
+    expect(hasStepper(L.rotation)).toBe(false)
   })
 })
 
@@ -180,12 +195,10 @@ describe('ContextPanel — basic wiring', () => {
   // …and the Beschriftung / the Schutzabstand: the answer in words, not three faded buttons
   it('a locked panel states the Beschriftung and the Schutzabstand, and offers no switch', () => {
     const C = appConfig.copy.contextPanel
-    const onCaption = vi.fn()
-    const onErgRings = vi.fn()
     setup({
       entity: { id: 'g1', symbol: 'FW Gefahr Tafel', fields: { 'UN-Nr.': '1005' }, ergRings: 'large' },
       protectedKeys: new Set(['UN-Nr.', 'Stoff']),
-      readOnly: true, onCaption, captionDefault: 'auto', onErgRings,
+      readOnly: true, captionDefault: 'auto', erg: {},
     })
     expect(screen.queryAllByRole('group', { name: C.caption })).toEqual([])
     expect(screen.getAllByText(C.captionAuto)[0].className).toContain('kv-val-ro')
@@ -193,10 +206,10 @@ describe('ContextPanel — basic wiring', () => {
     expect(screen.getByText(C.ergRingsLarge).className).toContain('kv-val-ro')
   })
 
-  it('stepping rotation up commits via onRotate', () => {
+  it('stepping rotation up commits the new rotation', () => {
     const p = setup({ controls: new Set<SymbolControl>(['rotation']), entity: { id: 's1', rotation: 0 } })
     fireEvent.pointerDown(screen.getByLabelText('mehr')) // hold-to-repeat: first step fires on pointer-down
-    expect(p.onRotate).toHaveBeenCalledWith(15) // ROT_STEP
+    expect(p.onPatch).toHaveBeenCalledWith({ rotation: 15 }, 'commit') // ROT_STEP
   })
 
   // 30.09.2026 (owner's screenshot: «−46.50917745051447°»): a hand-turned symbol shows whole
@@ -206,11 +219,11 @@ describe('ContextPanel — basic wiring', () => {
     expect(screen.getByText('-47°')).toBeTruthy()
     expect(screen.queryByText(/46\.5/)).toBeNull()
     fireEvent.pointerDown(screen.getByLabelText('mehr'))
-    expect(p.onRotate).toHaveBeenLastCalledWith(360 - 45)
+    expect(p.onPatch).toHaveBeenLastCalledWith({ rotation: 360 - 45 }, 'commit')
     fireEvent.pointerUp(screen.getByLabelText('mehr'))
     fireEvent.pointerDown(screen.getByLabelText('weniger'))
-    expect(p.onRotate).toHaveBeenLastCalledWith(360 - 60)
-    expect(p.onRotate).toHaveBeenCalledTimes(2)
+    expect(p.onPatch).toHaveBeenLastCalledWith({ rotation: 360 - 60 }, 'commit')
+    expect(p.onPatch).toHaveBeenCalledTimes(2)
   })
 })
 
@@ -237,34 +250,34 @@ describe('ContextPanel — Geschoss (Untergeschosse are as reachable as Obergesc
     // stepping UP to 0 first and back down again.
     const p = setup({ controls: floorOnly, entity: { id: 's1' } })
     tapLess()
-    expect(p.onFloorFrom).toHaveBeenCalledWith(0)
+    expect(p.onPatch).toHaveBeenCalledWith({ floorFrom: 0 }, 'commit')
   })
 
   it('the first tap on + sets EG (0) too', () => {
     const p = setup({ controls: floorOnly, entity: { id: 's1' } })
     fireEvent.pointerDown(screen.getAllByLabelText('mehr')[0])
-    expect(p.onFloorFrom).toHaveBeenCalledWith(0)
+    expect(p.onPatch).toHaveBeenCalledWith({ floorFrom: 0 }, 'commit')
   })
 
   it('steps on down into the Untergeschosse', () => {
     const p = setup({ controls: floorOnly, entity: { id: 's1', floorFrom: 0 } })
     tapLess()
-    expect(p.onFloorFrom).toHaveBeenCalledWith(-1)
+    expect(p.onPatch).toHaveBeenCalledWith({ floorFrom: -1 }, 'commit')
   })
 
   it('takes a typed Untergeschoss', () => {
     const p = setup({ controls: floorOnly, entity: { id: 's1' } })
     fireEvent.click(screen.getAllByTitle('Tippen zum Eingeben')[0])
-    const input = screen.getByRole('textbox') as HTMLInputElement
+    const input = screen.getByRole('textbox', { name: L.floorFrom }) as HTMLInputElement
     fireEvent.change(input, { target: { value: '-2' } })
     fireEvent.blur(input)
-    expect(p.onFloorFrom).toHaveBeenCalledWith(-2)
+    expect(p.onPatch).toHaveBeenCalledWith({ floorFrom: -2 }, 'commit')
   })
 
   it('clears back to unset', () => {
     const p = setup({ controls: floorOnly, entity: { id: 's1', floorFrom: -2 } })
     fireEvent.click(screen.getAllByLabelText('zurücksetzen')[0])
-    expect(p.onFloorFrom).toHaveBeenCalledWith(null)
+    expect(p.onPatch).toHaveBeenCalledWith({ floorFrom: undefined }, 'commit')
   })
 
   it('has nothing to clear while unset', () => {
@@ -279,10 +292,9 @@ describe('ContextPanel — Geschoss (Untergeschosse are as reachable as Obergesc
     })
     const less = screen.getAllByLabelText('weniger')  // [Von, Bis]
     fireEvent.pointerDown(less[less.length - 2])
-    expect(p.onFloorFrom).toHaveBeenCalledWith(-1)
-    expect(p.onFloorTo).not.toHaveBeenCalled()
+    expect(p.onPatch).toHaveBeenLastCalledWith({ floorFrom: -1, floorTo: 2 }, 'commit')
     fireEvent.pointerDown(less[less.length - 1])
-    expect(p.onFloorTo).toHaveBeenCalledWith(1)
+    expect(p.onPatch).toHaveBeenLastCalledWith({ floorFrom: 0, floorTo: 1 }, 'commit')
   })
 
   it('seeds each end of an empty von/bis span on the first − tap', () => {
@@ -291,8 +303,8 @@ describe('ContextPanel — Geschoss (Untergeschosse are as reachable as Obergesc
       entity: { id: 's1' },
     })
     screen.getAllByLabelText('weniger').forEach((b) => fireEvent.pointerDown(b))
-    expect(p.onFloorFrom).toHaveBeenCalledWith(0)
-    expect(p.onFloorTo).toHaveBeenCalledWith(0)
+    expect(p.onPatch).toHaveBeenCalledWith({ floorFrom: 0 }, 'commit')
+    expect(p.onPatch).toHaveBeenCalledWith({ floorTo: 0 }, 'commit')
   })
 })
 
@@ -515,10 +527,10 @@ describe('ContextPanel — ADR meanings and ERG «Absperrkreis übernehmen»', (
     expect(screen.getByText('33')).toBeTruthy()
   })
 
-  it('«Absperrkreis übernehmen» hands the parsed distance to onAdoptRadius', () => {
+  it('«Absperrkreis übernehmen» hands the parsed distance to the surface', () => {
     const onAdoptRadius = vi.fn()
     // UN 1005 (Ammoniak): si 30 m / pd 0.1 km / pn 0.2 km
-    setup({ ...tafel({ 'UN-Nr.': '1005', Stoff: '' }), onAdoptRadius })
+    setup({ ...tafel({ 'UN-Nr.': '1005', Stoff: '' }), erg: { onAdopt: onAdoptRadius } })
     const buttons = screen.getAllByRole('button', { name: appConfig.copy.contextPanel.ergAdopt })
     expect(buttons.length).toBe(3)
     // worded (button sweep SHEETS.6, 17.11.2026): it was an icon-only square
@@ -529,7 +541,7 @@ describe('ContextPanel — ADR meanings and ERG «Absperrkreis übernehmen»', (
     expect(onAdoptRadius).toHaveBeenCalledWith(200)
   })
 
-  it('without onAdoptRadius the rows stay plain (Plan side)', () => {
+  it('without the Karte\'s ERG door the rows stay plain (Plan side)', () => {
     setup(tafel({ 'UN-Nr.': '1005', Stoff: '' }))
     expect(screen.queryByRole('button', { name: appConfig.copy.contextPanel.ergAdopt })).toBeNull()
   })
@@ -612,9 +624,9 @@ describe('ContextPanel — Stoff → UN-Nr. (Gas/Chemie substance search)', () =
 // A NOTE is the surface that still types into `label` — its text IS its content. Every other
 // symbol's header became read-only on 11.08., so this is where the live-edit path lives now.
 describe('ContextPanel — live text editing on a note', () => {
-  it('with onTitleLive, streams every keystroke live and finalises once on blur', () => {
+  it('streams every keystroke live and finalises once on blur', () => {
     const onTitleLive = vi.fn(); const onTitle = vi.fn()
-    setup({ entity: { id: 'n1', label: '' }, onTitleLive, onTitle, onNotePlain: vi.fn() })
+    setup({ entity: { id: 'n1', label: '' }, subject: 'note', onTitleLive, onTitle })
     const input = screen.getByDisplayValue('') as HTMLInputElement
     fireEvent.change(input, { target: { value: 'A' } })
     fireEvent.change(input, { target: { value: 'An' } })
@@ -624,17 +636,6 @@ describe('ContextPanel — live text editing on a note', () => {
     fireEvent.blur(input)
     expect(onTitle).toHaveBeenCalledTimes(1)
     expect(onTitle).toHaveBeenCalledWith('An')
-  })
-
-  it('without onTitleLive, falls back to commit-only-on-blur', () => {
-    const onTitle = vi.fn()
-    setup({ entity: { id: 'n2', label: '' }, onTitle, onNotePlain: vi.fn() })
-    const input = screen.getByDisplayValue('') as HTMLInputElement
-    fireEvent.change(input, { target: { value: 'Hi' } })
-    expect(onTitle).not.toHaveBeenCalled()
-    fireEvent.blur(input)
-    expect(onTitle).toHaveBeenCalledTimes(1)
-    expect(onTitle).toHaveBeenCalledWith('Hi')
   })
 })
 
@@ -751,13 +752,12 @@ describe('ContextPanel — Löschen on an otherwise read-only panel', () => {
 // A just-placed Notiz opens with the caret in its text field — and on a phone the sheet has to be
 // FULL for that field to be above the iOS keyboard (05.09.). `.sheet-full` rides on the panel's
 // own `.ctx` root (SheetGrip · CtxShell), which is the element the sheet height hangs off and the
-// one the grip's tap toggles. `onNoteSize` is what makes this panel a note editor.
+// one the grip's tap toggles. `subject="note"` is what makes this panel a note editor.
 describe('ContextPanel — a placed Notiz opens the sheet full', () => {
   const note = (autoFocusNote: boolean) => {
     render(
-      <ContextPanel entity={{ id: 'n1', label: '' }} onClose={vi.fn()} onTitle={vi.fn()}
-        onFields={vi.fn()} onDelete={vi.fn()}
-        onTitleLive={vi.fn()} onNoteSize={vi.fn()} autoFocusNote={autoFocusNote} />,
+      <ContextPanel entity={{ id: 'n1', label: '' }} subject="note" onPatch={vi.fn()} onClose={vi.fn()}
+        onDelete={vi.fn()} autoFocusNote={autoFocusNote} />,
     )
     return document.querySelector('.ctx')!
   }
@@ -784,7 +784,7 @@ describe('ContextPanel — Notizen survive every way the sheet can close', () =>
     const onNotes = vi.fn()
     const { unmount } = render(
       <ContextPanel entity={{ id: 's1', symbol: 'VKF Feuer', label: 'Brand' }} onClose={vi.fn()}
-        onTitle={vi.fn()} onFields={vi.fn()} onDelete={vi.fn()} onNotes={onNotes} />,
+        subject="symbol" onPatch={writes({ onNotes }).onPatch} onDelete={vi.fn()} />,
     )
     fireEvent.change(notesBox(), { target: { value: 'EG stark verraucht' } })
     unmount()
@@ -795,7 +795,7 @@ describe('ContextPanel — Notizen survive every way the sheet can close', () =>
     const onNotes = vi.fn()
     const { unmount } = render(
       <ContextPanel entity={{ id: 's1', symbol: 'VKF Feuer', label: 'Brand' }} onClose={vi.fn()}
-        onTitle={vi.fn()} onFields={vi.fn()} onDelete={vi.fn()} onNotes={onNotes} />,
+        subject="symbol" onPatch={writes({ onNotes }).onPatch} onDelete={vi.fn()} />,
     )
     fireEvent.change(notesBox(), { target: { value: 'EG stark verraucht' } })
     fireEvent.blur(notesBox())
@@ -807,7 +807,7 @@ describe('ContextPanel — Notizen survive every way the sheet can close', () =>
     const onNotes = vi.fn()
     const { unmount } = render(
       <ContextPanel entity={{ id: 's1', symbol: 'VKF Feuer', label: 'Brand', notes: 'alt' }} onClose={vi.fn()}
-        onTitle={vi.fn()} onFields={vi.fn()} onDelete={vi.fn()} onNotes={onNotes} />,
+        subject="symbol" onPatch={writes({ onNotes }).onPatch} onDelete={vi.fn()} />,
     )
     unmount()
     expect(onNotes).not.toHaveBeenCalled()
@@ -822,7 +822,7 @@ describe('ContextPanel — a typed field survives the panel closing', () => {
     onFields,
     ...render(
       <ContextPanel entity={{ id: 'm1', symbol: 'FW Messpunkt', label: '' }} onClose={vi.fn()}
-        onTitle={vi.fn()} onFields={onFields} onDelete={vi.fn()}
+        subject="symbol" onPatch={writes({ onFields }).onPatch} onDelete={vi.fn()}
         protectedKeys={new Set(['Raum', 'CO', 'Ex', 'O₂', 'H₂S'])} />,
     ),
   })
@@ -861,7 +861,7 @@ describe('ContextPanel — a Messpunkt\'s measured fields', () => {
     const onFields = vi.fn()
     render(
       <ContextPanel entity={{ id: 'm1', symbol: 'FW Messpunkt', label: '', fields }} onClose={vi.fn()}
-        onTitle={vi.fn()} onFields={onFields} onDelete={vi.fn()} {...extra}
+        subject="symbol" onPatch={writes({ onFields }).onPatch} onDelete={vi.fn()} {...extra}
         protectedKeys={new Set(['Raum', 'CO', 'Ex', 'O₂', 'H₂S'])} />,
     )
     return onFields

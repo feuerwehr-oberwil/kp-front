@@ -12,7 +12,7 @@ import { MapDetailPanels, type MapDetailPanelsProps } from '../workspace/MapDeta
 import { Whiteboard } from './Whiteboard'
 import type { ContextPanel } from './ContextPanel'
 
-// Both surfaces open the SAME symbol panel; what differs is only how each wires its callbacks.
+// Both surfaces open the SAME symbol panel; what differs is only how each commits its patch.
 // The panel is stubbed to hand those callbacks to the test, so one edit can be made on the Lage
 // and on the Plan and the two roster filings compared.
 type PanelProps = ComponentProps<typeof ContextPanel>
@@ -87,26 +87,26 @@ describe('a name on a Plan symbol is filed like the same name on the Lage', () =
     const fields = { Funktion: 'SiBe', Name: '' }
     const named = { ...fields, Name: 'Muster Hans' }
     const lage = onLage({ id: 'o1', kind: 'symbol', symbol: 'FW Offizier', fields, ...where })
-    lage.props.onFields(named)
+    lage.props.onPatch({ fields: named }, 'commit')
     const expected = lage.calls().flatMap(filed)
     expect(expected).toEqual([{ value: 'Muster Hans', role: 'presence', note: fillTemplate(A.roleOffizier, { funktion: 'SiBe' }) }])
     cleanup()
 
     const plan = onPlan({ id: 'o1', kind: 'symbol', symbol: 'FW Offizier', fields, ...at })
-    plan.props.onFields(named)
+    plan.props.onPatch({ fields: named }, 'commit')
     expect(plan.calls().flatMap(filed)).toEqual(expected)
   })
 
   it('a vehicle renamed TLF → TLF 2 re-files its Fahrer as «Fahrer TLF 2»', () => {
     const fields = { Fahrer: 'Muster Anna' }
     const lage = onLage({ id: 'v1', kind: 'symbol', symbol: appConfig.symbols.vehicleName, label: 'TLF', fields, ...where })
-    lage.props.onTitle('TLF 2')
+    lage.props.onPatch({ label: 'TLF 2' }, 'commit')
     const expected = lage.calls().flatMap(filed)
     expect(expected).toEqual([{ value: 'Muster Anna', role: 'fahrer', note: fillTemplate(A.roleFahrer, { vehicle: 'TLF 2' }) }])
     cleanup()
 
     const plan = onPlan({ id: 'v1', kind: 'symbol', symbol: appConfig.symbols.vehicleName, label: 'TLF', fields, ...at })
-    plan.props.onTitle('TLF 2')
+    plan.props.onPatch({ label: 'TLF 2' }, 'commit')
     expect(plan.calls().flatMap(filed)).toEqual(expected)
   })
 })
