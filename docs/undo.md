@@ -36,6 +36,11 @@ a toast beside it only doubled the ↶ (docs/ui-conventions.md › «The toast r
 - The ↶ caption is the removal's own Verlauf words, the object's name in it, and the Leitungen it
   set loose are counted («TLF entfernt, 2 Leitungen gelöst», `removedText`); a Notiz is «Notiz
   entfernt» (`stepLabelRef` / `onStepLabel`).
+- A Karte step whose writer set no words names itself when it changed ONE object («TLF
+  verschoben», `lib/undoStepWords`, owner pick UX journeys M·11, 25.11.2026); wider steps keep
+  «Änderung auf der Karte». On the press the caption rings that object on the Karte and stays
+  until the records' sync status says the step is on the server, then shows «✓ gespeichert»
+  (`lib/undoFlash`). The head stays silent while all is well (round 2b, 13.11.2026).
 - Under the rule (no ConfirmCard since 13.11.): a symbol, Form, Notiz (written or not), line,
   Fläche, Absperrkreis, a Mehrfach group — Lage and Plan alike (Leitungen attached: the one
   exception below);

@@ -273,6 +273,23 @@ async def test_one_failed_section_query_leaves_the_others_answering(client, edit
     assert body["loginLocks"] == [{"userId": str(editor.id), "displayName": editor.display_name, "minutesLeft": 2}]
 
 
+async def test_a_failed_login_lock_read_is_null_not_empty(client, admin_login, monkeypatch):
+    """An empty list says «nobody is locked»; a read that failed must not say it too."""
+    from app.auth.pin_limiter import new_device_budget
+
+    def broken_locked() -> dict[str, int]:
+        raise RuntimeError("limiter unreadable")
+
+    await admin_login(client)
+    monkeypatch.setattr(new_device_budget, "locked", broken_locked)
+
+    r = await client.get("/api/system")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["loginLocks"] is None
+    assert body["database"] == {"ok": True}
+
+
 async def test_storage_walk_runs_off_the_event_loop(client, editor, admin_login, monkeypatch):
     """The media walk covers the tile cache too; on the loop it stalls every other request."""
     import threading

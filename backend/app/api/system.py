@@ -391,8 +391,7 @@ async def get_system(
     integrations = await _guarded(db, "integrations section", read_integrations)
     connectors = await _guarded(db, "connectors section", lambda: _connectors(db))
     setup = await _guarded(db, "setup section", lambda: _setup(db, counts))
-    # [] rather than None on failure: SystemView only defaults a MISSING key, not a null one.
-    login_locks = await _guarded(db, "login-lock section", lambda: _login_locks(db)) or []
+    login_locks = await _guarded(db, "login-lock section", lambda: _login_locks(db))
 
     return {
         "version": version,
@@ -412,6 +411,7 @@ async def get_system(
         # admin UI can now SET it (Anbindungen · Monitor). See scheduler · _heartbeat.
         "monitoring": {"heartbeatConfigured": bool(credential("healthcheck_ping_url").strip())},
         # Accounts whose PIN somebody is guessing at: new devices are refused for them right now
-        # (auth/pin_limiter · NewDeviceBudget). Empty on every ordinary day.
+        # (auth/pin_limiter · NewDeviceBudget). Empty on every ordinary day; null when the read
+        # failed, so a failure never reads as «nobody is locked».
         "loginLocks": login_locks,
     }

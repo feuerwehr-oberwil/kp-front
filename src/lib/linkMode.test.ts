@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { TERMINAL_PATH, linkKindFromToken, linkPageOwnsSession, linkSessionHeaders, linkTokenFromPath, onLinkPage } from './linkMode'
+import { TERMINAL_PATH, linkKindFromToken, linkPageOwnsSession, linkSessionHeaders, linkTokenFromPath, onAtemschutzLink, onLinkPage } from './linkMode'
 
 const TOKEN = 'eyJhbGciOiJIUzI1NiJ9.eyJpbmMiOiJhYmMifQ.sig-part_1' // an alarm link (a JWT)
 const ATEMSCHUTZ = 'aSECRET-secret-secret'
@@ -81,5 +81,14 @@ describe('onLinkPage', () => {
     expect(onLinkPage('/')).toBe(false)
     expect(onLinkPage('/einsatz/abc')).toBe(false)
     expect(onLinkPage(`/e/${TOKEN}`)).toBe(false) // the capture poster is not a link session
+  })
+})
+
+// the Trupp clock stamps a Kontakt logged on the handed-over Atemschutz board (owner pick UX journeys M·12)
+describe('onAtemschutzLink', () => {
+  it('is true for the per-Einsatz and the standing Atemschutz link only', () => {
+    expect(onAtemschutzLink(`/l/${ATEMSCHUTZ}`)).toBe(true)
+    expect(onAtemschutzLink(`/l/${STANDING_AS}`)).toBe(true)
+    for (const p of [`/l/${VIEW}`, `/l/${TOKEN}`, `/l/${TERMINAL}`, TERMINAL_PATH, '/']) expect(onAtemschutzLink(p)).toBe(false)
   })
 })

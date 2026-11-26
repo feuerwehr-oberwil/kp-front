@@ -366,7 +366,7 @@ async def test_the_external_geofence_first_means_no_second_vor_ort_row(db_sessio
     now = datetime.now(UTC)
     await _tick(db_session, AWAY, now - timedelta(minutes=10))
     await _settle(db_session, SCENE, now - timedelta(minutes=8))
-    assert await _rows(db_session, incident) == []  # the webhook's «TLF vor Ort 19:23» is the row
+    assert await _rows(db_session, incident) == []  # the webhook's «TLF vor Ort 19:23 Uhr» is the row
     await db_session.refresh(incident)
     assert incident.map_workspace_json["reportMeta"]["fahrzeuge"][0]["vorOrt"] == "2026-09-23T17:23:00+00:00"
 

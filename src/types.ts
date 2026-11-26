@@ -220,6 +220,11 @@ export interface SymbolProps {
    *  does. Setting and clearing it are ordinary undoable prop edits. Offered on `kind: 'symbol'`
    *  only — a Fläche/Absperrkreis would need its own greyed ink on four renderers. */
   done?: ObjectDone
+  /** «Sind zwei» (owner sign-off note on UX journeys B3·33/34, 25.11.2026: «two TLFs can really
+   *  be there»): this placed Fahrzeug is a second vehicle, not a double of the GPS one of the same
+   *  name beside it, so its sheet no longer asks (lib/gpsTwin). A PROP, so it rides the `objects`
+   *  merge and crosses to a sheet like `done`; set and cleared as an ordinary undoable prop edit. */
+  gpsTwinOk?: boolean
 }
 
 /** Where a photo was taken — the privacy-reduced EXIF of one Verlauf picture (lib/photoGeo). */
@@ -1191,6 +1196,15 @@ export interface TruppReading {
    * (lib/auswertung · truppStretches).
    */
   pa?: boolean
+  /**
+   * Where this row was logged: `link` = on the handed-over Atemschutz board (an `/l/a…` or standing
+   * `/l/s…` link, lib/linkMode · onAtemschutzLink). Written since 25.11.2026 by every row the clock
+   * family writes there that resets the contact clock (Kontakt, Druck, Eintritt, Rückzug,
+   * Fortsetzen); absent = the app, or an older row. Read by the card's Kontakt tile – «🔗 22:10 ·
+   * über Link» while the LAST Kontakt came from the link (lib/atemschutz · contactViaLink, owner
+   * pick UX journeys M·12): the tablet does not log a second one for a call the Eingang answered.
+   */
+  via?: 'link'
 }
 
 export interface Trupp {

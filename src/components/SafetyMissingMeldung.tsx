@@ -1,6 +1,7 @@
 import { appConfig } from '../config/appConfig'
-import { safetyMissing, truppHeadName } from '../lib/atemschutz'
+import { safetyMissing } from '../lib/atemschutz'
 import { fillTemplate } from '../lib/format'
+import { requestSafetyPick, safetyPickItems } from '../lib/safetyPick'
 import { useMeldung } from '../lib/useMeldung'
 import type { Trupp } from '../types'
 
@@ -11,27 +12,35 @@ import type { Trupp } from '../types'
 // and the Link included (`meldungen · MELDUNG_RANK.safety`, in `linkShowsMeldung`): the board
 // names no missing Sicherungstrupp anywhere else. No ✕ – it clears itself the moment one is ready
 // or the crew is out. Calm (`warn`): it is a fact about the cover, not a clock running out.
-export function SafetyMissingMeldung({ trupps, onGoToBoard }: {
+//
+// ⚠️ The row says the state and carries the act (owner pick UX journeys M·16, 25.11.2026,
+// «Knopf «Bestimmen»»; it named the crews inside, by number until 24.11.2026 and then by name, and
+// told the reader to register a «Sichern» Trupp themselves): «3 Trupps drin», and «Bestimmen»
+// opens the board's own choice «Sicherungstrupp bestimmen» (lib/safetyPick – the Notfall banner's
+// candidates, Bereit · Drin · Draussen, then a new Trupp). A pick brings the board forward and the
+// board answers it. Only where this session may write the Trupps (`canPick`, the Link included);
+// a viewer keeps «Zu den Trupps».
+export function SafetyMissingMeldung({ trupps, onGoToBoard, canPick = false }: {
   trupps: readonly Trupp[]
-  /** «Zu den Trupps» – absent where the board is already in front (it, or the Link, IS the board):
-   *  the row stays, it just needs no way there */
+  /** brings the board forward – absent where it is already in front (it, or the Link, IS the
+   *  board): «Zu den Trupps» then goes, and a pick needs no way there */
   onGoToBoard?: () => void
+  /** this session may write the Trupps – «Bestimmen» instead of «Zu den Trupps» */
+  canPick?: boolean
 }) {
-  const az = appConfig.copy.atemschutz
+  const nf = appConfig.copy.atemschutz.notfall
   const inside = safetyMissing(trupps)
-  // ⚠️ Named as the clock rows name them (atemschutz · truppHeadName), never «Trupp 2» (hunt
-  // 24.11.2026, ux-3am F1, owner pick «Namen in der Meldung»): the row under this warning says
-  // «Bachmann Reto», and with three crews inside nobody should have to recall which number is whose.
-  const names = inside.map(truppHeadName).join(', ')
+  const sub = inside.length === 1 ? nf.noSafetySubOne : fillTemplate(nf.noSafetySub, { n: inside.length })
+  const pickMenu = safetyPickItems(trupps, (p) => { onGoToBoard?.(); requestSafetyPick(p) })
   useMeldung(inside.length ? {
     id: 'safety:missing',
     kind: 'safety',
     tone: 'warn',
     icon: 'warn',
-    title: az.notfall.noSafetyHint,
-    sub: fillTemplate(az.notfall.noSafetySub, { names }),
-    subLines: 2,
-    actions: onGoToBoard ? [{ label: az.notfall.noSafetyGo, onClick: onGoToBoard }] : undefined,
+    title: nf.noSafetyHint,
+    sub,
+    actions: canPick ? [{ label: appConfig.copy.atemschutz.safetyPick, menu: pickMenu }]
+      : onGoToBoard ? [{ label: nf.noSafetyGo, onClick: onGoToBoard }] : undefined,
   } : null)
   return null
 }

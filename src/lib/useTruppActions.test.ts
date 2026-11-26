@@ -256,6 +256,18 @@ describe('recordPressure in the first minutes after the Eintritt', () => {
     expect(t.readings?.[t.readings.length - 1]).toMatchObject({ kind: 'pressure', bar: 280 })
   })
 
+  // owner pick UX journeys B2·18 (25.11.2026): the board asks for a low value, and «Als
+  // Druckmeldung» records it against the Eingangsdruck instead of replacing it
+  it('records an early value the operator called a Druckmeldung as a reading — the Eingangsdruck stays', () => {
+    const { actions, state } = harness(fresh())
+    actions.recordPressure('T1', 180, { as: 'reading' })
+    const t = state.trupps[0]
+    expect(t.entryPressureBar).toBe(300)
+    expect(t.lastPressureBar).toBe(180)
+    expect(t.readings?.map((r) => r.kind)).toEqual(['entry', 'pressure'])
+    expect(t.lastContactTime).not.toBe(t.entryTime)
+  })
+
   it('a second Druck in the window is an ordinary reading — the first already set the baseline', () => {
     const { actions, state } = harness(fresh())
     actions.recordPressure('T1', 280)
@@ -2604,7 +2616,7 @@ describe('useTruppActions — the Atemschutznotfall', () => {
     const time = (iso: string) => new Date(iso).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })
     expect(b.rows[0]).toMatchObject({ icon: 'warn', subjectId: 'T1' })
     expect(b.rows[0].text).toBe(`Trupp 2 (Keller Anna / Frei Nina): Notfall ausgelöst – Ort Löschen – 2. OG links · Gebäude · 2. OG, `
-      + `letzter Kontakt ${time('2026-07-06T10:14:00Z')}, 180 bar (${time('2026-07-06T10:12:00Z')}), Kanal 11`)
+      + `letzter Kontakt ${time('2026-07-06T10:14:00Z')} Uhr, 180 bar (${time('2026-07-06T10:12:00Z')} Uhr), Kanal 11`)
     expect(b.events).toEqual([{ op: 'atemschutz.notfall', payload: { id: 'T1' } }])
     // no toast (owner pick 28): the ↶ is the way back, the banner what the operator looks at
     expect(ui.toasts).toEqual([])
@@ -2613,7 +2625,7 @@ describe('useTruppActions — the Atemschutznotfall', () => {
   it('names the Eingangsdruck when no Druck was ever reported, and leaves out what is not known', () => {
     const b = board([inside({ lastPressureBar: undefined, lastPressureTime: undefined, funkkanal: undefined, auftrag: undefined, ziel: undefined })])
     b.act().triggerNotfall('T1')
-    expect(b.rows[0].text).toMatch(/: Notfall ausgelöst – letzter Kontakt \d\d:\d\d, Eingangsdruck 300 bar$/)
+    expect(b.rows[0].text).toMatch(/: Notfall ausgelöst – letzter Kontakt \d\d:\d\d Uhr, Eingangsdruck 300 bar$/)
   })
 
   it('is offered only on an Atemschutz-Trupp that is inside, and never twice', () => {

@@ -26,7 +26,7 @@ import { UN_CAPABLE, countFieldValue, isMeasuredSymbol, symbolFieldKind } from '
 import { MeasuredField, ReadingAgain, ReadingHistory, ReadingInfo, ReadingOverHead } from './ReadingParts'
 import { sanitizeSvg } from '../lib/sanitizeSvg'
 import { bearing360 } from '../lib/planProjection'
-import { doneStatusText } from '../lib/objectDone'
+import { doneStatusText, isFireFamily } from '../lib/objectDone'
 
 // note ink colours = the drawing palette, so a red warning note matches a red line
 const NOTE_COLORS = appConfig.drawing.colors
@@ -249,6 +249,15 @@ export interface ContextPanelProps {
   /** …and its «Herkunft» (05.11.2026), the row under the Fahrer: same reason, same override map,
    *  `options` = the station's `fleet.origins`. Without `onChange` a read-out. */
   origin?: { value: string; options?: string[]; onChange?: (v: string) => void }
+  /** A vehicle's Einsatz clocks («Ausgerückt 13:40», «Vor Ort 13:48») – automatic, read-only rows
+   *  from the Rapport's vehicle times (lib/vehicleTimes, owner 25.11.2026: «Sheet only»), shown
+   *  after the editable rows, below «Herkunft» (owner sign-off note, 25.11.2026). */
+  vehicleTimes?: { label: string; value: string }[]
+  /** A placed Fahrzeug named like a GPS vehicle beside it (lib/gpsTwin, owner picks UX journeys
+   *  B3·33/34): the hint under «Bezeichnung», and `onHold` – the symbol goes, the GPS vehicle is
+   *  held at its spot. `onKeep` («Sind zwei», owner sign-off note, 25.11.2026): it is a second
+   *  vehicle, and the hint goes for this symbol. Without either (a locked session) the hint alone. */
+  gpsTwin?: { name: string; distM: number; onHold?: () => void; onKeep?: () => void }
   connectedLines?: { id: string; label: string }[]
   /** Angedockte Gefahrentafel (SymbolProps.dockedTo, lib/docking): the host's display name.
    *  Rendered with a «Lösen» action when `onUndock` is wired — the panel is the one place the
@@ -317,7 +326,7 @@ function LinkBtn({ onClick, text }: { onClick: () => void; text: string }) {
   )
 }
 
-export function ContextPanel({ entity, svg, onClose, onCenter, onOriginal, originalLabel, onTitle, onTitleLive, onFields, onNotes, onReadingAgain, onFloorFrom, onFloorTo, onSpread, onCount, onRotate, onErgRings, ergCoord, onAdoptRadius, ergAdopted, onRotate2, onCaption, captionDefault = 'auto', onAirflow, controls, titleOptions, fieldOptions, rosterRank, protectedKeys, onDelete, onDone, onStopSharing, readOnly, allowDelete = false, hasOverride, onPinGps, onResetGps, driver, origin, personStatus, fieldHints, connectedLines = [], onFocusLine, dockedToLabel, onUndock, dockedTeams = [], onNoteSize, autoFocusNote = false, onNotePlain, onColor }: ContextPanelProps) {
+export function ContextPanel({ entity, svg, onClose, onCenter, onOriginal, originalLabel, onTitle, onTitleLive, onFields, onNotes, onReadingAgain, onFloorFrom, onFloorTo, onSpread, onCount, onRotate, onErgRings, ergCoord, onAdoptRadius, ergAdopted, onRotate2, onCaption, captionDefault = 'auto', onAirflow, controls, titleOptions, fieldOptions, rosterRank, protectedKeys, onDelete, onDone, onStopSharing, readOnly, allowDelete = false, hasOverride, onPinGps, onResetGps, driver, origin, vehicleTimes = [], gpsTwin, personStatus, fieldHints, connectedLines = [], onFocusLine, dockedToLabel, onUndock, dockedTeams = [], onNoteSize, autoFocusNote = false, onNotePlain, onColor }: ContextPanelProps) {
   // read per-render (not module-load) so the resolved locale is applied — see config/copy
   const C = appConfig.copy.contextPanel
   const N = appConfig.copy.notes
@@ -655,7 +664,7 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
   /** the symbol's own name, for the header of everything that is NOT user-labelled */
   const symbolName = entity.symbol ? formatSymbolName(entity.symbol) : ''
   // a live vehicle's Fahrer / Herkunft count as details too – a read-only sheet with no other row hid them
-  const showDetails = !isNote && (showFloorRange || showCount || showRotate || showSpread || showAirflow || onNotes || rows.length > 0 || showUnHazard || !readOnly || !!driver || !!origin)
+  const showDetails = !isNote && (showFloorRange || showCount || showRotate || showSpread || showAirflow || onNotes || rows.length > 0 || showUnHazard || !readOnly || !!driver || !!origin || vehicleTimes.length > 0)
 
   /* on-canvas caption override for THIS symbol — small + de-emphasised down by the actions
      (the field values matter first; visibility is a rare tweak). Standard follows the device
@@ -677,29 +686,28 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
       )}
     </div>
   )
-  /* ── «Erledigt» (lib/objectDone, review item 21b 24.09.2026; slim sweep 27.09.2026, item 9 / D8;
-     ONE toggle since 31.10.2026) ── the foot's middle tile, in the same spot in both states: one
-     word for every family (the fire is gelöscht, the symbol erledigt). Open, its title says what the
-     press will NOT do – the symbol stays, grey. Set, the SAME tile stands pressed (the check, the
-     choice fill – done is blue, like the Pendenz tick: duck sweep ELEM.2), and a tap takes it back – its name says so («Erledigt – wieder aktiv setzen»).
-     The foot is pinned on a phone, so it is at hand on every symbol without a reflex tap landing
-     on it. WHEN it was set is the header's subtitle («Schadenlage · erledigt 20:40», doneAt), so a
-     read-only panel, which has no tile, still states it. (Until 31.10.2026 the set state was a
-     row at the top of the body with its own «Wieder aktiv» – two places for one switch.)
-     The ✓ stands in BOTH states (button sweep SHEETS.8, 17.11.2026): a toggle keeps its anatomy and
-     only its fill says «set» – the word moved 24px and the tile changed shape when it came and went.
-     ⚠️ An `aria-pressed` <Button>, not a Chip or Segmented: it is one of the foot's ACTION tiles
-     and has to stand in their row with their look; a Chip is a choice. */
+  /* ── «Zustand» (lib/objectDone, review item 21b 24.09.2026) ── a row like «Beschriftung»:
+     «Zustand [Brennt | Gelöscht]» on a Feuer, «[Aktiv | Erledigt]» on the other damage and hazard
+     symbols (owner pick UX journeys M·6, 25.11.2026). It replaces the foot's «Erledigt» tile
+     (31.10.2026, SHEETS.9 of 17.11.2026: [Zentrieren · toggle · Entfernen] on every card) for
+     symbols: a walker left a burnt-out Feuer standing because the tile read like «close the
+     panel». Read as a STATE, not an action; the foot is [Zentrieren · Entfernen]. The second half
+     keeps its hold sentence («bleibt grau auf Karte und Rapport», `data-holdexplain`). WHEN it was
+     set is the header's subtitle («Schadenlage · gelöscht 20:40», doneAt), so a read-only panel,
+     which has no row, still states it. */
   const doneAt = !isNote ? doneStatusText(entity) : null
   const O = appConfig.copy.objectDone
-  const doneTile = onDone && !readOnly && !isNote ? (
-    // its meaning in the HOLD (`data-holdexplain`, the sentence word first, no `title` – a tablet
-    // never shows one; button sweep audit A1, 17.11.2026): «Erledigt» or «Entfernen» is the 3am
-    // choice when a Feuer is out, and only a mouse ever read why
-    <Button className="ctx-done" aria-pressed={!!doneAt} onClick={() => onDone(!doneAt)}
-      data-holdexplain aria-label={doneAt ? O.reopenHint : O.actionHint} icon={<Icon id="check" />}>
-      {O.action}
-    </Button>
+  const family = isFireFamily(entity.symbol) ? 'fire' : 'other'
+  const stateRow = onDone && !readOnly && !isNote ? (
+    <div className="ctx-caprow">
+      <span className="ctx-caprow-lbl">{O.stateLabel}</span>
+      <Segmented ariaLabel={O.stateLabel} value={!!doneAt} explain
+        options={[
+          { value: false, label: O.stateActive[family], title: O.stateActive[family] },
+          { value: true, label: O.word[family].title, title: fillTemplate(O.stateDoneHint, { word: O.word[family].title }) },
+        ]}
+        onChange={(v) => { if (v !== !!doneAt) onDone(v) }} />
+    </div>
   ) : null
   // rendered twice: pinned at the sheet bottom on desktop/tablet, and again inside the
   // scrolling body for phones (.ctx-footer-inline) — CSS shows exactly one copy
@@ -723,14 +731,13 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
           Their sentences are the HOLD's (`data-holdexplain`, button sweep audit A5/A6/A11): a
           `title` was the mouse's alone. */}
       {onPinGps && <Button icon={<Icon id="coords" />} onClick={onPinGps} data-holdexplain aria-label={C.pinGpsTitle}>{C.pinGps}</Button>}
-      {doneTile}
       {onResetGps
         ? <Button icon={<Icon id="compass" />} disabled={!hasOverride} onClick={onResetGps} data-holdexplain aria-label={C.resetGpsTitle}>{C.resetGps}</Button>
         // «Entfernen», the one word for taking a tactical object off the picture (25.09.2026) —
         // «gelöscht» is what a Feuer becomes (objectDone), so it can no longer name this press.
         // Bin + word, like every other card's remove (owner, button sweep SHEETS.1, 17.11.2026 – the
-        // bin SQUARE of 27.09.2026 was the one remove you could not read without guessing); beside
-        // «Erledigt» its HOLD says what it is for (`data-holdexplain`, button sweep audit A1).
+        // bin SQUARE of 27.09.2026 was the one remove you could not read without guessing); on a
+        // symbol with a «Zustand» its HOLD says what it is for (`data-holdexplain`, audit A1).
         : (!readOnly || allowDelete) && !onStopSharing && (
           <Button variant="danger" icon={<Icon id="trash" />} onClick={onDelete}
             {...(onDone ? { 'data-holdexplain': true, 'aria-label': `${appConfig.copy.remove} – ${O.removeHint}` } : {})}>
@@ -784,7 +791,7 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
           {/* a note's subtitle IS «Notiz», which the title above already says – one word is enough.
               A symbol declared over says when, beside its type: «Schadenlage · erledigt 20:40» –
               on a read-only panel too, where the Führungsansicht wants to know that the fire was
-              declared out, and when (see doneTile). */}
+              declared out, and when (see stateRow). */}
           {!isNote && (entity.subtitle || doneAt) && (
             <p>{entity.subtitle}{entity.subtitle && doneAt && ' · '}{doneAt && <span className="ctx-done-at">{doneAt}</span>}</p>
           )}
@@ -1046,6 +1053,22 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
               />
             </label>
           ))}
+          {/* …and the double it makes beside the GPS vehicle of that name: THE amber form warning,
+              its two ways out (lib/gpsTwin) – hold the GPS one here instead, or «Sind zwei», which
+              silences it for this symbol (owner sign-off note, 25.11.2026: «two TLFs can really be
+              there»). Under the name it is about, on every device. */}
+          {labelled && gpsTwin && (
+            <div className="form-warn form-warn-amber ctx-gps-twin" role="note">
+              <Icon id="warn" />
+              <span className="form-warn-text"><b>{gpsTwin.name}</b> {fillTemplate(C.gpsTwinHint, { m: Math.max(1, Math.round(gpsTwin.distM)) })}</span>
+              {gpsTwin.onHold && (
+                <button type="button" className="form-warn-act" onClick={gpsTwin.onHold}>{fillTemplate(C.gpsTwinHold, { name: gpsTwin.name })}</button>
+              )}
+              {gpsTwin.onKeep && (
+                <button type="button" className="form-warn-act" onClick={gpsTwin.onKeep}>{C.gpsTwinKeep}</button>
+              )}
+            </div>
+          )}
 
           {/* labelled key/value detail rows: the symbol's preset, plus any free row an older record
               carries. No new free rows (31.10.2026, «+ Feld» is gone) – what is worth saying about
@@ -1137,6 +1160,13 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
               )}
             </div>
           )}
+          {/* the vehicle's Einsatz clocks (lib/vehicleTimes): automatic, so a read-out on every
+              session – and LAST, under every row one can edit, below «Herkunft» (owner sign-off
+              note, 25.11.2026; it opened the sheet before: «is it vor Ort?» is the radio's
+              question, but the inputs come first). */}
+          {vehicleTimes.map((t) => (
+            <div key={t.label} className="field"><span className="kv-key-ro">{t.label}</span><b className="kv-val-ro">{t.value}</b></div>
+          ))}
 
           {/* a Messpunkt's «Gleich gemessen», its limits behind an ⓘ, then its readings, one row per
               radio report (ReadingParts). A value still in a box is committed first: the button's
@@ -1216,10 +1246,11 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
           <span className="ctx-section-label">{appConfig.copy.drawingEditor.connectedLines.replace('{n}', String(connectedLines.length))}</span>
           {connectedLines.map((line) => <button key={line.id} onClick={() => onFocusLine?.(line.id)}><span>{line.label}</span><Icon id="chevron" className="ctx-conn-go" /></button>)}
         </div>}
-        <div className="ctx-footer-inline">{caprow}{actions}</div>
+        <div className="ctx-footer-inline">{caprow}{stateRow}{actions}</div>
       </div>
 
       {caprow}
+      {stateRow}
       {actions}
     </CtxShell>
   )
