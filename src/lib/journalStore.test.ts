@@ -1179,9 +1179,16 @@ describe('a pull of rows already held', () => {
     fakeServer([row('a')])
     const store = new JournalStore(INC, false)
     try {
-      await store.init([])
-      await settle()
       const write = vi.spyOn(idb, 'idbSet')
+      await store.init([])
+      // init's own write has landed, and announced that it did, before anything is counted
+      await vi.waitFor(() => expect(write).toHaveBeenCalled())
+      for (let seen = -1; seen !== write.mock.results.length;) {
+        seen = write.mock.results.length
+        await Promise.all(write.mock.results.map((r) => r.value))
+        await settle()
+      }
+      write.mockClear()
       const changes = vi.fn()
       store.onChange = changes
       const view = store.view()
