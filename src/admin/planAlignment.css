@@ -381,6 +381,12 @@ button.adm-floor-index { min-width: var(--tap); min-height: var(--tap); cursor: 
   .adm-editor-pane .adm-pairing > [role=status] > :nth-child(2) { flex-basis: calc(100% - 21px); }
   /* the shared `.btn` shrinks (flex 1, min-width 0) – beside a wrapped sentence it lost its word */
   .adm-editor-reload .btn { flex: none; }
+  /* a crowded phone (the instrument's «Genauigkeit» open, a refusal and the reload bar under it)
+     no longer squeezes plan and map to nothing: the stack keeps two 140px rows and the detail
+     scrolls instead – the reload bar stays put below it */
+  .adm-plan-editor .adm-editor-detail { overflow-y: auto; }
+  .adm-editor-pane:has(> .adm-pairing) { flex: 1 0 auto; }
+  .adm-editor-pane .adm-pairing-panes { min-height: 280px; }
 }
 
 .adm-editor-backdrop { position: fixed; inset: 0; z-index: var(--z-admin-overlay-scrim); background: var(--surface); }
