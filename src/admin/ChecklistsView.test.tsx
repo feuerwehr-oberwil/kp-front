@@ -147,33 +147,21 @@ describe('Checklisten — cleaning up the leftovers', () => {
     expect(screen.queryByText('checklists:alt:p1')).toBeNull()
   })
 
-  it('keeps the error when the list cannot be read again either', async () => {
-    const orphan = ds('checklists:alt:p1', { content_type: 'image/png' })
-    apiGet
-      .mockResolvedValueOnce([...REGISTRY, orphan])
-      .mockResolvedValueOnce([...REGISTRY, orphan])
-      .mockRejectedValue(new ApiError(503, 'Datenbank nicht erreichbar'))
-    apiPost.mockRejectedValue(new ApiError(503, 'Datenbank nicht erreichbar'))
-    render(<ChecklistsView />)
-    fireEvent.click(await screen.findByRole('button', { name: C.cleanOrphans }))
-
-    await screen.findByText(C.loadError)
-    expect(screen.getByText(fillTemplate(C.cleanFailed, { reason: 'Datenbank nicht erreichbar' }))).toBeTruthy()
-  })
-
   // Sweep 26.11.2026: offline, the line carried the field app's «Gespeicherte Einsätze bleiben
-  // offline verfügbar.» – the transport's hint, not this card's.
-  it('says offline what was not deleted, without the field app\'s hint', async () => {
+  // offline verfügbar.», and the failed re-read took the list away that it said was still there.
+  it('offline: says what was not deleted and keeps the leftovers listed, without the field app\'s hint', async () => {
     const E = appConfig.copy.errors
+    const offline = Object.assign(new ApiError(0, E.serverUnreachable), { hint: E.serverUnreachableHint })
     const orphan = ds('checklists:alt:p1', { content_type: 'image/png' })
-    apiGet.mockResolvedValue([...REGISTRY, orphan])
-    apiPost.mockRejectedValue(Object.assign(new ApiError(0, E.serverUnreachable), { hint: E.serverUnreachableHint }))
+    apiGet.mockResolvedValueOnce([...REGISTRY, orphan]).mockRejectedValue(offline)
     render(<ChecklistsView />)
     fireEvent.click(await screen.findByRole('button', { name: C.cleanOrphans }))
 
     const line = await screen.findByText(fillTemplate(C.cleanFailed, { reason: E.serverUnreachable }))
     expect(line.textContent).not.toContain(E.serverUnreachableHint)
     expect(screen.getByText('checklists:alt:p1')).toBeTruthy()
+    expect(screen.queryByText(C.loadError)).toBeNull()
+    expect(apiPost).not.toHaveBeenCalled()
   })
 })
 

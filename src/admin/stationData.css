@@ -86,7 +86,7 @@
 /* compact like the cards around it: the block's gap is the only spacing – its two lines are
    inline text (headline, failure under the button), not `.adm-state` empty states */
 .adm-ck-orphans > p { margin: 0; font-size: var(--fs-1); line-height: var(--lh-1); }
-.adm-ck-orphans .adm-ck-facts { margin: 0; }
+.adm-ck-orphans .adm-ck-facts { margin: 0; overflow-wrap: anywhere; } /* a long id breaks, never widens the card */
 
 @media (max-width: 720px) {
   .adm-slot { grid-template-columns: 1fr; align-items: start; gap: 6px; }
