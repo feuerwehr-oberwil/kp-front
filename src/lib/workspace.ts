@@ -400,20 +400,29 @@ const BEARINGS = ['rotation', 'rotation2'] as const
 const lngLat = (v: unknown): v is LngLat =>
   Array.isArray(v) && v.length === 2 && num(v[0]) && num(v[1]) && Math.abs(v[0]) <= 180 && Math.abs(v[1]) <= 90
 const boardPt = (v: unknown): v is BoardPoint => Array.isArray(v) && (v.length === 2 || v.length === 3) && v.every(num)
-/** A stored Trupp: its clocks, its Eingangsdruck and its phase pass unchecked. A repair would make
- *  a new value out of nothing — a 0 bar reads as an empty cylinder on the board and in the push,
- *  a filled-in stamp outvotes a contact another device just recorded in the merge — and would
- *  change a row the server only keeps while it is unchanged (sanitizeWorkspace · fixTimeline). */
+// The stored rows the gate passes on partly UNCHECKED, and why no repair is safe there. ⚠️ Two
+// rules hold every new repair back:
+//  - a repair is a LOCAL EDIT: the merge compares this device's rows with the server's raw blob
+//    (its ancestor), so a repaired row reads as «changed here» and, when another device edited
+//    the same row meanwhile, outvotes that edit (review of 26.11.2026: a repaired bearing undid a
+//    rename). Only rows nobody edits take one (Mittel events, the device-local layerState);
+//  - the server keeps an invalid stored Trupp or Verlauf row only while it is UNCHANGED
+//    (alarm_validation · validate_alarm_workspace): a repair that changes one gets the whole next
+//    save refused.
+// So these lists repair what they did before 26.11.2026, and the rest of what they require is
+// named here. What lifts it: the merge comparing against an ancestor normalised by this gate.
+/** a Trupp: also, a 0 bar would read as an empty cylinder on the board and in the push */
 type TruppRow = Stored<Trupp, 'entryTime' | 'lastContactTime' | 'entryPressureBar' | 'status'>
 const isTruppRow = storedRow<Trupp, 'entryTime' | 'lastContactTime' | 'entryPressureBar' | 'status'>()
-/** A stored Verlauf row: its icon passes unchecked (same server rule as the Trupp) — every reader
- *  compares it or hands it to `<Icon>`, which draws nothing for an unknown one. */
+/** a Verlauf row: every reader compares the icon or hands it to `<Icon>`, which draws nothing for an unknown one */
 type TimelineRow = Stored<TimelineEvent, 'icon'>
 const isTimelineRow = storedRow<TimelineEvent, 'icon'>()
-/** A stored Kartenansicht: its centre and zoom pass unchecked. There is no default to repair them
- *  to, and a view without them would throw in an older build's menu, where a wrong one does not. */
-type CameraViewRow = Stored<CameraView, 'center' | 'zoom'>
-const isCameraViewRow = storedRow<CameraView, 'center' | 'zoom'>()
+/** a Kartenansicht: there is no default centre or zoom, and a view without them would throw in an older build's menu */
+const isCameraViewRow = storedRow<CameraView, 'name' | 'center' | 'zoom' | 'bearing'>()
+const isShiftRow = storedRow<Shift, 'personId' | 'from' | 'to'>()
+type BandRow = Stored<ShiftBand, 'from' | 'to'>
+const isBandRow = storedRow<ShiftBand, 'from' | 'to'>()
+const isAttachmentRow = storedRow<ReportAttachment, 'url' | 'at'>()
 /** a `layerState` row: its id and visibility checked, its opacity not yet (sanitizeWorkspace · fixLayerRow) */
 type LayerRow = Omit<Saved['layerState'][number], 'opacity'> & { opacity?: unknown }
 const isLayerRow = (v: unknown): v is LayerRow => hasId(v) && typeof v.visible === 'boolean'
@@ -515,19 +524,10 @@ export function sanitizeWorkspace(raw: unknown): WorkspaceGate {
     if (v != null) dropped++
     return 0
   }
-  // ⚠️ The server keeps an invalid stored Trupp or Verlauf row only while it is UNCHANGED
-  // (alarm_validation · validate_alarm_workspace): a repair that changes such a row gets the whole
-  // next save refused. So these two lists repair no more than they did before 26.11.2026 — what
-  // they leave unchecked is their `AsStored`.
   const fixTimeline = (e: TimelineRow): TimelineEvent => ({ ...e, t: text(e.t), text: text(e.text) })
   const fixMittel = (m: Stored<MittelEntry>): MittelEntry =>
     ({ ...m, label: text(m.label), unit: text(m.unit), menge: count(m.menge), at: text(m.at) })
-  const fixShift = (s: Stored<Shift>): Shift => ({ ...s, personId: text(s.personId), from: text(s.from), to: text(s.to) })
-  const fixBand = (b: Stored<ShiftBand>): ShiftBand => ({ ...b, label: text(b.label), from: text(b.from), to: text(b.to) })
-  const fixAttachment = (a: Stored<ReportAttachment>): ReportAttachment => ({ ...a, url: text(a.url), at: text(a.at) })
-  // a view without a bearing is north-up
-  const fixCameraView = (c: CameraViewRow): CameraView =>
-    ({ ...c, name: text(c.name), bearing: num(c.bearing) ? c.bearing : (c.bearing != null && dropped++, 0) })
+  const fixBand = (b: BandRow): ShiftBand => ({ ...b, label: text(b.label) })
   // a layer's opacity reaches the map's paint: anything but a number goes, the layer's own stays
   const fixLayerRow = ({ opacity, ...row }: LayerRow): Saved['layerState'][number] => {
     if (num(opacity)) return { ...row, opacity }
@@ -728,12 +728,12 @@ export function sanitizeWorkspace(raw: unknown): WorkspaceGate {
     })(arr(raw.trupps, isTruppRow)?.map(fixTrupp)),
     attendance: rec<AttendanceState>(raw.attendance),
     mittel: arr(raw.mittel, storedRow<MittelEntry>())?.map(fixMittel),
-    shifts: arr(raw.shifts, storedRow<Shift>())?.map(fixShift),
-    bands: arr(raw.bands, storedRow<ShiftBand>())?.map(fixBand),
-    cameraViews: arr(raw.cameraViews, isCameraViewRow)?.map(fixCameraView),
+    shifts: arr(raw.shifts, isShiftRow),
+    bands: arr(raw.bands, isBandRow)?.map(fixBand),
+    cameraViews: arr(raw.cameraViews, isCameraViewRow),
     trails: arr(raw.trails, isTruppTrail),
     reportMeta: rec<ReportMeta>(raw.reportMeta),
-    attachments: arr(raw.attachments, storedRow<ReportAttachment>())?.map(fixAttachment),
+    attachments: arr(raw.attachments, isAttachmentRow),
     reportSignatures: arr(raw.reportSignatures, isReportSignature),
     planBindings: arr(raw.planBindings, isIncidentPlanBinding),
     settings,
