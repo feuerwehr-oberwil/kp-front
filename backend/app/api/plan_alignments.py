@@ -259,9 +259,14 @@ async def undo_decision(
 async def retry_alignment(
     item_id: int, body: AlignmentMutation, _admin: CurrentAdmin, db: AsyncSession = Depends(get_db)
 ):
+    """«Neu berechnen»: requeues the job – status, reason, lease and attempts reset; the stored
+    fit stays until the worker writes a new one. An approved fit and one the worker already
+    holds are refused, each saying which of the two it is."""
     row = await _get(db, item_id)
-    if row.status in {"approved", "processing", "pending"}:
-        raise HTTPException(status_code=409, detail="Ausrichtung kann jetzt nicht neu berechnet werden")
+    if row.status == "approved":
+        raise HTTPException(status_code=409, detail="Ausrichtung ist bereits freigegeben.")
+    if row.status in {"processing", "pending"}:
+        raise HTTPException(status_code=409, detail="Ausrichtung wird bereits berechnet – Ergebnis abwarten")
     return await _change(
         db, row, body.edit_version, "retry", {"status": "pending", "reason": None, "claimed_at": None, "attempts": 0}
     )

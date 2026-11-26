@@ -373,8 +373,18 @@ async def test_retry_requeues_a_failed_sheet_and_refuses_while_it_is_decided_or_
     events = (await db_session.execute(select(PlanAlignmentEvent))).scalars().all()
     assert [e.action for e in events] == ["retry"]
 
-    # pending (and processing, approved) is not retried – and a stale edit_version is a 409 too
-    assert (await client.post(url + "/retry", json={"edit_version": 2})).status_code == 409
+    # pending (and processing, approved) is not retried, and the refusal says which state it met –
+    # the review shows a 409's own sentence (admin/PlanAlignmentReview · refusalText)
+    refused = await client.post(url + "/retry", json={"edit_version": 2})
+    assert (refused.status_code, refused.json()["detail"]) == (
+        409,
+        "Ausrichtung wird bereits berechnet – Ergebnis abwarten",
+    )
+    row.status = "approved"
+    await db_session.commit()
+    refused = await client.post(url + "/retry", json={"edit_version": 2})
+    assert (refused.status_code, refused.json()["detail"]) == (409, "Ausrichtung ist bereits freigegeben.")
+    # …and a stale edit_version is a 409 too
     row.status = "needs_review"
     await db_session.commit()
     assert (await client.post(url + "/retry", json={"edit_version": 1})).status_code == 409
