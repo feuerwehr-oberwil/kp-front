@@ -14,6 +14,8 @@
     "build": "tsc --noEmit && vite build",
     "lint": "node scripts/lint-ratchet.mjs",
     "lint:update": "node scripts/lint-ratchet.mjs --update",
+    "lint:typed": "node --max-old-space-size=6144 scripts/lint-ratchet.mjs --typed",
+    "lint:typed:update": "node --max-old-space-size=6144 scripts/lint-ratchet.mjs --typed --update",
     "knip": "node scripts/knip-ratchet.mjs",
     "lint:dead": "pnpm knip && jscpd .",
     "test": "vitest run",

@@ -32,7 +32,8 @@ updates:
 
   # GitHub Actions
   - package-ecosystem: github-actions
-    directory: "/"
+    # "/" reads .github/workflows only; the composite actions pin their own actions
+    directories: ["/", "/.github/actions/*"]
     schedule:
       interval: weekly
     # codeql-action/init and /analyze must be the SAME version: proposed as two PRs (13.09.2026),

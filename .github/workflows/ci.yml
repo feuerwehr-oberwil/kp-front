@@ -32,17 +32,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6; pnpm from packageManager
-
-      - name: Setup Node
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
-        with:
-          node-version: 24  # matches Dockerfile (node:24-slim); 20 went EOL 2026-04-30
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - uses: ./.github/actions/node-deps
 
       # eslint's own cache (content-hashed, node_modules/.cache/eslint): a run re-lints only the
       # files that changed since the cached one. Keyed on the lockfile + config, so a plugin or
@@ -60,6 +50,10 @@ jobs:
       - name: Lint, types, build, bundle and audits (just ci-frontend)
         run: just ci-frontend
 
+      # Not in ci-frontend, so the pre-push hook skips it (justfile · ci-lint-typed).
+      - name: Type-aware lint (just ci-lint-typed)
+        run: just ci-lint-typed
+
   # Coverage remains ONE complete run and one unchanged global floor, alongside static checks.
   frontend-tests:
     name: Frontend unit tests + coverage
@@ -68,12 +62,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
-        with:
-          node-version: 24
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
+      - uses: ./.github/actions/node-deps
       - uses: ./.github/actions/setup-just
       - name: Unit tests + coverage (just ci-unit)
         run: just ci-unit
@@ -249,12 +238,7 @@ jobs:
         working-directory: backend
         run: uv sync --locked --extra dev
 
-      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
-        with:
-          node-version: 24
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
+      - uses: ./.github/actions/node-deps
 
       - uses: ./.github/actions/setup-just
 
@@ -348,9 +332,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Lint Dockerfile (hadolint)
         uses: hadolint/hadolint-action@06be81baf89a55ffd0e24b8f04a4185738dd3387 # v3.5.0
-        continue-on-error: true  # advisory until the existing Dockerfile baseline is clean
         with:
           dockerfile: Dockerfile
+          config: .hadolint.yaml  # the ignored rules, each with its reason
+          failure-threshold: style  # every finding fails, down to style (the action's default is info)
       - name: Build the production image once
         uses: ./.github/actions/build-image
         with:
@@ -437,17 +422,7 @@ jobs:
       # Browser-driven white-screen smoke against the SAME running production container.
       # Catches the catastrophic class the curl check can't see: a surface that throws on
       # mount, a wedged session, a build that loads blank.
-      - name: Install pnpm
-        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6; pnpm from packageManager
-
-      - name: Setup Node
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
-        with:
-          node-version: 24
-          cache: pnpm
-
-      - name: Install deps (Playwright)
-        run: pnpm install --frozen-lockfile
+      - uses: ./.github/actions/node-deps
 
       - name: Install the suite's browsers
         uses: ./.github/actions/playwright-browsers
@@ -532,17 +507,7 @@ jobs:
         with:
           image-artifact: production-image
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6; pnpm from packageManager
-
-      - name: Setup Node
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
-        with:
-          node-version: 24
-          cache: pnpm
-
-      - name: Install deps (Playwright)
-        run: pnpm install --frozen-lockfile
+      - uses: ./.github/actions/node-deps
 
       - name: Install Playwright Chromium
         uses: ./.github/actions/playwright-browsers
@@ -626,17 +591,7 @@ jobs:
         with:
           image-artifact: production-image
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6; pnpm from packageManager
-
-      - name: Setup Node
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
-        with:
-          node-version: 24
-          cache: pnpm
-
-      - name: Install deps (Playwright)
-        run: pnpm install --frozen-lockfile
+      - uses: ./.github/actions/node-deps
 
       - name: Install Playwright Chromium
         uses: ./.github/actions/playwright-browsers

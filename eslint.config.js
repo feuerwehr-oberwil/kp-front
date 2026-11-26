@@ -106,6 +106,14 @@ export default tseslint.config(
     ignores: ['src/lib/**', ...TESTS],
     rules: { 'no-restricted-imports': ['error', { patterns: [API_DOOR, OVERLAY_DOOR] }] },
   },
+  // The Node scripts (CI gates, the house plugin, the ratchets): plain JS, so the recommended rules
+  // only; the root build configs are .ts and go through the first block.
+  {
+    files: ['scripts/**/*.mjs'],
+    extends: [js.configs.recommended],
+    languageOptions: { ecmaVersion: 2024, globals: { ...globals.node } },
+    rules: { 'no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }] },
+  },
   // Playwright e2e: node, and a fixture's `use` callback is Playwright's, not React's hook
   {
     files: ['e2e/**/*.ts'],

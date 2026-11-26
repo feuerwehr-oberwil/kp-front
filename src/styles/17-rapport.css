@@ -474,7 +474,7 @@
    reads as one more control under the rows rather than a field spanning the column. */
 .report-partner-add { display: flex; align-items: center; gap: 8px; align-self: flex-start; width: 100%; max-width: 280px; }
 /* on a phone the cap cost the placeholder its last letters («Organisation hinzufüge») */
-@media (max-width: 600px) { .report-partner-add { max-width: none; } }
+@media (--phone) { .report-partner-add { max-width: none; } }
 .report-partner-add .ci { flex: 1 1 auto; min-width: 0; }
 /* (its «+» is <IconButton variant="secondary">, 08.10.2026) */
 

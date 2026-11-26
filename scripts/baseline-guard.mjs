@@ -126,8 +126,10 @@ function jscpdLimits(json) {
  * limit they make. src/components/controlDebt.test.ts keeps its baseline in TypeScript and is
  * not covered.
  */
+const eslintCounts = byLimits(leavesOf(COUNT, (p) => p[0] === 'rules' || p[0] === 'silenced'))
 export const BASELINES = {
-  'scripts/eslint-baseline.json': byLimits(leavesOf(COUNT, (p) => p[0] === 'rules' || p[0] === 'silenced')),
+  'scripts/eslint-baseline.json': eslintCounts,
+  'scripts/eslint-typed-baseline.json': eslintCounts,
   'scripts/knip-baseline.json': byLimits(leavesOf(COUNT, (p) => p[0] === 'counts')),
   'src/styles/styleDebt.baseline.json': byLimits(leavesOf(COUNT)),
   'scripts/bundle-baseline.json': byLimits(bundleLimits, { removed: 'ok' }),

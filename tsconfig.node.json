@@ -1,0 +1,23 @@
+{
+  // The build configs run in Node, outside tsconfig.json's src/ (no Node globals there).
+  // `just check` and ci-frontend type-check them here. The .mjs scripts they import are read for
+  // their inferred types, not checked.
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "incremental": true,
+    "tsBuildInfoFile": "node_modules/.cache/typescript/node.tsbuildinfo",
+    "isolatedModules": true,
+    "allowJs": true,
+    "checkJs": false,
+    "types": ["node"]
+  },
+  "include": ["vite.config.ts", "vitest.mutation.config.ts"]
+}

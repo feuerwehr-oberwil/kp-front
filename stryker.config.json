@@ -8,14 +8,14 @@
     "src/lib/atemschutz.ts",
     "src/lib/auditEventStore.ts",
     "src/lib/eventScope.ts",
-    "src/lib/jsonEqual.ts",
     "src/lib/mergeWorkspace.ts",
-    "src/lib/serialQueue.ts",
     "src/lib/serverClock.ts",
     "src/lib/syncAlert.ts",
     "src/lib/undoTimeline.ts",
     "src/lib/alarm.ts",
-    "src/lib/alarmReadiness.ts"
+    "src/lib/alarmReadiness.ts",
+    "src/lib/api/workspaceSync.ts",
+    "src/lib/mediaQueue.ts"
   ],
   "concurrency": 4,
   "timeoutMS": 5000,
