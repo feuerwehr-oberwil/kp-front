@@ -198,6 +198,53 @@ async def _set_name_order(db_session, order: str) -> None:
     await db_session.commit()
 
 
+@pytest.mark.parametrize(
+    ("document", "names"),
+    [
+        # a broken `roster` serves the shipped order, not a 500 on the Mannschaft list
+        ({"roster": ["not", "a", "section"]}, ["Ärni Zoe", "Brunner Anna", "Müller Hans", "Von Arx Beat"]),
+        ({"roster": "not a section"}, ["Ärni Zoe", "Brunner Anna", "Müller Hans", "Von Arx Beat"]),
+        # raw on purpose: a part broken ELSEWHERE must not flip the order the Divera sync writes in
+        (
+            {"roster": {"nameOrder": "first-last"}, "report": {"partnerOrgs": "kaputt"}},
+            ["Anna Brunner", "Hans Müller", "Von Arx Beat", "Zoe Ärni"],
+        ),
+    ],
+    ids=["roster-list", "roster-string", "broken-elsewhere"],
+)
+async def test_the_name_order_reads_a_malformed_document(client, editor, db_session, document, names):
+    from app.models import DeploymentConfig
+
+    await _login(client, editor)
+    await _seed_split_roster(db_session)
+    db_session.add(DeploymentConfig(id=1, config_json=document))
+    await db_session.commit()
+    r = await client.get("/api/personnel")
+    assert r.status_code == 200, r.text
+    assert [p["display_name"] for p in r.json()] == names
+
+
+@pytest.mark.parametrize(
+    ("document", "kinds"),
+    [
+        ({"roster": ["not", "a", "section"]}, {}),
+        # raw on purpose: a part broken ELSEWHERE must not cost the overrides the poll stores with
+        (
+            {"roster": {"diveraResponses": {"13": "not_coming"}}, "report": {"partnerOrgs": "kaputt"}},
+            {"13": "not_coming"},
+        ),
+    ],
+    ids=["broken-roster", "broken-elsewhere"],
+)
+async def test_divera_response_overrides_read_a_malformed_document(db_session, document, kinds):
+    from app.models import DeploymentConfig
+    from app.personnel import load_divera_response_kinds
+
+    db_session.add(DeploymentConfig(id=1, config_json=document))
+    await db_session.commit()
+    assert await load_divera_response_kinds(db_session) == kinds
+
+
 async def test_created_and_patched_person_comes_back_in_the_configured_order(client, editor, db_session):
     await _login(client, editor)
     await _set_name_order(db_session, "first-last")

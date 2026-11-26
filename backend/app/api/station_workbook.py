@@ -162,7 +162,6 @@ async def export_workbook(
     stored = config.model_dump(mode="json")
     people = await _people(db)
     identities = await _identity_pairs(db)
-    # From the validated read too: the raw `load_roster_name_order` would raise on a broken `roster`.
     order = config.roster.nameOrder
     data = await anyio.to_thread.run_sync(lambda: build_workbook(stored, list(people), identities, order))
     name = f"stationsdaten-{datetime.now(UTC).date().isoformat()}.xlsx"

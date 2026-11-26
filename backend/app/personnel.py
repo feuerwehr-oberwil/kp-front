@@ -244,10 +244,19 @@ def derive_rank_from_quals(qual_names: list[str], ranks: list[dict]) -> str | No
     return ranks[-1]["key"]  # base rank — everyone is at least this
 
 
-# ⚠️ The four `roster.*` readers below read the RAW document, not `deployment_config.read_config`:
-# their values feed the unattended roster sync and the rank writes, and the validated read's
-# fallback on a document broken ELSEWHERE would sync with the shipped ranks and levels instead
-# of the station's own.
+# ⚠️ The `roster.*` readers below read the RAW document, not `deployment_config.read_config`:
+# their values feed the unattended roster sync (names, ranks, levels) and the stored Divera
+# answers, and the validated read's fallback on a document broken ELSEWHERE would write with the
+# shipped order, ranks, levels and readings instead of the station's own.
+
+
+async def _raw_roster(db: AsyncSession) -> dict:
+    """The stored ``roster`` part as it lies, or ``{}`` when the row, the document or the part
+    is not an object — never an error."""
+    row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
+    doc = row.config_json if row else None
+    roster = doc.get("roster") if isinstance(doc, dict) else None
+    return roster if isinstance(roster, dict) else {}
 
 
 async def load_roster_ranks_info(db: AsyncSession) -> tuple[list[dict], bool]:
@@ -276,9 +285,9 @@ async def load_roster_name_order(db: AsyncSession) -> NameOrder:
     """The station's ``roster.nameOrder`` (stored config → shipped default).
 
     Read on every request that serves names — the order is applied when a name goes out, never
-    when it is stored, so flipping the setting takes effect without a migration or a re-sync."""
-    row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
-    value = ((row.config_json or {}).get("roster", {}) or {}).get("nameOrder") if row else None
+    when it is stored, so flipping the setting takes effect without a migration or a re-sync.
+    Raw (see above): the Divera sync writes the names in this order."""
+    value = (await _raw_roster(db)).get("nameOrder")
     return "first-last" if value == "first-last" else DEFAULT_NAME_ORDER
 
 
@@ -294,9 +303,9 @@ async def load_roster_auto_sync(db: AsyncSession) -> AutoSyncLevel:
 
 
 async def load_divera_response_kinds(db: AsyncSession) -> dict:
-    """The station's ``roster.diveraResponses`` override (status id/name → kind), or ``{}``."""
-    row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
-    value = ((row.config_json or {}).get("roster", {}) or {}).get("diveraResponses") if row else None
+    """The station's ``roster.diveraResponses`` override (status id/name → kind), or ``{}``.
+    Raw (see above): the poll stores the answers it classifies with this."""
+    value = (await _raw_roster(db)).get("diveraResponses")
     return value if isinstance(value, dict) else {}
 
 
