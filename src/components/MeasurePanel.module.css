@@ -135,6 +135,9 @@
        lies OVER the chip, as the Gebäude card does (--z-map-card) – the chip lay on the
        Wassertransport's ✕ */
     z-index: var(--z-map-card); }
+  /* …and while a Meldeleiste stands it ends one --float-gap under the STRIP (15-mobile ·
+     --under-alert, owner 26.11.2026): open, it grew up under the alert, its readout and ✎ hidden */
+  :global(:root:has(.ml)) .measure-panel { max-height: calc(100dvh - var(--mp-bottom) - var(--under-alert)); }
   /* in a scrolling column a child keeps its height (the chart, the relay card) – the panel scrolls */
   .measure-panel > * { flex-shrink: 0; }
   /* the hint alone («Mind. 2 Punkte») and the Plan's source note are that one row too.

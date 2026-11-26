@@ -447,6 +447,10 @@
    of pushing the row wider than a phone; right-aligned like the Aus/An pairs above it (owner, 05.10.2026) */
 .set-row > .set-name { flex: 0 1 auto; max-width: 100%; min-width: 0; margin-left: auto; }
 .set-name-v { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* «Name dieses Geräts» (components/DeviceName, B3·47): the field takes the row's right half, and
+   the first-login ask says why above its field */
+.set-row > .set-device-name { flex: 0 1 220px; min-width: 0; }
+.set-device-ask { margin: 0 0 var(--sp-3); font-size: var(--fs-2); line-height: 1.45; color: var(--ink-dim); }
 .set-name svg { flex: none; }
 
 /* Offline-Bereitschaft sheet — a glanceable readiness checklist + one load-all action */

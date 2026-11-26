@@ -5,7 +5,7 @@
 import { appConfig } from '../config/appConfig'
 import { ApiError, apiGet, apiPost, apiPut, apiRequestRaw, throwResponseError, UPLOAD_REQUEST_TIMEOUT_MS } from '../lib/api'
 import type {
-  Catalogue, DeliveryRow, NotifyState, PutAccepted, Revision, ServerVisit, VisitDoc, VisitSummary,
+  AdminVisitSummary, Catalogue, DeliveryRow, DestinationTest, NotifyState, PutAccepted, RetryAnswer, Revision, ServerVisit, VisitDoc, VisitSummary,
 } from './types'
 
 const FIELD = '/api/object-visits'
@@ -144,12 +144,12 @@ export const attachmentUrl = (visitId: string, attId: string, thumb = false) =>
 
 // --- admin -------------------------------------------------------------------------------
 
-export const adminListVisits = (f?: ListFilter) => apiGet<VisitSummary[]>(OV_ROUTES.adminList(filterQuery(f)))
+export const adminListVisits = (f?: ListFilter) => apiGet<AdminVisitSummary[]>(OV_ROUTES.adminList(filterQuery(f)))
 export const adminDeliveries = () => apiGet<DeliveryRow[]>(OV_ROUTES.adminDeliveries)
 export const adminRetryDeliveries = (destination: string, visitId?: string) =>
-  apiPost<{ retried: number }>(OV_ROUTES.adminRetry, visitId ? { destination, visitId } : { destination })
+  apiPost<RetryAnswer>(OV_ROUTES.adminRetry, visitId ? { destination, visitId } : { destination })
 export const adminTestDestination = (destination: string) =>
-  apiPost<{ ok: boolean; status?: number | null; detail?: string | null; webUrl?: string | null }>(OV_ROUTES.adminTest(destination))
+  apiPost<DestinationTest>(OV_ROUTES.adminTest(destination))
 export const adminExportUrl = (f?: ListFilter) => OV_ROUTES.adminExport(filterQuery(f))
 /** Who gets «Neuer Objektbesuch» (docs/object-visits.md · Notification) — read, and set as the whole list. */
 export const adminNotify = () => apiGet<NotifyState>(OV_ROUTES.adminNotify)

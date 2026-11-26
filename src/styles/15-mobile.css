@@ -485,6 +485,10 @@
     --under-bar: calc(var(--bar-foot) + var(--float-gap));
     /* where the Meldeleiste and the toasts start: a --sp-1 under the bar (08-toasts · .ml) */
     --msg-top: calc(var(--bar-foot) + var(--sp-1)); }
+  /* …and while a Meldeleiste stands, one --float-gap under the strip, by its measured `--ml-h`:
+     where a piece hung under the bar goes instead (owner, 26.11.2026 – no piece lies on an alert:
+     the row under the bar, the Messen panel's top, the Plan's «in der Nähe» banner). */
+  :root:has(.ml) { --under-alert: calc(var(--msg-top) + var(--ml-h, 0px) + var(--float-gap)); }
   .topbar { top: var(--bar-top); left: max(8px, env(safe-area-inset-left));
     right: max(8px, env(safe-area-inset-right)); max-width: none; gap: 8px; flex-wrap: nowrap; }
   .eaddr { display: none; }
@@ -877,7 +881,7 @@
      10-journal.css: the tablet card is the same capped flex column and clipped the same row.) */
 
   /* ── the Art as «I · A · S» (owner, 19.11.2026: «on mobile do the same but just with I/A/S») ──
-     The one row (10-journal · .jc-row) has no room for three words beside ⏱ □ and the clip on a
+     The one row (10-journal · .jc-row) has no room for three words beside «Pendenz» and the clip on a
      phone, so each Art option shows its initial, three equal thirds of the track, big enough to
      read at arm's length with a glove on. The word stays the button's name and title. */
   .journal-composer .jc-art > .jc-chip { flex: 1 1 0; padding: var(--sp-1) 2px; font-size: var(--fs-3); }
@@ -1122,6 +1126,10 @@
      · .wb-botleft): on the bars, beside a bar that leaves it room, risen past one that does not.
      The recording FAB on a detail sheet keeps its own place (below). */
   .fab-entry[data-float-placed] { bottom: calc(var(--float-floor) + var(--row-lift, 0px)); }
+  /* ⚠️ …and a piece of the row whose lift would carry it onto the Meldeleiste YIELDS (lib/floatRow ·
+     crossesCeiling, owner 26.11.2026: an open Messen panel under an alert lifted Eintrag onto the
+     strip's last row). Back when the panel folds or the strip goes. A running recording stays. */
+  :is(.fab-entry:not(.rec), .wb-botleft)[data-float-yield] { visibility: hidden; }
   /* ⚠️ …and it steps aside while a keyboard is up (`data-kb`, lib/useViewportPan · 30.09.2026).
      Its baseline is the bars', which go behind the keys, so it stood wherever iOS's pan happened
      to leave it — on the Rapport, over the Einsatzleiter field just under the Kurzbericht being
@@ -1407,6 +1415,19 @@
   /* …the family's row: --float-h tall with its 14px a side (owner pick 13.11.2026, sweep R2-C –
      it was --tap tall, 8px before the arrow and 12px after «km/h», owner note r11, 05.11.2026) */
   .phone-wx .tb-weather { min-height: var(--float-h); padding: 0 var(--float-pad-x); border-radius: inherit; }
+  /* ⚠️ No control of this row ever lies on an alert (owner, 26.11.2026: the Standort tile covered
+     «Atemschutz überfällig – Müller Hans / …» and its «Zum Trupp»). The row and the Meldeleiste
+     both hang under the bar (--under-bar, --msg-top), so while a strip stands the WHOLE row steps
+     down to `--under-alert` (one --float-gap below the strip). Never a z-index: Standort and the
+     GPS chip ride the top bar (z56, over the strip at 54) and covered it; the wind lay under it,
+     out of reach. One rule for the row, so a new piece of it yields too. */
+  :root:has(.ml) :is(.tb-share, .tb-gps, .phone-wx) { margin-top: calc(var(--under-alert) - var(--under-bar)); }
+  /* …and while the row holds a piece the strip ENDS one row higher (it scrolls past that), so the
+     row always finds its line between the strip and the floating row: at 320×640 three alarm rows
+     reached the floating row and the row stepped onto «Info» and the FAB. `:where()` keeps this at
+     `.ml`'s own weight, so a tighter cap (the Tafel's, 08-toasts) still wins. */
+  :where(:root:has(.tb-share > *, .tb-gps, .phone-wx)) .ml {
+    max-height: calc(100dvh - var(--msg-top) - var(--nudge-reserve, 0px) - var(--msg-lane-bottom) - var(--float-h) - var(--float-gap)); }
 
   /* Einstellungen rows: the 3-segment controls (Farbschema, Beschriftungen) are wider than
      a phone row leaves next to the label — let the control wrap onto its own right-aligned
@@ -1444,11 +1465,15 @@
      AnwesenheitView): where the bar has no pair, the surface being tapped offers its own. */
   .topbar .tb-act-history { display: none; }
   /* …and «Neuer Eintrag»'s one row (10-journal · .jc-row): at 16px of gutter and 8px of gap the
-     three Art options were 39.7px wide at 320 (Sol review, PR #704). 12 + 4 hand back 16px, and
-     each option is 45px beside ⏱ □ and the clip (or the stop square in its place). */
+     three Art options were 39.7px wide at 320 (Sol review, PR #704). 12 + 4 hand back 16px.
+     The worded «Pendenz» button (UX pick B2·40, 25.11.2026) is 14px wider than the ⏱ □ pair it
+     replaced – at its 12px sides the options were 39.3px again. 4px sides and a 4px ring–word gap
+     hand back 20px: each option is 46px beside «Pendenz» and the clip (or the stop square in its
+     place), measured by e2e/touch.spec.ts. */
   .journal-composer { padding-inline: 12px; }
   .journal-composer > .jc-body { margin-inline: -12px; padding-inline: 12px; }
   .journal-composer .jc-row { gap: 4px; }
+  .journal-composer .jc-when .useg-btn { padding-inline: var(--sp-1); gap: var(--sp-1); }
 }
 
 /* The narrower phones' bar words (29.09.2026; on the type scale since 08.10.2026). The words are on

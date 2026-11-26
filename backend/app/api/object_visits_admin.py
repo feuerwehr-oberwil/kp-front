@@ -30,6 +30,13 @@ from ..config import external_delivery_allowed
 from ..credentials import load as load_credentials
 from ..database import get_db
 from ..models import ObjectVisit, ObjectVisitDelivery, ObjectVisitRevision, PushSubscription, User
+from ..object_visit_schemas import (
+    ObjectVisitAdminSummaryOut,
+    ObjectVisitDeliveryRowOut,
+    ObjectVisitDestinationTestOut,
+    ObjectVisitNotifyOut,
+    ObjectVisitRetryOut,
+)
 
 logger = logging.getLogger("kpfront.objectvisits")
 
@@ -40,7 +47,7 @@ def _iso(at: datetime | None) -> str | None:
     return at.isoformat() if at else None
 
 
-@router.get("")
+@router.get("", response_model=list[ObjectVisitAdminSummaryOut], response_model_exclude_unset=True)
 async def admin_list(
     _admin: CurrentAdmin,
     object: str | None = None,
@@ -114,14 +121,14 @@ async def _notify_state(db: AsyncSession) -> dict[str, Any]:
     }
 
 
-@router.get("/notify")
+@router.get("/notify", response_model=ObjectVisitNotifyOut, response_model_exclude_unset=True)
 async def admin_notify(_admin: CurrentAdmin, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     """Which accounts get «Neuer Objektbesuch» — every active account with its flag and how many
     of its browsers can receive a push. Nobody until an admin picks somebody."""
     return await _notify_state(db)
 
 
-@router.put("/notify")
+@router.put("/notify", response_model=ObjectVisitNotifyOut, response_model_exclude_unset=True)
 async def admin_set_notify(
     _admin: CurrentAdmin, body: Annotated[dict[str, Any], Body()], db: AsyncSession = Depends(get_db)
 ) -> dict[str, Any]:
@@ -138,7 +145,7 @@ async def admin_set_notify(
     return await _notify_state(db)
 
 
-@router.get("/deliveries")
+@router.get("/deliveries", response_model=list[ObjectVisitDeliveryRowOut], response_model_exclude_unset=True)
 async def admin_deliveries(
     _admin: CurrentAdmin,
     state: str | None = None,
@@ -170,7 +177,7 @@ async def admin_deliveries(
     ]
 
 
-@router.post("/deliveries/retry")
+@router.post("/deliveries/retry", response_model=ObjectVisitRetryOut, response_model_exclude_unset=True)
 async def admin_retry(
     _admin: CurrentAdmin, body: Annotated[dict[str, Any], Body()], db: AsyncSession = Depends(get_db)
 ) -> dict[str, Any]:
@@ -186,7 +193,11 @@ async def admin_retry(
     return {"retried": count}
 
 
-@router.post("/destinations/{destination_id}/test")
+@router.post(
+    "/destinations/{destination_id}/test",
+    response_model=ObjectVisitDestinationTestOut,
+    response_model_exclude_unset=True,
+)
 async def admin_test_destination(
     destination_id: str, _admin: CurrentAdmin, db: AsyncSession = Depends(get_db)
 ) -> dict[str, Any]:

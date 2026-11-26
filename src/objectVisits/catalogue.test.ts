@@ -7,21 +7,22 @@ import {
   CATALOGUE_KEY, distanceM, knownVisits, lastSeen, listProgress, loadCatalogue, loadSummaries, nearestObjects, resolveObject, visitTemplates, visitsAtStop,
 } from './catalogue'
 import type { Catalogue } from './types'
+import { catalogueObject, summaryRow, visitList } from './wire.test-utils'
 
 const cat = (over: Partial<Catalogue> = {}): Catalogue => ({
   generatedAt: '2026-10-03T08:12:00Z',
   canCapture: true,
   objects: [
-    { id: 'u1', name: 'Gemeindeverwaltung', address: 'Hauptstrasse 24', lat: 47.513, lng: 7.559, refs: [{ source: 'fwo-schlue', id: 'h-1' }], lastVisit: null },
-    { id: 'u2', name: 'Werkhof', address: 'Sägestrasse 9', lat: 47.52, lng: 7.56, refs: [] },
-    { id: 'u3', name: 'Ohne Koordinaten' },
+    catalogueObject({ id: 'u1', name: 'Gemeindeverwaltung', address: 'Hauptstrasse 24', lat: 47.513, lng: 7.559, refs: [{ source: 'fwo-schlue', id: 'h-1' }] }),
+    catalogueObject({ id: 'u2', name: 'Werkhof', address: 'Sägestrasse 9', lat: 47.52, lng: 7.56 }),
+    catalogueObject({ id: 'u3', name: 'Ohne Koordinaten' }),
   ],
   templates: [
     { id: 'schluessel', kind: 'visit', version: 1, title: 'Kontrolle Schlüsselhülse', source: 'FU', phases: [] },
     { id: 'schluessel', kind: 'visit', version: 2, title: 'Kontrolle Schlüsselhülse', source: 'FU', phases: [] },
     { id: 'fu', kind: 'action', version: 1, title: 'FU Aktion', source: 'FU', phases: [] },
   ],
-  lists: [{ ref: 'fu-2027/B4', title: 'B4', objectIds: ['u1', 'u2', 'u3'] }],
+  lists: [visitList({ ref: 'fu-2027/B4', title: 'B4', objectIds: ['u1', 'u2', 'u3'] })],
   proposalFields: [],
   ...over,
 })
@@ -87,8 +88,8 @@ describe('catalogue helpers', () => {
     const visits = knownVisits(
       [{ doc: { id: 'ov2', object: { id: 'u2' }, workRef: 'fu-2027/B4', lifecycle: 'draft', visitedAt: '2026-10-03' } }],
       [
-        { id: 'ov1', objectId: 'u1', workRef: 'fu-2027/B4', lifecycle: 'completed', revision: 2, ready: true, visitedAt: '2026-10-01', objectName: 'G' },
-        { id: 'ov9', objectId: 'u3', workRef: 'other', lifecycle: 'completed', revision: 1, ready: true, visitedAt: '2026-10-01', objectName: 'X' },
+        summaryRow({ id: 'ov1', objectId: 'u1', workRef: 'fu-2027/B4', lifecycle: 'completed', revision: 2, ready: true, visitedAt: '2026-10-01', objectName: 'G' }),
+        summaryRow({ id: 'ov9', objectId: 'u3', workRef: 'other', lifecycle: 'completed', revision: 1, ready: true, visitedAt: '2026-10-01', objectName: 'X' }),
       ],
     )
     const p = listProgress(list, visits)
@@ -100,10 +101,10 @@ describe('catalogue helpers', () => {
     const visits = knownVisits(
       [{ doc: { id: 'ov3', object: { id: 'u1' }, workRef: 'B4', lifecycle: 'draft', visitedAt: '2026-10-13T19:00', checklist: { id: 'fahrschule', title: 'Fahrschule' } } }],
       [
-        { id: 'ov1', objectId: 'u1', workRef: 'B4', lifecycle: 'completed', revision: 1, ready: true, visitedAt: '2026-10-13T18:40', objectName: 'G', checklist: { id: 'depot', title: 'Depot' } },
-        { id: 'ov2', objectId: 'u1', workRef: 'B4', lifecycle: 'discarded', revision: 1, ready: true, visitedAt: '2026-10-13T18:50', objectName: 'G' },
-        { id: 'ov4', objectId: 'u1', workRef: null, lifecycle: 'completed', revision: 1, ready: true, visitedAt: '2026-10-13T20:00', objectName: 'G' },
-        { id: 'ov5', objectId: 'u2', workRef: 'B4', lifecycle: 'completed', revision: 1, ready: true, visitedAt: '2026-10-13T20:00', objectName: 'H' },
+        summaryRow({ id: 'ov1', objectId: 'u1', workRef: 'B4', lifecycle: 'completed', revision: 1, ready: true, visitedAt: '2026-10-13T18:40', objectName: 'G', checklist: { id: 'depot', title: 'Depot' } }),
+        summaryRow({ id: 'ov2', objectId: 'u1', workRef: 'B4', lifecycle: 'discarded', revision: 1, ready: true, visitedAt: '2026-10-13T18:50', objectName: 'G' }),
+        summaryRow({ id: 'ov4', objectId: 'u1', workRef: null, lifecycle: 'completed', revision: 1, ready: true, visitedAt: '2026-10-13T20:00', objectName: 'G' }),
+        summaryRow({ id: 'ov5', objectId: 'u2', workRef: 'B4', lifecycle: 'completed', revision: 1, ready: true, visitedAt: '2026-10-13T20:00', objectName: 'H' }),
       ],
     )
     const here = visitsAtStop(visits, 'u1', 'B4')
@@ -130,7 +131,7 @@ describe('catalogue helpers', () => {
     expect(p.stops.get('u3')).toEqual({ done: false })
   })
   it('«zuletzt» is the newer of the last visit and an organizer\'s completion', () => {
-    const c = cat({ lists: [{ ref: 'B4', title: 'B4', objectIds: ['u1', 'u2'], done: { u1: { at: '2026-05-30', source: 'SchlüHü' }, u2: { at: '2025-01-01' } } }] })
+    const c = cat({ lists: [visitList({ ref: 'B4', objectIds: ['u1', 'u2'], done: { u1: { at: '2026-05-30', source: 'SchlüHü' }, u2: { at: '2025-01-01' } } })] })
     c.objects[1] = { ...c.objects[1], lastVisit: { id: 'ov', visitedAt: '2026-02-01T10:00:00+01:00', lifecycle: 'completed' } }
     expect(lastSeen(c, c.objects[0])).toEqual({ at: '2026-05-30', source: 'SchlüHü' })
     expect(lastSeen(c, c.objects[1])).toEqual({ at: '2026-02-01T10:00:00+01:00' })

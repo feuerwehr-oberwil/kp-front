@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { listClosed, visitSchedule } from './visitSchedule'
 import type { VisitList } from '../objectVisits/types'
+import { visitList } from '../objectVisits/wire.test-utils'
 
-const list = (ref: string, scheduledOn?: string): VisitList => ({ ref, title: ref, scheduledOn, objectIds: ['a'] })
+const list = (ref: string, scheduledOn?: string): VisitList => visitList({ ref, scheduledOn, objectIds: ['a'] })
 
 describe('dated rounds', () => {
   it('puts today, overdue and upcoming work in separate groups; retains undated legacy lists', () => {

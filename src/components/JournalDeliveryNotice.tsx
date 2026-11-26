@@ -3,6 +3,7 @@ import { Button } from './Button'
 import { useState } from 'react'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
+import { Icon } from '../lib/icons'
 import type { SyncStatus } from '../lib/incidents'
 
 /** One recovery point for journal entries that have not reached the server.
@@ -18,7 +19,17 @@ import type { SyncStatus } from '../lib/incidents'
  *  `closedRefused` (25.09.2026, N3) counts what the CLOSED Einsatz no longer took — Verlauf rows
  *  and Tafel saves this device still had on the way when another device closed it
  *  (journalStore · refused, workspaceSync · parkRefused). The same calm shape, its own words:
- *  the reason is the Abschluss, not the role, and those rows are missing from the Verlauf above. */
+ *  the reason is the Abschluss, not the role, and those rows are missing from the Verlauf above.
+ *
+ *  `count` is VERLAUF ROWS (journalStore · unsentRowIds), not rows plus their audit events – one
+ *  entry read «2 Einträge». The caller passes the audit count only when no row is outstanding.
+ *
+ *  ⚠️ While merely OFFLINE the notice is one calm line, «Offline · 1 Eintrag nur auf diesem Gerät»,
+ *  with «Herunterladen» and NO «Erneut versuchen»: without a network a retry cannot help, and
+ *  offline it answered instantly with nothing visible. The retry is back once the network is (the
+ *  `error` state); the export never leaves. The waiting rows say «nur auf diesem Gerät» themselves
+ *  (JournalRow · unsent). Owner pick UX journeys B2·37, 25.11.2026 – it was the yellow box with
+ *  both buttons whenever anything was outstanding. */
 export function JournalDeliveryNotice({ status, count, refused = 0, closedRefused = 0, onRetry, onExport }: {
   status: SyncStatus
   count: number
@@ -55,6 +66,18 @@ export function JournalDeliveryNotice({ status, count, refused = 0, closedRefuse
     )
   }
   const unsafe = status === 'storage'
+  if (status === 'offline') {
+    return (
+      <div className="jr-delivery jr-delivery-offline" role="status">
+        <Icon id="cloud-off" />
+        <div className="jr-delivery-line">
+          <strong>{count === 1 ? C.offlineTitleOne : fillTemplate(C.offlineTitle, { n: count })}</strong>
+          <p>{C.offlineLine}</p>
+        </div>
+        <Button onClick={onExport} title={C.export} aria-label={C.export}>{C.exportShort}</Button>
+      </div>
+    )
+  }
   const run = async () => {
     if (busy) return
     setBusy(true)
@@ -63,7 +86,7 @@ export function JournalDeliveryNotice({ status, count, refused = 0, closedRefuse
   return (
     <div className={`jr-delivery${unsafe ? ' jr-delivery-danger' : ''}`} role={unsafe || status === 'error' ? 'alert' : 'status'}>
       <strong>{unsafe ? C.storageTitle : count === 1 ? C.failedTitleOne : fillTemplate(C.failedTitle, { n: count })}</strong>
-      <p>{unsafe ? C.storageBody : status === 'offline' ? C.offlineBody : C.savedBody}</p>
+      <p>{unsafe ? C.storageBody : C.savedBody}</p>
       <div className="jr-delivery-actions">
         <Button variant="primary" disabled={busy} icon={busy ? <ShellLoader /> : undefined} onClick={() => void run()}>{busy ? C.retrying : C.retry}</Button>
         <Button onClick={onExport}>{C.export}</Button>

@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Cookie, Depends, Header, HTTPException, Query, Request, Response, status
-from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import object_visits as ov
@@ -29,6 +29,15 @@ from ..auth.dependencies import _admin_session_valid, get_current_user
 from ..auth.incident_link import link_page_owns_session, read_link_session
 from ..database import get_db
 from ..models import ObjectVisit, User
+from ..object_visit_schemas import (
+    ObjectVisitAttachmentOut,
+    ObjectVisitCatalogueOut,
+    ObjectVisitOut,
+    ObjectVisitPutOut,
+    ObjectVisitRevisionDocOut,
+    ObjectVisitRevisionOut,
+    ObjectVisitSummaryOut,
+)
 
 router = APIRouter(prefix="/object-visits", tags=["object-visits"])
 
@@ -134,13 +143,13 @@ async def report_response(db: AsyncSession, visit: ObjectVisit, revision: int | 
 # --- routes ------------------------------------------------------------------------------------
 
 
-@router.get("/catalogue")
+@router.get("/catalogue", response_model=ObjectVisitCatalogueOut, response_model_exclude_unset=True)
 async def get_catalogue(reader: CurrentReader, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     """Everything the field app caches for offline use: objects, visit templates, work lists."""
     return await ov.catalogue(db, can_capture=reader.can_capture)
 
 
-@router.get("")
+@router.get("", response_model=list[ObjectVisitSummaryOut], response_model_exclude_unset=True)
 async def list_visits(
     reader: CurrentReader,
     object: str | None = None,
@@ -161,12 +170,12 @@ async def list_visits(
     return [ov.summary(v) for v in visits]
 
 
-@router.get("/{visit_id}")
+@router.get("/{visit_id}", response_model=ObjectVisitOut, response_model_exclude_unset=True)
 async def get_visit(visit_id: str, _reader: CurrentReader, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     return await ov.serialize_visit(db, await ov.get_visit(db, visit_id))
 
 
-@router.put("/{visit_id}")
+@router.put("/{visit_id}", response_model=ObjectVisitPutOut, response_model_exclude_unset=True)
 async def put_visit(
     visit_id: str,
     writer: CurrentWriter,
@@ -178,16 +187,22 @@ async def put_visit(
     return await ov.apply_put(db, visit_id, body, writer.actor)
 
 
-@router.put("/{visit_id}/attachments/{att_id}", status_code=201)
+@router.put(
+    "/{visit_id}/attachments/{att_id}",
+    status_code=201,
+    response_model=ObjectVisitAttachmentOut,
+    responses={200: {"model": ObjectVisitAttachmentOut, "description": "The same bytes were already stored"}},
+)
 async def put_attachment(
     visit_id: str,
     att_id: str,
     request: Request,
+    response: Response,
     writer: CurrentWriter,
     content_type: Annotated[str | None, Header()] = None,
     x_content_sha256: Annotated[str | None, Header()] = None,
     db: AsyncSession = Depends(get_db),
-) -> JSONResponse:
+) -> dict[str, Any]:
     """Raw photo bytes. 201 new · 200 the same bytes were already stored · 409 another body."""
     code, payload = await ov.store_attachment(
         db,
@@ -198,7 +213,8 @@ async def put_attachment(
         chunks=request.stream(),
         actor=writer.actor,
     )
-    return JSONResponse(payload, status_code=code)
+    response.status_code = code
+    return payload
 
 
 @router.get("/{visit_id}/attachments/{att_id}")
@@ -213,8 +229,10 @@ async def get_attachment(
     return await attachment_response(db, visit_id, att_id, thumb)
 
 
-@router.get("/{visit_id}/revisions")
-async def list_revisions(visit_id: str, _reader: CurrentReader, db: AsyncSession = Depends(get_db)) -> list[dict]:
+@router.get("/{visit_id}/revisions", response_model=list[ObjectVisitRevisionOut], response_model_exclude_unset=True)
+async def list_revisions(
+    visit_id: str, _reader: CurrentReader, db: AsyncSession = Depends(get_db)
+) -> list[dict[str, Any]]:
     from sqlalchemy import select
 
     from ..models import ObjectVisitRevision
@@ -246,7 +264,9 @@ async def list_revisions(visit_id: str, _reader: CurrentReader, db: AsyncSession
     ]
 
 
-@router.get("/{visit_id}/revisions/{revision}")
+@router.get(
+    "/{visit_id}/revisions/{revision}", response_model=ObjectVisitRevisionDocOut, response_model_exclude_unset=True
+)
 async def get_revision(
     visit_id: str, revision: int, _reader: CurrentReader, db: AsyncSession = Depends(get_db)
 ) -> dict[str, Any]:

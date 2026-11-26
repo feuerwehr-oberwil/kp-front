@@ -18,6 +18,7 @@ import { readinessSummary } from '../../lib/alarmReadiness'
 import { ListCard, ListRow } from '../ListRow'
 import { OfflineStateContext, type DevicePartState } from './deviceState'
 import { onDevicePrefsReset, resetDevicePrefs, useDevicePrefs } from '../../lib/useDevicePrefs'
+import { DeviceNameField } from '../DeviceName'
 
 /** Percent for a symbol multiplier — «110 %» is a size anyone reads at a glance, «1.1» is not.
  *  No-break space before the sign, so the number and its unit never split across a line. */
@@ -172,6 +173,12 @@ export function SettingsSheet({
         <section className="set-group">
           <h3 className="set-group-t">{cp.handGroup}</h3>
           <div className="set-card">
+            {/* which device this is – every Verlauf row it writes says so (owner pick UX journeys
+                B3·47, 25.11.2026, lib/deviceName). First: it is asked at the first login too. */}
+            <div className="set-row">
+              <span className="set-row-l">{cp.deviceName}<small>{cp.deviceNameSub}</small></span>
+              <DeviceNameField />
+            </div>
             <div className="set-row">
               {/* the line under the name says what the selected option does – it is what tells
                   «Automatisch» (time of day) and «Gerät» (the OS setting) apart */}

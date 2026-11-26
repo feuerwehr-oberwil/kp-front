@@ -14,6 +14,7 @@ import {
   __resetStoreForTests, createLocalVisit, deviceId, putAttachment, readAttachment, readVisit, updateVisit, type LocalVisit,
 } from './store'
 import type { ServerVisit, VisitDoc } from './types'
+import { delivery } from './wire.test-utils'
 
 // ─── a small in-memory server with the contract's PUT semantics ────────────────────────────
 
@@ -306,7 +307,7 @@ describe('refusals', () => {
 })
 
 describe('adoptServerVisit', () => {
-  const serverVisit = (doc: VisitDoc, revision: number, missing: string[] = []): ServerVisit => ({ ...doc, revision, ready: missing.length === 0, missing, deliveries: [{ destination: 'sp', state: 'pending', revision }] })
+  const serverVisit = (doc: VisitDoc, revision: number, missing: string[] = []): ServerVisit => ({ ...doc, revision, ready: missing.length === 0, missing, deliveries: [delivery({ state: 'pending', revision })] })
 
   it('takes a visit from another device into the store as saved', async () => {
     const doc = newVisitDoc({ object: OBJ, checklist: null })

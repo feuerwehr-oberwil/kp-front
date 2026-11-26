@@ -110,6 +110,20 @@ async def test_validation_and_404(client, editor):
     assert (await client.post(f"/api/incidents/{missing}/journal", json={"entries": _rows(1)})).status_code == 404
 
 
+async def test_a_row_keeps_the_device_that_wrote_it(client, editor):
+    """UX pick B3·47: «Tablet 2» rides on the row as written; a name that is no short label is 422."""
+    await _login(client, editor)
+    inc = await _incident(client)
+
+    row = {**_rows(1)[0], "device": "Tablet 2"}
+    assert (await client.post(f"/api/incidents/{inc}/journal", json={"entries": [row]})).status_code == 201
+    page = (await client.get(f"/api/incidents/{inc}/journal")).json()
+    assert page["entries"][0]["row"]["device"] == "Tablet 2"
+    for bad in ("x" * 33, 7):
+        r = await client.post(f"/api/incidents/{inc}/journal", json={"entries": [{**_rows(1, "d")[0], "device": bad}]})
+        assert r.status_code == 422
+
+
 async def test_media_urls_are_validated_on_ingest(client, editor):
     """Rows are stored verbatim and rendered as raw hrefs, so a smuggled javascript:/data:
     URL must die at the append door (H1). Only /api/media/… and absolute https survive."""

@@ -1537,6 +1537,18 @@ describe('moveTrupp (hand-set board order)', () => {
     const pa = (ts: Trupp[]) => handOrder(ts.filter((t) => t.kind !== 'einfach')).map((e) => e.t.id)
     expect(pa(state.trupps)).toEqual(['pa2', 'pa1'])
   })
+
+  // ⚠️ the board keys a Trupp without `order` by its place in the WHOLE visible list and only
+  // then splits it into sections; keyed within the section, a got the key b holds on the board
+  it('moves a card past its neighbour when the kinds interleave and nobody carries an order', () => {
+    const { actions, state } = board(
+      baseTrupp({ id: 'a' }), baseTrupp({ id: 'x', kind: 'einfach' }), baseTrupp({ id: 'b' }),
+    )
+    actions.moveTrupp('a', 1)
+    const paShown = (ts: Trupp[]) => handOrder(ts.filter((t) => !t.removedAt))
+      .filter((e) => e.t.kind !== 'einfach').map((e) => e.t.id)
+    expect(paShown(state.trupps)).toEqual(['b', 'a'])
+  })
 })
 
 describe('hand-set board order (the key AtemschutzView sorts on)', () => {

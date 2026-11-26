@@ -424,6 +424,13 @@
 .jr-delivery strong { font-size: var(--fs-2); }
 .jr-delivery p { margin-block: 8px 12px; font-size: var(--fs-2); line-height: 1.5; }
 .jr-delivery-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+/* merely OFFLINE: one calm line – glyph, «Offline · 1 Eintrag nur auf diesem Gerät», «Herunterladen»
+   (JournalDeliveryNotice, owner pick UX journeys B2·37, 25.11.2026); no retry until the network is back */
+.jr-delivery-offline { display: flex; align-items: center; gap: var(--sp-3); padding-block: var(--sp-2); }
+.jr-delivery-offline > .i { flex: none; width: 18px; height: 18px; color: var(--amber-strong); }
+.jr-delivery-line { flex: 1; min-width: 0; }
+.jr-delivery-line p { margin: 0; font-size: var(--fs-1); color: var(--ink-dim); }
+.jr-delivery-offline > button { flex: none; }
 /* ⚠️ ONE size for every button of this head, and it is the app's --tap (30.10.2026, owner: «increase
    the size of the touch targets/buttons to match the size we have otherwise»). It was 36 to the eye
    over a 44 pad – the ✕'s house size (13-incident.css · «ONE size for the ✕») – so the Verlauf read
@@ -571,13 +578,17 @@
 /* ⚠️ SENTENCE CASE in the secondary ink at regular weight (hill climb C13, 05.11.2026, owner): it
    was the eyebrow type – bold, tracked, uppercase – and «INSGESAMT 4×» inside a row read as a
    section head standing in the middle of the log. The copy carries the capital («Insgesamt {n}×»). */
-.jr-foot { flex: none; display: inline-flex; flex-wrap: wrap; align-items: baseline;
+.jr-foot { flex: none; display: inline-flex; flex-wrap: wrap; align-items: baseline; max-width: 100%;
   gap: var(--sp-1) var(--sp-2);
   font: var(--fw-regular) var(--fs-micro)/1.3 var(--body);
   color: var(--ink-dim); }
 .jr-foot > * { white-space: nowrap; }
 .jr-foot-nachtrag { color: var(--red-strong); font-weight: var(--fw-bold); }
 .jr-foot-rep { font-variant-numeric: tabular-nums; }
+/* the device that wrote the row (owner note on the B3·47 sign-off, 25.11.2026) – the one footnote that is a free
+   name, up to 32 characters: it breaks between its words rather than run under the chevron on a
+   320 phone («auf Führungsfahrzeug Oberwil Tab. 2»). */
+.jr-foot .jr-foot-device { white-space: normal; }
 /* ⚠️ WHICH item a Meldung answers. Without it three «PENDENZ» rows in a row are three unrelated
    sentences: the Verlauf is chronological, so each link has to carry its own anchor. Quiet and
    truncated — it is a reference, not the content of the row. */
@@ -711,7 +722,8 @@
 .jc-body > * { flex: none; }
 
 /* ── ONE row under the field (owner pick B «One row», 19.11.2026) ─────────────────────────────
-   The Art track · the ⏱ | □ track · ONE «Anhang» plate (mic · upload · camera behind its menu),
+   The Art track · the «Pendenz» track (one worded button since 25.11.2026, UX pick B2·40) · ONE
+   «Anhang» plate (mic · upload · camera behind its menu),
    and «Erfassen» alone below. It was two rows – Art, then Aufnehmen · Datei · Foto – with a
    measured «compact» rung that folded them into this one when the height got tight; this is that
    rung as the normal layout, so the ladder is down to ONE step: when the room runs out, `.jc-body`
@@ -720,7 +732,7 @@
    ⚠️ One look per ROLE (owner pick 6B, 18.11.2026 – «inconsistent color use»): words to insert
    are a borderless wash (.jc-phrase, 18-audio.css); a CHOICE is one track – the Segmented look,
    `.useg` (06-contextpanel); an ACT is a framed plate (.jc-rec); «Erfassen» is the one primary.
-   The Art track takes the slack; ⏱ □ and the clip keep their size. On a phone the Art shows
+   The Art track takes the slack; «Pendenz» and the clip keep their size. On a phone the Art shows
    «I · A · S» (15-mobile.css), the words stay the names. */
 .jc-controls { display: flex; flex-direction: column; gap: 8px; }
 /* the same «nothing shrinks» rule as the sheet's, one level down */
@@ -730,7 +742,7 @@
 .jc-track { flex-wrap: nowrap; }
 .jc-art { flex: 1 1 auto; min-width: 0; display: flex; }
 .jc-art > .jc-chip { flex: 1 1 auto; min-width: 0; padding: var(--sp-1) var(--sp-3); }
-.jc-when .useg-btn { width: var(--tap); padding: 0; }
+.jc-when .useg-btn { min-width: var(--tap); padding: 0 var(--sp-3); }
 /* the clip: a square plate, the row's height */
 .jc-row > .jc-rec { flex: none; width: var(--tap); height: auto; min-height: var(--tap); padding: 0; }
 .jc-row > .jc-rec .i { width: 19px; height: 19px; }
@@ -871,8 +883,8 @@ button.jr-link-go:focus-visible { outline: 2px solid var(--blue); outline-offset
    as three rules that quietly style nothing. */
 
 /* ⚠️ The Erinnerung's own strip of due chips is GONE (17.08.). It belonged to a mode that no
-   longer exists — the clock beside the ring carries those answers in a menu now (see
-   .jc-due-btn), for the same reason the ring does: a row unfolding inside the sheet pushes the
+   longer exists — the «Pendenz» button carries those answers in a menu now (see
+   JournalComposer · B2·40), for the same reason the ring does: a row unfolding inside the sheet pushes the
    field it belongs to under the keyboard. What is left here serves the IMPORTED MEMO's start
    time, which is a different question on a different row. */
 /* ⚠️ «Aufnahme begann» — VISIBLE. It was `display: none`, left behind when the Erinnerung's chip
@@ -910,15 +922,23 @@ button.jr-link-go:focus-visible { outline: 2px solid var(--blue); outline-offset
    veil: the same ink pill, as strong as by day. */
 :root[data-theme="night"] .tb-act.on { background: color-mix(in srgb, var(--here-fill), var(--on-here) 24%); color: var(--on-here); }
 
-/* open-reminders count badge on the Verlauf button */
-.tb-rem-count { z-index: 2; }
-/* the ONE count badge (05-navrail · .nav-count, 28.09.2026): 16px, 11/800, --r-xs; amber = open.
-   ⚠️ Inside the bar's plate (05.11.2026, hill climb r13): at -5px it stood 2px under the bar's top
-   edge, where the bar's corner seemed to clip it; at -1px it sits 6px in, and a 2px ring in the
-   bar's own glass cuts it off the button's corner instead of the bar's edge (day and night). */
-.tb-rem-count { position: absolute; top: -1px; right: -1px; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box;
-  border-radius: var(--r-xs); background: var(--amber); color: var(--on-amber); line-height: 16px; text-align: center;
-  font: var(--fw-heavy) var(--fs-micro) var(--body); box-shadow: 0 0 0 2px var(--glass); }
+/* open-Pendenzen count on the Verlauf button: «1 offen», a pill IN THE ROW after the word (owner
+   pick UX journeys B2·35, 25.11.2026 – the Pendenzen box's own words; a bare «1» in the corner read
+   as «not logged»). The ONE count badge's fill and face (05-navrail · .nav-count): amber = open,
+   11/800, --r-xs. */
+.tb-rem-count { z-index: 2; flex: none; min-width: 16px; height: 18px; padding: 0 var(--sp-2); box-sizing: border-box;
+  border-radius: var(--r-xs); background: var(--amber); color: var(--on-amber); line-height: 18px; text-align: center;
+  font: var(--fw-heavy) var(--fs-micro) var(--body); white-space: nowrap; }
+.tb-rem-n { display: none; }
+/* Folded to tiles (fit-6, a phone's `data-tiles`) the tile has no row for a word: the bare number in
+   the corner, as before 25.11.2026. ⚠️ Inside the bar's plate (05.11.2026, hill climb r13): at -5px
+   it stood 2px under the bar's top edge, where the bar's corner seemed to clip it; at -1px it sits
+   6px in, and a 2px ring in the bar's own glass cuts it off the button's corner instead of the bar's
+   edge (day and night). */
+.topbar:is(.fit-6, [data-tiles]) .tb-rem-count { position: absolute; top: -1px; right: -1px; height: 16px; padding: 0 4px;
+  line-height: 16px; box-shadow: 0 0 0 2px var(--glass); }
+.topbar:is(.fit-6, [data-tiles]) .tb-rem-word { display: none; }
+.topbar:is(.fit-6, [data-tiles]) .tb-rem-n { display: inline; }
 
 /* ⚠️ TOMBSTONE, 23.08. — the whole banner layer that stood here is gone.
    Removed: `.reminder-banner` + 9 `rb-*` rules (the due Wiedervorlage, a 440px card at z-45 that
@@ -994,6 +1014,9 @@ button.jr-link-go:focus-visible { outline: 2px solid var(--blue); outline-offset
 .jr-media-state .i { width: 12px; height: 12px; }
 .jr-media-state.failed { color: var(--red-strong, #d33); background: color-mix(in srgb, var(--red-strong, #d33) 14%, transparent); }
 /* `.jr-tx-miss` (missing transcript, on the row meta) rides the same amber chip — no own rule. */
+/* …and so does the row only on this device (`.jr-unsent-mark`, B2·37); the row itself wears the
+   notice's amber wash, so the one the notice counts is found at a glance */
+.hist-ev.jr-unsent { background: color-mix(in srgb, var(--amber) 12%, transparent); }
 
 /* ── the audio row's ONE inline control (29.08., Variante 2) ──
    Durchhören and Transkript moved into the row's detail sheet, so the play circle no longer

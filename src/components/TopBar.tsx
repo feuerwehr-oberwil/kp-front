@@ -193,7 +193,7 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
   }
   useHeadFit(barRef, [
     incident.title, incident.address, clockText.length, hasWind, gpsStale ? 1 : 0,
-    azAlarm?.urgent && !azChipHidden ? `${azAlarm.peak}:${azAlarm.urgent.reason}` : '', recording ? 1 : 0, reminderCount > 0 ? 1 : 0,
+    azAlarm?.urgent && !azChipHidden ? `${azAlarm.peak}:${azAlarm.urgent.reason}` : '', recording ? 1 : 0, reminderCount,
   ].join('|'))
 
   // the Verlauf button's name: the word, plus what its number counts while Pendenzen are open
@@ -259,7 +259,16 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
         <button className={`tb-act ${journalOpen ? 'on' : ''} ${reminderCount > 0 ? 'has-rem' : ''}`} aria-expanded={journalOpen} onClick={onToggleJournal}
           aria-label={journalDoor} title={keyTitle(journalDoor, PANEL_KEY.journal)}>
           <Icon id="verlauf" /><span>{appConfig.copy.journal.open}</span>{keyHint(PANEL_KEY.journal)}
-          {reminderCount > 0 && <span className="tb-rem-count" aria-label={appConfig.copy.journal.openCount.replace('{n}', String(reminderCount))}>{reminderCount}</span>}
+          {/* «1 offen», the Pendenzen box's own words, in the row after «Verlauf» (owner pick UX
+              journeys B2·35, 25.11.2026 – a bare «1» in the corner read as «not logged» on 7 walks).
+              Folded to tiles (fit-6, a phone) it is the bare number in the corner again: a tile has
+              no row for a word (10-journal · .tb-rem-count). */}
+          {reminderCount > 0 && (
+            <span className="tb-rem-count">
+              <span className="tb-rem-word">{fillTemplate(J.openCount, { n: reminderCount })}</span>
+              <span className="tb-rem-n" aria-hidden="true">{reminderCount}</span>
+            </span>
+          )}
         </button>
         {onAddEntry && (
           <button

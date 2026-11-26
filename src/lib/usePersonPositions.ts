@@ -3,7 +3,7 @@ import type { Entity, LngLat } from '../types'
 import { appConfig } from '../config/appConfig'
 import { isDemoMode } from './deploymentConfig'
 import { stepWalkers, syncWalkers, type Walker } from './demoCrewWalk'
-import { formatTime, initials } from './format'
+import { fillTemplate, formatTime, initials } from './format'
 import { xmlEscape } from './svg'
 import { useFeedPoll } from './useFeedPoll'
 
@@ -82,12 +82,13 @@ export const EMPTY_POLL_EVERY = 3
 export const ageMinutes = (at: number, now: number): number => Math.max(0, Math.floor((now - at) / 60_000))
 
 function toEntity(p: LivePerson, now: number): Entity {
+  const C = appConfig.copy.map.live
   const stale = now - p.at > PERSON_STALE_AFTER_MS
   const mins = ageMinutes(p.at, now)
   const fields: Record<string, string> = {}
   const fixed = new Date(p.at)
-  if (!Number.isNaN(fixed.getTime())) fields[cfg.copyFields.lastFix] = formatTime(fixed, true)
-  if (p.accuracyM != null) fields[cfg.copyFields.accuracy] = `±${Math.round(p.accuracyM)} m`
+  if (!Number.isNaN(fixed.getTime())) fields[C.lastFix] = formatTime(fixed, true)
+  if (p.accuracyM != null) fields[C.accuracy] = `±${Math.round(p.accuracyM)} m`
   return {
     id: `pos-${p.personId}`,
     kind: 'person',
@@ -97,7 +98,7 @@ function toEntity(p: LivePerson, now: number): Entity {
     label: p.displayName,
     // Always says where it came from. A dot on the Lage that looks placed but wasn't is the
     // one misreading worth spending a subtitle on.
-    subtitle: stale ? `${cfg.selfReported} · vor ${mins} min` : cfg.selfReported,
+    subtitle: stale ? fillTemplate(C.selfReportedAge, { n: mins }) : C.selfReported,
     live: true,
     fields,
   }

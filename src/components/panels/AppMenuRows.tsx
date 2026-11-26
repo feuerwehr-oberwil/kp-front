@@ -27,6 +27,7 @@ import { shortAddress } from '../../lib/deploymentConfig'
 import { runningOthers } from '../../lib/switcherLists'
 import { foreignMark } from '../../lib/foreignAlarm'
 import { loadKarteView } from '../../lib/karte/session'
+import { useDeviceName } from '../../lib/deviceName'
 import type { DiveraAlarm, IncidentMeta } from '../../lib/incidents'
 
 export interface AppMenuAlarms {
@@ -114,6 +115,8 @@ export function AppMenuRows({
   folded?: FoldedMenuRow[]
 }) {
   const cp = appConfig.copy.incidentSwitcher
+  // which tablet this is, beside who holds it – «Führungsunterstützung · Tablet 2» (B3·47)
+  const { name: device } = useDeviceName()
   const cu = appConfig.copy.update
   const ci = appConfig.copy.intake
   const hasCard = activeId != null
@@ -247,7 +250,7 @@ export function AppMenuRows({
         <span className="ip-menu-av" style={{ background: user.color ?? 'var(--ink-faint)' }}>{initials(user.display_name)}</span>
         <span className="ip-menu-userinfo">
           <span className="ip-menu-username">{user.display_name}</span>
-          <span className="ip-menu-userrole">{roleLabel(user.role)}</span>
+          <span className="ip-menu-userrole">{roleLabel(user.role)}{device ? ` · ${device}` : ''}</span>
         </span>
         {onLogout && <button type="button" className="ip-menu-logout" onClick={onLogout}><Icon id="logout" /> {cp.logout}</button>}
         {onLogin && <button type="button" className="ip-menu-logout ip-menu-login" onClick={onLogin}>{cp.login}</button>}

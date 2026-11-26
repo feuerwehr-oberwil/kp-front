@@ -94,6 +94,13 @@ export const mapCopy: Localizable<Pick<Copy, Keys>> = {
     noTilesSub: 'Offline – oggetti e linee sono mostrati senza mappa',
     noTilesAction: 'Disponibile offline',
     noTilesDismiss: 'Nascondi',
+    live: {
+      vehicleStatus: { online: 'Online', offline: 'Offline', unknown: 'Sconosciuto' },
+      selfReported: 'Posizione trasmessa',
+      selfReportedAge: 'Posizione trasmessa · {n} min fa',
+      lastFix: 'Ultima posizione',
+      accuracy: 'Precisione',
+    },
   },
   mapViews: {
     title: 'Viste',

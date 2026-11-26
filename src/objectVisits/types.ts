@@ -1,7 +1,24 @@
 // Objektbesuche — the shapes of the contract (docs/object-visits.md). The document is what the
 // device PUTs as `doc`; the server adds its own fields on every read. Nothing here is behaviour.
+// The document is the client's own type; every server answer is read off the generated schema
+// (backend/app/object_visit_schemas.py → docs/openapi.json → lib/api/schema.d.ts).
 
+import type { components } from '../lib/api/schema'
+import type { CachedWithout } from '../lib/api/wire'
 import type { ChecklistTemplate, ItemInput } from '../lib/checklists'
+
+type Schemas = components['schemas']
+
+/** An Objektbesuche answer as the server sends it. Unlike `Out` (lib/api/wire.ts), a field the
+ *  schema marks optional may be ABSENT: these routes answer with `response_model_exclude_unset`. */
+type Sent<N extends keyof Schemas> = Schemas[N]
+
+/** A model that passes the document through (`extra="allow"`), without that index signature. */
+type Named<T> = { [K in keyof T as string extends K ? never : K]: T[K] }
+
+/** `T` with its keys `K` typed by the client instead. Unlike `Omit`, `K` must exist in `T`, so a
+ *  key renamed on the server fails tsc here too. */
+type Retyped<T, K extends keyof T, R extends Record<K, unknown>> = Omit<T, K> & R
 
 export const VISIT_SCHEMA = 'kp-front.object-visit/1' as const
 
@@ -50,14 +67,6 @@ export type VisitTarget =
   }
 
 export type PlaceTarget = Extract<VisitTarget, { kind: 'location' }>
-
-/** Where a visit was, as the server reports it on every read (contract C2). */
-export interface VisitLocation {
-  label: string | null
-  address: string | null
-  lat: number | null
-  lng: number | null
-}
 
 export interface VisitPhoto {
   id: string
@@ -116,157 +125,62 @@ export interface VisitDoc {
   conflicts?: VisitConflict[]
 }
 
-export interface Person { id?: string | null; name?: string | null }
+export type Person = Sent<'ObjectVisitPersonOut'>
 
-export interface Delivery {
-  destination: string
-  state: 'pending' | 'delivered' | 'failed' | 'paused'
-  revision: number | null
-  at?: string | null
-  error?: string | null
-}
+export type Delivery = Sent<'ObjectVisitDeliveryOut'>
 
-/** What the server adds on read. */
-export interface VisitServerFields {
-  revision: number
-  ready: boolean
-  missing: string[]
-  createdBy?: Person | null
-  createdAt?: string | null
-  updatedAt?: string | null
-  updatedBy?: Person | null
-  findings?: number
-  url?: string | null
-  deliveries?: Delivery[]
-  target_kind?: VisitTarget['kind']
-  location?: VisitLocation | null
-  /** when it was FINISHED — the first revision that said `completed`; null while it is not */
-  completedAt?: string | null
-  /** from when corrections are refused (objectVisits/lock); null where no lock applies */
-  lockedAt?: string | null
-}
+/** What the server adds on read. All but `revision`/`ready`/`missing` may be absent: a replayed
+ *  PUT answer is the one an older server stored. */
+export type VisitServerFields = Named<Sent<'ObjectVisitOut'>>
 
 export type ServerVisit = VisitDoc & VisitServerFields
 
-/** One row of `GET /api/object-visits/?…` (newest first). */
-export interface VisitSummary {
-  id: string
-  /** null for a visit at a place */
-  objectId: string | null
-  objectName: string | null
-  /** absent from an older server: an object visit */
-  target_kind?: VisitTarget['kind']
-  location?: VisitLocation | null
-  workRef?: string | null
-  lifecycle: Lifecycle
-  revision: number
-  ready: boolean
-  visitedAt: string
-  updatedAt?: string | null
-  by?: Person | string | null
-  /** «Von» — the people typed on the visit (the account is only the fallback) */
-  with?: string[] | null
-  findings?: number
-  /** the checklist the visit was made with (null: «Ohne Checkliste»; absent from an older server) */
-  checklist?: { id: string; title?: string | null } | null
-  /** ADMIN list only: where the visit was filed, per destination — state, the folder path below
-   *  the library (once the first delivery made it), the error while it fails */
-  deliveries?: VisitFiling[]
+/** One destination's filing of a visit, as the admin list reports it. */
+export type VisitFiling = Sent<'ObjectVisitFilingOut'>
+
+/** One row of `GET /api/object-visits/?…` (newest first). Cached on the device: a list from an
+ *  older server lacks `target_kind` (an object visit), `location`, `with` and `checklist`. */
+export type VisitSummary = CachedWithout<Sent<'ObjectVisitSummaryOut'>, 'target_kind' | 'location' | 'with' | 'checklist'> & {
+  /** ADMIN list only: where the visit was filed, per destination */
+  deliveries?: AdminVisitSummary['deliveries']
 }
 
-/** One destination's filing of a visit, as the admin list reports it. */
-export interface VisitFiling {
-  destination: string
-  state: DeliveryRow['state']
-  revision: number
-  at?: string | null
-  folder?: string | null
-  error?: string | null
-}
+/** One row of `GET /api/admin/object-visits`: the summary plus where the visit was filed. */
+export type AdminVisitSummary = Sent<'ObjectVisitAdminSummaryOut'>
 
 /** «Neuer Objektbesuch» — every active account, whether it is told and how many of its browsers can receive a push. */
-export interface NotifyState {
-  pushEnabled: boolean
-  accounts: { id: string; name: string; username: string; role: string; notify: boolean; devices: number }[]
-}
+export type NotifyState = Sent<'ObjectVisitNotifyOut'>
 
-export interface Revision {
-  revision: number
-  lifecycle: Lifecycle
-  acceptedAt: string
-  acceptedBy?: Person | string | null
-  ready: boolean
-}
+export type Revision = Sent<'ObjectVisitRevisionOut'>
 
-export interface CatalogueObject {
-  id: string
-  name: string
-  address?: string | null
-  lat?: number | null
-  lng?: number | null
-  folder?: string | null
-  refs?: ObjectRef[]
-  hasPlans?: boolean
-  lastVisit?: { id: string; visitedAt: string; lifecycle: Lifecycle } | null
-}
+export type CatalogueObject = Sent<'ObjectVisitCatalogueObjectOut'>
 
 /** A completion the ORGANIZER already holds for a stop (e.g. the last round in SchlüHü). Shown
- *  as done — never turned into a visit; a real visit for the list always wins. */
-export interface PriorDone {
-  /** YYYY-MM-DD */
-  at: string
-  by?: string | null
-  /** e.g. «SchlüHü» */
-  source?: string | null
-  note?: string | null
-}
+ *  as done — never turned into a visit; a real visit for the list always wins. `at` is YYYY-MM-DD. */
+export type PriorDone = Sent<'ObjectVisitPriorDoneOut'>
 
-export interface VisitList {
-  ref: string
-  title: string
-  note?: string | null
-  closesAt?: string | null
-  scheduledOn?: string | null
-  archived?: boolean
-  objectIds: string[]
-  unresolved?: ObjectRef[]
-  /** object id → the organizer's prior completion */
-  done?: Record<string, PriorDone> | null
-}
+/** A work list. Cached on the device: one from an older server lacks `scheduledOn`, `archived`
+ *  and `done` (object id → the organizer's prior completion). */
+export type VisitList = CachedWithout<Sent<'ObjectVisitListOut'>, 'scheduledOn' | 'archived' | 'done'>
 
-export interface ProposalField { id: string; label: string }
+export type ProposalField = Sent<'ObjectVisitProposalField'>
 
-export interface Catalogue {
-  generatedAt: string
-  canCapture: boolean
-  objects: CatalogueObject[]
+/** The server types the templates only as objects; they are checklist templates (lib/checklists). */
+export type Catalogue = Retyped<Sent<'ObjectVisitCatalogueOut'>, 'templates' | 'lists', {
   templates: VisitTemplate[]
   lists: VisitList[]
-  proposalFields: ProposalField[]
-}
+}>
 
 /** PUT answer: accepted (`200`). */
-export interface PutAccepted {
-  revision: number
-  ready: boolean
-  missing: string[]
-  visit: ServerVisit
-}
+export type PutAccepted = Retyped<Sent<'ObjectVisitPutOut'>, 'visit', { visit: ServerVisit }>
 
 // --- admin -----------------------------------------------------------------------------
 
-export interface DeliveryRow {
-  destination: string
-  visitId: string
-  objectName: string
-  wantedRevision: number | null
-  deliveredRevision: number | null
-  state: 'pending' | 'delivered' | 'failed' | 'paused'
-  attempts: number
-  nextAttemptAt?: string | null
-  lastError?: string | null
-  updatedAt?: string | null
-}
+export type DeliveryRow = Sent<'ObjectVisitDeliveryRowOut'>
+
+export type RetryAnswer = Sent<'ObjectVisitRetryOut'>
+
+export type DestinationTest = Sent<'ObjectVisitDestinationTestOut'>
 
 /** A person's display name from either shape the server may send. */
 export function personName(p: Person | string | null | undefined): string {

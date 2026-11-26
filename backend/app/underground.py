@@ -152,7 +152,11 @@ def _centre(cfg: dict) -> tuple[float, float] | None:
 
 
 async def station_area(db: AsyncSession) -> Area | None:
-    """The Einsatzgebiet as the config names it, and every station object's point. No network."""
+    """The Einsatzgebiet as the config names it, and every station object's point. No network.
+
+    ⚠️ Reads the raw document on purpose, not `deployment_config.read_config`: on a document
+    broken elsewhere its fallback drops the municipalities, and the area jobs would replace
+    municipality-wide data with the objects' surroundings only."""
     from .models import DeploymentConfig, ObjectSite
 
     row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()

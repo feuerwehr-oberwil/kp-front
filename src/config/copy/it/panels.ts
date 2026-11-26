@@ -121,6 +121,12 @@ export const panelsCopy: Localizable<Pick<Copy, Keys>> = {
     deviceSumOffline: 'Offline',
     deviceSumApp: 'App installata',
     deviceSumNoApp: 'Non installata',
+    deviceName: 'Nome di questo dispositivo',
+    deviceNameSub: 'Compare a ogni voce del diario, p. es. «Tablet 2».',
+    deviceNamePlaceholder: 'p. es. Tablet 2',
+    deviceNameAskBody: 'Ogni voce del diario ricorda su quale dispositivo è stata registrata – così un passaggio di consegne resta tracciabile. Il nome vale solo per questo dispositivo e si cambia nelle impostazioni.',
+    deviceNameSave: 'Salva',
+    deviceNameLater: 'Più tardi',
   },
   offline: {
     syncedAgo: 'Dati dell’intervento sincronizzati {ago}',
@@ -226,7 +232,6 @@ export const panelsCopy: Localizable<Pick<Copy, Keys>> = {
     locatedLate: 'Foto con posizione',
   },
   einsatzuhr: {
-    title: 'Durata dell\'intervento – inizio {t}',
     label: 'Durata dell\'intervento',
     tap: 'Durata dell\'intervento · da {t}',
   },

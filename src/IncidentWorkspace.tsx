@@ -95,7 +95,7 @@ import { RemindersHost } from './lib/useReminders'
 import { useRenderStorm } from './lib/useRenderStorm'
 import { AtemschutzAlarmHost } from './lib/useAtemschutzAlarm'
 import { truppInNotfall, truppLogName, truppStillRegistered, type AtemschutzAlarmState, type CrewSlot } from './lib/atemschutz'
-import { freshNotfallKeys } from './lib/notfall'
+import { freshNotfallKeys, notfallTerms } from './lib/notfall'
 import { GeorefModeBars } from './components/GeorefMode'
 import { georefDispatch, setGeorefOpenDroppedHandler, useGeorefMode, useGeorefSurfaceBridge } from './lib/georefMode'
 import { endZielPick, useZielPick } from './lib/zielPick'
@@ -1685,6 +1685,8 @@ export function IncidentWorkspace({
    * at 02:40. Every Notfall THIS session has not met yet (a new trigger, or one found running on
    * open) arms it once; muting again is the bell or «Zum Trupp», as for any alarm. */
   const notfallKeys = trupps.filter(truppInNotfall).map((t) => `${t.id}:${t.notfallAt}`).sort().join('|')
+  // …and how a sentence names them: «Neuer Eintrag» offers no open Pendenz on one (JournalLayer)
+  const notfallNames = useMemo(() => notfallTerms(trupps), [trupps])
   const notfallMet = useRef<Set<string>>(new Set())
   // (an ENDED one is forgotten, so ↶ bringing it back with its original trigger arms it again —
   // lib/notfall · freshNotfallKeys)
@@ -3447,7 +3449,7 @@ export function IncidentWorkspace({
         enterReplay, reminders, setNoteOn, setComposerOpen, reRaisePendenz, media, setPlayer, photoOnMap,
         tacticalLocked, placePhotos, showPhotoOnMap, player, isEditor, addPlayerEntry, composerOpen,
         addJournal, noteOn, roleReadOnly, linkScoped, openTafelPendenzen: linkScoped ? undefined : tafelPendenzen.openPage,
-        showTrupp: linkScoped ? undefined : showTrupp,
+        showTrupp: linkScoped ? undefined : showTrupp, notfallNames,
       }} />
       {sharePick && (
         <SharePositionSheet

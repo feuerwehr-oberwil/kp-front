@@ -1,6 +1,6 @@
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, formatTime } from './format'
-import { notfallFacts, truppLogName } from './atemschutz'
+import { notfallFacts, truppInNotfall, truppLogName } from './atemschutz'
 import type { Trupp } from '../types'
 
 // The words of an Atemschutznotfall (F1, 08.10.2026) — pure, so the Tafel's banner, the
@@ -18,6 +18,21 @@ export function ageWords(sec: number): string {
 /** «Trupp 2 (Meier Anna / Huber Beat)» — the crew as the radio and the Verlauf name it. */
 export function notfallWho(t: Trupp): string {
   return fillTemplate(appConfig.copy.atemschutz.notfall.who, { name: truppLogName(t) })
+}
+
+/** The words a sentence uses for the Trupps in Notfall right now – «Trupp 2», «Trupp Weber
+ *  Fabian» (the term before 12.09.) and the Gruppenführer's name. «Neuer Eintrag» offers no
+ *  Pendenz on a sentence that names one (lib/reminders · suggestPendenzen, owner pick UX journeys
+ *  B2·45, 25.11.2026). */
+export function notfallTerms(trupps: readonly Trupp[]): string[] {
+  const term = appConfig.copy.atemschutz.truppTerm
+  return trupps.filter(truppInNotfall).flatMap((t) => {
+    const lead = (t.name ?? '').trim()
+    return [
+      ...(typeof t.no === 'number' ? [fillTemplate(term, { name: String(t.no) })] : []),
+      ...(lead ? [fillTemplate(term, { name: lead }), lead] : []),
+    ]
+  })
 }
 
 /**

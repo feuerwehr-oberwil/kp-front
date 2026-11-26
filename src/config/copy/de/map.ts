@@ -144,5 +144,15 @@ export const mapCopy = {
     noTilesSub: 'Offline – Objekte und Linien werden ohne Karte gezeigt',
     noTilesAction: 'Was offline da ist',
     noTilesDismiss: 'Ausblenden',
+    // Live positions on the Karte: a Traccar vehicle's status word, keyed by Traccar's own status
+    // value (unknown values show raw), and a crew phone's self-reported position («Standort
+    // teilen»). `lastFix` / `accuracy` are the detail-row labels of that position.
+    live: {
+      vehicleStatus: { online: 'Online', offline: 'Offline', unknown: 'Unbekannt' } as Record<string, string>,
+      selfReported: 'Selbstauskunft',
+      selfReportedAge: 'Selbstauskunft · vor {n} min',
+      lastFix: 'Letzte Position',
+      accuracy: 'Genauigkeit',
+    },
   },
 } as const

@@ -4,6 +4,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 // Mock the HTTP layer (same pattern as incidents.test.ts): the store calls apiGet/apiPost.
 const { apiGet, apiPost, apiBeacon } = vi.hoisted(() => ({ apiGet: vi.fn(), apiPost: vi.fn(), apiBeacon: vi.fn() }))
+// this device's name (lib/deviceName reads a cookie this environment has not got)
+const device = vi.hoisted(() => ({ name: undefined as string | undefined }))
+vi.mock('./deviceName', () => ({ deviceName: () => device.name }))
 vi.mock('./api', async () => {
   const actual = await vi.importActual<typeof import('./api')>('./api')
   return { ...actual, apiGet, apiPost, apiBeacon }
@@ -117,6 +120,23 @@ describe('JournalStore — append/flush/pull', () => {
     expect(server.rows.map((r) => r.row.id)).toEqual(['rejected'])
     expect(store.rejectedCount).toBe(0)
     expect(store.syncStatus).toBe('synced')
+  })
+
+  // owner pick UX journeys B2·37: one entry is ONE waiting row – its correction counts as it
+  it('names the rows still only on this device, a patch by the row it corrects', async () => {
+    apiGet.mockRejectedValue(new ApiError(0, 'offline'))
+    apiPost.mockRejectedValue(new ApiError(0, 'offline'))
+    const store = new JournalStore(INC, false)
+    await store.init([])
+    store.append(row('a'))
+    store.appendPatch('a', { textEdit: 'Zeile a, korrigiert' })
+    await settle(); await settle()
+    expect([...store.unsentRowIds()]).toEqual(['a'])
+    fakeServer()
+    await store.retry()
+    await settle()
+    expect(store.unsentRowIds().size).toBe(0)
+    store.dispose()
   })
 
   it('persists the union when an offline row is added while the old cache is loading', async () => {
@@ -508,6 +528,24 @@ describe('JournalStore — enrichment patches + session overlay', () => {
     expect(d[0]).toMatchObject({ id: 'a', transcript: 'Hallo', audioUrl: '/api/media/123' })
   })
 
+  // owner pick UX journeys B3·47: every row this device writes says which device – never a patch
+  it('stamps this device\'s name on the rows it writes, not on their patches', async () => {
+    device.name = 'Tablet 2'
+    try {
+      const server = fakeServer()
+      const s = new JournalStore(INC, false)
+      await s.init([])
+      s.append(row('a'))
+      s.append(row('b', { device: 'KP-Laptop' }))
+      s.appendPatch('a', { textEdit: 'Zeile a, korrigiert' })
+      await settle(); await settle()
+      const sent = new Map(server.rows.map((r) => [r.row.id, r.row]))
+      expect(sent.get('a')?.device).toBe('Tablet 2')
+      expect(sent.get('b')?.device).toBe('KP-Laptop')
+      expect([...sent.values()].find((r) => r.patchOf)?.device).toBeUndefined()
+    } finally { device.name = undefined }
+  })
+
   it('a textEdit patch corrects the target text (rows stay append-only)', async () => {
     fakeServer()
     const s = new JournalStore(INC, false)
@@ -533,6 +571,29 @@ describe('JournalStore — enrichment patches + session overlay', () => {
     s.appendPatch('a', { textEdit: undefined })
     await settle(); await settle()
     expect(s.display()[0].text).toBe('Trupp 1 an Front, 2 Rohre')
+  })
+
+  // owner pick UX journeys B2·6: a late entry moves to when it happened; the written time stays
+  it('an atEdit patch moves the row to its real time and keeps the written one', async () => {
+    fakeServer()
+    const s = new JournalStore(INC, false)
+    await s.init([])
+    s.append(row('b', { at: '2026-11-25T00:41:00.000Z' }))
+    s.append(row('a', { at: '2026-11-25T00:44:00.000Z' }))
+    expect(s.display().map((r) => r.id)).toEqual(['a', 'b'])
+    s.appendPatch('a', { atEdit: '2026-11-25T00:40:00.000Z' })
+    s.appendPatch('a', { atEdit: '2026-11-25T00:39:00.000Z' })
+    await settle(); await settle()
+
+    const d = s.display()
+    expect(d.map((r) => r.id)).toEqual(['b', 'a'])
+    expect(d[1]).toMatchObject({ at: '2026-11-25T00:39:00.000Z', atOriginal: '2026-11-25T00:44:00.000Z' })
+    expect(d[1].timeCorrectedAt).toBeTruthy()
+    // a malformed time is no correction
+    s.appendPatch('b', { atEdit: 'gestern' })
+    await settle(); await settle()
+    expect(s.display()[0]).toMatchObject({ id: 'b', at: '2026-11-25T00:41:00.000Z' })
+    expect(s.display()[0].atOriginal).toBeUndefined()
   })
 
   it('transcriptSection patches accumulate into a subtitle list sorted by offset', async () => {

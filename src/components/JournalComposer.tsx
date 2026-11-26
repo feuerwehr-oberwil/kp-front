@@ -64,13 +64,13 @@ export interface JournalDraft {
   /** Beilagen that are neither picture nor recording (PDF, Dokument …). ALREADY server urls —
    *  like the imported memo, a generic file is uploaded during save and never queued offline. */
   files?: { url: string; name: string }[]
-  /** ISO time this entry becomes due — the clock beside the ring. ANY entry can carry one: an
+  /** ISO time this entry becomes due — a reminder row of the «Pendenz» menu. ANY entry can carry one: an
    *  Erinnerung is not a second kind of row, it is an open item that additionally says when it
    *  should come back (see lib/reminders · the dueAt distinction). */
   dueAt?: string
   /** Info · Auftrag · Sofortmassnahme; absent = an ordinary entry */
   entryType?: JournalEntryType
-  /** the ○ switch: this entry stays open until it is ticked off. `urgent` sorts it to the top.
+  /** the «Pendenz» button: this entry stays open until it is ticked off. `urgent` sorts it to the top.
    *  Absent = an ordinary entry that nothing tracks. */
   pendenz?: { urgent: boolean }
   /** this entry is a Meldung ON an existing Pendenz (the composer was opened from its row) */
@@ -149,7 +149,7 @@ function dayLabel(day: string): string {
 // coordinate, which is the weak version of what the Wiedergabe does — scrub to the moment and
 // the entire picture is the one from back then. The row still records its surface; that is
 // addJournal's business, not this sheet's.
-export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudio, uploadFile, vocab = [], timeline = [], noteOn, onClearNote, openPendenzen = [], onLinkPendenz }: {
+export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudio, uploadFile, vocab = [], timeline = [], noteOn, onClearNote, openPendenzen = [], onLinkPendenz, quietTerms }: {
   onSubmit: (d: JournalDraft) => void
   onClose: () => void
   /** opened from a Pendenz row: everything written here becomes a Meldung ON that item rather
@@ -165,6 +165,9 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
   openPendenzen?: Pick<OpenReminder, 'id' | 'text' | 'urgent' | 'createdAt'>[]
   /** attach the entry being written to one of them (the workspace owns `noteOn`) */
   onLinkPendenz?: (p: { id: string; text: string }) => void
+  /** the Trupps in Notfall, as a sentence names them (lib/notfall · notfallTerms): a sentence
+   *  naming one is offered no open Pendenz (lib/reminders · suggestPendenzen) */
+  quietTerms?: readonly string[]
   /** this incident's own rows, for the chips offered while the field is still empty (see
    *  lib/startChips). Absent ⇒ the station's list is offered as it stands. */
   timeline?: TimelineEvent[]
@@ -245,7 +248,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
       el.setSelectionRange(edit.caret, edit.caret)
     })
   }
-  // ── the clock: any entry may say when it has to come back ─────────────────────────────────
+  // ── the reminder: any entry may say when it has to come back (the «Pendenz» menu) ─────────
   // ⚠️ There is no «Eintrag · Erinnerung» switch any more. Asking for the KIND of row first cost
   // the Erinnerung everything the ordinary sheet has — Art, Foto, Sprachnotiz, the ring — and made
   // «Auftrag erteilt» and «um 22:10 nachfassen» two rows about one thing. The clock is now a
@@ -254,13 +257,13 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
   // it is saved, and the sheet can stand open for a while (unchanged behaviour).
   const [dueSel, setDueSel] = useState<DueSel>(rest0.dueSel)
   const dueAt = resolveDueAt(dueSel) ?? undefined
-  // the exact due picker (day + time), opened from the clock menu's «Uhrzeit …» row — what it
-  // opens on; null = closed. Anchored to the clock button, which `dueWrapRef` holds.
+  // the exact due picker (day + time), opened from the «Pendenz» menu's «Uhrzeit …» row — what it
+  // opens on; null = closed. Anchored to the «Pendenz» button, which `dueWrapRef` holds.
   const [exact, setExact] = useState<{ day: string; hhmm: string; anchor: DOMRect } | null>(null)
   const dueWrapRef = useRef<HTMLSpanElement>(null)
   /** the imported memo's «Startzeit» row – what a blocked «Erfassen» points at */
   const importStartRef = useRef<HTMLDivElement>(null)
-  // ── the ○ switch: aus → offen → dringend → aus ────────────────────────────────────────────
+  // ── whether it stays open: aus → offen → dringend (the «Pendenz» button, B2·40) ──────────
   // ⚠️ THREE states on ONE control, not a second chip appearing beside it. A chip that shows up
   // on tap pushes the row onto a second line — the sheet grows under the thumb on the one surface
   // already fighting the keyboard for every row it has. The switch reserves the width of its
@@ -289,8 +292,8 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
   // …and the open Pendenzen this sentence already names. Offered only while writing an ordinary
   // entry: once it IS a Meldung the question is answered.
   const pendenzHits = useMemo(
-    () => (noteOn ? [] : suggestPendenzen(text, openPendenzen)),
-    [text, openPendenzen, noteOn],
+    () => (noteOn ? [] : suggestPendenzen(text, openPendenzen, 2, quietTerms)),
+    [text, openPendenzen, noteOn, quietTerms],
   )
   const canLink = openPendenzen.length > 0 && !!onLinkPendenz
   // ── the ○ opens a menu; it no longer cycles ───────────────────────────────────────────────
@@ -310,7 +313,14 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
       {active && <Icon id="check" />}
     </>
   )
-  /** …and one row of the clock's menu, laid out the same way so the two popups read as siblings:
+  /** the «Pendenz» button's name: the word, and what it is set to (B2·40 – a name that carries the
+   *  visible word, so a voice and a finger find the same control) */
+  const pendenzName = fillTemplate(C.pendenzButtonTitle, {
+    state: noteOn ? `${C.linkPendenzTitle} ${noteOn.text}`
+      : dueAt ? fillTemplate(C.dueSetTitle, { t: formatTime(new Date(dueAt)) })
+      : openState === 2 ? C.pendenzStateUrgent : openState === 1 ? C.pendenzStateOpen : C.pendenzStateNone,
+  })
+  /** …and a reminder row of the same menu, laid out the same way so the rows share one axis:
    *  a leading slot (empty for the plain minute rows), the words, a tick when it is the choice. */
   const dueRow = (lead: React.ReactNode, label: string, active: boolean) => (
     <>
@@ -783,7 +793,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
   }
 
   const kbInset = useKeyboardInset()
-  // the «Uhrzeit …» picker hangs off the clock button, and on a phone opening it drops the
+  // the «Uhrzeit …» picker hangs off the «Pendenz» button, and on a phone opening it drops the
   // keyboard (see the menu row) — which moves the sheet, and the button with it. Re-anchor once
   // the sheet has settled, or the wheels float where the button USED to be.
   const pickerOpen = exact != null
@@ -842,8 +852,8 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
             of row this would be BEFORE the sentence was written — and the answer stripped the
             Erinnerung of Art, Foto, Sprachnotiz and the ring, so «Auftrag erteilt» and «um 22:10
             nachfassen» had to be written as two rows about one thing. Whether something has to come
-            back is a property of the entry, like the open ring, and it is asked by the clock down
-            in the meta row. The title takes the space the tabs had. */}
+            back is a property of the entry, like the open ring, and it is asked by the «Pendenz»
+            button down in the meta row. The title takes the space the tabs had. */}
         <div className="jc-mode">
           {noteOn
             ? (
@@ -1003,46 +1013,42 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
                   </button>
                 ))}
               </div>
-              {/* ⏱ | □ — a second track, because it answers a DIFFERENT question than the Art:
-                  not what kind of statement this is, but whether and when it comes back. */}
+              {/* ── ONE «Pendenz» button, ONE menu (owner pick UX journeys B2·40, 25.11.2026) ──
+                  It answers a DIFFERENT question than the Art: not what kind of statement this is,
+                  but whether it stays open and when it comes back. Folding it in as a fourth Art
+                  chip would pretend the four are alternatives.
+                  ⚠️ Replaces the two-track ⏱ | □ of 23.08. – «the ring says bleibt offen, the clock
+                  says meldet sich», two unlabelled icons. Both walkers found the clock only by
+                  trying it and neither read the amber square as «Pendenz». A reminder already
+                  implies a Pendenz (setDue/setOpen), so it is one worded button whose menu says the
+                  whole model: erinnern in 10 / 30 / 60 min, «Uhrzeit …», «Ohne Erinnern»,
+                  «Dringend», «Keine Pendenz», then the «Meldung zu» group (owner, grilling
+                  25.11.2026). The ring stays on the button, in the state the menu set – the same
+                  box the Verlauf row and the Pendenzen block draw.
+                  ⚠️ While writing a MELDUNG the same button carries that mode: the item it reports
+                  on is ticked in «Meldung zu», and «Dringend» / «Ohne Erinnern» / «Keine Pendenz»
+                  let the link go first – `submit` reads `noteFor` before `pendenz`, so a draft
+                  still carrying the link would quietly ignore the choice. It never sets urgency ON
+                  the item a Meldung reports on (tried once: it re-ranked the whole Pendenz). A
+                  reminder time on a Meldung moves the item's Wiedervorlage (types · reminder.dueAt
+                  on a `note`).
+                  ⚠️ A MENU, not a strip of chips: a row that unfolds inside the sheet pushes the
+                  field it belongs to under the keyboard. The minutes read as a scale, short to
+                  long, whichever way the popup opens. */}
               <div className="useg jc-track jc-when">
-                {/* ── … and whether anything has to come back to it ──
-                    The Art says what kind of statement this is; the ring says whether it stays
-                    open. Folding it in as a fourth chip would pretend the four are alternatives —
-                    and then «Auftrag» and «Pendenz» would both be true of the same sentence.
-                    ⚠️ The ring, not a word: it is the same ring that appears on the Verlauf row and
-                    in the Pendenzen list, where tapping it fills it in. Three sightings of one shape
-                    carry further than a label that only exists here.
-                    ⚠️ It stays while writing a MELDUNG, and carries that mode's menu — re-target the
-                    item, or let the link go. It was hidden there for a while and the same choices
-                    lived on the header link instead, which meant the control moved to the other end
-                    of the sheet depending on how the sheet had been opened. One place for «what is
-                    this line?», whatever the answer currently is.
-                    ⚠️ What it does NOT do while a Meldung is linked is set urgency ON THAT ITEM. That
-                    was tried, as a two-state switch, and it re-ranked the whole Pendenz the Meldung
-                    merely reports on. «Dringende Pendenz» in that menu means something else: let the
-                    link go and make THIS line a dringende one. */}
-                {/* ── … and WHEN it has to come back ──
-                    A second round control beside the ring, and deliberately a second one: the ring
-                    says «bleibt offen», the clock says «meldet sich». It carries a MENU rather than a
-                    strip of chips, for the same reason the ring does — a row that unfolds inside the
-                    sheet pushes the field it belongs to under the keyboard, and the answers here are
-                    one-of-N. The preset minutes and «Uhrzeit …» live in that one popup.
-                    ⚠️ The two controls are not independent (see setDue/setOpen): a Fälligkeit implies
-                    an open item, because a banner nobody can tick off has no answer. */}
                 <span className="jc-openwrap" ref={dueWrapRef}>
                 <Menu
                   keepFocusRef={phone ? textRef : undefined}
-                  side="top"
+                  side="bottom"
                   align="end"
                   popupClassName="rp-print-menu jc-pendenz-menu"
                   itemClassName={() => 'rp-print-menu-item'}
-                  // ASCENDING, always — «Uhrzeit …», then the minutes short-to-long, and never the
-                  // other way round: these rows are read as a scale, and a scale that flips with the
-                  // menu's open direction has to be re-read every time. The order does NOT depend on
-                  // which way the popup opens (unlike the ring's menu, a different physical control).
                   items={[
-                    { kind: 'head' as const, label: C.dueHead },
+                    { kind: 'head' as const, label: C.pendenzRemindHead },
+                    ...C.reminderChips.map((n) => ({
+                      label: dueRow(null, fillTemplate(C.pendenzRemindMins, { n }), dueSel?.kind === 'in' && dueSel.mins === n),
+                      onClick: () => setDue({ kind: 'in', mins: n }),
+                    })),
                     { label: dueRow(<Icon id="clock" />, C.reminderExact, dueSel?.kind === 'at'),
                       onClick: () => {
                         const anchor = dueWrapRef.current?.getBoundingClientRect()
@@ -1050,108 +1056,46 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
                         // the wheels need no keyboard, and on a phone it would cover them
                         if (phone) textRef.current?.blur()
                       } },
-                    ...C.reminderChips.map((n) => ({
-                      label: dueRow(null, C.reminderChipLabel.replace('{n}', String(n)), dueSel?.kind === 'in' && dueSel.mins === n),
-                      onClick: () => setDue({ kind: 'in', mins: n }),
-                    })),
-                    // …and the way back out, pinned under the thumb — only once there is one
-                    ...(dueSel ? [{ label: dueRow(null, C.dueNone, false), onClick: () => setDueSel(null), sticky: true }] : []),
-                  ]}
-                  trigger={(
-                    <button
-                      type="button"
-                      onMouseDown={(e) => { if (phone && document.activeElement === textRef.current) e.preventDefault() }}
-                      className="useg-btn jc-due-btn"
-                      data-on={dueAt ? '1' : undefined}
-                      title={dueAt ? fillTemplate(C.dueSetTitle, { t: formatTime(new Date(dueAt)) }) : C.dueHead}
-                      aria-label={dueAt ? fillTemplate(C.dueSetTitle, { t: formatTime(new Date(dueAt)) }) : C.dueHead}
-                    >
-                      <Icon id="clock" />
-                      {/* the time itself on the button, not just a lit icon: «meldet sich» without
-                          «wann» is the half of the answer nobody can act on */}
-                      {dueAt && <span className="jc-due-badge">{formatTime(new Date(dueAt))}</span>}
-                    </button>
-                  )}
-                />
-                </span>
-                <span className="jc-openwrap">
-                <Menu
-                  keepFocusRef={phone ? textRef : undefined}
-                  side="top"
-                  align="end"
-                  popupClassName="rp-print-menu jc-pendenz-menu"
-                  itemClassName={() => 'rp-print-menu-item'}
-                  // ⚠️ BOTTOM-UP, because this menu opens UPWARDS (side="top"): the ring sits low in
-                  // the sheet — on a phone right above the thumb — so a list read top-first put its
-                  // most-used row furthest from the finger that just pressed. The nearest row to the
-                  // control is the one it is usually reached for: «Neue Pendenz» is LAST here, which
-                  // on screen means bottom, which means under the thumb.
-                  // The «Meldung zu» group keeps its heading ABOVE its own rows: a label under the
-                  // things it names is not a heading, whichever way the list is read.
-                  items={noteOn
-                    ? [
-                      // Writing a Meldung — and the menu asks the SAME question it asks anywhere
-                      // else, with the same rows in the same places. «this is its own thing after
-                      // all» is a normal thing to realise halfway through a sentence, and it was
-                      // two steps: let the link go, then say what the line is instead.
-                      { kind: 'head' as const, label: C.linkPendenzTitle },
-                      ...openPendenzen.map((r) => ({
-                        label: menuRow(r.urgent ? 2 : 1, r.text, r.id === noteOn.id),
-                        onClick: () => onLinkPendenz?.(r),
-                      })),
-                      ...(onClearNote
-                        ? [
-                          { label: menuRow(0, C.noteOnClear, false), onClick: onClearNote, sticky: true },
-                          // ⚠️ Both of these UNLINK first. `submit` reads `noteFor` before `pendenz`,
-                          // so a draft still carrying the link would quietly ignore the choice just
-                          // made and file the line as a Meldung anyway.
-                          { label: menuRow(2, C.pendenzNewUrgent, false), onClick: () => { onClearNote(); setOpen(2) }, sticky: true },
-                          { label: menuRow(1, C.pendenzNew, false), onClick: () => { onClearNote(); setOpen(1) }, sticky: true },
-                        ]
-                        : []),
-                    ]
-                    : [
-                    // ⚠️ Every row carries THE RING, in the state it produces — empty, amber, or red
-                    // with the bang. The menu is opened from that ring and sets that ring, so a list
-                    // of bare sentences made the two look like unrelated things; the same shape in
-                    // three fills says what the words would have to spell out.
-                    ...(canLink
+                    { kind: 'sep' as const },
+                    { label: menuRow(1, C.pendenzNoRemind, !noteOn && openState === 1 && !dueSel),
+                      onClick: () => { if (noteOn) onClearNote?.(); setDueSel(null); setOpen(openState === 2 ? 2 : 1) } },
+                    { label: menuRow(2, C.pendenzUrgent, !noteOn && openState === 2),
+                      onClick: () => { if (noteOn) onClearNote?.(); setOpenState(2); setRingByKind(false) } },
+                    { kind: 'sep' as const },
+                    { label: menuRow(0, C.pendenzNotOpen, !noteOn && openState === 0),
+                      onClick: () => { if (noteOn) onClearNote?.(); setOpen(0) } },
+                    // the open items in the order the Pendenzen block itself uses: dringend first,
+                    // then the oldest. An item shows ITS OWN urgency, the block's red.
+                    ...((noteOn || canLink) && openPendenzen.length
                       ? [
                         { kind: 'head' as const, label: C.linkPendenzTitle },
-                        // the open items in the order the Pendenzen block itself uses: dringend
-                        // first, then the oldest. An item shows ITS OWN urgency, the block's red.
-                        ...openPendenzen.map((r) => ({ label: menuRow(r.urgent ? 2 : 1, r.text, false), onClick: () => onLinkPendenz?.(r) })),
-                        // …no separator: the pinned block below carries its own edge, and one in the
-                        // flow would scroll away from the boundary it is supposed to mark
+                        ...openPendenzen.map((r) => ({
+                          label: menuRow(r.urgent ? 2 : 1, r.text, r.id === noteOn?.id),
+                          onClick: () => onLinkPendenz?.(r),
+                        })),
                       ]
                       : []),
-                    // ⚠️ PINNED to the bottom, not merely last. Last alone meant one of the two ends
-                    // of a scrolling list had to lose: opening at the top hid «Neue Pendenz» below
-                    // the fold, opening at the bottom hid the most pressing items above it. Pinned,
-                    // the list keeps its own order — dringend first, then oldest, read from the top —
-                    // while the rows you nearly always want stay under the thumb.
-                    ...(openState > 0 ? [{ label: menuRow(0, C.pendenzNotOpen, false), onClick: () => setOpen(0), sticky: true }] : []),
-                    { label: menuRow(2, C.pendenzNewUrgent, openState === 2), onClick: () => setOpen(2), sticky: true },
-                    { label: menuRow(1, C.pendenzNew, openState === 1), onClick: () => setOpen(1), sticky: true },
-                    ]}
-                  // ⚠️ The ring IS the trigger. It was an invisible anchor beside it for a while,
-                  // with the open state held here — and then a second press on the ring counted as
-                  // an OUTSIDE press, so Base UI closed the menu and the click handler opened it
-                  // again on the same tap. Base UI's own trigger toggles, and it is the only thing
-                  // that can: it knows about the press before the outside-press handler runs.
+                  ]}
+                  // ⚠️ The button IS the trigger: Base UI's own trigger toggles, and a second press
+                  // on an anchor beside it counted as an OUTSIDE press, closed the menu and the click
+                  // handler opened it again on the same tap.
                   trigger={(
                     <button
                       type="button"
                       onMouseDown={(e) => { if (phone && document.activeElement === textRef.current) e.preventDefault() }}
                       className="useg-btn jc-open"
                       data-state={noteOn ? 1 : openState}
-                      title={noteOn ? C.linkPendenzTitle : C.openStates[openState]}
-                      aria-label={noteOn ? C.linkPendenzTitle : C.openStates[openState]}
+                      title={pendenzName}
+                      aria-label={pendenzName}
                     >
                       {/* ⚠️ Not the `warn` triangle. A triangle's optical centre sits below its
                           bounding box, so inside a ring it reads as hanging — and a triangle inside
                           a circle is two outlines fighting at 21px. Solid disc + a drawn bang. */}
-                      <span className="jc-ring">{openState === 2 && <span className="jc-bang" />}</span>
+                      <span className="jc-ring">{openState === 2 && !noteOn && <span className="jc-bang" />}</span>
+                      <span className="jc-open-word">{C.pendenzButton}</span>
+                      {/* the time itself on the button: «meldet sich» without «wann» is the half of
+                          the answer nobody can act on */}
+                      {dueAt && <span className="jc-due-badge">{formatTime(new Date(dueAt))}</span>}
                     </button>
                   )}
                 />
@@ -1195,7 +1139,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
                       <button
                         ref={attachBtnRef}
                         type="button"
-                        // the caret and the keyboard stay, as on the clock and the ring beside it
+                        // the caret and the keyboard stay, as on the «Pendenz» button beside it
                         onMouseDown={(e) => { if (phone && document.activeElement === textRef.current) e.preventDefault() }}
                         className="jc-rec jc-attach" title={C.attachMenu} aria-label={C.attachMenu}
                       ><Icon id="attach" /></button>
@@ -1305,7 +1249,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
         </div>
       {/* «Uhrzeit …» — the one answer that is not a row in a menu. It opens THE time picker
           (WheelPopover: wheels for a finger, a typed field for a keyboard, a day column) straight
-          from the clock button. It was a dialog with a ± stepper of its own (owner, 08.10.2026:
+          from the «Pendenz» button. It was a dialog with a ± stepper of its own (owner, 08.10.2026:
           «use our normal picker, to avoid having another one») — one picker, no dialog-in-dialog.
           The popover joins the dismissal guard, so its Esc / outside tap closes only it, never
           the composer underneath. */}

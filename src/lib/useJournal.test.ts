@@ -25,6 +25,7 @@ vi.mock('./journalStore', () => {
     setReadOnly = vi.fn()
     display = vi.fn().mockReturnValue([])
     blobTimeline = vi.fn().mockReturnValue([])
+    unsentRowIds = vi.fn().mockReturnValue(new Set())
     constructor() { instances.push(this) }
   }
   return { JournalStore: FakeStore }

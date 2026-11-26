@@ -24,6 +24,9 @@ export function useJournal({ incidentId, readOnly, legacy, slowFollow = false, o
   // rows the CLOSED Einsatz refused (journalStore · refused) — for the notice that says why.
   // Carried as state, set from the store's change callback, never read off the store in render.
   const [refusedCount, setRefusedCount] = useState(0)
+  // the rows still only on this device (journalStore · unsentRowIds), read on each change like
+  // `refusedCount` – the delivery notice counts them, the Verlauf marks them
+  const [unsentIds, setUnsentIds] = useState<ReadonlySet<string>>(() => new Set())
   const storeRef = useRef<JournalStore | null>(null)
   if (!storeRef.current) storeRef.current = new JournalStore(incidentId, readOnly, owner)
   const store = storeRef.current
@@ -66,7 +69,7 @@ export function useJournal({ incidentId, readOnly, legacy, slowFollow = false, o
     // store drops every `append` on the floor without a word. In dev that meant: the composer
     // closed, the toast said «gespeichert», and no Verlaufszeile ever reached the server.
     if (store.isDisposed) store.revive()
-    store.onChange = () => { setNonce((n) => n + 1); setRefusedCount(store.refusedCount) }
+    store.onChange = () => { setNonce((n) => n + 1); setRefusedCount(store.refusedCount); setUnsentIds(store.unsentRowIds()) }
     void store.init(legacy)
 
     return () => { store.dispose() }
@@ -81,7 +84,7 @@ export function useJournal({ incidentId, readOnly, legacy, slowFollow = false, o
 
   const append = useCallback((row: TimelineEvent) => store.append(row), [store])
   const appendPatch = useCallback(
-    (id: string, fields: Partial<Pick<TimelineEvent, 'transcript' | 'transcriptSection' | 'transcriptSectionEdit' | 'audioUrl' | 'photoUrl' | 'photoUrls' | 'photoGeo' | 'textEdit' | 'retracted'>>) =>
+    (id: string, fields: Partial<Pick<TimelineEvent, 'transcript' | 'transcriptSection' | 'transcriptSectionEdit' | 'audioUrl' | 'photoUrl' | 'photoUrls' | 'photoGeo' | 'textEdit' | 'atEdit' | 'retracted'>>) =>
       store.appendPatch(id, fields),
     [store],
   )
@@ -100,5 +103,5 @@ export function useJournal({ incidentId, readOnly, legacy, slowFollow = false, o
 
   return { rows, blobTimeline, append, appendPatch, overlaySession, swapPhoto, ingestLegacy,
     retry, flush, requeueRefused, recoveryData, getStatus, rowShown, syncStatus: store.syncStatus,
-    pendingCount: store.pendingCount, rejectedCount: store.rejectedCount, refusedCount }
+    pendingCount: store.pendingCount, rejectedCount: store.rejectedCount, refusedCount, unsentIds }
 }

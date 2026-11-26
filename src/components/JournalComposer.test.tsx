@@ -54,10 +54,24 @@ const menuRow = async (name: RegExp) => {
 }
 
 describe('JournalComposer · the ○ switch', () => {
+  // owner pick UX journeys B2·40 (grilling 25.11.2026): clock and ring are ONE worded button, its
+  // menu in this order – the reminders first, then the state, then «Meldung zu»
+  it('is one worded «Pendenz» button whose menu reads in the owner\'s order', async () => {
+    setup()
+    expect(ring().textContent).toContain('Pendenz')
+    fireEvent.click(ring())
+    await screen.findAllByRole('menuitem')
+    expect(screen.getAllByRole('menuitem').map((r) => r.textContent)).toEqual([
+      '10 min', '30 min', '60 min', 'Uhrzeit …', 'Ohne Erinnern', 'Dringend', 'Keine Pendenz',
+      OPEN[0].text, OPEN[1].text,
+    ])
+    expect(screen.getByText('Meldung zu')).toBeTruthy()
+  })
+
   it('marks the entry as an open Pendenz', async () => {
     const { onSubmit } = setup()
     type('Werkhof stellt Absperrmaterial')
-    fireEvent.click(await menuRow(/^Neue Pendenz$/))
+    fireEvent.click(await menuRow(/^Ohne Erinnern$/))
     await waitFor(() => expect(ring().dataset.state).toBe('1'))
     send()
     expect(onSubmit.mock.calls[0][0]).toMatchObject({ pendenz: { urgent: false } })
@@ -66,7 +80,7 @@ describe('JournalComposer · the ○ switch', () => {
   it('…or as a dringende one', async () => {
     const { onSubmit } = setup()
     type('Absperrung sofort')
-    fireEvent.click(await menuRow(/Dringende Pendenz/))
+    fireEvent.click(await menuRow(/^Dringend$/))
     await waitFor(() => expect(ring().dataset.state).toBe('2'))
     send()
     expect(onSubmit.mock.calls[0][0]).toMatchObject({ pendenz: { urgent: true } })
@@ -259,10 +273,7 @@ describe('JournalComposer · the Art', () => {
 // ring the way a reminder time does – and only takes back a ring it opened itself
 describe('JournalComposer · «Auftrag» opens the ring', () => {
   const chip = (name: string) => screen.getByRole('button', { name })
-  const dueRow = async (name: RegExp) => {
-    fireEvent.click(document.querySelector('.jc-due-btn') as HTMLButtonElement)
-    return await screen.findByRole('menuitem', { name })
-  }
+  const dueRow = menuRow
 
   it('files an Auftrag as an open Pendenz without touching the ring', () => {
     const { onSubmit } = setup()
@@ -288,7 +299,7 @@ describe('JournalComposer · «Auftrag» opens the ring', () => {
 
   it('never closes a ring the operator opened, or one a reminder needs', async () => {
     setup()
-    fireEvent.click(await menuRow(/Dringende Pendenz/))
+    fireEvent.click(await menuRow(/^Dringend$/))
     fireEvent.click(chip('Auftrag'))
     fireEvent.click(chip('Info'))
     expect(ring().dataset.state).toBe('2')
@@ -296,7 +307,7 @@ describe('JournalComposer · «Auftrag» opens the ring', () => {
 
     setup()
     fireEvent.click(chip('Auftrag'))
-    fireEvent.click(await dueRow(/in 10 min/))
+    fireEvent.click(await dueRow(/^10 min$/))
     fireEvent.click(chip('Info'))
     expect(ring().dataset.state).toBe('1')
   })
@@ -315,17 +326,15 @@ describe('JournalComposer · «Auftrag» opens the ring', () => {
 // ⚠️ There is no «Eintrag · Erinnerung» mode any more: a due time is a property of ANY entry, so
 // «Auftrag erteilt» and «um 22:10 nachfassen» are one row rather than two rows about one thing.
 describe('JournalComposer · the clock', () => {
-  const clock = () => document.querySelector('.jc-due-btn') as HTMLButtonElement
-  const dueRow = async (name: RegExp) => {
-    fireEvent.click(clock())
-    return await screen.findByRole('menuitem', { name })
-  }
+  const dueRow = menuRow
 
   it('gives an ordinary entry a due time — with its Art and its media intact', async () => {
     const { onSubmit } = setup()
     type('Lüfter im Treppenhaus prüfen')
     fireEvent.click(screen.getByRole('button', { name: 'Auftrag' }))
-    fireEvent.click(await dueRow(/in 10 min/))
+    fireEvent.click(await dueRow(/^10 min$/))
+    // the Pendenz button names the due time as a time of day (B2·43)
+    expect(screen.getByRole('button', { name: /^Pendenz – Erinnert um \d{2}:\d{2} Uhr$/ })).toBeTruthy()
     send()
     const d = onSubmit.mock.calls[0][0]
     expect(d.entryType).toBe('auftrag')
@@ -337,7 +346,7 @@ describe('JournalComposer · the clock', () => {
   it('opens the ring with it, and drops the time when the ring is closed again', async () => {
     const { onSubmit } = setup()
     type('Lüfter prüfen')
-    fireEvent.click(await dueRow(/in 30 min/))
+    fireEvent.click(await dueRow(/^30 min$/))
     await waitFor(() => expect(ring().dataset.state).toBe('1'))
 
     fireEvent.click(ring())
@@ -484,28 +493,28 @@ describe('JournalComposer · writing a Meldung', () => {
     expect(d.pendenz).toBeUndefined()
   })
 
-  // ⚠️ The ring stays, and is the ONE place «what is this line?» is asked — with the SAME rows it
-  // offers anywhere else. Realising halfway through a sentence that it is its own thing after all
-  // is normal, and it used to take two steps.
-  it('keeps the ○ switch, and asks the same question it asks everywhere', async () => {
+  // ⚠️ The «Pendenz» button stays, and is the ONE place «what is this line?» is asked — with the
+  // SAME rows it offers anywhere else. Realising halfway through a sentence that it is its own thing
+  // after all is normal, and it used to take two steps.
+  it('keeps the «Pendenz» button, and asks the same question it asks everywhere', async () => {
     const onClearNote = vi.fn()
     const { onLinkPendenz } = setup({ noteOn, onClearNote })
     fireEvent.click(ring())
-    expect(await screen.findByRole('menuitem', { name: /Verknüpfung lösen/ })).toBeTruthy()
-    expect(screen.getByRole('menuitem', { name: /^Neue Pendenz$/ })).toBeTruthy()
-    expect(screen.getByRole('menuitem', { name: /Dringende Pendenz/ })).toBeTruthy()
+    expect(await screen.findByRole('menuitem', { name: /Keine Pendenz/ })).toBeTruthy()
+    expect(screen.getByRole('menuitem', { name: /^Ohne Erinnern$/ })).toBeTruthy()
+    expect(screen.getByRole('menuitem', { name: /^Dringend$/ })).toBeTruthy()
 
     fireEvent.click(screen.getByRole('menuitem', { name: /Patient an Sanität/ }))
     expect(onLinkPendenz).toHaveBeenCalledWith(expect.objectContaining({ id: 'p2' }))
   })
 
-  // ⚠️ …and «Neue Pendenz» UNLINKS on the way. `submit` reads `noteFor` before `pendenz`, so a
+  // ⚠️ …and «Ohne Erinnern» UNLINKS on the way. `submit` reads `noteFor` before `pendenz`, so a
   // draft still carrying the link would file the line as a Meldung and drop the choice silently.
   it('turning a Meldung into its own item lets the link go first', async () => {
     const onClearNote = vi.fn()
     setup({ noteOn, onClearNote })
     fireEvent.click(ring())
-    fireEvent.click(await screen.findByRole('menuitem', { name: /^Neue Pendenz$/ }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: /^Ohne Erinnern$/ }))
     expect(onClearNote).toHaveBeenCalled()
   })
 
@@ -513,7 +522,7 @@ describe('JournalComposer · writing a Meldung', () => {
     const onClearNote = vi.fn()
     setup({ noteOn, onClearNote })
     fireEvent.click(ring())
-    fireEvent.click(await screen.findByRole('menuitem', { name: /Verknüpfung lösen/ }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: /Keine Pendenz/ }))
     expect(onClearNote).toHaveBeenCalled()
   })
 })
@@ -529,7 +538,7 @@ describe('JournalComposer · the half-written draft', () => {
     setup()
     type('Halb geschriebener Satz')
     fireEvent.click(screen.getByRole('button', { name: 'Auftrag' }))
-    fireEvent.click(await menuRow(/Dringende Pendenz/))
+    fireEvent.click(await menuRow(/^Dringend$/))
     await waitFor(() => expect(ring().dataset.state).toBe('2'))
     cleanup()
 
@@ -898,7 +907,7 @@ describe('JournalComposer · swiping the suggestion band', () => {
 
 describe('the mobile composer caret', () => {
   afterEach(() => vi.unstubAllGlobals())
-  it('keeps the sentence focused through Pendenz and relative-time picks', async () => {
+  it('keeps the sentence focused through a Pendenz pick', async () => {
     vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener: () => {}, removeEventListener: () => {} }))
     setup()
     const field = screen.getByRole('textbox')
@@ -906,13 +915,10 @@ describe('the mobile composer caret', () => {
     field.focus()
     fireEvent.mouseDown(ring())
     fireEvent.click(ring())
-    fireEvent.click(await screen.findByRole('menuitem', { name: /^Neue Pendenz$/ }))
+    // ONE button since B2·40: a relative time is a Pendenz pick
+    fireEvent.click(await screen.findByRole('menuitem', { name: /^10 min$/ }))
     await waitFor(() => expect(document.activeElement).toBe(field))
-    const due = document.querySelector('.jc-due-btn')!
-    fireEvent.mouseDown(due)
-    fireEvent.click(due)
-    fireEvent.click(await screen.findByRole('menuitem', { name: /in 5 min/i }))
-    await waitFor(() => expect(document.activeElement).toBe(field))
+    expect(ring().dataset.state).toBe('1')
   })
 })
 
