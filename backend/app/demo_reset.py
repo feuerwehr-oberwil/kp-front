@@ -52,6 +52,7 @@ from .models import (
     WorkspaceSnapshot,
 )
 from .personnel import format_name
+from .plans import lock_plan_maintenance
 
 logger = logging.getLogger(__name__)
 
@@ -826,6 +827,8 @@ async def reset(wipe_objects: bool = True) -> None:
     assert_demo_database()
 
     async with async_session_maker() as db:
+        # lock 1 of `plans` › the lock order: this wipes plan rows and writes the config row
+        await lock_plan_maintenance(db)
         # ⚠️ The cascade deletes the ROWS; the photos, voice memos and workspace snapshots they
         # point at are files, and used to stay on the volume forever — a demo that resets nightly
         # and invites strangers to upload grew without bound (23.09.2026). Collect the keys first

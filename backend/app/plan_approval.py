@@ -16,7 +16,9 @@ checks rather than approves, and «Freigabe zurücknehmen» puts it back in the 
 
 Every decision on an alignment — approve, reject, withdraw, retry, floors — is also written the
 same way (``record_change``): a CAS on ``edit_version`` plus one append-only
-``PlanAlignmentEvent`` naming the ``actor`` that decided.
+``PlanAlignmentEvent`` naming the ``actor`` that decided. The ones that only make sense on the
+current revision (approve, floors, retry) first call ``lock_current_revision`` – the lock a
+replacement takes too (``plans`` › the lock order).
 """
 
 from __future__ import annotations
@@ -24,13 +26,14 @@ from __future__ import annotations
 import math
 from datetime import UTC, datetime
 
-from sqlalchemy import select, update
+from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .api.plan_scales import GeorefPair
-from .models import ObjectSite, PlanAlignment, PlanAlignmentEvent, PlanRevision, ReferenceDataset
+from .models import PlanAlignment, PlanAlignmentEvent, PlanRevision, ReferenceDataset
 from .plan_floors import fit_publishable, load_floors
 from .plan_revision_info import revision_page_count
+from .plans import lock_objects
 
 #: an admin acting in the review UI …
 ADMIN = "admin"
@@ -62,6 +65,23 @@ def snapshot(row: PlanAlignment) -> dict:
         "reference_source": row.reference_source,
         "reference_at": row.reference_at.isoformat() if row.reference_at else None,
     }
+
+
+async def lock_current_revision(db: AsyncSession, row: PlanAlignment) -> ReferenceDataset:
+    """Lock the plan's object (lock 3, ``plans`` › the lock order) and re-read its dataset, or raise
+    ``ApprovalError`` 409 when ``row`` is no longer the current revision.
+
+    Call it before the first check that the write depends on. A replacement in flight holds the
+    same row, so this waits for it to commit and then refuses; a replacement that starts after
+    this waits until the caller's transaction ends.
+    """
+    ds = await db.get(ReferenceDataset, row.dataset_id)
+    if ds is not None and ds.object_id is not None:
+        await lock_objects(db, ds.object_id)
+        ds = await db.get(ReferenceDataset, row.dataset_id, populate_existing=True)
+    if ds is None or ds.current_version != row.plan_version:
+        raise ApprovalError(409, "Dieser Plan wurde ersetzt – aktuelle Version prüfen")
+    return ds
 
 
 async def record_change(
@@ -123,12 +143,7 @@ async def approve_fit(
         allowed |= {"no_match", "failed", "unavailable", "unsupported", "rejected", "approved"}
     if row.status not in allowed:
         raise ApprovalError(409, "Kein Vorschlag zur Freigabe vorhanden")
-    ds = await db.get(ReferenceDataset, row.dataset_id)
-    if ds is not None and ds.object_id is not None:
-        await db.execute(select(ObjectSite).where(ObjectSite.id == ds.object_id).with_for_update())
-        await db.refresh(ds)
-    if ds is None or ds.current_version != row.plan_version:
-        raise ApprovalError(409, "Dieser Plan wurde ersetzt – aktuelle Version prüfen")
+    await lock_current_revision(db, row)
     revision = await db.get(PlanRevision, (row.dataset_id, row.plan_version))
     page_count = await revision_page_count(revision.storage_key, fresh=True) if revision else None
     if not fit_publishable(page_count, row.page, await load_floors(db, row.dataset_id, row.plan_version)):

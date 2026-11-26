@@ -69,6 +69,7 @@ from .models import (
     ReferenceDataset,
 )
 from .object_visits import attach_refs
+from .plans import lock_objects, lock_plan_maintenance
 
 
 class PlanEntry(BaseModel):
@@ -447,8 +448,11 @@ async def _load(manifest_path: Path, objects: list[ObjectEntry]) -> WriteResult:
     """Upsert objects + copy their PDFs into the local store."""
     res = WriteResult()
     async with async_session_maker() as db:
+        # locks 1 and 3 of `plans` › the lock order: this bumps plan versions of many objects
+        await lock_plan_maintenance(db)
         for o in objects:
             oid = o.object_id
+            await lock_objects(db, oid)
             existing = (await db.execute(select(ObjectSite).where(ObjectSite.id == oid))).scalar_one_or_none()
             is_new = existing is None
             if existing is None:

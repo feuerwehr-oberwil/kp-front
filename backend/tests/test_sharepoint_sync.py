@@ -1219,3 +1219,62 @@ async def test_a_rename_with_an_edited_file_is_not_guessed_at(db_session, blank_
     await db_session.flush()
     assert await db_session.get(ObjectSite, object_id_for_key("Musterweg 1-14")) is not None
     assert await db_session.get(ObjectSite, object_id_for_key("Musterweg 2-14")) is not None
+
+
+# --- a merge during a run (`plans` › the lock order) ---------------------------------------
+
+
+async def test_a_merge_waits_for_the_run_instead_of_deadlocking_with_it(
+    db_session, session_factory, blank_env, storage_root, monkeypatch
+):
+    """A run holds the plan rows it imported and later takes the config row (here: the geodata
+    area's layer write); `admin_objects_repair merge --apply` holds the config row and then needs
+    the loser's plan rows. Without the shared lock Postgres ended one of the two with a deadlock
+    error. Now the merge waits for the run to commit, and both finish. PostgreSQL only: SQLite has
+    no row locks."""
+    import asyncio
+
+    import httpx
+    from sqlalchemy import text
+
+    from app import admin_objects_repair
+
+    if db_session.bind.dialect.name != "postgresql":
+        pytest.skip("requires independent PostgreSQL transactions")
+    monkeypatch.setattr(admin_objects_repair, "async_session_maker", session_factory)
+    loser, survivor = object_id_for_key("musterweg"), object_id_for_key("Musterweg 1 (EH)")
+    await configure(db_session, [source("plans"), source("geodata")])
+    db_session.add(ObjectSite(id=survivor, name="Musterweg 1 (EH)"))
+    tenant = FakeTenant({"musterweg/modul1.pdf": PDF})
+    await sync_sharepoint(db_session, transport=tenant.transport)
+    await db_session.commit()
+
+    tenant.put("musterweg/modul1.pdf", b"%PDF-1.4 redrawn")
+    tenant.put("hydranten.geojson", geojson())
+    reached, release = asyncio.Event(), asyncio.Event()
+
+    async def paused(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/hydranten.geojson"):  # the plans area is done, the layer write is next
+            reached.set()
+            await release.wait()
+        return tenant._handle(request)
+
+    run = asyncio.create_task(sync_sharepoint(db_session, transport=httpx.MockTransport(paused)))
+    await reached.wait()
+    merge = asyncio.create_task(admin_objects_repair._merge_into(loser, survivor, apply=True))
+    waiting = "SELECT count(*) FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock'"
+    async with session_factory() as observer:
+        for _ in range(100):
+            if merge.done() or (await observer.execute(text(waiting))).scalar_one():
+                break
+            await observer.rollback()  # pg_stat_activity is a snapshot per transaction
+            await asyncio.sleep(0.05)
+    release.set()
+    result = await run
+    await db_session.commit()
+
+    assert await merge == 0
+    assert {area: r["status"] for area, r in result["areas"].items()} == {"plans": "ok", "geodata": "ok"}
+    assert await db_session.get(ObjectSite, loser, populate_existing=True) is None
+    moved = await db_session.get(ReferenceDataset, f"plan:{survivor}:modul1", populate_existing=True)
+    assert moved is not None and moved.current_version == 2

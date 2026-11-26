@@ -85,7 +85,7 @@ from .credentials import load as load_credentials
 from .deployment_config import config_row, read_config
 from .geocode import locate_coordinates
 from .models import ObjectSite, SharePointSyncState
-from .plans import plan_max_bytes, store_plan
+from .plans import lock_objects, lock_plan_maintenance, plan_max_bytes, store_plan
 from .schemas import SharePointArea, SharePointConfig, SharePointSource
 from .sharepoint_graph import GraphAuthError, GraphClient, GraphDeltaExpiredError, GraphError, RemoteFile
 
@@ -293,6 +293,10 @@ async def sync_sharepoint(
         return {"status": "disabled", "areas": {}}
 
     tenant, client_id, client_secret = creds
+    # Lock 1 of `plans` › the lock order, before the first row and outside every area's savepoint:
+    # a run holds plan rows and the config row in either order, and so does a merge (and a second
+    # run) – they wait for each other instead of deadlocking.
+    await lock_plan_maintenance(db)
     results: dict[str, Any] = {}
     # What the System card polls while this runs (app/sync_progress) — memory only, and cleared
     # in `finally` whatever ends the run, so a crashed sync cannot leave a bar standing forever.
@@ -821,6 +825,7 @@ async def _follow_renames(
         obj = await db.get(ObjectSite, old_id.object_id)
         if obj is None or old_id.object_id == new_id.object_id:
             continue
+        await lock_objects(db, obj.id)  # an upload to it waits, and does not land beside the re-key
         name = new_id.name if obj.name == old_id.name else obj.name
         address = new_id.address if obj.address in (None, old_id.address) else obj.address
         plan = await _plan_rekey(db, obj, new_id.object_id, scales=scales, name=name, address=address)

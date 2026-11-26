@@ -53,6 +53,7 @@ from .models import (
     PlanRevision,
     ReferenceDataset,
 )
+from .plans import lock_objects, lock_plan_maintenance
 
 # --- maintenance: what a merge or re-key touches -----------------------------------------
 #
@@ -647,6 +648,10 @@ async def _merge_into(loser_id: uuid.UUID, survivor_id: uuid.UUID, *, apply: boo
     if loser_id == survivor_id:
         fail("merge: the two ids are the same object")
     async with async_session_maker() as db:
+        if apply:
+            # lock 1 of `plans` › the lock order: a SharePoint run holds plan rows and waits for the
+            # config row, this holds the config row and needs plan rows – one waits for the other
+            await lock_plan_maintenance(db)
         loser = await db.get(ObjectSite, loser_id)
         survivor = await db.get(ObjectSite, survivor_id)
         if loser is None or survivor is None:
@@ -656,6 +661,8 @@ async def _merge_into(loser_id: uuid.UUID, survivor_id: uuid.UUID, *, apply: boo
         # `--apply` read-modify-writes `plan_scales_json`, so it holds the row FOR UPDATE from here
         # to its commit. A dry run writes nothing and takes no lock.
         station = await config_row(db, lock=apply)
+        if apply:
+            await lock_objects(db, loser.id, survivor.id)  # lock 3: an upload to either waits for the fold
         scales: dict[str, object] = dict(station.plan_scales_json or {})
         slots: dict[str, ReferenceDataset] = {
             ds.module: ds

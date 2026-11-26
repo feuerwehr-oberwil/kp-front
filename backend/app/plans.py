@@ -47,7 +47,7 @@ from datetime import UTC, datetime
 from urllib.parse import quote, urlparse
 
 import httpx
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from . import storage
@@ -57,6 +57,50 @@ from .plan_floors import load_floors, replace_floors
 from .plan_revision_info import revision_page_count
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------------------
+# the lock order for plans, alignments, the SharePoint run and the merge tool
+# ---------------------------------------------------------------------------------------
+#
+# Every transaction that writes a plan or an alignment takes its locks in this order:
+#
+#   1. lock_plan_maintenance   the writers that change MANY objects, or plans and the config row,
+#                              in one transaction: a SharePoint run, `admin_objects_repair merge
+#                              --apply`, `admin_objects load`, the demo reset. First, before any
+#                              row; so they never overlap.
+#   2. the config row          `deployment_config.config_row(lock=True)`
+#   3. lock_objects            the object whose plans or alignments change
+#   4. the plan rows           `plan:*` reference_datasets, plan_revisions, plan_alignments,
+#                              plan_page_floors
+#
+# A replacement (`store_plan`, the manifest load) and every alignment write that checks «is this
+# revision still current» (`plan_approval.lock_current_revision`: approve, Geschosse, retry,
+# the worker's marker approval) take 3 before they read the dataset row. So the check and the
+# write of an alignment never straddle a replacement: whoever comes second waits, re-reads, and
+# an alignment write on the replaced revision is refused with 409.
+#
+# Under 1, a holder may take 2 and 3 in either order (a SharePoint run reaches the config row in
+# several areas). That is safe because no transaction without 1 holds 2 together with 3 or 4.
+
+#: the key of lock 1 – any 64-bit number that no other `pg_advisory_*` caller uses
+_PLAN_MAINTENANCE = "kp-front:plan-maintenance"
+
+
+async def lock_plan_maintenance(db: AsyncSession) -> None:
+    """Lock 1 of the order above, held to the end of the transaction. Take it OUTSIDE any savepoint:
+    a rolled-back savepoint gives up the locks taken inside it. PostgreSQL only – SQLite (the local
+    suite) has no advisory locks and runs one writer at a time."""
+    if db.bind.dialect.name == "postgresql":
+        await db.execute(select(func.pg_advisory_xact_lock(func.hashtextextended(_PLAN_MAINTENANCE, 0))))
+
+
+async def lock_objects(db: AsyncSession, *object_ids: uuid.UUID) -> None:
+    """Lock 3 of the order above: these object rows FOR UPDATE to the end of the transaction, in id
+    order, so two callers that lock the same pair cannot deadlock on it."""
+    await db.execute(
+        select(ObjectSite.id).where(ObjectSite.id.in_(object_ids)).order_by(ObjectSite.id).with_for_update()
+    )
 
 
 # ---------------------------------------------------------------------------------------
@@ -90,7 +134,15 @@ async def store_plan(
     revision, no version bump, and no reset of an alignment somebody already reviewed.
     """
     ds_id = f"plan:{obj.id}:{module}"
-    ds = (await db.execute(select(ReferenceDataset).where(ReferenceDataset.id == ds_id))).scalar_one_or_none()
+    # lock 3 BEFORE the dataset is read: an alignment decision on the outgoing revision either
+    # commits first or waits for this replacement and is refused (the lock order above)
+    await lock_objects(db, obj.id)
+    # populate_existing: a caller may have loaded the row before the lock (api/reference does)
+    ds = (
+        await db.execute(
+            select(ReferenceDataset).where(ReferenceDataset.id == ds_id).execution_options(populate_existing=True)
+        )
+    ).scalar_one_or_none()
     digest = hashlib.sha256(data).hexdigest()
 
     def apply_metadata(ds: ReferenceDataset) -> None:

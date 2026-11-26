@@ -11,7 +11,7 @@ from ..auth.dependencies import CurrentAdmin
 from ..database import get_db
 from ..models import ObjectSite, PlanAlignment, PlanPageFloor, PlanRevision, ReferenceDataset
 from ..plan_alignment_compute import alignment_capability, render_preview
-from ..plan_approval import ADMIN, ApprovalError, approve_fit, record_change, snapshot
+from ..plan_approval import ADMIN, ApprovalError, approve_fit, lock_current_revision, record_change, snapshot
 from ..plan_floors import (
     FloorError,
     PlanFloor,
@@ -211,6 +211,14 @@ async def alignment_preview(
     return Response(data, media_type=media_type, headers={"Cache-Control": "private, max-age=3600"})
 
 
+async def _lock_current(db: AsyncSession, row: PlanAlignment) -> None:
+    """plan_approval.lock_current_revision, with its refusal as the HTTP answer."""
+    try:
+        await lock_current_revision(db, row)
+    except ApprovalError as refused:
+        raise HTTPException(status_code=refused.status_code, detail=refused.detail) from refused
+
+
 async def _change(db: AsyncSession, row: PlanAlignment, edit_version: int, action: str, values: dict) -> dict:
     """One admin decision: the shared CAS-plus-history write (plan_approval.record_change)."""
     if not await record_change(db, row, edit_version, action, values, actor=ADMIN):
@@ -263,9 +271,7 @@ async def retry_alignment(
     fit stays until the worker writes a new one. A replaced revision, an approved fit and one
     the worker already holds are refused, each saying which it is."""
     row = await _get(db, item_id)
-    ds = await db.get(ReferenceDataset, row.dataset_id)
-    if ds is None or ds.current_version != row.plan_version:
-        raise HTTPException(status_code=409, detail="Dieser Plan wurde ersetzt – aktuelle Version prüfen")
+    await _lock_current(db, row)
     if row.status == "approved":
         raise HTTPException(status_code=409, detail="Ausrichtung ist bereits freigegeben.")
     if row.status in {"processing", "pending"}:
@@ -286,9 +292,7 @@ async def assign_floors(item_id: int, body: FloorPack, _admin: CurrentAdmin, db:
     first (409), then change the fit page.
     """
     row = await _get(db, item_id)
-    ds = await db.get(ReferenceDataset, row.dataset_id)
-    if ds is None or ds.current_version != row.plan_version:
-        raise HTTPException(status_code=409, detail="Dieser Plan wurde ersetzt – aktuelle Version prüfen")
+    await _lock_current(db, row)
     revision = await db.get(PlanRevision, (row.dataset_id, row.plan_version))
     page_count = await revision_page_count(revision.storage_key, fresh=True) if revision else None
     if page_count is None:

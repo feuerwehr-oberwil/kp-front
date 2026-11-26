@@ -31,6 +31,7 @@ from .plan_approval import MARKERS, ApprovalError, approve_fit
 from .plan_floors import FloorError, PlanFloor, load_floors, replace_floors, validate_floors
 from .plan_markers import MarkerPlan, admin_overrides, apply_overrides, marker_snapshot, read_plan
 from .plan_markers import text as marker_text
+from .plans import lock_objects
 from .reference_buildings import ensure_snapshot
 from .schemas import load_stored_config
 
@@ -302,6 +303,7 @@ async def run_once(factory: async_sessionmaker[AsyncSession] = async_session_mak
         key = revision.storage_key if revision else None
         expected_digest = revision.content_digest if revision else None
         module = dataset.module if dataset and dataset.module else ""
+        object_uuid = obj.id if obj else None
         object_id = str(obj.id) if obj else ""
         lng = float(obj.lng) if obj and obj.lng is not None else None
         lat = float(obj.lat) if obj and obj.lat is not None else None
@@ -381,9 +383,14 @@ async def run_once(factory: async_sessionmaker[AsyncSession] = async_session_mak
             aspect=rendered.aspect if rendered else None,
             scale_m_per_u=(rendered.printed_scale or scale) if rendered else None,
         )
+    approves = result.reason == "markers" and marked_pack
     async with factory() as db:
+        if approves and object_uuid is not None:
+            # the approval takes the object row (plans › the lock order): take it BEFORE finish_job
+            # locks the alignment row, or an admin's Geschoss save on this row could deadlock with it
+            await lock_objects(db, object_uuid)
         written = await finish_job(db, claim, result, digest=digest)
-        if written and result.reason == "markers" and marked_pack:
+        if written and approves:
             await approve_marker_fit(db, claim.id)
         await db.commit()
     return True

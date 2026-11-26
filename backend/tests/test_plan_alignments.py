@@ -1,12 +1,13 @@
 """Revision identity, publication boundaries and conflict protection for prepared plans."""
 
+import asyncio
 from io import BytesIO
 from unittest.mock import AsyncMock
 from urllib.parse import quote
 
 import pytest
 from reportlab.pdfgen.canvas import Canvas
-from sqlalchemy import event, select
+from sqlalchemy import event, select, text
 
 from app import storage
 from app.api.report import resolve_report_assets
@@ -405,6 +406,52 @@ async def test_retry_refuses_a_replaced_revision(client, admin_login, db_session
     )
     await db_session.refresh(row)
     assert row.status == "failed"
+
+
+async def _until_waiting(observer, task) -> None:
+    """Until ``task`` waits on a lock in this database – or has already answered without one."""
+    waiting = "SELECT count(*) FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock'"
+    for _ in range(100):
+        if task.done() or (await observer.execute(text(waiting))).scalar_one():
+            return
+        await observer.rollback()  # pg_stat_activity is a snapshot per transaction
+        await asyncio.sleep(0.05)
+    pytest.fail("the request neither waited nor answered")
+
+
+@pytest.mark.parametrize("action", ["approve", "floors", "retry"])
+async def test_a_replacement_in_flight_refuses_the_alignment_write(
+    action, client, admin_login, db_session, session_factory
+):
+    """«Freigeben», the Geschosse and «Neu berechnen» check that their revision is current and then
+    write. A replacement that commits in between must win: the write waits for it, is refused, and
+    nothing is published or queued for the outgoing revision (plans › the lock order). SQLite has
+    no row lock, so this runs on PostgreSQL only."""
+    if db_session.bind.dialect.name != "postgresql":
+        pytest.skip("requires independent PostgreSQL transactions")
+    obj, _, row = await _seed(db_session)
+    await admin_login(client)
+    url = f"/api/admin/plan-alignments/{row.id}"
+    send = {
+        "approve": lambda: client.post(url + "/approve", json={"edit_version": 1}),
+        "floors": lambda: client.put(url + "/floors", json={"edit_version": 1, "floors": []}),
+        "retry": lambda: client.post(url + "/retry", json={"edit_version": 1}),
+    }[action]
+
+    async with session_factory() as replacement, session_factory() as observer:
+        await store_plan(replacement, await replacement.get(ObjectSite, obj.id), "modul1", PDF2)
+        write = asyncio.create_task(send())
+        await _until_waiting(observer, write)
+        await replacement.commit()
+
+    response = await write
+    assert (response.status_code, response.json().get("detail")) == (
+        409,
+        "Dieser Plan wurde ersetzt – aktuelle Version prüfen",
+    )
+    old = await db_session.get(PlanAlignment, row.id, populate_existing=True)
+    assert (old.status, old.edit_version) == ("ready", 1)
+    assert (await db_session.execute(select(PlanAlignmentEvent))).scalars().all() == []
 
 
 async def test_the_preview_thumbnail_is_a_small_jpeg_of_the_same_page(client, admin_login, db_session, monkeypatch):
