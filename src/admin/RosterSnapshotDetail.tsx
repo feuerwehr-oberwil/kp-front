@@ -3,6 +3,7 @@ import { apiPost, CONNECTOR_TIMEOUT_MS } from '../lib/api'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { ConfirmButton, ResultChip, fmtDateTime } from './ui'
+import { apiErrorText } from './apiErrors'
 
 /** What the roster-snapshot run stored about itself — `connector_states.detail` for the
  *  `roster_snapshot` row (backend · roster_snapshot_ingest.status_json). Everything optional:
@@ -66,8 +67,8 @@ export function RosterSnapshotDetail({ counts, onReload }: {
     try {
       await apiPost('/api/personnel/snapshot/sync', { force }, undefined, CONNECTOR_TIMEOUT_MS)
       setResult({ tone: 'ok', text: C.snapRunOk })
-    } catch {
-      setResult({ tone: 'err', text: C.snapRunFailed })
+    } catch (e) {
+      setResult({ tone: 'err', text: apiErrorText(e, C.snapRunFailed) })
     } finally {
       await onReload()
       setBusy(false)

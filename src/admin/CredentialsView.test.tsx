@@ -37,6 +37,7 @@ vi.mock('../lib/api', async () => {
 
 import { CredentialsView } from './CredentialsView'
 import { appConfig } from '../config/appConfig'
+import { ApiError } from '../lib/api'
 
 const C = appConfig.copy.admin.zugaenge
 
@@ -135,7 +136,7 @@ describe('saving', () => {
 
   it('shows the server refusal verbatim — it is the useful sentence', async () => {
     serve([cred({ name: 'traccar_url', group: 'traccar', label: 'Traccar-Server', secret: false, env: 'TRACCAR_URL' })])
-    apiPut.mockRejectedValue(new Error('Die Traccar-Adresse muss mit https:// beginnen – sonst bleibt die Ortung aus.'))
+    apiPut.mockRejectedValue(new ApiError(422, 'Die Traccar-Adresse muss mit https:// beginnen – sonst bleibt die Ortung aus.'))
     render(<CredentialsView />)
 
     fireEvent.change(await screen.findByLabelText('Traccar-Server'), { target: { value: 'http://gps.example.org' } })

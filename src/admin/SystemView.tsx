@@ -11,6 +11,7 @@ import { Card, StatusBadge, Metric, UsageBar, ProgressBar, EmptyState, ResultChi
 import { useCellLabels } from './useCellLabels'
 import { RosterSnapshotDetail, type RosterSnapshotCounts } from './RosterSnapshotDetail'
 import { clearTiles, countTiles } from '../lib/tileStore'
+import { apiErrorText } from './apiErrors'
 import './system.css'
 
 // ─── shapes (plain dict from GET /api/system; resilient — sections may be null) ──
@@ -377,7 +378,9 @@ function SharePointCard({
       setResult({ tone: 'ok', text: C.spSynced })
     } catch (e) {
       const stillRunning = e instanceof ApiError && e.timedOut
-      setResult({ tone: stillRunning ? 'ok' : 'err', text: stillRunning ? C.spSyncStillRunning : C.spSyncFailed })
+      setResult(stillRunning
+        ? { tone: 'ok', text: C.spSyncStillRunning }
+        : { tone: 'err', text: apiErrorText(e, C.spSyncFailed) })
     } finally {
       await onReload()
       setBusy(false)

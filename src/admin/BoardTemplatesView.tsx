@@ -1,6 +1,6 @@
 import { ShellLoader } from '../components/ShellLoader'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ApiError, apiGet } from '../lib/api'
+import { apiGet } from '../lib/api'
 import { Sheet } from '../lib/overlays'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
@@ -14,6 +14,7 @@ import { ActionMenu, Card, EmptyState, Table, fmtDate } from './ui'
 import { PlanSourceBadge } from './ObjectSheet'
 import { deleteBoardTemplates, isBoardTemplateDataset, listReferenceDatasets, uploadChecklistFile } from './stationDataApi'
 import './stationData.css'
+import { apiErrorText } from './apiErrors'
 
 // «Tafel-Vorlagen» (10.10.2026) — the station's board templates (board-template/1), the pages its
 // Tafel offers under «+ Seite». The same registry and the same doors as the checklists
@@ -153,7 +154,7 @@ function UploadSheet({ existing, onClose, onDone }: { existing: Row[]; onClose: 
       await uploadChecklistFile(`tafel:${parsed.id}`, file, file.name, { title, sourceNote: file.name })
       onDone(fillTemplate(replaces ? C.replaced : C.added, { title }))
     } catch (e) {
-      setError(e instanceof ApiError ? e.detail : C.uploadFailed)
+      setError(apiErrorText(e, C.uploadFailed))
       setBusy(false)
     }
   }
@@ -204,7 +205,7 @@ function DeleteSheet({ row, onClose, onDone }: { row: Row; onClose: () => void; 
       const res = await deleteBoardTemplates([row.dataset.id])
       onDone(fillTemplate(C.deleted, { n: res.pruned.length }))
     } catch (e) {
-      setError(e instanceof ApiError ? e.detail : C.deleteFailed)
+      setError(apiErrorText(e, C.deleteFailed))
       setBusy(false)
     }
   }

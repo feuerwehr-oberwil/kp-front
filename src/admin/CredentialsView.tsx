@@ -39,6 +39,7 @@ import {
   SettingsSheet, StatusBadge, fmtDateTime, useSecret,
 } from './ui'
 import './credentials.css'
+import { apiErrorText } from './apiErrors'
 
 type Source = 'env' | 'stored' | 'unset' | 'unreadable'
 
@@ -110,7 +111,8 @@ function CredentialRow({ cred, onChanged }: { cred: CredentialState; onChanged: 
     } catch (e) {
       // The server's German refusal is the useful message («… muss mit https:// beginnen»),
       // so it is shown verbatim rather than replaced by a generic failure.
-      setResult({ tone: 'err', text: e instanceof Error && e.message ? e.message : C.failed })
+      // a 422 names the body's one field, `value` – which is this row's own label
+      setResult({ tone: 'err', text: apiErrorText(e, C.failed, { value: cred.label }) })
     } finally {
       setBusy(false)
     }
@@ -123,7 +125,7 @@ function CredentialRow({ cred, onChanged }: { cred: CredentialState; onChanged: 
       setResult({ tone: 'ok', text: C.removed })
       onChanged()
     } catch (e) {
-      setResult({ tone: 'err', text: e instanceof Error && e.message ? e.message : C.failed })
+      setResult({ tone: 'err', text: apiErrorText(e, C.failed) })
     } finally {
       setBusy(false)
     }

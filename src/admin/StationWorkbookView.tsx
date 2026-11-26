@@ -8,6 +8,7 @@ import { fillTemplate } from '../lib/format'
 import { useConfig } from './ConfigContext'
 import type { DeploymentConfig } from '../lib/deploymentConfig'
 import { Card, Table } from './ui'
+import { apiErrorText } from './apiErrors'
 
 // Verwaltung › Daten › Arbeitsmappe. Download the station's list-shaped data as one .xlsx,
 // edit it in Excel/Numbers/LibreOffice, upload it back.
@@ -95,7 +96,7 @@ export function StationWorkbookView() {
       await downloadWorkbook()
       setState({ kind: 'idle' })
     } catch (e) {
-      setState({ kind: 'error', message: e instanceof ApiError ? e.detail : C.downloadFailed })
+      setState({ kind: 'error', message: apiErrorText(e, C.downloadFailed) })
     }
   }
 
@@ -111,7 +112,7 @@ export function StationWorkbookView() {
       const preview = await apiUpload<Preview>('/api/station-workbook/preview', form)
       setState({ kind: 'preview', file, preview })
     } catch (e) {
-      setState({ kind: 'error', message: e instanceof ApiError ? e.detail : C.previewFailed })
+      setState({ kind: 'error', message: apiErrorText(e, C.previewFailed) })
     }
   }
 
@@ -142,7 +143,7 @@ export function StationWorkbookView() {
     try {
       result = await apiUpload<ImportResult>('/api/station-workbook/import', form)
     } catch (e) {
-      setState({ kind: 'error', message: e instanceof ApiError ? e.detail : C.importFailed })
+      setState({ kind: 'error', message: apiErrorText(e, C.importFailed) })
       return
     }
     try {

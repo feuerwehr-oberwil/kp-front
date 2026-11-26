@@ -1,10 +1,11 @@
 import { ShellLoader } from '../components/ShellLoader'
 import { useState } from 'react'
-import { apiPost, ApiError } from '../lib/api'
+import { apiPost } from '../lib/api'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, initials } from '../lib/format'
 import { Sheet } from '../lib/overlays'
 import { PinPad, isValidPin, PIN_MIN_LENGTH, PIN_MAX_LENGTH } from '../components/PinPad'
+import { apiErrorText } from './apiErrors'
 
 const NEUTRAL_COLOR = '#6c7686' // --ink-faint, same fallback as the login roster tiles
 
@@ -71,7 +72,7 @@ export function PinSheet({ user, onClose, onSaved }: {
     } catch (e) {
       // Every refusal this endpoint returns is German now (auth/router · _PIN_TOO_SIMPLE,
       // _PIN_WRONG_LENGTH), so it is shown as it arrives — nothing left to translate here.
-      setErr(e instanceof ApiError ? e.detail : Cc.unknownError)
+      setErr(apiErrorText(e, Cc.unknownError))
       setSecond('')
       setBusy(false)
     }

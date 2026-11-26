@@ -24,6 +24,7 @@ import { DEFAULT_DESTINATION, DEFAULT_LOCATION_FOLDER, destinationValid, preview
 import { personName, type DeliveryRow, type NotifyState, type VisitFiling, type VisitSummary, type VisitTemplate } from '../objectVisits/types'
 import { getPath, useConfig, type ConfigCtx } from './ConfigContext'
 import { NUMBER_GUARDS } from './configGuards'
+import { apiErrorText } from './apiErrors'
 import {
   Card, ConfirmButton, CopyChip, EmptyState, RecordRows, RecordTable, ResultChip, SettingRow, SettingsNote,
   SettingsSheet, StatusBadge, Table, fmtDateTime,
@@ -220,7 +221,7 @@ function DestinationCard({ onNavigate }: { onNavigate: (id: string) => void }) {
         ? { tone: 'ok', text: said ? `${T.testOk} · ${said}` : T.testOk }
         : { tone: 'err', text: said ? `${T.testFailed} · ${said}` : T.testFailed })
     } catch (e) {
-      setTest({ tone: 'err', text: e instanceof ApiError ? `${T.testFailed} · ${e.detail}` : T.testFailed })
+      setTest({ tone: 'err', text: e instanceof ApiError ? `${T.testFailed} · ${apiErrorText(e)}` : T.testFailed })
     } finally {
       setBusy(false)
     }
@@ -310,7 +311,7 @@ function DeliveriesCard() {
       setResult({ tone: 'ok', text: T.retried })
       reload()
     } catch (e) {
-      setResult({ tone: 'err', text: e instanceof ApiError ? `${T.retryFailed} · ${e.detail}` : T.retryFailed })
+      setResult({ tone: 'err', text: e instanceof ApiError ? `${T.retryFailed} · ${apiErrorText(e)}` : T.retryFailed })
     }
   }
   const failedDests = Array.isArray(rows) ? [...new Set(rows.filter((r) => r.state === 'failed').map((r) => r.destination))] : []
@@ -385,7 +386,7 @@ function IntegrationKeyCard() {
       setShown(key)
       setConfigured(true)
     } catch (e) {
-      setError(e instanceof ApiError ? `${T.keyFailed} · ${e.detail}` : T.keyFailed)
+      setError(e instanceof ApiError ? `${T.keyFailed} · ${apiErrorText(e)}` : T.keyFailed)
     } finally {
       setBusy(false)
     }
@@ -511,7 +512,7 @@ function NotifyCard({ onNavigate }: { onNavigate: (id: string) => void }) {
       setState(await adminSetNotify(ids))
       setResult({ tone: 'ok', text: T.notifySaved })
     } catch (e) {
-      setResult({ tone: 'err', text: e instanceof ApiError ? `${T.notifyFailed} · ${e.detail}` : T.notifyFailed })
+      setResult({ tone: 'err', text: e instanceof ApiError ? `${T.notifyFailed} · ${apiErrorText(e)}` : T.notifyFailed })
     } finally {
       setBusy(false)
     }

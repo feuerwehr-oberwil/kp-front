@@ -20,6 +20,7 @@ import { appConfig } from '../config/appConfig'
 import { fillTemplate, fmtFileSize } from '../lib/format'
 import { Icon } from '../lib/icons'
 import { Card, Offer, StatusBadge, Table, EmptyState, ResultChip, fmtDate, fmtRelTime } from './ui'
+import { apiErrorText } from './apiErrors'
 
 // The three read-only "Daten" pages — Integrationen, Objekte & Pläne, Geodaten. Each is
 // its own nav destination (they used to be stacked cards in one DataView). Every fetch is
@@ -83,11 +84,8 @@ type TestState =
   | { kind: 'err'; detail: string }
 
 function classifyTest(e: unknown): TestState {
-  if (e instanceof ApiError) {
-    if (e.status === 503) return { kind: 'off' }
-    return { kind: 'err', detail: e.detail }
-  }
-  return { kind: 'err', detail: appConfig.copy.admin.data.genericError }
+  if (e instanceof ApiError && e.status === 503) return { kind: 'off' }
+  return { kind: 'err', detail: apiErrorText(e, appConfig.copy.admin.data.genericError) }
 }
 
 /** Small inline button + transient result chip for a single integration probe. */

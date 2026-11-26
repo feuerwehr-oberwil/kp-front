@@ -1,8 +1,8 @@
 import { ShellLoader } from '../components/ShellLoader'
 import { useState } from 'react'
 import { appConfig } from '../config/appConfig'
-import { ApiError } from '../lib/api'
 import { adminLogin } from './adminAuth'
+import { apiErrorText } from './apiErrors'
 
 // Admin-secret unlock gate. Shown after a user is logged in (for audit identity) but before
 // the admin shell, whenever this browser holds no valid admin session. Admin authority is the
@@ -23,7 +23,7 @@ export function AdminUnlock({ onUnlocked, onLogout }: { onUnlocked: () => void; 
       setSecret('')
       onUnlocked()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : String(err))
+      setError(apiErrorText(err))
       setBusy(false)
     }
   }

@@ -6,6 +6,7 @@ import { Card, CopyChip, EmptyState, StatusBadge, Table, fmtDateTime } from './u
 import { fillTemplate } from '../lib/format'
 import { apiGet, apiPost } from '../lib/api'
 import type { Out } from '../lib/api/wire'
+import { apiErrorText } from './apiErrors'
 
 /** Herkunft in words – the backend stores a slug (`Incident.source`: 'manual', 'divera', an intake
  *  slug …) and printed it raw («MANUAL»). An unknown slug still shows as itself. */
@@ -74,8 +75,8 @@ export function IncidentHistoryView() {
   const retryArchive = async (incidentId: string) => {
     try {
       await apiPost('/api/admin/incident-archive/retry', { incidentId })
-    } catch {
-      setErr(C.archive.retryFailed)
+    } catch (e) {
+      setErr(apiErrorText(e, C.archive.retryFailed))
     }
     loadArchive()
   }
@@ -94,8 +95,8 @@ export function IncidentHistoryView() {
     try {
       await deleteIncident(id)
       setState((cur) => (cur.kind === 'ok' ? { kind: 'ok', data: cur.data.filter((i) => i.id !== id) } : cur))
-    } catch {
-      setErr(C.deleteFailed)
+    } catch (e) {
+      setErr(apiErrorText(e, C.deleteFailed))
     }
   }
 

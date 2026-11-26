@@ -26,6 +26,7 @@ import { MarkerNotes } from './markerNotes'
 import { moduleHiddenWithGebaeude } from '../lib/deploymentConfig'
 import { savePlanFloors } from './planAlignmentApi'
 import './planAlignment.css'
+import { apiErrorText } from './apiErrors'
 
 const Preview = lazy(() => import('./AlignmentPreview'))
 const Pairing = lazy(() => import('./AlignmentPairing'))
@@ -111,7 +112,7 @@ export function PlanAlignmentReview({ compact = false, embedded = false, source 
         setOwnQueue(next); setError(null)
         setOpen(o => o != null && next.items.some(item => item.id === o) ? o : null)
       } catch (e) {
-        if (alive.current && seq === loadSeq.current) setError(e instanceof ApiError ? e.detail : appConfig.copy.admin.alignment.loadFailed)
+        if (alive.current && seq === loadSeq.current) setError(apiErrorText(e, appConfig.copy.admin.alignment.loadFailed))
       }
     })()
     inFlight.current = request
@@ -173,7 +174,7 @@ export function PlanAlignmentReview({ compact = false, embedded = false, source 
       return true
     } catch (e) {
       if (!alive.current) return false
-      setError(e instanceof ApiError && e.status === 409 ? C.conflict : e instanceof ApiError ? e.detail : C.saveFailed)
+      setError(e instanceof ApiError && e.status === 409 ? C.conflict : apiErrorText(e, C.saveFailed))
       if (e instanceof ApiError && e.status === 409) await refresh()
       return false
     } finally { if (alive.current) mark(item.id, false) }
@@ -481,7 +482,7 @@ function FloorPackDetail({ item, onChange, onConflict, onDirty, saveRef, onSaveS
       return true
     } catch (e) {
       if (!mounted.current) return false
-      setError(e instanceof ApiError && e.status === 409 ? C.conflict : e instanceof ApiError ? e.detail : C.saveFailed)
+      setError(e instanceof ApiError && e.status === 409 ? C.conflict : apiErrorText(e, C.saveFailed))
       if (e instanceof ApiError && e.status === 409) await onConflict()
       return false
     } finally { if (mounted.current) setBusy(false) }
@@ -495,7 +496,7 @@ function FloorPackDetail({ item, onChange, onConflict, onDirty, saveRef, onSaveS
   })
   const withdraw = async () => {
     setBusy(true)
-    try { onChange(await undoAlignmentApproval(item)) } catch (e) { setError(e instanceof ApiError ? e.detail : C.saveFailed) } finally { if (mounted.current) setBusy(false) }
+    try { onChange(await undoAlignmentApproval(item)) } catch (e) { setError(apiErrorText(e, C.saveFailed)) } finally { if (mounted.current) setBusy(false) }
   }
   return <section className="adm-align-review adm-editor-detail" aria-label={item.object_name}>
     <EditorHeader item={item} unsaved={dirty} origin={originWord(item, pairs, C)} tip={statusTip(item, C)}
@@ -581,7 +582,7 @@ function SheetDetail({ item, onChange, onConflict, onDirty }: DetailProps) {
       onChange(next); reset()
     } catch (e) {
       if (!mounted.current) return
-      setError(e instanceof ApiError && e.status === 409 ? C.conflict : e instanceof ApiError ? e.detail : C.saveFailed)
+      setError(e instanceof ApiError && e.status === 409 ? C.conflict : apiErrorText(e, C.saveFailed))
       if (e instanceof ApiError && e.status === 409) await onConflict()
     } finally { if (mounted.current) setBusy(false) }
   }

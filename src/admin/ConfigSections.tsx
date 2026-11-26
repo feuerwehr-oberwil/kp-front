@@ -3,7 +3,7 @@ import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } f
 import type { AlarmGroup, DeploymentConfig, FleetVehicle } from '../lib/deploymentConfig'
 import { legacyFleetToAttributeLists, DEFAULT_MODULES, OFFLINE_RADIUS_M } from '../lib/deploymentConfig'
 import { geoDatasetId, geoLayerUrl, inspectGeojson, listReference, uploadReference, type ReferenceDataset } from '../lib/incidents'
-import { ApiError, apiGet } from '../lib/api'
+import { apiGet } from '../lib/api'
 import { useConfig, getPath } from './ConfigContext'
 import { ALARM_BAR_STATION_MIN, NUMBER_GUARDS, TEXT_MAX_LENGTH, type NumberField, type NumberGuard } from './configGuards'
 // No `Field` any more: every setting on these pages is a row of the settings table now, and
@@ -33,6 +33,7 @@ import { StringList } from './StringList'
 import { lv95ToWgs84, wgs84ToLV95 } from '../lib/geo'
 import type { DeploymentReferenceLayer } from '../lib/deploymentConfig'
 import type { HoseSize } from '../types'
+import { describeApiError } from './apiErrors'
 
 // The five "Station" pages. Each edits one facet of the single config document via the
 // shared ConfigContext (draft + Save live in the provider, not here). Section-level help
@@ -1468,7 +1469,8 @@ function ReferenceGeojsonEditor({ all, write, datasets, onUploaded }: {
       reset()
       onUploaded()
     } catch (e) {
-      setFailed({ msg: e instanceof ApiError ? e.detail : C.geojsonUploadFailed })
+      const said = describeApiError(e, C.geojsonUploadFailed)
+      setFailed({ msg: said.message, hint: said.hint })
     } finally {
       setBusy(false)
     }
@@ -1494,7 +1496,8 @@ function ReferenceGeojsonEditor({ all, write, datasets, onUploaded }: {
       setRowMsg({ i, ok: true, msg: fillTemplate(C.geojsonReplaced, { v: ds.current_version, n: ds.feature_count ?? res.count }) })
       onUploaded()
     } catch (e) {
-      setRowMsg({ i, msg: e instanceof ApiError ? e.detail : C.geojsonUploadFailed })
+      const said = describeApiError(e, C.geojsonUploadFailed)
+      setRowMsg({ i, msg: said.message, hint: said.hint })
     } finally {
       setRowBusy(null)
     }
