@@ -74,6 +74,12 @@ describe('date and time formatters are built once per option set', () => {
     process.env.TZ = 'Europe/Zurich'
     expect(formatTime(d)).toBe('14:00')
     expect(formatDateTime('2026-07-01T23:30:00Z')).toBe('02.07.2026 01:30')
+    // the same offsets in 2000, not today
+    const jan = new Date('2026-01-10T23:30:00Z')
+    process.env.TZ = 'Europe/Helsinki'
+    expect(formatTime(jan)).toBe('01:30')
+    process.env.TZ = 'Europe/Minsk'
+    expect(formatTime(jan)).toBe('02:30')
   })
 
   it('keeps what an invalid date gave', () => {

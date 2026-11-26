@@ -219,15 +219,17 @@ export function formatLocale(): string {
 // One formatter per (time zone, locale, option set): `toLocale*String(locale, opts)` builds a new
 // ICU formatter on every call, ~50× the cost of `format()` on a cached one, and the Verlauf and the
 // Rapport format several stamps per row. A formatter keeps the zone it was built in, so the cache
-// starts over when the local zone's January or July offset changes (a TZ switch in a test, a
-// device that changes zone).
+// starts over when the local zone's January or July offset changes, in 2000 or this year (a TZ
+// switch in a test, a device that changes zone). Asking for the zone's name instead costs as much
+// as the formatter it would save.
 const formatters = new Map<string, Intl.DateTimeFormat>()
 let formattersZone = ''
 
 /** The deployment-locale `Intl.DateTimeFormat` for these options, built once and reused. Callers
  *  that format per row or per tick take it from here; hoist the options object to a constant. */
 export function dateFormat(opts: Intl.DateTimeFormatOptions): Intl.DateTimeFormat {
-  const zone = `${new Date(2000, 0, 1).getTimezoneOffset()} ${new Date(2000, 6, 1).getTimezoneOffset()}`
+  const y = new Date().getFullYear()
+  const zone = [2000, y].map((yr) => `${new Date(yr, 0, 1).getTimezoneOffset()} ${new Date(yr, 6, 1).getTimezoneOffset()}`).join(' ')
   if (zone !== formattersZone) {
     formatters.clear()
     formattersZone = zone
