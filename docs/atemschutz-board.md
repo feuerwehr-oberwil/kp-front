@@ -56,6 +56,13 @@ questions, and what the record keeps (`components/AtemschutzView`; the card and 
     the tiles – «Alarmdruck 100 bar (Schätzung)», number included – as a quiet
     outlined box (grey edge, `--ink-dim` 14/700, no tint, no ⚠ of its own): the red clock
     already says the card is in alarm.
+  - *A Kontakt from the Atemschutz-Link says so on the tile* (owner pick UX journeys M·12,
+    25.11.2026): while the last clock-resetting row of the running deployment was logged on the
+    handed-over board (`types · TruppReading.via = 'link'`, stamped by the clock family from the
+    address bar – `lib/linkMode · onAtemschutzLink`), the Kontakt tile carries a second line
+    «🔗 22:10 · über Link» (`lib/atemschutz · contactViaLink`) – on every board, the card is one. The
+    next Kontakt logged anywhere else ends it. The tablet reads the tile before it taps, so a call
+    the Eingang already answered is not logged twice. Rows written before 25.11.2026 have no source.
   - *Rückzug and Raus are equal tiles on every board* (29.09.2026): both framed grey, «Rückzug»
     amber only at or under the Trupp's Alarmdruck (`.actAlarm`). A permanently amber «Rückzug
     melden» says «warning» about a Trupp at 300 bar.
@@ -186,10 +193,14 @@ good but we don't need the triangle thing. red and notfall is already enough»):
   phone board's head «the page's first row, not a band» (it sits flat between the app's top bar
   and bottom bars). The link board has no top bar, so head and rail frame the screen
   symmetrically; the notch is the shell's padding (`.as-link-shell`). It is the Einsatz in full on two lines — its title, then «Adresse · ✓ 12:12» (the save
-  stamp's bare time is back now that it has a line of its own) — still the door to the ⌄ popover
+  stamp's bare time is back now that it has a line of its own; a save on its way keeps the last
+  «✓ 12:12» – no orange dot – and only a save pending 10 s turns into the red «⚠ Nicht
+  synchronisiert · 12:12», owner pick UX journeys M·13, 25.11.2026) — still the door to the ⌄ popover
   (title, address, the long «Gespeichert um …», and the link's way back «Der Link führt zurück …»
   as one line; it was a once-per-device toast until the link dropped toasts, sweep #23). ↶ ↷ 🔔
-  without frames; a muted or blocked bell keeps its tint.
+  without frames and without words, 44px glyphs (owner pick UX journeys M·18, 25.11.2026: pick 24a's
+  worded ↶ ↷ never folded here, because the title is `data-fit-free` and wraps anywhere – «Wohnha /
+  us»); a muted or blocked bell keeps its tint. The wide link Tafel keeps the worded, folding pair.
 - *No card*: the open Trupp is a flat PAGE — no frame, tint or edge; the tier is on its tab and in
   its clock's colour — and the page scrolls (`.focusCard` is the port; sweep #21 found the card
   clipped). Every page opens with the NAME at 32px (`--fs-6`) and the clock at 40px with what it counts
@@ -245,6 +256,11 @@ good but we don't need the triangle thing. red and notfall is already enough»):
   sheet keeps no drafts, so the store parks its three fields as typed and the board opens the sheet
   again on them, the name in the Ziel; ✕ then saves them like any typed change, «Abbrechen» drops
   them. Leaving for another surface mid-pick drops the sheet's fields too.
+- *The form says who leads* (owner pick UX journeys B2·20, 25.11.2026 – both walkers guessed; it
+  replaces the field ask of 08.09.2026 «no GF/AdF badge, the amber outline IS the marker»): every
+  crew row wears its Dienstgrad chip as the Mannschaft list does («Grfhr», «AdF»), and the top row
+  the filled amber pill «Gruppenführer» at its end. On the phone the chips take the Grad only – a
+  pill would resize the crowned chip under the finger – and the hint «Oberster Name führt» says it.
 - *The phone form opens with the Art* (owner 16.11.2026: «i almost forgot to add people because it
   looked like things were highlighted already»): on the PHONE «Unter / Ohne Atemschutz» is the
   column's first row, and the Mannschaft («Trupp», «Person suchen») comes after it. Under the
@@ -322,7 +338,9 @@ good but we don't need the triangle thing. red and notfall is already enough»):
   edit) or a new one registered on «Sichern». Its first Eintritt writes «Sicherungstrupp
   eingesetzt». The Abschluss (every width) asks about every Atemschutz-Trupp still angemeldet
   that was never inside (a Reserve after earlier sorties was — read the log, `entryTime` is
-  cleared on a re-park): «Zur Tafel» (focused) / «Als «nicht eingesetzt» schliessen». Not while
+  cleared on a re-park): «Zur Tafel» (focused) / «#2 nicht eingesetzt – weiter», with the line
+  «Danach folgt «Einsatz abschliessen» – erst dort schliesst der Einsatz.» over the buttons (owner
+  pick UX journeys B2·15, 25.11.2026; it said «Als «nicht eingesetzt» schliessen»). Not while
   a crew is still inside, and the stand-down runs only after the FINAL «Abschliessen», re-checked
   against the Trupps as they stand then — a crew sent in meanwhile never gets an Austritt.
   Crews still INSIDE are the Abschluss's own FIRST question, by name – «2 Trupps sind noch drin:»
@@ -367,7 +385,14 @@ good but we don't need the triangle thing. red and notfall is already enough»):
 - *The Eingangsdruck is guarded, once* (item 2, every width): locked in «Bearbeiten» once the
   Trupp is raus (pointing at the exit's Restdruck); below `doctrine.entryPressureMin` (default
   270, `/admin › Doktrin`) the form asks ONE question with the value on the button and «Ändern»
-  focused. No upper bound, no second plausibility rule.
+  focused. No upper bound, no second plausibility rule. The same threshold guards the first Druck
+  on the card in the 3 min after the Eintritt, which replaces the Eingangsdruck (14.09.2026): under
+  the minimum it asks once, «Eingangsdruck 180 bar?», «Als Druckmeldung» filled and focused (a
+  reading against the Eingangsdruck), «Eingangsdruck 180 bar» the quiet answer (owner pick UX
+  journeys B2·18, 25.11.2026 – a 180 silently became the baseline). At or over the minimum it
+  replaces silently, as before. The answer is checked on the Trupp as it stands when it comes
+  (`recordPressure` · `as`): past the window, or after a Druck measured meanwhile, «Eingangsdruck»
+  is written as the Druckmeldung and the board says so (a refusal) – never a silent switch.
 A question whose «yes» WRITES something a reflex must not (these three) puts the safe answer
 first: `ConfirmSpec · safeAnswer` ('cancel' | 'alt') fills and focuses it, not red. Every
 question MOUNTS FRESH (`Overlays` keys the card per request, staging r3 F5): a chain answered
@@ -459,7 +484,12 @@ reworded.
   the same first (exactly one ready ⇒ it goes in and the Tafel opens).
 - *Ready* is what the board models: under PA, Auftrag «Sichern», angemeldet. While an
   Atemschutz-Trupp is inside and none is ready, a STANDING Meldeleiste row says «Kein
-  Sicherungstrupp bereit» and names the crews inside – on every surface, the board and the
+  Sicherungstrupp bereit · 3 Trupps drin» with «Bestimmen» beside it – the same candidate menu as
+  the Notfall's «Sicherungstrupp bestimmen» (`lib/safetyPick`; owner pick UX journeys M·16,
+  25.11.2026 – it named the crews inside, which the reader had to map to cards). A pick brings the
+  board forward, which answers it: a crew bereit or inside turns «Sichern» (an ordinary edit), a
+  crew that is out or a new one opens the form on «Sichern». A viewer gets «Zu den Trupps». On
+  every surface, the board and the
   Atemschutz-Link included, no ✕, gone the moment one is ready or the last crew is out, and
   silent while a Notfall runs (its banner is the one row about the Sicherungstrupp). Never a
   question (`atemschutz · safetyMissing`, `SafetyMissingMeldung`; FEEDBACK.1, 17.11.2026 – it was

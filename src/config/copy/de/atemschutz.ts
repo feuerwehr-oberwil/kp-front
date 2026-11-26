@@ -359,8 +359,8 @@ export const atemschutzCopy = {
     estimatedShort: 'Schätzung',
     estimatedHint: 'Planungshilfe – bis genügend Druckverlauf vorliegt, geschätzt mit {liters} L Flasche und {rate} L/min Verbrauch. Ersetzt keine Druckmeldung.',
     estimatedHintHistory: 'Planungshilfe – aus dem bestätigten Druckverbrauch dieses Trupps hochgerechnet. Ersetzt keine Druckmeldung.',
-    estimatedSourceHistory: 'aus {count} Druckwerten · Stand {time}',
-    estimatedSourceFallback: '{rate} L/min angenommen · Stand {time}',
+    estimatedSourceHistory: 'aus {count} Druckwerten · Stand {time} Uhr',
+    estimatedSourceFallback: '{rate} L/min angenommen · Stand {time} Uhr',
     currentPressure: 'Druck',
     lowestPressure: 'Tiefster',
     // Alarmdruck on the Trupp card. The «Schätzung» variant applies when only the projection has
@@ -824,8 +824,9 @@ export const atemschutzCopy = {
       // Kopfzeile des Notfall-Banners auf der Tafel und der Zeile in der Meldeleiste
       title: 'Notfall',
       who: 'Trupp {name}',
-      since: 'seit {time}',
-      stateWord: 'Notfall seit {time}',
+      // jede Uhrzeit endet auf «Uhr», eine Dauer nie (owner pick UX journeys B2·43, 25.11.2026)
+      since: 'seit {time} Uhr',
+      stateWord: 'Notfall seit {time} Uhr',
       // die Fakten: letzter Ort, letzter Druck mit Alter, Funkkanal
       placeMap: 'Karte',
       placeMapAt: 'Karte · bei {host}',
@@ -835,7 +836,7 @@ export const atemschutzCopy = {
       // EIN Fakt: der Druck und woher er stammt – «300 bar (Eingangsdruck)», «220 bar (vor 5 min)»
       barWith: '{bar} ({when})',
       kanal: 'Kanal {n}',
-      contact: 'Kontakt {time}',
+      contact: 'Kontakt {time} Uhr',
       // die erste angebotene Handlung
       sitrDeploy: 'Sicherungstrupp einsetzen',
       sitrPickTitle: 'Welcher Sicherungstrupp?',
@@ -849,7 +850,7 @@ export const atemschutzCopy = {
       sitrOtherLabel: 'Einen anderen Trupp als Sicherungstrupp bestimmen',
       stripOne: 'Notfall · {name}',
       stripMany: '{n} Notfälle',
-      sitrInside: 'Sicherungstrupp {name} drin seit {time}',
+      sitrInside: 'Sicherungstrupp {name} drin seit {time} Uhr',
       goTo: 'Zum Trupp',
       // die ganze Kopfzeile des Banners (Screenreader): «Zum Trupp 1 (Binggeli Michael / …)»
       goToWho: 'Zum {name}',
@@ -858,8 +859,8 @@ export const atemschutzCopy = {
       // der Verlauf (und damit das Einsatzjournal im Rapport)
       logTrigger: 'Trupp {name}: Notfall ausgelöst',
       factPlace: 'Ort {place}',
-      factContact: 'letzter Kontakt {time}',
-      factBar: '{bar} bar ({time})',
+      factContact: 'letzter Kontakt {time} Uhr',
+      factBar: '{bar} bar ({time} Uhr)',
       factBarEntry: 'Eingangsdruck {bar} bar',
       factKanal: 'Kanal {n}',
       logEnd: 'Trupp {name}: Notfall beendet – Dauer {dur}',
@@ -873,7 +874,7 @@ export const atemschutzCopy = {
       logAtClose: 'Trupp {name}: Notfall beim Abschluss nicht beendet',
       // Benachrichtigung (Ton, OS, Web-Push)
       notifyTitle: 'Atemschutz-Notfall – {name}',
-      notifyBody: 'Notfall seit {time} – Sicherungstrupp einsetzen.',
+      notifyBody: 'Notfall seit {time} Uhr – Sicherungstrupp einsetzen.',
       // der ruhige Hinweis beim Eintritt eines AS-Trupps, wenn niemand sichert
       noSafetyHint: 'Kein Sicherungstrupp bereit',
       // der Abschluss fragt zuerst danach
@@ -884,8 +885,11 @@ export const atemschutzCopy = {
       removeBlocked: 'Erst «Notfall beendet» halten – ein Trupp im Notfall bleibt in der Überwachung',
       // die stehende Zeile in der Meldeleiste, solange ein AS-Trupp drin ist und niemand sichert
       // (FEEDBACK.1, 17.11.2026): wer drin ist, und was die Zeile wegnimmt
-      noSafetySub: 'Drin: {names} – einen Trupp mit Auftrag «Sichern» anmelden',
+      // …since owner pick UX journeys M·16 (25.11.2026) the state as a count, and «Bestimmen» beside
+      // it opens the choice «Sicherungstrupp bestimmen» (lib/safetyPick)
+      noSafetySub: '{n} Trupps drin',
       noSafetyGo: 'Zu den Trupps',
+      noSafetySubOne: '1 Trupp drin',
     },
     // «Entfernen» auf einem Trupp, der DRIN ist: zuerst fragen, «Raus melden» ist die sichere Antwort
     removeInsideTitle: 'Trupp {name} ist drin – erst rausmelden?',
@@ -998,6 +1002,19 @@ export const atemschutzCopy = {
     // die Leiste unten, solange gewählt wird: was gefragt ist, und Abbrechen führt zurück ins Sheet
     zielPickBarTitle: 'Ziel für den Trupp',
     zielPickBarHint: 'Symbol antippen',
+    // Ein Druck unter dem Stationsminimum in den ersten Minuten nach dem Eintritt fragt einmal, ob er
+    // der Eingangsdruck ist (owner pick UX journeys B2·18, 25.11.2026) – «Als Druckmeldung» ist die
+    // sichere, fokussierte Antwort; gleiche Schwelle wie «Eingangsdruck tief» im Formular
+    earlyLowTitle: 'Eingangsdruck {bar} bar?',
+    earlyLowMsg: 'Üblich ab {min} bar – angemeldet mit {entry} bar.',
+    earlyLowAsReading: 'Als Druckmeldung',
+    earlyLowAsEntry: 'Eingangsdruck {bar} bar',
+    // …und die Antwort «Eingangsdruck», wenn sie nicht mehr geht (Fenster vorbei, inzwischen gemessen)
+    earlyLowTooLate: 'Eingangsdruck nicht mehr ersetzbar – {bar} bar als Druckmeldung erfasst. Ändern unter «{edit}».',
+    // die zweite Zeile der Kontakt-Taste, solange der letzte Kontakt vom geteilten Link kam (owner
+    // pick UX journeys M·12, 25.11.2026 – lib/atemschutz · contactViaLink); die lange Form ist ihr Name
+    contactViaLink: '{time} Uhr · über Link',
+    contactViaLinkLong: 'letzter Kontakt {time} Uhr über Link',
   },
   // FKS hose-line device-letter labels (line decoration editor + tooltips)
   lineDecor: {

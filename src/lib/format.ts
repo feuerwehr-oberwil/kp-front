@@ -119,19 +119,29 @@ export function isNextDay(iso: string): boolean {
   return due.getDate() !== today.getDate() || due.getMonth() !== today.getMonth()
 }
 
-/** «06:30» or «06:30 · morgen» — a Wiedervorlage's due time, with the day when it is not today.
+/** A time of day as a value, in the locale's words: «22:10 Uhr» (`copy.timeOfDay`; en/fr/it keep
+ *  the bare clock). Owner pick UX journeys B2·43, 25.11.2026: a time of day ends on «Uhr», a
+ *  duration never – a walker read «00:15» as the Einsatz clock's «5:00». For a clock that stands
+ *  alone in a line (a banner's sub, the bell's due time); a template that frames the time says
+ *  «{t} Uhr» in its own copy. '' stays '', so a missing stamp never reads «Uhr». */
+export function timeOfDay(clock: string): string {
+  return clock ? fillTemplate(appConfig.copy.timeOfDay, { time: clock }) : ''
+}
+
+/** «06:30 Uhr» or «06:30 Uhr · morgen» — a Wiedervorlage's due time, with the day when it is not today.
  *  The composer said «morgen» while the banner and the journal row showed the bare clock, so a
  *  reminder set for 06:30 tomorrow read as one that was already 14 hours overdue. A due time on
  *  any OTHER day (yesterday's, once an Einsatz has crossed midnight) is `fmtWhen`'s «16.11. 23:50»
- *  – «morgen» was said of every day that was not today (duck sweep LISTS.10, 17.11.2026). */
+ *  – «morgen» was said of every day that was not today (duck sweep LISTS.10, 17.11.2026). Every
+ *  shape says «Uhr» (timeOfDay, B2·43): the bell's time stands beside the Einsatz clock. */
 export function dueClock(iso: string, now = new Date()): string {
   const d = new Date(iso)
-  if (d.toDateString() === now.toDateString()) return formatTime(d)
+  if (d.toDateString() === now.toDateString()) return timeOfDay(formatTime(d))
   const tomorrow = new Date(now)
   tomorrow.setDate(now.getDate() + 1)
   return d.toDateString() === tomorrow.toDateString()
-    ? `${formatTime(d)}${appConfig.copy.journal.reminderTomorrow}`
-    : fmtWhen(iso, { todayShort: true, now })
+    ? `${timeOfDay(formatTime(d))}${appConfig.copy.journal.reminderTomorrow}`
+    : timeOfDay(fmtWhen(iso, { todayShort: true, now }))
 }
 
 /** Local wall-clock HH:MM (24h, always zero-padded) from a Date or an ISO string — the

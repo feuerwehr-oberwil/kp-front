@@ -9,7 +9,7 @@ type Keys =
   | 'exerciseInitial' | 'keepPlacing' | 'delete' | 'remove' | 'undo' | 'redo' | 'undoNamed'
   | 'redoNamed' | 'undoLost' | 'removedToast' | 'undoDomains' | 'undoSurfaces' | 'undoTopDropped'
   | 'undoDroppedWhat' | 'play' | 'clear' | 'clearSearch' | 'noHits' | 'keepPlacingShort' | 'filterNoHits'
-  | 'filterStrip'
+  | 'filterStrip' | 'timeOfDay'
 
 export const commonCopy: Localizable<Pick<Copy, Keys>> = {
   baseMap: 'Carte de base',
@@ -68,4 +68,5 @@ export const commonCopy: Localizable<Pick<Copy, Keys>> = {
     count: '{n} sur {m}',
     showAll: 'Tout afficher',
   },
+  timeOfDay: '{time}',
 }

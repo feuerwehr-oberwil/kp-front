@@ -11,7 +11,7 @@ import { appConfig } from '../config/appConfig'
 import { gebaeudeDoc } from '../data/demoIncident'
 import { ensureNotifyPermission } from '../lib/alarm'
 import { formatAudioDuration } from '../lib/audioImport'
-import { fillTemplate, formatTime } from '../lib/format'
+import { fillTemplate, formatTime, timeOfDay } from '../lib/format'
 import { newRowId, newId } from '../lib/ids'
 import type { IncidentMeta } from '../lib/incidents'
 import { composeJournalText } from '../lib/journalEntry'
@@ -329,7 +329,7 @@ export function useJournalWriters({
       icon: 'bell', kind: 'reminder',
       // the record row carries the time in words (same template the legacy composer wrote, and
       // exactly what lib/reminders · bareText knows how to strip back off)
-      text: fillTemplate(appConfig.copy.journal.reminderCreated, { t: formatTime(new Date(dueAt)), text }),
+      text: fillTemplate(appConfig.copy.journal.reminderCreated, { t: timeOfDay(formatTime(new Date(dueAt))), text }),
       surface: mode === 'plans' ? 'plan' : 'map', planId: mode === 'plans' ? activePlanId : undefined,
       reminder: { op: 'created', id, dueAt, text, again: reminderId },
     })

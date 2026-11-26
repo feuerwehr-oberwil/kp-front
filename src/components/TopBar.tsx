@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type MouseEvent } from 'react'
 import { BAR_POP_OFFSET, OVERLAY_GAP, Popover, PopoverClose } from '../lib/overlays'
 import { fmtMMSS } from '../lib/format'
-import { formatTime, fillTemplate } from '../lib/format'
+import { formatTime, fillTemplate, timeOfDay } from '../lib/format'
 import { EntryGlyph, Icon } from '../lib/icons'
 import { fmtClock, type AtemschutzAlarmState } from '../lib/atemschutz'
 import { serverNow } from '../lib/serverClock'
@@ -215,7 +215,8 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
       {/* No fixed wall clock in the bar — the OS status bar (iPad navbar) already shows the time. */}
       {/* Einsatzuhr: the long-incident awareness anchor — the Einsatzdauer. Hourglass + digits, no
           label (round 2b, owner 13.11.2026: «the hourglass is understandable enough … less
-          text»); a TAP says what it is, «Einsatzdauer · seit 14:02», in the house popover. */}
+          text»); a TAP says what it is, «Einsatzdauer · seit 14:02 Uhr», in the house popover
+          (a time of day says «Uhr»: lib/format · timeOfDay, B2·43). */}
       {startedAt && !isPhone && (
         <Popover side="bottom" align="start" popupClassName="tb-gps-pop tb-uhr-pop" ariaLabel={E.label} zIndex={201} sideOffset={BAR_POP_OFFSET}
           trigger={
@@ -224,7 +225,7 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
             </button>
           }
         >
-          <p className="tb-gps-hint">{fillTemplate(E.tap, { t: formatTime(new Date(startedAt)) })}</p>
+          <p className="tb-gps-hint">{fillTemplate(E.tap, { t: timeOfDay(formatTime(new Date(startedAt))) })}</p>
         </Popover>
       )}
 
