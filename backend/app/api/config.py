@@ -287,13 +287,18 @@ def _projection(
         payload["incidentArchive"] = {**(payload.get("incidentArchive") or {}), "destinations": []}
     if not include_filing:
         payload["objectVisits"] = {**(payload.get("objectVisits") or {}), "destinations": []}
-    return DeploymentConfigOut(
-        **payload,
-        integrations=integrations(),
-        alarmVocabulary=_alarm_vocabulary(doc),
-        categoryLabels=CATEGORY_LABELS,
-        version=version,
-        warnings=warnings or [],
+    # As STORED: the document may hold a string past its length cap, served as it lies
+    # (schemas · LengthCap); a strict construction here would turn that into a 500.
+    return DeploymentConfigOut.model_validate(
+        {
+            **payload,
+            "integrations": integrations(),
+            "alarmVocabulary": _alarm_vocabulary(doc),
+            "categoryLabels": CATEGORY_LABELS,
+            "version": version,
+            "warnings": warnings or [],
+        },
+        context={"stored": True},
     )
 
 
@@ -684,4 +689,5 @@ async def restore_config(
     from ..divera import reset_vocabulary_cache
 
     reset_vocabulary_cache()
-    return _projection(DeploymentConfigIn.model_validate(doc_json), version=_version(doc_json))
+    # as STORED, like the read above: the restored document may hold a string past its length cap
+    return _projection(load_stored_config(doc_json), version=_version(doc_json))

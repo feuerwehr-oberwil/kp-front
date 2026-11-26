@@ -4,6 +4,8 @@ import logging
 import math
 import re
 import uuid
+from collections.abc import Mapping
+from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Annotated, Any, Literal
 from zoneinfo import ZoneInfo
@@ -12,9 +14,13 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    GetCoreSchemaHandler,
     TypeAdapter,
+    ValidationError,
     ValidationInfo,
+    ValidatorFunctionWrapHandler,
     WithJsonSchema,
+    WrapValidator,
     field_validator,
     model_validator,
 )
@@ -22,6 +28,43 @@ from pydantic import (
 from .alarm_validation import CONTACT_GRACE_SEC, CONTACT_INTERVAL_MIN, TruppStatus, in_range, validate_reminder_row
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class LengthCap:
+    """The length cap of a string in the CONFIG DOCUMENT: ``Annotated[str, LengthCap(120, min_length=1)]``
+    instead of ``Field(min_length=1, max_length=120)``.
+
+    New input is held to it exactly as ``Field`` would — the same ``string_too_long`` error, the
+    same ``maxLength`` in the OpenAPI schema (the /admin guards read both). A STORED document
+    (``context={"stored": True}``, see `load_stored_config`) is served with the value as it lies:
+    a length cap is input hygiene, not integrity, so a label typed before a cap existed must not
+    take the document down, and leaving it out or cutting it would change what the rest MEANS.
+    ``min_length`` and ``pattern`` hold in both modes, and so does every list cap.
+
+    Every capped string of the document goes through this type; `test_config_length_caps` fails
+    on a ``Field(max_length=…)`` that does not (``identity.shortName`` excepted, which its own
+    validator already cuts on a stored read)."""
+
+    max_length: int
+    min_length: int | None = None
+    pattern: str | None = None
+
+    def __get_pydantic_core_schema__(self, source: Any, handler: GetCoreSchemaHandler) -> Mapping[str, object]:
+        # The constraints first, so they sit INSIDE the wrap and keep pydantic's own errors and
+        # JSON schema; the wrap only decides what a stored value's length costs.
+        uncapped = TypeAdapter(Annotated[str, Field(min_length=self.min_length, pattern=self.pattern)])
+
+        def as_stored(value: Any, validate: ValidatorFunctionWrapHandler, info: ValidationInfo) -> str:
+            try:
+                return validate(value)
+            except ValidationError as exc:
+                if (info.context or {}).get("stored") and all(e["type"] == "string_too_long" for e in exc.errors()):
+                    return uncapped.validate_python(value)
+                raise
+
+        capped = Field(max_length=self.max_length, min_length=self.min_length, pattern=self.pattern)
+        return handler(Annotated[str, capped, WrapValidator(as_stored)])
 
 
 # --- Auth ---------------------------------------------------------------------------
@@ -1515,7 +1558,7 @@ class ObjectCategoryMatch(BaseModel):
     #: never matches — a rule naming only ``depot`` matches nothing (lib/karte/categories)
     kinds: list[Literal["einsatzobjekt", "objekt", "depot"]] | None = None
     #: one of the object's plan modules matches one of these globs (``modul5-pv*``, ``modul6``)
-    modules: list[Annotated[str, Field(min_length=1, max_length=60)]] | None = Field(default=None, max_length=30)
+    modules: list[Annotated[str, LengthCap(60, min_length=1)]] | None = Field(default=None, max_length=30)
 
 
 class ObjectCategoryConfig(BaseModel):
@@ -1523,7 +1566,7 @@ class ObjectCategoryConfig(BaseModel):
     wins; an object no rule matches keeps the default look (ink, grey without plans)."""
 
     model_config = ConfigDict(extra="ignore")
-    id: str = Field(min_length=1, max_length=40, pattern=r"^[a-z0-9][a-z0-9_-]*$")
+    id: Annotated[str, LengthCap(40, min_length=1, pattern=r"^[a-z0-9][a-z0-9_-]*$")]
     #: one string, or one per language (``{"de": "Photovoltaik", "fr": "Photovoltaïque"}``)
     label: str | dict[Literal["de", "fr", "it", "en"], str]
     #: ``#rrggbb``, or ``ink``: the default look's colour (the theme's ``--obj-plans`` — near-white
@@ -1684,8 +1727,8 @@ class EquipmentItem(BaseModel):
     """One entry of ``doctrine.equipment`` — the id a Trupp stores, the label people read."""
 
     model_config = ConfigDict(extra="ignore")
-    id: str = Field(min_length=1, max_length=40)
-    label: str = Field(min_length=1, max_length=40)
+    id: Annotated[str, LengthCap(40, min_length=1)]
+    label: Annotated[str, LengthCap(40, min_length=1)]
 
 
 #: The upper bound of ``doctrine.nearbyObjectWarnM`` – beyond it the nearest object is no
@@ -2088,11 +2131,11 @@ class ReportLinkConfig(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
     #: stable id — an incident's tick state is filed under it
-    id: str = Field(min_length=1, max_length=64)
-    title: str = Field(min_length=1, max_length=120)
-    url: str = Field(min_length=1, max_length=2048)
+    id: Annotated[str, LengthCap(64, min_length=1)]
+    title: Annotated[str, LengthCap(120, min_length=1)]
+    url: Annotated[str, LengthCap(2048, min_length=1)]
     #: when this has to be filled in ("nur bei Gebäudeschaden, innert 48 h")
-    note: str | None = Field(default=None, max_length=200)
+    note: Annotated[str, LengthCap(200)] | None = None
 
     @field_validator("id", "title", "url")
     @classmethod
@@ -2416,8 +2459,8 @@ class ObjectVisitProposalField(BaseModel):
     organizer maps it to its own master data (docs/object-visits.md)."""
 
     model_config = ConfigDict(extra="ignore")
-    id: str = Field(min_length=1, max_length=64)
-    label: str = Field(min_length=1, max_length=120)
+    id: Annotated[str, LengthCap(64, min_length=1)]
+    label: Annotated[str, LengthCap(120, min_length=1)]
 
     @field_validator("id")
     @classmethod
@@ -2435,22 +2478,20 @@ class ObjectVisitDestination(BaseModel):
     """
 
     model_config = ConfigDict(extra="ignore")
-    id: str = Field(min_length=1, max_length=64)
+    id: Annotated[str, LengthCap(64, min_length=1)]
     kind: Literal["sharepoint"] = "sharepoint"
     enabled: bool = True
     timing: Literal["every-sync", "completed"] = "every-sync"
-    siteUrl: str = Field(min_length=1, max_length=_SHAREPOINT_URL_MAX)
+    siteUrl: Annotated[str, LengthCap(_SHAREPOINT_URL_MAX, min_length=1)]
     #: Display name of the document library, when it is not the site's default one.
-    library: str | None = Field(default=None, max_length=200)
+    library: Annotated[str, LengthCap(200)] | None = None
     #: Folder inside the library that holds the object folders; empty = the library root.
-    root: str = Field(default="", max_length=_SHAREPOINT_PATH_MAX)
-    objectFolder: str = Field(default="{object.folder}", min_length=1, max_length=200)
-    visitFolder: str = Field(default="Objektbesuche/{date} {checklist} ({short})", min_length=1, max_length=200)
+    root: Annotated[str, LengthCap(_SHAREPOINT_PATH_MAX)] = ""
+    objectFolder: Annotated[str, LengthCap(200, min_length=1)] = "{object.folder}"
+    visitFolder: Annotated[str, LengthCap(200, min_length=1)] = "Objektbesuche/{date} {checklist} ({short})"
     #: Where a visit at a PLACE (no catalogue object) is filed, below ``root`` and instead of
     #: objectFolder/visitFolder: one general folder, no year subdivision (16.10.2026).
-    locationFolder: str = Field(
-        default="Allgemeine Meldungen/{date} {checklist} ({short})", min_length=1, max_length=200
-    )
+    locationFolder: Annotated[str, LengthCap(200, min_length=1)] = "Allgemeine Meldungen/{date} {checklist} ({short})"
 
     @model_validator(mode="after")
     def _addressable(self) -> "ObjectVisitDestination":
@@ -2516,15 +2557,15 @@ class IncidentArchiveDestination(BaseModel):
     """
 
     model_config = ConfigDict(extra="ignore")
-    id: str = Field(min_length=1, max_length=64)
+    id: Annotated[str, LengthCap(64, min_length=1)]
     kind: Literal["sharepoint"] = "sharepoint"
     enabled: bool = True
-    siteUrl: str = Field(min_length=1, max_length=_SHAREPOINT_URL_MAX)
+    siteUrl: Annotated[str, LengthCap(_SHAREPOINT_URL_MAX, min_length=1)]
     #: Display name of the document library, when it is not the site's default one.
-    library: str | None = Field(default=None, max_length=200)
+    library: Annotated[str, LengthCap(200)] | None = None
     #: Below the library. The segments before the first placeholder must already exist.
-    photoFolder: str = Field(default="Fotoarchiv/{year}/{date} {stichwort}", min_length=1, max_length=300)
-    reportFolder: str = Field(default="Einsätze/{year}/{date} {stichwort}", min_length=1, max_length=300)
+    photoFolder: Annotated[str, LengthCap(300, min_length=1)] = "Fotoarchiv/{year}/{date} {stichwort}"
+    reportFolder: Annotated[str, LengthCap(300, min_length=1)] = "Einsätze/{year}/{date} {stichwort}"
 
     @model_validator(mode="after")
     def _addressable(self) -> "IncidentArchiveDestination":
@@ -2785,6 +2826,9 @@ def load_stored_config(raw: Any) -> DeploymentConfigIn:
     unset default and logged, instead of
     raising — because a reader whose validation fails falls back to the shipped defaults, and
     losing a station's fleet, roster and doctrine is not a proportionate answer to one bad colour.
+    A string past its length cap is kept AS IT LIES (`LengthCap`): nothing about it is wrong
+    but its length, and leaving it out or cutting it would change what the rest of the document
+    means. Every other rule — patterns, list caps, the validators — holds on the original values.
 
     It still RAISES on a document that fails even this. A reader does not call it bare: it takes
     `deployment_config.read_config` (or `safe_config` on a document it already holds), which

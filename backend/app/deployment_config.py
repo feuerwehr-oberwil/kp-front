@@ -36,7 +36,8 @@ def safe_config(raw: object) -> DeploymentConfigIn:
     """A stored config document as the validated model, or the shipped defaults.
 
     Validated as STORED (``schemas · load_stored_config``): a field that has grown a rule since
-    it was written is dropped, not refused. A document that fails even that (a hand-edited row)
+    it was written is dropped, not refused, and a string past its length cap is served as it lies
+    (``schemas · LengthCap``). A document that fails even that (a hand-edited row)
     is logged and answered with ``DeploymentConfigIn()`` — every reader then sees the shipped
     defaults instead of an exception. That matters most where a raise is invisible: the push
     sweep would stop sending «Trupp überfällig», a background worker would stop for good.
