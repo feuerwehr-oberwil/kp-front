@@ -373,12 +373,38 @@ async def test_retry_requeues_a_failed_sheet_and_refuses_while_it_is_decided_or_
     events = (await db_session.execute(select(PlanAlignmentEvent))).scalars().all()
     assert [e.action for e in events] == ["retry"]
 
-    # pending (and processing, approved) is not retried – and a stale edit_version is a 409 too
-    assert (await client.post(url + "/retry", json={"edit_version": 2})).status_code == 409
+    # pending (and processing, approved) is not retried, and the refusal says which state it met –
+    # the review shows a 409's own sentence (admin/PlanAlignmentReview · refusalText)
+    refused = await client.post(url + "/retry", json={"edit_version": 2})
+    assert (refused.status_code, refused.json()["detail"]) == (
+        409,
+        "Ausrichtung wird bereits berechnet – Ergebnis abwarten",
+    )
+    row.status = "approved"
+    await db_session.commit()
+    refused = await client.post(url + "/retry", json={"edit_version": 2})
+    assert (refused.status_code, refused.json()["detail"]) == (409, "Ausrichtung ist bereits freigegeben.")
+    # …and a stale edit_version is a 409 too
     row.status = "needs_review"
     await db_session.commit()
     assert (await client.post(url + "/retry", json={"edit_version": 1})).status_code == 409
     assert (await client.post(url + "/retry", json={"edit_version": 2})).status_code == 200
+
+
+async def test_retry_refuses_a_replaced_revision(client, admin_login, db_session):
+    """An editor left open on a revision another admin has since replaced must not requeue it."""
+    obj, ds, row = await _seed(db_session)
+    row.status, row.reason = "failed", "config_unreadable"
+    await store_plan(db_session, obj, "modul1", PDF2)
+    await db_session.commit()
+    await admin_login(client)
+    refused = await client.post(f"/api/admin/plan-alignments/{row.id}/retry", json={"edit_version": row.edit_version})
+    assert (refused.status_code, refused.json()["detail"]) == (
+        409,
+        "Dieser Plan wurde ersetzt – aktuelle Version prüfen",
+    )
+    await db_session.refresh(row)
+    assert row.status == "failed"
 
 
 async def test_the_preview_thumbnail_is_a_small_jpeg_of_the_same_page(client, admin_login, db_session, monkeypatch):

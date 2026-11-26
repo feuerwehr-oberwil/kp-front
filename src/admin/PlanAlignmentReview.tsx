@@ -45,9 +45,21 @@ const SECTIONS: Section[] = ['ready', 'needs_review', 'none', 'waiting', 'approv
  *  they want an admin, a config or the server. `low_coverage`, `no_matching_geometry`,
  *  `invalid_match` and `manual_module` are exactly what this modal is for – the card already
  *  said «Kein Treffer», and saying it twice only shouts at someone already setting points. */
-const BEYOND_PAIRING = new Set(['reference_unreachable', 'printed_scale_missing', 'object_coordinates_missing', 'pdf_unavailable', 'revision_missing', 'preparation_failed', 'georef_dependencies_missing', 'overpass_unconfigured', 'worker_retry_limit', 'multi_page_document', 'unsupported_module'])
+const BEYOND_PAIRING = new Set(['reference_unreachable', 'printed_scale_missing', 'object_coordinates_missing', 'pdf_unavailable', 'revision_missing', 'preparation_failed', 'georef_dependencies_missing', 'overpass_unconfigured', 'worker_retry_limit', 'multi_page_document', 'unsupported_module', 'config_unreadable'])
 /** …and of those, the ones a fresh run can still fix, which is when «Neu berechnen» is offered. */
-const RETRYABLE = new Set(['reference_unreachable', 'worker_retry_limit', 'preparation_failed', 'invalid_match'])
+const RETRYABLE = new Set(['reference_unreachable', 'worker_retry_limit', 'preparation_failed', 'invalid_match', 'config_unreadable'])
+/** A fresh worker run is the sheet's way forward: current, ended without a fit, for a reason a
+ *  new run can fix. Not gated on `can_approve` – a multi-page sheet the worker gave up on before
+ *  it read the markers (an unreadable config) cannot be approved yet. */
+const retryable = (item: AlignmentListItem) =>
+  item.is_current && ['no_match', 'failed', 'unavailable'].includes(item.status) && RETRYABLE.has(item.reason ?? '')
+/** A refused write as the review shows it. A 409 the server explained («Freigabe zuerst
+ *  zurücknehmen, dann …») keeps the server's sentence; only a bare 409 (no `serverMessage`)
+ *  reads as the generic «zwischenzeitlich geändert». */
+const refusalText = (e: unknown): string => {
+  const C = appConfig.copy.admin.alignment
+  return e instanceof ApiError && e.status === 409 && !e.serverMessage ? C.conflict : apiErrorText(e, C.saveFailed)
+}
 
 /**
  * A page that ALREADY holds the queue hands it in, and the wall then fetches nothing of its own.
@@ -82,7 +94,11 @@ export function PlanAlignmentReview({ compact = false, embedded = false, source 
 }) {
   const C = appConfig.copy.admin.alignment
   const [ownQueue, setOwnQueue] = useState<AlignmentQueue | null>(null)
+  // Two lines, because a 409 refreshes the queue: a read that succeeds clears its own failure,
+  // never the reason the server just gave for refusing a decision – that one goes with the
+  // reviewer's own «Aktualisieren» or the next decision.
   const [error, setError] = useState<string | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [open, setOpen] = useState<number | null>(null)
   const [busy, setBusy] = useState<Set<number>>(() => new Set())
   const [notice, setNotice] = useState<string | null>(null)
@@ -109,10 +125,10 @@ export function PlanAlignmentReview({ compact = false, embedded = false, source 
       try {
         const next = await loadAlignmentQueue()
         if (!alive.current || seq !== loadSeq.current) return
-        setOwnQueue(next); setError(null)
+        setOwnQueue(next); setLoadError(null)
         setOpen(o => o != null && next.items.some(item => item.id === o) ? o : null)
       } catch (e) {
-        if (alive.current && seq === loadSeq.current) setError(apiErrorText(e, appConfig.copy.admin.alignment.loadFailed))
+        if (alive.current && seq === loadSeq.current) setLoadError(apiErrorText(e, appConfig.copy.admin.alignment.loadFailed))
       }
     })()
     inFlight.current = request
@@ -174,7 +190,7 @@ export function PlanAlignmentReview({ compact = false, embedded = false, source 
       return true
     } catch (e) {
       if (!alive.current) return false
-      setError(e instanceof ApiError && e.status === 409 ? C.conflict : apiErrorText(e, C.saveFailed))
+      setError(refusalText(e))
       if (e instanceof ApiError && e.status === 409) await refresh()
       return false
     } finally { if (alive.current) mark(item.id, false) }
@@ -206,7 +222,7 @@ export function PlanAlignmentReview({ compact = false, embedded = false, source 
   const actions = <div className="adm-align-actions">
     {staged.length > 0 && <span className="adm-hint adm-apply-summary">{batch ? fillTemplate(C.grid.applying, batch) : fillTemplate(C.grid.applySummary, { yes: yesCount, no: staged.length - yesCount })}</span>}
     {overrides.size > 0 && <button type="button" className="btn" disabled={!!batch} onClick={() => setOverrides(new Map())}>{C.grid.resetMarks}</button>}
-    {!embedded && <button type="button" className="btn" disabled={refreshing || !!batch} onClick={async () => { setRefreshing(true); await refresh(); if (alive.current) setRefreshing(false) }}>{refreshing && <ShellLoader />}{refreshing ? C.loading : C.refresh}</button>}
+    {!embedded && <button type="button" className="btn" disabled={refreshing || !!batch} onClick={async () => { setError(null); setRefreshing(true); await refresh(); if (alive.current) setRefreshing(false) }}>{refreshing && <ShellLoader />}{refreshing ? C.loading : C.refresh}</button>}
     {staged.length > 0 && <button type="button" className="btn primary" disabled={!!batch || busy.size > 0} onClick={() => void apply()}>{batch && <ShellLoader />}{fillTemplate(C.grid.apply, { n: staged.length })}</button>}
   </div>
   const searchField = <input className="adm-input adm-align-search" type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder={C.search} aria-label={C.search} />
@@ -218,13 +234,14 @@ export function PlanAlignmentReview({ compact = false, embedded = false, source 
       {actions}
     </div>}
     {error && <p className="adm-state adm-state-err" role="alert">{error}</p>}
+    {loadError && <p className="adm-state adm-state-err" role="alert">{loadError}</p>}
     {queue && !queue.capability.available && <p className="adm-align-notice" role="status">{C.unavailableHint}</p>}
     {embedded
       ? <div className="adm-align-toolbar">{searchField}{applied}{(staged.length > 0 || overrides.size > 0) && actions}</div>
       : <div className="adm-align-filters"><Segmented<Filter> value={filter} onChange={setFilter} ariaLabel={C.filterLabel} options={[
         { value: 'open', label: fillTemplate(C.openCount, { n: count }) }, { value: 'approved', label: C.grid.decided }, { value: 'all', label: C.all },
       ]} />{applied}{searchField}</div>}
-    {!queue && !error && <p className="adm-state"><LoadingStatus>{C.loading}</LoadingStatus></p>}
+    {!queue && !loadError && <p className="adm-state"><LoadingStatus>{C.loading}</LoadingStatus></p>}
     {queue && visible.length === 0 && <p className="adm-hint adm-align-empty">{items.length === 0 ? C.empty : C.noResults}</p>}
     {sections.map(({ section, items: list }) => <div key={section} className="adm-grid-section">
       <div className="adm-grid-head"><h3>{C.grid.sections[section]}</h3><span className="adm-hint">{fillTemplate(C.queueCount, { n: list.length })}</span></div>
@@ -403,8 +420,11 @@ function ResolvedAlignmentDetail(props: SeededDetailProps) {
   }, [id, edit_version, attempt])
   // A decision bumps the queue row before the re-read lands: the newer row's fields go over the
   // rings the last detail brought, rather than dropping the editor back to its loading frame.
-  const resolved: AlignmentItem | null = !detail ? null
+  const merged: AlignmentItem | null = !detail ? null
     : detail.edit_version >= edit_version ? detail : { ...detail, ...props.item }
+  // A replacement leaves this row's edit_version alone, so a newer queue read's `is_current` is
+  // taken over by itself – a revision once replaced never becomes current again.
+  const resolved = merged && { ...merged, is_current: merged.is_current && props.item.is_current }
   const retry = <p className="am-error" role="alert">{C.loadFailed} <button className="btn" type="button" onClick={() => setAttempt(n => n + 1)}>{C.refresh}</button></p>
   // The frame – header, back action and all – stands from the first frame: a slow or failed read
   // must not leave the full-screen editor without a way out.
@@ -451,6 +471,10 @@ function FloorPackDetail({ item, onChange, onConflict, onDirty, saveRef, onSaveS
   const pairsDirty = pairsDraft != null && JSON.stringify(pairsDraft.pairs) !== JSON.stringify(item.pairs)
   const stale = pairsDraft != null && pairsDraft.editVersion !== item.edit_version
   const editable = item.is_current && !waiting.has(item.status)
+  const canRetry = retryable(item)
+  // Only a reason a fresh run answers is repeated here: a multi-page or unsupported sheet is
+  // exactly what this editor is for.
+  const reason = canRetry && BEYOND_PAIRING.has(item.reason ?? '') ? reasonText(item.reason) : null
   useEffect(() => {
     mounted.current = true
     const abort = new AbortController()
@@ -482,7 +506,7 @@ function FloorPackDetail({ item, onChange, onConflict, onDirty, saveRef, onSaveS
       return true
     } catch (e) {
       if (!mounted.current) return false
-      setError(e instanceof ApiError && e.status === 409 ? C.conflict : apiErrorText(e, C.saveFailed))
+      setError(refusalText(e))
       if (e instanceof ApiError && e.status === 409) await onConflict()
       return false
     } finally { if (mounted.current) setBusy(false) }
@@ -495,8 +519,19 @@ function FloorPackDetail({ item, onChange, onConflict, onDirty, saveRef, onSaveS
     return () => { if (saveRef) saveRef.current = null }
   })
   const withdraw = async () => {
-    setBusy(true)
+    setBusy(true); setError(null)
     try { onChange(await undoAlignmentApproval(item)) } catch (e) { setError(apiErrorText(e, C.saveFailed)) } finally { if (mounted.current) setBusy(false) }
+  }
+  const retry = async () => {
+    setBusy(true); setError(null); setNotice(null)
+    try {
+      const next = await retryAlignment(item)
+      if (mounted.current) onChange(next)
+    } catch (e) {
+      if (!mounted.current) return
+      setError(refusalText(e))
+      if (e instanceof ApiError && e.status === 409) await onConflict()
+    } finally { if (mounted.current) setBusy(false) }
   }
   return <section className="adm-align-review adm-editor-detail" aria-label={item.object_name}>
     <EditorHeader item={item} unsaved={dirty} origin={originWord(item, pairs, C)} tip={statusTip(item, C)}
@@ -505,11 +540,15 @@ function FloorPackDetail({ item, onChange, onConflict, onDirty, saveRef, onSaveS
         : undefined}
       actions={<>
       <span className="adm-editor-rule" aria-hidden />
+      {/* held while the admin has changed something (`canUndo`, set pairs) – a pack with no saved
+          floors is «dirty» from its first frame, because the proposal itself is unsaved */}
+      {canRetry && <button type="button" className="btn" disabled={busy || canUndo || pairsDirty} onClick={() => void retry()}>{C.retry}</button>}
       <button type="button" className="btn" disabled={busy || !canUndo} onClick={() => historyRef.current?.undo()}><Icon id="undo" />{appConfig.copy.undo}</button>
       <button type="button" className="btn primary" disabled={!saveable} onClick={() => void save()}>{busy && <ShellLoader />}{busy ? C.saving : F.saveAll}</button>
     </>} />
     <MarkerNotes item={item} />
     {!item.is_current && <p className="adm-align-notice">{C.superseded}</p>}
+    {reason && <p className="adm-hint adm-align-reason">{reason}</p>}
     {/* ONE row, not two: the tabs go INTO the editor's bar, beside the sheet's zoom and over the
         floors column's head (FloorPackEditor · .adm-floors-bar). That is why the editor is mounted
         on the Karte tab too – there it is the bar alone, and the map pane below is this one.
@@ -560,6 +599,7 @@ function SheetDetail({ item, onChange, onConflict, onDirty }: DetailProps) {
   // looked at, so it lands in the overlay view however the modal was opened.
   const pairing = manual && editable
   const reason = BEYOND_PAIRING.has(item.reason ?? '') ? reasonText(item.reason) : null
+  const canRetry = retryable(item)
 
   useEffect(() => {
     mounted.current = true
@@ -582,7 +622,7 @@ function SheetDetail({ item, onChange, onConflict, onDirty }: DetailProps) {
       onChange(next); reset()
     } catch (e) {
       if (!mounted.current) return
-      setError(e instanceof ApiError && e.status === 409 ? C.conflict : apiErrorText(e, C.saveFailed))
+      setError(refusalText(e))
       if (e instanceof ApiError && e.status === 409) await onConflict()
     } finally { if (mounted.current) setBusy(false) }
   }
@@ -592,13 +632,12 @@ function SheetDetail({ item, onChange, onConflict, onDirty }: DetailProps) {
       aside={item.status === 'approved'
         ? <button type="button" className="btn adm-editor-quiet" disabled={busy} onClick={() => void save('undo')}>{C.withdrawApproval}</button>
         : undefined}
-      actions={editable ? <>
+      actions={editable || canRetry ? <>
       <span className="adm-editor-rule" aria-hidden />
       {/* a fresh worker run is the only thing this editor can do that aligning by hand cannot,
           so it stands with the actions – the footer that used to hold it is gone */}
-      {['no_match', 'failed', 'unavailable'].includes(item.status) && RETRYABLE.has(item.reason ?? '')
-        && <button type="button" className="btn" disabled={busy || !!draft} onClick={() => void save('retry')}>{C.retry}</button>}
-      <button type="button" className="btn primary" disabled={busy || stale || !image || imageFailed || !reviewableAlignment(pairs, item.aspect)} onClick={() => void save('approve')}>{busy && <ShellLoader />}{busy ? C.saving : C.approve}</button>
+      {canRetry && <button type="button" className="btn" disabled={busy || !!draft} onClick={() => void save('retry')}>{C.retry}</button>}
+      {editable && <button type="button" className="btn primary" disabled={busy || stale || !image || imageFailed || !reviewableAlignment(pairs, item.aspect)} onClick={() => void save('approve')}>{busy && <ShellLoader />}{busy ? C.saving : C.approve}</button>}
     </> : undefined} />
     <nav className="adm-editor-tabs">
       <Segmented<boolean> value={manual} onChange={setManual} ariaLabel={C.title} options={[

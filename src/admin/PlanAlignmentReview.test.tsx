@@ -2,8 +2,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { ApiError } from '../lib/api'
+import { appConfig } from '../config/appConfig'
 import { PlanAlignmentEditor, PlanAlignmentReview } from './PlanAlignmentReview'
-import { alignmentPreview, alignmentThumbnail, approveAlignment, loadAlignmentDetail, loadAlignmentOutline, loadAlignmentQueue, rejectAlignment, undoAlignmentApproval, savePlanFloors, alignmentPagePreview, type AlignmentItem, type AlignmentListItem } from './planAlignmentApi'
+import { alignmentPreview, alignmentThumbnail, approveAlignment, loadAlignmentDetail, loadAlignmentOutline, loadAlignmentQueue, rejectAlignment, retryAlignment, undoAlignmentApproval, savePlanFloors, alignmentPagePreview, type AlignmentItem, type AlignmentListItem } from './planAlignmentApi'
 
 vi.mock('./planAlignmentApi', () => ({ savePlanFloors: vi.fn(), alignmentPagePreview: vi.fn(), loadAlignmentQueue: vi.fn(), loadAlignmentDetail: vi.fn(), loadAlignmentOutline: vi.fn(), alignmentPreview: vi.fn(), alignmentThumbnail: vi.fn(), approveAlignment: vi.fn(), rejectAlignment: vi.fn(), undoAlignmentApproval: vi.fn(), retryAlignment: vi.fn() }))
 vi.mock('./AlignmentPreview', () => ({ default: () => <div data-testid="preview" /> }))
@@ -318,4 +319,98 @@ it('turns the marker warning codes into German sentences under the editor header
   // the Geschosse column points at that note instead of repeating the generic empty line
   expect(screen.getByText('Keine Geschosse – die Marker im PDF sind unvollständig (siehe Hinweis oben).')).toBeTruthy()
   expect(screen.queryByText(/Noch keine Geschosse zugeordnet/)).toBeNull()
+})
+
+/** A 409 whose body carried the server's own sentence, as lib/api builds it. */
+const refused = (detail: string) => Object.assign(new ApiError(409, detail), { serverMessage: true })
+
+// The worker ends a job on a station config it cannot read (#783). Once the admin has repaired
+// the config, a fresh run is the only way out short of a new upload – for a plain sheet, for a
+// multi-page sheet the worker left before reading its markers (`can_approve` false), and for a
+// Modul 6 floor pack, which has its own editor.
+it.each([
+  ['an approvable sheet', {}],
+  ['a multi-page sheet', { page_count: 3, can_approve: false }],
+  ['a floor pack', { module: 'modul6', floors: [{ page: 0, index: 0, name: null }] }],
+  // no saved floors: the editor's own proposal is unsaved from the first frame
+  ['a floor pack with no floors yet', { module: 'modul6', floors: [] }],
+])('repeats a config error in the editor and offers «Neu berechnen» for it – %s', async (_, sheet) => {
+  const failed: AlignmentItem = { ...detail, status: 'failed', reason: 'config_unreadable', pairs: [], ...sheet }
+  vi.mocked(loadAlignmentDetail).mockResolvedValue(failed)
+  vi.mocked(retryAlignment).mockResolvedValue({ ...failed, status: 'pending', reason: null, edit_version: 6 })
+  render(<PlanAlignmentEditor item={failed} onClose={vi.fn()} onChange={vi.fn()} onConflict={vi.fn(async () => {})} />)
+  await screen.findByText('Die Stationskonfiguration konnte nicht gelesen werden – in der Verwaltung prüfen.')
+  await act(async () => {}) // the floor editor hands up its draft in an effect
+  fireEvent.click(screen.getByRole('button', { name: 'Neu berechnen' }))
+  await waitFor(() => expect(retryAlignment).toHaveBeenCalledWith(failed))
+})
+
+// Another admin replaces the sheet while its editor is open: the replacement leaves this row's
+// edit_version alone, so only the queue's `is_current` says so.
+it('takes a replacement from the re-read queue and stops offering «Neu berechnen»', async () => {
+  const failed: AlignmentItem = { ...detail, status: 'failed', reason: 'config_unreadable', pairs: [] }
+  vi.mocked(loadAlignmentDetail).mockResolvedValue(failed)
+  const { rerender } = render(<PlanAlignmentEditor item={failed} onClose={vi.fn()} onChange={vi.fn()} onConflict={vi.fn(async () => {})} />)
+  await screen.findByRole('button', { name: 'Neu berechnen' })
+  rerender(<PlanAlignmentEditor item={{ ...failed, is_current: false }} onClose={vi.fn()} onChange={vi.fn()} onConflict={vi.fn(async () => {})} />)
+  await screen.findByText(appConfig.copy.admin.alignment.superseded)
+  expect(screen.queryByRole('button', { name: 'Neu berechnen' })).toBeNull()
+})
+
+it('keeps the server\'s reason for a refused decision on the wall after the queue re-reads', async () => {
+  vi.mocked(approveAlignment).mockRejectedValue(refused('Dieser Plan wurde ersetzt – aktuelle Version prüfen'))
+  render(<PlanAlignmentReview compact />)
+  await screen.findByRole('listitem', { name: /^Testobjekt/ })
+  fireEvent.click(screen.getByRole('button', { name: 'Übernehmen (1)' }))
+  // the 409 re-reads the queue, and that read succeeds
+  await waitFor(() => expect(loadAlignmentQueue).toHaveBeenCalledTimes(2))
+  await act(async () => {})
+  expect(screen.getByRole('alert').textContent).toBe('Dieser Plan wurde ersetzt – aktuelle Version prüfen')
+  // …until the reviewer re-reads it themselves
+  fireEvent.click(screen.getByRole('button', { name: 'Aktualisieren' }))
+  await waitFor(() => expect(screen.queryByRole('alert')).toBeNull())
+})
+
+it('shows the refusal AND a failed re-read of the queue after it', async () => {
+  vi.mocked(approveAlignment).mockRejectedValue(refused('Dieser Plan wurde ersetzt – aktuelle Version prüfen'))
+  render(<PlanAlignmentReview compact />)
+  await screen.findByRole('listitem', { name: /^Testobjekt/ })
+  vi.mocked(loadAlignmentQueue).mockRejectedValue(new ApiError(503, 'Server nicht bereit'))
+  fireEvent.click(screen.getByRole('button', { name: 'Übernehmen (1)' }))
+  await waitFor(() => expect(screen.getAllByRole('alert').map(el => el.textContent)).toEqual(['Dieser Plan wurde ersetzt – aktuelle Version prüfen', 'Server nicht bereit']))
+})
+
+it('stops loading when the wall\'s first queue read fails', async () => {
+  vi.mocked(loadAlignmentQueue).mockRejectedValue(new ApiError(503, 'Server nicht bereit'))
+  render(<PlanAlignmentReview compact />)
+  await screen.findByRole('alert')
+  expect(screen.queryByText(appConfig.copy.admin.alignment.loading)).toBeNull()
+})
+
+describe('a refused save', () => {
+  const floorItem: AlignmentItem = { ...detail, module: 'modul6', status: 'unsupported', pairs: [], floors: [{ page: 0, index: 0, name: null }] }
+  const saveRefusedWith = async (refusal: ApiError, item = floorItem) => {
+    vi.mocked(loadAlignmentDetail).mockResolvedValue(item)
+    vi.mocked(savePlanFloors).mockRejectedValue(refusal)
+    render(<PlanAlignmentEditor item={item} onClose={vi.fn()} onChange={vi.fn()} onConflict={vi.fn(async () => {})} />)
+    fireEvent.change(await screen.findByRole('textbox', { name: 'Standardname: EG' }), { target: { value: 'Halle' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Speichern' }))
+    return (await screen.findByRole('alert')).textContent
+  }
+  it('shows the server\'s own reason for a 409', async () => {
+    expect(await saveRefusedWith(refused('Freigabe zuerst zurücknehmen, dann die Ausrichtungsseite wechseln')))
+      .toBe('Freigabe zuerst zurücknehmen, dann die Ausrichtungsseite wechseln')
+  })
+  it('falls back to the generic conflict for a 409 that carries no message', async () => {
+    // what lib/api builds for a 409 with no `detail` of its own: its status wording, no serverMessage
+    expect(await saveRefusedWith(new ApiError(409, appConfig.copy.errors.httpRejected))).toBe(appConfig.copy.admin.alignment.conflict)
+  })
+  it('clears the refusal once the act it asked for went through', async () => {
+    const approved: AlignmentItem = { ...floorItem, status: 'approved' }
+    vi.mocked(undoAlignmentApproval).mockResolvedValue({ ...approved, status: 'needs_review', edit_version: 6 })
+    await saveRefusedWith(refused('Freigabe zuerst zurücknehmen, dann die Ausrichtungsseite wechseln'), approved)
+    fireEvent.click(screen.getByRole('button', { name: 'Freigabe zurücknehmen' }))
+    await waitFor(() => expect(undoAlignmentApproval).toHaveBeenCalled())
+    await waitFor(() => expect(screen.queryByText('Freigabe zuerst zurücknehmen, dann die Ausrichtungsseite wechseln')).toBeNull())
+  })
 })

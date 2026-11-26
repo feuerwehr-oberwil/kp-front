@@ -260,6 +260,19 @@ describe('request – the 422 validation array (ApiError.fields)', () => {
   })
 })
 
+describe('request – ApiError.serverMessage says whose sentence `detail` is', () => {
+  it.each([
+    ['a string detail', json({ detail: 'Dieser Plan wurde ersetzt – aktuelle Version prüfen' }, { status: 409 }), true],
+    ['a {code, message} detail', json({ detail: { code: 'stale', message: 'Bitte neu laden' } }, { status: 409 }), true],
+    ['an empty body', new Response('', { status: 409 }), false],
+    ['a {code} without a sentence', json({ detail: { code: 'stale' } }, { status: 409 }), false],
+  ])('%s', async (_, response, expected) => {
+    fetchMock.mockResolvedValueOnce(response)
+    const err = (await apiPost('/api/x', {}).catch((e: unknown) => e)) as ApiError
+    expect(err.serverMessage).toBe(expected)
+  })
+})
+
 describe('request — transparent 401 refresh + retry', () => {
   it('renews the expired access cookie during the cold-boot /me probe', async () => {
     const user = { id: 'editor', role: 'editor' }
