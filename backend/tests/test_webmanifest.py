@@ -132,6 +132,23 @@ async def test_manifest_reflects_the_stations_identity(client, editor, admin_log
     assert {"src": icon_url, "sizes": "512x512", "type": "image/png", "purpose": "any"} in doc["icons"]
 
 
+async def test_a_malformed_document_serves_what_the_app_serves(client, db_session):
+    """A stored document that fails validation reads as the shipped defaults everywhere
+    (`deployment_config.read_config`). The manifest must not keep the station's name on the home
+    screen while the app behind it, reading `GET /api/config`, has none."""
+    from app.models import DeploymentConfig
+
+    bare = (await client.get("/manifest.webmanifest")).json()
+    broken = {"identity": {"appName": "Feuerwehr Talheim"}, "modules": "not a list"}
+    db_session.add(DeploymentConfig(id=1, config_json=broken))
+    await db_session.commit()
+
+    assert (await client.get("/api/config")).json()["identity"]["appName"] is None
+    r = await client.get("/manifest.webmanifest")
+    assert r.status_code == 200, r.text
+    assert r.json() == bare
+
+
 # --- upload validation -----------------------------------------------------------------
 
 
