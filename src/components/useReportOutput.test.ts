@@ -74,6 +74,7 @@ describe('useReportOutput · the station printer', () => {
     await flush()
     // …and the toast's poll reports the same job before the form has rendered the settle
     const onSettled = vi.mocked(trackPrintJob).mock.calls[0][3]?.onSettled
+    expect(onSettled).toBeTypeOf('function')
     act(() => onSettled?.('done'))
     const settles = onSaveMeta.mock.calls.slice(1).map(([m]) => m)
     expect(settles).toHaveLength(1)
