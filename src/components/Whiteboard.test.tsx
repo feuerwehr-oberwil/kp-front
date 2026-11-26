@@ -2164,7 +2164,7 @@ describe('gesture contracts of the plan surface', () => {
       expect(grip.style.translate).toBe('')
       // the audit row names the point the drag ended on
       expect(emit.mock.calls.filter((c) => c[0] === 'board.move')).toEqual([['board.move', { id: 'k1', x: find('k1').x, y: find('k1').y, floor: 0, planId: 'tafel' }]])
-      act(() => history.current!.undo())
+      act(() => { history.current!.undo() })
       expect(find('k1')).toMatchObject({ x: 0.5, y: 0.5 })
     })
 
