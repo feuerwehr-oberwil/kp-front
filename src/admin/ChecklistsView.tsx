@@ -172,6 +172,8 @@ export function ChecklistsView() {
         {flash && <p className="adm-save-ok">{flash}</p>}
         {state.kind === 'loading' && <EmptyState loading message={C.loading} />}
         {state.kind === 'error' && <EmptyState tone="err" message={C.loadError} />}
+        {/* a cleanup that failed while the re-read failed too: the leftovers block is gone, its error stays */}
+        {state.kind === 'error' && cleanError && <p className="adm-state adm-state-err">{cleanError}</p>}
         {state.kind === 'ok' && rows.length === 0 && <EmptyState message={C.none} hint={C.noneHint} />}
         {/* Typ und Quelle mirror the Geodaten table (DataView · GeodataView), down to the
             column names — the same two facts, asked of the same registry. */}

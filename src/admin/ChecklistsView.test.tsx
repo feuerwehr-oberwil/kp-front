@@ -145,6 +145,20 @@ describe('Checklisten — cleaning up the leftovers', () => {
     expect(screen.getByText('checklists:alt:p2')).toBeTruthy()
     expect(screen.queryByText('checklists:alt:p1')).toBeNull()
   })
+
+  it('keeps the error when the list cannot be read again either', async () => {
+    const orphan = ds('checklists:alt:p1', { content_type: 'image/png' })
+    apiGet
+      .mockResolvedValueOnce([...REGISTRY, orphan])
+      .mockResolvedValueOnce([...REGISTRY, orphan])
+      .mockRejectedValue(new ApiError(503, 'Datenbank nicht erreichbar'))
+    apiPost.mockRejectedValue(new ApiError(503, 'Datenbank nicht erreichbar'))
+    render(<ChecklistsView />)
+    fireEvent.click(await screen.findByRole('button', { name: C.cleanOrphans }))
+
+    await screen.findByText(C.loadError)
+    expect(screen.getByText('Datenbank nicht erreichbar')).toBeTruthy()
+  })
 })
 
 describe('Checklisten — the examples to start from', () => {
