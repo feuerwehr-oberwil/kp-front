@@ -7,6 +7,7 @@ import { createUndoTimeline } from '../undoTimeline'
 import { resetOwnContacts } from '../contactEcho'
 import { truppActionCore } from './core'
 import { truppClockActions } from './clock'
+import { truppLogName } from '../atemschutz'
 
 // The clock family on its own: the safety rules (Eintritt, Rückzug, Fortsetzen, Raus, Kontakt,
 // Notfall) built from the Trupps, the Verlauf and the ↶ timeline ALONE — no map, no plan, no hose.
@@ -180,15 +181,16 @@ describe('truppClockActions — the Eingangsdruck asked for', () => {
     expect(ui.toasts).toEqual([tooLate(180)])
   })
 
-  // CodeRabbit r4701810325: `liveTrupps` is the last render; React applies queued updaters later
-  it('never overwrites an Eingangsdruck a merged update measured before the next render', () => {
+  // CodeRabbit r4701810325 + r4702782444: `liveTrupps` is the last render; React applies queued
+  // updaters later – and the notice and the Verlauf say what the updater applied, not the guess
+  it('never overwrites an Eingangsdruck a merged update measured before the next render', async () => {
     const b = clockBoard([inside()])
     const queue: ((ts: Trupp[]) => Trupp[])[] = []
     const rendered = b.state.trupps
     const deps = {
       trupps: rendered,
       setTrupps: (a: SetStateAction<Trupp[]>) => { queue.push(typeof a === 'function' ? a : () => a) },
-      log: () => {},
+      log: (icon: string, text: string) => { b.rows.push({ icon, text }) },
       emit: () => {},
       undoTimeline: b.timeline,
       liveTrupps: () => rendered,
@@ -200,9 +202,13 @@ describe('truppClockActions — the Eingangsdruck asked for', () => {
     measured.act().recordPressure('T1', 280)
     queue.push(() => measured.state.trupps)
     batched.recordPressure('T1', 180, { as: 'entry' })
+    expect(b.rows).toEqual([]) // nothing said before the updater has decided
     b.state.trupps = queue.reduce((ts, up) => up(ts), rendered)
+    await Promise.resolve()
     expect(b.t().entryPressureBar).toBe(280)
     expect(last(b.t())).toMatchObject({ kind: 'pressure', bar: 180 })
+    expect(ui.toasts).toEqual([tooLate(180)])
+    expect(b.rows).toEqual([{ icon: 'drop', text: fillTemplate(appConfig.copy.atemschutz.logPressure, { name: truppLogName(inside()), bar: 180 }) }])
   })
 })
 
