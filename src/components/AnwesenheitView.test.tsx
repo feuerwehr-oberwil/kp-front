@@ -522,8 +522,9 @@ describe('an open stretch in an Einsatz with an Einsatzende', () => {
   const startedAt = '2026-11-25T11:58:00.000Z'
   const endedAt = '2026-11-25T13:27:00.000Z'
   // «today» is the Einsatz's own day: on any later day the sheet puts the date before each time
-  // («Mi., 25.11. 14:27»), and these tests read the same-day wording. Only the clock is faked.
-  beforeEach(() => { vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-11-25T14:00:00.000Z') }) })
+  // («Mi., 25.11. 14:27»), and these tests read the same-day wording. Only the clock is faked, and
+  // it stands at the Einsatzende, so every time zone in which the Einsatz stays within one day reads the same.
+  beforeEach(() => { vi.useFakeTimers({ toFake: ['Date'], now: new Date(endedAt) }) })
   afterEach(() => { vi.useRealTimers() })
   const open = (from: string) => {
     mount({
