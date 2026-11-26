@@ -3,6 +3,7 @@ import { appConfig } from '../config/appConfig'
 import { Icon } from '../lib/icons'
 import { categoryId, categoryLabel, INK, isCategoryColor, writableRules, type ObjectCategoryRule, type ObjectKind } from '../lib/karte/categories'
 import { getPath, useConfig } from './ConfigContext'
+import { TEXT_MAX_LENGTH } from './configGuards'
 import { ConfirmButton, RecordRows, RecordTable, SettingRow, SettingsNote } from './ui'
 
 // «Objektfarben» — the station's colours for its objects on «Karte & Objekte»
@@ -17,6 +18,9 @@ const KINDS: ObjectKind[] = ['einsatzobjekt', 'objekt'] // «depot» is retired 
 const NEW_COLOR = '#64748b'
 /** what an `ink` category looks like here: the token the Karte draws it with */
 const INK_SWATCH = 'var(--obj-plans)'
+/** Each comma-separated glob held to the schema's length, the way `maxLength` holds a box – cut by
+ *  code point, as pydantic counts, so «🚒» is never split into half a character the API refuses. */
+const capModule = (m: string) => [...m.trim()].slice(0, TEXT_MAX_LENGTH['map.objectCategories.0.match.modules.0']).join('')
 
 export function ObjectCategoriesCard() {
   const { draft, set } = useConfig()
@@ -108,7 +112,7 @@ export function ObjectCategoriesCard() {
             </SettingRow>
             <SettingRow label={C.catModules} tip={C.catModulesTip}>
               <input className="adm-input adm-input-mono" type="text" value={modules.join(', ')} placeholder={C.catModulesPlaceholder}
-                onChange={(e) => patch(i, { match: { ...row.match, modules: e.target.value.split(',').map((m) => m.trim()).filter(Boolean) } })} />
+                onChange={(e) => patch(i, { match: { ...row.match, modules: e.target.value.split(',').map(capModule).filter(Boolean) } })} />
             </SettingRow>
             {problem && <SettingsNote><span className="adm-state adm-state-err">{problem}</span></SettingsNote>}
           </RecordRows>

@@ -1,7 +1,6 @@
 import { ShellLoader } from '../components/ShellLoader'
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { caretToEnd } from '../lib/ui'
-import { ApiError } from '../lib/api'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, fmtFileSize } from '../lib/format'
@@ -19,6 +18,7 @@ import {
   type ObjectInput,
 } from './stationDataApi'
 import './stationData.css'
+import { apiErrorText } from './apiErrors'
 
 // «Lage korrigieren»: its own lazy chunk, so MapLibre ships only when somebody opens it
 const ObjectPositionSheet = lazy(() => import('./ObjectPositionSheet'))
@@ -264,7 +264,7 @@ export function ObjectEditor({ object, onChanged, plans }: {
       setFlash(true)
       onChanged(merged)
     } catch (e) {
-      setSave({ kind: 'error', detail: e instanceof ApiError ? e.detail : C.saveFailed })
+      setSave({ kind: 'error', detail: apiErrorText(e, C.saveFailed) })
     }
   }
 
@@ -483,7 +483,7 @@ export function usePlanUpload(objectId: string, onStored: (ds: ReferenceDataset)
     try {
       onStored(await uploadPlan(objectId, slotId, file))
     } catch (e) {
-      setErr({ slot: slotId, detail: e instanceof ApiError ? e.detail : C.uploadFailed })
+      setErr({ slot: slotId, detail: apiErrorText(e, C.uploadFailed) })
     } finally {
       setBusySlot(null)
     }

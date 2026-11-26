@@ -157,12 +157,12 @@ describe('Konfiguration importieren', () => {
     expect(document.body.textContent).not.toContain('Input should be a valid')
   })
 
-  it('falls back to the plain 422 line when the server named no field', async () => {
+  it('shows the server\'s own sentence when it named no field', async () => {
     setup()
-    apiPut.mockRejectedValue(new ApiError(422, 'nope'))
+    apiPut.mockRejectedValue(new ApiError(422, 'Im Demo-Modus bleibt die Demo-Kennung gesetzt.'))
     await pick({ mittel: {} })
     await waitFor(() => expect(confirmButton()).toBeTruthy())
     await act(async () => { fireEvent.click(confirmButton()) })
-    await waitFor(() => expect(screen.getByText(C.invalidSchema)).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('Im Demo-Modus bleibt die Demo-Kennung gesetzt.')).toBeTruthy())
   })
 })

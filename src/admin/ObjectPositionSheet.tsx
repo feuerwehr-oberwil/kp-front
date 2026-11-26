@@ -5,13 +5,14 @@ import '../lib/maplibreWorker'
 import { QuietAttributionControl } from '../components/MapAttribution'
 import { ShellLoader } from '../components/ShellLoader'
 import { appConfig } from '../config/appConfig'
-import { ApiError, apiGet } from '../lib/api'
+import { apiGet } from '../lib/api'
 import { cartoRasterTiles } from '../lib/carto'
 import { fillTemplate } from '../lib/format'
 import { Icon } from '../lib/icons'
 import { Sheet } from '../lib/overlays'
 import type { ObjectWithPlans } from '../lib/incidents'
 import { searchPlaces, setObjectPosition, undoObjectPosition, type OutlineMode, type PlaceHit, type SavedObject } from './stationDataApi'
+import { apiErrorText } from './apiErrors'
 
 // «Lage korrigieren» — the station's own word on where an Einsatzobjekt is (Karte & Objekte,
 // review round 2, 17.10.2026: ARA Birsig stood 1.1 km off, in the wrong village). Lazy: MapLibre
@@ -125,7 +126,7 @@ export default function ObjectPositionSheet({ object, onClose, onSaved }: {
       onSaved(written)
       setState({ kind: 'saved' })
     } catch (e) {
-      setState({ kind: 'error', detail: e instanceof ApiError ? e.detail : C.posFailed })
+      setState({ kind: 'error', detail: apiErrorText(e, C.posFailed) })
     }
   }
   const undo = async () => {
@@ -138,7 +139,7 @@ export default function ObjectPositionSheet({ object, onClose, onSaved }: {
       setPicked(null)
       setState({ kind: 'undone' })
     } catch (e) {
-      setState({ kind: 'error', detail: e instanceof ApiError ? e.detail : C.posFailed })
+      setState({ kind: 'error', detail: apiErrorText(e, C.posFailed) })
     }
   }
 

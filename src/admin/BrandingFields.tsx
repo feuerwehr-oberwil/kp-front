@@ -1,10 +1,11 @@
 import { ShellLoader } from '../components/ShellLoader'
 import { useRef, useState } from 'react'
-import { apiUpload, apiDelete, ApiError } from '../lib/api'
+import { apiUpload, apiDelete } from '../lib/api'
 import { appConfig } from '../config/appConfig'
 import type { DeploymentConfig, DeploymentAssets } from '../lib/deploymentConfig'
 import { ConfirmButton, SettingRow, SettingsNote } from './ui'
 import './system.css'
+import { apiErrorText } from './apiErrors'
 
 // Logo + favicon uploads (Batch A · A2). Each slot shows a live preview of the current
 // asset, an upload control, and a remove action. On any change the parent is handed the
@@ -45,7 +46,7 @@ function BrandingSlot({ slot, label, hint, url, accept = ACCEPT, onApplied }: {
       const cfg = await apiUpload<DeploymentConfig>(`/api/branding/${slot}`, form)
       onApplied(cfg)
     } catch (e: unknown) {
-      setError(e instanceof ApiError ? e.detail : C.uploadFailed)
+      setError(apiErrorText(e, C.uploadFailed))
     } finally {
       setBusy(false)
       if (inputRef.current) inputRef.current.value = '' // allow re-picking the same file
@@ -63,7 +64,7 @@ function BrandingSlot({ slot, label, hint, url, accept = ACCEPT, onApplied }: {
       const cfg = await apiDelete<DeploymentConfig>(`/api/branding/${slot}`)
       onApplied(cfg)
     } catch (e: unknown) {
-      setError(e instanceof ApiError ? e.detail : C.removeFailed)
+      setError(apiErrorText(e, C.removeFailed))
     } finally {
       setBusy(false)
     }

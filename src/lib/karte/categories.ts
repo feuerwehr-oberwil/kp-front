@@ -24,6 +24,7 @@
 
 import type { StationObject } from '../api/stationReference'
 import type { In } from '../api/wire'
+import { fitsText } from '../../admin/configGuards'
 
 export type ObjectKind = StationObject['kind']
 
@@ -47,6 +48,8 @@ export interface ObjectCategory {
 export const INK = 'ink'
 /** A colour the server accepts – the schema's own pattern (admin/configGuards.test holds it). */
 export const CATEGORY_COLOR = /^(#[0-9a-fA-F]{6}|ink)$/
+/** A rule id the server accepts – the schema's pattern; its length is admin/configGuards'. */
+export const CATEGORY_ID = /^[a-z0-9][a-z0-9_-]*$/
 const KINDS: readonly ObjectKind[] = ['einsatzobjekt', 'objekt']
 
 /** `modul5-pv*` → /^modul5-pv.*$/i — `*` any run, `?` one character, everything else literal. */
@@ -135,7 +138,11 @@ export function categoryId(label: string, taken: readonly string[]): string {
   return id
 }
 
-/** The rules the server accepts — the rest is what the card warns about. */
+/** The rules the server accepts — the rest is what the card warns about. The id and the module
+ *  globs are held to the schema too: the card derives the id and caps each glob, and this makes
+ *  sure a rule that got past both never reaches the whole-document PUT. */
 export function writableRules(rows: readonly ObjectCategoryRule[]): ObjectCategoryRule[] {
-  return rows.filter((r) => !!r.id && isCategoryColor(r.color) && !!categoryLabel(r.label, 'de', '').trim())
+  return rows.filter((r) => CATEGORY_ID.test(r.id) && fitsText('map.objectCategories.0.id', r.id)
+    && (r.match?.modules ?? []).every((m) => fitsText('map.objectCategories.0.match.modules.0', m))
+    && isCategoryColor(r.color) && !!categoryLabel(r.label, 'de', '').trim())
 }

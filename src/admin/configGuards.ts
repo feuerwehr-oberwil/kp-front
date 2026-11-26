@@ -82,10 +82,36 @@ export const NUMBER_GUARDS = {
  *  only the public demo may (the form uses the table's 0 there). */
 export const ALARM_BAR_STATION_MIN = 1
 
-/** The text boxes with a length limit (`.0.` = every row of a list). */
+/** The text boxes with a length limit (`.0.` = every row of a list). The box carries it as
+ *  `maxLength`, so the browser holds what is typed or pasted to it; the editor's writer refuses a
+ *  longer value that reaches the row another way (a chip, a derived Kennung). */
 export const TEXT_MAX_LENGTH = {
   // the Karte's menu button label (schemas · SHORT_NAME_MAX)
   'identity.shortName': 8,
-  // an Objektbesuche destination's Kennung (objectVisits/folders · destinationValid)
+  // an Objektfarben rule's id, derived from its name (lib/karte/categories · CATEGORY_ID)…
+  'map.objectCategories.0.id': 40,
+  // …and each plan-module glob it matches, one per comma in the card's box
+  'map.objectCategories.0.match.modules.0': 60,
+  // a Rapport Formular link (ConfigSections · ReportLinksEditor)
+  'report.links.0.title': 120,
+  'report.links.0.url': 2048,
+  'report.links.0.note': 200,
+  // a Korrekturvorschlag field (ObjectVisitsView · ProposalFieldsEditor)
+  'objectVisits.proposalFields.0.id': 64,
+  'objectVisits.proposalFields.0.label': 120,
+  // an Objektbesuche destination (objectVisits/folders · destinationValid)
   'objectVisits.destinations.0.id': 64,
+  'objectVisits.destinations.0.siteUrl': 400,
+  'objectVisits.destinations.0.library': 200,
+  'objectVisits.destinations.0.root': 400,
+  'objectVisits.destinations.0.objectFolder': 200,
+  'objectVisits.destinations.0.visitFolder': 200,
+  'objectVisits.destinations.0.locationFolder': 200,
 } as const satisfies { [K in Dotted<ConfigPathTo<string>>]?: number }
+
+/** Does `value` fit the bound of `field`? Absent counts as fitting – presence is the editor's
+ *  own rule. Counted in code points, as pydantic counts: «🚒» is one character there and two
+ *  UTF-16 units here, so `.length` would hold back a stored note the server accepted. */
+export function fitsText(field: keyof typeof TEXT_MAX_LENGTH, value: string | null | undefined): boolean {
+  return [...(value ?? '')].length <= TEXT_MAX_LENGTH[field]
+}

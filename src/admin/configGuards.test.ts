@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { CATEGORY_COLOR } from '../lib/karte/categories'
-import { ALARM_BAR_STATION_MIN, NUMBER_GUARDS, TEXT_MAX_LENGTH, type NumberGuard } from './configGuards'
+import { CATEGORY_COLOR, CATEGORY_ID } from '../lib/karte/categories'
+import { ALARM_BAR_STATION_MIN, NUMBER_GUARDS, TEXT_MAX_LENGTH, fitsText, type NumberGuard } from './configGuards'
 import { fieldSchema } from './configSchema.test-utils'
 
 // Each bound a Station form checks must be the server's own: a form that accepts what the API
@@ -66,6 +66,15 @@ describe('Station form bounds match docs/openapi.json', () => {
 
   it('map.objectCategories.0.color', () => {
     expect(CATEGORY_COLOR.source).toBe(fieldSchema('map.objectCategories.0.color').schema.pattern)
+  })
+
+  it('counts a text bound in code points, as pydantic does', () => {
+    expect(fitsText('report.links.0.note', '🚒'.repeat(200))).toBe(true)
+    expect(fitsText('report.links.0.note', '🚒'.repeat(201))).toBe(false)
+  })
+
+  it('map.objectCategories.0.id', () => {
+    expect(CATEGORY_ID.source).toBe(fieldSchema('map.objectCategories.0.id').schema.pattern)
   })
 
   // Not in the schema: backend/app/schemas.py · DeploymentConfigIn._zero_alarmdruck_is_demo_only

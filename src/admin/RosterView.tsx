@@ -1,7 +1,8 @@
 import { LoadingStatus, ShellLoader } from '../components/ShellLoader'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { caretToEnd } from '../lib/ui'
-import { apiGet, ApiError } from '../lib/api'
+import { apiGet } from '../lib/api'
+import { apiErrorText } from './apiErrors'
 import { downloadBlob } from '../lib/download'
 import { PersonnelSyncDialog } from '../components/PersonnelSyncDialog'
 import {
@@ -34,9 +35,10 @@ import { useConfig, getPath } from './ConfigContext'
 
 // ─── helpers ───────────────────────────────────────────────────────────────────
 
-function errText(e: unknown): string {
-  if (e instanceof ApiError) return e.detail
-  return appConfig.copy.admin.common2.unknownError
+/** A person's fields by the column that edits them, for a refused save (admin/apiErrors). */
+const personLabels = () => {
+  const C = appConfig.copy.admin.roster
+  return { display_name: C.colName, rank: C.colRank, is_active: C.colStatus }
 }
 
 /** The STATION's Dienstgrade as picker options, «kein Grad» first (`activeRanks` falls back to
@@ -101,7 +103,7 @@ function AddPersonForm({ onCreated, onClose }: { onCreated: () => void; onClose:
       if (status !== ACTIVE) await updatePerson(createdId.current, { is_active: false })
       onCreated()
     } catch (e2) {
-      setErr(errText(e2))
+      setErr(apiErrorText(e2, undefined, personLabels()))
     } finally {
       setBusy(false)
     }
@@ -174,7 +176,7 @@ function EditRow({ person, onSaved, onCancel }: {
       })
       onSaved()
     } catch (e) {
-      setErr(errText(e))
+      setErr(apiErrorText(e, undefined, personLabels()))
       setBusy(false)
     }
   }
@@ -315,7 +317,7 @@ function ImportConfirmSheet({ file, preview, onCancel, onDone }: {
     try {
       onDone(await importRosterCsv(file, groups.map((g) => decisions[g.value])))
     } catch (e) {
-      setErr(errText(e))
+      setErr(apiErrorText(e))
       setBusy(false)
     }
   }
@@ -478,7 +480,7 @@ function CsvImportCard({ onImported }: { onImported: () => void }) {
     try {
       setPending({ file, preview: await previewRosterCsv(file) })
     } catch (e2) {
-      setErr(errText(e2))
+      setErr(apiErrorText(e2))
     } finally {
       setBusy(false)
       if (fileRef.current) fileRef.current.value = ''
@@ -736,7 +738,7 @@ export function RosterView() {
       const data = await listRoster(showInactive)
       setState({ kind: 'ok', data })
     } catch (e) {
-      setState({ kind: 'error', detail: errText(e) })
+      setState({ kind: 'error', detail: apiErrorText(e) })
     }
   }, [showInactive])
 
@@ -765,7 +767,7 @@ export function RosterView() {
       await fn()
       await load()
     } catch (e) {
-      setRowErr({ id, detail: errText(e) })
+      setRowErr({ id, detail: apiErrorText(e, undefined, personLabels()) })
     } finally {
       setBusyId(null)
     }

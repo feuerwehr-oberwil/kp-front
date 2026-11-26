@@ -183,7 +183,7 @@ describe('request — error mapping', () => {
 // string, and that array is the only machine-readable account of what was wrong. Flattened it is
 // English Pydantic prose («Input should be a valid list»), which is what a German-speaking
 // volunteer was actually shown when a coordinate went in wrong – so the parsed pairs are kept as
-// `ApiError.fields` and admin/ConfigContext · describeRejectedFields turns them into a sentence
+// `ApiError.fields` and admin/apiErrors · describeRejectedFields turns them into a sentence
 // naming the field.
 //
 // ⚠️ That consumer is tested against a hand-built ApiError of its own (ConfigAutosave.test.tsx,

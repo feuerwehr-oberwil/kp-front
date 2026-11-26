@@ -678,7 +678,7 @@ export const adminCopy = {
       // FastAPI – englisch, mit dem Feldpfad davor: «map.defaultView.center: Input should be a
       // valid list». Genau das stand bei einer Ersteinrichtung auf dem Bildschirm einer
       // Deutschsprachigen, und der angebotene Ausweg («Erneut versuchen») half nicht. Hier steht
-      // stattdessen das Feld, wie es auf der Seite heisst (ConfigContext · rejectedFieldLabel).
+      // stattdessen das Feld, wie es auf der Seite heisst (apiErrors · rejectedFieldLabel).
       rejected: 'Vom Server nicht angenommen: {fields}',
       rejectedHint: 'Bitte den genannten Wert korrigieren – die übrigen Änderungen dieser Seite sind noch nicht gespeichert.',
       // ⚠️ Der ANDERE 409: nicht «jemand war schneller», sondern «dieser Schreibvorgang würde
@@ -1036,7 +1036,7 @@ export const adminCopy = {
       // Bestände schreibt die Arbeitsmappe (Blätter «Mittel», «Quellen», «Mittel-Bestände»),
       // die Einheiten nur eine Konfigurationsdatei. Beide Wege melden Fehler über diese Labels
       // zurück, also braucht der Abschnitt hier seine deutschen Namen
-      // (ConfigContext · rejectedFieldLabel).
+      // (apiErrors · rejectedFieldLabel).
       fieldMittelCatalogue: 'Material – Katalog',
       fieldMittelSources: 'Material – Quellen',
       fieldMittelUnits: 'Material – Einheiten',

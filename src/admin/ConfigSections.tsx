@@ -3,9 +3,9 @@ import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } f
 import type { AlarmGroup, DeploymentConfig, FleetVehicle } from '../lib/deploymentConfig'
 import { legacyFleetToAttributeLists, DEFAULT_MODULES, OFFLINE_RADIUS_M } from '../lib/deploymentConfig'
 import { geoDatasetId, geoLayerUrl, inspectGeojson, listReference, uploadReference, type ReferenceDataset } from '../lib/incidents'
-import { ApiError, apiGet } from '../lib/api'
+import { apiGet } from '../lib/api'
 import { useConfig, getPath } from './ConfigContext'
-import { ALARM_BAR_STATION_MIN, NUMBER_GUARDS, TEXT_MAX_LENGTH, type NumberField, type NumberGuard } from './configGuards'
+import { ALARM_BAR_STATION_MIN, NUMBER_GUARDS, TEXT_MAX_LENGTH, fitsText, type NumberField, type NumberGuard } from './configGuards'
 // No `Field` any more: every setting on these pages is a row of the settings table now, and
 // the list editors' records are a divider plus their fields as rows of the same grid.
 import {
@@ -33,6 +33,7 @@ import { StringList } from './StringList'
 import { lv95ToWgs84, wgs84ToLV95 } from '../lib/geo'
 import type { DeploymentReferenceLayer } from '../lib/deploymentConfig'
 import type { HoseSize } from '../types'
+import { describeApiError } from './apiErrors'
 
 // The five "Station" pages. Each edits one facet of the single config document via the
 // shared ConfigContext (draft + Save live in the provider, not here). Section-level help
@@ -1468,7 +1469,8 @@ function ReferenceGeojsonEditor({ all, write, datasets, onUploaded }: {
       reset()
       onUploaded()
     } catch (e) {
-      setFailed({ msg: e instanceof ApiError ? e.detail : C.geojsonUploadFailed })
+      const said = describeApiError(e, C.geojsonUploadFailed)
+      setFailed({ msg: said.message, hint: said.hint })
     } finally {
       setBusy(false)
     }
@@ -1494,7 +1496,8 @@ function ReferenceGeojsonEditor({ all, write, datasets, onUploaded }: {
       setRowMsg({ i, ok: true, msg: fillTemplate(C.geojsonReplaced, { v: ds.current_version, n: ds.feature_count ?? res.count }) })
       onUploaded()
     } catch (e) {
-      setRowMsg({ i, msg: e instanceof ApiError ? e.detail : C.geojsonUploadFailed })
+      const said = describeApiError(e, C.geojsonUploadFailed)
+      setRowMsg({ i, msg: said.message, hint: said.hint })
     } finally {
       setRowBusy(null)
     }
@@ -2126,7 +2129,11 @@ function ReportLinksEditor() {
     // The row stays on screen and keeps its warning («erscheint nicht auf dem Rapport») until
     // it is worth saving; the same predicate `reportLinks()` uses decides that, so what the
     // preview promises and what gets stored cannot drift apart.
-    set(['report', 'links'], next.filter((l) => !!l.title?.trim() && isOpenableUrl(l.url ?? '')))
+    // …and none longer than the schema allows (configGuards · TEXT_MAX_LENGTH): the boxes hold
+    // typing to it and a chip refuses to cross it, so this only holds a row that came otherwise.
+    set(['report', 'links'], next.filter((l) => !!l.title?.trim() && isOpenableUrl(l.url ?? '')
+      && fitsText('report.links.0.title', l.title) && fitsText('report.links.0.url', l.url)
+      && fitsText('report.links.0.note', l.note)))
   }
   const patch = (i: number, over: Partial<ReportLink>) =>
     write(rows.map((r, j) => (j === i ? { ...r, ...over } : r)))
@@ -2144,7 +2151,11 @@ function ReportLinksEditor() {
     const live = el && el.dataset.id === row?.id && el.isConnected ? el : null
     // nothing focused → append, which is what a chip pressed straight after pasting asks for
     const at = live ? (live.selectionStart ?? url.length) : url.length
-    patch(i, { url: `${url.slice(0, at)}{${token}}${url.slice(at)}` })
+    const next = `${url.slice(0, at)}{${token}}${url.slice(at)}`
+    // a chip writes past the box's maxLength; a URL over the bound would take the whole link out
+    // of the stored list, so the chip does nothing there and the link stays as it is
+    if (!fitsText('report.links.0.url', next)) return
+    patch(i, { url: next })
     if (live) {
       const caret = at + token.length + 2
       requestAnimationFrame(() => { live.focus(); live.setSelectionRange(caret, caret) })
@@ -2170,6 +2181,7 @@ function ReportLinksEditor() {
             <SettingRow label={C.linkTitle}>
               <input
                 className="adm-input" type="text" value={row.title ?? ''}
+                maxLength={TEXT_MAX_LENGTH['report.links.0.title']}
                 placeholder={C.linkTitlePlaceholder}
                 onChange={(e) => patch(i, { title: e.target.value })}
               />
@@ -2177,6 +2189,7 @@ function ReportLinksEditor() {
             <SettingRow label={C.linkNote}>
               <input
                 className="adm-input" type="text" value={row.note ?? ''}
+                maxLength={TEXT_MAX_LENGTH['report.links.0.note']}
                 placeholder={C.linkNotePlaceholder}
                 onChange={(e) => patch(i, { note: e.target.value || null })}
               />
@@ -2185,11 +2198,14 @@ function ReportLinksEditor() {
                 and the chips that insert them belong directly under it — inside the cell. */}
             <SettingRow label={C.linkUrl} tip={C.linkUrlTip} span>
               <div className="adm-set-col">
+                {/* ⚠️ No `maxLength` here: a browser CUTS a paste to it, and a prefill URL cut short
+                    is still a URL – it would save with its last parameters gone. A change that
+                    would cross the bound is refused whole, like a chip's (insertToken). */}
                 <textarea
                   className="adm-input adm-input-mono adm-formlink-url" rows={3} value={row.url ?? ''}
                   placeholder={C.linkUrlPlaceholder} data-id={row.id}
                   onFocus={(e) => { urlRef.current = e.currentTarget }}
-                  onChange={(e) => patch(i, { url: e.target.value })}
+                  onChange={(e) => { if (fitsText('report.links.0.url', e.target.value)) patch(i, { url: e.target.value }) }}
                 />
                 <span className="adm-formlink-tokens" role="group" aria-label={C.linkTokens}>
                   {REPORT_LINK_TOKENS.map((t) => (

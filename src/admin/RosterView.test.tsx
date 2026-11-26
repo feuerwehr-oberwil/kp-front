@@ -51,6 +51,7 @@ import { RosterView } from './RosterView'
 import { ConfigProvider } from './ConfigContext'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
+import { ApiError } from '../lib/api'
 
 const C = appConfig.copy.admin.roster
 
@@ -341,6 +342,37 @@ describe('Grad und Status — erfassen und bearbeiten', () => {
     fireEvent.click(screen.getByRole('button', { name: `${C.colActions} — Berger Luca` }))
     fireEvent.click(await screen.findByText(C.deactivate))
     await waitFor(() => expect(updatePerson).toHaveBeenCalledWith('p1', { is_active: false }))
+  })
+
+  // A refused save reads through admin/apiErrors: the field in German instead of FastAPI's
+  // English sentence, and the instruction that came with an answer instead of dropping it.
+  describe('a refused save', () => {
+    const saveRefused = async (e: ApiError) => {
+      listRoster.mockResolvedValue([PERSON])
+      updatePerson.mockRejectedValue(e)
+      await mount()
+      fireEvent.click(screen.getByRole('button', { name: `${C.colActions} — Berger Luca` }))
+      fireEvent.click(await screen.findByText(appConfig.copy.admin.common2.edit))
+      fireEvent.click(screen.getByRole('button', { name: appConfig.copy.admin.common2.save }))
+      await waitFor(() => expect(updatePerson).toHaveBeenCalled())
+    }
+
+    it('names the refused field, never the Pydantic sentence', async () => {
+      // schemas · PersonnelUpdate: display_name has min_length=1
+      const e = new ApiError(422, 'display_name: String should have at least 1 character')
+      e.fields = [{ path: 'display_name', msg: 'String should have at least 1 character', kind: 'string_too_short', input: '' }]
+      await saveRefused(e)
+      expect(await screen.findByText(fillTemplate(appConfig.copy.admin.autosave.rejected, { fields: C.colName }))).toBeTruthy()
+      expect(screen.queryByText(/String should/)).toBeNull()
+    })
+
+    it('shows the server\'s message with its hint', async () => {
+      const E = appConfig.copy.errors
+      const e = new ApiError(503, E.httpGateway)
+      e.hint = E.httpGatewayHint
+      await saveRefused(e)
+      expect(await screen.findByText(`${E.httpGateway} ${E.httpGatewayHint}`)).toBeTruthy()
+    })
   })
 })
 

@@ -6,7 +6,7 @@ import { fillTemplate, localeDateTime } from '../lib/format'
 import { downloadBlob } from '../lib/download'
 import { Sheet } from '../lib/overlays'
 import { SettingRow, SettingsNote } from './ui'
-import { describeRejectedFields, rejectedFieldLabel } from './ConfigContext'
+import { apiErrorText, describeRejectedFields, rejectedFieldLabel } from './apiErrors'
 
 // Config backup (Batch A · A1): export the current config to a JSON file, import one back,
 // and show who last changed it & when. `integrations` is env-derived/read-only so it's
@@ -28,7 +28,7 @@ type State =
   | { kind: 'idle' }
   | { kind: 'busy' }
   | { kind: 'ok'; message: string }
-  /** `fields` = the refused paths as German lines (ConfigContext · describeRejectedFields).
+  /** `fields` = the refused paths as German lines (apiErrors · describeRejectedFields).
    *  Listed, not run into one sentence: each is a separate edit in the file. */
   | { kind: 'error'; message: string; fields?: string[] }
 
@@ -161,9 +161,8 @@ export function ConfigBackup({ config, onImported }: {
       // used to be dropped for «Konfiguration ungültig (422) – Datei passt nicht zum Schema»,
       // which is a restatement of «it did not work». Say what the server said, in German.
       const fields = e instanceof ApiError && e.status === 422 ? describeRejectedFields(e) : []
-      const msg = e instanceof ApiError
-        ? (e.status === 422 ? (fields.length ? C.invalidFields : C.invalidSchema) : e.detail)
-        : C.importFailed
+      // …and a refusal the server worded itself (the demo's required settings) keeps its sentence
+      const msg = fields.length ? C.invalidFields : apiErrorText(e, C.importFailed)
       setState({ kind: 'error', message: msg, fields: fields.length ? fields : undefined })
     }
   }

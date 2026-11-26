@@ -5,6 +5,7 @@ import { appConfig } from '../config/appConfig'
 import { fillTemplate, formatTime } from '../lib/format'
 import { EmptyState, fmtDateTime } from './ui'
 import { Sheet } from '../lib/overlays'
+import { apiErrorText } from './apiErrors'
 
 /** One kept configuration, as the API projects it (backend api/config · ConfigHistoryEntry). */
 interface HistoryEntry {
@@ -193,8 +194,8 @@ export function ConfigHistory({ onRestored }: { onRestored: (cfg: DeploymentConf
       onRestored(await apiPost<DeploymentConfig>(`/api/config/history/${e.id}/restore`))
       setNote(C.histRestored)
       await load() // the restore kept the document it replaced — that row belongs on the list
-    } catch {
-      setNote(C.histRestoreFailed)
+    } catch (e) {
+      setNote(apiErrorText(e, C.histRestoreFailed))
     } finally {
       setBusy(null)
     }

@@ -2,7 +2,8 @@ import { ShellLoader } from '../components/ShellLoader'
 import { Fragment, useCallback, useEffect, useState } from 'react'
 import { cx } from '../lib/cx'
 import { caretToEnd } from '../lib/ui'
-import { apiGet, apiPost, apiPatch, ApiError } from '../lib/api'
+import { apiGet, apiPost, apiPatch } from '../lib/api'
+import { apiErrorText } from './apiErrors'
 import { appConfig } from '../config/appConfig'
 import { SearchField } from '../components/SearchField'
 import { searchQuery, matchesAnyQuery } from '../lib/search'
@@ -31,9 +32,10 @@ interface AdminUser {
 
 // ─── helpers ───────────────────────────────────────────────────────────────
 
-function errText(e: unknown): string {
-  if (e instanceof ApiError) return e.detail
-  return appConfig.copy.admin.common2.unknownError
+/** An account's fields by the label that edits them, for a refused save (admin/apiErrors). */
+const accountLabels = () => {
+  const C = appConfig.copy.admin.members
+  return { username: C.username, display_name: C.displayName, pin: C.pinLabel, color: C.colorLabel }
 }
 
 /** The German label of a member role, for the table's Rolle column.
@@ -101,7 +103,7 @@ function AddMemberForm({ open, setOpen, onCreated }: {
       setOpen(false)
       onCreated()
     } catch (e2) {
-      setErr(errText(e2))
+      setErr(apiErrorText(e2, undefined, accountLabels()))
     } finally {
       setBusy(false)
     }
@@ -236,7 +238,7 @@ function EditRow({ user, canDemote, onSaved, onCancel }: {
       })
       onSaved()
     } catch (e) {
-      setErr(errText(e))
+      setErr(apiErrorText(e, undefined, accountLabels()))
       setBusy(false)
     }
   }
@@ -353,7 +355,7 @@ export function MembersView() {
       const data = await apiGet<AdminUser[]>('/api/auth/users')
       setState({ kind: 'ok', data })
     } catch (e) {
-      setState({ kind: 'error', detail: errText(e) })
+      setState({ kind: 'error', detail: apiErrorText(e) })
     }
   }, [])
 
@@ -377,7 +379,7 @@ export function MembersView() {
       await fn()
       await load()
     } catch (e) {
-      setRowErr({ id, detail: errText(e) })
+      setRowErr({ id, detail: apiErrorText(e) })
     } finally {
       setBusyId(null)
     }

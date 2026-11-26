@@ -133,7 +133,7 @@ export class ApiError extends Error {
    *  `kind` and `input` are FastAPI's `type` and `input` verbatim: the machine-readable half of
    *  the same answer. `kind` says what was EXPECTED («string_type») and `input` what was
    *  actually there («TLF 31») — the two things a config import has to say out loud, because
-   *  the file is hand-edited and the shape is the whole question (admin/ConfigContext ·
+   *  the file is hand-edited and the shape is the whole question (admin/apiErrors ·
    *  describeRejectedFields). */
   fields?: { path: string; msg: string; kind?: string; input?: unknown }[]
   /** WHICH refusal this is, when the backend named one — a `{code, message}` detail rather than

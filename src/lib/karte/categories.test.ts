@@ -123,4 +123,15 @@ describe('the admin editor\'s rules', () => {
     // …and the schema does refuse a rule without a colour (its pattern is the server's to check)
     expect(configRejections({ map: { objectCategories: [{ id: 'x', label: 'X' }] } }).join(' ')).toContain('objectCategories.0')
   })
+
+  it('holds a rule whose id or module glob the schema refuses', () => {
+    const rule = { label: 'PV', color: '#f59e0b' }
+    const rows: ObjectCategoryRule[] = [
+      { ...rule, id: 'PV Anlage' },
+      { ...rule, id: 'p'.repeat(41) },
+      { ...rule, id: 'pv', match: { modules: ['m'.repeat(61)] } },
+      { ...rule, id: 'pv-ok', match: { modules: ['m'.repeat(60)] } },
+    ]
+    expect(writableRules(rows).map((r) => r.id)).toEqual(['pv-ok'])
+  })
 })

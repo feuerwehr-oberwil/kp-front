@@ -7,6 +7,7 @@ import { InfoTip } from './InfoTip'
 import { useCellLabels } from './useCellLabels'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, localeDate, localeDateTime } from '../lib/format'
+import { apiErrorText } from './apiErrors'
 
 // Shared admin presentational primitives. One source of truth for the card, field,
 // status-badge, metric and usage-bar shapes that every admin surface reuses — they
@@ -974,7 +975,7 @@ export function useSecret(basePath: string, said: { rotated: string; disabled: s
     try {
       setState(await apiPost<SecretState>(`${basePath}/rotate`, {}))
       setResult({ tone: 'ok', text: said.rotated })
-    } catch { setResult({ tone: 'err', text: said.failed }) } finally { setBusy(false) }
+    } catch (e) { setResult({ tone: 'err', text: apiErrorText(e, said.failed) }) } finally { setBusy(false) }
   }
 
   const disable = async () => {
@@ -983,7 +984,7 @@ export function useSecret(basePath: string, said: { rotated: string; disabled: s
       await apiDelete(basePath)
       setState({ configured: false })
       setResult({ tone: 'ok', text: said.disabled })
-    } catch { setResult({ tone: 'err', text: said.failed }) } finally { setBusy(false) }
+    } catch (e) { setResult({ tone: 'err', text: apiErrorText(e, said.failed) }) } finally { setBusy(false) }
   }
 
   return {
