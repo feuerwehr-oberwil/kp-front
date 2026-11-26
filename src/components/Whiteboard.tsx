@@ -2901,9 +2901,11 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
               )
             })}
 
-            {/* Every covered floor exposes the same object through the full native renderer. */}
+            {/* Every covered floor exposes the same object through the full native renderer.
+                The sheet is in the key: a Notiz the Karte shows on two sheets gets a fresh editor
+                per sheet, so a switch mid-typing ends the old one's edit on its own sheet. */}
             {shownAnnos.filter((a) => a.kind !== 'draw').flatMap((a) => stack ? stackInstances(a, floorsTTB) : [a]).map((a) => (
-              <PlanAnno key={`${a.id}:${a.floor ?? 0}`} a={a} board={annoBoard} spoke={fan?.[`${a.id}:${a.floor ?? 0}`]}
+              <PlanAnno key={`${activeId}:${a.id}:${a.floor ?? 0}`} a={a} board={annoBoard} spoke={fan?.[`${a.id}:${a.floor ?? 0}`]}
                 selected={selId === a.id} grouped={selIds.includes(a.id)} networked={relationship.objectIds.has(a.id)}
                 editing={editId === a.id} trailShown={!hiddenTrails.has(a.id)} />
             ))}
