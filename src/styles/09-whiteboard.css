@@ -38,7 +38,7 @@
 }
 .whiteboard.wb-georef-check { background: transparent; pointer-events: none; }
 .whiteboard.wb-georef-check .wb-stage { visibility: hidden; }
-.whiteboard.wb-georef-check .wb-botleft { pointer-events: auto; }
+/* (its chip row stays tappable: `.wb-botleft > *` below sets `auto` on every tile) */
 /* Alignment is one temporary two-surface task, not another ordinary app surface. Hide both
    navigation rails and any panel/tool chrome that may have been open when it started; otherwise
    a desktop operator can leave for a different section halfway through a point pair, while a
@@ -66,6 +66,13 @@
 .wb-botleft { position: absolute; z-index: 8; left: calc(var(--rail-w) + 28px); bottom: 16px; --float-h: var(--line-h);
   max-width: calc(100% - var(--rail-w) - 44px);
   display: flex; align-items: center; gap: var(--float-gap); flex-wrap: wrap; }
+/* ⚠️ The row is a FRAME, not a surface: a tap beside or between its tiles goes on to the map or
+   the plan under it. On a phone it spans the screen up to the FAB (`right` below), so the strip
+   between the Gebäude chip and the Eintrag FAB swallowed every tap – at 320×640 with an alert and
+   Messen open about 25px of map was left (UX journeys, follow-up round 26.11.2026). Only the tiles
+   take a tap; their own cards and popovers inherit it from them. */
+.wb-botleft { pointer-events: none; }
+.wb-botleft > * { pointer-events: auto; }
 /* ⚠️ While «Karte verknüpfen» is armed this row IS the mode's instrument (GeorefMode ·
    GeorefInstrument), and it has to lie OVER the split's dashed seam. `z-index: 8` above makes
    the row a stacking context, so the bar's own z 34 only ever ordered it inside that row — the

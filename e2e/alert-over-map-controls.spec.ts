@@ -14,6 +14,9 @@ import { EINSATZ_RAIL, dismissFirstViewGebaeude, expect, login, openApp, test } 
 // Eintrag) – and the Plan's «in der Nähe» banner start below the strip. The banner needs an
 // Einsatzobjekt with plans near the Übung (the Musterdorf demo's Schloss): on a stack without one
 // that test skips and says so.
+// A tap beside or between the floating row's tiles reaches the map, on the phones and the iPad,
+// at rest and lifted over the open Messen panel (UX journeys, follow-up round 26.11.2026: the row's
+// box spans the phone's width up to the FAB, and it swallowed every tap there).
 //
 // It opens an Übung of its own and archives it again afterwards.
 // ⚠️ OPT-IN (E2E_WORKFLOWS=1), chromium only: it writes an Einsatz – never against a station in use.
@@ -115,6 +118,33 @@ async function floatRowOnStrip(page: Page): Promise<string[]> {
   })
 }
 
+/** Where a tap beside or between the floating row's tiles goes (UX journeys, follow-up round
+ *  26.11.2026: on a phone the row's box spans the screen up to the FAB, and it swallowed every tap
+ *  there). Probes every point of the row's box, 4px apart, that no tile covers: `taken` names what
+ *  the ROW took (it must take none – another control standing over its box, like the phone's wind
+ *  chip at 320, is that control's tap), `onMap` counts the points that reached the map (its canvas
+ *  or a marker on it). */
+async function rowGapTaps(page: Page): Promise<{ onMap: number; taken: string[] }> {
+  return page.evaluate(() => {
+    const row = document.querySelector('.wb-botleft')
+    if (!row) return { onMap: 0, taken: ['no floating row'] }
+    const r = row.getBoundingClientRect()
+    const tiles = [...row.children].map((c) => c.getBoundingClientRect()).filter((t) => t.width && t.height)
+    const onTile = (x: number, y: number) => tiles.some((t) => x >= t.left - 1 && x <= t.right + 1 && y >= t.top - 1 && y <= t.bottom + 1)
+    let onMap = 0
+    const taken = new Set<string>()
+    for (let y = r.top + 2; y < r.bottom - 1; y += 4) {
+      for (let x = r.left + 2; x < r.right - 1; x += 4) {
+        if (onTile(x, y)) continue
+        const top = document.elementFromPoint(x, y)
+        if (top?.closest('.maplibregl-canvas-container')) onMap++
+        else if (top && row.contains(top)) taken.add(`${top.tagName.toLowerCase()}.${top.getAttribute('class') ?? ''}`)
+      }
+    }
+    return { onMap, taken: [...taken] }
+  })
+}
+
 for (const device of [
   { name: 'phone 320', viewport: { width: 320, height: 640 }, isMobile: true, hasTouch: true },
   { name: 'phone 390', viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true },
@@ -172,6 +202,25 @@ for (const device of [
       await expect.poll(() => unreachable(page), 'every top-edge control stays reachable').toEqual([])
     })
 
+    test(`a tap between the floating row's tiles reaches the map (${device.name})`, async ({ page }) => {
+      // a Messpunkt on the map, south of the Übung: the row holds two tiles (Gebäude · Messungen),
+      // so the tablet's row – as wide as its tiles – has a gap between them too
+      const point = { id: 'ov-mp1', kind: 'symbol', layer: 'taktisch', coord: [CENTER[0], CENTER[1] - 0.0006], symbol: 'FW Messpunkt', fields: { CO: '12' } }
+      const cur = await (await page.request.get(`/api/incidents/${incidentId}/workspace`)).json() as { workspace: Record<string, unknown> & { entities?: unknown[]; objects?: unknown[] }; workspace_rev: number }
+      const ws = cur.workspace
+      const put = await page.request.put(`/api/incidents/${incidentId}/workspace`, { data: {
+        workspace: { ...ws, entities: [...ws.entities ?? [], point], objects: [...ws.objects ?? [], { id: point.id, entity: point }] }, base_rev: cur.workspace_rev,
+      } })
+      expect(put.ok(), `adding the Messpunkt: ${put.status()}`).toBe(true)
+      await openApp(page, '/')
+      await expect(page.locator(EINSATZ_RAIL)).toBeVisible()
+      await dismissFirstViewGebaeude(page)
+      await expect(page.locator('.wb-botleft > *')).toHaveCount(2)
+      const gaps = await rowGapTaps(page)
+      expect(gaps.taken, 'the row takes no tap beside its tiles').toEqual([])
+      expect(gaps.onMap, 'a tap beside the tiles reaches the map').toBeGreaterThan(0)
+    })
+
     // the panels: phones only – the tablet docks Messen at the foot and stands the banner right of
     // the rail, nowhere near the strip at the top right
     if (!device.isMobile) return
@@ -185,8 +234,8 @@ for (const device of [
       await page.getByRole('button', { name: /^Messen/ }).first().tap()
       await expect(page.locator('.phone-tools .wb-dock')).toBeVisible()
       // a Strecke of two points on one line just under the strip: the free map there runs left of
-      // the wind chip, above the floating row (Info · Eintrag, whose box spans the width) and the
-      // Einsatz marker – at 320×640 a band of ~25 px
+      // the wind chip, above the floating row (Info · Eintrag) and the Einsatz marker – at 320×640
+      // a band of ~25 px
       const panel = page.locator('.phone-tools [data-float-stack]')
       const stripBox = await strip.boundingBox()
       if (!stripBox) throw new Error('the Meldeleiste has no box')
@@ -196,6 +245,12 @@ for (const device of [
         // each point lands before the next tap – two quick taps are a double tap, which ends it
         await expect(page.locator('.measure-handle')).toHaveCount(i + 1)
       }
+      // the row lifted over the short panel: a tap beside its tiles still reaches the map (the row
+      // is a frame, not a surface – 09-whiteboard · .wb-botleft)
+      await expect(page.locator('.wb-botleft')).toBeVisible()
+      const lifted = await rowGapTaps(page)
+      expect(lifted.taken, 'the lifted row takes no tap beside its tiles').toEqual([])
+      expect(lifted.onMap, 'a tap beside the lifted row\'s tiles reaches the map').toBeGreaterThan(0)
       // open it all the way: the Höhenprofil, then the Wassertransport – it grows to its cap
       await panel.locator('button[aria-expanded="false"]').first().tap()
       await panel.getByRole('button', { name: /Wassertransport berechnen/ }).tap()
