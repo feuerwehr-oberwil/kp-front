@@ -474,20 +474,23 @@ describe('the list goes by name, A–Z', () => {
 })
 
 // Owner pick UX journeys M·8, 25.11.2026: a stray tap on the row's Ort moved somebody to the Magazin
-// without a word. The Ort is a worded chip now, and a tap only opens the two-row choice.
-describe('the Ort is a word and a choice, never a one-tap flip', () => {
+// without a word, so a tap only opens the two-row choice. Owner note 26.11.2026: the row shows the
+// place's glyph alone – the words are in the menu and in the button's name.
+describe('the Ort is a glyph and a choice, never a one-tap flip', () => {
   const A = appConfig.copy.anwesenheit
   const here = {
     p1: { status: 'present', intervals: [{ from: '2026-11-25T10:00:00.000Z' }] },
   } as unknown as AttendanceState
   const chip = () => screen.getByRole('button', { name: new RegExp(fillTemplate(A.ortPick, { name: 'Meier Anna' })) })
 
-  it('reads «Vor Ort», and the tap on it changes nothing by itself', () => {
+  it('shows no word, names the place, and the tap only opens the menu', () => {
     const onSetOrt = vi.fn()
     mount({ attendance: here, onSetOrt })
-    expect(chip().textContent).toContain(A.ortScene)
+    expect(chip().textContent).toBe('')
+    expect(chip().getAttribute('aria-label')).toContain(A.ortScene)
     fireEvent.click(chip())
     expect(onSetOrt).not.toHaveBeenCalled()
+    expect(screen.getByRole('menuitemradio', { name: A.ortScene })).toBeTruthy()
   })
 
   it('moves the person only when the other place is picked', () => {
