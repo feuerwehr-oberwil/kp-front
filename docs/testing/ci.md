@@ -24,15 +24,21 @@ prints which stack runs and the file that pulled it in:
 - Docs, examples and CI workflows run neither stack unless a test reads them.
 
 GitHub CI still runs every gate on every PR, so a wrong skip turns the PR red, never main.
-`just ci-all` forces everything (it requires just 1.56 or later); its three dependencies run
-in parallel, and `just ci-no-backend` runs the first two:
+CI's Frontend, Backend and Static analysis jobs call the recipes below – one recipe per job,
+after the job's own setup – so a check added to a recipe runs on both sides. Each side keeps its
+own Postgres: CI a service container, `just ci-backend` a throwaway database on the dev Postgres.
+`just ci-all` forces everything (it requires just 1.56 or later); its four dependencies run
+in parallel, and `just ci-no-backend` runs all but the backend:
 
 - `just ci-frontend`: lint, browser-spec types and inventory, production build (including app
   types), hidden sourcemaps, bundle/site checks, vulnerability and license audits.
 - `just ci-unit`: the whole frontend suite with its unchanged global coverage floor. It uses
   four workers so it can coexist with TypeScript and pytest on a developer machine, eight
   under `ci-no-backend`, where no pytest runs beside it.
-- `just ci-backend`: migration/model drift, PostgreSQL tests, Ruff, mypy and dependency audits.
+- `just ci-backend`: migration/model drift, PostgreSQL tests, Ruff, mypy and dependency audits
+  (`just ci-backend-checks` – CI's «Backend» job – on a throwaway database).
+- `just ci-static-analysis`: duplicates (jscpd), dead backend code (vulture), unused and missing
+  backend dependencies (deptry) – CI's «Static analysis» job. A backend-only branch runs it too.
 
 The full pnpm audit runs through `scripts/audit-toolchain.sh`. The development-only Picomatch
 exception for GHSA-fc5q-39xc-vjpf includes 31 December 2026 UTC. The gate fails from
@@ -105,7 +111,7 @@ before/after comparison. Review `Survived` and `NoCoverage` mutants as missing-t
 fault. Equivalent changes can survive correct tests: record the reason instead of asserting
 private implementation details or suppressing mutation operators to improve the score.
 
-This is a quality check separate from the existing coverage floor and the seven required PR
+This is a quality check separate from the existing coverage floor and the eight required PR
 checks. It runs by hand, and every Monday in «Mutation testing (weekly)»
 (`.github/workflows/mutation.yml`, also Actions → Run workflow): a cold run whose per-module
 table lands in the job summary and whose HTML report is an artifact; it gates no merge. Its
@@ -177,8 +183,9 @@ top of the file – about half of the files); the backend uses pytest. Pre-commi
 frontend ESLint, not the full gate. `just hooks` (once per
 clone) points git at `.githooks/`, whose pre-push hook runs `just ci-static` (the deterministic gates; the suites flake under load on a shared box and stay `just ci`'s and CI's); `git push --no-verify`
 skips it for a 3am hotfix. `just ci` also runs the coverage floor, the bundle budget,
-audits, licenses and `just schema-check` (a throwaway Postgres migrated to head, then `alembic
-check` against the models); image, secrets, e2e, visual and perf stay CI's.
+audits, licenses, the static analysis and `just schema-check` (a throwaway Postgres migrated to
+head, then `alembic check` against the models); image, secrets, shared files, e2e, visual and perf
+stay CI's.
 
 - **Corrections become checks.** The house eslint plugin `scripts/eslint-kp.mjs` (rule tests
   beside it) holds what owner corrections taught: no raw `useEffect`/`useLayoutEffect` or timer
@@ -202,12 +209,24 @@ check` against the models); image, secrets, e2e, visual and perf stay CI's.
   way to pass. The gzipped entry, App, maplibre, pdf-worker and CSS chunks have a +5 % budget
   against `scripts/bundle-baseline.json` (`scripts/check-bundle-size.mjs`, CI); a deliberate
   growth is an `--update` in its own commit, with the reason.
-- **Dead code and duplicates beyond knip** (`just lint-dead`; CI's «Static analysis» job, not a
-  required check): jscpd fails when the share of duplicated lines goes above `threshold` in
-  `.jscpd.json` (frontend, 1 %) or `backend/.jscpd.json` (0.5 %). vulture (`[tool.vulture]` in
-  `backend/pyproject.toml`, confidence 60) fails on a name that is neither used nor in
-  `backend/vulture_whitelist.py`, and deptry on an unused or missing backend dependency. The
-  baselines are of 25.11.2026: fix a new finding, or add it to the whitelist under its reason.
+- **The baseline guard holds that rule** (`scripts/baseline-guard.mjs`, first step of
+  `just ci-static-analysis`). For every commit since the merge base with `origin/main` it compares
+  the limits each baseline file sets with the commit's parent's: the eslint, knip and style-debt
+  counts, each chunk's bundle limit (size plus budget), the coverage floor, both jscpd thresholds,
+  each perf metric's limit (value plus tolerance, on every runner speed the gate scales to),
+  jscpd's `minTokens`, `minLines` and `maxLines`, and Stryker's `break` floor. A loosened limit
+  fails when the same commit changes any other file; tightening always passes, and so does a new
+  baseline file. A new rule's first count is a raise too: commit it on its own. A merge commit may
+  take either parent's limit, but none looser than every parent has – a conflict in a baseline is
+  not the place to raise it. A bundle chunk that leaves the baseline is a retired chunk, not a
+  raise.
+  `controlDebt.test.ts` keeps its baseline in TypeScript and is not covered.
+- **Dead code and duplicates beyond knip** (`just ci-static-analysis`, part of `just ci` and the
+  required «Static analysis» check; `just lint-dead` adds knip): jscpd fails when the share of
+  duplicated lines goes above `threshold` in `.jscpd.json` (frontend, 1 %) or `backend/.jscpd.json`
+  (0.5 %). vulture (`[tool.vulture]` in `backend/pyproject.toml`, confidence 60) fails on a name
+  that is neither used nor in `backend/vulture_whitelist.py`, and deptry on an unused or missing
+  backend dependency. The baselines are of 25.11.2026: fix a new finding, or add it to the whitelist under its reason.
   Never raise a threshold to pass.
 - **`jsdom` is held on 30.0.x** (`~30.0.1`, Dependabot ignores everything from 30.1.0): since
   30.1 its blob URLs cannot read the Node `Blob` Vitest supplies, so maplibre-gl fails at import
@@ -245,7 +264,7 @@ check` against the models); image, secrets, e2e, visual and perf stay CI's.
 
 **Verification before prod (the CI gate).** Prod deploys from `main`, so a red `main` reaches
 the field: develop on a branch, push, let `ci.yml` go **fully green**, *then* merge – never merge
-a red branch. **The gate is server-enforced:** branch protection on `main` requires the seven
+a red branch. **The gate is server-enforced:** branch protection on `main` requires the eight
 checks below to pass before a merge – *Performance (user journeys vs baseline)* since
 13.10.2026. `enforce_admins` is **off** on purpose, so a 3am hotfix can still bypass it – that is
 the only intended bypass, not a routine one.
@@ -261,6 +280,7 @@ The required checks retain their names, so branch protection needs no migration:
 | Performance (user journeys vs baseline) | Loads that run's image into its own stack; unchanged journeys, calibration, confirmation and budgets. Reports without failing on a Dependabot PR. |
 | Secrets (gitleaks) | Scans the tracked tree. On a pull request it also scans the commits of that pull request, so a secret that one commit adds and a later one removes is found. |
 | Shared files match KP Rück | Compares the shared manifest against the paired/default sibling branch. |
+| Static analysis (jscpd + vulture + deptry) | `just ci-static-analysis`: duplicates in both stacks, dead backend code, unused and missing backend dependencies. |
 
 The two aggregate checks run even after a dependency fails and accept only `success` from
 every child. A failed, skipped or cancelled child cannot make the required check green.

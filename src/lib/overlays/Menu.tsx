@@ -35,17 +35,20 @@ export interface MenuCheckItem {
   disabled?: boolean
 }
 
-/** A one-of-N choice INSIDE the menu — a way of LOOKING at something, not a setting to flip.
- *  Unlike the checkbox rows it closes on pick: there is exactly one answer, so staying open would
- *  leave a menu over the thing whose arrangement was just changed. Real radio semantics rather
- *  than a column of checkboxes with one ticked, so it is announced as the single choice it is.
- *  It LOOKS like one too (r35, 06.11.2026): the label, then a trailing ✓ on the chosen row – the
- *  Einsatzuhr's and «Seite wählen»'s mark – never the checkbox square the multi-pick rows wear. */
+/** A one-of-N choice INSIDE the menu. Real radio semantics rather than a column of checkboxes
+ *  with one ticked, so it is announced as the single choice it is. It LOOKS like one too (r35,
+ *  06.11.2026): the label, then a trailing ✓ on the chosen row – the Einsatzuhr's and «Seite
+ *  wählen»'s mark – never the checkbox square the multi-pick rows wear.
+ *  Base UI keeps the menu open on a pick, which suits a menu of several choices (the Verlauf's
+ *  filter: Art, Einsatzart, «Rapport offen»). A menu that IS the one choice sets `closeOnPick`. */
 export interface MenuRadioGroup<T extends string = string> {
   kind: 'radio'
   value: T
   onChange: (value: T) => void
   options: { value: T; label: ReactNode; disabled?: boolean }[]
+  /** The menu closes on a pick – for a menu whose only job is this choice (Anwesenheit's «Vor Ort
+   *  / Ins Magazin», owner note 26.11.2026: the menu stayed open over the row it had just moved). */
+  closeOnPick?: boolean
 }
 
 /** A rule between groups of items. */
@@ -203,6 +206,7 @@ export function Menu({ trigger, items, popupClassName, itemClassName, reasonClas
               key={o.value}
               value={o.value}
               disabled={o.disabled}
+              closeOnClick={it.closeOnPick}
               className={rowClass(itemClassName?.(false))}
             >
               {o.label}

@@ -55,7 +55,7 @@ const STATES: State[] = [
     await mapDrawn(page)
     // the first symbol the fat incident places; a tap on it opens its editor
     await page.locator('.maplibregl-marker > .marker:not(.marker-note):not(.marker-shape)').first().click()
-    await page.locator('.ctx-done:visible').first().waitFor()
+    await page.locator('.ctx-caprow:visible').first().waitFor()
     await mapDrawn(page)
   } },
   // «Karte & Objekte» – where every launch without an Einsatz lands

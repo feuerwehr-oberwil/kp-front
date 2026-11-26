@@ -2,16 +2,24 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { SetStateAction } from 'react'
 import type { Trupp } from '../../types'
 import { appConfig } from '../../config/appConfig'
+import { fillTemplate } from '../format'
 import { createUndoTimeline } from '../undoTimeline'
 import { resetOwnContacts } from '../contactEcho'
 import { truppActionCore } from './core'
 import { truppClockActions } from './clock'
+import { truppLogName } from '../atemschutz'
 
 // The clock family on its own: the safety rules (Eintritt, Rückzug, Fortsetzen, Raus, Kontakt,
 // Notfall) built from the Trupps, the Verlauf and the ↶ timeline ALONE — no map, no plan, no hose.
 // The full behaviour through useTruppActions is covered in lib/useTruppActions.test.ts.
 
 const ui = vi.hoisted(() => ({ toasts: [] as string[] }))
+// whether this page is the handed-over Atemschutz board (lib/linkMode · onAtemschutzLink)
+const page = vi.hoisted(() => ({ link: false }))
+vi.mock('../linkMode', async (importOriginal) => ({
+  ...await importOriginal<typeof import('../linkMode')>(),
+  onAtemschutzLink: () => page.link,
+}))
 vi.mock('../ui', async (importOriginal) => ({
   ...await importOriginal<typeof import('../ui')>(),
   toast: (text: string) => { ui.toasts.push(text); return 0 },
@@ -120,6 +128,96 @@ describe('truppClockActions — the contact clock', () => {
     expect(b.t()).toMatchObject({ lastContactTime: at(12), lastPressureBar: alarmBar, lowestBar: alarmBar })
     expect(last(b.t())).toMatchObject({ kind: 'alarm', bar: alarmBar })
     expect(b.rows.map((r) => r.icon)).toEqual(['warn'])
+  })
+})
+
+// owner pick UX journeys M·12 (25.11.2026): a Kontakt logged on the Atemschutz-Link says so in the
+// record, and the tablet's Kontakt tile reads it (lib/atemschutz · contactViaLink)
+describe('truppClockActions — where a Kontakt was logged', () => {
+  afterEach(() => { page.link = false })
+  it('stamps the link\'s Kontakt, Druck and Rückzug rows, and nothing the app writes', () => {
+    const b = clockBoard([trupp({ status: 'aktiv', entryTime: at(0), lastContactTime: at(0), readings: [{ t: at(0), bar: 300, kind: 'entry' }] })])
+    tick(5); b.act().recordContact('T1')
+    expect(last(b.t())).not.toHaveProperty('via')
+    page.link = true
+    tick(6); b.act().recordContact('T1')
+    expect(last(b.t())).toMatchObject({ kind: 'contact', via: 'link' })
+    tick(7); b.act().recordPressure('T1', 250)
+    expect(last(b.t())).toMatchObject({ kind: 'pressure', via: 'link' })
+    tick(8); b.act().setTruppStatus('T1', 'rueckzug')
+    expect(last(b.t())).toMatchObject({ kind: 'rueckzug', via: 'link' })
+  })
+})
+
+/* owner pick UX journeys B2·18 (25.11.2026): «Eingangsdruck 180 bar» answers a question, so it is
+ * checked against the Trupp as it stands when the answer comes – and never switched silently. */
+describe('truppClockActions — the Eingangsdruck asked for', () => {
+  const inside = () => trupp({ status: 'aktiv', entryTime: at(0), lastContactTime: at(0), readings: [{ t: at(0), bar: 300, kind: 'entry' }] })
+  const tooLate = (bar: number) => fillTemplate(appConfig.copy.atemschutz.earlyLowTooLate, { bar, edit: appConfig.copy.edit })
+
+  it('replaces the Eingangsdruck while it still may', () => {
+    const b = clockBoard([inside()])
+    tick(1); b.act().recordPressure('T1', 180, { as: 'entry' })
+    expect(b.t().entryPressureBar).toBe(180)
+    expect(ui.toasts).toEqual([])
+  })
+
+  it('an answer after the window is a Druckmeldung, and the board says so', () => {
+    const b = clockBoard([inside()])
+    tick(2); const asked = b.act()
+    tick(4); asked.recordPressure('T1', 180, { as: 'entry' })
+    expect(b.t()).toMatchObject({ entryPressureBar: 300, lastPressureBar: 180 })
+    expect(last(b.t())).toMatchObject({ kind: 'pressure', bar: 180 })
+    expect(ui.toasts).toEqual([tooLate(180)])
+  })
+
+  it('never overwrites an Eingangsdruck measured while the question stood', () => {
+    const b = clockBoard([inside()])
+    tick(1); const asked = b.act()
+    b.act().recordPressure('T1', 280) // the first Druck from another hand: the measured baseline
+    asked.recordPressure('T1', 180, { as: 'entry' })
+    expect(b.t().entryPressureBar).toBe(280)
+    expect(last(b.t())).toMatchObject({ kind: 'pressure', bar: 180 })
+    expect(ui.toasts).toEqual([tooLate(180)])
+  })
+
+  // CodeRabbit r4701810325 + r4702782444 + r4702935755: `liveTrupps` is the last render; React
+  // applies queued updaters later – and the notice, the Verlauf and the ↶ ↷ follow what the
+  // updater applied, not the guess
+  it('never overwrites an Eingangsdruck a merged update measured before the next render', async () => {
+    const b = clockBoard([inside()])
+    const queue: ((ts: Trupp[]) => Trupp[])[] = []
+    const rendered = b.state.trupps
+    const deps = {
+      trupps: rendered,
+      setTrupps: (a: SetStateAction<Trupp[]>) => { queue.push(typeof a === 'function' ? a : () => a) },
+      log: (icon: string, text: string) => { b.rows.push({ icon, text }) },
+      emit: () => {},
+      undoTimeline: b.timeline,
+      liveTrupps: () => rendered,
+    }
+    const batched = truppClockActions({ ...deps, ...truppActionCore(deps) })
+    tick(1)
+    // the merge of another device's first Druck lands in the queue first: the measured baseline
+    const measured = clockBoard([inside()])
+    measured.act().recordPressure('T1', 280)
+    queue.push(() => measured.state.trupps)
+    batched.recordPressure('T1', 180, { as: 'entry' })
+    expect(b.rows).toEqual([]) // nothing said before the updater has decided
+    const render = () => { b.state.trupps = queue.splice(0).reduce((ts, up) => up(ts), b.state.trupps) }
+    render()
+    await Promise.resolve()
+    expect(b.t().entryPressureBar).toBe(280)
+    expect(last(b.t())).toMatchObject({ kind: 'pressure', bar: 180 })
+    expect(ui.toasts).toEqual([tooLate(180)])
+    expect(b.rows).toEqual([{ icon: 'drop', text: fillTemplate(appConfig.copy.atemschutz.logPressure, { name: truppLogName(inside()), bar: 180 }) }])
+    const reported = b.t()
+    // ↶ gives back the merged Trupp, the measured 280 standing – not the 300 this render saw
+    b.timeline.undo(); render()
+    expect(b.t()).toEqual(measured.t())
+    // ↷ is the Druckmeldung again, never the correction the guess would have made
+    b.timeline.redo(); render()
+    expect(b.t()).toEqual(reported)
   })
 })
 

@@ -437,14 +437,15 @@ export function useObjectPlans(
   // reflect the synced picked-object id (workspace blob): when set — this device's pick, a reload,
   // or ANOTHER device's pick arriving via the live-follow poll — fetch the object's plans; when
   // cleared, drop back to the auto-surfaced nearest object. Skip the fetch when we already hold this
-  // object (we just picked it locally). Object gone → silently keep the auto-surface.
+  // object (we just picked it locally). Object gone or unreachable → silently drop back to the
+  // auto-surface too: the object held so far is not the one the Einsatz points at any more.
   useEffect(() => {
     if (!pickedObjectId) { setManualObject(null); return }
     if (manualObject?.id === pickedObjectId) return
     let alive = true
     getObjectResilient(pickedObjectId) // offline → falls back to the IDB-cached object
       .then((obj) => { if (alive) setManualObject({ id: obj.id, name: obj.name, address: obj.address, ...buildPlanInfo(obj.plans) }) })
-      .catch(() => { /* object removed → fall back to auto */ })
+      .catch(() => { if (alive) setManualObject(null) })
       .finally(() => { if (alive) setManualSettledFor(pickedObjectId) })
     return () => { alive = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps

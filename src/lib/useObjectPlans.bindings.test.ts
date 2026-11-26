@@ -7,11 +7,11 @@ import { useObjectPlans } from './useObjectPlans'
 import type { ObjectWithPlans } from './api/objects'
 import type { LngLat } from '../types'
 
-const { near, metadata, legacy, onBind, loaded, load, subscribe } = vi.hoisted(() => ({
-  near: vi.fn(), metadata: vi.fn(), legacy: vi.fn(), onBind: vi.fn(), loaded: vi.fn(), load: vi.fn(), subscribe: vi.fn(),
+const { near, getObject, metadata, legacy, onBind, loaded, load, subscribe } = vi.hoisted(() => ({
+  near: vi.fn(), getObject: vi.fn(), metadata: vi.fn(), legacy: vi.fn(), onBind: vi.fn(), loaded: vi.fn(), load: vi.fn(), subscribe: vi.fn(),
 }))
 vi.mock('./incidents', () => ({
-  objectsNearIncidentResilient: near, getObjectResilient: vi.fn(),
+  objectsNearIncidentResilient: near, getObjectResilient: getObject,
   referenceUrl: (id: string, version: number) => `/api/reference/${encodeURIComponent(id)}?v=${version}`,
 }))
 vi.mock('./api/reference', () => ({ getApprovedPlanAlignments: metadata }))
@@ -145,5 +145,25 @@ describe('a module the catalogue hides behind the Gebäude', () => {
     await waitFor(() => expect(b.result.current.resolvedPlanDocs.some((p) => p.id === 'modul2')).toBe(true))
     b.unmount()
     vi.unstubAllGlobals()
+  })
+})
+
+// sweep 25.11.2026 #7: another tablet picks object B; if B cannot be loaded HERE, the plans of the
+// object picked before (A) must not stay on the rail while the Einsatz points at B
+describe('a picked object that fails to load', () => {
+  it('drops the object held before, back to the auto-surfaced one', async () => {
+    const picked: ObjectWithPlans = {
+      ...object, id: 'a', name: 'A',
+      plans: [{ ...object.plans[0], id: 'plan:a:modul1', object_id: 'a', module: 'modul1', title: 'Modul 1' }],
+    }
+    getObject.mockImplementation(async (id: string) => { if (id === 'a') return picked; throw new Error('unreachable') })
+    const hook = renderHook(({ pick }) => useObjectPlans('incident', center, noop, pick, noop), { initialProps: { pick: 'a' } })
+    await waitFor(() => expect(hook.result.current.activeObjectId).toBe('a'))
+    expect(hook.result.current.backendPlans.modul1).toBeTruthy()
+    hook.rerender({ pick: 'b' })
+    await waitFor(() => expect(hook.result.current.plansSettled).toBe(true))
+    expect(hook.result.current.activeObjectId).toBe('house')
+    expect(hook.result.current.backendPlans.modul1).toBeUndefined()
+    hook.unmount()
   })
 })

@@ -166,7 +166,8 @@ export function When({ iso, refYear, stacked }: { iso?: string | null; refYear: 
 /**
  * Date + time — THE date-time control (05.10.2026; every Rapport time since 12.11.2026). Same
  * popover as TimeField: the bounded day column («Mo 05.10.») beside the hour/minute wheels,
- * «Jetzt» and «OK». Emits ISO.
+ * «Jetzt» and «OK». Emits ISO. An «OK» on the minute the value already names emits nothing, so a
+ * stored value keeps its seconds.
  *
  * `days` = the days on offer, normally the incident's own (`incidentDays`). Omitted: the last
  * RECENT_DAYS days up to today. The value's own day (or `opensOn`'s) is always added, so a stamp
@@ -261,6 +262,10 @@ export function DateTimeField({ value, onCommit, disabled, ariaLabel, className,
             const iso = wallInstant(v, at)
             if (!iso) return
             setOpen(false)
+            // «OK» on the minute the value already names is no change: the stored value keeps its
+            // seconds (a recorded 09:00:37 stays 09:00:37) and nothing is reported – on the QR
+            // poster a commit writes «Zeiten von … korrigiert (QR)»
+            if (valid && d && iso.getTime() === Math.floor(d.getTime() / 60_000) * 60_000) return
             onCommit(iso.toISOString())
           }}
           onNow={() => { setOpen(false); onCommit(new Date(serverNow()).toISOString()) }}

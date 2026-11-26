@@ -83,9 +83,9 @@
      name 99px and it kept truncating. At 380px a 1440px panel packs three columns instead of
      four — but the Ort word is what made the row that hungry. With the Ort back to icon-only
      the same name fits in a 290px column, so the list packs more people on a screen again. */
-  /* 320px since the Ort carries its word again (pick M·8, 25.11.2026): the chip takes ~100px, and
-     an iPad landscape panel still packs three columns */
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: var(--sp-2); align-content: start;
+  /* (320px while the Ort carried its word, pick M·8 25.11.2026; back to 290px with the owner note of
+     26.11.2026 – the Ort is a glyph again) */
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: var(--sp-2); align-content: start;
 }
 
 
@@ -172,20 +172,22 @@
 .livePos:disabled { cursor: default; }
 
 /* ── Vor Ort / Magazin ────────────────────────────────────────────────────────────────────
-   A WORDED chip, «Vor Ort ▾» / «Magazin ▾», and a tap opens the two-row choice (owner pick UX
-   journeys M·8, 25.11.2026 – replaces «ALWAYS icon-only», 09.08.2026: the glyph flipped on one tap,
-   and a stray tap moved somebody to the Magazin without a word). The BUTTON is the full row height
-   (the tap floor); the pill inside it is what is seen. The grid's columns widened for the word. */
+   The place's GLYPH in a tinted square – pin = vor Ort, Haus = Magazin – and a tap opens the
+   two-row choice, which says the place in words (owner note 26.11.2026 – replaces M·8's worded chip
+   «Vor Ort ▾», 25.11.2026, which took ~100px of every row). Still never the one-tap flip of
+   09.08.2026: a stray tap moved somebody to the Magazin without a word. The BUTTON is the full row
+   height and --row-act wide (the tap floor); the square inside it is what is seen. */
 
 .ort {
+  /* ⚠️ ONE width for every row. The two states must not end at different x, or the names beside
+     them stop lining up — on a list read by running an eye down it, that is the whole complaint. */
   flex: none; align-self: stretch; display: inline-flex; align-items: center; justify-content: center;
-  padding: 0 var(--sp-1); border: none; background: none;
-  cursor: pointer; font: var(--fw-bold) var(--fs-1) var(--body); white-space: nowrap;
-  -webkit-tap-highlight-color: transparent;
+  width: var(--row-act); padding: 0; border: none; background: none;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
 }
-.ortChip { display: inline-flex; align-items: center; gap: var(--sp-1); min-height: 32px; padding: 0 var(--sp-2);
+.ortChip { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px;
   border-radius: var(--r-sm); }
-.ortChip svg { width: 14px; height: 14px; flex: none; }
+.ortChip svg { width: 16px; height: 16px; flex: none; }
 /* am Einsatzort = the ordinary case: the row's own green, one step stronger */
 .ortScene { color: var(--green-strong); }
 .ortScene .ortChip { background: var(--green-16); }

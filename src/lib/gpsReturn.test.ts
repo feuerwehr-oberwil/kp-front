@@ -339,11 +339,11 @@ describe('words', () => {
     const f = follow(hose('paused'))
     const ends = [{ drawing: f, endpoint: 'end' as const, before: f.endAttachment!.gps!.before }]
     const t = formatTime(new Date(AT))
-    expect(gpsRevertWords(ends, 'TLF')).toEqual({ row: `Leitung 1: zurück auf Stand am Einsatzort (${t}), von TLF gelöst`, step: 'Leitung 1 zurück auf Stand am Einsatzort' })
+    expect(gpsRevertWords(ends, 'TLF')).toEqual({ row: `Leitung 1: zurück auf Stand am Einsatzort (${t} Uhr), von TLF gelöst`, step: 'Leitung 1 zurück auf Stand am Einsatzort' })
     // the vehicle out of the feed: no placeholder («von Zeichnung gelöst») in its place
-    expect(gpsRevertWords(ends).row).toBe(`Leitung 1: zurück auf Stand am Einsatzort (${t})`)
+    expect(gpsRevertWords(ends).row).toBe(`Leitung 1: zurück auf Stand am Einsatzort (${t} Uhr)`)
     const two = [...ends, { drawing: { ...f, id: 'h2', lineNo: 2 }, endpoint: 'end' as const, before: ends[0].before }]
-    expect(gpsRevertWords(two, 'TLF').row).toBe(`Leitung 1, Leitung 2: zurück auf Stand am Einsatzort (${t}), von TLF gelöst`)
+    expect(gpsRevertWords(two, 'TLF').row).toBe(`Leitung 1, Leitung 2: zurück auf Stand am Einsatzort (${t} Uhr), von TLF gelöst`)
     expect(gpsReleaseRow([f], 'TLF')).toBe('Leitung 1: am Einsatzort von TLF gelöst, Fahrt entfernt')
   })
 

@@ -285,23 +285,24 @@ describe('fillTemplate', () => {
 describe('dueClock (a Wiedervorlage that fell to tomorrow)', () => {
   beforeEach(() => { vi.useFakeTimers({ now: new Date('2026-11-17T23:45:00') }) })
   afterEach(() => { vi.useRealTimers() })
-  it('prints the bare clock for a due time today', () => {
+  // a time of day says «Uhr», a duration never (owner pick UX journeys B2·43, 25.11.2026)
+  it('prints the clock with «Uhr» for a due time today', () => {
     const today = new Date()
     today.setHours(23, 30, 0, 0)
-    expect(dueClock(today.toISOString())).toBe(formatTime(today))
+    expect(dueClock(today.toISOString())).toBe(`${formatTime(today)} Uhr`)
   })
 
   it('says «morgen» once the due time is not today — the banner used to hide that', () => {
     const tomorrow = new Date('2026-11-18T06:30:00')
-    expect(dueClock(tomorrow.toISOString())).toContain('morgen')
+    expect(dueClock(tomorrow.toISOString())).toBe('06:30 Uhr · morgen')
     expect(isNextDay(tomorrow.toISOString())).toBe(true)
   })
 
   it('names the day of a due time from yesterday – never «morgen» (LISTS.10)', () => {
     const now = new Date('2026-11-17T00:20:00')
-    expect(dueClock('2026-11-16T23:50:00', now)).toBe('16.11. 23:50')
+    expect(dueClock('2026-11-16T23:50:00', now)).toBe('16.11. 23:50 Uhr')
     expect(dueClock('2026-11-18T06:30:00', now)).toContain('morgen')
-    expect(dueClock('2026-11-17T06:30:00', now)).toBe('06:30')
+    expect(dueClock('2026-11-17T06:30:00', now)).toBe('06:30 Uhr')
   })
 })
 

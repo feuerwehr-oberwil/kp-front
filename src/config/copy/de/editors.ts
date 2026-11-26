@@ -226,6 +226,25 @@ export const editorsCopy = {
     } as Record<string, string>,
     kemlerDoubled: 'Verstärkte Gefahr (verdoppelte Ziffer)',
     spreadBoundedWhat: 'Ausbreitung hier gestoppt',
+    /** Ein von Hand gesetztes Fahrzeug, das so heisst wie ein GPS-Fahrzeug daneben (lib/gpsTwin,
+     *  Owner-Pick UX-Journeys B3·33/34, 25.11.2026): «Zwei Symbole = zwei Fahrzeuge?» – ein Tipp
+     *  nimmt das Symbol weg und hält das GPS-Fahrzeug an seiner Stelle fest (↶ nimmt beides zurück).
+     *  `gpsTwinHint` steht hinter dem fetten Namen. */
+    gpsTwinHint: 'ist schon per GPS auf der Karte, {m} m daneben. Zwei Symbole = zwei Fahrzeuge?',
+    gpsTwinHold: 'Stattdessen GPS-{name} hier festhalten',
+    gpsTwinStep: 'GPS-{name} statt Symbol festgehalten',
+    /** Die Einsatzzeiten eines Fahrzeugs im Blatt, automatisch aus den Ausrückzeiten des Rapports
+     *  (lib/vehicleTimes, Owner 25.11.2026: «im Detailblatt, als automatisches Attribut»). */
+    vehicleTimes: {
+      ausgerueckt: 'Ausgerückt',
+      vorOrt: 'Vor Ort',
+      zurueck: 'Zurück im Magazin',
+      notYet: 'noch nicht',
+    },
+    /** …und der zweite Ausweg (Owner-Notiz zum Sign-off, 25.11.2026: «zwei TLF können wirklich da
+     *  sein»): «Sind zwei» blendet den Hinweis für dieses Symbol aus, ↶ holt ihn zurück. */
+    gpsTwinKeep: 'Sind zwei – Hinweis ausblenden',
+    gpsTwinKeepStep: 'Hinweis «zwei {name}» ausgeblendet',
   },
   drawingEditor: {
     area: 'Fläche',
@@ -374,14 +393,14 @@ export const editorsCopy = {
     gpsStoppedSubMany: 'Folgen gestoppt. {lines} zeigen die Fahrt.',
     /** the vehicle is on site again while the line still follows it (TLF went to refill) */
     gpsBackTitle: '{vehicle} wieder am Einsatzort',
-    gpsBackSub: '{lines} zeigt die Fahrt seit {time}.',
-    gpsBackSubMany: '{lines} zeigen die Fahrt seit {time}.',
+    gpsBackSub: '{lines} zeigt die Fahrt seit {time} Uhr.',
+    gpsBackSubMany: '{lines} zeigen die Fahrt seit {time} Uhr.',
     gpsRevert: 'Zurück auf Stand am Einsatzort',
-    gpsRevertAt: 'Zurück auf Stand am Einsatzort ({time})',
+    gpsRevertAt: 'Zurück auf Stand am Einsatzort ({time} Uhr)',
     /** the ↶ bubble's word for that step */
     gpsRevertStep: '{name} zurück auf Stand am Einsatzort',
     // ── The line editor while an end follows (DrawEditor · the GPS block at the top) ──
-    gpsFollowingHead: '{line} · folgt {vehicle} seit {time}',
+    gpsFollowingHead: '{line} · folgt {vehicle} seit {time} Uhr',
     gpsFollowingHeadBare: '{line} · folgt {vehicle}',
     gpsStoppedHead: '{line} · Folgen gestoppt · {vehicle}',
     gpsDistanceNow: 'jetzt {distance} entfernt',

@@ -332,7 +332,7 @@ describe('GPS ends: «Zurück», «Am Einsatzort lösen», «Hier lösen», drag
     },
     ...over,
   })
-  const ROW = 'Leitung 1: zurück auf Stand am Einsatzort (20:31), von TLF gelöst'
+  const ROW = 'Leitung 1: zurück auf Stand am Einsatzort (20:31 Uhr), von TLF gelöst'
 
   it('«Zurück»: ONE step, NOT a hand gesture, the snapshot exactly, the end detached, ONE Verlauf row, a coherent replay pair', () => {
     const deps = makeDeps({ drawings: [followed()] })

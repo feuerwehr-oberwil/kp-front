@@ -3,7 +3,7 @@ import { fillTemplate, formatTime } from '../lib/format'
 import { useMeldung } from '../lib/useMeldung'
 
 /**
- * «Einsatz wurde auf einem anderen Gerät abgeschlossen (14:45)» — and its mirror, «… wieder
+ * «Einsatz wurde auf einem anderen Gerät abgeschlossen (14:45 Uhr)» — and its mirror, «… wieder
  * geöffnet (15:10)». Published by the workspace when the Einsatz on screen changed its lifecycle
  * ELSEWHERE while it was open here (N3, staging 25.09.2026). The screen has just turned read-only
  * (or live again) under the operator's hands; without a word that reads as a frozen — or a

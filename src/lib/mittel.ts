@@ -354,7 +354,7 @@ const eq = (a: string | undefined, b: string) => normToken(a ?? '').trim() === n
  * what «Typ = Exhauster oder Luftrichtung = saugen» needs — a Lüfter switched to saugen is an
  * Exhauster whether or not anybody also set its Typ.
  */
-function whenHolds(when: Record<string, string> | Record<string, string>[] | undefined, m: SymbolMatch): boolean {
+function whenHolds(when: Record<string, string> | Record<string, string>[] | null | undefined, m: SymbolMatch): boolean {
   if (!when) return false
   if (Array.isArray(when)) return when.some((clause) => clauseHolds(clause, m))
   return clauseHolds(when, m)

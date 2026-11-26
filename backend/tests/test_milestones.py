@@ -95,8 +95,8 @@ async def test_apply_replay_and_journal(client, db_session):
     rows = (await db_session.execute(select(JournalEntry).where(JournalEntry.incident_id == inc.id))).scalars().all()
     texts = [row.row_json["text"] for row in rows]
     # config lists are empty in tests → labels fall back to the id (vehicles uppercased)
-    assert any("g2 alarmiert" in t for t in texts)
-    assert any("TLF ausgerückt 03:16" in t for t in texts)  # Europe/Zurich local clock
+    assert any("g2 alarmiert 03:12 Uhr" in t for t in texts)
+    assert any("TLF ausgerückt 03:16 Uhr" in t for t in texts)  # Europe/Zurich local clock
 
     # exact replay: nothing applied, rev unchanged, no extra journal rows
     r = await client.post("/api/alarms/milestones", json=PAYLOAD, headers={"X-Webhook-Secret": SECRET})
@@ -249,8 +249,8 @@ async def test_a_late_milestone_stands_at_its_own_minute_and_is_a_nachtrag_after
 
     q = select(JournalEntry).where(JournalEntry.incident_id == inc.id).order_by(JournalEntry.seq)
     first, back = (await db_session.execute(q)).scalars().all()
-    assert first.row_json["text"] == "TLF ausgerückt 03:16" and first.row_json["at"] == "2026-07-13T01:16:00+00:00"
+    assert first.row_json["text"] == "TLF ausgerückt 03:16 Uhr" and first.row_json["at"] == "2026-07-13T01:16:00+00:00"
     assert first.row_json["writtenAt"] != first.row_json["at"] and "receivedAfterClose" not in first.row_json
-    assert back.row_json["text"] == "TLF zurück 02:40" and back.row_json["receivedAfterClose"] is True
+    assert back.row_json["text"] == "TLF zurück 02:40 Uhr" and back.row_json["receivedAfterClose"] is True
     await db_session.refresh(inc)
     assert inc.map_workspace_json["reportMeta"]["fahrzeuge"][0]["zurueck"] == "2026-07-13T00:40:00+00:00"
