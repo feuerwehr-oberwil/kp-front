@@ -27,11 +27,15 @@ GitHub CI still runs every gate on every PR, so a wrong skip turns the PR red, n
 CI's Frontend, Backend and Static analysis jobs call the recipes below – one recipe per job,
 after the job's own setup – so a check added to a recipe runs on both sides. Each side keeps its
 own Postgres: CI a service container, `just ci-backend` a throwaway database on the dev Postgres.
-`just ci-all` forces everything (it requires just 1.56 or later); its four dependencies run
+`just ci-all` forces everything (it requires just 1.56 or later); its five dependencies run
 in parallel, and `just ci-no-backend` runs all but the backend:
 
 - `just ci-frontend`: lint, browser-spec types and inventory, production build (including app
   types), hidden sourcemaps, bundle/site checks, vulnerability and license audits.
+- `just ci-lint-typed`: the type-aware lint of `src/` (`pnpm lint:typed`, `eslint.typed.config.js`),
+  today one rule, `no-floating-promises`. CI's Frontend job runs it after `ci-frontend`. It is not
+  part of `ci-frontend`, so the pre-push hook skips it: with the untyped rules in one process eslint
+  ran out of heap (26.11.2026).
 - `just ci-unit`: the whole frontend suite with its unchanged global coverage floor. It uses
   four workers so it can coexist with TypeScript and pytest on a developer machine, eight
   under `ci-no-backend`, where no pytest runs beside it.
@@ -197,7 +201,8 @@ stay CI's.
 - **Ratchets only go down.** The eslint warnings per rule and what `eslint-disable` directives
   silence per rule (`scripts/eslint-baseline.json`, `rules` and `silenced`; `pnpm lint` fails when
   a count goes up, or down without `pnpm lint:update` – a non-null `!` outside the tests counts as
-  a warning), the style-debt
+  a warning; the type-aware rules the same way in `scripts/eslint-typed-baseline.json`, `pnpm
+  lint:typed` and `pnpm lint:typed:update`), the style-debt
   baseline (`src/styles/styleDebt.baseline.json`,
   [`ui-conventions.md`](../ui-conventions.md#tokens-the-cascade-and-the-scales); a count that went
   down is only a console note there, and in `controlDebt.test.ts`), the dead-code findings

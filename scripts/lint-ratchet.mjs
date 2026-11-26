@@ -23,20 +23,28 @@
 // `--all` prints every warning, the way plain eslint does. Results are cached under
 // node_modules/.cache/eslint (content-hashed, so a checkout's fresh mtimes don't invalidate it):
 // a re-run touches only the files you changed. `--no-cache` for a cold run.
+//
+// `--typed` (`pnpm lint:typed`, `lint:typed:update`) runs the type-aware rules of
+// eslint.typed.config.js over src/ instead, held the same way to eslint-typed-baseline.json. It
+// never caches: a change in one file can change what the checker says about another.
 import { readFileSync, writeFileSync } from 'node:fs'
-import { relative, resolve } from 'node:path'
+import { basename, relative, resolve } from 'node:path'
 import { ESLint } from 'eslint'
 
-const BASELINE = resolve(import.meta.dirname, 'eslint-baseline.json')
 const args = new Set(process.argv.slice(2))
 const update = args.has('--update')
+const typed = args.has('--typed')
+const BASELINE = resolve(import.meta.dirname, typed ? 'eslint-typed-baseline.json' : 'eslint-baseline.json')
+const UPDATE = typed ? 'pnpm lint:typed:update' : 'pnpm lint:update'
 
-const eslint = new ESLint({
-  cache: !args.has('--no-cache'),
-  cacheLocation: 'node_modules/.cache/eslint/',
-  cacheStrategy: 'content',
-})
-const results = await eslint.lintFiles(['.'])
+const eslint = typed
+  ? new ESLint({ overrideConfigFile: 'eslint.typed.config.js' })
+  : new ESLint({
+      cache: !args.has('--no-cache'),
+      cacheLocation: 'node_modules/.cache/eslint/',
+      cacheStrategy: 'content',
+    })
+const results = await eslint.lintFiles(typed ? ['src'] : ['.'])
 
 /** rule → [{ file, line, message }] — warnings only; `null` rule ids (unused directives) as their own key */
 const warnings = new Map()
@@ -89,7 +97,7 @@ if (update) {
   const nextSilenced = lowered(silencedRules, baseline.silenced, silencedCounts, 'disabled')
   writeFileSync(BASELINE, JSON.stringify({ ...baseline, rules: next, silenced: nextSilenced }, null, 2) + '\n')
   const sum = (o) => Object.values(o).reduce((a, b) => a + b, 0)
-  console.log(`eslint-baseline.json: ${sum(next)} warnings across ${Object.keys(next).length} rules, ${sum(nextSilenced)} silenced by eslint-disable`)
+  console.log(`${basename(BASELINE)}: ${sum(next)} warnings across ${Object.keys(next).length} rules, ${sum(nextSilenced)} silenced by eslint-disable`)
   process.exit(errors > 0 ? 1 : 0)
 }
 
@@ -138,6 +146,6 @@ for (const { rule, was, now } of silencedUp) {
 }
 if (down.length > 0) {
   console.error(`\n✗ fewer warnings than the baseline (${down.map((d) => `${d.rule} ${d.was}→${d.now}`).join(', ')}) — good.`)
-  console.error('  Lower the baseline with them: `pnpm lint:update`, and commit eslint-baseline.json.')
+  console.error(`  Lower the baseline with them: \`${UPDATE}\`, and commit ${basename(BASELINE)}.`)
 }
 process.exit(errors > 0 || up.length > 0 || silencedUp.length > 0 || down.length > 0 ? 1 : 0)

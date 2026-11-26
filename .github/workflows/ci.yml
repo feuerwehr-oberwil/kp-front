@@ -60,6 +60,10 @@ jobs:
       - name: Lint, types, build, bundle and audits (just ci-frontend)
         run: just ci-frontend
 
+      # Not in ci-frontend, so the pre-push hook skips it (justfile · ci-lint-typed).
+      - name: Type-aware lint (just ci-lint-typed)
+        run: just ci-lint-typed
+
   # Coverage remains ONE complete run and one unchanged global floor, alongside static checks.
   frontend-tests:
     name: Frontend unit tests + coverage

@@ -268,13 +268,13 @@ hooks:
 # Run the frontend, coverage, backend and static-analysis gates together (just >=1.56); --jobs 1 runs them serially.
 [group('Quality')]
 [parallel]
-ci-all: ci-frontend ci-unit ci-backend ci-static-analysis
+ci-all: ci-frontend ci-lint-typed ci-unit ci-backend ci-static-analysis
 
 # (With no pytest beside it the suite takes 8 workers: 241 s → 178 s on 19.10.2026.)
 # The frontend gates only: static checks and build beside the unit suite and the static analysis.
 [group('Quality')]
 [parallel]
-ci-no-backend: ci-frontend (ci-unit "8") ci-static-analysis
+ci-no-backend: ci-frontend ci-lint-typed (ci-unit "8") ci-static-analysis
 
 # (CI's «Frontend static» job. lint: per-rule ratchet against scripts/eslint-baseline.json; knip:
 # against scripts/knip-baseline.json; the e2e specs have their own tsconfig; `pnpm build` holds
@@ -298,6 +298,14 @@ ci-frontend:
     pnpm audit --prod --audit-level high
     bash scripts/audit-toolchain.sh
     python3 scripts/check_licenses.py frontend
+
+# (CI's «Frontend static» job runs it after ci-frontend. It is not part of ci-frontend, so the
+# pre-push hook skips it: beside the untyped rules eslint went past its heap, and alone it takes
+# about as long as `pnpm lint` – eslint.typed.config.js.)
+# Type-aware lint of src/, per-rule ratchet against scripts/eslint-typed-baseline.json.
+[group('Quality')]
+ci-lint-typed:
+    pnpm lint:typed
 
 # (CI's «Frontend unit tests» job. CI's 4-vCPU runner takes 4 workers too.)
 # Full frontend suite and unchanged coverage floor; 4 workers leave cores for tsc and pytest beside it.
