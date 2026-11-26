@@ -272,9 +272,9 @@ export const drawingCopy = {
     /** «Zurück auf Stand am Einsatzort» (24.09.2026, lib/gpsReturn): the Leitung had followed a
      *  vehicle off site, and was put back as it stood when following began. The row names the
      *  moment and the vehicle, because the Rapport's Kroki shows only the result. */
-    gpsReverted: '{name}: zurück auf Stand am Einsatzort ({time}), von {vehicle} gelöst',
+    gpsReverted: '{name}: zurück auf Stand am Einsatzort ({time} Uhr), von {vehicle} gelöst',
     /** …the vehicle out of the feed: no placeholder in its place */
-    gpsRevertedBare: '{name}: zurück auf Stand am Einsatzort ({time})',
+    gpsRevertedBare: '{name}: zurück auf Stand am Einsatzort ({time} Uhr)',
     /** «Am Einsatzort lösen» that took a DRIVE out of the line — a change of the record, so a row;
      *  a release that removes nothing stays silent like every other detach */
     gpsReleasedOnSite: '{name}: am Einsatzort von {vehicle} gelöst, Fahrt entfernt',

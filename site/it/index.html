@@ -85,7 +85,7 @@
 <meta property="og:image:width" content="1500">
 <meta property="og:image:height" content="937">
 <meta property="og:image:type" content="image/jpeg">
-<meta property="og:image:alt" content="KP Front con carta digitale della situazione e simboli tattici per la condotta d’intervento.">
+<meta property="og:image:alt" content="KP Front con carta digitale della situazione e segni convenzionali per la condotta d’intervento.">
 <meta property="og:locale" content="it_CH">
 <meta property="og:locale:alternate" content="de_CH">
 <meta property="og:locale:alternate" content="fr_CH">
@@ -95,7 +95,7 @@
 <meta name="twitter:title" content="KP Front – Condotta d’intervento digitale per i pompieri">
 <meta name="twitter:description" content="Il posto di comando digitale sul posto: mappa, piani, squadre, diario e rapporto – offline e open source.">
 <meta name="twitter:image" content="https://kp-front.ch/shots/lage.jpg">
-<meta name="twitter:image:alt" content="KP Front con carta digitale della situazione e simboli tattici per la condotta d’intervento.">
+<meta name="twitter:image:alt" content="KP Front con carta digitale della situazione e segni convenzionali per la condotta d’intervento.">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -105,9 +105,9 @@
       "@id": "https://kp-front.ch/#app",
       "name": "KP Front",
       "url": "https://kp-front.ch/",
-      "description": "Condotta d’intervento digitale e carta della situazione per i pompieri – con carte swisstopo, segni tattici secondo le convenzioni CSP, sorveglianza della protezione respiratoria e diario d’intervento continuo.",
+      "description": "Condotta d’intervento digitale e carta della situazione per i pompieri – con carte swisstopo, segni convenzionali secondo la CSP, sorveglianza della protezione respiratoria e diario d’intervento continuo.",
       "featureList": [
-        "Carta della situazione su carte swisstopo con segni tattici secondo le convenzioni CSP",
+        "Carta della situazione su carte swisstopo con segni convenzionali secondo la CSP",
         "Sorveglianza della protezione respiratoria con pressione, tempo di rientro, tempo dall’ultimo contatto e allarmi",
         "Piani d’oggetto e degli edifici come lavagna per disegnare e misurare",
         "Trasporto d’acqua: pressione lungo la condotta con posizionamento automatico delle pompe",
@@ -236,17 +236,27 @@
         "height": 937
       },
       "inLanguage": "it-CH",
-      "dateModified": "2026-11-20",
+      "dateModified": "2026-11-25",
       "isPartOf": {
         "@id": "https://kp-front.ch/#website"
       },
       "mainEntity": {
         "@id": "https://kp-front.ch/#app"
+      },
+      "hasPart": {
+        "@id": "https://kp-front.ch/it/#faq"
       }
     },
     {
       "@type": "FAQPage",
       "@id": "https://kp-front.ch/it/#faq",
+      "url": "https://kp-front.ch/it/",
+      "isPartOf": {
+        "@id": "https://kp-front.ch/it/#webpage"
+      },
+      "about": {
+        "@id": "https://kp-front.ch/#app"
+      },
       "inLanguage": "it-CH",
       "mainEntity": [
         {
@@ -254,7 +264,7 @@
           "name": "Perché cambiare?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Tutti vedono nello stesso momento la stessa situazione – al veicolo di comando, sul tablet e dal capo intervento. Nessun messaggio si perde su un foglietto. La sorveglianza della protezione respiratoria si fa sentire da sola prima che diventi stretta. Meno traffico radio per domande che stanno comunque sul quadro della situazione – e il rapporto è quasi pronto al rientro invece che il fine settimana dopo. KP Front aiuta la direzione dell’intervento a tenere la situazione priva di contraddizioni e a rendere visibili gli scarti: una squadra senza contatto radio, un veicolo che non sta da nessuna parte, un riscontro che non è mai arrivato."
+            "text": "Tutti vedono la stessa situazione nello stesso momento – nel veicolo di comando, sul tablet e presso il capo intervento. Nessuna segnalazione si perde su un foglietto. La sorveglianza della protezione respiratoria avvisa automaticamente prima che il margine diventi critico. Meno traffico radio per domande la cui risposta è già nel quadro della situazione – e al rientro il rapporto è quasi pronto, invece di esserlo soltanto il fine settimana successivo. KP Front aiuta la direzione dell’intervento a mantenere un quadro coerente e a rendere visibili le anomalie: una squadra senza contatto radio, un veicolo senza posizione assegnata o una segnalazione mai arrivata."
           }
         },
         {
@@ -262,7 +272,7 @@
           "name": "Per quali corpi e quali interventi è pensato KP Front?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Per pompieri di milizia, corpi locali, centri di soccorso, pompieri professionisti e pompieri aziendali – in caso di incendi, incidenti della circolazione, interventi di soccorso tecnico, difesa chimica e antinquinamento e grandi eventi. KP Front è nato nell’attività d’intervento di un corpo di pompieri di milizia; per questo è fatto per persone che non lo usano tutti i giorni."
+            "text": "Per i corpi pompieri di milizia e locali, i centri di soccorso nonché i pompieri professionisti e aziendali – in caso di incendi, incidenti della circolazione, interventi di soccorso tecnico, difesa chimica, lotta contro gli idrocarburi e grandi eventi. KP Front è nato nell’attività d’intervento di un corpo di pompieri di milizia; per questo è fatto per persone che non lo usano tutti i giorni."
           }
         },
         {
@@ -326,7 +336,7 @@
           "name": "KP Front funziona solo in Svizzera?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "No. Come software open source, KP Front è liberamente accessibile e può essere adattato alle condizioni locali in tutto il mondo. Di fabbrica l’app è preconfigurata per la Svizzera – con le carte swisstopo, i segni tattici secondo le convenzioni CSP e i modelli CSP per la condotta d’intervento. Fuori dalla Svizzera si possono impostare altre basi cartografiche; la ricerca di indirizzi oggi supporta solo l’interfaccia swisstopo e lì va adattata."
+            "text": "No. Come software open source, KP Front è liberamente accessibile e può essere adattato alle condizioni locali in tutto il mondo. Nella configurazione standard, l’app è preconfigurata per la Svizzera – con le carte swisstopo, i segni convenzionali secondo la CSP e i modelli CSP per la condotta d’intervento. Fuori dalla Svizzera si possono impostare altre basi cartografiche; la ricerca di indirizzi oggi supporta solo l’interfaccia swisstopo e lì va adattata."
           }
         },
         {
@@ -342,7 +352,7 @@
           "name": "Come cominciamo?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Con la demo, senza registrazione – a Musterdorf sta già bruciando, e tutti i visitatori condividono lo stesso intervento (si riavvia due volte al giorno, alle 00:00 e alle 12:00, fuso orario Europe/Zurich). Poi provatela a un’esercitazione. Se va bene, la guida all’installazione porta alla vostra istanza."
+            "text": "Con la demo, senza registrazione: a Musterdorf è già in corso un incendio e tutti i visitatori condividono lo stesso intervento (riavvio due volte al giorno, alle 00:00 e alle 12:00, fuso orario Europe/Zurich). Poi provatela durante un’esercitazione. Se il test è convincente, la guida all’installazione vi accompagna fino alla vostra installazione."
           }
         }
       ]
@@ -427,7 +437,7 @@
 </header>
 
 <div class="notice">
-  <p class="wrap">Questa traduzione non è ancora stata verificata da una persona italofona dei pompieri – <a href="#kontakt">suggerimenti e correzioni</a> sono benvenuti. La demo è in tedesco.</p>
+  <p class="wrap">Questa traduzione non è ancora stata riletta da un pompiere italofono. <a href="#kontakt">Suggerimenti e correzioni</a> sono benvenuti. La demo è in tedesco.</p>
 </div>
 <main id="main">
   <section class="hero hero-center wrap">
@@ -445,7 +455,7 @@
         <picture>
           <source data-theme-dark media="(prefers-color-scheme: dark)" srcset="../shots/dark/tablet/karte.webp">
           <script>document.currentScript.previousElementSibling.media = document.documentElement.dataset.theme === 'dark' ? 'all' : 'not all';</script>
-          <img src="../shots/tablet/karte.webp" alt="KP Front su tablet: carta della situazione con simboli tattici, condotta e barre degli strumenti" width="1600" height="1090" fetchpriority="high">
+          <img src="../shots/tablet/karte.webp" alt="KP Front su tablet: carta della situazione con segni convenzionali, condotta e barre degli strumenti" width="1600" height="1090" fetchpriority="high">
         </picture>
       </div>
       <div class="dev dev-ph">
@@ -473,14 +483,14 @@
   </section>
 
   <div id="einsatz">
-    <p class="wrap chap-note">Gli screenshot sono in tedesco: la demo pubblica lo è, e vengono da lì – immagini ricostruite sarebbero un’affermazione invece che una prova.</p>
+    <p class="wrap chap-note">Le schermate sono in tedesco: la demo pubblica lo è, e vengono da lì – immagini ricostruite sarebbero un’affermazione invece che una prova.</p>
     <section class="wrap chap">
       <div class="chap-txt">
         <p class="chap-was">Carta della situazione su carta</p>
         <h2>Un quadro della situazione su ogni dispositivo.</h2>
-        <p>Simboli tattici CSP, settori, condotte e note sulle carte swisstopo. Idranti, condotte e posizioni dei veicoli stanno sotto come livelli. L’allarme da Divera o FireHub si riprende con un tocco.</p>
+        <p>Segni convenzionali CSP, settori, condotte e note sulle carte swisstopo. Idranti, condotte e posizioni dei veicoli stanno sotto come livelli. L’allarme da Divera o FireHub si riprende con un tocco.</p>
         <ul class="checks">
-          <li>Simboli tattici secondo la CSP – con piano, propagazione e note</li>
+          <li>Segni convenzionali secondo la CSP – con piano, propagazione e note</li>
           <li>Trasporto d’acqua: pressione lungo la condotta e posizione delle pompe</li>
           <li>Informazioni sull’edificio e misure immediate per l’oggetto</li>
         </ul>
@@ -509,7 +519,7 @@
     <section class="wrap chap">
       <div class="chap-txt">
         <p class="chap-was">Tabella protezione respiratoria e cronometro</p>
-        <h2>Una sorveglianza che si fa sentire da sola.</h2>
+        <h2>Una sorveglianza che avvisa automaticamente.</h2>
         <p>Pressione, tempo di rientro e tempo dall’ultimo contatto vengono rilevati per ogni squadra. L’app avvisa prima che il margine diventi critico – anche quando nessuno sta guardando l’ora. Sul telefono come sul tablet.</p>
         <ul class="checks">
           <li>Tempo dal contatto e tempo di rientro per ogni squadra</li>
@@ -564,7 +574,7 @@
     <section class="wrap chap">
       <div class="chap-txt">
         <p class="chap-was">Foglietti e memoria</p>
-        <h2>Un diario che sta al passo.</h2>
+        <h2>Un diario che accompagna l’intervento.</h2>
         <p>Scrivere o parlare. Il diario viene solo integrato, mai riscritto: si corregge con una nuova voce, non con la gomma. I compiti aperti si ricordano da soli.</p>
         <ul class="checks">
           <li>Note vocali – come testo con un servizio di trascrizione</li>
@@ -656,9 +666,9 @@
       </div>
       <div class="acc">
         <details>
-          <summary><span>Mappa &amp; piano<span class="peek">Simboli tattici · trasporto d’acqua · merci pericolose · info edificio · misure dei gas</span></span></summary>
+          <summary><span>Mappa &amp; piano<span class="peek">Segni convenzionali · trasporto d’acqua · merci pericolose · info edificio · misure dei gas</span></span></summary>
           <ul class="flist">
-            <li><strong>Segni tattici</strong> secondo le convenzioni CSP, con attributi e diciture</li>
+            <li><strong>Segni convenzionali</strong> secondo la CSP, con attributi e diciture</li>
             <li>Settori, cerchi di sbarramento, superfici e disegno a mano libera</li>
             <li>Condotte con annotazioni CSP, ognuna assegnata a una squadra</li>
             <li>Misurazione di distanze e superfici, in scala anche sul piano</li>
@@ -692,7 +702,7 @@
             <li><strong>Modalità presentazione</strong>: chi ha l’intervento aperto segue lo schermo di chi presenta – tutti possono indicare, nulla viene salvato</li>
             <li>Materiale con scorte e consumo</li>
             <li>Liste di controllo per il supporto alla condotta e la direzione dell’intervento</li>
-            <li>Ruolo capo intervento: tenere presenze, mezzi, check-list e rapporto – leggere carta e squadre senza spostare nulla</li>
+            <li>Ruolo capo intervento: tenere presenze, mezzi, liste di controllo e rapporto – leggere carta e squadre senza spostare nulla</li>
           </ul>
         </details>
         <details>
@@ -740,18 +750,11 @@
       <div class="acc">
         <details>
           <summary><span>Perché cambiare?</span></summary>
-          <p>Tutti vedono nello stesso momento la stessa situazione – al veicolo di comando, sul
-          tablet e dal capo intervento. Nessun messaggio si perde su un foglietto. La
-          sorveglianza della protezione respiratoria si fa sentire da sola prima che diventi
-          stretta. Meno traffico radio per domande che stanno comunque sul quadro della
-          situazione – e il rapporto è quasi pronto al rientro invece che il fine settimana dopo.
-          KP Front aiuta la direzione dell’intervento a tenere la situazione priva di
-          contraddizioni e a rendere visibili gli scarti: una squadra senza contatto radio, un
-          veicolo che non sta da nessuna parte, un riscontro che non è mai arrivato.</p>
+          <p>Tutti vedono la stessa situazione nello stesso momento – nel veicolo di comando, sul tablet e presso il capo intervento. Nessuna segnalazione si perde su un foglietto. La sorveglianza della protezione respiratoria avvisa automaticamente prima che il margine diventi critico. Meno traffico radio per domande la cui risposta è già nel quadro della situazione – e al rientro il rapporto è quasi pronto, invece di esserlo soltanto il fine settimana successivo. KP Front aiuta la direzione dell’intervento a mantenere un quadro coerente e a rendere visibili le anomalie: una squadra senza contatto radio, un veicolo senza posizione assegnata o una segnalazione mai arrivata.</p>
         </details>
         <details>
           <summary><span>Per quali corpi e quali interventi è pensato KP Front?</span></summary>
-          <p>Per pompieri di milizia, corpi locali, centri di soccorso, pompieri professionisti e pompieri aziendali – in caso di incendi, incidenti della circolazione, interventi di soccorso tecnico, difesa chimica e antinquinamento e grandi eventi. KP Front è nato nell’attività d’intervento di un corpo di pompieri di milizia; per questo è fatto per persone che non lo usano tutti i giorni.</p>
+          <p>Per i corpi pompieri di milizia e locali, i centri di soccorso nonché i pompieri professionisti e aziendali – in caso di incendi, incidenti della circolazione, interventi di soccorso tecnico, difesa chimica, lotta contro gli idrocarburi e grandi eventi. KP Front è nato nell’attività d’intervento di un corpo di pompieri di milizia; per questo è fatto per persone che non lo usano tutti i giorni.</p>
         </details>
         <details>
           <summary><span>Dove vengono salvati i dati sensibili d’intervento?</span></summary>
@@ -796,7 +799,7 @@
         </details>
         <details>
           <summary><span>KP Front funziona solo in Svizzera?</span></summary>
-          <p>No. Come software open source, KP Front è liberamente accessibile e può essere adattato alle condizioni locali in tutto il mondo. Di fabbrica l’app è preconfigurata per la Svizzera – con le carte swisstopo, i segni tattici secondo le convenzioni CSP e i modelli CSP per la condotta d’intervento. Fuori dalla Svizzera si possono impostare altre basi cartografiche; la ricerca di indirizzi oggi supporta solo l’interfaccia swisstopo e lì va adattata.</p>
+          <p>No. Come software open source, KP Front è liberamente accessibile e può essere adattato alle condizioni locali in tutto il mondo. Nella configurazione standard, l’app è preconfigurata per la Svizzera – con le carte swisstopo, i segni convenzionali secondo la CSP e i modelli CSP per la condotta d’intervento. Fuori dalla Svizzera si possono impostare altre basi cartografiche; la ricerca di indirizzi oggi supporta solo l’interfaccia swisstopo e lì va adattata.</p>
         </details>
         <details>
           <summary><span>In quali lingue è disponibile KP Front?</span></summary>
@@ -804,10 +807,7 @@
         </details>
         <details>
           <summary><span>Come cominciamo?</span></summary>
-          <p>Con la <a href="https://demo.kp-front.ch" target="_blank" rel="noopener">demo</a>,
-          senza registrazione – a Musterdorf sta già bruciando, e tutti i visitatori condividono lo
-          stesso intervento (si riavvia due volte al giorno, alle 00:00 e alle 12:00, fuso orario Europe/Zurich). Poi provatela a un’esercitazione.
-          Se va bene, la <a href="https://github.com/feuerwehr-oberwil/kp-front/blob/main/docs/SETUP.md" target="_blank" rel="noopener">guida all’installazione</a> porta alla vostra istanza.</p>
+          <p>Con la <a href="https://demo.kp-front.ch" target="_blank" rel="noopener">demo</a>, senza registrazione: a Musterdorf è già in corso un incendio e tutti i visitatori condividono lo stesso intervento (riavvio due volte al giorno, alle 00:00 e alle 12:00, fuso orario Europe/Zurich). Poi provatela durante un’esercitazione. Se il test è convincente, la <a href="https://github.com/feuerwehr-oberwil/kp-front/blob/main/docs/SETUP.md" target="_blank" rel="noopener">guida all’installazione</a> vi accompagna fino alla vostra installazione.</p>
         </details>
       </div>
     </div>

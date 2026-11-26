@@ -1196,6 +1196,15 @@ export interface TruppReading {
    * (lib/auswertung · truppStretches).
    */
   pa?: boolean
+  /**
+   * Where this row was logged: `link` = on the handed-over Atemschutz board (an `/l/a…` or standing
+   * `/l/s…` link, lib/linkMode · onAtemschutzLink). Written since 25.11.2026 by every row the clock
+   * family writes there that resets the contact clock (Kontakt, Druck, Eintritt, Rückzug,
+   * Fortsetzen); absent = the app, or an older row. Read by the card's Kontakt tile – «🔗 22:10 ·
+   * über Link» while the LAST Kontakt came from the link (lib/atemschutz · contactViaLink, owner
+   * pick UX journeys M·12): the tablet does not log a second one for a call the Eingang answered.
+   */
+  via?: 'link'
 }
 
 export interface Trupp {

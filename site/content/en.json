@@ -83,7 +83,7 @@
       },
       {
         "was": "SCBA board and stopwatch",
-        "h2": "Monitoring that speaks up by itself.",
+        "h2": "Monitoring that alerts automatically.",
         "p": "Cylinder pressure, turnaround time and contact clock run per team. The app speaks up before it gets tight – even when nobody happens to be watching the clock. On the phone as on the tablet.",
         "li": [
           "Contact clock and turnaround time per team",
@@ -152,7 +152,7 @@
   },
   "features": {
     "eyebrow": "Scope",
-    "h2": "What is in it.",
+    "h2": "What’s included.",
     "lede": "Grown at real incidents and exercises, not from a feature list. Everything that comes\n        from outside – paging, GPS, Microsoft sign-in – is <strong>optional</strong>: KP Front runs\n        perfectly well without any of those connections.",
     "groups": [
       {

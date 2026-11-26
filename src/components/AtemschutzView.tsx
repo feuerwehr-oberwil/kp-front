@@ -20,7 +20,7 @@ import { FilterStrip } from './FilterStrip'
 import { Menu, Overlay, Popover } from '../lib/overlays'
 import { NotfallBanner, NotfallPageHead, NotfallPageSafety, NotfallStrip, type SafetyActProps } from './AtemschutzNotfall'
 import { DoubleAssignmentBanner } from './DoubleAssignmentBanner'
-import { alarmBarFor, deriveTruppLive, safetyCandidates, safetyInside, safetyReady, truppInNotfall, earlyEntryCorrection, truppEditPatch, truppFieldGroupsChanged, truppLogName, type TruppFieldGroup, fmtClock, isAtemschutzTrupp, truppAlarm, truppFieldsOf, truppHeadName, truppInField, truppStillDeployed, truppGroupTransfer, truppTransferState, type TruppAlarm, type TruppLive, type TruppTransferState } from '../lib/atemschutz'
+import { alarmBarFor, deriveTruppLive, entryPressureAsks, safetyCandidates, safetyInside, safetyReady, truppInNotfall, earlyEntryCorrection, truppEditPatch, truppFieldGroupsChanged, truppLogName, type TruppFieldGroup, fmtClock, isAtemschutzTrupp, truppAlarm, truppFieldsOf, truppHeadName, truppInField, truppStillDeployed, truppGroupTransfer, truppTransferState, type TruppAlarm, type TruppLive, type TruppTransferState } from '../lib/atemschutz'
 import { foreignContactAgo } from '../lib/contactEcho'
 import { serverNow, serverNowIso } from '../lib/serverClock'
 import { isPresent } from '../lib/attendanceIntervals'
@@ -28,6 +28,7 @@ import { ortOf } from '../lib/attendanceOrt'
 import { truppAuftragLabel, truppEquipmentLabels } from '../lib/report'
 import { useIsPhone } from '../lib/useIsPhone'
 import { usePageHeadFit } from '../lib/pageHeadFit'
+import { useLate } from '../lib/useLate'
 import type { AttendanceState, Person, Trupp, TruppAuftrag, TruppFields } from '../types'
 import { assignedPersonIds, doubleAssignments, rosterIdByName, truppCrewSlots } from '../lib/personnel'
 import { truppLineNo, type LeitungOption } from '../lib/truppLines'
@@ -45,6 +46,7 @@ import { notfallStrips } from '../lib/notfall'
 import { TruppForm, type FormMode, type TruppSubmitExtra } from './TruppForm'
 import { beginZielPick, endZielPick, parkedAuftragSheet, parkedTruppForm, type AuftragDraft, type TruppFormOpen } from '../lib/zielPick'
 import { refuse } from '../lib/meldungenRefusal'
+import { safetyPickItems, useSafetyPickAnswer, type SafetyPick } from '../lib/safetyPick'
 
 /**
  * The last incoming `focus` nonce this view has already rung the bell for — MODULE scope, not
@@ -88,6 +90,10 @@ const FROZEN_ALARM: TruppAlarm = { sev: 0, reason: null, line: null }
  *  folded a rank later and stood «+ Trupp anmelden» beside the stacked tiles while the title read
  *  «Trup…»). Last «✓ Gespeichert» keeps its ✓ (the sentence stays its `title`; a LOUD state never folds). */
 const HEAD_FOLD = { saved: 1, tiles: 2, savedMark: 3 } as const
+
+/** how long a save may stand «pending» before the link phone head says so (M·13 – the same grace
+ *  as the workspace head, panels/IncidentSwitcher) */
+const PENDING_GRACE_MS = 10_000
 
 /** The room the sticky Notfall stack takes at the top of the board's port (+ the air under it). */
 const nfInset = (el: HTMLElement | null) => (el ? el.offsetHeight + 12 : 0)
@@ -142,7 +148,9 @@ export function AtemschutzView({
   adoptMarker: (truppId: string, markerId: string) => void
   focusTruppOnPlan: (id: string) => void
   recordContact: (id: string) => void
-  recordPressure: (id: string, bar: number) => void
+  /** `as`: what the operator called an early low value when asked (B2·18) – the Druckmeldung or
+   *  the Eingangsdruck correction (lib/truppActions/clock · recordPressure) */
+  recordPressure: (id: string, bar: number, opts?: { as?: 'entry' | 'reading' }) => void
   /** `exitBar` = the Restdruck asked at «Raus melden» (PressureSheet); absent = without one */
   setTruppStatus: (id: string, status: Trupp['status'], exitBar?: number, opts?: { undoToast?: boolean }) => void
   editTrupp: (id: string, f: TruppFields) => void
@@ -688,7 +696,6 @@ export function AtemschutzView({
   // …and whom «Sicherungstrupp bestimmen» can name while none is ready: any other crew, a busy
   // one included (owner, 30.10.2026 — lib/atemschutz · safetyCandidates)
   const candidates = safetyCandidates(byHand(paBoard))
-  const notfallCandidates = [candidates.ready, candidates.inside, candidates.out]
 
   // Called from the card's action handlers — i.e. after render, so it simply closes over the
   // arrangement the operator is currently looking at. (A ref would have to be written during
@@ -725,6 +732,37 @@ export function AtemschutzView({
     freezeOrder()
     recordContact(id)
     return true
+  }
+
+  /* ── A low Druck in the first minutes ASKS whether it is the Eingangsdruck (owner pick UX
+   * journeys B2·18, 25.11.2026) ─────────────────────────────────────────────────────────────────
+   * The first Druck in the 3 min after the Eintritt replaces the Eingangsdruck (14.09.2026, field:
+   * the crew goes in on the default 300 and the gauge is read a minute later) – and a walker's 180
+   * silently became the baseline. Below the station's minimum (`doctrine.entryPressureMin`, the
+   * form's «Eingangsdruck tief» threshold – lib/atemschutz · entryPressureAsks) it asks ONCE, the
+   * same form as the form's question: «Als Druckmeldung» is the safe, focused answer (and what a
+   * dismissal means – the value was picked to be written), «Eingangsdruck 180 bar» replaces it.
+   * A value at or above the minimum still replaces silently, as before; a value at or under the
+   * Alarmdruck is never a correction (recordPressure · crossed), so it is never asked. */
+  const pickPressure = async (t: Trupp, bar: number) => {
+    const dz = atemschutzDoctrine()
+    const crosses = bar <= alarmBarFor(t, dz)
+    if (!crosses && earlyEntryCorrection(t, serverNow()) && entryPressureAsks(bar, dz)) {
+      const asEntry = await confirmDialog({
+        title: fillTemplate(az.earlyLowTitle, { bar }),
+        message: fillTemplate(az.earlyLowMsg, { min: dz.entryPressureMin, entry: t.entryPressureBar }),
+        confirmLabel: fillTemplate(az.earlyLowAsEntry, { bar }),
+        cancelLabel: az.earlyLowAsReading,
+        safeAnswer: 'cancel',
+      })
+      freezeOrder()
+      // the answer is the intent – whether it is still possible, recordPressure decides on the
+      // Trupp as it stands now (and says so when it is not)
+      recordPressure(t.id, bar, { as: asEntry ? 'entry' : 'reading' })
+      return
+    }
+    freezeOrder()
+    recordPressure(t.id, bar)
   }
 
   // roster of everyone already entered on any Trupp (GF + AdF) — offered as quick-select chips
@@ -1265,16 +1303,25 @@ export function AtemschutzView({
   }
   const skewMin = clockSkewMs != null ? Math.round(clockSkewMs / 60_000) : null
   const skewLoud = skewMin != null && Math.abs(skewMin) > CLOCK_SKEW_WARN_MIN
+  /* ⚠️ The link phone head says only the stuck save (owner pick UX journeys M·13, 25.11.2026 –
+   * «Nur Fehler laut»): no orange dot after every Kontakt. «✓ 22:09» stays while a save is on its
+   * way – still true, the Stand of 22:09 is on the server – and turns «✓ 22:10» when it lands;
+   * only a save pending past PENDING_GRACE_MS turns into the red «⚠ Nicht synchronisiert · 22:09».
+   * The 01.09. safety rule holds: this screen still says whether what it shows is synchronised. */
+  const pendingLate = useLate(syncStatus === 'pending', PENDING_GRACE_MS)
+  const quietPending = focusMode && syncStatus === 'pending' && !pendingLate
+  const lineStatus = focusMode && syncStatus === 'pending' ? (pendingLate ? 'error' : 'synced') : syncStatus
+  const syncLoud = skewLoud || (!!lineStatus && lineStatus !== 'synced' && lineStatus !== 'pending')
   /* ⚠️ A <span>, not a <div> (09.09.): on the phone focus board this whole line rides INSIDE the
    * title's popover trigger, and a <button> may only contain phrasing content. `.az-syncline` is
    * `display: flex`, which a span wears exactly as a div does — the tablet header is unchanged. */
   const syncLine = (syncStatus || skewLoud) && (
     <span className="az-syncline" data-fit-check>
-      {syncStatus === 'synced' || syncStatus === 'pending' ? (
-        <span className={cx('az-sync-quiet', syncStatus === 'pending' && 'az-sync-pending')}
+      {lineStatus === 'synced' || lineStatus === 'pending' ? (
+        <span className={cx('az-sync-quiet', lineStatus === 'pending' && 'az-sync-pending')}
           data-fold={focusMode ? undefined : `${HEAD_FOLD.saved} ${HEAD_FOLD.savedMark}`}
-          title={syncStatus === 'pending' ? cpSync.badgePending : savedAtText}>
-          {syncStatus === 'synced' ? <Icon id="check" /> : <span className="ip-status-dot" />}
+          title={syncStatus === 'pending' && !quietPending ? cpSync.badgePending : savedAtText}>
+          {lineStatus === 'synced' ? <Icon id="check" /> : <span className="ip-status-dot" />}
           {/* ⚠️ On the phone focus board the QUIET state is the mark ALONE — no «18:05» beside
               it (09.09., maintainer review of the one-row head). It shrank to the bare time on
               03.09. because there was no room for the sentence; on a one-row head there is no
@@ -1299,13 +1346,13 @@ export function AtemschutzView({
             </span>
           )}
         </span>
-      ) : syncStatus ? (
-        <span className={cx('ip-offline-chip', syncStatus !== 'offline' && 'ip-error-chip')}
-          title={syncLong[syncStatus]} aria-label={syncLong[syncStatus]}>
-          <Icon id={syncStatus === 'offline' ? 'cloud-off' : 'warn'} />
+      ) : lineStatus ? (
+        <span className={cx('ip-offline-chip', lineStatus !== 'offline' && 'ip-error-chip')}
+          title={syncLong[lineStatus]} aria-label={syncLong[lineStatus]}>
+          <Icon id={lineStatus === 'offline' ? 'cloud-off' : 'warn'} />
           <span>{lastSyncedAt != null
-            ? fillTemplate(az.syncStand, { status: syncShort[syncStatus], t: formatTime(new Date(lastSyncedAt)) })
-            : syncShort[syncStatus]}</span>
+            ? fillTemplate(az.syncStand, { status: syncShort[lineStatus], t: formatTime(new Date(lastSyncedAt)) })
+            : syncShort[lineStatus]}</span>
         </span>
       ) : null}
       {skewLoud && (
@@ -1396,23 +1443,26 @@ export function AtemschutzView({
    * anmelden (Sichern)». A crew
    * bereit or inside turns «Sichern» in one act (designateSafety: its own Verlauf row, one ↶); a
    * crew that is out needs a fresh bottle first, so its pick opens its re-entry form on «Sichern». */
+  // ONE answer to a pick, from the menu here or from the «Kein Sicherungstrupp bereit» row's
+  // «Bestimmen» (lib/safetyPick, owner pick UX journeys M·16): in a Notfall (`forId`) the crew is
+  // designated for it (its own Verlauf row); without one it is an ordinary edit to «Sichern».
+  const answerSafetyPick = (p: SafetyPick, forId?: string) => {
+    if (p.kind === 'new') { safetyPickNew(); return }
+    const x = trupps.find((t) => t.id === p.id)
+    if (!x) return
+    // a crew that is out needs a fresh bottle: the re-entry form, never a bare «Sichern»
+    if (x.status === 'raus') { openForm('redeploy', { ...x, auftrag: 'sichern' }); return }
+    freezeOrder()
+    if (forId && designateSafety) designateSafety(x.id, forId)
+    else editTrupp(x.id, truppFieldsOf(x, { auftrag: 'sichern' }))
+  }
   const candidateMenu = (forId: string, trigger: ReactElement) => (
     <Menu trigger={trigger} popupClassName="rp-print-menu" itemClassName={() => 'rp-print-menu-item'}
-      items={[
-        ...notfallCandidates.flatMap((group, gi) => group.length === 0 ? [] : [
-          { kind: 'head' as const, label: [az.phoneSectionReady, az.phoneSectionIn, az.phoneSectionOut][gi] },
-          ...group.map((x) => ({
-            label: [x.name, ...(x.members ?? [])].map((n) => n.trim()).filter(Boolean).join(' / '),
-            onClick: x.status === 'raus' ? () => openForm('redeploy', { ...x, auftrag: 'sichern' })
-              : designateSafety ? () => { freezeOrder(); designateSafety(x.id, forId) }
-              : () => editTrupp(x.id, truppFieldsOf(x, { auftrag: 'sichern' })),
-          })),
-        ]),
-        { kind: 'sep' as const },
-        { label: az.safetyPickNew, onClick: safetyPickNew },
-      ]} />
+      items={safetyPickItems(byHand(paBoard), (p) => answerSafetyPick(p, forId))} />
   )
-  const noCandidates = notfallCandidates.every((g) => g.length === 0)
+  // …and the row's pick, answered while this board is mounted and may write (the row brought it forward)
+  useSafetyPickAnswer(canEdit && frozenAt == null ? answerSafetyPick : null)
+  const noCandidates = [candidates.ready, candidates.inside, candidates.out].every((g) => g.length === 0)
   const safetyFor = (t: Trupp): SafetyActProps => ({
     ready: notfallReady, inside: notfallSafetyInside, canEdit,
     onDeploySafety: (id) => { freezeOrder(); setTruppStatus(id, 'aktiv') },
@@ -1485,8 +1535,12 @@ export function AtemschutzView({
                         {(lite?.address || syncLine) && (
                           <small>
                             {lite?.address && <span className={s.headTitleAddr}>{lite.address}</span>}
-                            {/* the «· ✓ 12:12» stays glued to the end of the address however it wraps */}
-                            {syncLine && <span className={s.headTitleSync} aria-hidden="true">{lite?.address && '·'}{syncLine}</span>}
+                            {/* the «· ✓ 12:12» stays glued to the end of the address however it wraps;
+                                the LOUD chip (M·13: the only state this head says aloud) takes a line
+                                of its own under the address, no «·», and wraps inside it */}
+                            {syncLine && (syncLoud
+                              ? <span className={cx(s.headTitleSync, s.headTitleSyncLoud)} aria-hidden="true">{syncLine}</span>
+                              : <span className={s.headTitleSync} aria-hidden="true">{lite?.address && '·'}{syncLine}</span>)}
                           </small>
                         )}
                       </span>
@@ -1590,14 +1644,19 @@ export function AtemschutzView({
             be taken back. */}
         {lite && canEdit && onUndo && onRedo && (
           <>
-            {/* …worded like the tiles beside it, folding with them (pick 24a, 17.11.2026) */}
-            <button type="button" className={s.orderBtn} onClick={onUndo} disabled={!canUndo} data-fold={HEAD_FOLD.tiles}
+            {/* …worded like the tiles beside it, folding with them (pick 24a, 17.11.2026) – on the
+                wide link Tafel. On the link PHONE head (`focusMode`) they are 44px glyphs without
+                words, like the bell beside them (owner pick UX journeys M·18, 25.11.2026, as in
+                redesign R1): the title there is `data-fit-free` and wraps anywhere, so the fold
+                never saw a lack of room and «Brand Wohnhaus» broke as «Wohnha / us» beside
+                «Rückgängig». The word stays the button's name (`undoWord`). */}
+            <button type="button" className={s.orderBtn} onClick={onUndo} disabled={!canUndo} data-fold={focusMode ? undefined : HEAD_FOLD.tiles}
               aria-label={undoWord} title={undoWord}>
-              <Icon id="undo" /><span className="fold-long">{appConfig.copy.undo}</span>
+              <Icon id="undo" />{!focusMode && <span className="fold-long">{appConfig.copy.undo}</span>}
             </button>
-            <button type="button" className={s.orderBtn} onClick={onRedo} disabled={!canRedo} data-fold={HEAD_FOLD.tiles}
+            <button type="button" className={s.orderBtn} onClick={onRedo} disabled={!canRedo} data-fold={focusMode ? undefined : HEAD_FOLD.tiles}
               aria-label={redoWord} title={redoWord}>
-              <Icon id="redo" /><span className="fold-long">{appConfig.copy.redo}</span>
+              <Icon id="redo" />{!focusMode && <span className="fold-long">{appConfig.copy.redo}</span>}
             </button>
           </>
         )}
@@ -1996,7 +2055,7 @@ export function AtemschutzView({
           <PressureSheet t={t} title={az.pressureSheetTitle}
             hint={earlyEntryCorrection(t, serverNow()) ? fillTemplate(az.pressureSheetFirst, { bar: t.entryPressureBar }) : az.pressureSheetHint}
             last={lv.currentBar} alarmBar={alarmBarFor(t, atemschutzDoctrine())} onClose={close}
-            onPick={(bar) => { freezeOrder(); recordPressure(t.id, bar); close() }} />
+            onPick={(bar) => { close(); void pickPressure(t, bar) }} />
         )
       })()}
 

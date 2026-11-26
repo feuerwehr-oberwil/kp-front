@@ -61,7 +61,7 @@ function DueReminder({ r, onDone, onSnooze, onOpen }: {
     ],
     // …and the way in, on the title. It can only exist since each due item became its own row:
     // «öffnen» on a row that stood for two Wiedervorlagen could not say WHICH one it would land
-    // on. `C.dueOpen` survives as the accessible name — «Erinnerung fällig · 21:40» says what
+    // on. `C.dueOpen` survives as the accessible name — «Erinnerung fällig · 21:40 Uhr» says what
     // this is, never that it can be followed.
     onOpen: onOpen ? { label: C.dueOpen, onClick: () => onOpen(r) } : undefined,
   })

@@ -158,4 +158,9 @@ export const commonCopy = {
     changed: '{name} geändert',
     saved: 'gespeichert',
   },
+  // THE time of day as a value (lib/format · timeOfDay): «22:10 Uhr». A time of day ends on «Uhr»,
+  // a duration never – «00:15» was read as the Einsatz clock's «5:00» (owner pick UX journeys
+  // B2·43, 25.11.2026; docs/copy-and-wording.md). A template that frames the time itself says
+  // «{t} Uhr» in its own words instead.
+  timeOfDay: '{time} Uhr',
 } as const

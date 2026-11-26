@@ -101,7 +101,7 @@ describe('NotfallHold — a hold, never a tap', () => {
 describe('the facts', () => {
   it('reads like the radio: since when, where, how much air and how old, which channel', () => {
     const [since, place, bar, kanal] = notfallFactLine(inNotfall, NOW, 'Löschen – 2. OG links · Gebäude · 2. OG')
-    expect(since).toMatch(/^seit \d\d:\d\d$/)
+    expect(since).toMatch(/^seit \d\d:\d\d Uhr$/)
     expect(place).toBe('Löschen – 2. OG links · Gebäude · 2. OG')
     expect(bar).toBe('180 bar (vor 7 min)')
     expect(kanal).toBe('Kanal 11')
@@ -123,7 +123,7 @@ describe('NotfallBanner — the first offer is the Sicherungstrupp', () => {
     )
     const alert = container.querySelector('[role="alert"]')!
     // the facts are the screen reader's on every board…
-    expect(alert.getAttribute('aria-label')).toMatch(/^Notfall: Trupp 2 \(Keller Anna \/ Frei Nina\) · Notfall seit \d\d:\d\d · 180 bar \(vor 7 min\) · Kanal 11$/)
+    expect(alert.getAttribute('aria-label')).toMatch(/^Notfall: Trupp 2 \(Keller Anna \/ Frei Nina\) · Notfall seit \d\d:\d\d Uhr · 180 bar \(vor 7 min\) · Kanal 11$/)
     // the card's head line, and the WHOLE line is the way to the card
     const head = alert.querySelector('button')!
     // …named as the crew's own card head names it (the card below is the SAME crew); the full
@@ -148,7 +148,7 @@ describe('NotfallBanner — the first offer is the Sicherungstrupp', () => {
     )
     const buttons = [...container.querySelectorAll('button')]
     expect(buttons.map((b) => b.textContent)).toEqual([
-      expect.stringMatching(/^Keller AnnaNotfall seit \d\d:\d\d · 180 bar \(vor 7 min\) · Kanal 11$/),
+      expect.stringMatching(/^Keller AnnaNotfall seit \d\d:\d\d Uhr · 180 bar \(vor 7 min\) · Kanal 11$/),
       'Sicherungstrupp bestimmenKein Sicherungstrupp bereit',
       '2:10',
     ])

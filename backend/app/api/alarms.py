@@ -103,13 +103,15 @@ async def intake(
 # The alarm pipeline (e.g. fwo-divera's Traccar geofence state machine) pushes per-group
 # alarm times and per-vehicle Ausrück/Vor-Ort/Zurück times as they happen. They land as
 # structured reportMeta entries (the Zeiten grid + stats export read them) plus one
-# journal row per NEW value, so the Verlauf shows «TLF ausgerückt 03:16» for free. The row is
+# journal row per NEW value, so the Verlauf shows «TLF ausgerückt 03:16 Uhr» for free. The row is
 # dated by the milestone, not by its arrival (hunt 24.11.2026, records-rapport F7): a departure
 # reported half an hour late still stands at its own minute in the Verlauf and on paper.
 
 
-def _fmt_clock(dt: datetime) -> str:
-    return dt.astimezone(ZoneInfo("Europe/Zurich")).strftime("%H:%M")
+def _time_of_day(dt: datetime) -> str:
+    """«03:16 Uhr», station time: a time of day ends on «Uhr», a duration never (owner pick UX
+    journeys B2·43, 25.11.2026; docs/copy-and-wording.md) – the client's `lib/format · timeOfDay`."""
+    return dt.astimezone(ZoneInfo("Europe/Zurich")).strftime("%H:%M Uhr")
 
 
 def apply_milestones(
@@ -145,7 +147,7 @@ def apply_milestones(
             gruppen.append(entry)
             by_id[g.id] = entry
             changed += 1
-            journal.append((f"{group_labels.get(g.id, g.id)} alarmiert {_fmt_clock(g.alarmedAt)}", g.alarmedAt))
+            journal.append((f"{group_labels.get(g.id, g.id)} alarmiert {_time_of_day(g.alarmedAt)}", g.alarmedAt))
         elif not cur.get("manual") and cur.get("alarmedAt") != iso:
             cur["alarmedAt"] = iso
             changed += 1
@@ -173,7 +175,7 @@ def apply_milestones(
                 cur[field] = iso
                 changed += 1
                 if first:
-                    journal.append((f"{vehicle_labels.get(v.id, v.id.upper())} {verb} {_fmt_clock(val)}", val))
+                    journal.append((f"{vehicle_labels.get(v.id, v.id.upper())} {verb} {_time_of_day(val)}", val))
 
     rm["gruppen"] = gruppen
     rm["fahrzeuge"] = fahrzeuge

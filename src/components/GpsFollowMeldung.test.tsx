@@ -82,7 +82,7 @@ describe('GpsFollowMeldung', () => {
   it('back on site while following: offers the way back once more', () => {
     const m = show(notice({ key: 'gps-3:back', kind: 'back', distanceM: 60, before, canRevert: true, ends: [{ drawing, endpoint: 'end', before }] }))
     expect(m.title()).toBe('TLF wieder am Einsatzort')
-    expect(m.sub()).toBe(`Leitung 1 zeigt die Fahrt seit ${formatTime(new Date(AT))}.`)
+    expect(m.sub()).toBe(`Leitung 1 zeigt die Fahrt seit ${formatTime(new Date(AT))} Uhr.`)
     expect(m.buttons()[0].classList.contains('go')).toBe(true)
     fireEvent.click(m.buttons()[1])
     expect(m.onFollow).toHaveBeenCalledOnce()
