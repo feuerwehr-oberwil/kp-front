@@ -1683,7 +1683,7 @@ async def delete_integration_object(db: AsyncSession, source: str, external_id: 
         if ref.object_id == locked:
             break
         locked = ref.object_id
-        await lock_objects(db, locked)
+        await lock_objects(db, locked, deleting=True)  # its last ref may take it along
     object_id = ref.object_id
     await db.delete(ref)
     await db.flush()

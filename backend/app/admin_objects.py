@@ -448,11 +448,12 @@ async def _load(manifest_path: Path, objects: list[ObjectEntry]) -> WriteResult:
     """Upsert objects + copy their PDFs into the local store."""
     res = WriteResult()
     async with async_session_maker() as db:
-        # locks 1 and 3 of `plans` › the lock order: this bumps plan versions of many objects
+        # locks 1 and 3 of `plans` › the lock order: this bumps plan versions of many objects, and
+        # all of them are locked up front, in id order, before a ref moves between two of them
         await lock_plan_maintenance(db)
+        await lock_objects(db, *(o.object_id for o in objects))
         for o in objects:
             oid = o.object_id
-            await lock_objects(db, oid)
             existing = (await db.execute(select(ObjectSite).where(ObjectSite.id == oid))).scalar_one_or_none()
             is_new = existing is None
             if existing is None:

@@ -882,7 +882,7 @@ async def reset(wipe_objects: bool = True) -> None:
         # failed on exactly this for a week, and the demo kept a week of visitors' edits).
         if wipe_objects:
             # lock 3 before the plan rows go: a Geschoss save holds its object, then its alignment
-            await lock_objects(db, *(await db.execute(select(ObjectSite.id))).scalars())
+            await lock_objects(db, *(await db.execute(select(ObjectSite.id))).scalars(), deleting=True)
             plan_rows = select(ReferenceDataset.id).where(ReferenceDataset.object_id.is_not(None))
             alignments = select(PlanAlignment.id).where(PlanAlignment.dataset_id.in_(plan_rows))
             await db.execute(

@@ -822,10 +822,13 @@ async def _follow_renames(
     for old_folder, new_folder in renames.items():
         old_id = folder_identity(old_folder)
         new_id = identities[new_folder]
-        obj = await db.get(ObjectSite, old_id.object_id)
-        if obj is None or old_id.object_id == new_id.object_id:
+        if old_id.object_id == new_id.object_id:
             continue
-        await lock_objects(db, obj.id)  # an upload to it waits, and does not land beside the re-key
+        # lock 3, then read: an upload waits for the re-key, and a position saved meanwhile is copied
+        await lock_objects(db, old_id.object_id, deleting=True)
+        obj = await db.get(ObjectSite, old_id.object_id, populate_existing=True)
+        if obj is None:
+            continue
         name = new_id.name if obj.name == old_id.name else obj.name
         address = new_id.address if obj.address in (None, old_id.address) else obj.address
         plan = await _plan_rekey(db, obj, new_id.object_id, scales=scales, name=name, address=address)

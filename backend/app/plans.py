@@ -95,18 +95,20 @@ async def lock_plan_maintenance(db: AsyncSession) -> None:
         await db.execute(select(func.pg_advisory_xact_lock(func.hashtextextended(_PLAN_MAINTENANCE, 0))))
 
 
-async def lock_objects(db: AsyncSession, *object_ids: uuid.UUID) -> None:
+async def lock_objects(db: AsyncSession, *object_ids: uuid.UUID, deleting: bool = False) -> None:
     """Lock 3 of the order above: these object rows to the end of the transaction, in id order, so
     two callers that lock the same pair cannot deadlock on it.
 
-    FOR NO KEY UPDATE, not FOR UPDATE: it excludes every other caller of this, but not the key-share
-    lock a foreign-key check takes – a visit or a ref written against the object meanwhile does not
-    wait for a whole SharePoint run, nor deadlock with a merge that moves it."""
+    FOR NO KEY UPDATE by default: it excludes every other caller of this, but not the key-share lock
+    a foreign-key check takes – a visit, a ref or a position event written against the object
+    meanwhile does not wait for a whole SharePoint run. ``deleting=True`` for rows the caller may
+    delete (a merge's loser, a re-keyed object): FOR UPDATE, so such a writer waits BEFORE it holds
+    a key-share lock that the delete would have to wait for."""
     await db.execute(
         select(ObjectSite.id)
         .where(ObjectSite.id.in_(object_ids))
         .order_by(ObjectSite.id)
-        .with_for_update(key_share=True)
+        .with_for_update(key_share=not deleting)
     )
 
 
