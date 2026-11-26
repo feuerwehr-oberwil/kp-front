@@ -548,9 +548,8 @@ export function AtemschutzView({
    * vehicle, sat left of the crews actually working (04.09., Manuel). The alphabet still orders
    * within each rank; what changed is that the crews the question is about come first.
    *
-   * ⚠️ ONLY in this derived sort. «Wie gesetzt» keeps the hand-set order within each of the
-   * grid's state sections (Drin · Bereit · Draussen since owner pick M·15, 25.11.2026 – see
-   * `gridGrouped`); it never re-sorts by alarm or by Auftrag.
+   * ⚠️ ONLY in this derived sort. «Wie gesetzt» keeps every card in its slot for the whole
+   * Einsatz, finished or not — that is the promise that mode exists for (see the note below).
    */
   const workRank = (t: Trupp) => (truppStillDeployed(t) ? 0 : t.status === 'raus' ? 2 : 1)
   const baseSort = (list: Trupp[]) => [...list].sort((a, b) => {
@@ -677,16 +676,14 @@ export function AtemschutzView({
   const phoneSafety = byHand(paBoard.filter((t) => t.status === 'angemeldet' && t.auftrag === 'sichern'))
   const phoneReady = byHand(paBoard.filter((t) => t.status === 'angemeldet' && t.auftrag !== 'sichern'))
   const phoneOut = byHand(paBoard.filter((t) => t.status === 'raus'))
-  /* ── The wide grid under its state heads (hill climb r1, 04.11.2026) ───────────────────────────
-   * Drin · Bereit · Draussen, each in the order's own sequence (a stable split of `paBoard`, which
-   * is `board`'s order), and the crews that are out SLIM under their head (TruppCard · `slim`).
-   * ⚠️ «Wie gesetzt» too since owner pick UX journeys M·15 (25.11.2026, «Drin zuerst, wie Handy»):
-   * it stayed one slot-keeping grid – «a card never jumps into Draussen when its Trupp comes out»
-   * (17.08., 23.10.2026) – and on the walkers' iPad three crews on their break stood on top, full
-   * size, while the three under PA sat below with their feet cut off. The phone has ordered so
-   * since the Übung of 23.09.2026; the hand-set order now holds WITHIN each section.
+  /* ── The wide grid under its state heads, where the chosen order already reads that way ────────
+   * (hill climb r1, 04.11.2026). «Wie gesetzt» stays one slot-keeping grid: a card that jumps
+   * into «Draussen» the moment its Trupp comes out is what that mode exists to prevent (17.08.,
+   * 23.10.2026). «Dringlichkeit» and «Auftrag» are recomputed anyway and already put the crews
+   * inside first, so the grid stands under the phone's heads there — Drin · Bereit · Draussen,
+   * each in the order's own sequence (a stable split of `paBoard`, which is `board`'s order).
    * «Name» stays an alphabet. Not on the handed-over Tafel (its arrangement is fixed). */
-  const gridGrouped = !compact && !lite && order !== 'name'
+  const gridGrouped = !compact && !lite && (order === 'dringlichkeit' || order === 'auftrag')
   const gridIn = paBoard.filter((t) => truppGridSection(t) === 'in')
   const gridReady = paBoard.filter((t) => truppGridSection(t) === 'ready')
   const gridOut = paBoard.filter((t) => truppGridSection(t) === 'out')
@@ -1115,7 +1112,7 @@ export function AtemschutzView({
 
   // the cards the double-assignment band names (DoubleAssignmentBanner) wear its amber ring
   const conflicted = useMemo(() => new Set(doubleAssignments(trupps).flatMap((c) => c.truppIds)), [trupps])
-  const cards = (list: Trupp[], { slim = false }: { slim?: boolean } = {}) => list.map((t) => {
+  const cards = (list: Trupp[]) => list.map((t) => {
     const nonce = focusNonceOf(t.id)
     const seen = nonce == null ? undefined : () => flashSeen.current.get(t.id) === nonce
     const flashed = nonce == null ? undefined : () => flashSeen.current.set(t.id, nonce)
@@ -1157,8 +1154,6 @@ export function AtemschutzView({
       onAskPressure={(id) => setPressureAsk({ id, kind: 'pressure' })}
       // the section heads say Drin / Bereit / Draussen (phone board, grouped grid); elsewhere the card does
       headed={phoneMode || gridGrouped}
-      // the grid's Draussen section: one line and «Wieder in den Einsatz» (owner pick UX journeys M·15)
-      slim={slim}
       onEdit={(focus) => openForm('edit', t, focus)} onReenter={() => openForm('redeploy', t)}
       onQuick={canEdit ? (kind) => setQuick({ id: t.id, kind }) : undefined}
       onDelete={deleteTrupp} onPlace={handlePlace} onShowPlan={focusTruppOnPlan}
@@ -1877,7 +1872,7 @@ export function AtemschutzView({
             {([[az.phoneSectionIn, gridIn], [az.phoneSectionReady, gridReady], [az.phoneSectionOut, gridOut]] as const).map(([title, list]) => list.length > 0 && (
               <div key={title}>
                 <div className={s.sect}><span className={s.sectTitle}>{title}</span><span className={s.sectCount}>{list.length}</span></div>
-                <div className={s.grid}>{cards(list, { slim: list === gridOut })}</div>
+                <div className={s.grid}>{cards(list)}</div>
               </div>
             ))}
             {plainBoard.length > 0 && (
