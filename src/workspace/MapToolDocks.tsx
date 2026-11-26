@@ -32,7 +32,9 @@ export interface MapToolDocksProps {
   mapUI: boolean
   tool: MapTool
   pending: string | null
-  setPending: Dispatch<SetStateAction<string | null>>
+  pendingLabel?: string
+  /** arm a symbol, `label` = the name it is placed with (lib/useTacticalSelection · usePlacement) */
+  setPending: (symbol: string | null, label?: string) => void
   setTool: Dispatch<SetStateAction<MapTool>>
   placeLock: boolean
   setPlaceLock: Dispatch<SetStateAction<boolean>>
@@ -90,7 +92,7 @@ export interface MapToolDocksProps {
 }
 
 export function MapToolDocks({
-  mapUI, tool, pending, setPending, setTool, placeLock, setPlaceLock, lineMode, settleDraft,
+  mapUI, tool, pending, pendingLabel, setPending, setTool, placeLock, setPlaceLock, lineMode, settleDraft,
   setLineMode, draftActive, draftOpen, commitDraft, areaMode, setAreaMode, setTeamPick, placed, setFindTruppOpen,
   measure, pendingShape, setPendingShape, setRotStart, rotStart, tacticalLocked, createLine,
   createArea, replayActive, railLabels, slimMapTools, pick, panel, layersPreset, layersHidden, togglePanel, viewsApi,
@@ -99,7 +101,7 @@ export function MapToolDocks({
 }: MapToolDocksProps) {
   // the armed tool's readout, the first tile of its dock (ToolDock · armed, lib/armedTool) – every
   // dock below but Messen's, whose results panel names the tool
-  const armed = armedReadout(tool, appConfig.copy.mapTools, { symbol: pending, svg: pending ? sym.byName[pending] : undefined, shape: pendingShape })
+  const armed = armedReadout(tool, appConfig.copy.mapTools, { symbol: pending, label: pendingLabel, svg: pending ? sym.byName[pending] : undefined, shape: pendingShape })
   return (
     <>
       {/* the symbol's dock (owner pick 15 + the phone WIP of 16.11., 17.11.2026): [Unfall · Mehrere ·
@@ -280,7 +282,7 @@ export function MapToolDocks({
       {mapUI && paletteOpen && sym.ready && (
         <Palette
           sym={sym}
-          onPick={(name) => { setTool('symbol'); setPending(name); setPaletteOpen(false) }}
+          onPick={(name, label) => { setTool('symbol'); setPending(name, label); setPaletteOpen(false) }}
           onPickShape={pickShape}
           // PHONE: Linie · Fläche · Absperrkreis · Notiz · Trupp are the sheet's first section
           // there, because they have left the bar for it (lib/toolFold). `pick` closes the sheet.

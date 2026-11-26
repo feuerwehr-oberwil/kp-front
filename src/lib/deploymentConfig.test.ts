@@ -51,6 +51,7 @@ describe('mapReferenceLayers', () => {
     expect(mapReferenceLayers([
       { group: 'Wasser', kind: 'geojson', geojson: '/x' },                  // no id
       { id: 'no-url', kind: 'geojson' },                                    // geojson layer, no url
+      // @ts-expect-error the server refuses an inline object; a hand-edited cached copy must still not break the map
       { id: 'inline', kind: 'geojson', geojson: { type: 'FeatureCollection' } }, // inline object unsupported
       { id: 'no-tiles', kind: 'wms', tiles: [] },                           // wms, no tiles
     ])).toEqual([])

@@ -163,7 +163,7 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     registeredSafety: '{name}, squadra di sicurezza',
     registeredToBoard: 'Alle squadre',
     registeredTitle: 'Ancora annunciata',
-    registeredStandDown: 'Chiudere come «non impiegata»',
+    registeredStandDown: '{who} non impiegata – avanti',
     insideOne: '1 squadra è ancora dentro:',
     insideMany: '{n} squadre sono ancora dentro:',
     insideTrupp: 'Squadra {no}',
@@ -192,6 +192,9 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     closedEnde: 'Fine intervento {t}',
     closedReport: 'Rapporto creato {t}',
     closedOpenRapport: 'Apri rapporto',
+
+    registeredStandDownMany: '{n} squadre non impiegate – avanti',
+    registeredNext: 'Poi segue «Chiudere l’intervento» – solo lì l’intervento si chiude.',
   },
   personnelSync: {
     title: 'Allinea l’effettivo con {provider}',

@@ -12,122 +12,77 @@
 // answer is merged over the copy this device holds (`mergePartial`), never stored in its place,
 // and lib/auth reads again once a session is known (`ensureSessionConfig`).
 //
-// Contract (camelCase, every field optional/possibly-empty — a fresh deployment returns
-// mostly-empty objects). This type mirrors the backend response exactly; keep in sync.
+// Contract: every section is the SERVER's type (backend schemas, generated into api/schema.d.ts via
+// docs/openapi.json), read as a request model – every field optional, because a fresh deployment
+// returns mostly-empty objects and a partial answer or an old cached copy lacks whole parts. Where
+// the client deliberately differs, the alias says so next to the reason: `LegacyNull` adds back a
+// `null` a cached config of an older build can hold. Field docs not on the backend models are kept
+// on the alias.
 
 import type { ObjectCategoryRule } from './karte/categories'
 import type { In } from './api/wire'
 import { isOpenableUrl, type ReportLink } from './reportLinks'
 
-export interface DeploymentAssets {
-  logo?: string | null
-  /** letterhead on the printed Einsatzrapport; falls back to `logo` when unset */
-  reportLogo?: string | null
-  iconPng192?: string | null
-  iconPng512?: string | null
-  favicon?: string | null
-}
+/** `T` with the fields `K` also allowed to be `null`: what a cached config of an older build can
+ *  hold there. */
+type LegacyNull<T, K extends keyof T> = Omit<T, K> & { [P in K]?: T[P] | null }
 
-export interface DeploymentIdentity {
-  appName?: string | null
-  /** the Karte's menu button label (≤ 8, schemas · SHORT_NAME_MAX); unset → the menu symbol */
-  shortName?: string | null
-  locale?: string | null
-  accentColor?: string | null
-  assets?: DeploymentAssets | null
-  helpIntro?: string | null
-  kommandant?: string | null // pre-fills the rapport's Kommandant signature line
-  demoMode?: boolean | null
-  demoNote?: string | null
-}
+/** The five branding slots (backend `IdentityAssets`). `reportLogo` is the letterhead on the
+ *  printed Einsatzrapport; it falls back to `logo` when unset. */
+export type DeploymentAssets = In<'IdentityAssets'>
 
-export interface DeploymentDefaultView {
-  center?: [number, number] | null // [lon, lat] WGS84
-  centerLv95?: [number, number] | null // [E, N] LV95
-  zoom?: number | null
-}
+/** The station's name and look (backend `IdentityConfig`).
+ *  - `shortName`: the Karte's menu button label (≤ 8, schemas · SHORT_NAME_MAX); unset → the menu symbol
+ *  - `kommandant`: pre-fills the rapport's Kommandant signature line */
+export type DeploymentIdentity = LegacyNull<In<'IdentityConfig'>, 'assets'>
 
-export interface DeploymentGeocoder {
-  defaultLocality?: string | null
-  bboxLv95?: string | null
-}
+/** Where the map opens (backend `MapDefaultView`): `center` is `[lon, lat]` WGS84, `centerLv95`
+ *  is `[E, N]` LV95 – at most one of the two. ⚠️ The server takes any list of numbers there (it
+ *  checks only that one CRS is set), so a reader takes the pair out itself. */
+export type DeploymentDefaultView = In<'MapDefaultView'>
 
-export interface DeploymentMap {
-  defaultView?: DeploymentDefaultView | null
-  geocoder?: DeploymentGeocoder | null
-  /** «Karte & Objekte»: the station's object colours — ordered rules, first match wins
-   *  (lib/karte/categories). Unset = every object red, a key box its FKS glyph. */
+/** The address search's defaults (backend `MapGeocoder`). */
+export type DeploymentGeocoder = In<'MapGeocoder'>
+
+/** The map section (backend `MapConfig`).
+ *  - `objectCategories`: «Karte & Objekte»: the station's object colours — ordered rules, first
+ *    match wins (lib/karte/categories). Unset = every object red, a key box its FKS glyph.
+ *  - `offlineRadiusM`: half-width (m) of the box «Alles für offline laden» caches around an Einsatz */
+export type DeploymentMap = LegacyNull<Omit<In<'MapConfig'>, 'objectCategories'>, 'defaultView' | 'geocoder'> & {
   objectCategories?: ObjectCategoryRule[] | null
-  /** half-width (m) of the box «Alles für offline laden» caches around an Einsatz – see
-   *  `offlineRadiusM` below */
-  offlineRadiusM?: number | null
 }
 
-export interface DeploymentReferenceLayer {
-  id?: string
-  group?: string
-  label?: string
-  icon?: string
-  kind?: 'wms' | 'wmts' | 'geojson'
-  tiles?: string[] | null
-  geojson?: unknown | null
-  vectorKind?: string | null
-  symbol?: string | null
-  color?: string | null
-  nightColor?: string | null
-  opacity?: number | null
-  maxzoom?: number | null
-  attribution?: string | null
-  /** Einsatz categories (German labels, see `incidentCategories`) that auto-show this layer when an
-   *  incident of that category is created / re-categorized */
-  autoActivate?: string[] | null
-}
+/** One station reference layer (backend `ReferenceLayerConfig`). `autoActivate` lists the
+ *  Einsatz categories (German labels, see `incidentCategories`) that auto-show this layer when an
+ *  incident of that category is created / re-categorized. */
+export type DeploymentReferenceLayer = In<'ReferenceLayerConfig'>
 
-export interface DeploymentPartner {
-  feuerwehr?: string[]
-  sanitaet?: string[]
-  polizei?: string[]
-  chemiewehr?: string[]
-  zivilschutz?: string[]
-}
+/** The legacy partner lists (backend `FleetPartner`). */
+export type DeploymentPartner = In<'FleetPartner'>
 
 /** One data-driven suggestion list: the options offered for a given symbol's field
  *  (combobox prefill — free typing always stays possible). `field === 'title'` targets
  *  the symbol's TITLE input; any other key targets that detail row. This replaces the old
  *  fixed vehicleTypes/luefterTypes/… fields so a deployment can attach a list to ANY
- *  symbol field, not just the six the app once hardcoded. */
-export interface FleetAttributeList {
-  symbol: string
-  field: string
-  options: string[]
-}
+ *  symbol field, not just the six the app once hardcoded (backend `FleetAttributeList`). */
+export type FleetAttributeList = In<'FleetAttributeList'>
 
 /** One station vehicle for the Alarmierungs-/Ausrückzeiten grid (rapport form, paper
  *  Erfassungsblatt, milestone matching). `id` = the sender's device name (Traccar). */
-export interface FleetVehicle {
-  id: string
-  label: string
-  winfapAlias?: string | null
-}
+export type FleetVehicle = In<'FleetVehicle'>
 
-export interface DeploymentFleet {
-  /** station vehicles for the Zeiten grid — empty/absent hides every vehicle-times surface */
-  vehicles?: FleetVehicle[]
-  /** Data-driven per-symbol suggestion lists (the editable surface going forward). */
-  attributeLists?: FleetAttributeList[]
-  /** The «Herkunft» list – where a vehicle that is not the own Feuerwehr comes from
-   *  (Stützpunkt, Zivilschutz, Wache Nord …). ONE list for every vehicle symbol and every live
-   *  GPS vehicle (lib/symbols · symbolFieldOptions); free typing stays possible. Absent or empty
-   *  = no suggestions. */
-  origins?: string[]
-  // ── legacy fixed lists (pre-attributeLists) — still read as a fallback so existing
-  // stored configs keep working; the admin editor migrates them into attributeLists on
-  // first edit. Don't add new code paths against these. ──
-  vehicleTypes?: string[]
-  luefterTypes?: string[]
-  kleinloeschTypes?: string[]
-  partner?: DeploymentPartner | null
-}
+/** The fleet section (backend `FleetConfig`).
+ *  - `vehicles`: station vehicles for the Zeiten grid — empty/absent hides every vehicle-times surface
+ *  - `attributeLists`: data-driven per-symbol suggestion lists (the editable surface going forward)
+ *  - `origins`: the «Herkunft» list – where a vehicle that is not the own Feuerwehr comes from
+ *    (Stützpunkt, Zivilschutz, Wache Nord …). ONE list for every vehicle symbol and every live
+ *    GPS vehicle (lib/symbols · symbolFieldOptions); free typing stays possible. Absent or empty
+ *    = no suggestions.
+ *  - `vehicleTypes`, `luefterTypes`, `kleinloeschTypes`, `partner`: legacy fixed lists
+ *    (pre-attributeLists) — still read as a fallback so existing stored configs keep working; the
+ *    admin editor migrates them into attributeLists on first edit. Don't add new code paths
+ *    against these. */
+export type DeploymentFleet = LegacyNull<In<'FleetConfig'>, 'partner'>
 
 /** Map a legacy fixed-field fleet config onto the data-driven attributeLists shape, so the
  *  admin editor and the symbol resolver see one uniform representation. Empty lists are
@@ -147,13 +102,6 @@ export function legacyFleetToAttributeLists(fleet: DeploymentFleet | null | unde
   return out
 }
 
-// ⚠️ The doctrine, rank, roster and module shapes are the SERVER's (backend schemas · DoctrineConfig,
-// RankConfig, RosterConfig, ModuleConfig, generated into api/schema.d.ts) – not a hand-kept copy
-// (hunt 24.11.2026, simplification F3): the copy accepted `defaultRelayHose: '40'`, which the server
-// refuses, and claimed a module title is never null, which the server serves. The field docs live on
-// the backend models. Only the nulls a cached config of an older build can hold are added back.
-type LegacyNull<T, K extends keyof T> = Omit<T, K> & { [P in K]?: T[P] | null }
-
 /** The station's Atemschutz / Funk doctrine (backend `DoctrineConfig`). */
 export type DeploymentDoctrine = LegacyNull<In<'DoctrineConfig'>, 'nearbyObjectWarnM'>
 
@@ -167,123 +115,81 @@ export type DeploymentRoster = LegacyNull<
   'nameOrder' | 'autoSync' | 'snapshotIntervalMin' | 'snapshotMaxDeactivatePct'
 >
 
-/** One SharePoint folder this deployment pulls one area's station data from. Addressing only —
- *  ⚠️ no credential lives in the config document (they are in the encrypted credential store).
- *  Mirrors backend `schemas.SharePointSource`; read-only in this app. */
-export interface DeploymentSharePointSource {
-  area: string
-  /** the site's address out of the browser's URL bar */
-  siteUrl?: string | null
-  /** …or the document library's id, when a tenant admin handed it over directly */
-  driveId?: string | null
-  /** display name of a non-default document library */
-  library?: string | null
-  /** folder INSIDE that library; empty = its root */
-  path?: string | null
-  /** sub-folder names the pull walks past («Grosspläne», «Archiv») */
-  ignore?: string[] | null
-}
+/** One SharePoint folder this deployment pulls one area's station data from (backend
+ *  `SharePointSource`). Addressing only — ⚠️ no credential lives in the config document (they are
+ *  in the encrypted credential store). Read-only in this app.
+ *  - `siteUrl`: the site's address out of the browser's URL bar
+ *  - `driveId`: …or the document library's id, when a tenant admin handed it over directly
+ *  - `library`: display name of a non-default document library
+ *  - `path`: folder INSIDE that library; empty = its root
+ *  - `ignore`: sub-folder names the pull walks past («Grosspläne», «Archiv») */
+export type DeploymentSharePointSource = LegacyNull<In<'SharePointSource'>, 'path' | 'ignore'>
 
-/** One entry of the station-wide Mittel (material) catalogue: a material that crews routinely
- *  use up and want billed/reported (`Stk` Lüfter, `l` Schaummittel, `Sack` Bindemittel …).
- *  `unit` is the default unit the entry seeds with (still editable per incident). */
-export interface DeploymentMittelStock {
-  /** source id (matches a DeploymentMittelSource.id) where this many are normally carried */
-  source: string
-  qty: number
-}
+/** Where `qty` of a Mittel entry are normally carried (backend `MittelStockEntry`); `source`
+ *  matches a DeploymentMittelSource.id. */
+export type DeploymentMittelStock = In<'MittelStockEntry'>
 
-export interface DeploymentMittelItem {
-  id: string
-  label: string
-  unit?: string
-  /** grouping bucket for the picker + Bestand view (e.g. "Ölwehr", "Geräte"); free string */
-  category?: string
-  /** standard load-out per source (the station's nominal stock + where it lives). Drives the
-   *  used/available readout and the Bestand overview. Sources omitted ⇒ none there. Optional. */
-  stock?: DeploymentMittelStock[]
-  /** tactical-symbol pack name this material corresponds to (e.g. "VKF Luefter mobil") —
-   *  placing that symbol on Lage/Plan offers logging the material. Without it, a loose
-   *  label↔symbol-name token match still applies (see lib/mittel · materialForSymbol). */
-  symbol?: string
-  /**
-   * …and WHICH of that symbol's variants this material is, keyed on the symbol's own fields.
-   *
-   * ⚠️ One symbol is routinely several materials. A station has «Lüfter», «Hochleistungslüfter»
-   * and «Exhauster» in its catalogue and exactly ONE «VKF Luefter mobil» to place, told apart by
-   * the `Typ` field it already configures in `fleet.attributeLists`. Matching on the symbol name
-   * alone can only ever offer the first of the three, so it offered the wrong one — and an
-   * Exhauster was simply never findable.
-   *
-   * Every entry in a clause must hold — `{ Typ: 'Exhauster' }` matches a Lüfter whose Typ says
-   * Exhauster. A LIST of clauses is an OR: any one of them matching is enough. That is not a
-   * theoretical nicety — a Lüfter set to **saugen** IS an Exhauster whatever its Typ says, so the
-   * honest rule is «Typ = Exhauster ODER Luftrichtung = saugen», and an AND-only schema could
-   * express neither half without losing the other.
-   *
-   * The pseudo-field `Luftrichtung` reads the symbol's airflow (`saugen` / `blasen`). Matching is
-   * case- and umlaut-insensitive, like every other name match here. A material carrying `when`
-   * outranks a bare `symbol` match, so the general «Lüfter» stays the fallback for a symbol that
-   * names no variant.
-   */
-  when?: Record<string, string> | Record<string, string>[]
-  /** Counted off the Atemschutz-Tafel instead of a symbol (lib/mittel · truppPlacedCount):
-   *  'person' = one per crew member of every live AS-Trupp (Atemschutzgerät), 'trupp' = one per
-   *  live AS-Trupp. File/CLI only, like `when` – the Arbeitsmappe preserves it on an id match. */
-  perAtemschutz?: 'person' | 'trupp'
-  /** An Ausrüstung id (Trupp.equipment · retthaube/wbk/multiwarn …): one per live Trupp of any
-   *  kind that carries it in. File/CLI only, like `when`. */
-  equipment?: string
-  /** true = consumable (used up → Nachschub list); false/absent = equipment that must come
-   *  back (gets the per-line Retablierung status: zurück / vor Ort / defekt). */
-  verbrauchbar?: boolean
-}
+/**
+ * One entry of the station-wide Mittel (material) catalogue (backend `MittelItem`): a material
+ * that crews routinely use up and want billed/reported (`Stk` Lüfter, `l` Schaummittel, `Sack`
+ * Bindemittel …).
+ *
+ * - `unit`: the default unit the entry seeds with (still editable per incident)
+ * - `category`: grouping bucket for the picker + Bestand view (e.g. "Ölwehr", "Geräte"); free string
+ * - `stock`: standard load-out per source (the station's nominal stock + where it lives). Drives the
+ *   used/available readout and the Bestand overview. Sources omitted ⇒ none there.
+ * - `symbol`: tactical-symbol pack name this material corresponds to (e.g. "VKF Luefter mobil") —
+ *   placing that symbol on Lage/Plan offers logging the material. Without it, a loose
+ *   label↔symbol-name token match still applies (see lib/mittel · materialForSymbol).
+ * - `when`: …and WHICH of that symbol's variants this material is, keyed on the symbol's own fields.
+ *   ⚠️ One symbol is routinely several materials. A station has «Lüfter», «Hochleistungslüfter»
+ *   and «Exhauster» in its catalogue and exactly ONE «VKF Luefter mobil» to place, told apart by
+ *   the `Typ` field it already configures in `fleet.attributeLists`. Matching on the symbol name
+ *   alone can only ever offer the first of the three, so it offered the wrong one — and an
+ *   Exhauster was simply never findable.
+ *   Every entry in a clause must hold — `{ Typ: 'Exhauster' }` matches a Lüfter whose Typ says
+ *   Exhauster. A LIST of clauses is an OR: any one of them matching is enough. That is not a
+ *   theoretical nicety — a Lüfter set to **saugen** IS an Exhauster whatever its Typ says, so the
+ *   honest rule is «Typ = Exhauster ODER Luftrichtung = saugen», and an AND-only schema could
+ *   express neither half without losing the other.
+ *   The pseudo-field `Luftrichtung` reads the symbol's airflow (`saugen` / `blasen`). Matching is
+ *   case- and umlaut-insensitive, like every other name match here. A material carrying `when`
+ *   outranks a bare `symbol` match, so the general «Lüfter» stays the fallback for a symbol that
+ *   names no variant.
+ * - `perAtemschutz`: counted off the Atemschutz-Tafel instead of a symbol (lib/mittel ·
+ *   truppPlacedCount): 'person' = one per crew member of every live AS-Trupp (Atemschutzgerät),
+ *   'trupp' = one per live AS-Trupp. File/CLI only, like `when` – the Arbeitsmappe preserves it on
+ *   an id match.
+ * - `equipment`: an Ausrüstung id (Trupp.equipment · retthaube/wbk/multiwarn …): one per live Trupp
+ *   of any kind that carries it in. File/CLI only, like `when`.
+ * - `verbrauchbar`: true = consumable (used up → Nachschub list); false/absent = equipment that must
+ *   come back (gets the per-line Retablierung status: zurück / vor Ort / defekt).
+ */
+export type DeploymentMittelItem = In<'MittelItem'>
 
-/** One configured source a material can be drawn from (vehicle / depot / …). Optional on every
- *  Mittel entry; the picker offers exactly this list. Mirrors backend `MittelSource`. */
-export interface DeploymentMittelSource {
-  id: string
-  label: string
-}
+/** One configured source a material can be drawn from (vehicle / depot / …), backend
+ *  `MittelSource`. Optional on every Mittel entry; the picker offers exactly this list. */
+export type DeploymentMittelSource = In<'MittelSource'>
 
-export interface DeploymentMittel {
-  /** station catalogue offered first in the `+ Mittel` picker */
-  catalogue?: DeploymentMittelItem[]
-  /** sources (vehicles/depot/…) offered when attributing a material to where it came from */
-  sources?: DeploymentMittelSource[]
-  /** common unit suggestions for custom («Anderes Mittel») entries; free text always allowed */
-  units?: string[]
-}
+/** The Mittel section (backend `MittelConfig`).
+ *  - `catalogue`: station catalogue offered first in the `+ Mittel` picker
+ *  - `sources`: sources (vehicles/depot/…) offered when attributing a material to where it came from
+ *  - `units`: common unit suggestions for custom («Anderes Mittel») entries; free text always allowed */
+export type DeploymentMittel = In<'MittelConfig'>
 
-export interface DeploymentIntegrations {
-  // env-derived flags — named *Configured (NOT *Enabled)
-  diveraConfigured?: boolean
-  traccarConfigured?: boolean
-  /** STT engine reachable (env stt_base_url) — gates the player's Transkribieren button */
-  sttConfigured?: boolean
-  /** CARTO Basemaps browser key; public by design and restricted to deployment domains. */
-  cartoBasemapKey?: string | null
-  /** «Mit Microsoft anmelden» is set up (backend auth/microsoft) — gates the login screen's button. */
-  microsoftLoginConfigured?: boolean
-  personnel?: ProviderCapability
-  alarms?: ProviderCapability
-  vehicles?: ProviderCapability
-  providers?: ProviderRegistration[]
-}
+/** What the server derives from its environment (backend `ConfigIntegrations`), response-only.
+ *  The flags are named *Configured (NOT *Enabled).
+ *  - `sttConfigured`: STT engine reachable (env stt_base_url) — gates the player's Transkribieren button
+ *  - `cartoBasemapKey`: CARTO Basemaps browser key; public by design and restricted to deployment domains
+ *  - `microsoftLoginConfigured`: «Mit Microsoft anmelden» is set up (backend auth/microsoft) — gates
+ *    the login screen's button */
+export type DeploymentIntegrations = In<'ConfigIntegrations'>
 
-export interface ProviderCapability {
-  provider?: string | null
-  configured: boolean
-  capabilities: string[]
-}
+/** The provider behind one domain (personnel / alarms / vehicles), backend `ProviderCapability`. */
+export type ProviderCapability = In<'ProviderCapability'>
 
-export interface ProviderRegistration {
-  provider: string
-  domain: 'personnel' | 'alarms' | 'vehicles'
-  configured: boolean
-  active: boolean
-  capabilities: string[]
-}
+/** One registered provider (backend `ProviderRegistration`). */
+export type ProviderRegistration = In<'ProviderRegistration'>
 
 /**
  * The name to put in front of a user when a sentence has to NAME the source — «übernimm einen
@@ -322,9 +228,8 @@ export function personnelProviderName(): string | null {
 export const providerLabel = (slug: string): string =>
   slug ? slug.charAt(0).toUpperCase() + slug.slice(1) : slug
 
-/** One configurable Objektplan module: its tile display + the importer's parsing rule.
- *  Mirrors backend `ModuleConfig`. The frontend uses only the display fields. */
-/** One Objektplan module of the catalogue (backend `ModuleConfig`). */
+/** One Objektplan module of the catalogue (backend `ModuleConfig`): its tile display + the
+ *  importer's parsing rule. The frontend uses only the display fields. */
 export type DeploymentModule = In<'ModuleConfig'>
 
 export type ModuleAlignment = NonNullable<DeploymentModule['alignment']>
@@ -367,48 +272,48 @@ export const DEFAULT_MODULES: DeploymentModule[] = [
   { id: 'modul4', code: 'M4', title: 'Spezialplan', order: 7, match: String.raw`modul\s*4` },
 ]
 
-export interface DeploymentConfig {
+/** The sections whose client type differs from the server's (see the aliases above). */
+type RetypedSections =
+  | 'identity' | 'map' | 'fleet' | 'doctrine' | 'roster' | 'journal' | 'alarms' | 'report' | 'setup'
+  | 'sharepoint' | 'objectVisits' | 'access'
+
+/** The whole config document as `GET /api/config` answers it (backend `DeploymentConfigOut`). */
+export interface DeploymentConfig extends Omit<In<'DeploymentConfigOut'>, RetypedSections> {
   identity?: DeploymentIdentity
   map?: DeploymentMap
-  referenceLayers?: DeploymentReferenceLayer[]
-  modules?: DeploymentModule[]
   fleet?: DeploymentFleet
   doctrine?: DeploymentDoctrine
   roster?: DeploymentRoster
-  mittel?: DeploymentMittel
   /** journal composer: station Textbausteine (quick phrases); empty → app defaults */
-  journal?: { quickPhrases?: string[] | null }
+  journal?: LegacyNull<In<'JournalConfig'>, 'quickPhrases'>
   /** station alarm groups for the Alarmierungs-/Ausrückzeiten grid — empty hides it */
-  alarms?: { groups?: AlarmGroup[] | null }
-  /** Einsatzrapport form presets (Partnerorganisationen checkbox row) */
-  report?: {
-    partnerOrgs?: string[] | null
-    /** how the bracketed Einsatzstunden figure rounds — see lib/attendanceHours · roundedMinutes */
-    hoursRounding?: { stepMin?: number | null; graceMin?: number | null } | null
-    /** how short a break still counts as ONE stretch on the Personalblatt — see
-     *  lib/attendanceIntervals · mergeCloseBlocks. 0 switches merging off entirely. */
-    attendanceMergeGapMin?: number | null
-    /** the station's own paperwork as links on the Rapport — see lib/reportLinks. Empty or
-     *  absent = the section does not exist on this deployment's Rapport at all. */
-    links?: ReportLink[] | null
+  alarms?: LegacyNull<In<'AlarmsConfig'>, 'groups'>
+  /** Einsatzrapport form presets (backend `ReportConfig`).
+   *  - `partnerOrgs`: the Partnerorganisationen checkbox row
+   *  - `hoursRounding`: how the bracketed Einsatzstunden figure rounds — see
+   *    lib/attendanceHours · roundedMinutes
+   *  - `attendanceMergeGapMin`: how short a break still counts as ONE stretch on the
+   *    Personalblatt — see lib/attendanceIntervals · mergeCloseBlocks. 0 switches merging off entirely.
+   *  - `links`: the station's own paperwork as links on the Rapport — see lib/reportLinks. Empty or
+   *    absent = the section does not exist on this deployment's Rapport at all. */
+  report?: LegacyNull<Omit<In<'ReportConfig'>, 'hoursRounding'>, 'partnerOrgs' | 'attendanceMergeGapMin' | 'links'> & {
+    hoursRounding?: LegacyNull<In<'HoursRoundingConfig'>, 'stepMin' | 'graceMin'> | null
   }
   /** Rows of the «Einrichtung» card this station ticked off by hand. Some rows can never
    *  become true on derived facts alone — a station happy with the built-in vehicles never
    *  writes `fleet.vehicles` — so a tick is the escape hatch, and it lives in the synced
    *  document rather than on the device (backend · schemas.SetupConfig). */
-  setup?: { acknowledged?: string[] | null }
+  setup?: LegacyNull<In<'SetupConfig'>, 'acknowledged'>
   /** Which SharePoint folders this deployment pulls, and how often. Written as config-as-code,
    *  read here — /admin shows it and never edits it. */
-  sharepoint?: {
-    intervalMinutes?: number | null
+  sharepoint?: LegacyNull<Omit<In<'SharePointConfig'>, 'sources'>, 'intervalMinutes'> & {
     sources?: DeploymentSharePointSource[] | null
   }
   /** Objektbesuche (docs/object-visits.md · «Deployment config»). Off unless `enabled`. */
   objectVisits?: DeploymentObjectVisits | null
   /** how far back a `viewer` account reads (CONFIGURATION.md §1f) – the SERVER enforces it; the
    *  app only says it, under «Alle Einsätze» (HistoryPanel · windowDays) */
-  access?: { viewerHistoryDays?: number | null }
-  integrations?: DeploymentIntegrations
+  access?: LegacyNull<In<'AccessConfig'>, 'viewerHistoryDays'>
   /** The Einsatz Kategorien, category key → the German label stored on the incident, in picker
    *  order. Response-only and derived (backend · divera.CATEGORY_LABELS): the one copy. */
   categoryLabels?: Record<string, string>
@@ -419,48 +324,34 @@ export interface DeploymentConfig {
    *  Only a session's answer carries it — see `hasStationConfig`. */
   version?: string | null
   /** On the answer a caller WITHOUT a session gets, and on no other: it holds the public parts
-   *  alone (backend api/config · PUBLIC_PARTS). Never kept — see `mergePartial`. */
+   *  alone (backend api/config · PUBLIC_PARTS). Never kept — see `mergePartial`. Client-side
+   *  only: the schema does not name it. */
   partial?: true
 }
 
-/** One place a visit is filed to, one-way (docs/object-visits.md · «Delivery»). */
-export interface ObjectVisitDestination {
-  id: string
-  kind: 'sharepoint'
-  enabled?: boolean
-  /** `every-sync` files every ready revision (drafts too), `completed` only completed ones */
-  timing?: 'every-sync' | 'completed'
-  siteUrl?: string | null
-  library?: string | null
-  root?: string | null
-  objectFolder?: string | null
-  visitFolder?: string | null
-  /** where a visit at a place (no object) is filed, below `root` (default
-   *  «Allgemeine Meldungen/{date} {checklist} ({short})») */
-  locationFolder?: string | null
-}
+/** One place a visit is filed to, one-way (docs/object-visits.md · «Delivery»; backend
+ *  `ObjectVisitDestination`).
+ *  - `timing`: `every-sync` files every ready revision (drafts too), `completed` only completed ones
+ *  - `locationFolder`: where a visit at a place (no object) is filed, below `root` (default
+ *    «Allgemeine Meldungen/{date} {checklist} ({short})») */
+export type ObjectVisitDestination = LegacyNull<
+  In<'ObjectVisitDestination'>,
+  'siteUrl' | 'root' | 'objectFolder' | 'visitFolder' | 'locationFolder'
+>
 
-export interface DeploymentObjectVisits {
-  enabled?: boolean | null
-  /** account roles that may capture; the rest read (default editor + el) */
-  captureRoles?: ('editor' | 'el' | 'viewer')[] | null
-  /** hours a completed visit may still be corrected before it goes view-only (default 24,
-   *  0 = at once, null = never locks). The SERVER enforces it — see objectVisits/lock. */
-  lockAfterHours?: number | null
-  /** the fields a Korrekturvorschlag can name (opaque ids for the organizer) */
-  proposalFields?: { id: string; label: string }[] | null
-  destinations?: ObjectVisitDestination[] | null
-}
+/** The Objektbesuche module (backend `ObjectVisitsConfig`).
+ *  - `captureRoles`: account roles that may capture; the rest read (default editor + el)
+ *  - `lockAfterHours`: hours a completed visit may still be corrected before it goes view-only
+ *    (default 24, 0 = at once, null = never locks). The SERVER enforces it — see objectVisits/lock.
+ *  - `proposalFields`: the fields a Korrekturvorschlag can name (opaque ids for the organizer) */
+export type DeploymentObjectVisits = LegacyNull<
+  Omit<In<'ObjectVisitsConfig'>, 'destinations'>,
+  'enabled' | 'captureRoles' | 'proposalFields'
+> & { destinations?: ObjectVisitDestination[] | null }
 
-export interface AlarmGroup {
-  id: string
-  label: string
-  /** display hint on paper/form ('Rot', 'Grün', …) */
-  color?: string | null
-  winfapAlias?: string | null
-  /** marks the day-duty group (drives the derived Tagespikett flag) */
-  tagespikett?: boolean
-}
+/** One station alarm group (backend `AlarmGroup`). `color` is a display hint on paper/form
+ *  ('Rot', 'Grün', …); `tagespikett` marks the day-duty group (drives the derived Tagespikett flag). */
+export type AlarmGroup = In<'AlarmGroup'>
 
 import { apiGet } from './api'
 import { idbGet, idbSet, idbUpdate } from './idb'
@@ -895,9 +786,13 @@ export function deploymentLogo(): string {
  */
 export function deploymentDefaultCenter(): [number, number] | null {
   const dv = resolved.map?.defaultView
-  if (dv?.center) return dv.center
-  if (dv?.centerLv95) return lv95ToWgs84(dv.centerLv95[0], dv.centerLv95[1]) as [number, number]
-  return null
+  // the schema says «a list of numbers»; the map needs its first two, both finite
+  const pair = (c: number[] | null | undefined): [number, number] | null =>
+    c && Number.isFinite(c[0]) && Number.isFinite(c[1]) ? [c[0], c[1]] : null
+  const wgs = pair(dv?.center)
+  if (wgs) return wgs
+  const lv95 = pair(dv?.centerLv95)
+  return lv95 ? lv95ToWgs84(lv95[0], lv95[1]) as [number, number] : null
 }
 
 /**

@@ -7,6 +7,7 @@ import type { Dispatch, SetStateAction, RefObject } from 'react'
 import { ContextPanel } from '../components/ContextPanel'
 import { DrawEditor } from '../components/DrawEditor'
 import { ShapeEditor } from '../components/ShapeEditor'
+import { useHydrants } from '../components/karte/useKartePlace'
 import { appConfig } from '../config/appConfig'
 import { connectedLineLabel } from '../lib/connectedLines'
 import { fillTemplate, formatSymbolName, formatTime } from '../lib/format'
@@ -15,6 +16,7 @@ import { ergAdoptedRadii } from '../lib/ergAdopt'
 import { type GpsEnd, hasTraced, freshBefore, gpsLineName, fmtAway, onSiteAnchor, onSiteKnown } from '../lib/gpsReturn'
 import { wandBlock, wandBlockHint } from '../lib/grundriss'
 import { lineLabel } from '../lib/lineDecor'
+import { hydrantAt } from '../lib/karte/places'
 import { autoNoteWPx } from '../lib/notes'
 import { canBeDone, offersDone, doneOf } from '../lib/objectDone'
 import { withResolvedPhotos } from '../lib/photoGeo'
@@ -26,8 +28,11 @@ import type { useSymbols } from '../lib/useSymbols'
 import { positionOverride, type VehicleOverrides, type VehiclePosition } from '../lib/useVehicleLayer'
 import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import type { TacticalObject } from '../lib/tacticalObjects'
-import type { Doc } from '../lib/workspace'
-import type { Entity, LngLat, TimelineEvent, Trupp, Drawing, NoteSize, Person, LineEndpoint, LineAttachment, LayerId, CaptionMode, MapTool } from '../types'
+import type { Doc, FahrzeugZeit } from '../lib/workspace'
+import { gpsTwin } from '../lib/gpsTwin'
+import { gpsDeviceOf, vehicleTimeRows } from '../lib/vehicleTimes'
+import { getDeploymentConfig } from '../lib/deploymentConfig'
+import type { Entity, LngLat, TimelineEvent, Trupp, Drawing, NoteSize, Person, LineEndpoint, LineAttachment, LayerDef, LayerId, CaptionMode, MapTool } from '../types'
 import type { WorkspaceMode } from './types'
 
 export interface MapDetailPanelsProps {
@@ -72,6 +77,12 @@ export interface MapDetailPanelsProps {
   resetVehicleGps: (id: string, name: string) => void
   /** a hand places a live vehicle (useMapActions · placeVehicle) */
   placeVehicle: (id: string, pos: VehiclePosition) => void
+  /** a placed Fahrzeug goes and its GPS twin is held there instead (useMapActions · holdGpsInstead) */
+  holdGpsInstead: (symbolId: string, vehicleId: string, name: string) => void
+  /** …or it stays, a second vehicle, and the hint goes for good (useMapActions · keepGpsTwin) */
+  keepGpsTwin: (symbolId: string, name: string) => void
+  /** the Rapport's vehicle times – a vehicle's sheet reads its clocks (lib/vehicleTimes) */
+  fahrzeuge: FahrzeugZeit[] | undefined
   log: (icon: string, text: string, kind?: TimelineEvent['kind'], audioUrl?: string, entityId?: string, opts?: { rowId?: string; subjectId?: string }) => void
   assignTypedName: (name: string, role: AssignableRole, note?: string) => string | undefined
   drawings: Drawing[]
@@ -113,6 +124,8 @@ export interface MapDetailPanelsProps {
   isVisible: (id: LayerId) => boolean
   toggleLayer: (id: LayerId) => void
   deleteDrawing: (id: string) => void
+  /** the Lage's layers – its Hydranten Ebene names the hydrant a free line end sits at (B2·49) */
+  layers: readonly LayerDef[]
 }
 
 export function MapDetailPanels({
@@ -120,14 +133,16 @@ export function MapDetailPanels({
   timeline, sym, entityTypedAt, titleLiveRef, beginDrag,
   setDocRaw, endDrag, emit, patchEntity, linkRosterFields, createCircle, doc, undockTeam, effTrupps,
   symbolCaptions, rosterNames, rosterRank, personStatus, rosterFieldHints, setEntityDone, commitEntityFields,
-  vehicleOverrides, canEditIncident, readOnly, stopPersonSharing, setVehicleOverrides, resetVehicleGps, placeVehicle, log,
+  vehicleOverrides, canEditIncident, readOnly, stopPersonSharing, setVehicleOverrides, resetVehicleGps, placeVehicle, holdGpsInstead, keepGpsTwin, fahrzeuge, log,
   assignTypedName, drawings, entities, focusDrawing, noteEntity, notePlacedId, setNotePanelId,
   noteTextLive, setNoteDefaults, selectedDrawing, patchDrawing,
   selectedDrawingId, patchDrawingLabelLive, commitDrawingLabel,
   changeMapEnding, reverseDrawing, setDrawingWallRole, objects, syncLineNoToTrupp, pickablePersonnel, linkTruppLine,
   unlinkLine, setSelectedDrawingId, setMode, setPanel, showTrupp, setGpsRouting, revertAll, gpsEndOf, releaseHere,
-  releaseOnSite, setDrawingAttachment, focusEntity, isVisible, toggleLayer, deleteDrawing,
+  releaseOnSite, setDrawingAttachment, focusEntity, isVisible, toggleLayer, deleteDrawing, layers,
 }: MapDetailPanelsProps) {
+  // the layer hydrants, fetched once a line is selected – for the editor's «Enden» row (B2·49)
+  const { hydrants } = useHydrants(layers, selectedDrawing?.kind === 'line')
   // a Rechteck's figures, for its panel — editable or read-only alike
   const shapeFigures = selected?.kind === 'shape' && selected.shape === 'square' ? (() => {
     // ⚠️ The box on the GROUND, from the two numbers the shape is stored with: `sizeM` is
@@ -356,6 +371,28 @@ export function MapDetailPanels({
               })),
             }
             : undefined}
+          // «Ausgerückt 13:40 · Vor Ort 13:48» – a GPS vehicle by its device, a placed Fahrzeug by
+          // its Bezeichnung (lib/vehicleTimes; owner, batch-3 round #5, 25.11.2026: «Sheet only»)
+          vehicleTimes={selected.live && selected.kind === 'vehicle'
+            ? vehicleTimeRows({ name: selected.label, device: gpsDeviceOf(selected.id) }, getDeploymentConfig().fleet?.vehicles ?? [], fahrzeuge)
+            : selected.symbol === appConfig.symbols.vehicleName
+              ? vehicleTimeRows({ name: selected.label }, getDeploymentConfig().fleet?.vehicles ?? [], fahrzeuge)
+              : undefined}
+          // a placed Fahrzeug named like the GPS vehicle beside it: «Zwei Symbole = zwei
+          // Fahrzeuge?» and the way out (lib/gpsTwin, owner picks UX journeys B3·33/34)
+          gpsTwin={selected.symbol === appConfig.symbols.vehicleName ? (() => {
+            const twin = gpsTwin(selected, entities)
+            if (!twin) return undefined
+            const name = twin.vehicle.label ?? ''
+            return {
+              name,
+              distM: twin.distM,
+              ...(tacticalLocked || !canEditIncident ? null : {
+                onHold: () => holdGpsInstead(selected.id, twin.vehicle.id, name),
+                onKeep: () => keepGpsTwin(selected.id, name),
+              }),
+            }
+          })() : undefined}
           // each row says what tells the lines apart — «Linie · 42 m → Hydrant H-142» (K11)
           connectedLines={drawings.filter((d) => [d.startAttachment, d.endAttachment].some((a) => a?.target.kind === 'object' && a.target.id === selected.id)).map((d) => ({
             id: d.id,
@@ -512,6 +549,12 @@ export function MapDetailPanels({
               stopped: a.gps.state === 'paused',
               onSite: onSiteKnown(a.gps),
             }]]
+          }))}
+          // a FREE end drawn at a layer hydrant: «✓ Hydrant 2 m» in the «Enden» row (B2·49)
+          endHydrantM={selectedDrawing.kind !== 'line' ? undefined : Object.fromEntries((['start', 'end'] as const).flatMap((endpoint) => {
+            if (endpoint === 'start' ? selectedDrawing.startAttachment : selectedDrawing.endAttachment) return []
+            const m = hydrantAt(hydrants, endpoint === 'start' ? selectedDrawing.coords[0] : selectedDrawing.coords[selectedDrawing.coords.length - 1])
+            return m == null ? [] : [[endpoint, m]]
           }))}
           onRevertGps={tacticalLocked ? undefined : (endpoint) => revertAll([gpsEndOf(selectedDrawing, endpoint)])}
           onDetachHere={tacticalLocked ? undefined : (endpoint) => releaseHere(selectedDrawing, endpoint)}

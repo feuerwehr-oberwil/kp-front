@@ -93,7 +93,7 @@ import { KarteNavRail, KarteSurface, type ReaderHandles } from './KartePlans'
 import { KarteDeviceRows } from './KarteDevice'
 import { HomeDeviceSheet } from '../panels/SettingsSheet'
 import { appMenuSlide } from '../../lib/overlays/menuSlide'
-import { AlarmNudgeCard } from './AlarmReadiness'
+import { AlarmNudgeCard, AlarmReadyPill } from './AlarmReadiness'
 import { useBasemapOffline, usePlansHeld } from './useKarteOffline'
 import { karteStart, useKarteCatalogue } from './useKarteCatalogue'
 import { useArrival } from './useKarteArrival'
@@ -677,7 +677,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
           </div>
         )}
 
-        {/* the bar: NO title (owner, 16.10.2026) — the menu · search · weather · the running Einsatz */}
+        {/* the bar: NO title (owner, 16.10.2026) — the menu · search · weather · «Bereit für Alarme» · the running Einsatz */}
         <div className="topbar" ref={barRef}>
           {/* the menu button (owner, review round 5: «not "Einsätze" as the main top button» → the
               station's short name and/or mark, ▾; neither configured → the menu symbol). The red dot
@@ -731,6 +731,9 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
               <Icon id="cloud-off" className={s.offCloud} />{!phone && C.offlineChip}
             </button>
           ) : !phone && liveWeather.data?.wind_dir_deg != null && <WeatherBadge weather={liveWeather.data} bearing={view.bearing} />}
+          {/* «Bereit für Alarme» after the weather (owner pick UX journeys B3·6, 25.11.2026): green
+              while the alarm polls answer, red when they fail; a phone shows the lamp alone */}
+          {(!phone || !onLibrary) && <AlarmReadyPill phone={phone} />}
           {(!phone || !onLibrary) && runningChip}
           {phone && !onLibrary && (
             <button type="button" className={cx('ip-switch-btn', s.searchBtn)} onClick={() => (searchOpen ? setSearchOpen(false) : openPhoneSearch())}

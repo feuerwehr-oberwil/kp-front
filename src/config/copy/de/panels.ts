@@ -22,10 +22,10 @@ export const panelsCopy = {
     whereN: 'Aufnahmeort Foto {n}',
     distance: '{d} vom Einsatzort',
     facing: 'Blick nach {dir}',
-    takenAt: 'aufgenommen {t}',
+    takenAt: 'aufgenommen {t} Uhr',
     tooFar: 'Zu weit weg für die Karte',
     marker: 'Foto vom Verlauf',
-    markerTaken: 'Foto vom Verlauf · aufgenommen {t}',
+    markerTaken: 'Foto vom Verlauf · aufgenommen {t} Uhr',
     planMark: 'Foto – auf der Karte verschieben oder entfernen',
     // the device position stands in for a photo without EXIF position (lib/devicePosition)
     sourceExif: 'Ort aus dem Foto',
@@ -42,7 +42,6 @@ export const panelsCopy = {
   },
   // running incident clock in the TopBar
   einsatzuhr: {
-    title: 'Einsatzdauer – Beginn {t}',
     /** the read-out's accessible name: «Einsatzdauer: 1:54» */
     label: 'Einsatzdauer',
     // what a tap on the head's clock says (round 2b: the clock wears no label, the tap names it)

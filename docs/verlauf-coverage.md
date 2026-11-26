@@ -38,7 +38,7 @@ device (`docs/ARCHITECTURE.md` · «The server observes»). Their rows carry der
 
 | Row | Id | `at` | When |
 |---|---|---|---|
-| «TLF vor Ort» | `vps-<n>-scene-gps-<device>` | the tracker's FIRST report inside 150 m (Traccar `deviceTime`) | the vehicle's first arrival only; later arrivals are trips, counted in `reportMeta.fahrzeuge[].gps.fahrten` and printed as «3 Fahrten», never rows. No row when the external geofence already wrote «TLF vor Ort 19:23» for it (first writer wins) |
+| «TLF vor Ort» | `vps-<n>-scene-gps-<device>` | the tracker's FIRST report inside 150 m (Traccar `deviceTime`) | the vehicle's first arrival only; later arrivals are trips, counted in `reportMeta.fahrzeuge[].gps.fahrten` and printed as «3 Fahrten», never rows. No row when the external geofence already wrote «TLF vor Ort 19:23 Uhr» for it (first writer wins) |
 | «TLF hat den Einsatzort verlassen» | `vps-<n>-away-gps-<device>` | the tracker's FIRST report beyond 300 m | the LAST departure only: written once the vehicle stayed away 20 min, or when observation ends — so it appears late but stands where it happened. A tracker the config cannot name writes no row where the external geofence is writing (it may name it differently) |
 | «Wind dreht: W → NO (286° → 66°) · Lüfter prüfen» | `wxd-<observed_at>` | the confirming reading | a turn ≥ 45° at ≥ 10 km/h, held over two readings on the same side, from one source + station; the devices show it once on the Meldeleiste for 30 min from the row's `writtenAt` (`WindShiftMeldung`, ✕ is remembered per device) |
 | «Automatische Beobachtung beendet (24 h ohne Eintrag) …» | `obs-end-<last activity>` | 24 h after the last human write | once per quiet spell of an OPEN, observed Einsatz; observation resumes at the next human write |
@@ -86,7 +86,7 @@ Atemschutz-Trupp on Auftrag «Sichern» writes «Trupp N (…): Sicherungstrupp 
 (`logSafetyEntry`) instead of the plain «Eintritt» – whether it came from the phone slot's
 «Einsetzen» or the card's «Im Einsatz». Derived from the Trupp, not from the button. The log row
 underneath is an ordinary `entry`, and ↶ takes it back like any Eintritt. The Abschluss's
-«Als «nicht eingesetzt» schliessen» writes the existing «Trupp … nicht eingesetzt» row, one per
+«#2 nicht eingesetzt – weiter» writes the existing «Trupp … nicht eingesetzt» row, one per
 Trupp still angemeldet. «Bestimmen» at the Sicherungstrupp head on an existing Trupp is an
 ordinary edit («Auftrag Sichern»). The Notfall banner's «Sicherungstrupp bestimmen» (2026-10-30)
 can also name a crew that is inside: its own row «Trupp N (…): als Sicherungstrupp bestimmt –

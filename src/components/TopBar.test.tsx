@@ -33,7 +33,7 @@ describe('the Einsatzuhr', () => {
     const clock = screen.getByRole('button', { name: /^Einsatzdauer: / })
     expect(clock.textContent).not.toContain('Einsatzdauer')
     fireEvent.click(clock)
-    expect(await screen.findByText(`Einsatzdauer · seit ${formatTime(new Date(STARTED))}`)).toBeTruthy()
+    expect(await screen.findByText(`Einsatzdauer · seit ${formatTime(new Date(STARTED))} Uhr`)).toBeTruthy()
   })
 })
 

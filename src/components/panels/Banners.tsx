@@ -8,7 +8,8 @@ import { alarmUpdateRow } from '../../lib/alarmUpdate'
 import { ApiError } from '../../lib/api'
 import { toast, undoToast } from '../../lib/ui'
 import { realCoord } from './_shared'
-import { fmtWhen } from '../../lib/format'
+import { fmtWhen, timeOfDay } from '../../lib/format'
+import { useAlarmMessage } from '../../lib/useAlarmMessage'
 
 // ⚠️ None of the four below paints anything any more (23.08.). Each publishes ONE record into
 // the Meldeleiste — `{ id, kind, tone, title, sub, actions }` — and the strip decides which one
@@ -69,7 +70,7 @@ export function IncomingAlarmBanner({ alarms, dismissed, taking, attachFirst, on
     tone: 'alarm',
     icon: 'bell',
     title: `${ix.newDiveraAlarm} — ${top.title}`,
-    sub: `${shortAddress(top.address) ?? ix.addressUnknown} · ${fmtWhen(top.received_at, { todayShort: true })}`,
+    sub: `${shortAddress(top.address) ?? ix.addressUnknown} · ${timeOfDay(fmtWhen(top.received_at, { todayShort: true }))}`,
     actions: actionsFor(top),
     dismiss: { label: ix.hide, onClick: () => onDismiss(top) },
   })
@@ -150,7 +151,7 @@ export function NewIncidentBanner({ inc, active, onSwitch, onDismiss }: {
     tone: 'alarm',
     icon: 'bell',
     title: `${c.kicker} — ${inc.title}`,
-    sub: `${shortAddress(inc.address) ?? appConfig.copy.intake.addressUnknown} · ${fmtWhen(inc.started_at, { todayShort: true })}`,
+    sub: `${shortAddress(inc.address) ?? appConfig.copy.intake.addressUnknown} · ${timeOfDay(fmtWhen(inc.started_at, { todayShort: true }))}`,
     actions: [{ label: active ? c.switch : c.open, primary: true, onClick: onSwitch }],
     dismiss: { label: c.dismiss, onClick: onDismiss },
   })
@@ -168,6 +169,12 @@ export function NewIncidentBanner({ inc, active, onSwitch, onDismiss }: {
 // A form does not fit a row, so the Einsatzart picker went back to the edit panel, which has
 // carried the same Combo all along (EinsatzWizard · categoryLabel).
 // A missing coordinate still gets said loudly: the row turns amber and names it.
+//
+// The row SHOWS what «Passt» confirms (owner pick UX journeys B3·4, 25.11.2026): the Stichwort and
+// the Alarmmeldung, read-only, under the title (lib/meldungen · quote). Before, the text was
+// readable only inside «Bearbeiten», a form with «Speichern», so «Passt» confirmed details nobody
+// had seen. The text stands exactly as sent – no keyword picked out, nothing red: a missed keyword
+// would be worse than plain words. After «Passt» it lives on in the Einsatz menu's card.
 export function ReviewBanner({ meta, onEdit, onDone }: {
   meta: IncidentMeta
   onEdit: () => void
@@ -175,6 +182,7 @@ export function ReviewBanner({ meta, onEdit, onDone }: {
 }) {
   const ix = appConfig.copy.intake
   const hasLoc = realCoord(meta.lng, meta.lat) != null
+  const message = useAlarmMessage(meta.id, meta.updated_at)
   // ⚠️ Yields to a pending alarm (23.08.). «Passt» confirms the dispatch's guesses for the Einsatz
   // you are IN — asking that while an unopened alarm is still on the strip invites confirming one
   // Einsatz's data while looking at another's. The alarm owns the moment; this comes back the
@@ -186,7 +194,9 @@ export function ReviewBanner({ meta, onEdit, onDone }: {
     tone: hasLoc ? 'info' : 'warn',
     icon: hasLoc ? 'flag' : 'warn',
     title: ix.reviewTitle,
-    sub: hasLoc ? ix.fromDivera : ix.noLocationOnMap,
+    sub: !hasLoc ? ix.noLocationOnMap : message ? ix.fromDiveraRead : ix.fromDivera,
+    // the Stichwort stands even while the text loads or when the alarm carried no words of its own
+    quote: { head: meta.title, text: message ?? '' },
     actions: [
       { label: appConfig.copy.edit, onClick: onEdit },
       { label: ix.ok, primary: true, onClick: onDone },

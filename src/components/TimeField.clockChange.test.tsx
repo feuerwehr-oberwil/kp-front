@@ -26,7 +26,8 @@ it.each([true, false])('an unchanged «OK» on the second 02:15 keeps it (wheels
   const second = '2026-10-25T01:15:00.000Z' // 02:15 winter time, an hour after the first 02:15
   const onCommit = openTime(second, coarse)
   fireEvent.click(screen.getByRole('button', { name: 'OK' }))
-  expect(onCommit).toHaveBeenCalledWith(second)
+  // the first 02:15 would be a change and commit; the second one is the value, so nothing does
+  expect(onCommit).not.toHaveBeenCalled()
 })
 
 it('a time the spring change skips is refused with a note', () => {

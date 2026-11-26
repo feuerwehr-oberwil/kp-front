@@ -22,14 +22,23 @@ const emit = () => {
 export const subscribeMeldungen = (l: () => void) => { listeners.add(l); return () => { listeners.delete(l) } }
 export const getMeldungen = () => snapshot
 
+/** The record as its publisher last wrote it – what a tap on the strip runs. The strip paints the
+ *  snapshot of its last repaint, and a repaint waits for `face` to change, so the painted handlers
+ *  can be a render old (a row's «Bestimmen» still closing over the screen it was published on). */
+export const liveMeldung = (m: Meldung): Meldung => store.get(m.id) ?? m
+
 /** Everything about a Meldung that can be READ. Handlers close over live state and are rebuilt on
- *  every render of their publisher; the strip only has to repaint when one of these changes. */
+ *  every render of their publisher; the strip only has to repaint when one of these changes – a tap
+ *  reads the handler off the live record (`liveMeldung`). */
 const face = (m: Meldung): string => [
   m.kind, m.tone, m.icon, m.title, JSON.stringify(m.sub ?? ''), JSON.stringify(m.sub2 ?? ''), m.dismiss?.label ?? '', m.wrap ? 'wrap' : '', m.subLines ? `sub${m.subLines}` : '',
+  JSON.stringify(m.quote ?? ''),
   // whether the title is a way in at all is READ from the row (underlined words vs plain text),
   // so a message that gains or loses its `onOpen` has to repaint
   m.onOpen ? `open·${m.onOpen.label}` : '',
-  ...(m.actions ?? []).map((a) => `${a.label}·${a.primary ? 1 : 0}·${a.go ? 1 : 0}·${a.disabled ? 1 : 0}·${a.busy ? 1 : 0}`),
+  ...(m.actions ?? []).map((a) => `${a.label}·${a.primary ? 1 : 0}·${a.go ? 1 : 0}·${a.disabled ? 1 : 0}·${a.busy ? 1 : 0}`
+    // a menu's rows are read too (the candidates of «Bestimmen» change while it stands)
+    + (a.menu ?? []).map((it) => ('label' in it ? String(it.label) : '—')).join('|')),
 ].join('')
 
 /**

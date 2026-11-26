@@ -120,6 +120,9 @@
      The phone's top bar floats over the sheet (15-mobile · .topbar), so the banner starts under
      it, where the weather chip does – at 12px its first lines were hidden (owner, 22.10.2026) */
   .wb-nearby-banner { top: var(--under-bar, calc(76px + env(safe-area-inset-top))); left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right)); flex-wrap: wrap; }
+  /* …and under the Meldeleiste while one stands (15-mobile · --under-alert, owner 26.11.2026):
+     at --under-bar it lay on the alert's first row */
+  :root:has(.ml) .wb-nearby-banner { top: var(--under-alert); }
   .wb-nearby-text { flex-basis: calc(100% - 28px); }
 }
 /* the door between the two faces of the ONE «Gebäude» tile (Whiteboard · buildingChip). On the

@@ -187,7 +187,7 @@ describe('(i) closed on ANOTHER device while open here', () => {
     expect(lastMap().readOnly).toBe(true)
     expect(rows().some((t) => t.includes('Tst Karl'))).toBe(false) // the alarm stopped with the Einsatz
     const title = document.querySelector('.ml-title')?.textContent ?? ''
-    expect(title).toBe(`Einsatz wurde auf einem anderen Gerät abgeschlossen (${String(closedAt.getHours()).padStart(2, '0')}:${String(closedAt.getMinutes()).padStart(2, '0')})`)
+    expect(title).toBe(`Einsatz wurde auf einem anderen Gerät abgeschlossen (${String(closedAt.getHours()).padStart(2, '0')}:${String(closedAt.getMinutes()).padStart(2, '0')} Uhr)`)
     expect(document.querySelector('.app')).toBeTruthy() // the same workspace, not a jump elsewhere
     // …and never over the Rapport, whose head carries the page's own actions (V3)
     key('r'); await settle()
@@ -202,7 +202,7 @@ describe('(i) closed on ANOTHER device while open here', () => {
     expect(rows().some((t) => t.includes('Tst Karl'))).toBe(true) // the Tafel is watched again
     const hhmm = `${String(reopenedAt.getHours()).padStart(2, '0')}:${String(reopenedAt.getMinutes()).padStart(2, '0')}`
     const titles = [...document.querySelectorAll('.ml-title')].map((t) => t.textContent)
-    expect(titles).toContain(`Einsatz wurde auf einem anderen Gerät wieder geöffnet (${hhmm})`)
+    expect(titles).toContain(`Einsatz wurde auf einem anderen Gerät wieder geöffnet (${hhmm} Uhr)`)
     expect(titles.some((t) => t?.includes('abgeschlossen'))).toBe(false) // the close's row is gone
   })
 
@@ -264,7 +264,7 @@ describe('(j) «Wieder öffnen» with a crew still inside', () => {
     // …and the notice names the REOPEN's time (the server row), not when this device heard it (N6)
     const hhmm = (ms: number) => `${String(new Date(ms).getHours()).padStart(2, '0')}:${String(new Date(ms).getMinutes()).padStart(2, '0')}`
     const titles = [...document.querySelectorAll('.ml-title')].map((t) => t.textContent)
-    expect(titles).toContain(`Einsatz wurde auf einem anderen Gerät wieder geöffnet (${hhmm(Date.parse(reopenAt))})`)
+    expect(titles).toContain(`Einsatz wurde auf einem anderen Gerät wieder geöffnet (${hhmm(Date.parse(reopenAt))} Uhr)`)
   }, 20_000)
 })
 

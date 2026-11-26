@@ -175,7 +175,9 @@ describe('useAbschluss', () => {
       await expect(r.confirmAndComplete()).resolves.toBe(true)
       expect(ask.mock.calls[0][0]).toMatchObject({
         message: '1 Trupp noch angemeldet (#6 Muster Leo, Sicherungstrupp).',
-        confirmLabel: A.registeredStandDown, altLabel: A.registeredToBoard,
+        // the button names the Trupp and says «weiter», the note where the close really is (B2·15)
+        confirmLabel: '#6 nicht eingesetzt – weiter', altLabel: A.registeredToBoard,
+        note: A.registeredNext,
         // «Zur Tafel» is the focused, filled answer — an Enter closes nothing
         safeAnswer: 'alt',
       })
@@ -183,6 +185,14 @@ describe('useAbschluss', () => {
       expect(order).toEqual(['ask registered', 'ask abschluss', 'stand down', 'complete'])
       // every question of the chain carries a title (owner review 26.09.2026)
       expect(ask.mock.calls.map((c) => c[0].title)).toEqual([A.registeredTitle, A.confirmTitle])
+    })
+
+    it('several waiting Trupps: the button counts them and still says «weiter» (B2·15)', async () => {
+      const ask = vi.mocked(confirmDialog)
+      ask.mockReset().mockResolvedValueOnce(false)
+      const a = args({ trupps: [sich, { ...sich, id: 't7', no: 7, name: 'Graf Eva' }], standDownTrupps: vi.fn() })
+      await renderHook(() => useAbschluss(a)).result.current.confirmAndComplete()
+      expect(ask.mock.calls[0][0]).toMatchObject({ confirmLabel: '2 Trupps nicht eingesetzt – weiter', note: A.registeredNext })
     })
 
     it('«schliessen», then «Abbrechen» on the Abschluss, stands NOTHING down', async () => {

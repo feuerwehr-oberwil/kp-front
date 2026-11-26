@@ -149,6 +149,16 @@
   border-radius: 50%; background: var(--blue-16); border: 3px solid color-mix(in srgb, var(--blue) 85%, transparent);
   box-shadow: 0 0 0 2px var(--blue-28), var(--e2); animation: haloIn .12s var(--ease); }
 @keyframes haloIn { from { opacity: 0; } }
+/* «this one came back» – the ring a ↶ / ↷ puts on the object it named (lib/undoFlash ·
+   ringStepObject, owner pick UX journeys M·11, 25.11.2026): the shared two-beat ink ring
+   (02-base · ui-flash-ring), round around the glyph, on the pseudo-element the touch pad leaves
+   free. Ink, not the selection's blue: it points, it does not select. */
+.marker.step-flash::after { content: ''; position: absolute; left: 50%; top: 50%; z-index: 0; pointer-events: none;
+  width: max(calc(var(--gpx) + 16px), 56px); height: max(calc(var(--gpx) + 16px), 56px);
+  transform: translate(-50%, -50%); border-radius: 50%; animation: ui-flash-ring 1.9s ease-out 1; }
+@media (prefers-reduced-motion: reduce) {
+  .marker.step-flash::after { animation: none; box-shadow: 0 0 0 4px var(--ink-62); }
+}
 .marker.sel .ts, .marker.sel .shape-glyph, .marker.sel .note-pill { position: relative; z-index: 1; }
 /* ⚠️ The separating ring is `--surface`, not a frozen #fff: in day it is the white rim that lifts
    a handle off bright imagery, at night it is the dark rim that does the same over a dark basemap

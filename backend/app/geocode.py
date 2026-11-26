@@ -62,6 +62,10 @@ async def _resolve_bias() -> tuple[str, str]:
     ``DeploymentConfig`` singleton (id=1) when present and non-empty, else falls back to
     ``settings.geocoder_default_locality`` / ``settings.geocoder_bbox_lv95``. Never raises:
     any DB/lookup failure degrades to settings so the geocoder never 500s.
+
+    ⚠️ Reads the raw document on purpose, not `deployment_config.read_config`: on a document
+    broken elsewhere its fallback drops the station's box, and the unattended geocoding (the
+    SharePoint pull's new objects) could then pin an address outside the station's area.
     """
     global _bias_cache
     now = time.monotonic()

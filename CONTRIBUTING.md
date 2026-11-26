@@ -42,7 +42,7 @@ just demo-load      # optional: synthetic Musterdorf data + crew (no incident)
 just demo-off       # required after demo-load — the dataset's demoMode blocks new incidents
 just dev            # dev Postgres (Docker, :5434) + backend (:8001) + frontend (:5188)
                     # open http://localhost:5188 — an http:// origin, not file://
-just lint && just test   # both stacks – run before pushing
+just ci             # the gate before every push: the checks CI runs for what your branch changes
 ```
 
 Or drive the tools directly:
@@ -108,7 +108,9 @@ convention changes.
 - **Theming:** use tokens / `color-mix(in srgb, var(--accent) N%, …)`, never a frozen `rgba()`
   of the accent – that breaks day/night and per-station accent theming.
 - Pre-commit covers backend Ruff and staged frontend ESLint, not the full gate – **run
-  `pnpm lint && pnpm test` before pushing**. See [local validation](docs/testing/ci.md).
+  `just ci` before pushing**. `just lint` and `just test` are no gate: they skip mypy and the
+  build, and `just test` can run the backend on in-memory SQLite, where Postgres-only test
+  modules skip. See [local validation](docs/testing/ci.md).
 - **Some files are shared with KP Rück by copy** – the telemetry sanitiser, the alarm keyword
   vocabulary, the roster-snapshot contract and reader, the station index, the alarm intake
   corpus, the loading snail and the shared check itself.
@@ -120,7 +122,7 @@ convention changes.
 
 - Keep PRs **small and focused** – one coherent change.
 - Describe **what** changed and **why**; include screenshots for UI changes.
-- Run `pnpm lint && pnpm test` (and the backend's `pytest` if you touched it) first.
+- Run `just ci` first – the checks CI runs for what your branch changes.
 - There is **no per-file license-header requirement**, but new files must be compatible with
   AGPL-3.0-or-later.
 

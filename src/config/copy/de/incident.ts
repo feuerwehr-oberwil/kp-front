@@ -116,7 +116,7 @@ export const incidentCopy = {
     reactivateNeedsServer: 'Wieder öffnen nicht bestätigt – Netz und Einsatzstatus prüfen.',
     // N3 (25.09.2026): das Einsatz wurde auf einem ANDEREN Gerät abgeschlossen, während es hier
     // offen war — die Meldeleiste sagt, warum der Bildschirm eben nur-lesend geworden ist.
-    closedElsewhere: 'Einsatz wurde auf einem anderen Gerät abgeschlossen ({t})',
+    closedElsewhere: 'Einsatz wurde auf einem anderen Gerät abgeschlossen ({t} Uhr)',
     closedElsewhereSub: 'Zum Bearbeiten wieder öffnen.',
     // …und was dieses Gerät danach noch schicken wollte (ein Kontakt, eine Tafel-Änderung von
     // offline): nicht übernommen, aber nicht verloren.
@@ -125,7 +125,7 @@ export const incidentCopy = {
     closedExport: 'Einträge herunterladen',
     closedDismiss: 'Ausblenden',
     // …und der Weg zurück: auf einem anderen Gerät «Wieder öffnen» — der Bildschirm ist wieder live
-    reopenedElsewhere: 'Einsatz wurde auf einem anderen Gerät wieder geöffnet ({t})',
+    reopenedElsewhere: 'Einsatz wurde auf einem anderen Gerät wieder geöffnet ({t} Uhr)',
     // …und der Rapport eines abgeschlossenen Einsatzes sagt es, mit «Wieder öffnen» daneben
     rapportClosedHint: 'Einsatz abgeschlossen – zum Bearbeiten wieder öffnen.',
     rapportClosedViewOnly: 'Einsatz abgeschlossen – nur ansehen.',
@@ -237,7 +237,9 @@ export const incidentCopy = {
     registeredSafety: '{name}, Sicherungstrupp',
     registeredToBoard: 'Zu den Trupps',
     registeredTitle: 'Noch angemeldet',
-    registeredStandDown: 'Als «nicht eingesetzt» schliessen',
+    // the button names the Trupp and says the close comes after (owner pick UX journeys B2·15,
+    // 25.11.2026 – «Als «nicht eingesetzt» schliessen» read as closing the Einsatz)
+    registeredStandDown: '{who} nicht eingesetzt – weiter',
     // Trupps, die beim Abschluss noch DRIN sind: eine eigene, erste Frage
     insideOne: '1 Trupp ist noch drin:',
     insideMany: '{n} Trupps sind noch drin:',
@@ -282,6 +284,10 @@ export const incidentCopy = {
     closedEnde: 'Einsatzende {t}',
     closedReport: 'Einsatzrapport erstellt {t}',
     closedOpenRapport: 'Rapport öffnen',
+    // «Noch angemeldet» with several Trupps: the button counts them (B2·15)
+    registeredStandDownMany: '{n} Trupps nicht eingesetzt – weiter',
+    // …and the line over the buttons that says where the Einsatz really closes (B2·15)
+    registeredNext: 'Danach folgt «Einsatz abschliessen» – erst dort schliesst der Einsatz.',
   },
   // sync the roster with the configured personnel source
   personnelSync: {

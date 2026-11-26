@@ -122,6 +122,12 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 }
 .skip:focus { transform: none; }
 
+/* Read by screen readers and crawlers, not drawn: a heading the outline needs but the layout shows otherwise. */
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+
 /* ---------- header ---------- */
 .top {
   position: sticky; top: 0; z-index: 10;

@@ -3,22 +3,27 @@
 // time/pressure warnings, but generic: any feature can prime + start + stop it.
 //
 // AUTOPLAY UNLOCK: browsers start an AudioContext "suspended" and refuse to make
-// sound until it is resumed inside a real user gesture (tap/click/keydown). So the
-// caller must invoke `primeAudio()` from such a gesture once — which is why App does
-// it on "Einsatz starten / öffnen" (the first touch of every Einsatz), not only when
-// somebody happens to open a Trupp-Formular. After that the `Alarm` can sound later
-// without interaction. Whether it worked is readable via `audioUnlocked()`, so the
-// bell can say "Ton nicht freigegeben" instead of claiming to be armed.
+// sound until it is resumed inside a real user gesture (tap/click/keydown). So
+// `primeAudio()` must run inside such a gesture once. The first tap ANYWHERE in the app does
+// it (`armOnAnyTap`, mounted by App; owner pick UX journeys M·3, 25.11.2026), with a short
+// «Alarmton an» toast once that tap is over and no layer is open (the tap still does its own job). It replaces the
+// rule that only «Einsatz starten / öffnen», the Trupp-Formular and a tap on the Tafel unlocked
+// it (App · selectIncident, 2026-08): after a reload of a running Einsatz an überfällig alarm
+// stayed silent until somebody happened to touch one of those. After that the `Alarm` can sound later without interaction. Whether it worked is
+// readable via `audioUnlocked()`, so the bell can say "Ton nicht freigegeben" instead of
+// claiming to be armed.
 //
 // THE ONE ALARM LAYER: time-based alerts (Atemschutz
-// clock, reminders) go through this shared layer, not ad-hoc timers. Two voices, one per level
-// (FEEDBACK.10, 17.11.2026 – the faster square beeper `startAlarm` that a due Wiedervorlage still
-// used is gone):
+// clock, reminders, a new alarm) go through this shared layer, not ad-hoc timers. Two voices, one
+// per level (FEEDBACK.10, 17.11.2026 – the faster square beeper `startAlarm` that a due
+// Wiedervorlage still used is gone), and the calm one comes in two shapes:
 //   - `Alarm` – the Atemschutz alarm, the LOUDEST thing the app says: square pip 820 Hz every
 //     2.4 s at Kontakt fällig / Alarmdruck, a 1100 Hz double pip every 1.5 s at überfällig /
 //     Notfall, with vibration and the wake-lock;
 //   - `chime()` – one soft 660 Hz sine pip: «something is due», calm. A due Wiedervorlage rings it
 //     once (useReminders · RemindersHost), and so does a station's opt-in «Kontakt fällig».
+//   - `arrivalTone()` – the chime's voice, three rising pips: a new alarm row on the Karte home
+//     (owner pick UX journeys B3·7, 25.11.2026; lib/useArrivalTone).
 // Nothing louder than the Atemschutz warn may ever be added for a non-safety reminder. Delivery: foreground
 // tone/wake-lock + service-worker notification, plus – once the deployment sets VAPID keys
 // (`app.gen_vapid`) – server-side Web Push for killed apps: `backend/app/push.py` re-derives
@@ -96,11 +101,26 @@ export function audioUnlocked(): boolean {
 export function chime() {
   const c = getCtx()
   if (!c || c.state !== 'running') return
+  sinePip(c, 660, c.currentTime)
+}
+
+/** The «Neuer Alarm» voice (owner pick UX journeys B3·7, 25.11.2026): three rising sine pips
+ *  (660 · 880 · 1100 Hz, 0.18 s apart), once per alarm, on the Karte home – App ·
+ *  useArrivalTone. The chime's soft sine at the chime's gain, so it stays below the Atemschutz
+ *  `Alarm` (the rule in the header). No-op if audio isn't unlocked. */
+export function arrivalTone() {
+  const c = getCtx()
+  if (!c || c.state !== 'running') return
   const t = c.currentTime
+  ;[660, 880, 1100].forEach((f, i) => sinePip(c, f, t + i * 0.18))
+}
+
+/** One soft sine pip at `freq`, starting at `t` – its own short-lived nodes. */
+function sinePip(c: AudioContext, freq: number, t: number) {
   const o = c.createOscillator()
   const g = c.createGain()
   o.type = 'sine'
-  o.frequency.value = 660
+  o.frequency.value = freq
   o.connect(g).connect(c.destination)
   g.gain.setValueAtTime(0.0001, t)
   g.gain.exponentialRampToValueAtTime(0.14, t + 0.012)
@@ -113,6 +133,61 @@ export function chime() {
  *  named for the Atemschutz call sites that "unlock" the alarm on the first wizard tap). */
 export function unlockAlarm() {
   primeAudio()
+}
+
+/** The events that count as a user gesture for audio. `pointerdown` alone is not enough: for a
+ *  finger, the HTML spec's user activation comes with `pointerup` / `touchend`, not with the
+ *  press, so a tablet needs those too. Each one primes only while the tone is still off.
+ *  `pointercancel` is no gesture: it only ends a press (a drag the browser took over). */
+const GESTURES = ['pointerdown', 'pointerup', 'pointercancel', 'touchend', 'click', 'keydown'] as const
+
+/** How long `onArmed` waits after the finger lifts. A touch's `click` comes after its
+ *  `pointerup`, and whatever appears under the finger before that takes the tap. */
+const SETTLE_MS = 300
+
+/**
+ * Arm the tone with the first tap anywhere in the app (owner pick UX journeys M·3, 25.11.2026).
+ * Listens on the document in the capture phase, so no surface can swallow the tap first. Every
+ * gesture while the tone is off primes it; `onArmed` runs each time the context reaches
+ * `running` because of such a prime (App shows «Alarmton an»). It keeps listening after that: an
+ * interruption (a call, Siri) stops the context again, and the next tap brings it back.
+ * ⚠️ `onArmed` runs only once the arming tap is over (no pointer down, SETTLE_MS after the
+ * last lift): the first tap must still do its own job. A toast shown on the `pointerdown` stood
+ * under the finger, took the `pointerup`, and the tap's `click` never reached the Karte search
+ * row it was meant for (PR #752's CI, 25.11.2026).
+ * ⚠️ The tap PRIMES the tone everywhere, but App's «Alarmton an» shows only when no sheet,
+ * composer or dialog is open at that moment (lib/useArmOnAnyTap · overlays/layer · layerOpen).
+ * Inside a layer it stays silent – the tone works either way. A pill over the composer took the
+ * next «Erfassen» tap (e2e F8; lead's call, 25.11.2026). Returns the uninstall.
+ */
+export function armOnAnyTap(onArmed: () => void): () => void {
+  // a prime was sent and the context has not reported `running` yet (resume is async)
+  let waiting = false
+  // the context is running; `onArmed` waits for the tap to end
+  let due = false
+  let pressed = false
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const settle = () => {
+    clearTimeout(timer)
+    if (due && !pressed) timer = setTimeout(() => { due = false; onArmed() }, SETTLE_MS)
+  }
+  const armed = () => { waiting = false; due = true; settle() }
+  const onGesture = (e: Event) => {
+    if (e.type === 'pointerdown') { pressed = true; clearTimeout(timer) }
+    if (e.type === 'pointerup' || e.type === 'pointercancel') { pressed = false; settle() }
+    if (audioUnlocked() || !primeAudio()) return
+    // a context created inside the gesture can be running at once, with no statechange to follow
+    if (audioUnlocked()) armed(); else waiting = true
+  }
+  const off = onAudioState(() => {
+    if (waiting && audioUnlocked()) armed()
+  })
+  for (const e of GESTURES) document.addEventListener(e, onGesture, { capture: true, passive: true })
+  return () => {
+    off()
+    clearTimeout(timer)
+    for (const e of GESTURES) document.removeEventListener(e, onGesture, { capture: true })
+  }
 }
 
 // --- OS notification delivery (shared by Atemschutz + Wiedervorlagen) ---------------------

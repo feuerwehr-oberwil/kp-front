@@ -85,6 +85,16 @@ export function onLinkPage(pathname = currentPath()): boolean {
   return pathname === TERMINAL_PATH || linkTokenFromPath(pathname) !== null
 }
 
+/** Is this page the handed-over Atemschutz board – a per-Einsatz `/l/a…` or a standing `/l/s…`
+ *  link? The Trupp clock stamps its rows with it (types · TruppReading.via), so the tablet can say
+ *  a Kontakt came from the Eingang (owner pick UX journeys M·12, 25.11.2026). */
+export function onAtemschutzLink(pathname = currentPath()): boolean {
+  const token = linkTokenFromPath(pathname)
+  if (!token) return false
+  const kind = linkKindFromToken(token)
+  return kind === 'atemschutz' || kind === 'atemschutz-standing'
+}
+
 /** The header for one request, from the address bar. */
 export function linkSessionHeaders(pathname = currentPath()): Record<string, string> {
   if (linkPageOwnsSession(pathname)) return { [LINK_MODE_HEADER]: 'use' }

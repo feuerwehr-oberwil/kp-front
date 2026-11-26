@@ -11,6 +11,7 @@ import type { CrewChange } from '../lib/truppLeader'
 import type { TruppTransferState } from '../lib/atemschutz'
 import type { Slot } from './PersonField'
 import { ComboRank } from './ComboMenu'
+import { RankBadge } from './RankBadge'
 import { Button } from './Button'
 import { SearchField } from './SearchField'
 import { TagScan } from './TagScan'
@@ -273,6 +274,10 @@ export function TruppTeam({
     if (first) add({ name: first.name, personId: first.personId })
   }
 
+  // every slot's Dienstgrad, as the Mannschaft list shows it (B2·20) – a Gast has none
+  const rankById = useMemo(() => new Map(personnel.map((p) => [p.id, p.rank])), [personnel])
+  const rankOf = (m: Slot) => (m.personId ? rankById.get(m.personId) : undefined)
+
   /* THE TWO SKINS of one control (05.09.). Full-width rows on a tablet, a wrapping row of chips
    * on a phone — same buttons, same labels, same handlers, same `value[0]` record. Only the class
    * names differ, so «who leads» and «take them out» cannot drift apart between the two layouts. */
@@ -318,14 +323,20 @@ export function TruppTeam({
                 {...(lead ? {} : hold.press(() => promoteByHold(i)))}
                 onClick={() => { if (!clickAfterHold()) promote(i) }}
               >
-                {/* no GF/AdF badge since 08.09. (field ask): the amber outline IS the leader
-                    marker — the same tone the card, the Rapport and the map tag print — and
-                    every other row is an AdF by definition. The role words live on in the
-                    a11y labels and the stack summary. */}
+                {/* ⚠️ The ROLE in words and every person's Grad (owner pick UX journeys B2·20,
+                    25.11.2026 – both walkers guessed who leads): the Dienstgrad chip the
+                    Mannschaft list wears («Grfhr», «AdF»), and on the top row the pill
+                    «Gruppenführer» beside the amber outline. It replaces the field ask of
+                    08.09.2026, «no GF/AdF badge – the amber outline IS the leader marker».
+                    The tablet's rows only: on the phone a pill is a size change under the
+                    finger that re-wraps the chips on every crowning (`.chipLead`), and its
+                    hint line «Oberster Name führt» already says it; the chips take the Grad. */}
+                <RankBadge rank={rankOf(m)} />
                 <span className={skin.name}>{m.name}</span>
                 {/* a typed name carries no roster link — say so, so nobody wonders later why
                     this one person never appeared in the statistics export */}
                 {!m.personId && <span className={s.comboHint}>{az.teamManual}</span>}
+                {lead && !phone && <span className={s.teamLeadPill} aria-hidden="true">{az.leaderLabel}</span>}
               </button>
               <button
                 type="button" className={skin.remove}

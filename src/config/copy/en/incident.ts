@@ -161,7 +161,7 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     registeredSafety: '{name}, safety team',
     registeredToBoard: 'To the teams',
     registeredTitle: 'Still registered',
-    registeredStandDown: 'Close as «not deployed»',
+    registeredStandDown: '{who} not deployed – next',
     insideOne: '1 team is still inside:',
     insideMany: '{n} teams are still inside:',
     insideTrupp: 'Team {no}',
@@ -190,6 +190,9 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     closedEnde: 'Incident end {t}',
     closedReport: 'Report created {t}',
     closedOpenRapport: 'Open report',
+
+    registeredStandDownMany: '{n} crews not deployed – next',
+    registeredNext: 'Then comes «Close incident» – only there does the incident close.',
   },
   personnelSync: {
     title: 'Match personnel with {provider}',

@@ -12,8 +12,9 @@ import type { ReferenceDataset } from '../lib/incidents'
 export interface VisitPlanRow {
   id: string
   version: number
-  /** the plan's name, the row's and the reader's tab — «Modul 1», «Wasser», «PV», exactly what the
-   *  object's sheet on the Karte says (owner, 27.10.2026; lib/navRail · planLabel). No subtitle:
+  /** the plan's name, the row's and the reader's tab — «Modul 1», «Wasser», «PV», what the rails
+   *  say (owner, 27.10.2026; lib/navRail · planLabel; the object's sheet on the Karte says the
+   *  plan's title since 25.11.2026 · B2·61). No subtitle:
    *  «Modul 1 · Übersicht» over «Situationsplan …» was a second name for the same sheet. */
   title: string
 }

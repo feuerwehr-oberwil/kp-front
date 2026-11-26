@@ -51,10 +51,11 @@ export function armedToolIcon(tool: MapTool | BoardTool, tools: readonly ToolEnt
  * and `svg` its drawing; `shape` the Form being placed. The caller decides where a readout belongs
  * – Messen has none (its results panel names it).
  */
-export function armedReadout(tool: MapTool | BoardTool, tools: readonly ToolEntry[], picked: { symbol?: string | null; svg?: string; shape?: ShapeKind | null }): ArmedReadout | null {
+export function armedReadout(tool: MapTool | BoardTool, tools: readonly ToolEntry[], picked: { symbol?: string | null; label?: string; svg?: string; shape?: ShapeKind | null }): ArmedReadout | null {
   // a symbol's own SVG – ⚠️ SEC-01, sanitised at this sink: the markup can be an editor-supplied
   // `symbolSvg` (components/Palette · Cell has the same note)
-  if (tool === 'symbol') return picked.symbol ? { glyph: <span className="wb-dock-sym" dangerouslySetInnerHTML={{ __html: sanitizeSvg(picked.svg ?? '') }} />, name: formatSymbolName(picked.symbol) || picked.symbol } : null
+  // an own vehicle armed by its Bezeichnung («TLF», components/Palette · VehicleCell) says that name
+  if (tool === 'symbol') return picked.symbol ? { glyph: <span className="wb-dock-sym" dangerouslySetInnerHTML={{ __html: sanitizeSvg(picked.svg ?? '') }} />, name: picked.label || formatSymbolName(picked.symbol) || picked.symbol } : null
   if (tool === 'shape') {
     const kind = picked.shape
     return kind ? { glyph: <ShapeGlyph kind={kind} color="currentColor" aspect={SHAPE_DEFS[kind].defaultAspect} fit />, name: appConfig.copy.shapes.names[kind] ?? appConfig.copy.shapes.kindLabel } : null

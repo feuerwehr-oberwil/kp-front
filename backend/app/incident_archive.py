@@ -51,7 +51,8 @@ from sqlalchemy.dialects.postgresql import insert
 from . import storage
 from .credentials import load as load_credentials
 from .database import async_session_maker
-from .models import DeploymentConfig, Incident, IncidentArchiveDelivery, IncidentArchiveReport, Media
+from .deployment_config import read_config
+from .models import Incident, IncidentArchiveDelivery, IncidentArchiveReport, Media
 from .object_visit_report import local_time
 from .object_visit_sharepoint import (
     SEGMENT_MAX,
@@ -66,13 +67,13 @@ from .object_visit_sharepoint import (
     sanitize_segment,
     short_error,
 )
-from .schemas import IncidentArchiveConfig, IncidentArchiveDestination, load_stored_config
 from .sharepoint_graph import GraphAuthError, GraphError
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
     from .report import ReportPayload
+    from .schemas import IncidentArchiveConfig, IncidentArchiveDestination
 
 logger = logging.getLogger("kpfront.incidentarchive")
 
@@ -136,13 +137,7 @@ class Plan:
 
 async def archive_config(db: AsyncSession) -> IncidentArchiveConfig:
     """The section of the stored config document. A broken document reads as «off»."""
-    row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
-    raw = row.config_json if (row and row.config_json) else {}
-    try:
-        return load_stored_config(raw).incidentArchive
-    except Exception:  # a bad stored row must not break a close
-        logger.warning("deployment config failed validation – Einsatz-Ablage read as off", exc_info=True)
-        return IncidentArchiveConfig()
+    return (await read_config(db)).incidentArchive
 
 
 def active(cfg: IncidentArchiveConfig) -> list[IncidentArchiveDestination]:

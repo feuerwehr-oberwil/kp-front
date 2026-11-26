@@ -12,6 +12,7 @@ import { atemschutzDoctrine } from '../lib/deploymentConfig'
 import { fillTemplate } from '../lib/format'
 import { appConfig } from '../config/appConfig'
 import type { Trupp, TruppFields, TruppReading } from '../types'
+import { requestSafetyPick } from '../lib/safetyPick'
 import { registerAtemschutzViewHooks, az, firstBtn, lastBtn, iso, aktivTrupp, mount, typeGuest, pressureRow, kanalRow, pickAuftrag } from './AtemschutzView.setup'
 
 vi.mock('../lib/useIsPhone', async (original) => ({ ...await original<typeof import('../lib/useIsPhone')>(), useIsPhone: vi.fn(() => false) }))
@@ -810,5 +811,41 @@ describe('the Reihenfolge menu', () => {
     expect(ziel()).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: az.auftragLabels.anderes }))
     expect(ziel()).toBeTruthy()
+  })
+})
+
+/* ── The «Kein Sicherungstrupp bereit» row's «Bestimmen» (owner pick UX journeys M·16, 25.11.2026)
+ * The row stands on every surface; its pick is a request the board answers once it is in front
+ * (lib/safetyPick) – the ordinary edit to «Sichern» without a Notfall, the form for a new Trupp. */
+describe('a Sicherungstrupp picked from the Meldeleiste', () => {
+  it('turns a waiting crew «Sichern» once the board is in front, and answers the pick only once', async () => {
+    const waiting: Trupp = { ...aktivTrupp(), id: 'w', name: 'Graf Eva', status: 'angemeldet', entryTime: '', lastContactTime: '', auftrag: 'loeschen' }
+    requestSafetyPick({ kind: 'crew', id: 'w' })
+    const editTrupp = vi.fn()
+    mount({ trupps: [aktivTrupp(), waiting], editTrupp })
+    await waitFor(() => expect(editTrupp).toHaveBeenCalledOnce())
+    expect(editTrupp.mock.calls[0][0]).toBe('w')
+    expect((editTrupp.mock.calls[0][1] as TruppFields).auftrag).toBe('sichern')
+    // a board mounted later does not answer it again
+    cleanup()
+    mount({ trupps: [aktivTrupp(), waiting], editTrupp })
+    expect(editTrupp).toHaveBeenCalledOnce()
+  })
+
+  it('a crew that went out before the board answered gets the re-entry form, not a bare «Sichern»', async () => {
+    const out: Trupp = { ...aktivTrupp(), id: 'w', name: 'Graf Eva', status: 'raus', exitTime: iso(60_000), auftrag: 'loeschen' }
+    requestSafetyPick({ kind: 'crew', id: 'w' })
+    const editTrupp = vi.fn()
+    mount({ trupps: [aktivTrupp(), out], editTrupp })
+    await screen.findByRole('button', { name: az.reenterSubmit })
+    expect(within(screen.getByRole('group', { name: az.auftragLabel })).getByRole('button', { name: 'Sichern' }).getAttribute('aria-pressed')).toBe('true')
+    expect(editTrupp).not.toHaveBeenCalled()
+  })
+
+  it('opens the form on «Sichern» for a new Trupp', async () => {
+    requestSafetyPick({ kind: 'new' })
+    mount({ trupps: [aktivTrupp()] })
+    const sichern = await waitFor(() => within(screen.getByRole('group', { name: az.auftragLabel })).getByRole('button', { name: 'Sichern' }))
+    expect(sichern.getAttribute('aria-pressed')).toBe('true')
   })
 })

@@ -5,7 +5,9 @@ import { Icon } from '../lib/icons'
 import { SearchField } from './SearchField'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, formatSymbolName } from '../lib/format'
-import { symbolMatchesQuery } from '../lib/symbolSearch'
+import { symbolMatchesQuery, vehicleHits } from '../lib/symbolSearch'
+import { symbolTitleOptions } from '../lib/symbols'
+import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import { matchesRaw } from '../lib/search'
 import { softHyphenate } from '../lib/symbolWrap'
 import { FORMEN_ORDER, SHAPE_DEFS, ShapeGlyph } from '../lib/shapes'
@@ -33,7 +35,8 @@ function ShapeCell({ kind, onPick }: { kind: ShapeKind; onPick: (k: ShapeKind) =
 
 interface Props {
   sym: SymbolsApi
-  onPick: (name: string) => void
+  /** `label`: an own vehicle picked by its Bezeichnung («TLF») – placed already named */
+  onPick: (name: string, label?: string) => void
   onClose: () => void
   /** when provided, a "Formen" section lets the user place editable shapes */
   onPickShape?: (kind: ShapeKind) => void
@@ -79,7 +82,24 @@ function Cell({ name, svg, onPick }: { name: string; svg: string; onPick: (n: st
   )
 }
 
+/** An own vehicle found by its Bezeichnung (lib/symbolSearch · vehicleHits): the Fahrzeug glyph
+ *  wearing the name, as it will stand on the Karte – the generic Fahrzeug, picked already named. */
+function VehicleCell({ label, onPick }: { label: string; onPick: (n: string, label: string) => void }) {
+  return (
+    <button className="sym-cell" title={label} onClick={() => onPick(appConfig.symbols.vehicleName, label)} draggable={false}>
+      <span className="sym-cell-in">
+        {/* SEC-01: the label is station config, and the glyph is built from it – sanitised here too */}
+        <span dangerouslySetInnerHTML={{ __html: sanitizeSvg(vehicleSymbolSvg(label, 0)) }} />
+        <small>{label}</small>
+      </span>
+    </button>
+  )
+}
+
 // Centred symbol-search modal — no tabs; all signs shown, grouped, scrollable.
+// A query finds the station's own vehicles FIRST, as their own section «Eigene Fahrzeuge» (owner
+// picks UX journeys M·9 + M·10, 25.11.2026: «TLF» found nothing); the other hits then stand under
+// their category headings, so the two kinds of hit never read as one list.
 export function Palette({ sym, onPick, onClose, onPickShape, tools, onPickTool }: Props) {
   const [q, setQ] = useState('')
   const phone = useIsPhone()
@@ -99,6 +119,8 @@ export function Palette({ sym, onPick, onClose, onPickShape, tools, onPickTool }
   // …and a tool is found by its word too: somebody who types «Linie» must not be told there is
   // no such symbol
   const toolMatches = query ? sheetTools.filter((t) => matchesRaw(query, t.label)) : []
+  const toolMatchCells = toolMatches.map((t) => <ToolCell key={t.id} tool={t} onPick={onPickTool!} />)
+  const vehicles = vehicleHits(symbolTitleOptions(appConfig.symbols.vehicleName), query)
   // an `Overlay` since 15.11.2026 (scroll sweep #5): it was the one hand-rolled sheet, and the
   // one that ignored the keyboard – the keys covered the lower half of the grid. The primitive
   // brings what every other sheet has: focus trap, Esc, backdrop, scroll lock, the grab bar and
@@ -120,12 +142,35 @@ export function Palette({ sym, onPick, onClose, onPickShape, tools, onPickTool }
 
       <div className="sym-scroll">
         {query ? (
-          matches.length + toolMatches.length === 0
+          matches.length + toolMatches.length + vehicles.length === 0
             ? <div className="sym-empty no-hits">{fillTemplate(appConfig.copy.noHits, { q: q.trim() })}</div>
-            : <div className="sym-grid">
-                {toolMatches.map((t) => <ToolCell key={t.id} tool={t} onPick={onPickTool!} />)}
-                {matches.map((s) => <Cell key={s.name} name={s.name} svg={s.svg} onPick={onPick} />)}
-              </div>
+            : vehicles.length === 0
+              ? <div className="sym-grid">
+                  {toolMatchCells}
+                  {matches.map((s) => <Cell key={s.name} name={s.name} svg={s.svg} onPick={onPick} />)}
+                </div>
+              : <>
+                  <section>
+                    <div className="sym-ghead">{appConfig.copy.addSheet.ownVehicles}</div>
+                    <div className="sym-grid">
+                      {vehicles.map((v) => <VehicleCell key={v} label={v} onPick={onPick} />)}
+                    </div>
+                  </section>
+                  {toolMatches.length > 0 && (
+                    <section>
+                      <div className="sym-ghead">{appConfig.copy.addSheet.tools}</div>
+                      <div className="sym-grid">{toolMatchCells}</div>
+                    </section>
+                  )}
+                  {sym.order.filter((cat) => matches.some((s) => s.cat === cat)).map((cat) => (
+                    <section key={cat}>
+                      <div className="sym-ghead">{appConfig.copy.symbolCategories[cat] ?? cat}</div>
+                      <div className="sym-grid">
+                        {matches.filter((s) => s.cat === cat).map((s) => <Cell key={s.name} name={s.name} svg={s.svg} onPick={onPick} />)}
+                      </div>
+                    </section>
+                  ))}
+                </>
         ) : (
           <>
             {sheetTools.length > 0 && (

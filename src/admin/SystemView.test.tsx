@@ -158,6 +158,25 @@ describe('«Systemzustand» — the one primary status surface', () => {
   })
 })
 
+// Sweep 25.11.2026: a failed login-lock read answered [], so it read as «nobody is locked».
+describe('the login-lock card', () => {
+  it('says «nicht verfügbar» when the server could not read the locks', async () => {
+    serve(NO_SHAREPOINT, { ...SYSTEM, loginLocks: null })
+    render(<SystemView />)
+
+    const card = (await screen.findByRole('heading', { name: new RegExp(C.loginLocksTitle) })).closest('section')!
+    expect(within(card).getByText(C.notAvailable)).toBeTruthy()
+  })
+
+  it('stays away while nobody is locked', async () => {
+    serve(NO_SHAREPOINT, { ...SYSTEM, loginLocks: [] })
+    render(<SystemView />)
+
+    await screen.findByText(C.reachable)
+    expect(screen.queryByText(C.loginLocksTitle)).toBeNull()
+  })
+})
+
 // ⚠️ «Stand 05:49:20 PM» stood over a German page on every tablet left on en-US, because the
 // toolbar formatted its clock with the BROWSER's locale while every other time in the Verwaltung
 // is de-CH (ui · fmtDate / fmtDateTime / fmtRelTime).

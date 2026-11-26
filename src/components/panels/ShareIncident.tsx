@@ -41,6 +41,11 @@ import { Modal } from './_shared'
 // the sentences differ, because what the link hands over is the ONE thing somebody has to have
 // read before sending it on.
 //
+// ⚠️ So the amber «what the link hands over» sentence stands ABOVE «Link erstellen» too, not only
+// under the live address: both walkers read «Namen der Anwesenden, Fotos …» only once the link
+// already existed (owner pick UX journeys, 25.11.2026 · B2·55). Once the link exists it stays
+// where it was, under the address. The one-link rule of 03.09. is untouched.
+//
 // The QR is what makes the handover work at all. The realistic handover in an Einsatz is
 // «Tablet hinhalten», not «Adresse kopieren» — and the code is drawn from the address as soon
 // as there is one. Lazily: `qrcode` otherwise ships only in the admin chunk, and there is no
@@ -338,6 +343,8 @@ export function ShareIncident({ incidentId, initialKind = 'view', archived, auto
       <>
         {picker}
         <p className="esh-lede">{kc.lede}</p>
+        {/* read BEFORE the link exists (B2·55) — the button that mints it is right below */}
+        <p className="esh-warn"><Icon id="warn" />{kc.warn}</p>
       </>,
       <button type="button" className="ip-btn primary" disabled={busy}
         onClick={() => void run(() => createShareLink(incidentId, kind), C.shareCreateFailed)}>
@@ -361,7 +368,8 @@ export function ShareIncident({ incidentId, initialKind = 'view', archived, auto
         </button>
       </ShareLinkCode>
       {/* Says what the link actually hands over. It is the one thing somebody has to have read
-          BEFORE sending it, so it stands under the address, not behind a tooltip. */}
+          BEFORE sending it, so it stands under the address, not behind a tooltip — and above
+          «Link erstellen» before there is an address (B2·55). */}
       <p className="esh-warn"><Icon id="warn" />{kc.warn}</p>
     </>,
     null,

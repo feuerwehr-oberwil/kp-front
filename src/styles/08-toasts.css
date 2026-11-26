@@ -125,6 +125,21 @@
    lines, then the ellipsis, the title's own clamp */
 .ml-row.sub2 .ml-sub { white-space: normal; overflow-wrap: anywhere;
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
+/* a row that carries a text to READ in full (Meldung.quote – «Einsatzdaten prüfen» with the
+   Stichwort and the Alarmmeldung, owner pick UX journeys B3·4, 25.11.2026): title and sub-line on
+   one line, the Stichwort and the text as sent under them, never clamped. Both are READ values,
+   so both stand at the read-out step, --fs-2 (owner, sign-off 25.11.2026: «check the font sizes
+   and the visual hierarchy» – they were 19 and 16, louder than the row's own title and buttons):
+   the row's title, then the Stichwort in its weight, the text a weight lighter. The glyph and the
+   buttons stand at the top, level with the title. */
+.ml-row.quote { align-items: flex-start; }
+.ml-row.quote .ml-ic { margin-top: calc(var(--sp-3) + 1px); }
+.ml-row.quote .ml-txt { flex-direction: row; flex-wrap: wrap; justify-content: flex-start; align-items: baseline; column-gap: var(--sp-1);
+  padding: var(--sp-3) 0 var(--sp-2); }
+.ml-row.quote .ml-sub::before { content: '· '; }
+.ml-quote { flex: 1 1 100%; display: grid; gap: var(--sp-1); margin-top: var(--sp-2); max-width: 600px; }
+.ml-quote-head { font: var(--fw-bold) var(--fs-2)/var(--lh-2) var(--body); color: var(--ink); overflow-wrap: anywhere; }
+.ml-quote-text { font: var(--fw-medium) var(--fs-2)/var(--lh-2) var(--body); color: var(--ink); white-space: pre-line; overflow-wrap: anywhere; }
 /* a sub-line's emphasis (lib/meldungen · MeldungSpan) – «Alarm aktualisiert»: what is new on an
    amber wash in the ink, what it replaces struck through and faint, a value to read in the ink */
 .ml-sub ins { text-decoration: none; font-weight: var(--fw-bold); color: var(--ink); border-radius: 4px; padding: 0 var(--sp-1);
@@ -233,6 +248,12 @@
      «Weiter folgen») wraps onto two full-width buttons rather than running off the card */
   .ml-act { order: 1; flex: 1 1 100%; flex-wrap: wrap; justify-content: flex-end; }
   .ml-act .ml-btn { flex: 1 1 auto; min-width: 0; }
+  /* the quote row's buttons drop under the text, so nothing up top to stand level with; the
+     sub-line has no room beside the title – its own line, whole, without the «·» */
+  .ml-row.quote .ml-txt { padding-top: var(--sp-2); }
+  .ml-row.quote .ml-ic { margin-top: calc(var(--sp-2) + 1px); }
+  .ml-row.quote .ml-sub { flex-basis: 100%; white-space: normal; }
+  .ml-row.quote .ml-sub::before { content: none; }
 }
 
 /* pinned to both edges (NOT left:50% + translate: an auto-width fixed box only gets the
@@ -874,6 +895,19 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
   font: var(--fw-medium) var(--fs-2)/1.35 var(--body);
   text-align: center; text-wrap: balance;
   box-shadow: var(--float-edge); }
+/* The ↶ caption's «✓ gespeichert» (lib/undoFlash, owner pick UX journeys M·11, 25.11.2026): the
+   server has the step. A green word on its own tint, the state as a glyph colour – the pill
+   itself stays the message surface.
+   ⚠️ The chip stays INSIDE the pill (owner sign-off note, 25.11.2026: «‹Gespeichert› overflows
+   onto the image»): the words and the chip are two wrapping flex items, the pill may widen to the
+   viewport's gutter, and where both still do not fit on one line (the phone) the chip takes a
+   second line, centred. It was `nowrap` under the 320px cap, and the chip ran out of the pill. */
+.hold-tip.with-saved { display: flex; flex-wrap: wrap; justify-content: center; align-items: center;
+  gap: var(--sp-1) var(--sp-2); max-width: calc(100vw - 16px); }
+.hold-tip-saved { display: inline-flex; align-items: center; gap: var(--sp-1); flex: none;
+  padding: 2px var(--sp-2); border-radius: var(--r-xs);
+  background: var(--green-12); color: var(--green-strong); font-weight: var(--fw-bold); }
+.hold-tip-saved svg { width: 14px; height: 14px; }
 
 /* ── the Präsentationsmodus (components/Presentation, mock 8B, 05.11.2026; docs/presentation.md) ──
    The pill stands bottom centre, in the floating family of the armed-tool pill (09-whiteboard):

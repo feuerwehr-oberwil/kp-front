@@ -82,6 +82,23 @@ export const MARKER_SPACING_PX = 46
  *  grows the line. Screen px on the map, board px on the plan; both surfaces read this one number. */
 export const EXTEND_STEP_PX = 46
 
+/** A line shorter than this on screen is SHORT: its end pads alone fill it, so the «+» inserts,
+ *  the «Verlängern» arrows and the detach ✕ stay away and the ends stay visible (owner pick UX
+ *  journeys, 25.11.2026 · B2·49 – a fresh Zubringleitung from a hydrant to the TLF hid both ends
+ *  under its grips). It still grows by dragging an end; the panel's «Enden» row says what each
+ *  end hangs on and offers «Lösen». Screen px on the map. */
+export const SHORT_LINE_PX = 120
+
+/** Is this path (in pixel space) a short line in the sense of SHORT_LINE_PX? */
+export function isShortLine(px: readonly [number, number][]): boolean {
+  let len = 0
+  for (let i = 1; i < px.length; i++) {
+    len += Math.hypot(px[i][0] - px[i - 1][0], px[i][1] - px[i - 1][1])
+    if (len >= SHORT_LINE_PX) return false
+  }
+  return true
+}
+
 /** How many node handles a shape may show AT ONCE. Not a limit on how many points a line may
  *  have — a 66-point freehand stroke keeps all 66 — but on how many pads are on screen competing
  *  for the same finger. Shared so the map and the plan cut over at the same size. */

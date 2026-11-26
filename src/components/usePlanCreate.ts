@@ -43,6 +43,8 @@ interface Args {
   setTool: (tool: BoardTool) => void
   /** what the symbol / Form tool places next, and the place-lock (lib/useTacticalSelection · usePlacement) */
   pending: string | null
+  /** the name an armed own vehicle is placed with (components/Palette · VehicleCell) */
+  pendingLabel?: string
   setPending: (name: string | null) => void
   pendingShape: ShapeKind | null
   setPendingShape: (kind: ShapeKind | null) => void
@@ -104,7 +106,7 @@ interface Args {
 
 /** The ink overlay's pointer handlers and the placement they make; see the file header. */
 export function usePlanCreate({
-  tool, setTool, pending, setPending, pendingShape, setPendingShape, placeLock, setPaletteOpen, stack, drawings,
+  tool, setTool, pending, pendingLabel, setPending, pendingShape, setPendingShape, placeLock, setPaletteOpen, stack, drawings,
   toNorm, floorAt, localY, mapY, sW, sH, tileAR, scale, posRef, scaleRef, applyView, zoomTo, canvasRef, boardRef, inkTapRef,
   planDraft, rotor, measure, rotPlacing, rotStart, setRotStart, rotN, noteDefaults, txtBase, setNotePanelId, setNotePlacedId,
   sym, onRecent, annos, trupps, placedTeamNames, onLinkTrupp, setTruppPick, add, log, setSelId, tapZoomPress, tapZoomOwns,
@@ -286,8 +288,8 @@ export function usePlanCreate({
       // shared seeding (label / subtitle / fields) — identical to the Lage placement
       // path, so a plan symbol now carries the same editable structure as a map one
       // …and on a sheet with storey drawings (Modul 6) it takes the storey of the drawing it lands in
-      add(withDrawingStorey(null, { id, kind: 'symbol', x, y, floor, ...seedSymbolProps(s, sym.symbols), ...(seat ? { rotation: seat.rotation, onWall: seat.wallId } : null) }, drawings))
-      onRecent(s); log('hex', fillTemplate(appConfig.copy.whiteboard.placeSymbol, { name: formatSymbolName(s) }), { annoId: id, x, y, floor })
+      add(withDrawingStorey(null, { id, kind: 'symbol', x, y, floor, ...seedSymbolProps(s, sym.symbols, pendingLabel), ...(seat ? { rotation: seat.rotation, onWall: seat.wallId } : null) }, drawings))
+      onRecent(s); log('hex', fillTemplate(appConfig.copy.whiteboard.placeSymbol, { name: pendingLabel || formatSymbolName(s) }), { annoId: id, x, y, floor })
       // unlocked: place once, then drop to pan with the new symbol selected so its
       // editor + rotor are immediately usable. locked: stay armed (no selection) to
       // drop several in a row. Same one-at-a-time / lock model as the Lage map.

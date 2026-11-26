@@ -39,16 +39,16 @@ Alembic, one service that serves the frontend same-origin – **uv** ([`backend/
   tsc). For one backend area, run `just test-backend -x tests/test_<area>.py`.
   pytest refuses a `DATABASE_URL` that is not a local `kpfront_test*` database (`backend/tests/db_guard.py`).
 - Before you push, run `just ci` for the stacks your diff can affect, or `just ci-all` for all
-  stacks. They run lint, build, the full unit suite + coverage floor and the backend with
-  migration drift, in parallel. What each covers and what stays CI's: [`docs/testing/ci.md`](docs/testing/ci.md).
+  stacks. They run lint, build, the full unit suite + coverage floor, the backend with
+  migration drift and the static analysis, in parallel – the same recipes CI's jobs call. What each covers and what stays CI's: [`docs/testing/ci.md`](docs/testing/ci.md).
   `just hooks` (once per clone) makes every `git push` run `just ci-static` first (lint, types,
-  build; ruff + mypy – the test suites stay CI's).
+  build; ruff + mypy; the static analysis – the test suites stay CI's).
 
 ## Working in this repo
 
 - **Every change goes through a branch and a fully green PR.** Nothing reaches `main` red. Branch
-  protection requires the seven `ci.yml` checks (frontend, backend, image + e2e, secrets, visual,
-  performance, shared files). «Visual» is advisory since 15.11.2026: it reports a changed
+  protection requires the eight `ci.yml` checks (frontend, backend, image + e2e, secrets, visual,
+  performance, shared files, static analysis). «Visual» is advisory since 15.11.2026: it reports a changed
   screenshot and does not fail on one. «Performance» does not fail a Dependabot PR. The one
   intended bypass is a 3am prod hotfix, after `just ci` locally (`enforce_admins` is off for
   that). What each check runs and how to read a red one: [`docs/testing/ci.md`](docs/testing/ci.md).

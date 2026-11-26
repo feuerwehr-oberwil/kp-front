@@ -276,7 +276,7 @@ def apply_gps_presence(
     if nobody wrote it first, never on a `manual` row. Never `zurueck` (= back at the depot, the
     geofence's). Returns (new_ws, changed, arrival_is_ours) — the last says whether the Rapport's
     «vor Ort» is this observation's, i.e. whether the server's arrival row is not a duplicate of
-    the geofence's «TLF vor Ort 19:23».
+    the geofence's «TLF vor Ort 19:23 Uhr».
     """
     base = dict(ws or {})
     rm = dict(base.get("reportMeta") or {})
@@ -572,7 +572,7 @@ async def _store_blob(
 async def _geofence_writes(db: AsyncSession, incident_id: uuid.UUID) -> bool:
     """Is the external geofence writing vehicle times for this Einsatz? Then a tracker the
     config cannot name gets NO server row: the geofence may name it differently («TLF» where
-    Traccar says «TLF 1») and has written its own «TLF vor Ort 19:23» already."""
+    Traccar says «TLF 1») and has written its own «TLF vor Ort 19:23 Uhr» already."""
     from .models import Incident
 
     ws = (await db.execute(select(Incident.map_workspace_json).where(Incident.id == incident_id))).scalar_one_or_none()
@@ -699,14 +699,14 @@ async def observe(db: AsyncSession, positions: list[VehiclePosition], now: datet
     """One tick: close out what stopped being observed, advance every vehicle at every active
     Einsatz, write what became true. The caller commits, THEN calls `tick.commit()` — see
     `_state`. Works through the Einsätze in id order (see `_open_incidents`)."""
-    from .alarms import get_config_model
+    from .deployment_config import read_config
 
     tick = Tick()
     active, ended = await observed_incidents(db, now)
     tick.live = {str(i.id) for i in active}
     tick.drop = {k for k in _state if k[0] not in tick.live}
     candidates = await _closeout_candidates(db, now, ended)
-    fleet: list = (await get_config_model(db)).fleet.vehicles if (candidates or (active and positions)) else []
+    fleet: list = (await read_config(db)).fleet.vehicles if (candidates or (active and positions)) else []
 
     actives = {str(i.id): i for i in active}
     closing = {str(c[0]): c for c in candidates}
