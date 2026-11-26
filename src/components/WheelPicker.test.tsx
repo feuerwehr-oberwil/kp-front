@@ -56,7 +56,7 @@ describe('WheelPicker · looping clock wheels', () => {
     expect(onCommit).toHaveBeenCalledWith(expect.objectContaining({ h: 0, mi: 47 }))
   })
 
-  // UX pick B2·28 (25.11.2026): a tap on the time under the band types it – «2339», OK
+  // UX pick B2·28 (25.11.2026): a tap on the time under the band types it – «23:39», OK
   it('a tap on the selected hour swaps the wheels for a typed field that commits', () => {
     const days = [new Date(2026, 10, 24)]
     const onCommit = vi.fn()
@@ -65,9 +65,40 @@ describe('WheelPicker · looping clock wheels', () => {
     expect(screen.queryByRole('listbox', { name: 'Stunde' })).toBeNull()
     const field = screen.getByRole('textbox', { name: 'Stunde / Minute' })
     expect(field).toHaveProperty('value', '23:42')
-    fireEvent.change(field, { target: { value: '2339' } })
+    fireEvent.change(field, { target: { value: '23:39' } })
     fireEvent.click(screen.getByRole('button', { name: 'OK' }))
     expect(onCommit).toHaveBeenCalledWith({ y: 2026, mo: 11, d: 24, h: 23, mi: 39 })
+  })
+  // owner, UX journeys sign-off (26.11.2026): «2359 isn't a time, 23:53 is» – the colon is required,
+  // and a value that is not HH:MM commits nothing and says so under the field
+  describe('the typed time is HH:MM', () => {
+    const typeAndOk = (value: string, key: 'click' | 'enter' = 'click') => {
+      const onCommit = vi.fn()
+      render(<WheelPopover anchor={anchor} initial={new Date(2026, 10, 25, 23, 42)} onCommit={onCommit} onClose={() => {}} />)
+      fireEvent.click(wheel('Stunde').querySelector('[aria-selected="true"]')!)
+      const field = screen.getByRole('textbox', { name: 'Stunde / Minute' })
+      fireEvent.change(field, { target: { value } })
+      if (key === 'enter') fireEvent.keyDown(field, { key: 'Enter' })
+      else fireEvent.click(screen.getByRole('button', { name: 'OK' }))
+      return { onCommit, field, message: screen.queryByRole('alert')?.textContent ?? null }
+    }
+
+    it('commits «23:53»', () => {
+      const { onCommit, message } = typeAndOk('23:53')
+      expect(onCommit).toHaveBeenCalledWith(expect.objectContaining({ h: 23, mi: 53 }))
+      expect(message).toBeNull()
+    })
+    it.each(['2359', '24:00', '23:60', '23:', ''])('«%s» commits nothing and says HH:MM under the field', (value) => {
+      const { onCommit, field, message } = typeAndOk(value)
+      expect(onCommit).not.toHaveBeenCalled()
+      expect(message).toBe('Zeit als HH:MM, z. B. 23:53')
+      expect(field.getAttribute('aria-invalid')).toBe('true')
+    })
+    it('Enter with «2359» only shows the message', () => {
+      const { onCommit, message } = typeAndOk('2359', 'enter')
+      expect(onCommit).not.toHaveBeenCalled()
+      expect(message).toBe('Zeit als HH:MM, z. B. 23:53')
+    })
   })
   // owner, UX journeys sign-off (26.11.2026): «day – time» on one line, opened ABOVE the field so
   // it covers nothing under it (the Rückmeldung's «Entfällt» under the Einsatzende)

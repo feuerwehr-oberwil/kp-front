@@ -134,7 +134,7 @@ export const reportCopy = {
   },
   // Einsatzrapport drucken — preflight sheet (ReportPreflight)
   wheel: {
-    invalidTime: 'Bitte eine gültige Uhrzeit eingeben (00:00–23:59).',
+    invalidTime: 'Zeit als HH:MM, z. B. 23:53',
     skippedTime: 'Diese Uhrzeit gibt es wegen der Zeitumstellung nicht – bitte 03:00 oder später wählen.',
     day: 'Tag',
     hour: 'Stunde',

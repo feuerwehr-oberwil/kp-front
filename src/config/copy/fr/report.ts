@@ -103,7 +103,7 @@ export const reportCopy: Localizable<Pick<Copy, 'auswertung' | 'report' | 'print
     lehren: 'Enseignements / sécurité',
   },
   wheel: {
-    invalidTime: 'Saisir une heure valide (00:00–23:59).',
+    invalidTime: 'Heure au format HH:MM, p. ex. 23:53',
     skippedTime: "Cette heure n'existe pas (changement d'heure) – choisir 03:00 ou plus tard.",
     day: 'Jour',
     hour: 'Heure',

@@ -5,8 +5,9 @@
 // the ONE date control, 05.10.2026: no day/month/year wheels anywhere); the value is whatever rests
 // under the center band. «Jetzt» is the fast path (stamp the DEPLOYMENT's clock, lib/serverClock,
 // and close – 12.11.2026, it was the device's), «OK» commits a scrolled selection. A tap on the time
-// under the band swaps the wheels for a typed field («2339», OK – owner pick UX journeys B2·28,
-// 25.11.2026): one line «day – time», opened above its field (owner sign-off, 26.11.2026).
+// under the band swaps the wheels for a typed field («23:39», OK – owner pick UX journeys B2·28,
+// 25.11.2026): one line «day – time», opened above its field (owner sign-off, 26.11.2026). The typed
+// time is HH:MM with its colon, never «2339» (owner, 26.11.2026 – see parseTyped).
 // Portalled to <body> so no card/accordion can clip it.
 
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
@@ -121,10 +122,14 @@ export interface WheelValue { y: number; mo: number; d: number; h: number; mi: n
 const isCoarse = () =>
   typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches
 
-/** '930', '9:30', '09.30' → [h, mi]; null while it is still being typed or out of range. */
+/**
+ * '23:53', '9:30' → [h, mi]; null while it is still being typed, out of range, or without its colon.
+ * ⚠️ The colon is required (owner, UX journeys sign-off, 26.11.2026: «2359 isn't a time, 23:53 is»).
+ * Until then «930», «09.30» and «2339» were read as times – what got saved was not what stood in
+ * the field. A value that does not parse gets `invalidTime` under the field and is never committed.
+ */
 function parseTyped(raw: string): [number, number] | null {
-  const t = raw.trim().replace(/[.\s]/g, ':')
-  const m = /^(\d{1,2}):?(\d{2})$/.exec(t)
+  const m = /^(\d{1,2}):(\d{2})$/.exec(raw.trim())
   if (!m) return null
   const h = Number(m[1])
   const mi = Number(m[2])
@@ -185,7 +190,7 @@ export function WheelPopover({ anchor, initial, onCommit, onClose, onClear, shor
   const coarse = isCoarse()
   // A finger on the wheels may TYPE the time instead: a tap on the hour or minute under the band
   // swaps them for the field a keyboard gets (owner pick UX journeys B2·28, 25.11.2026 – both
-  // walkers missed the Einsatzende's minute on the wheel and asked to type «2339»)
+  // walkers missed the Einsatzende's minute on the wheel and asked to type it)
   const [typing, setTyping] = useState(!coarse)
   const [v, setV] = useState<WheelValue>({
     y: initial.getFullYear(), mo: initial.getMonth() + 1, d: initial.getDate(),
@@ -355,9 +360,12 @@ export function WheelPopover({ anchor, initial, onCommit, onClose, onClear, shor
                 <span className={w.dash} aria-hidden>–</span>
               </>
             )}
+            {/* ⚠️ no `inputMode="numeric"`: the phone's digit pad has no colon, and HH:MM needs one
+                (parseTyped) – the keyboard's «123» layer has it */}
             <input
-              className={w.typed} value={typed} inputMode="numeric" enterKeyHint="done" autoFocus
-              // from the wheels the time stands selected, so «2339» replaces it instead of trailing it
+              className={w.typed} value={typed} enterKeyHint="done" autoFocus
+              autoComplete="off" autoCorrect="off" spellCheck={false}
+              // from the wheels the time stands selected, so «23:39» replaces it instead of trailing it
               onFocus={coarse ? (e) => e.currentTarget.select() : undefined}
               aria-label={`${C.hour} / ${C.minute}`} placeholder="--:--"
               aria-invalid={invalid || undefined} aria-describedby={invalid ? errorId : undefined}
