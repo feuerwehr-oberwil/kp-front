@@ -317,11 +317,11 @@ button.adm-floor-index { min-width: var(--tap); min-height: var(--tap); cursor: 
 
 /* Full-screen plan preparation: ONE header row, fixed decisions, independently bounded panes.
    The back action is the row's first item – it used to float over the header on `position:
-   absolute`, which cost the title 165px of padding it could never use. Its foot is whichever
-   bar comes last (the point-pair instrument, the opacity row, the reload bar), so the FRAME
-   keeps the home indicator clear – none of them scrolls. */
+   absolute`, which cost the title 165px of padding it could never use. Its head and its foot
+   (the point-pair instrument, the opacity row or the reload bar – none of them scrolls) are the
+   frame's edges, so the FRAME keeps the status bar and the home indicator clear. */
 .adm-plan-editor { position: fixed; inset: 0; z-index: var(--z-admin-overlay); background: var(--surface); display: flex; flex-direction: column; overflow: hidden;
-  padding-bottom: env(safe-area-inset-bottom); }
+  padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom); }
 .adm-plan-editor .adm-editor-detail { display: flex; flex: 1; flex-direction: column; min-height: 0; border: 0; border-radius: 0; overflow: hidden; }
 .adm-plan-editor .adm-editor-head { flex: 0 0 auto; display: flex; align-items: center; gap: 14px; min-height: 72px;
   padding: 11px 22px; border-bottom: 1px solid var(--border); }
@@ -354,6 +354,12 @@ button.adm-floor-index { min-width: var(--tap); min-height: var(--tap); cursor: 
 .adm-editor-pane .adm-pairing-panes { flex: 1; min-height: 0; }
 .adm-editor-pane .adm-pairing-plan, .adm-editor-pane .adm-pairing-map { height: 100%; min-height: 0; }
 .adm-editor-map-pane > .adm-align-map { flex: 1; min-height: 0; height: auto; }
+/* stacked, the plan and the map share the pane in two equal rows – with auto rows WebKit gave
+   the plan all of it and the map none once the instrument grew (its «Genauigkeit» opened) */
+@media (max-width: 900px) {
+  .adm-editor-pane .adm-pairing-panes { grid-template-rows: repeat(2, minmax(0, 1fr)); }
+  .adm-editor-pane .adm-pairing-panes.checking { grid-template-rows: minmax(0, 1fr); }
+}
 @media (max-width: 1050px) {
   .adm-editor-header-actions { gap: 6px; }
   .adm-editor-header-actions .adm-badge { display: none; }
