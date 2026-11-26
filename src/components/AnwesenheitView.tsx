@@ -1133,23 +1133,22 @@ export function AnwesenheitView({
                 {/* THE one clock in the row, always there: it opens the sheet where several
                     stretches — came, went, came back — are added and corrected. The chip beside it
                     edits the single time shown; this is the way to all the others. */}
-                {/* Am Einsatzort oder noch im Magazin – a WORD on the row, «Vor Ort ▾» /
-                    «Magazin ▾», and a tap opens the two-row choice (owner pick UX journeys M·8,
-                    25.11.2026 – replaces the one-tap glyph flip of 09.08.2026: a stray tap moved
-                    somebody to the Magazin without a word, two taps and a named choice cannot).
-                    Only on somebody who is HERE: «wo ist jemand, der gegangen ist» has no answer
-                    worth a control. */}
+                {/* Am Einsatzort oder noch im Magazin – the place's GLYPH on the row (pin = vor Ort,
+                    Haus = Magazin), and a tap opens the two-row choice that says it in words (owner
+                    note 26.11.2026 – replaces M·8's «Vor Ort ▾» word on the chip, 25.11.2026: the
+                    word took the row's width). Still never the one-tap flip of 09.08.2026: a stray
+                    tap moved somebody to the Magazin without a word, two taps and a named choice
+                    cannot. The accessible name carries the place. Only on somebody who is HERE:
+                    «wo ist jemand, der gegangen ist» has no answer worth a control. */}
                 {present && (
                   canEdit && onSetOrt ? (
                     <Menu
                       trigger={
                         <button type="button" className={cx(s.ort, ortOf(a) === 'station' ? s.ortStation : s.ortScene)}
-                          title={fillTemplate(A.ortPick, { name: p.displayName })}
+                          title={`${fillTemplate(A.ortPick, { name: p.displayName })}: ${ortOf(a) === 'station' ? A.ortStation : A.ortScene}`}
                           aria-label={`${fillTemplate(A.ortPick, { name: p.displayName })}: ${ortOf(a) === 'station' ? A.ortStation : A.ortScene}`}>
                           <span className={s.ortChip}>
                             <Icon id={ortOf(a) === 'station' ? 'station' : 'pin'} />
-                            {ortOf(a) === 'station' ? A.ortStation : A.ortScene}
-                            <Icon id="chevron-down" />
                           </span>
                         </button>
                       }
@@ -1157,6 +1156,8 @@ export function AnwesenheitView({
                       itemClassName={() => c.menuItem}
                       items={[{
                         kind: 'radio' as const,
+                        // the menu IS this one choice: a pick closes it (owner note 26.11.2026)
+                        closeOnPick: true,
                         value: ortOf(a),
                         // a pick of the place already set changes nothing – that is the point
                         onChange: (v: string) => { if (v !== ortOf(a)) onSetOrt(p) },
@@ -1167,10 +1168,11 @@ export function AnwesenheitView({
                       }]}
                     />
                   ) : (
-                    <span className={cx(s.ort, ortOf(a) === 'station' ? s.ortStation : s.ortScene)}>
+                    <span className={cx(s.ort, ortOf(a) === 'station' ? s.ortStation : s.ortScene)}
+                      role="img" aria-label={ortOf(a) === 'station' ? A.ortStation : A.ortScene}
+                      title={ortOf(a) === 'station' ? A.ortStation : A.ortScene}>
                       <span className={s.ortChip}>
                         <Icon id={ortOf(a) === 'station' ? 'station' : 'pin'} />
-                        {ortOf(a) === 'station' ? A.ortStation : A.ortScene}
                       </span>
                     </span>
                   )
