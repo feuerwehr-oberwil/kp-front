@@ -48,6 +48,13 @@ const SECTIONS: Section[] = ['ready', 'needs_review', 'none', 'waiting', 'approv
 const BEYOND_PAIRING = new Set(['reference_unreachable', 'printed_scale_missing', 'object_coordinates_missing', 'pdf_unavailable', 'revision_missing', 'preparation_failed', 'georef_dependencies_missing', 'overpass_unconfigured', 'worker_retry_limit', 'multi_page_document', 'unsupported_module', 'config_unreadable'])
 /** …and of those, the ones a fresh run can still fix, which is when «Neu berechnen» is offered. */
 const RETRYABLE = new Set(['reference_unreachable', 'worker_retry_limit', 'preparation_failed', 'invalid_match', 'config_unreadable'])
+/** A refused write as the review shows it. A 409 the server explained («Freigabe zuerst
+ *  zurücknehmen, dann …») keeps the server's sentence; only a bare 409 – lib/api then holds its
+ *  status wording, `errors.httpRejected` – reads as the generic «zwischenzeitlich geändert». */
+const refusalText = (e: unknown): string => {
+  const C = appConfig.copy.admin.alignment
+  return e instanceof ApiError && e.status === 409 && e.detail === appConfig.copy.errors.httpRejected ? C.conflict : apiErrorText(e, C.saveFailed)
+}
 
 /**
  * A page that ALREADY holds the queue hands it in, and the wall then fetches nothing of its own.
@@ -174,7 +181,7 @@ export function PlanAlignmentReview({ compact = false, embedded = false, source 
       return true
     } catch (e) {
       if (!alive.current) return false
-      setError(e instanceof ApiError && e.status === 409 ? C.conflict : apiErrorText(e, C.saveFailed))
+      setError(refusalText(e))
       if (e instanceof ApiError && e.status === 409) await refresh()
       return false
     } finally { if (alive.current) mark(item.id, false) }
@@ -482,7 +489,7 @@ function FloorPackDetail({ item, onChange, onConflict, onDirty, saveRef, onSaveS
       return true
     } catch (e) {
       if (!mounted.current) return false
-      setError(e instanceof ApiError && e.status === 409 ? C.conflict : apiErrorText(e, C.saveFailed))
+      setError(refusalText(e))
       if (e instanceof ApiError && e.status === 409) await onConflict()
       return false
     } finally { if (mounted.current) setBusy(false) }
@@ -585,7 +592,7 @@ function SheetDetail({ item, onChange, onConflict, onDirty }: DetailProps) {
       onChange(next); reset()
     } catch (e) {
       if (!mounted.current) return
-      setError(e instanceof ApiError && e.status === 409 ? C.conflict : apiErrorText(e, C.saveFailed))
+      setError(refusalText(e))
       if (e instanceof ApiError && e.status === 409) await onConflict()
     } finally { if (mounted.current) setBusy(false) }
   }

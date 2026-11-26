@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { ApiError } from '../lib/api'
+import { appConfig } from '../config/appConfig'
 import { PlanAlignmentEditor, PlanAlignmentReview } from './PlanAlignmentReview'
 import { alignmentPreview, alignmentThumbnail, approveAlignment, loadAlignmentDetail, loadAlignmentOutline, loadAlignmentQueue, rejectAlignment, retryAlignment, undoAlignmentApproval, savePlanFloors, alignmentPagePreview, type AlignmentItem, type AlignmentListItem } from './planAlignmentApi'
 
@@ -337,3 +338,22 @@ it.each([
   await waitFor(() => expect(retryAlignment).toHaveBeenCalledWith(failed))
 })
 
+describe('a refused save', () => {
+  const floorItem: AlignmentItem = { ...detail, module: 'modul6', status: 'unsupported', pairs: [], floors: [{ page: 0, index: 0, name: null }] }
+  const saveRefusedWith = async (refusal: ApiError) => {
+    vi.mocked(loadAlignmentDetail).mockResolvedValue(floorItem)
+    vi.mocked(savePlanFloors).mockRejectedValue(refusal)
+    render(<PlanAlignmentEditor item={floorItem} onClose={vi.fn()} onChange={vi.fn()} onConflict={vi.fn(async () => {})} />)
+    fireEvent.change(await screen.findByRole('textbox', { name: 'Standardname: EG' }), { target: { value: 'Halle' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Speichern' }))
+    return (await screen.findByRole('alert')).textContent
+  }
+  it('shows the server\'s own reason for a 409', async () => {
+    expect(await saveRefusedWith(new ApiError(409, 'Freigabe zuerst zurücknehmen, dann die Ausrichtungsseite wechseln')))
+      .toBe('Freigabe zuerst zurücknehmen, dann die Ausrichtungsseite wechseln')
+  })
+  it('falls back to the generic conflict for a 409 that carries no message', async () => {
+    // what lib/api builds for a 409 with no `detail` of its own
+    expect(await saveRefusedWith(new ApiError(409, appConfig.copy.errors.httpRejected))).toBe(appConfig.copy.admin.alignment.conflict)
+  })
+})
