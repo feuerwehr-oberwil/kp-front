@@ -573,3 +573,7 @@ button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel
   background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line);
   border-radius: var(--r-bar); box-shadow: var(--e4); padding: var(--bar-pad); }
 .readyPop :global(.list-row-sub) { white-space: normal; display: block; -webkit-line-clamp: unset; }
+/* …and no lines inside it (owner, sign-off 25.11.2026: «drop the border inside the cards»): the
+   cards lose their ring and the hairlines between their rows – the glass is the one frame, the
+   gap between the cards keeps the connection apart from the device's rows */
+.readyPop :global(.list-card), .readyPop :global(.list-card > .list-row + .list-row) { box-shadow: none; }
