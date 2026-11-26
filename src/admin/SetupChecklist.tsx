@@ -42,7 +42,7 @@ interface Row {
  * model in that document is `extra="ignore"`, so an undeclared section is dropped on the next
  * round-trip, exactly as the SharePoint block warns.
  */
-const ACK_PATH = ['setup', 'acknowledged']
+const ACK_PATH = ['setup', 'acknowledged'] as const
 
 /** The rows this station has ticked by hand. Tolerates anything the stored document holds. */
 function acknowledgedKeys(cfg: DeploymentConfig): string[] {

@@ -2,6 +2,8 @@
 // uses (docs/object-visits.md · «Deployment config»), for the admin's live example. The server is
 // the authority; this only has to show the operator what their template will produce.
 
+import { TEXT_MAX_LENGTH } from '../admin/configGuards'
+
 export interface FolderVars {
   objectFolder?: string | null
   objectName: string
@@ -78,6 +80,9 @@ export const DEFAULT_DESTINATION = {
   locationFolder: DEFAULT_LOCATION_FOLDER,
 }
 
+/** A destination's Kennung: lowercase, digits, `_` and `-`, at most the schema's length. */
+const DESTINATION_ID = new RegExp(`^[a-z0-9][a-z0-9_-]{0,${TEXT_MAX_LENGTH['objectVisits.destinations.0.id'] - 1}}$`)
+
 /** Would the server accept this destination (schemas · ObjectVisitDestination)? A destination
  *  that would not is kept on the admin page and NOT written: the config PUT is the whole
  *  document, and one refused row would stop every Station page from saving. */
@@ -87,7 +92,7 @@ export function destinationValid(d: { id?: string; siteUrl?: string | null; root
     if (!v) return allowEmpty
     return v.split('/').every((part) => part.trim() !== '..' && part.trim() !== '.')
   }
-  return /^[a-z0-9][a-z0-9_-]{0,63}$/.test(d.id ?? '')
+  return DESTINATION_ID.test(d.id ?? '')
     && (d.siteUrl ?? '').trim().startsWith('https://')
     && plain(d.root ?? '', true)
     && plain(d.objectFolder ?? '', false)
