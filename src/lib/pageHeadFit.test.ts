@@ -180,6 +180,31 @@ describe('the top bar · the phone street before ↷ (headCrowded)', () => {
     expect(headCrowded(el, 0)).toBe(true)
     expect(headCrowded(el, STREET_BEFORE_STEP)).toBe(false) // 160px shown, above the floor
   })
+  it('measures an arriving weather chip at its settled width, then puts the arrival back (26.11.2026)', () => {
+    // the weather grows in from max-width 0 (tb-chip-in): mid-arrival its content runs 107 px past
+    // the bar; settled, the bar fits. The stub's layout follows the animation's time.
+    const el = bar(146, 146, false)
+    const arrival = (name: string) => ({
+      animationName: name, playState: 'running', currentTime: 40 as number | null,
+      effect: { getComputedTiming: () => ({ endTime: 260 }) },
+    })
+    let anims = [arrival('tb-chip-in')]
+    el.getAnimations = () => anims as unknown as Animation[]
+    const settled = () => anims.every((x) => (x.currentTime ?? 0) >= 259)
+    let room = 983
+    Object.defineProperties(el, {
+      scrollWidth: { get: () => (settled() ? 983 : 977) }, clientWidth: { get: () => (settled() ? room : 870) },
+    })
+    expect(headCrowded(el, 0)).toBe(false)
+    expect(anims[0].currentTime).toBe(40) // the arrival goes on from where it was
+    // a bar that overflows even with the chip grown is crowded, arrival or not
+    room = 930
+    expect(headCrowded(el, 0)).toBe(true)
+    room = 983
+    // another animation (a pulse) is not an arrival: its overflow is real
+    anims = [arrival('pulse')]
+    expect(headCrowded(el, 0)).toBe(true)
+  })
   it('fitHead hands the step to the judge: a cut street stops the climb right after ↷', () => {
     const el = bar(128, 146)
     expect(fitHead(el)).toBe(STREET_BEFORE_STEP)

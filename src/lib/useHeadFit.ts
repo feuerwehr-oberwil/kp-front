@@ -59,9 +59,33 @@ const TITLE_FLOOR = 112
  */
 export const STREET_BEFORE_STEP = HEAD_FIT_STEPS.indexOf('redo') + 1
 
+/**
+ * Run `measure` with every chip that is still arriving shown at its settled width, then put the
+ * animations back where they were. The weather grows in from max-width 0 (10-journal · tb-chip-in),
+ * and while it grows its content runs past its own box: measured mid-arrival, the ladder read that
+ * as the bar's overflow, folded the weather, and every refit that showed it again replayed the
+ * arrival – it never stood in a 1180 px bar with room to spare (Üben recorder, 26.11.2026).
+ * Seeking to 1 ms before the end (not past it) leaves the animation unfinished: no end event, and
+ * the arrival goes on from where it was.
+ */
+function asSettled<T>(bar: HTMLElement, measure: () => T): T {
+  const arriving = (bar.getAnimations?.({ subtree: true }) ?? []).filter((a) =>
+    a.playState === 'running' && 'animationName' in a && a.animationName === 'tb-chip-in')
+  const at = arriving.map((a) => a.currentTime)
+  for (const a of arriving) {
+    const end = a.effect?.getComputedTiming().endTime
+    if (typeof end === 'number') a.currentTime = end - 1
+  }
+  try { return measure() } finally { arriving.forEach((a, i) => { a.currentTime = at[i] }) }
+}
+
 /** Does the bar NOT fit — something painting past its edge, or the Einsatz pill squeezed?
  *  `step` is the ladder step being tried (Infinity = judge by the floors alone). */
 export function headCrowded(bar: HTMLElement, step = Infinity): boolean {
+  return asSettled(bar, () => crowdedNow(bar, step))
+}
+
+function crowdedNow(bar: HTMLElement, step: number): boolean {
   if (bar.scrollWidth > bar.clientWidth + 1) return true
   const btn = bar.querySelector<HTMLElement>('.ip-switch-btn')
   if (!btn) return false
