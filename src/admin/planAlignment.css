@@ -317,15 +317,21 @@ button.adm-floor-index { min-width: var(--tap); min-height: var(--tap); cursor: 
 
 /* Full-screen plan preparation: ONE header row, fixed decisions, independently bounded panes.
    The back action is the row's first item – it used to float over the header on `position:
-   absolute`, which cost the title 165px of padding it could never use. */
-.adm-plan-editor { position: fixed; inset: 0; z-index: var(--z-admin-overlay); background: var(--surface); display: flex; flex-direction: column; overflow: hidden; }
+   absolute`, which cost the title 165px of padding it could never use. Its foot is whichever
+   bar comes last (the point-pair instrument, the opacity row, the reload bar), so the FRAME
+   keeps the home indicator clear – none of them scrolls. */
+.adm-plan-editor { position: fixed; inset: 0; z-index: var(--z-admin-overlay); background: var(--surface); display: flex; flex-direction: column; overflow: hidden;
+  padding-bottom: env(safe-area-inset-bottom); }
 .adm-plan-editor .adm-editor-detail { display: flex; flex: 1; flex-direction: column; min-height: 0; border: 0; border-radius: 0; overflow: hidden; }
 .adm-plan-editor .adm-editor-head { flex: 0 0 auto; display: flex; align-items: center; gap: 14px; min-height: 72px;
   padding: 11px 22px; border-bottom: 1px solid var(--border); }
 .adm-editor-back { flex: 0 0 auto; }
 .adm-editor-titles { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .adm-editor-titles h3 { margin: 0; font: var(--fw-bold) var(--fs-3)/1.25 var(--body); letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.adm-editor-meta { display: flex; gap: 6px; margin: 0; font: var(--fw-medium) 11.5px var(--mono); color: var(--ink-faint); white-space: nowrap; }
+.adm-editor-meta { display: flex; gap: 6px; margin: 0; font: var(--fw-medium) 11.5px var(--mono); color: var(--ink-faint); white-space: nowrap; overflow: hidden; }
+/* a narrow row cuts the module title, never «Stand N» */
+.adm-editor-meta span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.adm-editor-meta span + span { flex: none; }
 .adm-editor-meta span + span::before { content: '· '; }
 .adm-editor-header-actions { display: flex; align-items: center; gap: 10px; margin-left: auto; flex: none; }
 .adm-editor-header-actions .adm-hint { margin: 0; }
@@ -352,10 +358,23 @@ button.adm-floor-index { min-width: var(--tap); min-height: var(--tap); cursor: 
   .adm-editor-header-actions { gap: 6px; }
   .adm-editor-header-actions .adm-badge { display: none; }
 }
+/* A phone: the ONE row wraps instead of running past the right edge. «Zum Objekt» and the titles
+   keep the first line, what the sheet IS and what may be done to it start the second and wrap on
+   – every action stays a visible button. The point-pair instrument under the panes
+   (components/GeorefMode · GeorefInstrument, its actions block last) wraps the same way: the
+   sentence takes its line, the ⓘ and the actions follow as items of the pill's own rows. */
 @media (max-width: 700px) {
-  .adm-plan-editor .adm-editor-head { padding: 10px 12px; gap: 10px; }
+  .adm-plan-editor .adm-editor-head { flex-wrap: wrap; padding: 10px 12px; gap: 10px; }
+  .adm-editor-titles { flex: 1 1 0; }
+  .adm-editor-header-actions { flex: 1 1 100%; flex-wrap: wrap; margin-left: 0; }
   .adm-editor-header-actions .adm-hint { display: none; }
   .adm-editor-tabs { padding: 8px 12px; }
+  .adm-editor-pane .adm-pairing > [role=status] { flex-wrap: wrap; }
+  .adm-editor-pane .adm-pairing > [role=status] > :last-child { display: contents; }
+  /* the sentence beside its 9px lamp dot (and the pill's 12px gap), never on a line below it */
+  .adm-editor-pane .adm-pairing > [role=status] > :nth-child(2) { flex-basis: calc(100% - 21px); }
+  /* the shared `.btn` shrinks (flex 1, min-width 0) – beside a wrapped sentence it lost its word */
+  .adm-editor-reload .btn { flex: none; }
 }
 
 .adm-editor-backdrop { position: fixed; inset: 0; z-index: var(--z-admin-overlay-scrim); background: var(--surface); }
