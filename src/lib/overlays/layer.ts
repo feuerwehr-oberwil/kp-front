@@ -72,6 +72,15 @@ function onPop(e: PopStateEvent): void {
 // after objectVisits/route's own listener (imported above), which turns a FORWARD step around first
 if (typeof window !== 'undefined') window.addEventListener('popstate', onPop)
 
+/**
+ * Is a layer open right now – a sheet, the composer, a dialog, a confirm, a menu, a popover, a
+ * hand-rolled container? Every one of them joins the back stack while it is open. For a message
+ * that must not show over somebody's work (lib/useArmOnAnyTap · «Alarmton an»).
+ */
+export function layerOpen(): boolean {
+  return backStack.length > 0
+}
+
 /** Test seam – the stack is module state. */
 export function resetBackLayers(): void {
   backStack.length = 0

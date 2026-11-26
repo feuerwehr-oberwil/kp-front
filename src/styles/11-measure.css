@@ -59,7 +59,9 @@
    selecting an arrowed Linie hid the one thing that says which end it points at. Dropping the
    white fill gives the head its tip and flanks back; the grip is otherwise untouched — 24px,
    the same 3px --blue ring, the same 44px ::after hit pad, and it still steps aside during a
-   transform. Which node this is comes from lib/lineStyle · endMarkIndices, shared with the Plan. */
+   transform. Which node this is comes from lib/lineStyle · endMarkIndices, shared with the Plan.
+   A line's two END pads are hollow too, so the hydrant or the vehicle an end sits on shows
+   through (owner pick UX journeys, 25.11.2026 · B2·49; MapView · editEndRing). */
 .draw-handle--ring { background: transparent; }
 /* …and the mark itself paints ABOVE that ring while the line is edited (round 14.11.2026 #8,
    owner: «the -> isn't shown above the nodes»): MapView · EditArrowMark, a DOM copy of the canvas
@@ -235,6 +237,25 @@
 .draw-editor .de-conn-name:disabled { opacity: var(--disabled); cursor: default; }
 .draw-editor .de-conn-note { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 0 0 8px; font-size: var(--fs-1); color: var(--ink-dim); }
 .draw-editor .de-conn-note.warn { color: var(--red-strong); font-weight: var(--fw-bold); }
+/* «Enden» – the line editor's first row (DrawEditor · EndsRow, owner pick UX journeys, 25.11.2026
+   · B2·49): what the two ends hold, in words, the whole row a tap to «Verbindungen», and «Lösen»
+   at its control edge. One line; a long name ellipsizes, the hydrant's metres never do. */
+.draw-editor .de-ends { display: flex; align-items: center; gap: var(--sp-2); min-height: 52px; }
+.draw-editor .de-ends-go { flex: 1; min-width: 0; min-height: var(--tap); display: flex; align-items: center; gap: var(--sp-1);
+  padding: 0; border: 0; background: none; color: var(--ink); font-size: var(--fs-2); font-weight: var(--fw-bold);
+  text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.draw-editor .de-ends-go:disabled { cursor: default; opacity: 1; }
+.draw-editor .de-ends-k { flex: none; margin-right: var(--sp-1); color: var(--ink-dim); font-weight: var(--fw-medium); }
+.draw-editor .de-ends-to { flex: none; color: var(--ink-faint); font-weight: var(--fw-medium); }
+.draw-editor .de-end { display: inline-flex; align-items: center; gap: var(--sp-1); min-width: 0; }
+.draw-editor .de-end > span:not(.de-end-m) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.draw-editor .de-end-m { flex: none; color: var(--ink-faint); font-weight: var(--fw-medium); }
+.draw-editor .de-end .i { flex: none; width: 16px; height: 16px; }
+.draw-editor .de-end-ok { color: var(--green-strong); }
+.draw-editor .de-end--none { color: var(--ink-faint); font-weight: var(--fw-medium); }
+.draw-editor .de-ends-detach { flex: none; padding-inline: var(--sp-3); }
+/* the hydrant end keeps its words; a long docked name is the one that ellipsizes */
+.draw-editor .de-end:has(.de-end-m) { flex: none; }
 /* (the note's «Ziel anzeigen» is THE button, <Button> — a framed button at the note's end since
    28.09.2026, owner pick A; it was an underlined blue word, 12px, a hyperlink in a command app) */
 /* (the detach, «Verbindung lösen», is a body act at the control edge – 08-toasts · `.de-act`; it

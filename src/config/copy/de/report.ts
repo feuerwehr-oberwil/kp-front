@@ -412,10 +412,13 @@ export const reportCopy = {
     // ⚠️ EINE Zeile (29.09.2026): der Reiter sagt schon «lesen»; die fünf Zeilen darunter sagten
     // es nochmals und schoben «Link erstellen» auf dem Handy unter den Falz – im Teilen-Blatt und
     // wortgleich in «Teilen». Die lange Erklärung (beide Zielgruppen, beide Zeiträume) steht
-    // jetzt in der Hilfe, «Rapport & Abschluss». Vor und nach dem Erstellen derselbe Satz: «bis du
-    // ihn aufhebst» sagt der Knopf «Link aufheben» direkt darunter.
+    // jetzt in der Hilfe, «Rapport & Abschluss».
+    // VOR dem Erstellen sagt der Satz selbst «bis du den Link aufhebst» – den Knopf «Link aufheben»
+    // gibt es da noch nicht, und «gilt auch nach dem Abschluss» allein las sich als «für immer»
+    // (Owner-Pick UX-Journeys, 25.11.2026 · B2·55; ersetzt «vor und nach dem Erstellen derselbe
+    // Satz», 29.09.2026). NACH dem Erstellen sagt es der Knopf direkt darunter.
     shareHead: 'Teilen',
-    shareLede: 'Kein Login, gilt auch nach dem Abschluss.',
+    shareLede: 'Kein Login. Gilt auch nach dem Abschluss – bis du den Link aufhebst.',
     shareLiveLede: 'Kein Login, gilt auch nach dem Abschluss.',
     shareCreate: 'Link erstellen',
     shareBusy: 'Link wird erstellt …',

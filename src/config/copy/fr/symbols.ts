@@ -4,7 +4,7 @@
 import type { Copy, Localizable } from '../index'
 
 export const symbolsCopy: Localizable<Pick<Copy, 'symbolNames' | 'symbolAliases' | 'symbolCategories'>> = {
-  // Libellés d'AFFICHAGE des symboles tactiques, indexés par le nom FireGIS brut. L'identité
+  // Libellés d'AFFICHAGE des signes conventionnels, indexés par le nom FireGIS brut. L'identité
   // stockée reste le nom brut ; seul le libellé est traduit.
   symbolNames: {
     'VKF Feuer': 'Feu',

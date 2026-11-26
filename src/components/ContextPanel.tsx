@@ -275,7 +275,9 @@ export interface ContextPanelProps {
    *  marker that is bound to a Trupp — it writes the TRUPP's colour, not just this marker. */
 }
 
-// signed storey label for the badge / stepper readout: +2, -1, 0 (EG)
+// signed storey label for the badge / stepper readout: +2, -1, 0 (EG). The Von/Bis steppers keep
+// the signed number, the fire service's own word for a storey (owner, 25.11.2026: «Use ‹+1› /
+// ‹-1›, which is the normal fire-service term» – the «1. OG» read-out of UX pick B3·43 was undone).
 const floorStr = (f: number) => (f > 0 ? `+${f}` : `${f}`)
 const FLOOR_MIN = -9
 const FLOOR_MAX = 40

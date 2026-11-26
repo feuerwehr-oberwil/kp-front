@@ -6,8 +6,8 @@
  * carries its own sections array, so a device-specific block goes into all four
  * (`helpDevice.test` checks the phone text of every locale for rail words). **A surface's
  * explanation is one line; the long text lives in Hilfe**: the «Einsatz · lesen» share lede is
- * «Kein Login · gilt auch nach dem Abschluss.» in the share sheet and in Rapport › Weitergeben
- * alike; audiences and lifetimes are in Hilfe › Rapport & Abschluss.
+ * «Kein Login. Gilt auch nach dem Abschluss – bis du den Link aufhebst.» in the share sheet and in
+ * Rapport › Weitergeben alike; audiences and lifetimes are in Hilfe › Rapport & Abschluss.
  */
 
 import type { HelpOnly } from '../config/copy/de'

@@ -31,7 +31,7 @@ const mount = (drawing: Drawing, over: Partial<MapDetailPanelsProps> = {}) => {
   render(<MapDetailPanels {...withInert<MapDetailPanelsProps>({
     detailSlotFree: true, tacticalLocked: false, readOnly: false, tool: 'select', selected: null, noteEntity: null,
     selectedDrawing: drawing, selectedDrawingId: drawing.id, drawings: [drawing], entities: [], effTrupps: [],
-    pickablePersonnel: [], objects: [], setDrawingWallRole, ...over,
+    pickablePersonnel: [], objects: [], layers: [], setDrawingWallRole, ...over,
   })} />)
   const art = () => within(screen.getAllByRole('group', { name: D.kind })[0])
   return { setDrawingWallRole, art }
@@ -105,7 +105,7 @@ describe('«Zurück auf GPS» on a live vehicle', () => {
     render(<MapDetailPanels {...withInert<MapDetailPanelsProps>({
       detailSlotFree: true, tacticalLocked: false, readOnly: false, tool: 'select', selected: tlf, noteEntity: null,
       selectedDrawing: null, selectedDrawingId: null, drawings: [], entities: [tlf], effTrupps: [], rosterNames: [],
-      pickablePersonnel: [], objects: [], resetVehicleGps, canEditIncident: true, timeline: [],
+      pickablePersonnel: [], objects: [], layers: [], resetVehicleGps, canEditIncident: true, timeline: [],
       sym: { byName: {}, symbols: [] } as unknown as MapDetailPanelsProps['sym'], doc: { entities: [tlf], drawings: [] },
       rosterFieldHints: () => undefined, personStatus: () => undefined, rosterRank: {}, isVisible: () => true, ...over,
     })} />)

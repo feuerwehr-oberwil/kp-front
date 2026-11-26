@@ -780,7 +780,7 @@ describe('KarteApp', () => {
     expect(within(nav).queryByRole('button', { name: /Pläne/ })).toBeNull()
     expect(within(nav).getAllByRole('button').map((b) => b.textContent)).toEqual(['Karte', 'Checkliste', 'Messen', 'Gefahrgut', 'Ebenen'])
     fireEvent.click(await screen.findByRole('button', { name: /Schloss Musterdorf/ }))
-    fireEvent.click(await screen.findByRole('button', { name: 'Modul 1' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Modul 1 · Übersicht' }))
     expect(await screen.findByTestId('pdf')).toBeTruthy()
     expect(screen.queryByRole('heading', { name: 'Schloss Musterdorf' })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: /Zurück/ }))
@@ -961,7 +961,7 @@ describe('KarteApp', () => {
     fireEvent.click(await screen.findByRole('button', { name: /Schloss Musterdorf/ }))
     const panel = await screen.findByRole('region', { name: 'Karte & Objekte' })
     expect(easeTo).not.toHaveBeenCalled()
-    fireEvent.click(within(panel).getByRole('button', { name: 'Modul 1' }))
+    fireEvent.click(within(panel).getByRole('button', { name: 'Modul 1 · Übersicht' }))
     expect(await screen.findByTestId('pdf')).toBeTruthy()
     fireEvent.click(within(screen.getByRole('navigation', { name: /Schloss Musterdorf/ })).getByRole('button', { name: 'Karte' }))
     await waitFor(() => expect(easeTo).toHaveBeenCalledTimes(1))
@@ -991,7 +991,7 @@ describe('KarteApp', () => {
     fireEvent.click(await screen.findByRole('button', { name: /Schloss Musterdorf/ }))
     const fetchBefore = vi.mocked(fetch).mock.calls.length
     // the panel's row (the tablet's rail names the same document)
-    fireEvent.click(within(await screen.findByRole('region', { name: 'Karte & Objekte' })).getByRole('button', { name: 'Modul 1' }))
+    fireEvent.click(within(await screen.findByRole('region', { name: 'Karte & Objekte' })).getByRole('button', { name: 'Modul 1 · Übersicht' }))
     expect(await screen.findByTestId('pdf')).toBeTruthy()
     const p = rec.board[rec.board.length - 1] as Record<string, unknown> & { plans: { id: string; imageUrl: string }[] }
     expect(p.readOnly).toBe(true)

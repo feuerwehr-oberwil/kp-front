@@ -15,7 +15,7 @@ export const commonCopy: Localizable<Pick<Copy, Keys>> = {
   baseMap: 'Carte de base',
   floor: { eg: 'RDC', og: '+{n}', ug: '-{n}', ogShort: 'Haut', ugShort: 'Bas' },
   hoseHint: '~{n} tuyaux',
-  symbolSearchPlaceholder: 'Rechercher un symbole tactique …',
+  symbolSearchPlaceholder: 'Rechercher un signe conventionnel …',
   closeDialog: 'Fermer',
   edit: 'Modifier',
   primarySymbol: { label: 'Symbole' },

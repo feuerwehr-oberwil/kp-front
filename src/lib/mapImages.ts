@@ -32,11 +32,32 @@ export interface ImageDataLike { width: number; height: number; data: Uint8Array
 
 export const ARROW_IDS = ['draw-arrow', 'draw-arrow-stop'] as const
 
-/** The point icons are rasterised at this size, pixelRatio 2 (MapView's layout scales them). */
+/** The point icons are rasterised at this size, pixelRatio 2 (MapLayers' layout scales them). */
 export const POINT_ICON_PX = 64
 
 /** One registered variant of a Leitungskataster point symbol. */
 export interface PointIconVariant { id: string; svg: string }
+
+/**
+ * The point symbol ON A WHITE PLATE with a shadow, so it lifts off streets and labels (owner pick
+ * UX journeys, 25.11.2026 · B2·52: «hydrants are tiny blue dots» – four walks did not read them as
+ * hydrants). The station's own symbol in the layer's colour fills 3/4 of a white disc; the
+ * shadow is drawn into the picture, so MapLibre needs no halo. Day and night alike – the pack's
+ * art keeps its white ground at night, like every placed symbol. MapLayers sizes the picture so
+ * the plate reads ≈ 24 px. `tinted` is the symbol's own <svg>, already in its colour.
+ */
+function onPlate(tinted: string): string {
+  const S = POINT_ICON_PX
+  const r = S * 0.41           // the plate: ~82 % of the box, the rest is the shadow's room
+  const inner = S * 0.62       // the symbol's own box inside it (its ring fills ~2/3 of that)
+  const at = (S - inner) / 2
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${S}" height="${S}" viewBox="0 0 ${S} ${S}">`
+    + '<defs><filter id="p" x="-30%" y="-30%" width="160%" height="160%">'
+    + '<feDropShadow dx="0" dy="2" stdDeviation="1.6" flood-color="#000" flood-opacity=".45"/></filter></defs>'
+    + `<circle cx="${S / 2}" cy="${S / 2}" r="${r}" fill="#fff" filter="url(#p)"/>`
+    + tinted.replace('<svg ', `<svg x="${at}" y="${at}" width="${inner}" height="${inner}" `)
+    + '</svg>'
+}
 
 /** Every point-symbol image the given layers will ask for, day and night — pure, so the list the
  *  pre-registration walks and the list the missing-image resolver answers from can never disagree. A
@@ -51,7 +72,7 @@ export function pointIconVariants(
     if (l.vectorKind !== 'point' || !l.symbol) continue
     const raw = byName[l.symbol]
     if (!raw) continue
-    const tint = (color: string) => raw.replace(/#000000/gi, color).replace('<svg ', `<svg width="${POINT_ICON_PX}" height="${POINT_ICON_PX}" `)
+    const tint = (color: string) => onPlate(raw.replace(/#000000/gi, color))
     out.push({ id: `icon-${l.id}`, svg: tint(l.color ?? '#000') })
     if (l.nightColor) out.push({ id: `icon-${l.id}-night`, svg: tint(l.nightColor) })
   }

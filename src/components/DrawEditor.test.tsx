@@ -23,10 +23,11 @@ describe('shared magnetic connection controls', () => {
       drawing={{ kind: 'line', startAttachment: { target: { kind: 'object', id: 'pump' }, routing: 'direct' }, endAttachment: { target: { kind: 'line', id: 'l2', endpoint: 'end' }, routing: 'trace', port: 2 } }}
       attachmentLabels={{ start: 'TLF 1', end: 'Leitung 2' }}
       onRouting={onRouting} onDetach={onDetach} onFocusAttachment={onFocusAttachment} />)
-    expect(screen.getByText('TLF 1')).toBeTruthy(); expect(screen.getByText('Leitung 2')).toBeTruthy()
+    // named twice: in the «Enden» row at the head (B2·49) and under «Verbindungen»
+    expect(screen.getAllByText('TLF 1')).toHaveLength(2); expect(screen.getAllByText('Leitung 2')).toHaveLength(2)
     fireEvent.click(screen.getAllByRole('button', { name: 'Spur' })[0])
     fireEvent.click(screen.getAllByRole('button', { name: 'Verbindung lösen' })[1])
-    fireEvent.click(screen.getByRole('button', { name: /TLF 1/ })) // tap the target chip to fly there
+    fireEvent.click(screen.getByRole('button', { name: 'TLF 1' })) // tap the target chip to fly there
     expect(onRouting).toHaveBeenCalledWith('start', 'trace')
     expect(onDetach).toHaveBeenCalledWith('end')
     expect(onFocusAttachment).toHaveBeenCalledWith('start')
@@ -88,6 +89,35 @@ describe('shared magnetic connection controls', () => {
     expect(screen.queryByText('Hier lösen')).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Am Einsatzort lösen' }))
     expect(onDetach).toHaveBeenCalledWith('end')
+  })
+})
+
+// B2·49 (owner pick UX journeys, 25.11.2026): the line's ends in words at the head of the panel
+describe('the «Enden» row', () => {
+  it('reads «Hydrant 2 m → TLF», releases the one docked end, and a tap goes to «Verbindungen»', () => {
+    const onDetach = vi.fn()
+    const scroll = vi.fn()
+    Element.prototype.scrollIntoView = scroll
+    render(<DrawEditor {...base}
+      drawing={{ kind: 'line', endAttachment: { target: { kind: 'object', id: 'tlf' }, routing: 'direct' } }}
+      attachmentLabels={{ end: 'TLF' }} endHydrantM={{ start: 2.2 }} onDetach={onDetach} />)
+    const row = screen.getByTitle('Zu den Verbindungen')
+    expect(row.textContent).toBe('EndenHydrant2 m→TLF')
+    fireEvent.click(row)
+    expect(scroll).toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Verbindung zu TLF lösen' }))
+    expect(onDetach).toHaveBeenCalledWith('end')
+  })
+
+  it('stays away when neither end holds anything, and offers no «Lösen» read-only', () => {
+    const { container } = render(<DrawEditor {...base} drawing={{ kind: 'line' }} />)
+    expect(container.querySelector('.de-ends')).toBeNull()
+    cleanup()
+    render(<DrawEditor {...base} readOnly
+      drawing={{ kind: 'line', endAttachment: { target: { kind: 'object', id: 'tlf' }, routing: 'direct' } }}
+      attachmentLabels={{ end: 'TLF' }} onDetach={noop} />)
+    expect(screen.getByText('nichts')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /Verbindung zu TLF/ })).toBeNull()
   })
 })
 

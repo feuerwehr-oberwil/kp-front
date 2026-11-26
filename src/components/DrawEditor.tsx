@@ -213,9 +213,62 @@ interface Props {
   onRevertGps?: (endpoint: LineEndpoint) => void
   /** «Hier lösen (Spur behalten)»: let go where the end stands now, the drive kept as the hose */
   onDetachHere?: (endpoint: LineEndpoint) => void
+  /** metres from a FREE end to the nearest hydrant of the Hydranten Ebene, when one is that close
+   *  (lib/karte/places · hydrantAt): the «Enden» row reads «✓ Hydrant 2 m». Lage only. */
+  endHydrantM?: Partial<Record<LineEndpoint, number>>
 }
 
 const FILL_OPACITIES = appConfig.drawing.fillOpacities
+
+/** «Enden ✓ Hydrant 2 m → 🔗 TLF [Lösen]» – what the line's two ends hold, in words, at the head
+ *  of the line editor (owner pick UX journeys, 25.11.2026 · B2·49: on a fresh short Zubringleitung
+ *  the grips hid both ends, and nothing said whether the TLF end had docked). An end holds a
+ *  docked object or line (🔗 its name), sits at a layer hydrant (✓ «Hydrant 2 m» – drawn there, not
+ *  docked: line ends do not dock onto the Hydranten Ebene), or nothing. A tap on the row scrolls
+ *  the panel to «Verbindungen» (owner note, 25.11.). «Lösen» stands in the row when exactly ONE
+ *  end is docked and not on GPS – on a short line it replaces the map's ✕ chip (MapView ·
+ *  editShort); two docked ends are released under «Verbindungen», one button each. Shown only
+ *  when an end holds something. */
+function EndsRow({ drawing, labels, hydrantM, onDetach, gpsEnds, onGo }: {
+  drawing: DrawStyle
+  labels?: Partial<Record<LineEndpoint, string>>
+  hydrantM?: Partial<Record<LineEndpoint, number>>
+  onDetach?: (endpoint: LineEndpoint) => void
+  gpsEnds?: Props['gpsInfo']
+  onGo: () => void
+}) {
+  const C = appConfig.copy.drawingEditor
+  const attached = { start: drawing.startAttachment, end: drawing.endAttachment }
+  const ends = (['start', 'end'] as const).map((ep) => {
+    const a = attached[ep]
+    if (a) return { ep, kind: 'docked' as const, name: labels?.[ep] ?? a.target.id }
+    const m = hydrantM?.[ep]
+    return m != null ? { ep, kind: 'hydrant' as const, m } : { ep, kind: 'none' as const }
+  })
+  if (ends.every((e) => e.kind === 'none')) return null
+  const docked = ends.filter((e) => e.kind === 'docked')
+  const releasable = docked.length === 1 && !gpsEnds?.[docked[0].ep] ? docked[0] : null
+  const hasConnections = docked.length > 0
+  return (
+    <div className="de-group de-ends">
+      <button type="button" className="de-ends-go" onClick={hasConnections ? onGo : undefined} disabled={!hasConnections}
+        title={hasConnections ? C.endsGo : undefined}>
+        <span className="de-ends-k">{C.ends}</span>
+        {ends.map((e, i) => (
+          <Fragment key={e.ep}>
+            {i > 0 && <span className="de-ends-to" aria-hidden>→</span>}
+            {e.kind === 'docked' ? <span className="de-end"><Icon id="link" className="de-end-ok" /><span>{e.name}</span></span>
+              : e.kind === 'hydrant' ? <span className="de-end"><Icon id="check" className="de-end-ok" /><span>{C.endHydrant}</span><span className="de-end-m">{fmtDistance(e.m)}</span></span>
+              : <span className="de-end de-end--none">{C.endNone}</span>}
+          </Fragment>
+        ))}
+      </button>
+      {releasable && releasable.kind === 'docked' && onDetach && (
+        <Button className="de-ends-detach" onClick={() => onDetach(releasable.ep)} aria-label={fillTemplate(C.endsDetachLabel, { name: releasable.name })}>{C.endsDetach}</Button>
+      )}
+    </div>
+  )
+}
 
 /** The Messung's «Schläuche» value: «34 + 3 Reserve × 20 m», or «1 × 20 m» when the reserve
  *  rounds into the run's own last hose (lib/geo · hoseSplit). */
@@ -225,7 +278,7 @@ function hosesText(lengthM: number, lines: number): string {
   return reserve ? fillTemplate(appConfig.copy.drawingEditor.hoseSplit, { n: need, r: reserve, m }) : `${need} × ${m} m`
 }
 
-export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM, perimeterM, supportsDistance = false, lengthM, profileCoords, onColor, onDashed, onLabel, onLabelCommit, onMarker, onArrow, onEnding, onReverse, onContent, onHose, waterRelay, onLineNo, onFloorTag, onAbschnittLeiter, onAbschnittAuftrag, onPerson, people = [], abschnittCount = 0, onTrupp, trupps = [], truppOnLine, truppOnLineOut = false, onShowTrupp, onWand, wandBlocked, usedLineNos = [], onShowDistance, onRadius, onHatch, onToggleLock, locked, onCenter, onDelete, onClose, attachmentLabels, onRouting, onDetach, onFocusAttachment, attachmentHidden, onRevealAttachment, gpsInfo, onRevertGps, onDetachHere }: Props) {
+export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM, perimeterM, supportsDistance = false, lengthM, profileCoords, onColor, onDashed, onLabel, onLabelCommit, onMarker, onArrow, onEnding, onReverse, onContent, onHose, waterRelay, onLineNo, onFloorTag, onAbschnittLeiter, onAbschnittAuftrag, onPerson, people = [], abschnittCount = 0, onTrupp, trupps = [], truppOnLine, truppOnLineOut = false, onShowTrupp, onWand, wandBlocked, usedLineNos = [], onShowDistance, onRadius, onHatch, onToggleLock, locked, onCenter, onDelete, onClose, attachmentLabels, onRouting, onDetach, onFocusAttachment, attachmentHidden, onRevealAttachment, gpsInfo, onRevertGps, onDetachHere, endHydrantM }: Props) {
   // The Auftrag input is uncontrolled (see its comment), so the unmount commit reads the DOM
   // node — kept, never nulled, because React detaches element refs before passive cleanups run.
   // Same idempotence guard as ContextPanel's Notizen: blur first, unmount second, one write.
@@ -290,6 +343,8 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
   // phone sheet the fold opened entirely below the edge and the tap seemed to do nothing
   // (20.09.2026). Again when the Höhenprofil arrives – it is most of the section's height.
   const measureRef = useRef<HTMLDivElement>(null)
+  // the «Enden» row's tap lands here (B2·49)
+  const connectionsRef = useRef<HTMLDivElement>(null)
   const profileReady = !!profile
   useEffect(() => {
     if (measureOpen) measureRef.current?.scrollIntoView?.({ block: 'start', behavior: prefersReducedMotion() ? 'auto' : 'smooth' })
@@ -378,6 +433,9 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
             </div>
           )
         })}
+        {isLine && <EndsRow drawing={drawing} labels={attachmentLabels} hydrantM={endHydrantM}
+          onDetach={readOnly ? undefined : onDetach} gpsEnds={gpsInfo}
+          onGo={() => connectionsRef.current?.scrollIntoView?.({ block: 'start', behavior: prefersReducedMotion() ? 'auto' : 'smooth' })} />}
         {/* shape group — the circle's radius. ⚠️ Füllung is NOT here any more (01.09.): it sat in
             its own group directly above Farbe, so a hairline was drawn between the two rows that
             answer the same question — what colour is this thing and how solid. They belong to one
@@ -875,7 +933,7 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
           </div>
         )}
         {isLine && (drawing.startAttachment || drawing.endAttachment) && (
-          <div className="de-group de-connections">
+          <div className="de-group de-connections" ref={connectionsRef}>
             <div className="de-conn-title">{appConfig.copy.drawingEditor.connections}</div>
             {(['start', 'end'] as const).map((endpoint) => {
               const a = endpoint === 'start' ? drawing.startAttachment : drawing.endAttachment
