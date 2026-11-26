@@ -2198,12 +2198,14 @@ function ReportLinksEditor() {
                 and the chips that insert them belong directly under it — inside the cell. */}
             <SettingRow label={C.linkUrl} tip={C.linkUrlTip} span>
               <div className="adm-set-col">
+                {/* ⚠️ No `maxLength` here: a browser CUTS a paste to it, and a prefill URL cut short
+                    is still a URL – it would save with its last parameters gone. A change that
+                    would cross the bound is refused whole, like a chip's (insertToken). */}
                 <textarea
                   className="adm-input adm-input-mono adm-formlink-url" rows={3} value={row.url ?? ''}
-                  maxLength={TEXT_MAX_LENGTH['report.links.0.url']}
                   placeholder={C.linkUrlPlaceholder} data-id={row.id}
                   onFocus={(e) => { urlRef.current = e.currentTarget }}
-                  onChange={(e) => patch(i, { url: e.target.value })}
+                  onChange={(e) => { if (fitsText('report.links.0.url', e.target.value)) patch(i, { url: e.target.value }) }}
                 />
                 <span className="adm-formlink-tokens" role="group" aria-label={C.linkTokens}>
                   {REPORT_LINK_TOKENS.map((t) => (

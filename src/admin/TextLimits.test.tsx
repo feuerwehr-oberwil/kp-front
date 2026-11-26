@@ -55,7 +55,6 @@ describe('report.links — a Formular on the Rapport', () => {
   it('holds a title past 120 characters in the form', async () => {
     await mount(<ReportSection />, R.linkAdd)
     expect(box(R.linkTitlePlaceholder).maxLength).toBe(TEXT_MAX_LENGTH['report.links.0.title'])
-    expect((screen.getByPlaceholderText(R.linkUrlPlaceholder) as HTMLTextAreaElement).maxLength).toBe(TEXT_MAX_LENGTH['report.links.0.url'])
     expect(box(R.linkNotePlaceholder).maxLength).toBe(TEXT_MAX_LENGTH['report.links.0.note'])
     await type(screen.getByPlaceholderText(R.linkUrlPlaceholder), 'https://formulare.example/schaden')
     await type(box(R.linkTitlePlaceholder), 'T'.repeat(121))
@@ -64,6 +63,24 @@ describe('report.links — a Formular on the Rapport', () => {
     await type(box(R.linkTitlePlaceholder), 'Schadenmeldung')
     await settle()
     expect(sent()?.report?.links?.map((l) => l.title)).toEqual(['Schadenmeldung'])
+  })
+})
+
+describe('report.links — a paste past the URL bound', () => {
+  // a browser cuts a paste to `maxLength`; a prefill URL cut short still opens, without its last
+  // parameters – so the box has no maxLength and the change is refused whole
+  it('keeps the saved URL instead of a cut one', async () => {
+    const R = appConfig.copy.admin.report
+    const url = 'https://formulare.example/?nr={einsatzNr}'
+    const link = { id: 'lnk1', title: 'Schadenmeldung', url }
+    apiGet.mockResolvedValue({ ...structuredClone(STATION), report: { ...STATION.report, links: [link] } })
+    await act(async () => { render(<ConfigProvider><ReportSection /></ConfigProvider>) })
+    const area = await waitFor(() => screen.getByPlaceholderText(R.linkUrlPlaceholder) as HTMLTextAreaElement)
+    expect(area.maxLength).toBe(-1)
+    await type(area, `${url}&q=${'x'.repeat(TEXT_MAX_LENGTH['report.links.0.url'])}`)
+    await settle()
+    expect(area.value).toBe(url)
+    expect(apiPut).not.toHaveBeenCalled()
   })
 })
 
