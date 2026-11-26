@@ -76,6 +76,11 @@ interface Args {
    *  field SHOWS while the Rapport has none of its own. Counted as given, and written with the
    *  close; opening the Rapport no longer stores it (owner, UX journeys sign-off, 25.11.2026). */
   shownEinsatzleiter?: string
+  /** …and when the close stores that name, the same close puts the person on the Anwesenheit:
+   *  a roster person with no row yet, for the whole Einsatz (IncidentWorkspace · lib/roleAssignment
+   *  · einsatzleiterToFile; owner, sign-off of PR #750, 26.11.2026). Absent (a caller that may not
+   *  write the record) ⇒ nobody is filed. Never at open. */
+  fileEinsatzleiterAtClose?: (name: string) => void
 }
 
 /**
@@ -91,7 +96,7 @@ interface Args {
 export function useAbschluss({
   reportMeta, attendance, mittel, openConflictCount, trupps, openPendenzen, showVerlaufRow, reportBeforeNachtrag, incidentMeta, replayActive, media, onCompleteRapport,
   setMode, setPanel, setOfflineReadyOpen, requestReportStep, standDownTrupps, noteInsideAtClose, noteNotfallAtClose, flushOutboxes, markClosing,
-  patchReportMeta, shownEinsatzleiter,
+  patchReportMeta, shownEinsatzleiter, fileEinsatzleiterAtClose,
 }: Args) {
   // the Rapport's own «closed» (RapportSurface · `!running`), so its chip and every door count alike
   const closedNow = !isIncidentRunning(incidentMeta)
@@ -314,13 +319,15 @@ export function useAbschluss({
     if (!ok) return false
     // the pre-filled Einsatzende and the shown Einsatzleiter become the record's with the close —
     // one write, one task for React to commit it, so the handover's flush carries it
-    // (useIncidentLifecycle · completeRapport flushes the sync)
+    // (useIncidentLifecycle · completeRapport flushes the sync). The Einsatzleiter also goes onto
+    // the Anwesenheit in that task, as a pick in the field would have put them there.
     const fill: Partial<ReportMeta> = {
       ...(pendingEnde ? { endedAt: pendingEnde } : {}),
       ...(patchReportMeta && pendingEl ? { einsatzleiter: pendingEl } : {}),
     }
     if (patchReportMeta && Object.keys(fill).length) {
       patchReportMeta(fill)
+      if (fill.einsatzleiter) fileEinsatzleiterAtClose?.(fill.einsatzleiter)
       await new Promise((r) => setTimeout(r, 0))
     }
     // From the confirm to the close's answer, every row this device writes is the Abschluss's
@@ -363,7 +370,7 @@ export function useAbschluss({
       reportMadeAt: reportBeforeNachtrag ? undefined : reportMeta.reportMadeAt,
     }).finally(() => markClosing?.(false))
   // requestReportStep is a module-level loader of the caller's — stable, so naming it changes nothing
-  }, [abschlussMissing, incidentMeta, reportMeta.endedAt, reportMeta.reportMadeAt, reportBeforeNachtrag, truppsStillOut, showVerlaufRow, media, onCompleteRapport, setMode, setPanel, setOfflineReadyOpen, requestReportStep, standDownTrupps, noteInsideAtClose, noteNotfallAtClose, flushOutboxes, markClosing, patchReportMeta, pendingEl])
+  }, [abschlussMissing, incidentMeta, reportMeta.endedAt, reportMeta.reportMadeAt, reportBeforeNachtrag, truppsStillOut, showVerlaufRow, media, onCompleteRapport, setMode, setPanel, setOfflineReadyOpen, requestReportStep, standDownTrupps, noteInsideAtClose, noteNotfallAtClose, flushOutboxes, markClosing, patchReportMeta, pendingEl, fileEinsatzleiterAtClose])
 
   return { abschlussMissing, truppsStillOut, azFrozenAt, azMonitoring, confirmAndComplete }
 }

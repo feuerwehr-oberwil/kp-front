@@ -136,7 +136,8 @@ import { AtemschutzView, type TruppOrder } from './components/AtemschutzView'
 import { AnwesenheitView } from './components/AnwesenheitView'
 import { MittelView } from './components/MittelView'
 import { usePersonnel } from './lib/usePersonnel'
-import { assignedPersonIds, linkTrupps, rosterIdByName as rosterIdByNameOf, truppByPersonId, truppCrewSlots } from './lib/personnel'
+import { einsatzleiterToFile } from './lib/roleAssignment'
+import { assignedPersonIds, linkTrupps, personIdForName, rosterIdByName as rosterIdByNameOf, truppByPersonId, truppCrewSlots } from './lib/personnel'
 import { rosterWithGuests } from './lib/guests'
 import type { Item } from './lib/checklists'
 import { warmTemplates } from './lib/checklists'
@@ -1616,6 +1617,10 @@ export function IncidentWorkspace({
   // What the Abschluss writes on its way to the close is part of the close (staging r6, F3):
   // `pushEvent` marks every row made between the confirm and the close's answer `atClose`, so it
   // never prints as a Nachtrag for being stamped a moment past the server's `closed_at`.
+  // …and the Kroki's Einsatzleiter onto the Anwesenheit when the close stores that name
+  // (useAbschluss · fileEinsatzleiterAtClose), pointed the same way once the roster's doors exist
+  const fileElRef = useRef<(name: string) => void>(() => {})
+  const fileEinsatzleiterAtClose = useCallback((name: string) => fileElRef.current(name), [])
   const closingRowsRef = useRef(false)
   const markClosing = useCallback((on: boolean) => { closingRowsRef.current = on }, [])
   // the Rapport counts an unsettled Abweichung as open — so does every door to it (lib/abschluss ·
@@ -1644,6 +1649,7 @@ export function IncidentWorkspace({
     // the rows' buttons and the pre-filled Einsatzende write the Rapport — only where it may be edited
     patchReportMeta: canEditRapport ? patchReportMeta : undefined,
     shownEinsatzleiter,
+    fileEinsatzleiterAtClose: canWriteRecord ? fileEinsatzleiterAtClose : undefined,
   })
   // «Alle Einsätze» closes THIS Einsatz through the same confirm (prop `abschlussRef`) — offered
   // exactly where the Einsatz-Menü row is (WorkspaceTopBar · onArchive)
@@ -2870,8 +2876,16 @@ export function IncidentWorkspace({
   useEffect(() => { tafelTickWrites.current = applyTickWrites })
   // the Checkliste says whether a ticked problem already stands on a Tafel page (lib/problemLink)
   const problemsOnTafel = findForms(board?.[TAFEL_ID] ?? []).some((a) => hasProblems(a.form))
-  // in an effect, not during render: it is read only when a step is TAKEN, long after this commit
-  useEffect(() => { checklistDescribeRef.current = describeChecklistStep })
+  // in an effect, not during render: these are read only when a step is TAKEN or the Einsatz is
+  // closed, long after this commit. The second is the close's door (fileElRef above): the roster
+  // person the Kroki names as Einsatzleiter, filed as a pick in the Rapport's field files them.
+  useEffect(() => {
+    checklistDescribeRef.current = describeChecklistStep
+    fileElRef.current = (name) => {
+      const id = einsatzleiterToFile(name, (n) => personIdForName(rosterIdByName, n), attendance)
+      if (id) assignRole(id, 'el', appConfig.copy.anwesenheit.roleEinsatzleiter)
+    }
+  })
   // Deep links: an item's `action` jumps to the matching surface (best-effort, reusing
   // existing setters). journal → open the composer (a read-only session: the Verlauf, the same
   // gate as the TopBar's «Eintrag» – RBAC audit V4); plan → Plan tab; draw → Lage + pen.

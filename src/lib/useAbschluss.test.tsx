@@ -64,18 +64,24 @@ describe('useAbschluss', () => {
 
     vi.mocked(confirmDialog).mockReset().mockResolvedValueOnce(true)
     const patchReportMeta = vi.fn()
-    await renderHook(() => useAbschluss(args({ shownEinsatzleiter: 'Hofer Simon', patchReportMeta }))).result.current.confirmAndComplete()
+    // …and the same close puts that person on the Anwesenheit (owner, sign-off of #750, 26.11.2026)
+    const fileEinsatzleiterAtClose = vi.fn()
+    const h = renderHook(() => useAbschluss(args({ shownEinsatzleiter: 'Hofer Simon', patchReportMeta, fileEinsatzleiterAtClose })))
+    expect(fileEinsatzleiterAtClose).not.toHaveBeenCalled() // nothing before the close
+    await h.result.current.confirmAndComplete()
     expect(patchReportMeta).toHaveBeenCalledTimes(1)
     expect(patchReportMeta).toHaveBeenCalledWith({ endedAt: expect.any(String), einsatzleiter: 'Hofer Simon' })
+    expect(fileEinsatzleiterAtClose).toHaveBeenCalledExactlyOnceWith('Hofer Simon')
 
     // a Rapport that names its own Einsatzleiter keeps it
     vi.mocked(confirmDialog).mockResolvedValueOnce(true)
     const own = vi.fn()
     await renderHook(() => useAbschluss(args({
       reportMeta: { einsatzleiter: 'Muster Leo', endedAt: '2026-11-25T14:27:00Z' } as ReportMeta,
-      shownEinsatzleiter: 'Hofer Simon', patchReportMeta: own,
+      shownEinsatzleiter: 'Hofer Simon', patchReportMeta: own, fileEinsatzleiterAtClose,
     }))).result.current.confirmAndComplete()
     expect(own).not.toHaveBeenCalled()
+    expect(fileEinsatzleiterAtClose).toHaveBeenCalledTimes(1) // still the first close's only
   })
 
   // review of #235

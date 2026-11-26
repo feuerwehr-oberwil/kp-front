@@ -645,7 +645,8 @@ export function ReportPreflight({
   // pick B3·15 had only muted the row) and that person onto the Anwesenheit. Both went. The Kroki's
   // name is SHOWN in the field (reportForm · remoteForm) and printed, the checklist counts it
   // (useAbschluss · shownEinsatzleiter), and it is stored when somebody saves it: a pick or a typed
-  // name in the field, the EL's signature (both also file the Anwesenheit), or the close.
+  // name in the field, the EL's signature (both also file the Anwesenheit), or the close (which
+  // files the Anwesenheit too – useAbschluss · fileEinsatzleiterAtClose, owner, 26.11.2026).
   /** person id → the job they already hold, off their Anwesenheits-Bemerkung — shown on every
    *  option of the two person pickers below (lib/roleAssignment writes these notes). Same shape
    *  the Atemschutz board's pickers use; a roster that reads differently depending on which
