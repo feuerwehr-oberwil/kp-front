@@ -528,13 +528,18 @@ describe('an open stretch in an Einsatz with an Einsatzende', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: fillTemplate(A.openBlocks, { name: 'Meier Anna' }) }))
   }
+  // The «bis» field names the day when it is not today, so the clock stands on the Einsatzende's day.
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-11-25T14:00:00.000Z'))
+  })
+  afterEach(() => { vi.useRealTimers() })
 
   it('reads «Ganzer Einsatz», ends at the Einsatzende and counts to it', () => {
     open(startedAt)
     expect(screen.getByText(A.wholeIncident)).toBeTruthy()
     expect(screen.getByText('1 h 29')).toBeTruthy()
-    // the field names the day when it is not today (CI runs past midnight too)
-    expect(screen.getByRole('button', { name: new RegExp(`${A.bis} – Meier Anna: ${A.incidentEnd} .*${hhmm(new Date(endedAt))}`) })).toBeTruthy()
+    expect(screen.getByRole('button', { name: new RegExp(`${A.bis} – Meier Anna: ${A.incidentEnd} ${hhmm(new Date(endedAt))}`) })).toBeTruthy()
     expect(screen.queryByText(A.running)).toBeNull()
     expect(screen.queryByText(A.stillHere)).toBeNull()
   })
