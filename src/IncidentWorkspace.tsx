@@ -40,6 +40,7 @@ import { countSurface } from './lib/visitBeacon'
 import { fillTemplate, formatTime } from './lib/format'
 import { addSignature, shortChecksum, type ReportSignature } from './lib/reportSignature'
 import { drawingExtent } from './lib/geo'
+import { relabel } from './lib/gpsTwin'
 import { isPresent } from './lib/attendanceIntervals'
 import { registerMeldeleisteHost } from './lib/meldeleisteHost'
 import { editorPrintTransport, fetchPrintStatus, type PrintRelayStatus } from './lib/printRelay'
@@ -842,12 +843,14 @@ export function IncidentWorkspace({
   // identically — previously notes/floor/count silently skipped the audit stream.
   // `commit` alone only stops a VIEWER: in the Führungsansicht readOnly is false, so every
   // entity write needs the tactical lock too (the panels hide their controls, this is the floor).
+  // A new title goes through lib/gpsTwin · relabel: a rename takes back «Sind zwei».
   const patchEntity = (id: string, patch: Partial<Entity>) => {
     if (tacticalLocked) return
+    const patched = (e: Entity): Entity => ({ ...(patch.label === undefined ? e : relabel(e, patch.label)), ...patch })
     commit((d) => {
       const before = d.entities.find((e) => e.id === id)
-      if (before) noteEntityEdit(before, { ...before, ...patch })
-      return { ...d, entities: d.entities.map((e) => (e.id === id ? { ...e, ...patch } : e)) }
+      if (before) noteEntityEdit(before, patched(before))
+      return { ...d, entities: d.entities.map((e) => (e.id === id ? patched(e) : e)) }
     })
     emit('entity.edit', { id, patch })
   }

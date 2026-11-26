@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { groupByDay, otherDay, isHandWritten, rowGlyph, isNachtrag, rowText, rowTime, rowPhotos, rowTarget, liveTargets, swapUrl, repeatRuns, stripScale, stripRuns, pendenzenCut, pendenzenBelow } from './verlauf'
+import { groupByDay, otherDay, isHandWritten, rowGlyph, isNachtrag, rowText, rowTime, rowPhotos, rowTarget, liveTargets, swapUrl, repeatRuns, stripScale, stripRuns, pendenzenCut, pendenzenBelow, deviceRunStarts } from './verlauf'
 import type { BoardAnno, TimelineEvent } from '../types'
 
 const row = (id: string, at?: string): TimelineEvent =>
@@ -519,5 +519,16 @@ describe('stripRuns', () => {
 
   it('unmeasured, every row is its own run', () => {
     expect(stripRuns([0, 5, 10], 0, 10, 0)).toEqual({ runs: [{ from: 0, to: 0 }, { from: 0.5, to: 0.5 }, { from: 1, to: 1 }], busy: [] })
+  })
+})
+
+describe('deviceRunStarts', () => {
+  const on = (id: string, device?: string): TimelineEvent => ({ ...row(id), device })
+  it('names a device on the first row of its run, like the print', () => {
+    expect([...deviceRunStarts([on('a', 'Tablet 2'), on('b', 'Tablet 2'), on('c', 'Tablet 1'), on('d', 'Tablet 2')])])
+      .toEqual(['a', 'c', 'd'])
+  })
+  it('skips rows without a device: Tablet 2 · server row · Tablet 2 names Tablet 2 once', () => {
+    expect([...deviceRunStarts([on('a', 'Tablet 2'), on('s'), on('b', 'Tablet 2')])]).toEqual(['a'])
   })
 })

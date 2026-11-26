@@ -29,7 +29,7 @@ import { positionOverride, type VehicleOverrides, type VehiclePosition } from '.
 import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import type { TacticalObject } from '../lib/tacticalObjects'
 import type { Doc, FahrzeugZeit } from '../lib/workspace'
-import { gpsTwin } from '../lib/gpsTwin'
+import { gpsTwin, relabel } from '../lib/gpsTwin'
 import { gpsDeviceOf, vehicleTimeRows } from '../lib/vehicleTimes'
 import { getDeploymentConfig } from '../lib/deploymentConfig'
 import type { Entity, LngLat, TimelineEvent, Trupp, Drawing, NoteSize, Person, LineEndpoint, LineAttachment, LayerDef, LayerId, CaptionMode, MapTool } from '../types'
@@ -231,7 +231,8 @@ export function MapDetailPanels({
             // snapshot once for undo, no per-keystroke audit event
             entityTypedAt.current.set(selected.id, Date.now())
             if (!titleLiveRef.current) { titleLiveRef.current = true; beginDrag() }
-            setDocRaw((d) => ({ ...d, entities: d.entities.map((e) => (e.id === selected.id ? { ...e, label: v } : e)) }))
+            // (relabel: a rename takes back «Sind zwei», lib/gpsTwin)
+            setDocRaw((d) => ({ ...d, entities: d.entities.map((e) => (e.id === selected.id ? relabel(e, v) : e)) }))
           }}
           onTitle={(v) => {
             // blur: fold the whole live edit into one undo step + a single audit event

@@ -65,7 +65,7 @@ describe('a Tafel page by keyboard, like a spreadsheet', () => {
     expect(active().getAttribute('aria-label')).toBe('Wann') // the row above, last column
   })
 
-  it('«1124» in a Wann is 11:24; Esc keeps what was typed and leaves the cell', () => {
+  it('a pasted «1124» in a Wann reads 11:24; Esc keeps what was typed and leaves the cell', () => {
     const commits: BoardFormData[] = []
     render(<Harness onCommit={(d) => commits.push(d)} />)
     const mittel = document.querySelector('[data-sec="mittel"]')!
@@ -372,6 +372,44 @@ describe('a Tafel time cell', () => {
     fireEvent.focus(wann)
     expect(wann.className).not.toContain(s.cellBreak)
     expect(screen.queryByRole('button', { name: appConfig.copy.tafel.lineBreak })).toBeNull()
+  })
+
+  // owner pick, morning round 26.11.2026 («Tafel ‹Wann›: same HH:MM rule? → Same rule»): the
+  // typed time of the wheel popover (lib/typedTime) – the colon as you type, nothing invalid written
+  describe('is typed as HH:MM', () => {
+    const keys = (seq: string) => { type(''); for (const k of seq) type(active().value + k) }
+    const start = () => {
+      pointer(false)
+      const commits: BoardFormData[] = []
+      render(<Harness onCommit={(d) => commits.push(d)} />)
+      const wann = firstWann()
+      act(() => { wann.focus() })
+      return { commits, wann }
+    }
+    it('«2» «3» shows «23:», «5» «3» shows «23:53» – and Tab writes it', () => {
+      const { commits, wann } = start()
+      type('')
+      const shown = ['2', '3', '5', '3'].map((k) => { type(wann.value + k); return wann.value })
+      expect(shown).toEqual(['2', '23:', '23:5', '23:53'])
+      key('Tab')
+      expect(commits[commits.length - 1].values.mittel.rows![0].cells.wann).toBe('23:53')
+    })
+    it('backspace over the colon takes the colon and the digit before it', () => {
+      const { wann } = start()
+      keys('23')
+      type('23')
+      expect(wann.value).toBe('2')
+    })
+    it.each(['2400', '2360', '930', '23'])('«%s» writes nothing, stays in the cell and says HH:MM under it', (seq) => {
+      const { commits, wann } = start()
+      keys(seq)
+      key('Tab')
+      expect(document.activeElement).toBe(wann)
+      expect(wann.getAttribute('aria-invalid')).toBe('true')
+      expect(screen.getByRole('alert').textContent).toBe(W.invalidTime)
+      act(() => { wann.blur() })
+      expect(commits).toHaveLength(0)
+    })
   })
 
   it('stays a typed cell with a fine pointer — no wheels on a click', () => {
