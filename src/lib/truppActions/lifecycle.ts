@@ -2,7 +2,7 @@ import type { Trupp, TruppFields } from '../../types'
 import { appConfig } from '../../config/appConfig'
 import { fillTemplate } from '../format'
 import { truppEquipmentLabels } from '../report'
-import { isAtemschutzTrupp, truppCrewWithout, truppGridSection, truppGroupTransfer, truppInNotfall, truppLogName } from '../atemschutz'
+import { isAtemschutzTrupp, truppCrewWithout, truppGroupTransfer, truppInNotfall, truppLogName } from '../atemschutz'
 // stamped in the DEPLOYMENT's time, like every Trupp timestamp (why: truppActions/clock)
 import { serverNowIso } from '../serverClock'
 import { nextTruppNo } from '../placedTrupps'
@@ -292,12 +292,10 @@ export function truppLifecycleActions(deps: LifecycleDeps) {
     // «Weitere Trupps» apart (AtemschutzView), so a card whose neighbour in the global key space
     // sits in the other section jumped over something invisible — the same dead button in a new
     // costume. One key space, two sections: a move steps to the next card of the same kind.
-    // ⚠️ …and of the same state section: the grid draws Drin · Bereit · Draussen apart (owner pick
-    // UX journeys M·15, 25.11.2026 – lib/atemschutz · truppGridSection), the same dead button again.
     const self = ts.find((t) => t.id === id)
     if (!self) return ts
-    const ordered = handOrder(ts.filter((t) => !t.removedAt
-      && isAtemschutzTrupp(t) === isAtemschutzTrupp(self) && truppGridSection(t) === truppGridSection(self)))
+    const ordered = handOrder(ts.filter((t) =>
+      !t.removedAt && isAtemschutzTrupp(t) === isAtemschutzTrupp(self)))
     const next = nextMoveOrder(ordered, ordered.findIndex((e) => e.t.id === id), dir)
     if (next === null) return ts
     return ts.map((t) => (t.id === id ? { ...t, order: next } : t))

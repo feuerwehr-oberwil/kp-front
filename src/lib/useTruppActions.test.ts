@@ -1537,17 +1537,6 @@ describe('moveTrupp (hand-set board order)', () => {
     const pa = (ts: Trupp[]) => handOrder(ts.filter((t) => t.kind !== 'einfach')).map((e) => e.t.id)
     expect(pa(state.trupps)).toEqual(['pa2', 'pa1'])
   })
-
-  it('…and within its state section: a crew inside never steps over one that is out', () => {
-    const { actions, state } = board(
-      baseTrupp({ id: 'in1', order: 1 }),
-      baseTrupp({ id: 'out', order: 2, status: 'raus' }),
-      baseTrupp({ id: 'in2', order: 3 }),
-    )
-    actions.moveTrupp('in1', 1)
-    const inside = (ts: Trupp[]) => handOrder(ts.filter((t) => t.status !== 'raus')).map((e) => e.t.id)
-    expect(inside(state.trupps)).toEqual(['in2', 'in1'])
-  })
 })
 
 describe('hand-set board order (the key AtemschutzView sorts on)', () => {
