@@ -49,7 +49,7 @@ One object, two surfaces: how a tactical object is stored, anchored, projected a
   never moves it and never stamps it a new time. A held object moves its own picture while the
   finger is down (Lage `lib/useHeldMarker`, the MapLibre Marker; Plan the chip's node) and is
   written ONCE, on release, as one undo step – except where the picture around it must follow
-  live: a Leitung end on it, a docked follower (`useMapActions · writesLive`, `useWbChipDrag ·
+  live: a Leitung end on it, a docked follower, its ERG rings (`useMapActions · writesLive`, `useWbChipDrag ·
   live`; perf sweep 26.11.2026). A pan never deselects either: only a stationary
   tap on empty map / board does (`useMapActions` after `MapView`'s pan-click drop;
   `useBoardGestures · panUp`). The lasso is one-shot on both: after any box you are back in

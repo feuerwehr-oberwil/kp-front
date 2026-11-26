@@ -400,9 +400,10 @@ describe('a Form zoomed far out', () => {
 // writer's business (workspace/useMapActions · writesLive), and the release hands over the spot
 describe('a held marker in the hand', () => {
   /** the layer over a one-symbol store whose release writes the coordinate, as finishEntityMove
-   *  does; `label` stands in for another device's edit arriving mid-drag */
-  function Store({ label, onMarkerMove, onMarkerDragEnd }: { label: string; onMarkerMove: () => void; onMarkerDragEnd: (id: string, c: LngLat) => void }) {
-    const [coord, setCoord] = useState<LngLat>([0, 0])
+   *  does; `label` / `remoteAt` stand in for another device's edit arriving mid-drag */
+  function Store({ label, remoteAt, onMarkerMove, onMarkerDragEnd }: { label: string; remoteAt?: LngLat; onMarkerMove: () => void; onMarkerDragEnd: (id: string, c: LngLat) => void }) {
+    const [stored, setCoord] = useState<LngLat>([0, 0])
+    const coord = remoteAt ?? stored
     // map px = lng/lat 1:1, so the drag's travel IS the coordinate
     return (
       <MapMarkers entities={[{ id: 's1', kind: 'symbol', layer: 'lage', coord, symbol: 'Feuer', label } as Entity]} byName={{}} isVisible={() => true} selectedId="s1"
@@ -424,7 +425,9 @@ describe('a held marker in the hand', () => {
     expect(mk.at).toEqual([80, 0])
     // every move past the deadzone still reaches the writer – it decides whether the store follows
     expect(onMarkerMove).toHaveBeenCalledTimes(36)
-    // another device renames it mid-drag, still at the old spot: the hand wins
+    // another device renames and moves it mid-drag: the hand wins until the release
+    rerender(<Store label="Hydrant 2" remoteAt={[5, 5]} onMarkerMove={onMarkerMove} onMarkerDragEnd={onMarkerDragEnd} />)
+    expect(mk.at).toEqual([80, 0])
     rerender(<Store label="Hydrant 2" onMarkerMove={onMarkerMove} onMarkerDragEnd={onMarkerDragEnd} />)
     expect(mk.at).toEqual([80, 0])
     const before = mk.moves.length

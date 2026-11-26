@@ -11,6 +11,7 @@ import type { AuthUser } from '../lib/auth'
 import { isDemoMode } from '../lib/deploymentConfig'
 import { carryDocked, dockRadiusFor, isDockable, isPlacard, nearestDockHost } from '../lib/docking'
 import { entityRemovalName, removalRowText } from '../lib/drawingEdit'
+import { ergRingOverlays } from '../lib/ergRings'
 import { duplicateDrawing, duplicateEntity } from '../lib/duplicate'
 import { fillTemplate, formatSymbolName, formatTime } from '../lib/format'
 import { bearingDeg, circlePolygon, haversineM, midCoord } from '../lib/geo'
@@ -30,7 +31,7 @@ import { serverNow, serverNowIso } from '../lib/serverClock'
 import { READING_ICON, readingAct } from '../lib/readingLog'
 import { ROTATION_DEFAULT_RUN_M, ROTATION_W_M, SHAPE_DEFS, SHAPE_MIN_M, SHAPE_TWO_POINT, rotationBox } from '../lib/shapes'
 import { seedSymbolProps, VEHICLE_SYMBOLS } from '../lib/symbols'
-import type { TacticalObject } from '../lib/tacticalObjects'
+import { viewsOf, type TacticalObject } from '../lib/tacticalObjects'
 import { lineTakesTrupp } from '../lib/truppLines'
 import { askJoinedLines, removedText, withLinesText } from '../lib/removal'
 import { recordKey, type RecordKey } from '../lib/undoKeys'
@@ -169,14 +170,18 @@ export interface UseMapActionsInputs {
  * A move of the Karte object `id` is written on every pointer move, not only on release: the
  * picture around it is drawn from its STORED coordinate and must follow it live – a Leitung end
  * on it (a «Direkt» end is drawn at the coordinate, a «trace» end re-routes), a follower docked
- * to it (lib/docking · carryDocked: a Gefahrentafel, a Trupp marker in its slot), or a Form,
- * which moves from the bar's ✥ and has no preview of its own. Everything else is previewed by
- * its held Marker alone (MapMarkers · the drag) and written once, on release (finishEntityMove).
+ * to it (lib/docking · carryDocked: a Gefahrentafel, a Trupp marker in its slot), its ERG rings
+ * (lib/ergRings, overlays centred on the coordinate), or a Form, which moves from the bar's ✥ and
+ * has no preview of its own. Everything else is previewed by its held Marker alone (MapMarkers ·
+ * lib/useHeldMarker) and written once, on release (finishEntityMove).
  * The Plan's twin: useWbChipDrag · `live`.
  */
 export function writesLive(d: Pick<Doc, 'entities' | 'drawings'>, id: string): boolean {
-  return d.entities.some((e) => e.dockedTo === id || (e.id === id && e.kind === 'shape'))
+  const me = d.entities.find((e) => e.id === id)
+  return me?.kind === 'shape'
+    || d.entities.some((e) => e.dockedTo === id)
     || linesOnObjects(d.drawings, [id]).length > 0
+    || (!!me && ergRingOverlays([me], new Date()).length > 0)
 }
 
 export function useMapActions({
@@ -768,7 +773,9 @@ export function useMapActions({
   const streamEntityMove = (id: string, c: LngLat) => {
     if (tacticalLocked) return
     if (liveIds.has(id)) { placeVehicle(id, { coord: c }); return }
-    if (!writesLive(doc, id)) return
+    // …asked of the LIVE objects: the gesture holds this render's closure, and another device may
+    // attach a Leitung or dock a follower while the finger is down
+    if (!writesLive(viewsOf(objectsRef.current), id)) return
     setDocRaw((d) => ({
       ...d,
       // an angedockte Gefahrentafel rides along mid-drag too (lib/docking), keeping the
