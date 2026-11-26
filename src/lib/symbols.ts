@@ -442,11 +442,16 @@ export function symbolReadoutText(props: SymbolProps): string | null {
 
 /** A Messpunkt reading a reader can use: a finite time and its values (`v`) as text. No gate
  *  checks the stored rows – the merge unions them off the server's raw blob – and the history
- *  panel, the map's pill, the Rapport and the next recording do arithmetic on `t` and `.trim()`
- *  every gas of `v`. So they read through this; a row it rejects stays in the stored history. */
-const isUsableReading = (r: unknown): r is Reading =>
-  typeof r === 'object' && r !== null && 't' in r && typeof r.t === 'number' && Number.isFinite(r.t)
-  && 'v' in r && typeof r.v === 'object' && r.v !== null && !Array.isArray(r.v) && Object.values(r.v).every((x) => typeof x === 'string')
+ *  panel, the map's pill, the Rapport and the next recording do arithmetic on `t`, `.trim()`
+ *  every gas of `v` and fold a row into the one before it. So they read through this; a row it
+ *  rejects stays in the stored history. */
+const isUsableReading = (r: unknown): r is Reading => {
+  if (typeof r !== 'object' || r === null || !('t' in r) || typeof r.t !== 'number' || !Number.isFinite(r.t)) return false
+  if (!('v' in r) || typeof r.v !== 'object' || r.v === null || Array.isArray(r.v)) return false
+  // every gas as text, and at least one measured – recordReading never writes an empty row
+  const gases = Object.values(r.v)
+  return gases.every((x) => typeof x === 'string') && gases.some((x) => x.trim() !== '')
+}
 /** the stored history as a list (a stored non-list is no history) */
 const storedReadings = (props: SymbolProps): Reading[] => (Array.isArray(props.readings) ? props.readings : [])
 /** the newest usable reading – what «since the last reading» and «what changed» are said against */

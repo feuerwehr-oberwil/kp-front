@@ -279,7 +279,7 @@ describe('Messpunkt — the reading its mark wears (27.10.2026)', () => {
   it('a stored row without values is skipped by every reader, and stays in the history', () => {
     // the merge unions the rows off the server's raw blob, which no gate has checked
     const bad = [{ t: 0, v: null }, { t: 10 * MIN, v: { CO: '20' } }, null, { t: 20 * MIN, v: null },
-      { t: 21 * MIN, v: { CO: 45 } }, { t: 'x', v: { CO: '5' } }, { t: 10 * MIN + 1, v: [] }] as unknown as Parameters<typeof mp>[1]
+      { t: 21 * MIN, v: { CO: 45 } }, { t: 'x', v: { CO: '5' } }, { t: 10 * MIN + 1, v: [] }, { t: 10 * MIN + 2, v: {} }, { t: 10 * MIN + 3, v: { CO: ' ' } }] as unknown as Parameters<typeof mp>[1]
     const p = mp({ CO: '20' }, bad)
     // the history panel: a broken row a moment later does not fold the good one away
     expect(readingRows(p).map((r) => r.v)).toEqual([{ CO: '20' }])
