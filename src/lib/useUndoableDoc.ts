@@ -14,13 +14,18 @@ export interface UndoableDoc<D> {
   setDocRaw: Dispatch<SetStateAction<D>>
   /** checkpoint the current doc, then apply the update — one undo step (no-op if readOnly) */
   commit: (updater: (d: D) => D) => void
-  /** snapshot once at the start of a drag/transform gesture (silent setDocRaw during the move) */
-  beginDrag: () => void
-  /** fold the whole gesture into a single undo step on release */
-  endDrag: () => void
-  /** end the gesture with NO step – for one whose object a ↶ took away mid-gesture, where a
-   *  step would bring the object back and clear ↷ */
-  dropDrag: () => void
+  /** snapshot once at the start of a drag/transform gesture (silent setDocRaw during the move).
+   *  Answers the gesture's token, for a caller that ends it with `endDrag(token)` / `dropDrag`. */
+  beginDrag: () => number
+  /** fold the whole gesture into a single undo step on release; answers whether a step was laid.
+   *  With its `token` it ends only THAT gesture – a newer one that took the slot is left alone –
+   *  and lays NO step when a ↶ / ↷ ran while it was open: the history already holds the truth,
+   *  and a step from the old snapshot would undo the ↶'s work on ↶ and clear ↷ (a Notiz typed
+   *  through a ↶, IncidentWorkspace · noteTextEnd). */
+  endDrag: (token?: number) => boolean
+  /** end gesture `token` with NO step, if it is still the open one – a Notiz a ↶ or another
+   *  device took away while it was typed */
+  dropDrag: (token: number) => void
   /** is a `beginDrag` gesture open right now (read live, not a render snapshot) */
   dragging: () => boolean
   /** step back one checkpoint; returns true if the doc changed (so the caller can log it).
@@ -108,20 +113,26 @@ export function useUndoableDoc<D>(init: D, readOnly: boolean, onCheckpoint?: (st
     setDocRaw(updater(snap))
     onCheckpoint?.(id, snap, docRef.current)
   }
-  const beginDrag = () => { dragSnap.current = docRef.current }
-  const endDrag = () => {
+  // the open gesture's token, and whether a ↶ / ↷ ran while it was open (see endDrag)
+  const dragToken = useRef(0)
+  const dragStepped = useRef(false)
+  const beginDrag = () => { dragSnap.current = docRef.current; dragStepped.current = false; return ++dragToken.current }
+  const endDrag = (token?: number): boolean => {
+    if (token !== undefined && token !== dragToken.current) return false
     const snap = dragSnap.current
     dragSnap.current = null
-    if (!snap || readOnly) return
+    if (!snap || readOnly || (token !== undefined && dragStepped.current)) return false
     const id = lay(snap) // ⚠️ not inside `onCheckpoint?.(…)`: an absent callback skips its arguments
     onCheckpoint?.(id, snap, docRef.current)
+    return true
   }
-  const dropDrag = () => { dragSnap.current = null }
+  const dropDrag = (token: number) => { if (token === dragToken.current) dragSnap.current = null }
   const undo = (expect?: string): boolean => {
     const top = past.current[past.current.length - 1]
     if (readOnly || !top || (expect !== undefined && top.id !== expect)) return false
     past.current = past.current.slice(0, -1)
     future.current = [{ id: top.id, snap: docRef.current }, ...future.current]
+    dragStepped.current = true
     setDocRaw(top.snap); bump()
     return true
   }
@@ -130,6 +141,7 @@ export function useUndoableDoc<D>(init: D, readOnly: boolean, onCheckpoint?: (st
     if (readOnly || !next || (expect !== undefined && next.id !== expect)) return false
     future.current = future.current.slice(1)
     past.current = [...past.current, { id: next.id, snap: docRef.current }]
+    dragStepped.current = true
     setDocRaw(next.snap); bump()
     return true
   }

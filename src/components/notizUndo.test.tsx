@@ -97,9 +97,9 @@ function LageRig({ entities, timeline, karte, show }: { entities: Entity[]; time
     noteTextEnd: (id, v) => {
       const live = titleLiveRef.current
       titleLiveRef.current = false
-      if (!kd.current().entities.some((e) => e.id === id)) { if (live) kd.dropDrag(); return }
-      if (live) kd.endDrag()
-      else patchEntity(id, { label: v })
+      const note = kd.current().entities.find((e) => e.id === id)
+      if (live) { if (note) kd.endDrag(); return }
+      if (note) patchEntity(id, { label: v })
     },
     deleteEntity: async (id) => { kd.commit((d) => ({ ...d, entities: d.entities.filter((e) => e.id !== id) })); return true },
   }

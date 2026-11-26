@@ -7,6 +7,7 @@ import type { MittelDraft } from './components/MittelView'
 import { AUTH, SYM, rec, registerHarnessHooks, lastMap, lastBoard, meta, truck, workspaceTree, settle, mount, lastBtn, key, openPlan, type BoardProps } from './IncidentWorkspace.harness.setup'
 import { Meldeleiste } from './components/Meldeleiste'
 import { WorkspaceSync } from './lib/api/workspaceSync'
+import { AuditEventStore } from './lib/auditEventStore'
 import type { Saved } from './lib/workspace'
 import { appConfig } from './config/appConfig'
 import { loadPrefs, savePrefs } from './lib/prefs'
@@ -352,6 +353,26 @@ describe('(n) ↶ takes back a Notiz while it is being typed', () => {
     await settle()
     expect(map().editNoteId).toBe('b')
   })
+
+  // ↶ takes back placing Notiz B while Notiz A's text is typed on the map: A gets its old text
+  // back, then A's editor goes. Its end must lay no step and write no row – the history holds it
+  it('a ↶ while another Notiz is typed: its end lays no step and writes no row with the taken-back text', async () => {
+    const append = vi.spyOn(AuditEventStore.prototype, 'append')
+    await mount({ workspace: { entities: [truck, { id: 'a', kind: 'note', coord: [7.6, 47.5], label: 'Alt' } as Entity] } as unknown as Saved })
+    await placeNote()
+    const map = () => lastMap() as unknown as { onNoteEdit: (id: string) => void; onNoteText: (id: string, v: string) => void; onNoteCommit: (id: string, v: string) => void }
+    act(() => map().onNoteEdit('a'))
+    act(() => map().onNoteText('a', 'Neu'))
+    await press(appConfig.copy.undo)
+    expect(notes()).toEqual(['Alt'])
+    act(() => map().onNoteCommit('a', 'Neu'))
+    await settle()
+    const edits = append.mock.calls.map(([e]) => e).filter((e) => e.op_type === 'entity.edit')
+    expect(edits.map((e) => (e.payload as { patch?: { label?: string } }).patch?.label)).not.toContain('Neu')
+    await press(appConfig.copy.redo)
+    expect(notes()).toEqual(['Neu', ''])
+  })
+
 })
 
 /* RBAC audit 22.10.2026 (§2): a session that cannot write the Einsatz is handed no door that

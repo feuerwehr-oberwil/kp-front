@@ -15,7 +15,7 @@
  */
 
 import { useEffect, useMemo, useRef, type SetStateAction } from 'react'
-import { useUndoableDoc } from './useUndoableDoc'
+import { useUndoableDoc, type UndoableDoc } from './useUndoableDoc'
 import {
   anchorChanges, applyBoardToObjects, applyDocToObjects, bakeAll, bakePlan, sheetAnnos, viewsOf,
   type AnchorChange, type PlanFit, type TacticalObject,
@@ -114,9 +114,9 @@ export interface ObjectStore {
    *  («Zurück auf Stand am Einsatzort», lib/gpsReturn) writes through the fit instead of
    *  flipping a plan-drawn object's anchor (docs/tactical-objects.md · «A MACHINE write never flips an anchor»). */
   commit: (updater: (d: Doc) => Doc, opts?: { gesture?: boolean }) => void
-  beginDrag: () => void
-  endDrag: () => void
-  dropDrag: () => void
+  beginDrag: UndoableDoc<Doc>['beginDrag']
+  endDrag: UndoableDoc<Doc>['endDrag']
+  dropDrag: UndoableDoc<Doc>['dropDrag']
   /** a hand is mid-gesture on either surface: a Karte drag (`beginDrag`) or a plan step
    *  (`beginSheetStep`) is open. Read live — for the save path (useIncidentSync · gestureOpen). */
   gestureOpen: () => boolean

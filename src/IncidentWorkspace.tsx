@@ -1308,6 +1308,9 @@ export function IncidentWorkspace({
   // true once a live title edit has snapshotted for undo, so we beginDrag once per edit
   // session and fold the whole keystroke stream into a single undo step on blur
   const titleLiveRef = useRef(false)
+  // …and the Karte gesture a Notiz's typing opened (useUndoableDoc · beginDrag), so its end folds
+  // THAT gesture and never one begun after it (a vehicle dragged while the Notiz has the caret)
+  const noteTyping = useRef<number | null>(null)
   // stream a note's raw text live (silent — snapshot once for undo), then fold the whole
   // edit into one undo step + a single audit event on blur. Mirrors the title editor.
   const noteTextLive = (id: string, v: string) => {
@@ -1315,22 +1318,30 @@ export function IncidentWorkspace({
     // …and the Verlauf's settle window learns that this note is still being written: the canvas
     // editor is not inside a panel, so focus alone cannot tell (see noteEntityEdit)
     entityTypedAt.current.set(id, Date.now())
-    if (!titleLiveRef.current) { titleLiveRef.current = true; beginDrag() }
+    if (!titleLiveRef.current) { titleLiveRef.current = true; noteTyping.current = beginDrag() }
     // a note that has never been resized by hand follows what is typed (lib/notes) — it grows
     // out of the minimum and stops at the maximum, where it wraps as it always did
     setDocRaw((d) => ({ ...d, entities: d.entities.map((e) => (e.id === id
       ? { ...e, label: v, ...(e.noteAutoW ? { noteW: autoNoteWPx(v, e.noteSize) } : null) }
       : e)) }))
   }
-  /** …and its end, from the editor on the map and from the Notiz panel alike. A Notiz a ↶ took
-   *  away while it was being typed (the ↶ took back placing it) ends the edit with no step: one
-   *  would bring the Notiz back and clear ↷, which already holds it with what was typed. */
+  /** …and its end, from the editor on the map and from the Notiz panel alike: ONE ↶ step and one
+   *  audit row for the typing. None at all when the history moved under it – a ↶ / ↷ while it was
+   *  open (endDrag with the typing's token), or the Notiz gone (a ↶ took back placing it, another
+   *  device removed it): a step from the old snapshot would bring back what the ↶ took and clear
+   *  ↷, which already holds the typed text. */
   const noteTextEnd = (id: string, v: string) => {
     const live = titleLiveRef.current
+    const token = noteTyping.current
     titleLiveRef.current = false
-    if (!liveObjects().some((o) => o.id === id)) { if (live) dropDrag(); return }
-    if (live) { endDrag(); emit('entity.edit', { id, patch: { label: v } }) }
-    else patchEntity(id, { label: v })
+    noteTyping.current = null
+    const note = liveViews().doc.entities.find((e) => e.id === id)
+    if (live) {
+      if (!note) { if (token !== null) dropDrag(token); return }
+      if (endDrag(token ?? undefined)) emit('entity.edit', { id, patch: { label: v } })
+      return
+    }
+    if (note) patchEntity(id, { label: v })
   }
   /** The map editor's commit. It also runs when the editor goes because ANOTHER Notiz opened
    *  (EntityMarker · NoteField), so it closes the editor only while it is still this one's. */
