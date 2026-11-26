@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { FREEHAND_SIMPLIFY_PX, HANDLE_MIN_SPACING_PX, MARKER_SPACING_PX, MAX_VERTEX_HANDLES, MIN_STROKE_PX, evenIndices, isTapStroke, markerGlyph, markerParamsAlong, markerSpacing, endMarkIndices, rdpIndices, resolveLinePreset, vertexHandleIndices } from './lineStyle'
+import { FREEHAND_SIMPLIFY_PX, HANDLE_MIN_SPACING_PX, SHORT_LINE_PX, isShortLine, MARKER_SPACING_PX, MAX_VERTEX_HANDLES, MIN_STROKE_PX, evenIndices, isTapStroke, markerGlyph, markerParamsAlong, markerSpacing, endMarkIndices, rdpIndices, resolveLinePreset, vertexHandleIndices } from './lineStyle'
 
 // resolveLinePreset is the ONE preset bundle both drawing surfaces (Lage map + Plan whiteboard)
 // apply — this pins the coercion so they can't drift. The default presets are the app's stock
@@ -284,5 +284,15 @@ describe('endMarkIndices', () => {
     expect(endMarkIndices({ kind: 'area', arrow: true }, 5)).toEqual([])
     expect(endMarkIndices({ kind: 'line', arrow: true }, 1)).toEqual([])
     expect(endMarkIndices({ kind: 'line', arrow: true }, 0)).toEqual([])
+  })
+})
+
+// B2·49: a short line keeps its two end pads and nothing else – the length is ALONG the path
+describe('isShortLine', () => {
+  it('measures the path, not the chord between its ends', () => {
+    expect(isShortLine([[0, 0], [SHORT_LINE_PX - 1, 0]])).toBe(true)
+    expect(isShortLine([[0, 0], [SHORT_LINE_PX, 0]])).toBe(false)
+    // a hairpin whose ends are 10 px apart is still long
+    expect(isShortLine([[0, 0], [70, 0], [70, 10], [0, 10]])).toBe(false)
   })
 })

@@ -19,6 +19,31 @@ import {
 
 // ─── nested path helpers ──────────────────────────────────────────────────────
 
+/** Every key path into `T` as a tuple – object keys by name, array elements by index. A value of
+ *  unknown shape ends the path. `ConfigPath` below is the one in use: a path the document does
+ *  not have is a compile error at the `set`/`getPath` call. */
+type Path<T> = PathOf<NonNullable<T>>
+type PathOf<T> = unknown extends T ? never
+  : T extends readonly (infer E)[] ? readonly [number] | readonly [number, ...Path<E>]
+  : T extends object ? { [K in keyof T & string]-?: readonly [K] | readonly [K, ...Path<T[K]>] }[keyof T & string]
+  : never
+
+/** The value at path `P` in `T`, as the type declares it there (absent and `null` included where
+ *  the field allows them). */
+type PathValue<T, P extends readonly unknown[]> = P extends readonly [infer K, ...infer R]
+  ? PathValue<Child<NonNullable<T>, K>, R>
+  : T
+type Child<T, K> = T extends readonly (infer E)[] ? (K extends number ? E : never)
+  : K extends keyof T ? T[K] : never
+
+/** A path into the config document, and the value it holds. */
+export type ConfigPath = Path<DeploymentConfig>
+type ConfigValue<P extends ConfigPath> = PathValue<DeploymentConfig, P>
+/** The paths whose value is a `V` (when set): `ConfigPathTo<number>` for a number box. */
+export type ConfigPathTo<V> = ConfigPath extends infer P
+  ? P extends ConfigPath ? (NonNullable<ConfigValue<P>> extends V ? P : never) : never
+  : never
+
 // Immutably set a nested path on the draft, creating intermediate containers as needed.
 // Unedited siblings/branches are preserved verbatim (the PUT is a full-document replace).
 //
@@ -27,9 +52,9 @@ import {
 // `0` produced an object keyed by index — `map.defaultView.center` left this file as
 // `{"0": 8.1148}`, where the API requires a list (schemas.py · MapDefaultView), and because the
 // PUT replaces the WHOLE document that one 422 also refused every other section's edits.
-function setPath(obj: DeploymentConfig, path: (string | number)[], val: unknown): DeploymentConfig {
+function setPath<P extends ConfigPath>(obj: DeploymentConfig, path: P, val: ConfigValue<P>): DeploymentConfig {
   type Node = Record<string | number, unknown>
-  const next = (Array.isArray(obj) ? [...obj] : { ...obj }) as Node
+  const next: Node = { ...obj }
   let cur = next
   for (let i = 0; i < path.length - 1; i++) {
     const k = path[i]
@@ -43,14 +68,18 @@ function setPath(obj: DeploymentConfig, path: (string | number)[], val: unknown)
   return next as DeploymentConfig
 }
 
-/** Read a nested path (undefined-safe). */
-export function getPath<T = unknown>(obj: unknown, path: (string | number)[]): T | undefined {
+/** Read a nested path of the config document (undefined-safe). */
+export function getPath<const P extends ConfigPath>(
+  obj: DeploymentConfig | null | undefined,
+  path: P,
+): ConfigValue<P> | undefined {
   let cur: unknown = obj
   for (const k of path) {
     if (cur == null) return undefined
     cur = (cur as Record<string | number, unknown>)[k]
   }
-  return cur as T | undefined
+  // the walk follows `path`, which `ConfigPath` ties to the document's type
+  return cur as ConfigValue<P> | undefined
 }
 
 // ─── what the server refused, in the operator's language ──────────────────────
@@ -217,13 +246,13 @@ type SaveState =
    *  not the fields on the other pages — without finding the «Erneut versuchen» link first. */
   | { kind: 'error'; message: string; reauth?: boolean; halted?: boolean; hint?: string }
 
-interface ConfigCtx {
+export interface ConfigCtx {
   draft: DeploymentConfig | null
   loadError: string | null
   dirty: boolean
   save: SaveState
   /** Set a nested path on the draft (autosaves shortly after). */
-  set: (path: (string | number)[], val: unknown) => void
+  set: <const P extends ConfigPath>(path: P, val: ConfigValue<P>) => void
   /** Re-try the last failed autosave now. */
   retry: () => void
   /** REPLACE the draft with a fresh server projection — config import / history restore only.
@@ -423,7 +452,7 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
     return () => clearTimeout(t)
   }, [draft, saved, loadError, persist, save])
 
-  const set = (path: (string | number)[], val: unknown) => {
+  const set = <const P extends ConfigPath>(path: P, val: ConfigValue<P>) => {
     setDraft((d) => setPath(d ?? {}, path, val))
   }
 

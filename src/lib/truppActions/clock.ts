@@ -11,6 +11,8 @@ import { alarmBarFor, currentRunStart, earlyEntryCorrection, fmtDuration, isAtem
 // unaffected.
 import { serverNowIso } from '../serverClock'
 import { noteOwnContact, recentOwnContact } from '../contactEcho'
+import { onAtemschutzLink } from '../linkMode'
+import { refuse } from '../meldungenRefusal'
 import { auftragText, withDetails, type TruppActionCore, type TruppActionDeps } from './core'
 
 // The Trupp CLOCK family — the safety-critical rules: Funkkontakt, Druckmeldung, the lifecycle
@@ -52,6 +54,11 @@ export const correctEntryPressure = (t: Trupp, bar: number): Partial<Trupp> => {
   return { entryPressureBar: bar, readings, lowestBar }
 }
 
+/** The row's source (types · TruppReading.via): `link` on the handed-over Atemschutz board, so the
+ *  tablet's Kontakt tile can say «über Link» (owner pick UX journeys M·12). Read from the address
+ *  bar at write time, like every link question (lib/linkMode). */
+const viaHere = (): { via?: 'link' } => (onAtemschutzLink() ? { via: 'link' } : {})
+
 type ClockDeps = Pick<TruppActionDeps, 'trupps' | 'setTrupps' | 'log' | 'emit' | 'placeOf' | 'liveTrupps'>
   & Pick<TruppActionCore, 'remember' | 'recorded'>
 
@@ -75,7 +82,7 @@ export function truppClockActions(deps: ClockDeps) {
      * OWN_REPEAT_MS writes nothing — on every board, because it is decided here, where the
      * contact is written. Another device's contact is the echo question (lib/contactEcho). */
     if (recentOwnContact(id, Date.parse(now))) return
-    const apply = (t: Trupp): Trupp => ({ ...t, lastContactTime: now, readings: [...(t.readings ?? []), { t: now, bar: t.lastPressureBar ?? t.entryPressureBar, kind: 'contact' }] })
+    const apply = (t: Trupp): Trupp => ({ ...t, lastContactTime: now, readings: [...(t.readings ?? []), { t: now, bar: t.lastPressureBar ?? t.entryPressureBar, kind: 'contact', ...viaHere() }] })
     setTrupps((ts) => ts.map((t) => (t.id === id ? apply(t) : t)))
     // this device's own confirmation — what lets a second device's tap within a minute ask first
     // instead of writing a second contact (lib/contactEcho, 24.09.2026)
@@ -94,8 +101,15 @@ export function truppClockActions(deps: ClockDeps) {
 
   // record a cylinder pressure reading — logged for the record, and counts as a contact. All
   // derived state (lowestBar, the log row) is computed INSIDE the updater so it never reads stale.
-  const recordPressure = (id: string, bar: number) => {
-    const tr = trupps.find((t) => t.id === id)
+  // `as`: what the operator said this early value IS, when the board asked (owner pick UX journeys
+  // B2·18, 25.11.2026 – below the station's minimum, AtemschutzView · pickPressure). `reading` skips
+  // the early correction below; `entry` asks for it. Absent: the rule decides, as before.
+  // ⚠️ The answer comes after a question, so the Trupp is read as it stands NOW (`liveTrupps`): a
+  // measured Druck or the end of the window while the question stood makes `entry` no longer
+  // possible. Then the value is still a gauge read at a radio call – it is written as the
+  // Druckmeldung, and the board SAYS so (refuse), never a silent switch.
+  const recordPressure = (id: string, bar: number, { as }: { as?: 'entry' | 'reading' } = {}) => {
+    const tr = (liveTrupps?.() ?? trupps).find((t) => t.id === id)
     const now = serverNowIso()
     // Crossing the Alarmdruck is the moment the Trupp has to turn round, and it was visible on
     // the card and nowhere else — the reconstruction afterwards could not say when it happened.
@@ -103,9 +117,10 @@ export function truppClockActions(deps: ClockDeps) {
     // contact — and as ONE row, not a second one after the reading: the crossing IS this reading,
     // and two lines in the same minute read as two Druckmeldungen on the printed Journal.
     const doctrine = atemschutzDoctrine()
-    const alarmBar = tr ? alarmBarFor(tr, doctrine) : doctrine.alarmBar
-    const wasAbove = (tr?.lastPressureBar ?? tr?.entryPressureBar ?? Infinity) > alarmBar
-    const crossed = !!tr && alarmBar > 0 && wasAbove && bar <= alarmBar
+    const crossedOn = (t: Trupp) => {
+      const alarmBar = alarmBarFor(t, doctrine)
+      return alarmBar > 0 && (t.lastPressureBar ?? t.entryPressureBar) > alarmBar && bar <= alarmBar
+    }
     /* ⚠️ A Druck in the first minutes after the Eintritt, before any other reading, is the
      * Eingangsdruck being asked for late — not a measurement (14.09., field observation: the
      * Trupp goes in on the default 300, the real gauge is recorded a minute later, and the
@@ -120,43 +135,82 @@ export function truppClockActions(deps: ClockDeps) {
      * appends a `contact` row carrying the new bar, beside the corrected baseline, in ONE Verlauf
      * row that says both. It never touches an Eingangsdruck set on purpose
      * (earlyEntryCorrection → entryPressureConfirmed); the PressureSheet names the rule. */
-    if (tr && !crossed && earlyEntryCorrection(tr, Date.parse(now))) {
+    const correctsOn = (t: Trupp) => !crossedOn(t) && as !== 'reading' && earlyEntryCorrection(t, Date.parse(now))
+    // the Druckmeldung's patch, for the reading path below and the correction's fallback
+    const asReading = (t: Trupp, kind: 'alarm' | 'pressure'): Trupp => ({ ...t, lastPressureBar: bar, lastPressureTime: now, lastContactTime: now, lowestBar: Math.min(t.lowestBar ?? t.entryPressureBar, bar),
+      readings: [...(t.readings ?? []), { t: now, bar, kind, ...viaHere() }] })
+    // the early correction's patch: the Eingangsdruck replaced, and the Kontakt it also is
+    const asCorrection = (t: Trupp): Trupp => {
+      const c = { ...t, ...correctEntryPressure(t, bar) }
+      return { ...c, lastContactTime: now, readings: [...(c.readings ?? []), { t: now, bar, kind: 'contact' as const, ...viaHere() }] }
+    }
+    // What the board says for a Druckmeldung: the notice when the operator had said «Eingangsdruck»,
+    // the Verlauf row, the event and the ↶ step. `alarm`: this reading crossed the Alarmdruck;
+    // `before` / `apply`: what the ↶ restores and the ↷ re-applies.
+    const tellReading = (alarm: boolean, before: Trupp | undefined, apply: (t: Trupp) => Trupp) => {
+      if (as === 'entry') refuse(fillTemplate(appConfig.copy.atemschutz.earlyLowTooLate, { bar, edit: appConfig.copy.edit }))
+      // …and the LOG ROW says so too, so the printed Atemschutz-Journal can name the moment
+      // instead of leaving a reader to compare a column of numbers against the station's doctrine
+      const line = fillTemplate(
+        alarm ? appConfig.copy.atemschutz.logPressureAlarm : appConfig.copy.atemschutz.logPressure,
+        { name: tr ? truppLogName(tr) : '', bar },
+      )
+      log(alarm ? 'warn' : 'drop', line, 'team', undefined, undefined, { subjectId: id })
+      emit('atemschutz.pressure', { id, bar })
+      // The way back: a fat-fingered reading ("20" for "200") would otherwise permanently poison
+      // lowestBar → a false red «tiefster Druck» on the legal record. Undo restores the Trupp's
+      // pre-reading state (pressure, contact clock, lowestBar, per-Trupp readings); the Verlauf
+      // line stays (append-only doctrine — the record shows the correction happened).
+      // ⚠️ On the GLOBAL ↶ timeline only, since 09.09.: the confirm-with-undo toast that used to
+      // double it is gone — the board raised one for every Kontakt/Druck/Statuswechsel and the
+      // steady popping read as noise over the very board being watched. The header pair (which
+      // the handed-over Tafel carries too) names the step and does not expire.
+      remember(id, line, before, apply)
+    }
+    if (tr && correctsOn(tr)) {
+      /* ⚠️ Decided again on the Trupp the UPDATER gets: `liveTrupps` is the last render, and a
+       * merged update queued before the next one (a first Druck from another device) may already
+       * have measured the Eingangsdruck. Then this value is written as the Druckmeldung it also
+       * is, never over that baseline – and the board says what the updater APPLIED: the notice,
+       * the Verlauf row and the ↶ step wait for it. Mostly the updater runs inside setTrupps and
+       * they follow at once; when React queues it, the updater hands them to a microtask. The ↶
+       * step holds the Trupp the updater REPLACED and the patch it chose: ↶ never brings back
+       * the pre-merge baseline, ↷ never turns the Druckmeldung into a correction. */
+      let applied: { before: Trupp; patch: (t: Trupp) => Trupp; corrected: boolean; alarm: boolean } | undefined
       const apply = (t: Trupp): Trupp => {
-        const c = { ...t, ...correctEntryPressure(t, bar) }
-        return { ...c, lastContactTime: now, readings: [...(c.readings ?? []), { t: now, bar, kind: 'contact' as const }] }
+        const corrected = correctsOn(t), alarm = crossedOn(t)
+        const patch = corrected ? asCorrection : (u: Trupp) => asReading(u, alarm ? 'alarm' : 'pressure')
+        applied = { before: t, patch, corrected, alarm }
+        return patch(t)
       }
-      setTrupps((ts) => ts.map((t) => (t.id === id ? apply(t) : t)))
+      let told = false
+      const tell = () => {
+        if (told || !applied) return
+        told = true
+        if (!applied.corrected) return tellReading(applied.alarm, applied.before, applied.patch)
+        const az = appConfig.copy.atemschutz, from = applied.before.entryPressureBar
+        const line = fillTemplate(bar === from ? az.logFirstPressureSame : az.logFirstPressure,
+          { name: truppLogName(applied.before), bar, from })
+        log('radio', line, 'team', undefined, undefined, { subjectId: id })
+        emit('atemschutz.contact', { id })
+        if (bar !== from) emit('atemschutz.edit', { id })
+        remember(id, line, applied.before, applied.patch)
+      }
+      setTrupps((ts) => ts.map((t) => {
+        if (t.id !== id) return t
+        const next = apply(t)
+        if (!told) queueMicrotask(tell)
+        return next
+      }))
       noteOwnContact(id, now)
-      const az = appConfig.copy.atemschutz
-      const line = fillTemplate(bar === tr.entryPressureBar ? az.logFirstPressureSame : az.logFirstPressure,
-        { name: truppLogName(tr), bar, from: tr.entryPressureBar })
-      log('radio', line, 'team', undefined, undefined, { subjectId: id })
-      emit('atemschutz.contact', { id })
-      if (bar !== tr.entryPressureBar) emit('atemschutz.edit', { id })
-      remember(id, line, tr, apply)
+      tell()
       return
     }
-    // …and the LOG ROW says so too, so the printed Atemschutz-Journal can name the moment
-    // instead of leaving a reader to compare a column of numbers against the station's doctrine
-    const apply = (t: Trupp): Trupp => ({ ...t, lastPressureBar: bar, lastPressureTime: now, lastContactTime: now, lowestBar: Math.min(t.lowestBar ?? t.entryPressureBar, bar),
-      readings: [...(t.readings ?? []), { t: now, bar, kind: crossed ? 'alarm' : 'pressure' }] })
+    const alarm = !!tr && crossedOn(tr)
+    const apply = (t: Trupp): Trupp => asReading(t, alarm ? 'alarm' : 'pressure')
     setTrupps((ts) => ts.map((t) => (t.id === id ? apply(t) : t)))
     noteOwnContact(id, now) // a Druckmeldung confirms the contact too (lib/contactEcho)
-    const line = fillTemplate(
-      crossed ? appConfig.copy.atemschutz.logPressureAlarm : appConfig.copy.atemschutz.logPressure,
-      { name: tr ? truppLogName(tr) : '', bar },
-    )
-    log(crossed ? 'warn' : 'drop', line, 'team', undefined, undefined, { subjectId: id })
-    emit('atemschutz.pressure', { id, bar })
-    // The way back: a fat-fingered reading ("20" for "200") would otherwise permanently poison
-    // lowestBar → a false red «tiefster Druck» on the legal record. Undo restores the Trupp's
-    // pre-reading state (pressure, contact clock, lowestBar, per-Trupp readings); the Verlauf
-    // line stays (append-only doctrine — the record shows the correction happened).
-    // ⚠️ On the GLOBAL ↶ timeline only, since 09.09.: the confirm-with-undo toast that used to
-    // double it is gone — the board raised one for every Kontakt/Druck/Statuswechsel and the
-    // steady popping read as noise over the very board being watched. The header pair (which
-    // the handed-over Tafel carries too) names the step and does not expire.
-    remember(id, line, tr, apply)
+    tellReading(alarm, tr, apply)
   }
 
   // advance a Trupp's lifecycle phase: angemeldet → aktiv (eingerückt, starts the contact clock +
@@ -216,7 +270,7 @@ export function truppClockActions(deps: ClockDeps) {
     // action instead would stamp `now` a second time and move a safety clock forward.
     const apply = (t: Trupp): Trupp => {
       if (status === 'aktiv' && !t.entryTime) {
-        return { ...t, status, entryTime: now, lastContactTime: now, readings: [...(t.readings ?? []), { t: now, bar: t.entryPressureBar, kind: 'entry', pa: isAtemschutzTrupp(t) }] }
+        return { ...t, status, entryTime: now, lastContactTime: now, readings: [...(t.readings ?? []), { t: now, bar: t.entryPressureBar, kind: 'entry', pa: isAtemschutzTrupp(t), ...viaHere() }] }
       }
       // ⚠️ The Austritt is a ROW too (19.08.). It lived only in the sheet's header, so the
       // printed pressure log simply stopped mid-Einsatz and the reader had to look up to find
@@ -239,7 +293,7 @@ export function truppClockActions(deps: ClockDeps) {
         // is the other half of the Rückzug, and printing it as one of twenty radio checks left
         // the sheet saying a Trupp withdrew and never went back. Same clock reset, own word.
         const kind = status === 'rueckzug' ? 'rueckzug' as const : 'resume' as const
-        return { ...t, status, lastContactTime: now, readings: [...(t.readings ?? []), { t: now, bar: t.lastPressureBar ?? t.entryPressureBar, kind }] }
+        return { ...t, status, lastContactTime: now, readings: [...(t.readings ?? []), { t: now, bar: t.lastPressureBar ?? t.entryPressureBar, kind, ...viaHere() }] }
       }
       return { ...t, status }
     }

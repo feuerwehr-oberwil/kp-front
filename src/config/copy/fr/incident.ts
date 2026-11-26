@@ -162,7 +162,7 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     registeredSafety: '{name}, équipe de sécurité',
     registeredToBoard: 'Vers les binômes',
     registeredTitle: 'Encore annoncé',
-    registeredStandDown: 'Clore comme « pas engagé »',
+    registeredStandDown: '{who} pas engagé – suivant',
     insideOne: '1 binôme est encore engagé :',
     insideMany: '{n} binômes sont encore engagés :',
     insideTrupp: 'Binôme {no}',
@@ -182,6 +182,9 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     corrected: 'Heures corrigées : {name}',
     attendanceRemoved: 'Présence de {name} retirée',
     reportMissing: 'Rapport pas encore établi',
+
+    registeredStandDownMany: '{n} équipes pas engagées – suivant',
+    registeredNext: 'Ensuite vient « Clore l’intervention » – c’est seulement là que l’intervention se clôt.',
   },
   personnelSync: {
     title: 'Rapprocher l’effectif avec {provider}',

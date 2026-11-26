@@ -12,6 +12,7 @@ import type { ReactivateResult } from '../../types'
 import { useIsPhone } from '../../lib/useIsPhone'
 import { useEinsatzuhr } from '../../lib/einsatzuhr'
 import { useLate } from '../../lib/useLate'
+import { useAlarmMessage } from '../../lib/useAlarmMessage'
 import { AppMenuRows, type AppMenuAlarms, type FoldedMenuRow } from './AppMenuRows'
 import { pillDot } from '../../lib/foreignAlarm'
 import { runningOthers } from '../../lib/switcherLists'
@@ -31,6 +32,19 @@ function fmtClock(ms: number): string {
 
 // (the SyncGlyph — the shared activity and completion vocabulary — now lives
 // in ../SyncGlyph, shared with the Offline-Bereitschaft load and the Anwesenheit reload)
+
+/** The Einsatz's Alarmmeldung in its menu card, as sent (lib/useAlarmMessage): mounted while the
+ *  menu is open, so it reads the text then. Nothing when the alarm carried no words of its own. */
+function CardAlarmMessage({ id, updatedAt }: { id: string; updatedAt: string }) {
+  const msg = useAlarmMessage(id, updatedAt)
+  if (!msg) return null
+  return (
+    <div className="ip-card-alarm" data-card-alarm="">
+      <span className="ip-card-alarm-head">{appConfig.copy.intake.alarmMessage}</span>
+      <p className="ip-card-alarm-text ui-selectable">{msg}</p>
+    </div>
+  )
+}
 
 // --- TopBar switcher ----------------------------------------------------------------
 export function IncidentSwitcher({
@@ -360,7 +374,7 @@ export function IncidentSwitcher({
         <div className="ip-menu" ref={appMenuSlide}>
           {/* The menu is about what is RUNNING, in two weights (field feedback: every row carried
               the same one): ① THIS Einsatz as a CARD — Titel, Adresse, zwei
-              Status-Pills — carrying its OWN actions inside it; ② the other running Einsätze as
+              Status-Pills, the Alarmmeldung — carrying its OWN actions inside it; ② the other running Einsätze as
               rows led by their laufende Zeit. The card needs no label — it names itself.
               Nothing that is OVER is listed here (a «Frühere» section was tried and dropped on
               2026-08-26): you either switch to something that is still running, or you go looking
@@ -440,6 +454,10 @@ export function IncidentSwitcher({
                   )}
                 </div>
               )}
+              {/* the Alarmmeldung, read-only (owner pick UX journeys B3·4, 25.11.2026): one tap on
+                  the title answers «is someone in danger?» – also after «Passt» retired the
+                  review row that showed it first */}
+              <CardAlarmMessage id={active.id} updatedAt={active.updated_at} />
               {/* The Einsatz's own actions, inside its own card. Short labels: the card names the
                   Einsatz one line above, so «Einsatz abschliessen» would say it twice — the full
                   wording rides along as the button's title/aria-label. Glyph + word on EVERY

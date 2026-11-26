@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { listIncidentsShared, type IncidentMeta } from './incidents'
 import { freshAlarmCandidate, loadDismissedIncidents, saveDismissedIncident } from './incidentAlerts'
+import { markAlarmPoll } from './alarmPollHealth'
 import { useResumingPoll, WATCH_POLL_MS, WATCH_RESUME_GAP_MS } from './useResumingPoll'
 
 /**
@@ -20,6 +21,13 @@ export function useIncidentWatch(
   // ids seen on the first poll of this session: pre-existing incidents never banner (the
   // cold-start pick already handled them), only mid-session arrivals do.
   const baseline = useRef<Set<string> | null>(null)
+  // A round can settle after this watch unmounted (sign-out remounts the app): its answer must not
+  // reach the shared readiness sign, which the next session's watches own (as in useDiveraWatch).
+  const mounted = useRef(false)
+  useEffect(() => {
+    mounted.current = true
+    return () => { mounted.current = false }
+  }, [])
 
   // Read through a ref: as a dependency of `refresh` it rebuilt the poll on every Einsatz open or
   // switch, and a rebuilt poll starts with a round of its own (09.11.2026).
@@ -28,8 +36,15 @@ export function useIncidentWatch(
 
   // The cadence, the foreground resume and the one-round-at-a-time guard are useResumingPoll's;
   // this is only what a round does. The first round shares the boot's request (listIncidentsShared).
+  // Every round reports to the readiness sign (lib/alarmPollHealth · «Bereit für Alarme»): the
+  // device's cached list is no answer from the server.
   const refresh = useCallback(async () => {
-    const { list, offline } = await listIncidentsShared()
+    const { list, offline } = await listIncidentsShared().catch((e: unknown) => {
+      if (mounted.current) markAlarmPoll(false)
+      throw e
+    })
+    if (!mounted.current) return
+    markAlarmPoll(!offline)
     onList(list, offline)
     if (baseline.current === null) {
       baseline.current = new Set(list.map((i) => i.id))

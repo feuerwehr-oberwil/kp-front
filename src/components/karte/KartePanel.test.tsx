@@ -219,7 +219,7 @@ describe('KartePanel · the scroll position comes back', () => {
 describe('KartePanel · order and actions (R2)', () => {
   const PLAN = { id: 'plan:schloss:modul1', module: 'modul1', code: '1', title: 'Schloss – Übersicht', pages: 2, georef: true, version: 1, updatedAt: null }
   const DOCS = [
-    { doc: { id: 'd1', code: '1', title: 'Übersicht', imageUrl: '/x.pdf' }, plan: PLAN, row: 'Modul 1' },
+    { doc: { id: 'd1', code: '1', title: 'Schloss Musterdorf – Übersicht', imageUrl: '/x.pdf' }, plan: PLAN, row: 'Modul 1' },
     { doc: { id: 'gebaeude', code: 'Gebäude', title: 'Gebäude', imageUrl: '', floorStack: true }, plan: null, row: 'Gebäude' },
   ] as unknown as ViewerPlanDoc[]
   const WITH_PLANS = { ...SCHLOSS, plans: [PLAN], remarks: 'Schlüssel beim Hauswart' } as unknown as StationObject
@@ -229,6 +229,18 @@ describe('KartePanel · order and actions (R2)', () => {
     for (const sheet of [true, false]) {
       const { container } = panel({ sel: { kind: 'object', obj: WITH_PLANS }, docs: DOCS, sheet })
       expect(order(container)).toEqual(['station', 'plans', 'register', 'nearby', 'visits', 'actions'])
+      cleanup()
+    }
+  })
+
+  // owner pick B2·58 (25.11.2026): last in reading order, but pinned at the foot — never inside
+  // the body that scrolls, so «Objektbesuch» is in reach without scrolling past the hydrants
+  it('pins the actions at the foot, outside the scrolling body, on the phone and the tablet', () => {
+    for (const sheet of [true, false]) {
+      const { container } = panel({ sel: { kind: 'object', obj: WITH_PLANS }, docs: DOCS, sheet })
+      const actions = container.querySelector('[data-section="actions"]')!
+      expect(actions.closest('[data-karte-body]')).toBeNull()
+      expect(container.querySelector('[data-karte-body]')!.nextElementSibling).toBe(actions)
       cleanup()
     }
   })
@@ -282,23 +294,24 @@ describe('KartePanel · order and actions (R2)', () => {
     }
   })
 
-  // owner, review round 4: «just "modul 1", "modul 2", etc. is enough» — no title, no
-  // «PDF · 2 Seiten · auf Karte ausgerichtet», no number badge; «Gebäude» stays «Gebäude».
-  // 27.10.2026 (mock 2C): tiles, a top-level section right under the station's word – no card
-  // around the two («keep everything top level»)
-  it('a plan tile says «Modul 1» and nothing else, and opens the plan', () => {
+  // owner pick UX journeys, 25.11.2026 · B2·61: a row says the plan's title, the object's own name
+  // dropped («Schloss Musterdorf – Übersicht» → «Übersicht»); the module number is the badge's.
+  // It was «Modul 1» and nothing else (review round 4, 27.10.2026). No «PDF · 2 Seiten …»;
+  // «Gebäude» stays «Gebäude». A top-level section right under the station's word – no card
+  // around the two (27.10.2026, «keep everything top level»)
+  it('a plan row says the plan\'s title, not «Modul 1», and opens the plan', () => {
     const onOpenDoc = vi.fn()
     const { container } = panel({ sel: { kind: 'object', obj: WITH_PLANS }, docs: DOCS, sheet: true, onOpenDoc })
     const rows = [...container.querySelectorAll('[data-section="plans"] button')]
-    expect(rows.map((r) => r.textContent)).toEqual(['Modul 1', 'Gebäude'])
+    expect(rows.map((r) => r.textContent)).toEqual(['Übersicht', 'Gebäude'])
     // one shape for every tile: a document glyph (the floors glyph the Gebäude), the words, the chevron
     for (const r of rows) {
       expect(r.querySelector('use')?.getAttribute('href')).toBe(r.textContent === 'Gebäude' ? '#floors' : '#doc')
     }
     expect(container.querySelector('[data-section="station"] + [data-section="plans"]')?.parentElement?.getAttribute('data-karte-body')).toBe('')
     expect(screen.queryByText('Für den Einsatz')).toBeNull()
-    expect(container.textContent).not.toMatch(/Übersicht|PDF|ausgerichtet|Geschosse vorbereitet/)
-    fireEvent.click(screen.getByRole('button', { name: 'Modul 1' }))
+    expect(container.textContent).not.toMatch(/Modul 1|PDF|ausgerichtet|Geschosse vorbereitet/)
+    fireEvent.click(screen.getByRole('button', { name: 'Übersicht' }))
     expect(onOpenDoc).toHaveBeenCalledWith('d1')
   })
 
@@ -306,7 +319,7 @@ describe('KartePanel · order and actions (R2)', () => {
     const avail = { plans: { 'plan:schloss:modul1@1': 'part' as const }, gebaeude: 'online' as const, georef: false }
     const { container } = panel({ sel: { kind: 'object', obj: WITH_PLANS }, docs: DOCS, sheet: true, offline: true, avail })
     const rows = [...container.querySelectorAll('[data-section="plans"] button')]
-    expect(rows.map((r) => r.getAttribute('aria-label'))).toEqual(['Modul 1 · teilweise auf diesem Gerät', 'Gebäude · Nicht auf diesem Gerät gespeichert'])
+    expect(rows.map((r) => r.getAttribute('aria-label'))).toEqual(['Übersicht · teilweise auf diesem Gerät', 'Gebäude · Nicht auf diesem Gerät gespeichert'])
     expect(rows[1].className).toMatch(/off/)
     expect(rows[0].className).not.toMatch(/off/)
   })

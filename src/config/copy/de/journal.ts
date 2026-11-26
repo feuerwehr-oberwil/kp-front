@@ -134,7 +134,7 @@ export const journalCopy = {
     nachtrag: 'Nachtrag',
     // a hand-written line corrected later (append-only patch — both wordings stay in the record).
     // The row's footnotes are sentence case (hill climb C13, 05.11.2026) — no uppercase eyebrow.
-    corrected: 'Korrigiert {t}',
+    corrected: 'Korrigiert {t} Uhr',
     /**
      * Eine Zeile, die die App wiederholt hat, während sich nichts änderte — zusammengefasst auf
      * die erste, mit ihrer Zahl (lib/verlauf · repeatRuns).
@@ -169,7 +169,7 @@ export const journalCopy = {
     // the FIRST wording, kept by the append-only patch chain (lib/journalStore · display)
     detailCorrectedFirst: 'ursprünglich: {text}',
     detailRepeated: 'Wiederholt',
-    detailRepeatedN: 'Insgesamt {n}× bis {t}',
+    detailRepeatedN: 'Insgesamt {n}× bis {t} Uhr',
     detailNachtrag: 'Nachtrag',
     detailNachtragHint: 'nach Einsatzende erfasst',
     // system row appended when a three-way sync merge saw BOTH sides (KP tablet and

@@ -17,7 +17,7 @@ function fleetOptionsFor(name?: string, field?: string): string[] | undefined {
   if (!fleet || !name) return undefined
   // data-driven attribute lists take precedence
   const al = fleet.attributeLists?.find((a) => a.symbol === name && a.field === field)
-  if (al && al.options.length) return al.options
+  if (al?.options?.length) return al.options
   // legacy fixed fields (back-compat, only until the config is re-saved through the editor)
   let list: string[] | undefined
   if (name === 'VKF Fahrzeug' && field === 'title') list = fleet.vehicleTypes

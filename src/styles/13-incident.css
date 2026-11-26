@@ -187,6 +187,13 @@
    neutral grey tag «Archiv» wears in the list (M2, owner's pick A, 13.11.2026 – it was amber) */
 .ip-card-pill.ip-card-closed { color: var(--ink-dim); background: var(--fill-soft); }
 .ip-card-pill.ip-card-viewonly { color: var(--ink); background: var(--ink-12); }
+/* the Einsatz's Alarmmeldung, read-only, under the pills (owner pick UX journeys B3·4, 25.11.2026 ·
+   IncidentSwitcher · CardAlarmMessage): its home after «Passt» retired the review row. A white
+   box inside the ink tile, the text as sent – wrapped, never clamped, nothing in it picked out */
+.ip-card-alarm { display: grid; gap: var(--sp-1); margin-top: var(--sp-2); padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-sm); background: var(--surface); border: 1px solid var(--border-soft); }
+.ip-card-alarm-head { font: var(--fw-bold) var(--fs-micro)/1.2 var(--body); letter-spacing: .06em; text-transform: uppercase; color: var(--red-strong); }
+.ip-card-alarm-text { margin: 0; font: var(--fw-medium) var(--fs-2)/var(--lh-2) var(--body); color: var(--ink); white-space: pre-line; overflow-wrap: anywhere; }
 .ip-card-closed-fold { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
 .ip-card-closed-say { margin: 0; font: var(--fw-medium) var(--fs-1)/var(--lh-1) var(--body); color: var(--ink-dim); }
 .ip-card-closed-say small { display: block; margin-top: 2px; font-size: var(--fs-1); color: var(--ink-faint); }

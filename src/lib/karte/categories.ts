@@ -23,16 +23,15 @@
 // one row per rule, and these functions are what the tests pin.
 
 import type { StationObject } from '../api/stationReference'
+import type { In } from '../api/wire'
 
 export type ObjectKind = StationObject['kind']
 
-export interface ObjectCategoryRule {
-  id: string
-  /** one string, or one per language (`{ de, fr, it, en }`) */
-  label: string | Record<string, string>
-  /** `#rrggbb`, or `ink` (`INK`): the theme's `--obj-plans` */
-  color: string
-  match?: { kinds?: (ObjectKind | 'depot')[] | null; modules?: string[] | null } | null
+/** One rule (backend `ObjectCategoryConfig`). `label` is one string, or one per language
+ *  (`{ de, fr, it, en }`); `color` is a `#rrggbb`, or `ink` (`INK`): the theme's `--obj-plans`.
+ *  `match` may be `null` in a config cached by an older build. */
+export type ObjectCategoryRule = Omit<In<'ObjectCategoryConfig'>, 'match'> & {
+  match?: In<'ObjectCategoryConfig'>['match'] | null
 }
 
 export interface ObjectCategory {
@@ -44,9 +43,10 @@ export interface ObjectCategory {
   modules: RegExp[] | null
 }
 
-const HEX = /^#[0-9a-fA-F]{6}$/
 /** the colour keyword for «the default look» (backend ObjectCategoryConfig.color) */
 export const INK = 'ink'
+/** A colour the server accepts – the schema's own pattern (admin/configGuards.test holds it). */
+export const CATEGORY_COLOR = /^(#[0-9a-fA-F]{6}|ink)$/
 const KINDS: readonly ObjectKind[] = ['einsatzobjekt', 'objekt']
 
 /** `modul5-pv*` → /^modul5-pv.*$/i — `*` any run, `?` one character, everything else literal. */
@@ -57,7 +57,7 @@ export function globToRegExp(glob: string): RegExp {
 
 /** A colour the server accepts: `#rrggbb` or `ink`. */
 export function isCategoryColor(color: string | null | undefined): boolean {
-  return color === INK || HEX.test(color ?? '')
+  return CATEGORY_COLOR.test(color ?? '')
 }
 
 /** The label in the deployment's language, else German, else the first one given, else the id. */

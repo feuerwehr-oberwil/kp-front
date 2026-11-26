@@ -130,5 +130,7 @@ export const intakeCopy = {
     // «Zeigen» on a hidden alarm's (or «Alarm aktualisiert»'s) row in the «Einsätze» lists – the way
     // back after ✕ (rare-user round M3 / F7, 17.11.2026; panels/AppMenuRows · FoldedRow)
     showAlarm: 'Zeigen',
+    // the review row's sub-line while it shows the Alarmmeldung (Banners · ReviewBanner, owner pick B3·4, 25.11.2026)
+    fromDiveraRead: 'Aus der Alarmquelle übernommen – nur zum Lesen',
   },
 } as const

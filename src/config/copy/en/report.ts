@@ -251,7 +251,7 @@ export const reportCopy: Localizable<Pick<Copy, 'auswertung' | 'report' | 'print
     attachmentRemoved: 'Photo removed',
     linksHead: 'Forms & links',
     shareHead: 'Share',
-    shareLede: 'No login, still valid after closing.',
+    shareLede: 'No login. Still valid after closing – until you revoke the link.',
     shareLiveLede: 'No login, still valid after closing.',
     shareCreate: 'Create link',
     shareBusy: 'Creating link …',

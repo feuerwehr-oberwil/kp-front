@@ -1522,7 +1522,7 @@ export function personalForPdf(
  *  labels / sourced positions) appended so nothing recorded is ever hidden. */
 export function mittelFormForPdf(
   mittel: MittelEntry[],
-  catalogue: { id: string; label: string; unit?: string }[],
+  catalogue: { id: string; label: string; unit?: string | null }[],
 ): { mittelForm: { label: string; menge?: string; unit: string; note?: string }[] } {
   const noSource = appConfig.copy.mittel.noSource
   const recorded = mittelReportRows(mittel, noSource)

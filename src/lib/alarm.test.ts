@@ -114,6 +114,74 @@ describe('alarm — an interrupted context', () => {
     lastCtx.dispatch()
     expect(seen).toHaveBeenCalledTimes(2)
   })
+
+  // owner pick M·3 (25.11.2026): the first tap anywhere arms the tone, not only the Tafel's
+  it('armOnAnyTap: the first tap anywhere arms the tone once; later taps do nothing', async () => {
+    const fresh = await import('./alarm')
+    const armed = vi.fn()
+    const off = fresh.armOnAnyTap(armed)
+    document.body.dispatchEvent(new Event('pointerup', { bubbles: true }))
+    expect(fresh.audioUnlocked()).toBe(true)
+    vi.advanceTimersByTime(300)
+    expect(armed).toHaveBeenCalledTimes(1)
+    document.body.dispatchEvent(new Event('click', { bubbles: true }))
+    vi.advanceTimersByTime(300)
+    expect(lastCtx.resume).toHaveBeenCalledTimes(1)
+    expect(armed).toHaveBeenCalledTimes(1)
+    off()
+  })
+
+  it('armOnAnyTap: an async resume confirms on the statechange, and an interruption re-arms on the next tap', async () => {
+    const fresh = await import('./alarm')
+    const armed = vi.fn()
+    const off = fresh.armOnAnyTap(armed)
+    document.body.dispatchEvent(new Event('touchend', { bubbles: true }))
+    const c = lastCtx
+    // the real browser: resume() answers later, the state flips with a statechange
+    c.resume.mockImplementation(async () => {})
+    c.state = 'interrupted'
+    c.dispatch()
+    vi.advanceTimersByTime(300)
+    expect(armed).toHaveBeenCalledTimes(1)
+    document.body.dispatchEvent(new Event('keydown', { bubbles: true }))
+    expect(armed).toHaveBeenCalledTimes(1) // not running yet
+    c.state = 'running'
+    c.dispatch()
+    vi.advanceTimersByTime(300)
+    expect(armed).toHaveBeenCalledTimes(2)
+    off()
+    c.state = 'interrupted'
+    c.dispatch()
+    document.body.dispatchEvent(new Event('pointerup', { bubbles: true }))
+    c.state = 'running'
+    c.dispatch()
+    vi.advanceTimersByTime(300)
+    expect(armed).toHaveBeenCalledTimes(2) // uninstalled: nothing listens any more
+  })
+
+  // PR #752's CI (25.11.2026): «Alarmton an» shown on the pointerdown stood under the finger,
+  // took the pointerup, and the Karte search row never got its click – the first tap was lost.
+  it('armOnAnyTap: the arming tap ends before onArmed runs – no pointer down, the click landed', async () => {
+    const fresh = await import('./alarm')
+    const armed = vi.fn()
+    const off = fresh.armOnAnyTap(armed)
+    document.body.dispatchEvent(new Event('pointerdown', { bubbles: true }))
+    expect(fresh.audioUnlocked()).toBe(true)
+    vi.advanceTimersByTime(1000) // a long press: the finger is still down
+    expect(armed).not.toHaveBeenCalled()
+    document.body.dispatchEvent(new Event('pointerup', { bubbles: true }))
+    vi.advanceTimersByTime(200)
+    // the next tap starts before the first one settled: wait for that one too
+    document.body.dispatchEvent(new Event('pointerdown', { bubbles: true }))
+    vi.advanceTimersByTime(1000)
+    expect(armed).not.toHaveBeenCalled()
+    document.body.dispatchEvent(new Event('pointercancel', { bubbles: true }))
+    vi.advanceTimersByTime(299)
+    expect(armed).not.toHaveBeenCalled()
+    vi.advanceTimersByTime(1)
+    expect(armed).toHaveBeenCalledTimes(1)
+    off()
+  })
 })
 
 describe('alarm delivery and lifecycle', () => {
@@ -186,6 +254,16 @@ describe('alarm delivery and lifecycle', () => {
       expect(decay[1]).toBeLessThan(stop)
     }
     expect(oscillators[1].start.mock.calls[0][0]).toBeGreaterThan(oscillators[0].stop.mock.calls[0][0])
+  })
+
+  it('arrivalTone: three rising sine pips once unlocked, silence before', () => {
+    api.arrivalTone() // a suspended context: nothing scheduled
+    expect(lastCtx.createOscillator).not.toHaveBeenCalled()
+    api.primeAudio()
+    api.arrivalTone()
+    const oscillators = lastCtx.createOscillator.mock.results.map((r) => r.value as FakeOsc)
+    expect(oscillators.map((o) => o.type)).toEqual(['sine', 'sine', 'sine'])
+    expect(oscillators.map((o) => o.frequency.value)).toEqual([660, 880, 1100])
   })
 
   it('unlocks through the shared call-site alias without creating audio on a read-out', () => {

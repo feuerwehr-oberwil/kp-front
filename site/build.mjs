@@ -395,7 +395,8 @@ for (const locale of config.locales) {
   //   WebSite              this domain and the languages it is published in
   //   WebPage              this language page, with its own URL, title, language and the
   //                        day it last changed – not the release date, which is the app's
-  //   FAQPage              this page's visible FAQ
+  //   FAQPage              this page's visible FAQ – part of the WebPage (`hasPart` ⇄
+  //                        `isPartOf`) and `about` the app
   //
   // The publisher is Feuerwehr Oberwil, referenced by the @id its own website gives it
   // (`product.publisher`) and deliberately not described here: the full node lives on
@@ -420,6 +421,7 @@ for (const locale of config.locales) {
   const appId = `${config.origin}/#app`
   const siteId = `${config.origin}/#website`
   const webPageId = `${urlOf(locale)}#webpage`
+  const faqId = `${urlOf(locale)}#faq`
   const publisher = { '@id': p.publisher }
   const author = { '@id': p.author.id }
   const faqItems = content.faq?.items ?? []
@@ -500,11 +502,15 @@ for (const locale of config.locales) {
           dateModified: modified,
           isPartOf: { '@id': siteId },
           mainEntity: { '@id': appId },
+          ...(faqItems.length && { hasPart: { '@id': faqId } }),
         },
         ...(faqItems.length
           ? [{
               '@type': 'FAQPage',
-              '@id': `${urlOf(locale)}#faq`,
+              '@id': faqId,
+              url: urlOf(locale),
+              isPartOf: { '@id': webPageId },
+              about: { '@id': appId },
               inLanguage: locale.hreflang,
               mainEntity: faqItems.map((item) => ({
                 '@type': 'Question',

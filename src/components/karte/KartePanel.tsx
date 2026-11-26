@@ -4,8 +4,9 @@
 //
 //   head (kind, name, address, ✕)
 //   → the station's own word (Sofortmassnahmen, Bemerkungen, no source line) — read first
-//   → Pläne & Module as tiles, two to a line (a tile opens the Einsatz's plan reader, read-only —
-//     KartePlans; owner, 27.10.2026 · mocks 2B/2C top)
+//   → Pläne & Module as full-width rows named by the plan's title, the module number only in the
+//     badge (owner pick UX journeys, 25.11.2026 · B2·61; replaces the two-to-a-line «Modul 1»
+//     tiles of 27.10.2026 · mocks 2B/2C). A row opens the Einsatz's plan reader, read-only — KartePlans
 //   → Gebäude laut Register as BULLETS, the hazards first with ⚠ («Register-Hinweis», source and
 //     Stand on every line)
 // Every part a top-level section with its head — no card around the first ones, no tabs (owner,
@@ -13,7 +14,11 @@
 //   → In der Nähe (one list by distance, objects and hydrants, and a sentence saying so)
 //   → Objektbesuche, an object's only (rows open the existing read view; a read-only line for
 //     other roles). A plain building has none to show – its always-empty line went (owner 20.10.)
-//   → the actions LAST: «Objektbesuch» and «Melden» (capture roles only)
+//   → the actions LAST: «Objektbesuch» and «Melden» (capture roles only) — in reading order still
+//     last, but PINNED at the panel's foot while the sections scroll above them, on the phone
+//     sheet and the tablet panel alike (owner pick UX journeys, 25.11.2026 · B2·58: both walkers
+//     scrolled past the register and the hydrants for the one thing they came to do). A building
+//     and a pin keep the same foot.
 //
 // The panel ENDS there. The closing «Keine Gefahrenangaben der Station erfasst …» went with
 // review round 7 (owner, 20.10.2026: «knowing that there could be something but it isn't filled
@@ -27,8 +32,8 @@
 // passes their states in.
 //
 // Scrolling is REMEMBERED per selection (owner, 20.10.2026 · s09): a plan or an Objektbesuch
-// takes the panel off the screen, and coming back puts «Objektbesuch» back under the thumb
-// instead of the head. Another place — the other level, the next object — starts at the top
+// takes the panel off the screen, and coming back puts the reader back where they were instead
+// of at the head. Another place — the other level, the next object — starts at the top
 // (`scrollKey` below).
 //
 // On a PHONE it is the slide-up sheet Ebenen is (owner, 17.10.2026 · R2: «a full slide-up like
@@ -58,7 +63,7 @@ import type { BuildingInfo } from '../../lib/api/building'
 import type { StationObject } from '../../lib/api/stationReference'
 import type { NearRow } from '../../lib/karte/places'
 import { objectHeadSub, objectRowSub, splitAddress, streetKey } from '../../lib/karte/places'
-import type { ViewerPlanDoc } from '../../lib/karte/plans'
+import { titleUnderObject, type ViewerPlanDoc } from '../../lib/karte/plans'
 import { planKey, type ObjectAvailability } from '../../lib/karte/availability'
 import type { VisitSummary } from '../../objectVisits/types'
 import type { LngLat } from '../../types'
@@ -174,6 +179,8 @@ export function KartePanel(p: {
   })
   let head: ReactNode
   let body: ReactNode
+  /** the pinned foot (B2·58): the place's actions, outside the scrolling body */
+  let actions: ReactNode
   if (sel.kind === 'object') {
     const o = sel.obj
     head = (
@@ -192,13 +199,13 @@ export function KartePanel(p: {
           <div className="form-warn form-warn-amber"><Icon id="warn" /><span className="form-warn-text">{C.approxHead} {C.approxBody}</span></div>
         )}
         <StationWord obj={o} />
-        <PlanTiles docs={p.docs} onOpenDoc={p.onOpenDoc} avail={p.offline ? p.avail ?? null : undefined} />
+        <PlanTiles docs={p.docs} objectName={o.name} onOpenDoc={p.onOpenDoc} avail={p.offline ? p.avail ?? null : undefined} />
         <Register key={o.id} reg={p.register} address={o.address} onRetry={p.onRetryRegister} />
         <Nearby rows={p.nearby} lit={p.litHydrant ?? null} onHydrant={p.onHydrant} onSelectObject={p.onSelectObject} />
         <Visits visits={p.visits} canCapture={p.canCapture} empty={C.visitsNever} onOpenVisit={p.onOpenVisit} offline={p.offline} last={o.lastVisit} />
-        <Actions canCapture={p.canCapture} onVisit={p.onStartVisit} onReport={p.onReport} />
       </>
     )
+    actions = <Actions canCapture={p.canCapture} onVisit={p.onStartVisit} onReport={p.onReport} />
   } else if (sel.kind === 'building') {
     const info = p.register.info
     const [street, place] = splitAddress(info?.address ?? sel.address)
@@ -224,9 +231,9 @@ export function KartePanel(p: {
       <>
         <Register key={sel.at.join(',')} reg={p.register} address={null} onRetry={p.onRetryRegister} />
         <Nearby rows={p.nearby} lit={p.litHydrant ?? null} onHydrant={p.onHydrant} onSelectObject={p.onSelectObject} />
-        <Actions canCapture={p.canCapture} onReport={p.onReport} />
       </>
     )
+    actions = <Actions canCapture={p.canCapture} onReport={p.onReport} />
   } else {
     const title = sel.nearState === 'loading' ? null
       : sel.near ? (sel.near.distanceM != null ? fillTemplate(C.pinNear, { a: sel.near.label, m: Math.round(sel.near.distanceM) }) : fillTemplate(C.pinLabelNear, { a: sel.near.label }))
@@ -251,11 +258,13 @@ export function KartePanel(p: {
           </ListCard>
         )}
         <Nearby rows={p.nearby} lit={p.litHydrant ?? null} onHydrant={p.onHydrant} onSelectObject={p.onSelectObject} />
-        <Actions canCapture={p.canCapture} onReport={p.onReport}
-          extra={p.coordsCopied
-            ? <DoneChip key="copy" title={C.copyCoords}>{C.copied}</DoneChip>
-            : <Button key="copy" variant="secondary" icon={<Icon id="copy" />} onClick={p.onCopyCoords}>{C.copyCoords}</Button>} />
       </>
+    )
+    actions = (
+      <Actions canCapture={p.canCapture} onReport={p.onReport}
+        extra={p.coordsCopied
+          ? <DoneChip key="copy" title={C.copyCoords}>{C.copied}</DoneChip>
+          : <Button key="copy" variant="secondary" icon={<Icon id="copy" />} onClick={p.onCopyCoords}>{C.copyCoords}</Button>} />
     )
   }
   return (
@@ -278,6 +287,7 @@ export function KartePanel(p: {
           pending.current = 0
           rememberScroll(key, el.scrollTop)
         }}>{p.level && <LevelSwitch level={p.level} />}{body}</div>
+      {actions}
     </section>
   )
 }
@@ -313,9 +323,11 @@ function HeadSkeleton({ sub = false }: { sub?: boolean }) {
 }
 
 /** The actions, LAST (owner R2: the facts first, what to do about them after): «Objektbesuch»
- *  where there is an object, «Melden» everywhere. A door the role cannot go through is not drawn
- *  (docs/roles-and-access.md) — without `canCapture` only `extra` (the pin's «Koordinaten
- *  kopieren», which writes nothing) is left. */
+ *  where there is an object, «Melden» everywhere. PINNED at the panel's foot, under the scrolling
+ *  body, so they are in reach without scrolling (owner pick UX journeys, 25.11.2026 · B2·58).
+ *  A door the role cannot go through is not drawn (docs/roles-and-access.md) — without
+ *  `canCapture` only `extra` (the pin's «Koordinaten kopieren», which writes nothing) is left, and
+ *  with nothing left there is no foot. */
 function Actions({ canCapture, onVisit, onReport, extra }: { canCapture: boolean; onVisit?: () => void; onReport: () => void; extra?: ReactNode }) {
   const C = appConfig.copy.karte
   const buttons = [
@@ -324,7 +336,7 @@ function Actions({ canCapture, onVisit, onReport, extra }: { canCapture: boolean
     canCapture && <Button key="report" variant="secondary" icon={<Icon id="warn" />} onClick={onReport}>{C.startReport}</Button>,
   ].filter(Boolean)
   if (!buttons.length) return null
-  return <div className={s.quick} data-section="actions">{buttons}</div>
+  return <div className={cx(s.quick, s.foot)} data-section="actions">{buttons}</div>
 }
 
 /** The station's own word about the object, FIRST (owner R2: in a hurry it matters most):
@@ -341,16 +353,23 @@ function StationWord({ obj }: { obj: StationObject }) {
   )
 }
 
-/** Pläne & Module as tiles, two to a line (owner, 27.10.2026 · mock 2C): each says the plan's
- *  name and nothing else — «Modul 1», «Wasser», «PV» (lib/navRail · planLabel), «Gebäude» for the
- *  stack — behind the rail's own mark (PlanGlyph · PlanChip: «1», «W2», the floors glyph the
- *  Gebäude). Offline, the ●/○ «auf diesem Gerät» mark trails the name, before the › (a tile the
- *  device does not hold is dimmed) and the head's legend
- *  says what it means. A tile opens the plan in the Einsatz's reader, read-only (KartePlans).
- *  Not a ListRow: a row spans the card, and two tiles a line is what keeps four plans in the
- *  first screen. */
-function PlanTiles({ docs, onOpenDoc, avail }: {
+/** Pläne & Module as full-width rows, ONE a line, each named by the plan's TITLE — «Übersicht»,
+ *  «Zugang & Objekt» (lib/karte/plans · planTitle, the object's own name before a dash dropped:
+ *  `titleUnderObject`), «Gebäude» for the stack — behind the rail's own mark (PlanGlyph · PlanChip:
+ *  «1», «2/3», «W2», the floors glyph the Gebäude), which is where the module number stays.
+ *  ⚠️ Owner pick UX journeys, 25.11.2026 · B2·61: both walkers were sent for «die Übersicht» and
+ *  had to guess which «Modul N» it was. It replaces «the plan's name and nothing else, two to a
+ *  line» (review round 4, «just ‹modul 1› is enough»; 27.10.2026 · mock 2C). The rails, «Plan
+ *  wählen» and the Objektbesuch keep `planLabel` («Modul 1»).
+ *  Offline, the ●/○ «auf diesem Gerät» mark trails the title, before the › (a row the device does
+ *  not hold is dimmed) and the head's legend says what it means. A row opens the plan in the
+ *  Einsatz's reader, read-only (KartePlans).
+ *  Not a ListRow: each plan is its own lifted tile, the panel's ONE lifted surface (12.11.2026),
+ *  where a ListCard would put the rows in one card with hairlines between them. */
+function PlanTiles({ docs, objectName, onOpenDoc, avail }: {
   docs: ViewerPlanDoc[]
+  /** the object the sheet is about: its name is dropped from the front of a plan's title */
+  objectName: string
   onOpenDoc: (id: string) => void
   /** offline only: what this device holds (null = still asking; undefined = online, no lamps) */
   avail?: ObjectAvailability | null
@@ -368,17 +387,18 @@ function PlanTiles({ docs, onOpenDoc, avail }: {
         {offline && <span className={s.legend}><span className={s.lamp} aria-hidden />{C.onDevice}</span>}
       </div>
       <div className={s.planTiles} role="group" aria-label={C.plansTitle}>
-        {docs.map(({ doc, row, plan }) => {
+        {docs.map(({ doc, plan }) => {
           const lamp = lampOf(plan)
           const off = lamp === 'online'
+          const title = titleUnderObject(doc.title, objectName)
           return (
             <button key={doc.id} type="button" className={cx(s.planTile, off && s.off)} onClick={() => onOpenDoc(doc.id)}
-              aria-label={lamp ? `${row} · ${off ? C.planNotStored : C.device.lampWord[lamp]}` : undefined}>
+              aria-label={lamp ? `${title} · ${off ? C.planNotStored : C.device.lampWord[lamp]}` : undefined}>
               {/* the rail's own mark (PlanChip, ENT.10) – «1», «W2», the Gebäude's floors – and
                   the › on every tile, offline too: the lamp says what the device holds, the ›
                   that the tile still opens (LISTS.8 – the lamp used to stand in its place) */}
               <span className={s.planMark}><PlanChip doc={doc} /></span>
-              <span className={s.planTileText}>{row}</span>
+              <span className={s.planTileText}>{title}</span>
               {lamp && <LampDot lamp={lamp} />}
               <Icon id="chevron" className={s.chev} />
             </button>

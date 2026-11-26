@@ -59,6 +59,17 @@ export function planName(p: Pick<StationPlan, 'module' | 'id' | 'title'>, catalo
   return planLabel(planDocId(p), planTitle(p, catalogue))
 }
 
+/** A plan's row in the object's sheet says its TITLE (owner pick UX journeys, 25.11.2026 · B2·61 –
+ *  «Übersicht», «Zugang & Objekt»; the module number stands only in the badge). The sheet's head
+ *  already names the object, so a title that starts with the object's own name and a dash
+ *  («Schloss Musterdorf – Übersicht») drops that part. Anything else is the title as it is. Pure. */
+export function titleUnderObject(title: string, objectName: string): string {
+  const name = objectName.trim()
+  if (!name || !title.startsWith(name)) return title
+  const rest = /^\s*[–—-]\s*(.+)$/.exec(title.slice(name.length))
+  return rest ? rest[1].trim() : title
+}
+
 /** `row`: the plan's name, the words its tile in the object's sheet and its rail tile say
  *  (lib/navRail · planLabel; «Gebäude» for the stack) */
 export interface ViewerPlanDoc { doc: PlanDocument; plan: StationPlan | null; row: string }

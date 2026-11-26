@@ -9,13 +9,13 @@ type Keys =
   | 'exerciseInitial' | 'keepPlacing' | 'delete' | 'remove' | 'undo' | 'redo' | 'undoNamed'
   | 'redoNamed' | 'undoLost' | 'removedToast' | 'undoDomains' | 'undoSurfaces' | 'undoTopDropped'
   | 'undoDroppedWhat' | 'play' | 'clear' | 'clearSearch' | 'noHits' | 'keepPlacingShort' | 'filterNoHits'
-  | 'filterStrip'
+  | 'filterStrip' | 'timeOfDay'
 
 export const commonCopy: Localizable<Pick<Copy, Keys>> = {
   baseMap: 'Mappa di base',
   floor: { eg: 'PT', og: '{n}° PS', ug: '{n}° PI', ogShort: 'Su', ugShort: 'Giù' },
   hoseHint: '~{n} tubi',
-  symbolSearchPlaceholder: 'Cerca simbolo tattico …',
+  symbolSearchPlaceholder: 'Cerca segno convenzionale …',
   closeDialog: 'Chiudi',
   edit: 'Modifica',
   primarySymbol: { label: 'Simbolo' },
@@ -68,4 +68,5 @@ export const commonCopy: Localizable<Pick<Copy, Keys>> = {
     count: '{n} di {m}',
     showAll: 'Mostra tutto',
   },
+  timeOfDay: '{time}',
 }

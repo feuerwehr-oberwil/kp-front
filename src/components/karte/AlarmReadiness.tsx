@@ -7,11 +7,16 @@
 // «Erneuern» = re-register, «Installieren» = the InstallGuide, «Testalarm senden» = one push to
 // this browser, «Keine Alarme auf diesem Gerät» = push off (undo toast; reversible in the rows).
 // The 3am rule: nothing modal by itself, no OS dialog without a tap.
+//
+// Beside them, the Karte head's sign «Bereit für Alarme» (owner pick UX journeys B3·6, 25.11.2026 –
+// `AlarmReadyPill`): green while the last alarm poll answered less than 60 s ago, red «Keine
+// Verbindung – Alarme kommen nicht an» when it fails (lib/alarmPollHealth); a phone shows the dot
+// alone. A tap shows the connection and the rows above («Mitteilungen») in a popover.
 
 import { useEffect, useState } from 'react'
 import { appConfig } from '../../config/appConfig'
 import { cx } from '../../lib/cx'
-import { fillTemplate } from '../../lib/format'
+import { fillTemplate, formatTime } from '../../lib/format'
 import { fmtDay } from '../../lib/buildingCard'
 import { roleLabel } from '../../lib/format'
 import { permissionPath } from '../../lib/permissionPath'
@@ -25,6 +30,8 @@ import {
   type ReadinessFix, type ReadinessRow, type ReadinessState,
 } from '../../lib/alarmReadiness'
 import { disablePush, enablePush, ensurePushSubscription, renewPushSubscription, sendTestPush } from '../../lib/push'
+import { useAlarmPollHealth } from '../../lib/alarmPollHealth'
+import { BAR_POP_OFFSET, Popover } from '../../lib/overlays'
 import { Button, IconButton } from '../Button'
 import { InstallGuide } from '../InstallGuide'
 import { ListCard, ListRow } from '../ListRow'
@@ -197,5 +204,44 @@ export function AlarmNudgeCard({ inIncident, phone }: { inIncident: boolean; pho
       </section>
       {guideEl}
     </>
+  )
+}
+
+/** The Karte head's readiness sign (owner pick UX journeys B3·6, 25.11.2026): a quiet pill after
+ *  the weather – green «Bereit für Alarme» while the last alarm poll is under 60 s old, red «Keine
+ *  Verbindung – Alarme kommen nicht an» once it fails (lib/alarmPollHealth). `phone`: the dot
+ *  alone, the bar has no room for the words. Nothing before the first poll has answered. A tap
+ *  opens the details: the connection, then «Alarm auf diesem Gerät» (the Mitteilungen). */
+export function AlarmReadyPill({ phone }: { phone: boolean }) {
+  const A = appConfig.copy.karte.device.alarm
+  const { state, okAt } = useAlarmPollHealth()
+  if (state == null) return null
+  const ready = state === 'ready'
+  const word = ready ? A.pillReady : A.pillDown
+  const at = (t: number) => formatTime(new Date(t), true)
+  // down: no answer since the last good one – or none at all since this page started
+  const sub = okAt == null ? A.connectionNever
+    : fillTemplate(ready ? A.connectionOk : A.connectionDown, { t: at(okAt) })
+  return (
+    <Popover
+      popupClassName={s.readyPop}
+      ariaLabel={A.pillDetails}
+      side="bottom"
+      align="end"
+      sideOffset={BAR_POP_OFFSET}
+      trigger={
+        <button type="button" className={cx(s.readyPill, !ready && s.readyDown, phone && s.readyDot)}
+          title={word} aria-label={word} data-alarm-ready={state}>
+          <span className={s.readyLamp} aria-hidden />{!phone && word}
+        </button>
+      }
+    >
+      <ListCard>
+        <ListRow data-alarm-row="connection" data-state={ready ? 'ok' : 'red'}
+          lead={<span className={cx(s.alarmDot, !ready && s.alarmRed)} aria-hidden />}
+          title={A.connection} sub={<>{sub}<span className="sr-only"> · {A.state[ready ? 'ok' : 'red']}</span></>} />
+      </ListCard>
+      <AlarmReadinessRows />
+    </Popover>
   )
 }
