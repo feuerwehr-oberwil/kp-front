@@ -16,6 +16,7 @@ they are shared **by copy**. There is no package and no third repository:
 | `alarm-intake` | one dispatch webhook could be accepted by one app and refused by the other |
 | `snail` | the two apps would show a different loading mascot |
 | `landing-runtime` | the two sister landing pages would look, build or switch theme differently |
+| `release-notes` | a release's published notes could be cut differently from its CHANGELOG |
 | `shared-check` | the two repositories would check different things |
 
 Some neighbours are left out on purpose. Of the telemetry package, only the sanitiser
@@ -23,6 +24,10 @@ Some neighbours are left out on purpose. Of the telemetry package, only the sani
 crash-report forwarder on 09.11.2026, so `envelope.py`, `outbox.py`, `forwarder.py`,
 `consent.py`, `dsn.py` and the package's `__init__.py` are KP Rück's own. Everything that
 decides what a crash entry *contains* is shared.
+
+A shared module's own test file is shared with it (`test_station_index.py`,
+`test_roster_snapshot_ingest.py`, `test_roster_snapshot_from_csv.py`): otherwise one side could
+weaken the test of shared code and no check would notice.
 
 The landing pages share `site/landing.css`, `site/build.mjs` and `site/theme.js`. The lightbox
 script at the end of `site/index.template.html` is the same in both too, but the template
