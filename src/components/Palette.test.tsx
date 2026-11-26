@@ -11,6 +11,12 @@ vi.mock('../lib/useKeyboardInset', async (orig) => ({
   useKeyboardInset: () => kb.inset,
 }))
 
+// the station's Bezeichnung list for the generic Fahrzeug (station config, lib/symbols)
+vi.mock('../lib/symbols', async (orig) => ({
+  ...(await orig<typeof import('../lib/symbols')>()),
+  symbolTitleOptions: (name?: string) => (name === 'VKF Fahrzeug' ? ['TLF', 'MTF'] : undefined),
+}))
+
 afterEach(() => { cleanup(); kb.inset = 0 })
 
 const sym: SymbolsApi = {
@@ -35,5 +41,29 @@ describe('the symbol palette and the keyboard', () => {
     expect(sheet.classList.contains('is-kb')).toBe(true)
     expect(sheet.style.getPropertyValue('--kb-inset')).toBe('300px')
     expect(sheet.style.marginBottom).not.toBe('')
+  })
+})
+
+// owner pick, morning round 26.11.2026 («TLF» search): the station's own vehicles are big named
+// tiles – first among a search's hits, and without a search just before the Fahrzeug's category
+describe('own vehicles in the palette', () => {
+  const fleet: SymbolsApi = {
+    ...sym,
+    order: ['Wasser', 'Fahrzeuge'],
+    symbols: [...sym.symbols, { cat: 'Fahrzeuge', name: 'VKF Fahrzeug', svg: '<svg/>' }],
+  }
+  const heads = () => [...document.querySelectorAll('.sym-ghead')].map((h) => h.textContent)
+
+  it('stand before the Fahrzeug category without a search, each a tile wearing its name', () => {
+    render(<Palette sym={fleet} onPick={vi.fn()} onClose={vi.fn()} />)
+    expect(heads()).toEqual(['Wasser', 'Eigene Fahrzeuge', 'Fahrzeuge'])
+    expect(screen.getByRole('button', { name: 'TLF' }).className).toBe('sym-vtile')
+  })
+
+  it('picks the generic Fahrzeug already named', () => {
+    const onPick = vi.fn()
+    render(<Palette sym={fleet} onPick={onPick} onClose={vi.fn()} />)
+    screen.getByRole('button', { name: 'MTF' }).click()
+    expect(onPick).toHaveBeenCalledWith('VKF Fahrzeug', 'MTF')
   })
 })

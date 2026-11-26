@@ -54,7 +54,7 @@ export function armedToolIcon(tool: MapTool | BoardTool, tools: readonly ToolEnt
 export function armedReadout(tool: MapTool | BoardTool, tools: readonly ToolEntry[], picked: { symbol?: string | null; label?: string; svg?: string; shape?: ShapeKind | null }): ArmedReadout | null {
   // a symbol's own SVG – ⚠️ SEC-01, sanitised at this sink: the markup can be an editor-supplied
   // `symbolSvg` (components/Palette · Cell has the same note)
-  // an own vehicle armed by its Bezeichnung («TLF», components/Palette · VehicleCell) says that name
+  // an own vehicle armed by its Bezeichnung («TLF», components/Palette · VehicleTile) says that name
   if (tool === 'symbol') return picked.symbol ? { glyph: <span className="wb-dock-sym" dangerouslySetInnerHTML={{ __html: sanitizeSvg(picked.svg ?? '') }} />, name: picked.label || formatSymbolName(picked.symbol) || picked.symbol } : null
   if (tool === 'shape') {
     const kind = picked.shape
