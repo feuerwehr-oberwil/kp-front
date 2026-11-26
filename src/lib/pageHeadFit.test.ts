@@ -191,11 +191,16 @@ describe('the top bar · the phone street before ↷ (headCrowded)', () => {
     let anims = [arrival('tb-chip-in')]
     el.getAnimations = () => anims as unknown as Animation[]
     const settled = () => anims.every((x) => (x.currentTime ?? 0) >= 259)
+    let room = 983
     Object.defineProperties(el, {
-      scrollWidth: { get: () => (settled() ? 983 : 977) }, clientWidth: { get: () => (settled() ? 983 : 870) },
+      scrollWidth: { get: () => (settled() ? 983 : 977) }, clientWidth: { get: () => (settled() ? room : 870) },
     })
     expect(headCrowded(el, 0)).toBe(false)
     expect(anims[0].currentTime).toBe(40) // the arrival goes on from where it was
+    // a bar that overflows even with the chip grown is crowded, arrival or not
+    room = 930
+    expect(headCrowded(el, 0)).toBe(true)
+    room = 983
     // another animation (a pulse) is not an arrival: its overflow is real
     anims = [arrival('pulse')]
     expect(headCrowded(el, 0)).toBe(true)
