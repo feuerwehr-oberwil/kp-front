@@ -880,3 +880,30 @@ describe('Journal · empty', () => {
     expect(sub()).toContain('«Eintrag»')
   })
 })
+
+// «auf Tablet 2» heads its run, like the printed Einsatzjournal (morning round 26.11.2026): a row
+// says its device only where the row SHOWN above it has another one, or none – after a search too
+describe('Journal · the device footnote', () => {
+  const on = (id: string, at: number, text: string, device?: string): TimelineEvent => ({ ...row(id, at, text), device })
+  const feed = [
+    on('d6', 1_060_000, 'Lüfter läuft', 'Tablet 2'),
+    on('d5', 1_050_000, 'Trupp 2 Rückzug', 'Tablet 1'),
+    on('d4', 1_040_000, 'Lüfter gestellt', 'Tablet 2'),
+    on('d3', 1_030_000, 'Wasser ab TLF', 'Tablet 2'),
+    on('d2', 1_020_000, 'Wind aus West'),
+    on('d1', 1_010_000, 'Trupp 2 Eintritt', 'Tablet 1'),
+  ]
+  const named = () => [...document.querySelectorAll('.jr-foot-device')].map((el) => el.closest('[data-ev]')?.getAttribute('data-ev'))
+
+  it('names the device on the first row of each run only', () => {
+    setup({ events: feed })
+    expect(named()).toEqual(['d6', 'd5', 'd4', 'd1'])
+  })
+
+  it('compares with the row the search left above, not with one it hid', () => {
+    setup({ events: feed })
+    fireEvent.change(screen.getByRole('textbox', { name: 'Im Verlauf suchen' }), { target: { value: 'lüfter' } })
+    // «Trupp 2 Rückzug» (Tablet 1) fell out: the two Tablet-2 rows are one run now
+    expect(named()).toEqual(['d6'])
+  })
+})
