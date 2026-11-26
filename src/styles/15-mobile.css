@@ -485,6 +485,10 @@
     --under-bar: calc(var(--bar-foot) + var(--float-gap));
     /* where the Meldeleiste and the toasts start: a --sp-1 under the bar (08-toasts · .ml) */
     --msg-top: calc(var(--bar-foot) + var(--sp-1)); }
+  /* …and while a Meldeleiste stands, one --float-gap under the strip, by its measured `--ml-h`:
+     where a piece hung under the bar goes instead (owner, 26.11.2026 – no piece lies on an alert:
+     the row under the bar, the Messen panel's top, the Plan's «in der Nähe» banner). */
+  :root:has(.ml) { --under-alert: calc(var(--msg-top) + var(--ml-h, 0px) + var(--float-gap)); }
   .topbar { top: var(--bar-top); left: max(8px, env(safe-area-inset-left));
     right: max(8px, env(safe-area-inset-right)); max-width: none; gap: 8px; flex-wrap: nowrap; }
   .eaddr { display: none; }
@@ -1408,10 +1412,10 @@
   /* ⚠️ No control of this row ever lies on an alert (owner, 26.11.2026: the Standort tile covered
      «Atemschutz überfällig – Müller Hans / …» and its «Zum Trupp»). The row and the Meldeleiste
      both hang under the bar (--under-bar, --msg-top), so while a strip stands the WHOLE row steps
-     one --float-gap below it, by the strip's measured height (Meldeleiste · `--ml-h`). Never a
-     z-index: Standort and the GPS chip ride the top bar (z56, over the strip at 54) and covered
-     it; the wind lay under it, out of reach. One rule for the row, so a new piece of it yields too. */
-  :root:has(.ml) :is(.tb-share, .tb-gps, .phone-wx) { margin-top: calc(var(--msg-top) - var(--bar-foot) + var(--ml-h, 0px)); }
+     down to `--under-alert` (one --float-gap below the strip). Never a z-index: Standort and the
+     GPS chip ride the top bar (z56, over the strip at 54) and covered it; the wind lay under it,
+     out of reach. One rule for the row, so a new piece of it yields too. */
+  :root:has(.ml) :is(.tb-share, .tb-gps, .phone-wx) { margin-top: calc(var(--under-alert) - var(--under-bar)); }
   /* …and while the row holds a piece the strip ENDS one row higher (it scrolls past that), so the
      row always finds its line between the strip and the floating row: at 320×640 three alarm rows
      reached the floating row and the row stepped onto «Info» and the FAB. `:where()` keeps this at
