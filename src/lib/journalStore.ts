@@ -780,7 +780,7 @@ export class JournalStore {
   view(): JournalView {
     const prev = this.lastView
     const ready = this.initDone && !this.readFailed && this.pulled
-    const queued = [...this.state.outbox, ...(this.state.dead ?? [])].map((r) => r.id).join(',')
+    const queued = JSON.stringify([...this.state.outbox, ...(this.state.dead ?? [])].map((r) => r.id))
     const rowsKey = `${this.state.rows.length}|${this.legacyGen}|${this.overlayGen}|${ready ? 1 : 0}|${queued}`
     let unsentIds = prev?.unsentIds ?? new Set<string>()
     if (prev?.rowsKey !== rowsKey) {
