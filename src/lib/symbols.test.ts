@@ -276,6 +276,22 @@ describe('Messpunkt — the reading its mark wears (27.10.2026)', () => {
     expect(readingRows(p).map((r) => r.v)).toEqual([{ CO: '45', Ex: '0' }, { CO: '20' }])
   })
 
+  it('a stored row without values is skipped by every reader, and stays in the history', () => {
+    // the merge unions the rows off the server's raw blob, which no gate has checked
+    const bad = [{ t: 0, v: null }, { t: 10 * MIN, v: { CO: '20' } }, null, { t: 20 * MIN, v: null },
+      { t: 21 * MIN, v: { CO: 45 } }, { t: 'x', v: { CO: '5' } }, { t: 10 * MIN + 1, v: [] }, { t: 10 * MIN + 2, v: {} }, { t: 10 * MIN + 3, v: { CO: ' ' } }] as unknown as Parameters<typeof mp>[1]
+    const p = mp({ CO: '20' }, bad)
+    // the history panel: a broken row a moment later does not fold the good one away
+    expect(readingRows(p).map((r) => r.v)).toEqual([{ CO: '20' }])
+    expect(symbolReading(p, 15 * MIN)?.at).toBe(10 * MIN) // the map's pill: the last usable row
+    expect(recordReading(p, { CO: '20' }, 30 * MIN)).toBe(p.readings) // same values: nothing new
+    expect(recordReading(p, { CO: '45' }, 30 * MIN)).toEqual([...bad!, { t: 30 * MIN, v: { CO: '45' } }])
+    // a stored history that is no list at all is no history
+    const junk = mp({ CO: '20' }, { t: 1 } as unknown as Parameters<typeof mp>[1])
+    expect(readingRows(junk)).toEqual([])
+    expect(recordReading(junk, { CO: '45' }, 30 * MIN)).toEqual([{ t: 30 * MIN, v: { CO: '45' } }])
+  })
+
   it('between two gases at the same stage, the one further past its limit wins', () => {
     // Ex 24 is 1.2 × its A2 of 20, CO 65 only 1.08 × its 60 – preset order no longer decides
     expect(symbolReading(mp({ CO: '65', Ex: '24' }))).toMatchObject({ text: 'Ex 24', level: 'a2' })

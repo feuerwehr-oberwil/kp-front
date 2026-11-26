@@ -204,3 +204,24 @@ describe('renumberRow — the one Verlauf row', () => {
     expect(renumberRow(c, '2026-09-25T10:00:04Z').id).toBe(renumberRow(c, '2026-09-25T10:00:09Z').id)
   })
 })
+
+describe('a chip label that is not text (the server\'s raw blob, no gate in between)', () => {
+  // the merge reads the objects off the server's blob as stored: a label of the wrong type there
+  // used to throw `name.trim is not a function` inside the merge, on every device
+  const odd = (id: string): TacticalObject => ({ ...chip(id, 'x'), entity: { ...chip(id, 'x').entity!, label: 5 as unknown as string } })
+
+  it('carries no number and settles the rest', () => {
+    const r = resolveTruppNumbers([trupp('a', 1, '2026-09-25T10:00:00Z'), trupp('b', 1, '2026-09-25T10:00:01Z')], [odd('c'), chip('d', 'Trupp 2')])
+    expect(r?.trupps.map((t) => t.no)).toEqual([1, 3])
+  })
+
+  it('a contested sheet chip whose baked map body has one gets the generic name there', () => {
+    const s = sheetChip('s', 'Trupp 1')
+    const r = resolveTruppNumbers([trupp('a', 1, '2026-09-25T10:00:00Z')], [{ ...s, entity: { ...s.entity!, label: 5 as unknown as string } }])
+    expect(r?.objects[0].entity?.label).toBe('Trupp 2')
+  })
+
+  it('is no renumbering to report', () => {
+    expect(truppRenumberings({ objects: [odd('c')] }, { objects: [chip('c', 'Trupp 4')] })).toEqual([])
+  })
+})

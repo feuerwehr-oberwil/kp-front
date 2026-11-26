@@ -59,9 +59,11 @@ const teamNameRe = () => {
   return new RegExp(`^${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s+(\\d+)$`, 'i')
 }
 
-/** The number a generic chip name carries — «Trupp 3» → 3; a renamed chip → undefined. */
-export function teamNameNo(name: string | undefined): number | undefined {
-  const m = name?.trim().match(teamNameRe())
+/** The number a generic chip name carries — «Trupp 3» → 3; a renamed chip → undefined. Takes
+ *  `unknown`: the merge reads chip labels off the server's raw blob, which no gate has checked
+ *  (lib/truppNumbers), and a label that is not text carries no number. */
+export function teamNameNo(name: unknown): number | undefined {
+  const m = typeof name === 'string' ? name.trim().match(teamNameRe()) : null
   return m ? parseInt(m[1], 10) : undefined
 }
 

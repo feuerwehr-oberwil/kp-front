@@ -16,7 +16,7 @@
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, formatLocale, formatTime } from './format'
 import { doneName, donePlace } from './objectDone'
-import { compareReadings, isMeasuredSymbol, measuredOf, readingRows, readingScale, readingState, recordReading, stateLevel, symbolReading, worstGas, type ReadingState } from './symbols'
+import { compareReadings, isMeasuredSymbol, lastReading, measuredOf, readingRows, readingScale, readingState, recordReading, stateLevel, symbolReading, worstGas, type ReadingState } from './symbols'
 import { GEBAEUDE_PLAN_ID } from './whiteboard'
 import type { BoardDoc, Entity, Reading, SymbolProps, TimelineEvent } from '../types'
 
@@ -68,7 +68,7 @@ export function readingAct(
   if (!readings || readings === props.readings) return null
   const C = appConfig.copy.readingLog
   const v = readings[readings.length - 1].v
-  const last = props.readings?.[props.readings.length - 1]?.v
+  const last = lastReading(props)?.v
   // a field commit names the gases it changed – one radio report typed gas by gas is three short
   // rows, never the same values three times; a gas emptied again reads «CO –»
   const keys = opts.again ? Object.keys(v) : [...new Set([...Object.keys(v), ...Object.keys(last ?? {})])].filter((k) => v[k] !== last?.[k])
@@ -149,7 +149,7 @@ export function readingsForReport(entities: readonly Entity[], board: BoardDoc):
     })
     if (!rows.length) return []
     const point: ReportReadingPoint = { name: readingPointName(props, ''), place, rows }
-    return [{ point, symbol: props.symbol, last: symbolReading(props, props.readings?.[props.readings.length - 1]?.t) }]
+    return [{ point, symbol: props.symbol, last: symbolReading(props, lastReading(props)?.t) }]
   })
   const symbols = [...new Set(points.flatMap((p) => (p.symbol ? [p.symbol] : [])))]
   return {

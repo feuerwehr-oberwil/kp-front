@@ -10,6 +10,7 @@ import { deviceName } from './deviceName'
 import { rowPhotos, swapUrl, type PhotoSlot } from './verlauf'
 import type { TimelineEvent } from '../types'
 import type { SyncStatus } from './api/workspaceSync'
+import type { Out } from './api/wire'
 import { isIncidentClosedRefusal, refusalClosedAt, reportIncidentClosed } from './incidentClosed'
 
 /**
@@ -40,8 +41,10 @@ import { isIncidentClosedRefusal, refusalClosedAt, reportIncidentClosed } from '
  *  at all (offline, or the round was aborted). See JournalStore.pull. */
 export type PullResult = 'new' | 'none' | 'failed'
 
-interface ServerRow { seq: number; row: TimelineEvent }
-interface JournalPage { entries: ServerRow[]; latest_seq: number }
+/** A row as the server keeps it. The server stores a row as opaque JSON (`row: dict`), so the
+ *  client's own row type stands in for it; the rest is the server's contract. */
+type ServerRow = Omit<Out<'JournalEntryOut'>, 'row'> & { row: TimelineEvent }
+type JournalPage = Omit<Out<'JournalPage'>, 'entries'> & { entries: ServerRow[] }
 /** `refused` (25.09.2026, N3): rows the server turned down because the Einsatz had been CLOSED by
  *  the time they arrived — a Kontakt tapped on a device that had not heard yet, the alarm clock's
  *  «Überfällig», a Tafel row queued offline. Unlike `dead` they are not an error anybody can fix:
