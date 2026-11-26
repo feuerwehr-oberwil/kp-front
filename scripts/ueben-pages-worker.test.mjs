@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import worker, { parseRange } from './ueben-pages-worker.mjs'
+import worker, { ifRangeHolds, parseRange } from './ueben-pages-worker.mjs'
 
 const bytes = (n) => Uint8Array.from({ length: n }, (_, i) => i % 256)
 /** A body that arrives in chunks of `size` bytes, as the asset server streams it. */
@@ -9,11 +9,24 @@ const chunked = (data, size) => new ReadableStream({
     c.close()
   },
 })
-/** The Pages asset server as the worker meets it: a streamed body, no Content-Length. */
-const assets = (data, headers = {}) => ({
-  fetch: async () => new Response(chunked(data, 7), { headers: { 'Content-Type': 'video/mp4', ...headers } }),
-})
-const get = (range) => new Request('https://kp-ueben.pages.dev/front/a.mp4', { headers: range ? { Range: range } : {} })
+/** The Pages asset server as the worker meets it: a streamed body, no Content-Length; the
+ *  folder's catalogue.json states the video's size. Counts how many bytes were read. */
+const assets = (data, headers = {}) => {
+  const env = {
+    read: 0,
+    ASSETS: {
+      fetch: async (req) => {
+        if (new URL(req.url).pathname.endsWith('/catalogue.json')) {
+          return Response.json({ chapters: [{ clips: [{ video: 'a.mp4', bytes: data.length }] }] })
+        }
+        const counted = chunked(data, 7).pipeThrough(new TransformStream({ transform(c, out) { env.read += c.length; out.enqueue(c) } }))
+        return new Response(counted, { headers: { 'Content-Type': 'video/mp4', ETag: '"v1"', ...headers } })
+      },
+    },
+  }
+  return env
+}
+const get = (headers = {}, path = '/front/a.mp4') => new Request(`https://kp-ueben.pages.dev${path}`, { headers })
 
 describe('parseRange', () => {
   it('reads the three single-range forms and clamps the end to the file', () => {
@@ -31,31 +44,43 @@ describe('parseRange', () => {
   })
 })
 
+describe('ifRangeHolds', () => {
+  const h = new Headers({ ETag: '"v1"', 'Last-Modified': 'Thu, 26 Nov 2026 08:00:00 GMT' })
+  it('holds for the current strong ETag or date only', () => {
+    expect([null, '"v1"', 'Thu, 26 Nov 2026 08:00:00 GMT'].map((v) => ifRangeHolds(v, h))).toEqual([true, true, true])
+    expect(['"v0"', 'W/"v1"', 'Wed, 25 Nov 2026 08:00:00 GMT'].map((v) => ifRangeHolds(v, h))).toEqual([false, false, false])
+  })
+})
+
 describe('worker', () => {
-  it('answers a Range request with 206 and the asked bytes, across chunk borders', async () => {
+  it('answers a Range request with 206 from the catalogue size, reading only up to the span', async () => {
     const data = bytes(1000)
-    const mid = await worker.fetch(get('bytes=5-23'), { ASSETS: assets(data) })
-    expect([...new Uint8Array(await mid.arrayBuffer())]).toEqual([...data.subarray(5, 24)])
-    const res = await worker.fetch(get('bytes=0-1'), { ASSETS: assets(data) })
+    const env = assets(data)
+    const res = await worker.fetch(get({ Range: 'bytes=5-23' }), env)
     expect(res.status).toBe(206)
     expect(Object.fromEntries(['content-range', 'content-length', 'accept-ranges', 'content-type'].map((h) => [h, res.headers.get(h)]))).toEqual({
-      'content-range': 'bytes 0-1/1000', 'content-length': '2', 'accept-ranges': 'bytes', 'content-type': 'video/mp4',
+      'content-range': 'bytes 5-23/1000', 'content-length': '19', 'accept-ranges': 'bytes', 'content-type': 'video/mp4',
     })
-    expect([...new Uint8Array(await res.arrayBuffer())]).toEqual([0, 1])
+    expect([...new Uint8Array(await res.arrayBuffer())]).toEqual([...data.subarray(5, 24)])
+    expect(env.read).toBeLessThan(100)
   })
 
-  it('serves the whole file without a range, and 416 past the end', async () => {
-    const data = bytes(10)
-    const whole = await worker.fetch(get(), { ASSETS: assets(data) })
-    expect([whole.status, whole.headers.get('accept-ranges'), (await whole.arrayBuffer()).byteLength]).toEqual([200, 'bytes', 10])
-    const several = await worker.fetch(get('bytes=0-1,4-5'), { ASSETS: assets(data) })
-    expect(several.status).toBe(200)
-    const past = await worker.fetch(get('bytes=10-'), { ASSETS: assets(data) })
-    expect([past.status, past.headers.get('content-range')]).toEqual([416, 'bytes */10'])
+  it('serves the whole video without a range, for several ranges and for a stale If-Range', async () => {
+    for (const headers of [{}, { Range: 'bytes=0-1,4-5' }, { Range: 'bytes=0-1', 'If-Range': '"v0"' }]) {
+      const res = await worker.fetch(get(headers), assets(bytes(10)))
+      expect([res.status, res.headers.get('accept-ranges'), (await res.arrayBuffer()).byteLength]).toEqual([200, 'bytes', 10])
+    }
   })
 
-  it('leaves a compressed answer alone', async () => {
-    const res = await worker.fetch(get('bytes=0-1'), { ASSETS: assets(bytes(10), { 'Content-Encoding': 'br' }) })
-    expect(res.status).toBe(200)
+  it('answers 416 past the end', async () => {
+    const res = await worker.fetch(get({ Range: 'bytes=10-' }), assets(bytes(10)))
+    expect([res.status, res.headers.get('content-range')]).toEqual([416, 'bytes */10'])
+  })
+
+  it('leaves everything but a plain video alone', async () => {
+    const json = await worker.fetch(get({ Range: 'bytes=0-1' }, '/front/catalogue.json'), assets(bytes(10)))
+    expect([json.status, json.headers.get('accept-ranges')]).toEqual([200, null])
+    const packed = await worker.fetch(get({ Range: 'bytes=0-1' }), assets(bytes(10), { 'Content-Encoding': 'br' }))
+    expect(packed.status).toBe(200)
   })
 })

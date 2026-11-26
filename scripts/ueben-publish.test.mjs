@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { buildCatalogue, catalogueFiles, cueText, MAX_FILE_BYTES, oversized, toVtt } from './ueben-publish.mjs'
+import { buildCatalogue, catalogueFiles, cueText, MAX_FILE_BYTES, nextApps, oversized, toVtt } from './ueben-publish.mjs'
 
 const clip = (id, chapter, extra = {}) => ({
   id, chapter, title: id, src: `rec-${id}.mp4`, dur: 60,
   steps: [{ t: 4, text: 'Eins.', html: 'Eins.' }, { t: 20, text: 'Zwei.', html: 'Zwei.' }],
   ...extra,
 })
-const meta = { app: 'front', title: 'KP Front – Üben' }
+const meta = { app: 'front', title: 'KP Front – Üben', sizeOf: () => 1234 }
 
 describe('buildCatalogue', () => {
   it('numbers chapters and clips in recording order and names every file by the clip id', () => {
@@ -18,7 +18,7 @@ describe('buildCatalogue', () => {
     ])
     expect(catalogue.chapters[0].clips[0]).toEqual({
       id: 'tafel-a', n: 1, title: 'tafel-a', dur: 60,
-      video: 'tafel-a.mp4', poster: 'posters/tafel-a.jpg', vtt: 'tafel-a.vtt', steps: [4, 20],
+      video: 'tafel-a.mp4', bytes: 1234, poster: 'posters/tafel-a.jpg', vtt: 'tafel-a.vtt', steps: [4, 20],
     })
     expect(files[0]).toMatchObject({ id: 'tafel-a', from: '/r7/rec-tafel-a.mp4', poster: 5 })
   })
@@ -49,14 +49,23 @@ describe('toVtt', () => {
     )
   })
 
-  it('refuses steps out of order, so no cue ends before it starts', () => {
+  it('refuses steps out of order, and a cue that rounds to nothing', () => {
     expect(() => toVtt(clip('a', 'A', { steps: [{ t: 9, text: 'x' }, { t: 3, text: 'y' }] }))).toThrow('a: step 1 starts at 9s')
+    expect(() => toVtt(clip('a', 'A', { steps: [{ t: 1.0001, text: 'x' }, { t: 1.0004, text: 'y' }] }))).toThrow('a: step 1 starts at 1.0001s')
+  })
+
+  it('escapes a step without html instead of dropping its «<…»', () => {
+    expect(toVtt(clip('a', 'A', { steps: [{ t: 0, text: 'Druck <5 bar & mehr' }] }))).toContain('\nDruck &lt;5 bar &amp; mehr\n')
   })
 })
 
 describe('cueText', () => {
   it('keeps <b>, drops other tags and escapes what VTT reads as markup', () => {
     expect(cueText('Die <B>Karte</B> &amp; <span class="k">Plan</span> &lt;3&gt; &#252;')).toBe('Die <b>Karte</b> &amp; Plan &lt;3&gt; ü')
+  })
+
+  it('never lets markup through that a nested or broken tag leaves behind', () => {
+    expect(cueText('<scr<script>ipt>x</script> <b>ok</b> <b')).toBe('&lt;script&gt;x <b>ok</b> &lt;b')
   })
 })
 
@@ -69,10 +78,28 @@ describe('oversized', () => {
 })
 
 describe('catalogueFiles', () => {
-  it('lists the files a live app folder needs and refuses a path that leaves it', () => {
+  it('lists the files a live app folder needs with the video size, and refuses a path that leaves it', () => {
     const { catalogue } = buildCatalogue([{ dir: '/r', clips: [clip('tafel-a', 'Tafel')] }], meta)
-    expect(catalogueFiles(catalogue)).toEqual(['catalogue.json', 'tafel-a.mp4', 'posters/tafel-a.jpg', 'tafel-a.vtt'])
+    expect(catalogueFiles(catalogue, 'front')).toEqual([{ path: 'tafel-a.mp4', bytes: 1234 }, { path: 'posters/tafel-a.jpg' }, { path: 'tafel-a.vtt' }])
     catalogue.chapters[0].clips[0].video = '../../etc/passwd'
-    expect(() => catalogueFiles(catalogue)).toThrow('unsafe path')
+    expect(() => catalogueFiles(catalogue, 'front')).toThrow('unsafe path')
+  })
+
+  it('refuses a catalogue of another format or app', () => {
+    const { catalogue } = buildCatalogue([{ dir: '/r', clips: [clip('tafel-a', 'Tafel')] }], meta)
+    expect(() => catalogueFiles(catalogue, 'rueck')).toThrow('expected format 1 for app «rueck», got format 1 for «front»')
+    expect(() => catalogueFiles({ ...catalogue, format: 2 }, 'front')).toThrow('got format 2')
+  })
+})
+
+describe('nextApps', () => {
+  it('keeps every live app and adds this one', () => {
+    expect(nextApps(['rueck', 'front'], 'front')).toEqual(['front', 'rueck'])
+    expect(nextApps(['rueck'], 'front')).toEqual(['front', 'rueck'])
+  })
+
+  it('refuses a live list with an entry that is no app name, rather than drop its folder', () => {
+    expect(() => nextApps(['rueck', '../x', 3], 'front')).toThrow('not app names: ["../x",3]')
+    expect(() => nextApps({ rueck: 1 }, 'front')).toThrow('not a list')
   })
 })

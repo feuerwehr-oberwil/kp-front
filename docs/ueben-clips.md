@@ -29,8 +29,11 @@ bigger one by name.
 26.11.2026), and Safari on iPhone and iPad does not play a video without 206 answers. The
 site therefore runs a Pages worker in advanced mode,
 [`scripts/ueben-pages-worker.mjs`](../scripts/ueben-pages-worker.mjs), deployed as `_worker.js`:
-it passes every request to the assets and slices a single range out (206, or 416 past the end).
-Each request is one Functions invocation (free plan: 100 000 a day).
+it passes every request to the assets and, for an `.mp4` only, answers a single range with 206
+(416 past the end). The asset server gives the worker no `Content-Length`, so the size comes
+from the catalogue's `bytes`; the worker streams only the asked span and buffers nothing. An
+`If-Range` that no longer matches the file's ETag or date gets the whole file. Each request is
+one Functions invocation (free plan: 100 000 a day).
 
 ## catalogue.json
 
@@ -50,6 +53,7 @@ Each request is one Functions invocation (free plan: 100 000 a day).
           "title": "Der Überblick",
           "dur": 138.2,
           "video": "startseite-ueberblick.mp4",
+          "bytes": 2977818,
           "poster": "posters/startseite-ueberblick.jpg",
           "vtt": "startseite-ueberblick.vtt",
           "steps": [6.2, 14.2, 25.2]
@@ -68,10 +72,13 @@ Each request is one Functions invocation (free plan: 100 000 a day).
   `<chapter key>-<clip>`, so a player can fall back to the chapter of an id that a re-recording
   merged away.
 - `dur` – seconds. `steps` – each caption's start in seconds, ascending: the player's step bar.
-- `video`, `poster`, `vtt` – paths relative to the catalogue's folder.
+- `video`, `poster`, `vtt` – paths relative to the catalogue's folder. `bytes` – the video's
+  size; the worker answers ranges from it, and a publish checks a copied video against it.
 
 The subtitles are WebVTT in German: cue i runs from step i to step i+1, the last one to the
-clip's end. The cue text is the step's `html` with `<b>` kept and every other tag dropped.
+clip's end, both rounded to the millisecond (a cue that rounds to nothing is refused). The cue
+text is the step's `html` with `<b>` kept, every other tag dropped and the rest escaped; a step
+without `html` gets its `text`, escaped.
 
 ## Recorder output
 
@@ -96,10 +103,21 @@ login). It creates the project when it is missing – with `--force`, because wr
 otherwise makes a Workers project without `pages.dev`.
 
 **The deploy dir.** A Pages deployment replaces the whole site, so publishing one app must
-carry every other app's folder along. The script builds `<out>/site` (default
-`.ueben-publish/`, gitignored) from the live site: it reads `/apps.json`, downloads each other
-app's `catalogue.json` and every file it names, adds this app's new folder, and writes
-`apps.json`, `_headers` and `_worker.js`. Wrangler uploads only files whose hash it has not
-seen. Nothing is deployed when the live `apps.json` cannot be read (`--drop-others` overrides
-that, for a site that really holds no other app) or when a download fails. Publish one app at
-a time: two publishes at once would each drop the other's new folder.
+carry every other app's folder along. The script reads them from the **current production
+deployment's immutable URL** (`https://<hash>.kp-ueben.pages.dev`, the newest production entry
+of `wrangler pages deployment list`), not from the alias, so a deploy that lands meanwhile
+cannot mix two versions; it refuses when the alias serves another `apps.json` (a dashboard
+rollback – roll forward first). From there it reads `/apps.json` (every entry must be an app
+name, and the new list keeps all of them), each other app's `catalogue.json` (format 1, its own
+`app`; those exact bytes are shipped) and every file the catalogue names – each a complete 200
+whose length matches `Content-Length` and, for a video, the catalogue's `bytes`. It adds this
+app's new folder and writes `apps.json`, `_headers` and `_worker.js`. All of that is built in
+`<out>/next` (default `.ueben-publish/`, gitignored, marked by `.ueben-publish-out`) and moved to
+`<out>/site` only when complete, so a failed run leaves the last good site and a reusable dir.
+Wrangler uploads only files whose hash it has not seen. `--drop-others` skips the copy, for a
+site that really holds no other app.
+
+**One publish at a time.** Every run, `--dry-run` too, holds an `flock` on
+`/tmp/kp-ueben-publish.lock` (`$UEBEN_PUBLISH_LOCK` overrides) from start to deploy; a second
+run waits. KP Rück's copy must use the same path. The lock covers this box only – do not
+publish from two machines at once.
