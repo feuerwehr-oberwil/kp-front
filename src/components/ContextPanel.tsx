@@ -467,8 +467,15 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
     onPatch({ label: v }, 'typing')
     return v
   }
+  /** Ends a live title edit that is still open. Only a Notiz's text stays open between
+   *  keystrokes (a symbol's name commits with each pick), and its typing holds an open undo step
+   *  on the surface: the panel leaving without a blur – ✕, a swipe, another selection – closes it
+   *  here, so the edit is its own ↶ step and never folds into the next act. «Entfernen» closes it
+   *  BEFORE the removal, so the removal stays the later step – the order a blur would have given. */
+  const endLiveTitle = () => { if (liveEdited.current) { liveEdited.current = false; commit({ label: title }) } }
+  useCommitDraftOnUnmount(endLiveTitle)
   const blurTitle = () => {
-    if (liveEdited.current) { liveEdited.current = false; commit({ label: title }) }
+    if (liveEdited.current) endLiveTitle()
     else if (title !== (entity.label ?? '')) commit({ label: title })
   }
   // Committed against a ref, not `entity.notes`: the unmount commit below re-runs blurNotes
@@ -725,7 +732,7 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
         // bin SQUARE of 27.09.2026 was the one remove you could not read without guessing); on a
         // symbol with a «Zustand» its HOLD says what it is for (`data-holdexplain`, audit A1).
         : (!readOnly || allowDelete) && !onStopSharing && (
-          <Button variant="danger" icon={<Icon id="trash" />} onClick={onDelete}
+          <Button variant="danger" icon={<Icon id="trash" />} onClick={() => { endLiveTitle(); onDelete() }}
             {...(onDone ? { 'data-holdexplain': true, 'aria-label': `${appConfig.copy.remove} – ${O.removeHint}` } : {})}>
             {appConfig.copy.remove}
           </Button>
