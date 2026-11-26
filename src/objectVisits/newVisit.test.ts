@@ -2,10 +2,11 @@ import { describe, expect, it } from 'vitest'
 import { autoChoice, decideNewVisit } from './newVisit'
 import type { LocalVisit } from './store'
 import type { VisitTemplate } from './types'
+import { catalogueObject } from './wire.test-utils'
 
 const base = {
   localsLoaded: true, localsOk: true, catalogueLoaded: true, hasCatalogue: true,
-  object: { id: 'u1', name: 'O', lastVisit: { id: 'ov9', visitedAt: 'x', lifecycle: 'completed' as const } },
+  object: catalogueObject({ id: 'u1', name: 'O', lastVisit: { id: 'ov9', visitedAt: 'x', lifecycle: 'completed' } }),
   draft: null, canCapture: true, choice: { t: null },
 }
 
@@ -25,7 +26,7 @@ describe('decideNewVisit', () => {
     expect(decideNewVisit({ ...base, hasCatalogue: false }).kind).toBe('notPrepared')
     expect(decideNewVisit({ ...base, object: null }).kind).toBe('unknown')
     expect(decideNewVisit({ ...base, canCapture: false })).toEqual({ kind: 'openLast', id: 'ov9' })
-    expect(decideNewVisit({ ...base, canCapture: false, object: { id: 'u1', name: 'O' } }).kind).toBe('readOnly')
+    expect(decideNewVisit({ ...base, canCapture: false, object: catalogueObject({ id: 'u1', name: 'O' }) }).kind).toBe('readOnly')
     expect(decideNewVisit({ ...base, choice: null }).kind).toBe('choose')
     expect(decideNewVisit(base)).toEqual({ kind: 'create', template: null })
   })

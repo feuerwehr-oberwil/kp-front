@@ -6606,6 +6606,160 @@ export interface components {
             measures_source?: string | null;
         };
         /**
+         * ObjectVisitAdminSummaryOut
+         * @description One row of ``GET /api/admin/object-visits``: the summary plus where the visit was filed.
+         */
+        ObjectVisitAdminSummaryOut: {
+            /** Id */
+            id: string;
+            /** Objectid */
+            objectId: string | null;
+            /** Objectname */
+            objectName: string | null;
+            /**
+             * Target Kind
+             * @enum {string}
+             */
+            target_kind: "object" | "location";
+            location: components["schemas"]["ObjectVisitLocationOut"] | null;
+            /** Workref */
+            workRef: string | null;
+            /**
+             * Lifecycle
+             * @enum {string}
+             */
+            lifecycle: "draft" | "completed" | "discarded";
+            /** Revision */
+            revision: number;
+            /** Ready */
+            ready: boolean;
+            /** Visitedat */
+            visitedAt: string;
+            /** Updatedat */
+            updatedAt: string | null;
+            by: components["schemas"]["ObjectVisitPersonOut"];
+            /** With */
+            with: string[];
+            /** Findings */
+            findings: number;
+            checklist: components["schemas"]["ObjectVisitChecklistRefOut"] | null;
+            /** Deliveries */
+            deliveries: components["schemas"]["ObjectVisitFilingOut"][];
+        };
+        /**
+         * ObjectVisitAttachmentOut
+         * @description ``PUT /{id}/attachments/{attId}``: the photo the server now holds (201 new · 200 already there).
+         */
+        ObjectVisitAttachmentOut: {
+            /** Id */
+            id: string;
+            /** Sha256 */
+            sha256: string;
+            /** Size */
+            size: number;
+        };
+        /**
+         * ObjectVisitCatalogueObjectOut
+         * @description One station object as the field app caches it.
+         */
+        ObjectVisitCatalogueObjectOut: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Address */
+            address: string | null;
+            /** Lat */
+            lat: number | null;
+            /** Lng */
+            lng: number | null;
+            /** Folder */
+            folder: string;
+            /** Refs */
+            refs: components["schemas"]["ObjectVisitRefOut"][];
+            /** Hasplans */
+            hasPlans: boolean;
+            lastVisit: components["schemas"]["ObjectVisitLastVisitOut"] | null;
+        };
+        /**
+         * ObjectVisitCatalogueOut
+         * @description ``GET /catalogue``: everything the field app caches for offline use.
+         */
+        ObjectVisitCatalogueOut: {
+            /** Generatedat */
+            generatedAt: string;
+            /** Cancapture */
+            canCapture: boolean;
+            /** Objects */
+            objects: components["schemas"]["ObjectVisitCatalogueObjectOut"][];
+            /** Templates */
+            templates: {
+                [key: string]: unknown;
+            }[];
+            /** Lists */
+            lists: components["schemas"]["ObjectVisitListOut"][];
+            /** Proposalfields */
+            proposalFields: components["schemas"]["ObjectVisitProposalField"][];
+        };
+        /**
+         * ObjectVisitChecklistRefOut
+         * @description The checklist a visit was made with; ``title`` null when the snapshot has none.
+         */
+        ObjectVisitChecklistRefOut: {
+            /** Id */
+            id: string;
+            /** Title */
+            title: string | null;
+        };
+        /**
+         * ObjectVisitDeliveryOut
+         * @description One destination's state for one visit, as the visit itself reports it.
+         */
+        ObjectVisitDeliveryOut: {
+            /** Destination */
+            destination: string;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "pending" | "delivered" | "failed" | "paused";
+            /** Revision */
+            revision: number;
+            /** At */
+            at: string | null;
+            /** Error */
+            error?: string | null;
+        };
+        /**
+         * ObjectVisitDeliveryRowOut
+         * @description One row of the delivery outbox (``GET /deliveries``).
+         */
+        ObjectVisitDeliveryRowOut: {
+            /** Destination */
+            destination: string;
+            /** Visitid */
+            visitId: string;
+            /** Objectname */
+            objectName: string | null;
+            /** Wantedrevision */
+            wantedRevision: number;
+            /** Deliveredrevision */
+            deliveredRevision: number;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "pending" | "delivered" | "failed" | "paused";
+            /** Attempts */
+            attempts: number;
+            /** Nextattemptat */
+            nextAttemptAt: string | null;
+            /** Lasterror */
+            lastError: string | null;
+            /** Updatedat */
+            updatedAt: string | null;
+        };
+        /**
          * ObjectVisitDestination
          * @description Where the server files a copy of every visit (docs/object-visits.md «Delivery»).
          *
@@ -6658,6 +6812,191 @@ export interface components {
             locationFolder?: string;
         };
         /**
+         * ObjectVisitDestinationTestOut
+         * @description ``POST /destinations/{id}/test``: Graph's answer to the test upload, or why none was tried.
+         */
+        ObjectVisitDestinationTestOut: {
+            /** Ok */
+            ok: boolean;
+            /** Status */
+            status: number | null;
+            /** Detail */
+            detail: string;
+            /** Weburl */
+            webUrl?: string | null;
+        };
+        /**
+         * ObjectVisitFilingOut
+         * @description One destination's filing of a visit, as the admin list reports it.
+         */
+        ObjectVisitFilingOut: {
+            /** Destination */
+            destination: string;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "pending" | "delivered" | "failed" | "paused";
+            /** Revision */
+            revision: number;
+            /** At */
+            at: string | null;
+            /** Folder */
+            folder: string | null;
+            /** Error */
+            error?: string | null;
+        };
+        /**
+         * ObjectVisitLastVisitOut
+         * @description The latest visit to a catalogue object that was not discarded.
+         */
+        ObjectVisitLastVisitOut: {
+            /** Id */
+            id: string;
+            /** Visitedat */
+            visitedAt: string;
+            /**
+             * Lifecycle
+             * @enum {string}
+             */
+            lifecycle: "draft" | "completed" | "discarded";
+        };
+        /**
+         * ObjectVisitListOut
+         * @description A work list (visit programme): its stops resolved to object ids, the refs nothing knows yet.
+         */
+        ObjectVisitListOut: {
+            /** Ref */
+            ref: string;
+            /** Title */
+            title: string;
+            /** Note */
+            note: string | null;
+            /** Closesat */
+            closesAt: string | null;
+            /** Scheduledon */
+            scheduledOn: string | null;
+            /** Archived */
+            archived: boolean;
+            /** Objectids */
+            objectIds: string[];
+            /** Unresolved */
+            unresolved: components["schemas"]["ObjectVisitRefOut"][];
+            /** Done */
+            done: {
+                [key: string]: components["schemas"]["ObjectVisitPriorDoneOut"];
+            };
+        };
+        /**
+         * ObjectVisitLocationOut
+         * @description Where a visit was (contract C2): the place of a location visit, the object for an object visit.
+         */
+        ObjectVisitLocationOut: {
+            /** Label */
+            label: string | null;
+            /** Address */
+            address: string | null;
+            /** Lat */
+            lat: number | null;
+            /** Lng */
+            lng: number | null;
+        };
+        /**
+         * ObjectVisitNotifyAccountOut
+         * @description One active account: whether it gets «Neuer Objektbesuch», and how many browsers can receive it.
+         */
+        ObjectVisitNotifyAccountOut: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Username */
+            username: string;
+            /** Role */
+            role: string;
+            /** Notify */
+            notify: boolean;
+            /** Devices */
+            devices: number;
+        };
+        /**
+         * ObjectVisitNotifyOut
+         * @description ``GET``/``PUT /notify``: who is told about a new visit.
+         */
+        ObjectVisitNotifyOut: {
+            /** Pushenabled */
+            pushEnabled: boolean;
+            /** Accounts */
+            accounts: components["schemas"]["ObjectVisitNotifyAccountOut"][];
+        };
+        /**
+         * ObjectVisitOut
+         * @description ``GET /{id}``: the document plus the server's fields (docs/object-visits.md «Server-added on read»).
+         *
+         *     Only ``revision``/``ready``/``missing`` are required: the same model reads the visit inside a
+         *     replayed PUT answer, stored by whichever server version accepted the revision.
+         */
+        ObjectVisitOut: {
+            /** Revision */
+            revision: number;
+            /** Ready */
+            ready: boolean;
+            /** Missing */
+            missing: string[];
+            createdBy?: components["schemas"]["ObjectVisitPersonOut"] | null;
+            /** Createdat */
+            createdAt?: string | null;
+            /** Updatedat */
+            updatedAt?: string | null;
+            updatedBy?: components["schemas"]["ObjectVisitPersonOut"] | null;
+            /**
+             * Findings
+             * @default 0
+             */
+            findings?: number;
+            /** Url */
+            url?: string | null;
+            /** Deliveries */
+            deliveries?: components["schemas"]["ObjectVisitDeliveryOut"][];
+            /**
+             * Target Kind
+             * @default object
+             * @enum {string}
+             */
+            target_kind?: "object" | "location";
+            location?: components["schemas"]["ObjectVisitLocationOut"] | null;
+            /** Completedat */
+            completedAt?: string | null;
+            /** Lockedat */
+            lockedAt?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * ObjectVisitPersonOut
+         * @description Who did it: an account's id and display name; both null for the admin session or an organizer.
+         */
+        ObjectVisitPersonOut: {
+            /** Id */
+            id: string | null;
+            /** Name */
+            name: string | null;
+        };
+        /**
+         * ObjectVisitPriorDoneOut
+         * @description A completion the organizer already holds for a stop (``at`` YYYY-MM-DD); never a visit.
+         */
+        ObjectVisitPriorDoneOut: {
+            /** At */
+            at: string;
+            /** By */
+            by?: string | null;
+            /** Source */
+            source?: string | null;
+            /** Note */
+            note?: string | null;
+        };
+        /**
          * ObjectVisitProposalField
          * @description One entry of the Korrekturvorschlag field list. The id is opaque to KP Front — the
          *     organizer maps it to its own master data (docs/object-visits.md).
@@ -6667,6 +7006,109 @@ export interface components {
             id: string;
             /** Label */
             label: string;
+        };
+        /**
+         * ObjectVisitPutOut
+         * @description ``PUT /{id}`` accepted (200) — also the replay of a known ``opId``.
+         */
+        ObjectVisitPutOut: {
+            /** Revision */
+            revision: number;
+            /** Ready */
+            ready: boolean;
+            /** Missing */
+            missing: string[];
+            visit: components["schemas"]["ObjectVisitOut"];
+        };
+        /**
+         * ObjectVisitRefOut
+         * @description An object's id in another system (the organizer's ``source`` + its own ``id``).
+         */
+        ObjectVisitRefOut: {
+            /** Source */
+            source: string;
+            /** Id */
+            id: string;
+        };
+        /**
+         * ObjectVisitRetryOut
+         * @description ``POST /deliveries/retry``: how many deliveries went back to ``pending``.
+         */
+        ObjectVisitRetryOut: {
+            /** Retried */
+            retried: number;
+        };
+        /**
+         * ObjectVisitRevisionDocOut
+         * @description ``GET /{id}/revisions/{n}``: that revision's document plus when and by whom it was accepted.
+         */
+        ObjectVisitRevisionDocOut: {
+            /** Revision */
+            revision: number;
+            /** Ready */
+            ready: boolean;
+            /** Acceptedat */
+            acceptedAt: string;
+            acceptedBy: components["schemas"]["ObjectVisitPersonOut"];
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * ObjectVisitRevisionOut
+         * @description One row of ``GET /{id}/revisions``.
+         */
+        ObjectVisitRevisionOut: {
+            /** Revision */
+            revision: number;
+            /**
+             * Lifecycle
+             * @enum {string}
+             */
+            lifecycle: "draft" | "completed" | "discarded";
+            /** Acceptedat */
+            acceptedAt: string;
+            acceptedBy: components["schemas"]["ObjectVisitPersonOut"];
+            /** Ready */
+            ready: boolean;
+        };
+        /**
+         * ObjectVisitSummaryOut
+         * @description One row of ``GET /api/object-visits`` (newest first).
+         */
+        ObjectVisitSummaryOut: {
+            /** Id */
+            id: string;
+            /** Objectid */
+            objectId: string | null;
+            /** Objectname */
+            objectName: string | null;
+            /**
+             * Target Kind
+             * @enum {string}
+             */
+            target_kind: "object" | "location";
+            location: components["schemas"]["ObjectVisitLocationOut"] | null;
+            /** Workref */
+            workRef: string | null;
+            /**
+             * Lifecycle
+             * @enum {string}
+             */
+            lifecycle: "draft" | "completed" | "discarded";
+            /** Revision */
+            revision: number;
+            /** Ready */
+            ready: boolean;
+            /** Visitedat */
+            visitedAt: string;
+            /** Updatedat */
+            updatedAt: string | null;
+            by: components["schemas"]["ObjectVisitPersonOut"];
+            /** With */
+            with: string[];
+            /** Findings */
+            findings: number;
+            checklist: components["schemas"]["ObjectVisitChecklistRefOut"] | null;
         };
         /**
          * ObjectVisitsConfig
@@ -15334,9 +15776,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["ObjectVisitCatalogueOut"];
                 };
             };
             /** @description Validation Error */
@@ -15374,9 +15814,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    }[];
+                    "application/json": components["schemas"]["ObjectVisitSummaryOut"][];
                 };
             };
             /** @description Validation Error */
@@ -15410,9 +15848,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["ObjectVisitOut"];
                 };
             };
             /** @description Validation Error */
@@ -15452,9 +15888,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["ObjectVisitPutOut"];
                 };
             };
             /** @description Validation Error */
@@ -15523,13 +15957,22 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
+            /** @description The same bytes were already stored */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ObjectVisitAttachmentOut"];
+                };
+            };
             /** @description Successful Response */
             201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ObjectVisitAttachmentOut"];
                 };
             };
             /** @description Validation Error */
@@ -15563,9 +16006,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    }[];
+                    "application/json": components["schemas"]["ObjectVisitRevisionOut"][];
                 };
             };
             /** @description Validation Error */
@@ -15600,9 +16041,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["ObjectVisitRevisionDocOut"];
                 };
             };
             /** @description Validation Error */
@@ -16224,9 +16663,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    }[];
+                    "application/json": components["schemas"]["ObjectVisitAdminSummaryOut"][];
                 };
             };
             /** @description Validation Error */
@@ -16257,9 +16694,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["ObjectVisitNotifyOut"];
                 };
             };
             /** @description Validation Error */
@@ -16296,9 +16731,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["ObjectVisitNotifyOut"];
                 };
             };
             /** @description Validation Error */
@@ -16332,9 +16765,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    }[];
+                    "application/json": components["schemas"]["ObjectVisitDeliveryRowOut"][];
                 };
             };
             /** @description Validation Error */
@@ -16371,9 +16802,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["ObjectVisitRetryOut"];
                 };
             };
             /** @description Validation Error */
@@ -16406,9 +16835,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["ObjectVisitDestinationTestOut"];
                 };
             };
             /** @description Validation Error */

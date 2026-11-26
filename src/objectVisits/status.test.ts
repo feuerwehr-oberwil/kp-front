@@ -3,6 +3,7 @@ import { newVisitDoc } from './doc'
 import { deliveryState, deriveStatus } from './status'
 import type { LocalVisit } from './store'
 import type { VisitDoc } from './types'
+import { delivery } from './wire.test-utils'
 
 const doc = (over: Partial<VisitDoc> = {}): VisitDoc => ({ ...newVisitDoc({ object: { id: 'o', name: 'O' }, checklist: null }), ...over })
 const photo = (id: string) => ({ id, caption: '', sha256: 's', size: 1, type: 'image/jpeg' })
@@ -59,9 +60,9 @@ describe('deriveStatus · device → server', () => {
 describe('deliveryState', () => {
   it('hidden without a destination', () => { expect(deliveryState([], 1).kind).toBe('none') })
   it('failed wins, then waiting, then delivered at the current revision', () => {
-    expect(deliveryState([{ destination: 'a', state: 'delivered', revision: 3 }, { destination: 'b', state: 'failed', revision: 2, error: '403' }], 3)).toMatchObject({ kind: 'failed', error: '403' })
-    expect(deliveryState([{ destination: 'a', state: 'delivered', revision: 2 }], 3).kind).toBe('waiting')
-    expect(deliveryState([{ destination: 'a', state: 'delivered', revision: 3 }], 3).kind).toBe('delivered')
-    expect(deliveryState([{ destination: 'a', state: 'paused', revision: 1 }], 3).kind).toBe('paused')
+    expect(deliveryState([delivery({ destination: 'a', state: 'delivered', revision: 3 }), delivery({ destination: 'b', state: 'failed', revision: 2, error: '403' })], 3)).toMatchObject({ kind: 'failed', error: '403' })
+    expect(deliveryState([delivery({ destination: 'a', state: 'delivered', revision: 2 })], 3).kind).toBe('waiting')
+    expect(deliveryState([delivery({ destination: 'a', state: 'delivered', revision: 3 })], 3).kind).toBe('delivered')
+    expect(deliveryState([delivery({ destination: 'a', state: 'paused', revision: 1 })], 3).kind).toBe('paused')
   })
 })

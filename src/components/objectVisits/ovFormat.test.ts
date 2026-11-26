@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { answerDigest, conflictValue, recentPlaceVisits, summaryTitle, syncLabel, syncShort, visitTitle } from './ovFormat'
 import { appConfig } from '../../config/appConfig'
+import { summaryRow } from '../../objectVisits/wire.test-utils'
 
 // The head of a visit is one phone line (owner, 03.10.2026: «Entwur · Gespeichert 1 · Ablage wa»):
 // where the glyph says what happened, only the time is left; the sheet keeps the long words.
@@ -54,9 +55,9 @@ describe('a visit at a place, named and summed up', () => {
     const rows = recentPlaceVisits(
       [{ doc: doc('ov-a', 'completed', '2026-10-16T17:00:00+02:00') }, { doc: doc('ov-b', 'draft', '2026-10-16T18:00:00+02:00') }],
       [
-        { id: 'ov-b', objectId: null, objectName: null, target_kind: 'location', location: { label: 'x', address: null, lat: 1, lng: 2 }, lifecycle: 'completed', revision: 1, ready: true, visitedAt: '2026-10-16T18:00:00+02:00' },
-        { id: 'ov-c', objectId: null, objectName: null, target_kind: 'location', location: { label: 'bei Hydrant', address: null, lat: 1, lng: 2 }, lifecycle: 'completed', revision: 1, ready: true, visitedAt: '2026-10-17T08:00:00+02:00', checklist: { id: 'f', title: 'Fehlermeldung' } },
-        { id: 'ov-d', objectId: 'u1', objectName: 'Schulhaus', lifecycle: 'completed', revision: 1, ready: true, visitedAt: '2026-10-18T08:00:00+02:00' },
+        summaryRow({ id: 'ov-b', objectId: null, objectName: null, target_kind: 'location', location: { label: 'x', address: null, lat: 1, lng: 2 }, lifecycle: 'completed', revision: 1, ready: true, visitedAt: '2026-10-16T18:00:00+02:00' }),
+        summaryRow({ id: 'ov-c', objectId: null, objectName: null, target_kind: 'location', location: { label: 'bei Hydrant', address: null, lat: 1, lng: 2 }, lifecycle: 'completed', revision: 1, ready: true, visitedAt: '2026-10-17T08:00:00+02:00', checklist: { id: 'f', title: 'Fehlermeldung' } }),
+        summaryRow({ id: 'ov-d', objectId: 'u1', objectName: 'Schulhaus', lifecycle: 'completed', revision: 1, ready: true, visitedAt: '2026-10-18T08:00:00+02:00' }),
       ],
     )
     // ov-b is a draft on this device (the newer fact), ov-d is at an object
