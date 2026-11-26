@@ -117,9 +117,11 @@ export function truppClockActions(deps: ClockDeps) {
     // contact — and as ONE row, not a second one after the reading: the crossing IS this reading,
     // and two lines in the same minute read as two Druckmeldungen on the printed Journal.
     const doctrine = atemschutzDoctrine()
-    const alarmBar = tr ? alarmBarFor(tr, doctrine) : doctrine.alarmBar
-    const wasAbove = (tr?.lastPressureBar ?? tr?.entryPressureBar ?? Infinity) > alarmBar
-    const crossed = !!tr && alarmBar > 0 && wasAbove && bar <= alarmBar
+    const crossedOn = (t: Trupp) => {
+      const alarmBar = alarmBarFor(t, doctrine)
+      return alarmBar > 0 && (t.lastPressureBar ?? t.entryPressureBar) > alarmBar && bar <= alarmBar
+    }
+    const crossed = !!tr && crossedOn(tr)
     /* ⚠️ A Druck in the first minutes after the Eintritt, before any other reading, is the
      * Eingangsdruck being asked for late — not a measurement (14.09., field observation: the
      * Trupp goes in on the default 300, the real gauge is recorded a minute later, and the
@@ -134,12 +136,22 @@ export function truppClockActions(deps: ClockDeps) {
      * appends a `contact` row carrying the new bar, beside the corrected baseline, in ONE Verlauf
      * row that says both. It never touches an Eingangsdruck set on purpose
      * (earlyEntryCorrection → entryPressureConfirmed); the PressureSheet names the rule. */
-    const correction = !!tr && !crossed && as !== 'reading' && earlyEntryCorrection(tr, Date.parse(now))
+    const correctsOn = (t: Trupp) => !crossedOn(t) && as !== 'reading' && earlyEntryCorrection(t, Date.parse(now))
+    const correction = !!tr && correctsOn(tr)
     if (tr && as === 'entry' && !correction) {
       refuse(fillTemplate(appConfig.copy.atemschutz.earlyLowTooLate, { bar, edit: appConfig.copy.edit }))
     }
+    // the Druckmeldung's patch, for the reading path below and the correction's fallback
+    const asReading = (t: Trupp, kind: 'alarm' | 'pressure'): Trupp => ({ ...t, lastPressureBar: bar, lastPressureTime: now, lastContactTime: now, lowestBar: Math.min(t.lowestBar ?? t.entryPressureBar, bar),
+      readings: [...(t.readings ?? []), { t: now, bar, kind, ...viaHere() }] })
     if (tr && correction) {
+      /* ⚠️ Decided again on the Trupp the UPDATER gets: `liveTrupps` is the last render, and a
+       * merged update queued before the next one (a first Druck from another device) may already
+       * have measured the Eingangsdruck. Then this value is written as the Druckmeldung it also
+       * is, never over that baseline. The Verlauf row above was already worded as the correction
+       * – a rare race, and the Trupp's own log says what happened. */
       const apply = (t: Trupp): Trupp => {
+        if (!correctsOn(t)) return asReading(t, crossedOn(t) ? 'alarm' : 'pressure')
         const c = { ...t, ...correctEntryPressure(t, bar) }
         return { ...c, lastContactTime: now, readings: [...(c.readings ?? []), { t: now, bar, kind: 'contact' as const, ...viaHere() }] }
       }
@@ -156,8 +168,7 @@ export function truppClockActions(deps: ClockDeps) {
     }
     // …and the LOG ROW says so too, so the printed Atemschutz-Journal can name the moment
     // instead of leaving a reader to compare a column of numbers against the station's doctrine
-    const apply = (t: Trupp): Trupp => ({ ...t, lastPressureBar: bar, lastPressureTime: now, lastContactTime: now, lowestBar: Math.min(t.lowestBar ?? t.entryPressureBar, bar),
-      readings: [...(t.readings ?? []), { t: now, bar, kind: crossed ? 'alarm' : 'pressure', ...viaHere() }] })
+    const apply = (t: Trupp): Trupp => asReading(t, crossed ? 'alarm' : 'pressure')
     setTrupps((ts) => ts.map((t) => (t.id === id ? apply(t) : t)))
     noteOwnContact(id, now) // a Druckmeldung confirms the contact too (lib/contactEcho)
     const line = fillTemplate(

@@ -179,6 +179,31 @@ describe('truppClockActions — the Eingangsdruck asked for', () => {
     expect(last(b.t())).toMatchObject({ kind: 'pressure', bar: 180 })
     expect(ui.toasts).toEqual([tooLate(180)])
   })
+
+  // CodeRabbit r4701810325: `liveTrupps` is the last render; React applies queued updaters later
+  it('never overwrites an Eingangsdruck a merged update measured before the next render', () => {
+    const b = clockBoard([inside()])
+    const queue: ((ts: Trupp[]) => Trupp[])[] = []
+    const rendered = b.state.trupps
+    const deps = {
+      trupps: rendered,
+      setTrupps: (a: SetStateAction<Trupp[]>) => { queue.push(typeof a === 'function' ? a : () => a) },
+      log: () => {},
+      emit: () => {},
+      undoTimeline: b.timeline,
+      liveTrupps: () => rendered,
+    }
+    const batched = truppClockActions({ ...deps, ...truppActionCore(deps) })
+    tick(1)
+    // the merge of another device's first Druck lands in the queue first: the measured baseline
+    const measured = clockBoard([inside()])
+    measured.act().recordPressure('T1', 280)
+    queue.push(() => measured.state.trupps)
+    batched.recordPressure('T1', 180, { as: 'entry' })
+    b.state.trupps = queue.reduce((ts, up) => up(ts), rendered)
+    expect(b.t().entryPressureBar).toBe(280)
+    expect(last(b.t())).toMatchObject({ kind: 'pressure', bar: 180 })
+  })
 })
 
 describe('truppClockActions — the Notfall', () => {
