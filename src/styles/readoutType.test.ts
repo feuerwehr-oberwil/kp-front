@@ -19,8 +19,8 @@ describe('read-outs', () => {
     ['17-rapport.css', '.report-meta-readout dd, .rp-readout'],
     ['17-rapport.css', '.rz-clock, .rz-count > b, .rz-derived b'],
     ['13-incident.css', '.rp-sign-name'],
-    // the Alarmmeldung in «Einsatzdaten prüfen» (owner, sign-off 25.11.2026: it was 19 and 16)
-    ['08-toasts.css', '.ml-quote-head'],
+    // the Alarmmeldung in «Einsatzdaten prüfen» (owner, sign-off 25.11.2026: it was 16); its
+    // Stichwort is a title, --fs-3 (owner pick, morning round 26.11.2026), so it is not pinned here
     ['08-toasts.css', '.ml-quote-text'],
   ])('%s · %s reads at --fs-2', (file, selector) => {
     const decls = rule(file, selector)
