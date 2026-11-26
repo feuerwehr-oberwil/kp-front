@@ -5,6 +5,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 vi.mock('./KrokiFramingPanel', () => ({ KrokiFramingPanel: () => null }))
 
 import { ReportPreflight } from './ReportPreflight'
+import { appConfig } from '../config/appConfig'
 
 // The Rapport asks whether it is on a phone (useIsPhone → matchMedia) to decide whether the
 // Kroki map may be mounted; jsdom implements no matchMedia. Pinned to «not a phone», which is
@@ -128,7 +129,8 @@ describe('Zeiten · a correction stays on the day the stamp is already on', () =
       />,
     )
     fireEvent.click(screen.getByRole('button', { name: 'Gruppe 1' }))
-    // committed without touching the day — the correction is to the CLOCK, not to the day
+    // the correction is to the CLOCK, not to the day (an unchanged «OK» commits nothing)
+    fireEvent.change(screen.getByRole('textbox', { name: `${appConfig.copy.wheel.hour} / ${appConfig.copy.wheel.minute}` }), { target: { value: '22:10' } })
     fireEvent.click(screen.getByRole('button', { name: 'OK' }))
     expect(savedGroupDay(onSaveMeta)).toBe(new Date(2026, 7, 10).toDateString())
   })
