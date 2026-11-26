@@ -201,6 +201,8 @@ python_version = "3.12"
 # that catch REAL mistakes, and the tree is at zero against them, so the gate can block.
 warn_unused_configs = true
 warn_redundant_casts = true
+# A function without annotations is still checked inside: its body calls typed code.
+check_untyped_defs = true
 warn_unused_ignores = true
 # Third-party stubs (jose, pypdfium2, resvg_py, apscheduler, …) are absent or partial.
 ignore_missing_imports = true

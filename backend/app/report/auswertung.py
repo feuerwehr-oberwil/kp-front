@@ -184,7 +184,7 @@ class _Swimlanes(Flowable):
         for kind, item in self.rows:
             h = self._row_h(kind)
             y -= h
-            if kind == "group":
+            if isinstance(item, AuswertungGroupIn):
                 c.setFillColor(_INK)
                 c.setFont("Helvetica-Bold", 7.5)
                 c.drawString(0, y + 1.3, _fit_text(c, item.label, _AW_LABEL_W - 3 * mm, "Helvetica-Bold", 7.5))
