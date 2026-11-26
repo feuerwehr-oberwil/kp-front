@@ -31,8 +31,8 @@ from . import storage
 from .auth.router import revoke_sessions
 from .auth.security import hash_pin
 from .database import async_session_maker
+from .deployment_config import config_row
 from .models import (
-    DeploymentConfig,
     DiveraEmergency,
     Incident,
     JournalEntry,
@@ -897,11 +897,8 @@ async def reset(wipe_objects: bool = True) -> None:
 
         # Station plan calibration — see DEMO_PLAN_SCALES. Written on the config singleton, which
         # may not exist yet on a fresh instance (demo-reset.sh's admin_config load creates it first).
-        cfg = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
-        if cfg is None:
-            db.add(DeploymentConfig(id=1, plan_scales_json=DEMO_PLAN_SCALES))
-        else:
-            cfg.plan_scales_json = DEMO_PLAN_SCALES
+        # A plain replace, not a read-modify-write, so `config_row` needs no lock here.
+        (await config_row(db)).plan_scales_json = DEMO_PLAN_SCALES
 
         # The pre-filled running incident: static scene from the data file + live collections.
         now = datetime.now(UTC)
