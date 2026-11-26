@@ -66,6 +66,14 @@ function isOnView(v: CameraView, c: { bearing: number; center: LngLat; zoom: num
   return dLng < 1e-4 && dLat < 1e-4 && Math.abs(v.zoom - c.zoom) < 0.15 && dBear < 2
 }
 
+/** A saved view the menu can list and fly to: a centre as the app stores one (`LngLat`, a pair;
+ *  the map throws on a latitude outside ±90) and a zoom. The load gate keeps a stored view whose
+ *  camera is missing or broken (lib/workspace · isCameraViewRow – the next save would delete a
+ *  dropped row), so the menu leaves it out here. */
+const hasCamera = (v: CameraView) =>
+  Array.isArray(v.center) && v.center.length === 2 && Number.isFinite(v.center[0])
+  && Number.isFinite(v.center[1]) && Math.abs(v.center[1]) <= 90 && Number.isFinite(v.zoom)
+
 /** Is the map turned away from north? «Nach Norden» only stands in the menu then (owner's
  *  iPhone, 24.11.2026: on a north-up map the row does nothing). Half a degree, not zero: a
  *  keyboard turn back or a flyTo lands near 0, not exactly on it. */
@@ -84,6 +92,7 @@ function ViewsPopover({ api, readOnly, coordsOn, onToggleCoords, onClose, dockRe
   const [editingId, setEditingId] = useState<string | null>(null)
   const isPhone = useIsPhone()
   const commitRename = (id: string, name: string) => { api.onRename(id, name.trim()); setEditingId(null) }
+  const views = api.list.filter(hasCamera)
   // the rename field joins the Einsatz sheets' keyboard model (lib/useKeyboardInset, CONT.9): on a
   // phone the dock stands on the bars, where the keys would cover the field – it rides up onto them
   const kb = useKeyboardInset(editingId != null && isPhone)
@@ -172,8 +181,8 @@ function ViewsPopover({ api, readOnly, coordsOn, onToggleCoords, onClose, dockRe
         {/* No empty state: an operator who has saved no view is told nothing by a paragraph
             saying so — the «Ansicht speichern» row below IS the instruction, and the ⓘ carries
             the explanation. (18.09.2026) */}
-        {api.list.length > 0 && <div className={s.sep} />}
-        {api.list.map((v) => editingId === v.id ? (
+        {views.length > 0 && <div className={s.sep} />}
+        {views.map((v) => editingId === v.id ? (
           <div key={v.id} className={cx(s.row, s.editing)}>
             <span className={s.ico} style={{ transform: `rotate(${-v.bearing}deg)` }}><Icon id="compass" /></span>
             {/* Return commits and puts the keys down, Esc KEEPS what was typed and leaves the field
