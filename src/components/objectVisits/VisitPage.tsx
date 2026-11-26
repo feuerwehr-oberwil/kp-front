@@ -496,6 +496,9 @@ export function VisitPage({ id, edit: editOnOpen = false, from }: { id: string; 
                     : { kind: 'new', object: doc.object?.id ?? '', ref: doc.workRef ?? null, ...(from ? { from } : {}) })} />
                 </ListCard>
               )}
+              {/* this object's plans first, the next stop last – where you go after this page
+                  (owner pick, 25.11.2026) */}
+              <PlansCard rows={plans} onOpen={reader.open} />
               {next === 'done' && <p className={s.secNote}>{C.listDone}</p>}
               {next && next !== 'done' && (
                 <>
@@ -507,7 +510,6 @@ export function VisitPage({ id, edit: editOnOpen = false, from }: { id: string; 
                   </ListCard>
                 </>
               )}
-              <PlansCard rows={plans} onOpen={reader.open} />
               {from === 'karte' && (
                 <Button variant="primary" size="lg" icon={<Icon id="map" />} onClick={toMap}>{C.backToMap}</Button>
               )}

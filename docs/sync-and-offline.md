@@ -121,7 +121,12 @@ the module they concern (`lib/connectivity`, `lib/eventScope`, `lib/jsonEqual`,
   `Saved` and give it a row in `MERGE_POLICY` (`mergeWorkspace.ts`) – the map is checked against
   `Saved` at compile time, so a field without a policy fails `tsc` instead of silently merging
   as «this device wins» (23.09.2026). (`Person`/roster is the exception – it carries
-  `updatedAt` because it's pulled from Divera, not merged.)
+  `updatedAt` because it's pulled from Divera, not merged.) Both ends of the blob name every
+  `Saved` key (`workspace · EverySavedKey`: the load gate and `buildPayload` fail `tsc` without
+  it). ⚠️ A new synced field or `EntityKind` also gets a row in `src/lib/workspaceManifest.json`
+  with the next version and bumps `WORKSPACE_SCHEMA_VERSION` (25.11.2026): a build at the SAME
+  version deletes a key it does not know, and the server refuses only older builds.
+  `workspaceManifest.test.ts` fails on a set that changed without a bump.
 - ⚠️ **An object kind a build does not understand is a passenger, never dropped** (review of
   #338, 10.10.2026). An older build that opened a Tafel with pages on it filtered the unknown
   `form` objects out at the load gate and its next full save deleted every page. So: (1) the

@@ -104,6 +104,13 @@ export const anwesenheitCopy: Localizable<Pick<Copy, Keys>> = {
     viewLabel: 'Vista',
     reloadDone: 'Elenco aggiornato',
     filterWord: 'Filtro',
+    ortPick: 'Scegliere il luogo di {name}',
+    ortToStationPick: 'In rimessa',
+    zeitenWord: 'Orari',
+    backToRapportWord: 'Rapporto',
+    incidentEnd: 'Fine intervento',
+    wholeIncident: 'Intero intervento',
+    untilIncidentEnd: 'fino alla fine',
   },
   anrueckend: {
     title: 'In arrivo',

@@ -3197,6 +3197,13 @@ export function IncidentWorkspace({
         // being online: offline the block keeps the last answers it had.
         diveraResponsesFor={getDeploymentConfig().integrations?.diveraConfigured && (isEditor || isEl)
           && running && !replayActive && !linkScoped ? incidentMeta.id : undefined}
+        // «‹ Rapport» in the head while the Rapport opened this page (pick M·8, 25.11.2026)
+        onBackToRapport={rapportReturn ? () => { setRapportReturn(false); openRapport() } : undefined}
+        // an open stretch reads «bis Einsatzende» once there is one (pick B3·22, 25.11.2026)
+        endedAt={reportMeta.endedAt}
+        // a closed Einsatz: the Rapport's strip with «Wieder öffnen» (pick B3·24, 25.11.2026)
+        closed={!running}
+        onReopen={onReactivateActive}
         livePositions={livePeople.byPerson}
         incidentCenter={incidentView.center}
         onShowOnMap={(personId) => { setMode('map'); setPanel(null); focusEntity(`pos-${personId}`) }}

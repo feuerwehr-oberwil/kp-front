@@ -12,6 +12,7 @@ import { Button, IconButton } from './Button'
 import { ListCard, ListRow } from './ListRow'
 import { TickRow } from './TickRow'
 import { ShellLoader } from './ShellLoader'
+import { ClosedStrip } from './ClosedStrip'
 import { cx } from '../lib/cx'
 import { parseAlarmText } from '../lib/alarmText'
 import { confirmDialog, openPhoto, toast, type ToastAction } from '../lib/ui'
@@ -248,32 +249,6 @@ function RpStrip({ lead, count, title, icon, done = false, busy = false, onGo, o
         </span>
         <Icon id="chevron" className="rp-strip-chev" />
       </button>
-    </div>
-  )
-}
-
-/** The Rapport of a closed Einsatz (owner, 12.11.2026): read-only until «Wieder öffnen», and it
- *  says so where the hand looks for the fields – with the reopen right beside it for a session
- *  that may. The reopen runs while the strip stays up (the confirm is upstream, as on the Einsatz
- *  card's closed fold); a success flips the workspace live and the strip goes with `closed`. */
-function ClosedStrip({ onReopen }: { onReopen?: () => Promise<ReactivateResult> }) {
-  const C = appConfig.copy.archived
-  const [busy, setBusy] = useState(false)
-  const alive = useRef(true)
-  useEffect(() => { alive.current = true; return () => { alive.current = false } }, [])
-  const reopen = () => {
-    if (!onReopen || busy) return
-    setBusy(true)
-    // a failure is said by the caller's own toast; a cancelled confirm leaves the strip as it was
-    void onReopen().catch(() => {}).finally(() => { if (alive.current) setBusy(false) })
-  }
-  return (
-    <div className="rp-band rp-band-open rp-band-closed" role="note">
-      <Icon id="lock" className="rp-band-wait" />
-      <span className="rp-band-txt">{onReopen ? C.rapportClosedHint : C.rapportClosedViewOnly}</span>
-      {onReopen && (
-        <Button disabled={busy} aria-busy={busy || undefined} icon={busy ? <ShellLoader /> : undefined} onClick={reopen}>{busy ? C.reopening : C.reactivate}</Button>
-      )}
     </div>
   )
 }

@@ -5,12 +5,14 @@ rule, the shared workspace save – is `app/incident_service`; the per-incident 
 (view-, Einsatz- and Atemschutz-Link) live next to their secrets in `api/incident_link`.
 """
 
+import json
 import logging
 import uuid
 from collections.abc import Sequence
 from copy import deepcopy
 from datetime import UTC, datetime
 from decimal import Decimal
+from pathlib import Path
 from typing import NamedTuple
 
 from fastapi import APIRouter, Cookie, Depends, Header, HTTPException, Query, Response, status
@@ -555,9 +557,10 @@ async def put_workspace_trupps(
 # Beilagen). Everything else — entities, drawings, board, building, planScale, trupps,
 # cameraViews, settings — is the tactical picture and stays with the editors. Same doctrine as
 # capture.py · CAPTURE_WORKSPACE_KEYS: widening this set is a deliberate decision with a doc
-# change attached (docs/API.md · roles).
-RECORD_WORKSPACE_KEYS = frozenset(
-    {"attendance", "shifts", "bands", "mittel", "checklists", "reportMeta", "attachments", "reportSignatures"}
+# change attached (docs/API.md · roles). The list lives in app/data/record_slice_keys.json, the
+# file the client's RECORD_SLICE_KEYS is tested against (src/lib/api/recordSliceKeys.test.ts).
+RECORD_WORKSPACE_KEYS: frozenset[str] = frozenset(
+    json.loads((Path(__file__).parent.parent / "data" / "record_slice_keys.json").read_text(encoding="utf-8"))["keys"]
 )
 
 #: The crew filing's markers on the record slice (RBAC audit S4, 22.10.2026) — mirrored by

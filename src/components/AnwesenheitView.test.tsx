@@ -4,7 +4,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { AnwesenheitView } from './AnwesenheitView'
 import { appConfig } from '../config/appConfig'
 import { applyLocale } from '../config/copy'
-import { fillTemplate } from '../lib/format'
+import { fillTemplate, hhmm } from '../lib/format'
 import type { AttendanceState, Person } from '../types'
 import { PHONE_QUERY } from '../lib/useIsPhone'
 
@@ -449,5 +449,125 @@ describe('an empty roster that is still loading', () => {
   it('says empty once the answer came back empty', () => {
     mount({ people: [], loading: false })
     expect(screen.getByText(appConfig.copy.anwesenheit.emptyTitle)).toBeTruthy()
+  })
+})
+
+// Owner pick UX journeys M·7, 25.11.2026: a roll call goes by name – the list is A–Z, not grouped by
+// Grad; the Grad stays a chip on the row
+describe('the list goes by name, A–Z', () => {
+  it('orders by name across ranks and guests', () => {
+    const crew: Person[] = [
+      { id: 'p1', displayName: 'Wyss Daniel', rank: 'kdt', active: true, updatedAt: 't' },
+      { id: 'p2', displayName: 'Amrein Patrick', rank: 'fwm', active: true, updatedAt: 't' },
+      { id: 'p3', displayName: 'Egger Roger', rank: 'wm', active: true, updatedAt: 't' },
+    ]
+    const attendance = {
+      g1: { status: 'present', displayNameSnapshot: 'Bieri Lukas', intervals: [{ from: '2026-11-25T10:00:00.000Z' }] },
+    } as unknown as AttendanceState
+    mount({ people: crew, attendance })
+    const shown = ['Amrein Patrick', 'Bieri Lukas', 'Egger Roger', 'Wyss Daniel'].map((n) => screen.getByText(n))
+    for (let i = 1; i < shown.length; i++) {
+      // each name follows the one before it in the document
+      expect(shown[i - 1].compareDocumentPosition(shown[i]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    }
+  })
+})
+
+// Owner pick UX journeys M·8, 25.11.2026: a stray tap on the row's Ort moved somebody to the Magazin
+// without a word. The Ort is a worded chip now, and a tap only opens the two-row choice.
+describe('the Ort is a word and a choice, never a one-tap flip', () => {
+  const A = appConfig.copy.anwesenheit
+  const here = {
+    p1: { status: 'present', intervals: [{ from: '2026-11-25T10:00:00.000Z' }] },
+  } as unknown as AttendanceState
+  const chip = () => screen.getByRole('button', { name: new RegExp(fillTemplate(A.ortPick, { name: 'Meier Anna' })) })
+
+  it('reads «Vor Ort», and the tap on it changes nothing by itself', () => {
+    const onSetOrt = vi.fn()
+    mount({ attendance: here, onSetOrt })
+    expect(chip().textContent).toContain(A.ortScene)
+    fireEvent.click(chip())
+    expect(onSetOrt).not.toHaveBeenCalled()
+  })
+
+  it('moves the person only when the other place is picked', () => {
+    const onSetOrt = vi.fn()
+    mount({ attendance: here, onSetOrt })
+    fireEvent.click(chip())
+    fireEvent.click(screen.getByRole('menuitemradio', { name: A.ortScene }))
+    expect(onSetOrt).not.toHaveBeenCalled()
+    cleanup()
+    mount({ attendance: here, onSetOrt })
+    fireEvent.click(chip())
+    fireEvent.click(screen.getByRole('menuitemradio', { name: A.ortToStationPick }))
+    expect(onSetOrt).toHaveBeenCalledTimes(1)
+  })
+
+  it('carries «‹ Rapport» in the head only while the Rapport opened the page', () => {
+    const back = vi.fn()
+    mount({ onBackToRapport: back })
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.abschluss.backToRapport }))
+    expect(back).toHaveBeenCalledTimes(1)
+    cleanup()
+    mount()
+    expect(screen.queryByRole('button', { name: appConfig.copy.abschluss.backToRapport })).toBeNull()
+  })
+})
+
+// Owner pick UX journeys B3·22, 25.11.2026: a person ticked after the close read «noch da · läuft
+// 1 h 37», and both walkers set a «bis» by hand. Once there is an Einsatzende an open stretch runs
+// to it – the sheet says so, the record stays as it is.
+describe('an open stretch in an Einsatz with an Einsatzende', () => {
+  const A = appConfig.copy.anwesenheit
+  const startedAt = '2026-11-25T11:58:00.000Z'
+  const endedAt = '2026-11-25T13:27:00.000Z'
+  const open = (from: string) => {
+    mount({
+      startedAt, endedAt,
+      attendance: { p1: { status: 'present', intervals: [{ from }] } } as unknown as AttendanceState,
+    })
+    fireEvent.click(screen.getByRole('button', { name: fillTemplate(A.openBlocks, { name: 'Meier Anna' }) }))
+  }
+
+  it('reads «Ganzer Einsatz», ends at the Einsatzende and counts to it', () => {
+    open(startedAt)
+    expect(screen.getByText(A.wholeIncident)).toBeTruthy()
+    expect(screen.getByText('1 h 29')).toBeTruthy()
+    expect(screen.getByRole('button', { name: new RegExp(`${A.bis} – Meier Anna: ${A.incidentEnd} ${hhmm(new Date(endedAt))}`) })).toBeTruthy()
+    expect(screen.queryByText(A.running)).toBeNull()
+    expect(screen.queryByText(A.stillHere)).toBeNull()
+  })
+
+  it('reads «bis Einsatzende» for a stretch that started later', () => {
+    open('2026-11-25T12:27:00.000Z')
+    expect(screen.getByText(A.untilIncidentEnd)).toBeTruthy()
+    expect(screen.getByText('1 h 00')).toBeTruthy()
+  })
+
+  it('still runs while there is no Einsatzende', () => {
+    mount({ startedAt, attendance: { p1: { status: 'present', intervals: [{ from: startedAt }] } } as unknown as AttendanceState })
+    fireEvent.click(screen.getByRole('button', { name: fillTemplate(A.openBlocks, { name: 'Meier Anna' }) }))
+    expect(screen.getByText(A.running)).toBeTruthy()
+  })
+})
+
+// Owner pick UX journeys B3·24, 25.11.2026: in a closed Einsatz a tap on a row did nothing, without a
+// word. The Rapport's closed strip stands above the search, with the same «Wieder öffnen».
+describe('a closed Einsatz says so before the first tap', () => {
+  const C = appConfig.copy.archived
+  it('shows the Rapport’s strip and reopens from it', () => {
+    const onReopen = vi.fn(() => Promise.resolve('ok' as const))
+    mount({ closed: true, canEdit: false, onReopen })
+    expect(screen.getByText(C.rapportClosedHint)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: C.reactivate }))
+    expect(onReopen).toHaveBeenCalledTimes(1)
+  })
+  it('says «nur ansehen» without a button for a session that cannot reopen, and nothing while open', () => {
+    mount({ closed: true, canEdit: false })
+    expect(screen.getByText(C.rapportClosedViewOnly)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: C.reactivate })).toBeNull()
+    cleanup()
+    mount()
+    expect(screen.queryByText(C.rapportClosedHint)).toBeNull()
   })
 })

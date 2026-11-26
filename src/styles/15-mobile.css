@@ -1192,7 +1192,8 @@
   /* the row is OCCUPIED while any of its pieces is on screen: a FAB, the plan's chip row, the
      strip, the way back to the Rapport. It publishes no height because it has only one: --line-h. */
   :root:has(:is(.fab-entry, .wb-botleft, .rp-return)) { --float-row: calc(var(--line-h) + var(--float-gap)); }
-  /* …and while «Zurück zum Rapport» stands (Anwesenheit / Material opened from the Rapport), the
+  /* …and while «Zurück zum Rapport» stands (Material opened from the Rapport – the Anwesenheit
+     carries «‹ Rapport» in its head since pick M·8, 25.11.2026), the
      page's scroller ENDS above that row (Surface.module.css · .shell): the pill and the FAB lay on
      the row resting at the list foot – its name under the pill, its 🕐 under the FAB, and a tap
      there left the page or opened «Neuer Eintrag» (occlusion sweep O1, owner pick A, 11.11.2026).

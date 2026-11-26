@@ -1,0 +1,12 @@
+{
+  "about": [
+    "The workspace keys the Einsatzleiter function (role `el`) may write through the record slice",
+    "(PUT /api/incidents/{id}/workspace/record). The server reads this file as",
+    "app/api/incidents.py · RECORD_WORKSPACE_KEYS, and the client sends exactly these keys",
+    "(src/lib/api/workspaceSync.ts · RECORD_SLICE_KEYS): a key the server does not allow is dropped",
+    "there, so sending it would only fake a successful save. Widening the set is a deliberate",
+    "decision with a doc change attached (docs/API.md · roles). Checked by",
+    "src/lib/api/recordSliceKeys.test.ts and backend/tests/test_el_role.py."
+  ],
+  "keys": ["attendance", "shifts", "bands", "mittel", "checklists", "reportMeta", "attachments", "reportSignatures"]
+}
