@@ -2788,8 +2788,7 @@ def load_stored_config(raw: Any) -> DeploymentConfigIn:
 
     It still RAISES on a document that fails even this. A reader does not call it bare: it takes
     `deployment_config.read_config` (or `safe_config` on a document it already holds), which
-    leaves out an entry past a length limit and answers anything else with the defaults. Call
-    it bare only where a raise is the right
+    catches that and answers with the defaults. Call it bare only where a raise is the right
     answer — a write that merges into the stored document, or an unattended job that must not
     act on defaults the station did not choose.
 
