@@ -6,7 +6,7 @@ import { loadPrefs, savePrefs } from './prefs'
  * who or which tablet wrote it, so a handover could not be traced). A DEVICE pref in the prefs
  * cookie: set once in the Einstellungen, or at the first login on the device (DeviceNameAsk).
  * The journal store stamps it on every row this device writes (journalStore · append, `device`);
- * the row's detail line and the printed Einsatzjournal show it. Rows written before 25.11.2026,
+ * the Verlauf row's footnotes, its detail line and the printed Einsatzjournal show it. Rows written before 25.11.2026,
  * or on a device without a name, have none – never guessed.
  */
 

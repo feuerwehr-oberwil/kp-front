@@ -179,7 +179,7 @@ export function JournalRow({
   const glyph = rowGlyph(e)
   // the footnotes on the row — appended facts about it, so they read AFTER the sentence
   const nachtrag = isNachtrag(e, closedAt)
-  const hasFootnotes = nachtrag || !!e.correctedAt || !!e.timeCorrectedAt || repeated > 1 || e.via === 'atemschutz-link' || e.via === 'atemschutz-fix'
+  const hasFootnotes = nachtrag || !!e.correctedAt || !!e.timeCorrectedAt || repeated > 1 || e.via === 'atemschutz-link' || e.via === 'atemschutz-fix' || !!e.device
   const txMissing = !!e.audioUrl && !!onTranscript && !hasTx
   const mediaState = (rowPhotos(e).length > 0 || !!e.audioUrl) ? mediaStatusOf?.(e.id) : undefined
   const offersAgain = closedRow && !!onReminderAgain
@@ -261,6 +261,13 @@ export function JournalRow({
                     this client never sets it. */}
                 {(e.via === 'atemschutz-link' || e.via === 'atemschutz-fix') && (
                   <span title={C.viaAtemschutzLinkTitle}>{C.viaAtemschutzLink}</span>
+                )}
+                {/* …and the device that wrote it, the same «where» for a row written in the app (owner
+                    note on the B3·47 sign-off, 25.11.2026: on the row, not only in its detail sheet –
+                    nobody has to open a row to see which tablet wrote it). Rows from before, or from a
+                    device without a name, say nothing (lib/deviceName). */}
+                {e.device && (
+                  <span className="jr-foot-device">{fillTemplate(C.detailDevice, { device: e.device })}</span>
                 )}
               </span>
             )}

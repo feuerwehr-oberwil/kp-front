@@ -393,7 +393,7 @@ export const journalCopy = {
     timeCorrected: 'Zeit korrigiert {t} · erfasst {w}',
     detailTimeCorrected: 'Zeit korrigiert',
     detailTimeWritten: 'erfasst {t}',
-    // the row's detail line names the device that wrote it (B3·47, lib/deviceName)
+    // the row's footnotes and its detail line name the device that wrote it (B3·47, lib/deviceName)
     detailDevice: 'auf {device}',
   },
   // ── The Tafel's «Aufträge / Pendenzen» page (05.11.2026, lib/pendenzenPage) ────────────────

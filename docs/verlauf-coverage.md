@@ -446,7 +446,7 @@ incidents without a migration:
 | **Korrektur** | a typed row was rewritten; both wordings stay in the record and in the hash chain | «korrigiert HH:MM»; on the Rapport additionally «ursprünglich: ‹…›» |
 | **Zeitkorrektur** (25.11.2026, UX pick B2·6) | a typed row's event happened at another time; an `atEdit` patch, the written `at` stays in the record and the hash chain | the row sorts and prints at the corrected time; «Zeit korrigiert HH:MM · erfasst HH:MM» under it, on screen and on paper |
 | **Transcript sections** | the words of a voice memo, each with an offset into the recording | subtitle lines under the row, same on paper |
-| **Gerät** (25.11.2026, UX pick B3·47) | the name of the device that wrote the row («Tablet 2», `lib/deviceName`), stamped at append; self-declared, absent on older rows | the row's detail line «auf Tablet 2»; on paper under the time, where it changes |
+| **Gerät** (25.11.2026, UX pick B3·47) | the name of the device that wrote the row («Tablet 2», `lib/deviceName`), stamped at append; self-declared, absent on older rows | «auf Tablet 2» under the row, beside its other footnotes (owner note on the sign-off, 25.11.2026), and in its detail line; on paper under the time, where it changes |
 
 ⚠️ **Only what a human typed is correctable** – composer entries, Meldungen,
 Nachdokumentation. **Never** what the app wrote about an action: «Trupp 2 eingerückt»

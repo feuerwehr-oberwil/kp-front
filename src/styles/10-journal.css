@@ -578,13 +578,17 @@
 /* ⚠️ SENTENCE CASE in the secondary ink at regular weight (hill climb C13, 05.11.2026, owner): it
    was the eyebrow type – bold, tracked, uppercase – and «INSGESAMT 4×» inside a row read as a
    section head standing in the middle of the log. The copy carries the capital («Insgesamt {n}×»). */
-.jr-foot { flex: none; display: inline-flex; flex-wrap: wrap; align-items: baseline;
+.jr-foot { flex: none; display: inline-flex; flex-wrap: wrap; align-items: baseline; max-width: 100%;
   gap: var(--sp-1) var(--sp-2);
   font: var(--fw-regular) var(--fs-micro)/1.3 var(--body);
   color: var(--ink-dim); }
 .jr-foot > * { white-space: nowrap; }
 .jr-foot-nachtrag { color: var(--red-strong); font-weight: var(--fw-bold); }
 .jr-foot-rep { font-variant-numeric: tabular-nums; }
+/* the device that wrote the row (owner note on the B3·47 sign-off, 25.11.2026) – the one footnote that is a free
+   name, up to 32 characters: it breaks between its words rather than run under the chevron on a
+   320 phone («auf Führungsfahrzeug Oberwil Tab. 2»). */
+.jr-foot .jr-foot-device { white-space: normal; }
 /* ⚠️ WHICH item a Meldung answers. Without it three «PENDENZ» rows in a row are three unrelated
    sentences: the Verlauf is chronological, so each link has to carry its own anchor. Quiet and
    truncated — it is a reference, not the content of the row. */
