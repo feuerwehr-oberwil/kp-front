@@ -135,14 +135,23 @@ async def test_journal_wait_wakes_on_an_append(client, editor, _long_park):
     assert not live_wait._waiters
 
 
-async def test_journal_wait_returns_at_once_when_rows_are_already_waiting(client, editor):
+async def test_journal_wait_returns_at_once_when_rows_are_already_waiting(client, editor, monkeypatch):
+    """«At once» means the request never parks, so the test asserts THAT.
+
+    ⚠️ This replaces `elapsed < 0.2`. The GET took 0.5 s on a slow CI runner (25. and
+    26.11.2026, both on PRs without a backend change), so the bound failed on the machine and
+    not on a defect. Whether the request parks does not depend on the machine.
+    """
     await _login(client, editor)
     inc = await _incident(client)
     await client.post(f"/api/incidents/{inc}/journal", json={"entries": [{"id": "r1", "t": "", "text": "da"}]})
 
-    started = time.perf_counter()
+    async def parked(_self) -> bool:
+        raise AssertionError("the poll parked although rows were already waiting")
+
+    monkeypatch.setattr(live_wait.Subscription, "wait", parked)
     r = await client.get(f"/api/incidents/{inc}/journal?since_seq=0&wait=1")
-    assert time.perf_counter() - started < 0.2
+    assert r.status_code == 200
     assert len(r.json()["entries"]) == 1
 
 
