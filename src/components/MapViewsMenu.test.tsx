@@ -56,6 +56,24 @@ describe('the views dock · Koordinaten', () => {
   })
 })
 
+// A stored view can lack its camera: the load gate keeps such a row, because a dropped row is
+// deleted by the next save. The menu compared every row's centre with the live camera and threw.
+describe('the views dock · a stored view without a camera', () => {
+  beforeEach(() => pinViewport(false))
+
+  it('lists the views it can fly to and leaves the broken ones out', () => {
+    const good = { id: 'v1', name: 'Übersicht', center: [7.5, 47.5] as [number, number], zoom: 16, bearing: 0 }
+    // no centre; a latitude the map refuses; a centre that is no pair; no zoom
+    const broken = [null, [7.5, 95], [7.5, 47.5, 0, 0]].map((center, i) => ({ id: `b${i}`, name: `Kaputt ${i}`, center, zoom: 16, bearing: 0 }))
+    const noZoom = { id: 'b3', name: 'Kaputt 3', center: [7.5, 47.5], bearing: 0 }
+    const list = [good, ...broken, noZoom] as unknown as ViewsApi['list']
+    render(<MapViewsButton api={{ ...api(), list }} bearing={0} readOnly={false} variant="util"
+      btnClassName="tu" open onOpenChange={() => {}} glyphClassName="g" />)
+    expect(screen.getByText('Übersicht')).toBeTruthy()
+    expect(screen.queryByText(/Kaputt/)).toBeNull()
+  })
+})
+
 // The needle used to wait for the END of a two-finger rotate (App's view state only moves on
 // moveend) while the wind arrow beside it already turned with the finger. Both read the Karte's
 // per-frame store now (lib/liveBearing), without a new `bearing` prop per frame.
