@@ -72,14 +72,16 @@ describe('useReportOutput · the station printer', () => {
     vi.mocked(fetchJobStatus).mockResolvedValueOnce({ status: 'done' })
     next(onSaveMeta.mock.calls[0][0])
     await flush()
+    // the surface's own read settled it: the job leaves, the rapport is stamped
+    expect(onSaveMeta).toHaveBeenCalledTimes(2)
+    const settled = onSaveMeta.mock.calls[1][0]
+    expect(settled.printJob).toBeUndefined()
+    expect(settled.reportMadeAt).toBeDefined()
     // …and the toast's poll reports the same job before the form has rendered the settle
     const onSettled = vi.mocked(trackPrintJob).mock.calls[0][3]?.onSettled
     expect(onSettled).toBeTypeOf('function')
     act(() => onSettled?.('done'))
-    const settles = onSaveMeta.mock.calls.slice(1).map(([m]) => m)
-    expect(settles).toHaveLength(1)
-    expect(settles[0].printJob).toBeUndefined()
-    expect(settles[0].reportMadeAt).toBeDefined()
+    expect(onSaveMeta).toHaveBeenCalledTimes(2)
   })
 
   it('says a failed job, clears it without a stamp and frees «Prüfen»', async () => {
