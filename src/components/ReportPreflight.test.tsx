@@ -304,3 +304,25 @@ describe('ReportPreflight · a signature after an edit', () => {
     expect(calls[calls.length - 1][0].signatures).toEqual([])
   })
 })
+
+// Opening the Rapport is read-only (owner, UX journeys sign-off, 25.11.2026): the Kroki's
+// Einsatzleiter is shown, not stored, and the roster person it names is not filed onto the
+// Anwesenheit. Until then the first look wrote both, and the Verlauf said «Rapportangaben: …».
+describe('ReportPreflight · opening the Rapport', () => {
+  it('writes nothing – the Kroki-named Einsatzleiter only shows', async () => {
+    const writes = { onSaveMeta: vi.fn(), onRolePicked: vi.fn(), onAddGuest: vi.fn(), onSign: vi.fn(), onResolveConflict: vi.fn() }
+    const el = { id: 'el', kind: 'symbol', layer: 'taktisch', coord: [7, 47], symbol: appConfig.symbols.einsatzleiterSymbols[0], fields: { Name: 'Hofer Simon' } }
+    const hofer = { id: 'p-hofer', displayName: 'Hofer Simon' } as Person
+    render(
+      <ReportPreflight
+        incident={incident} reportMeta={{}} events={[]} scene={{ entities: [el], drawings: [] } as never} mapContentCount={0}
+        annotatedPlanCount={0} truppCount={0} attendanceCount={1} mittelCount={1}
+        personnel={[hofer]} attendance={{}}
+        {...writes}
+      />,
+    )
+    await act(async () => {})
+    expect(document.querySelector('[data-step="einsatzleiter"]')?.textContent).toContain('Hofer Simon')
+    for (const spy of Object.values(writes)) expect(spy).not.toHaveBeenCalled()
+  })
+})

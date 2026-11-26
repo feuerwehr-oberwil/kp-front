@@ -128,6 +128,7 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     archiveConfirmMsg: 'The incident is closed and the end time recorded. After that it can only be read and signed – reopen it for corrections.',
     archiveConfirmBtn: 'Close',
     filterWord: 'Type',
+    groupLastClosed: 'Closed last',
   },
   abschluss: {
     leftEarly: 'until {t}',
@@ -180,6 +181,15 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     corrected: 'Hours corrected: {name}',
     attendanceRemoved: '{name} attendance removed',
     reportMissing: 'Report not created yet',
+    pendenzOpenOne: '1 open item',
+    pendenzOpenMany: '{n} open items',
+    reportBeforeNachtrag: 'Report from {t} – before the late entry',
+    confirmMsgKeep: 'The incident is closed. The end time stays {t} – as in the report. After that it can only be read and signed – reopen it for corrections.',
+    confirmMsgKeepAgain: 'The incident is closed again. The end time stays {t} – as in the report. After that it can only be read and signed – reopen it for corrections.',
+    closedTitle: 'Incident closed',
+    closedEnde: 'Incident end {t}',
+    closedReport: 'Report created {t}',
+    closedOpenRapport: 'Open report',
 
     registeredStandDownMany: '{n} crews not deployed – next',
     registeredNext: 'Then comes «Close incident» – only there does the incident close.',

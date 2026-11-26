@@ -3,7 +3,7 @@ import { Icon } from '../../lib/icons'
 import { toast, confirmDialog } from '../../lib/ui'
 import { ApiError, isUnverifiable } from '../../lib/api'
 import { useOnline } from '../../lib/useOnline'
-import { NO_HISTORY_FILTER, applyHistoryFilter, filterIncidents, historyGroupKey, historyTypes, historyWhen, monthLabel, type HistoryFilter } from '../../lib/historyGroups'
+import { NO_HISTORY_FILTER, applyHistoryFilter, filterIncidents, historyGroups, historyTypes, historyWhen, monthLabel, type HistoryFilter } from '../../lib/historyGroups'
 import { appConfig } from '../../config/appConfig'
 import { EmptyState } from '../EmptyState'
 import { EinsatzRow } from '../EinsatzRow'
@@ -145,7 +145,8 @@ export function HistoryPanel({ onClose, onOpen, onArchive, windowDays }: {
   ].filter(Boolean).join(' · ')
   const now = new Date()
   const groupTitle = (key: string) =>
-    key === 'open' ? h.groupOpen : key === 'today' ? h.groupToday : key === 'week' ? h.groupWeek : monthLabel(key, formatLocale())
+    key === 'open' ? h.groupOpen : key === 'last' ? h.groupLastClosed : key === 'today' ? h.groupToday
+      : key === 'week' ? h.groupWeek : monthLabel(key, formatLocale())
   // «Mo., 05.10. · 12:24–13:47 · 1 h 23», a running one «Mo., 05.10. · seit 14:00 · 32 min» —
   // the day and the span lead the row's second line, the address follows on its own
   const whenOf = (i: IncidentMeta): string | null => {
@@ -158,14 +159,8 @@ export function HistoryPanel({ onClose, onOpen, onArchive, windowDays }: {
     return [w.day, span, w.durationMs != null ? fmtSpanShort(w.durationMs) : null]
       .filter((x): x is string => !!x).map((x) => x.replace(/ /g, '\u00a0')).join(' · ')
   }
-  // one ListGroup per time group – sorted active-first then newest, so a key never comes back
-  const groups: { key: string; rows: IncidentMeta[] }[] = []
-  for (const i of shown) {
-    const key = historyGroupKey(i, now)
-    const last = groups[groups.length - 1]
-    if (last?.key === key) last.rows.push(i)
-    else groups.push({ key, rows: [i] })
-  }
+  // one ListGroup per time group, and «Zuletzt abgeschlossen» on top of them (lib/historyGroups)
+  const groups = historyGroups(shown, now)
   const windowNote = windowDays == null ? null
     : windowDays === 0 ? h.windowNoteRunning
     : windowDays === 1 ? h.windowNoteOne

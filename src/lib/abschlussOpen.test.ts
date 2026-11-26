@@ -25,15 +25,40 @@ describe('abschlussOpenPoints', () => {
   // M5 · A (17.11.2026): no Rapport yet – neither a PDF nor a finished print – leads the list,
   // counts as open (the confirm turns «Trotzdem abschliessen») and leads to the Rapport
   it('puts a missing Rapport on top, as an open point that opens the Rapport', () => {
-    const points = abschlussOpenPoints(['zeiten'], 0, 0, true)
+    const points = abschlussOpenPoints(['zeiten'], 0, 0, { noReport: true })
     expect(points[0]).toEqual({ kind: 'report' })
     expect(countsAsOpen(points[0])).toBe(true)
-    const go = { report: vi.fn(), step: vi.fn(), trupps: vi.fn(), media: vi.fn() }
+    const go = { report: vi.fn(), step: vi.fn(), trupps: vi.fn(), pendenzen: vi.fn(), media: vi.fn() }
     const items = abschlussOpenItems(points, go)
     expect(items[0].label).toBe('Rapport noch nicht erstellt')
     items[0].onClick()
     expect(go.report).toHaveBeenCalledTimes(1)
-    expect(abschlussSheet(abschlussOpenPoints([], 0, 0, true), go).anyOpen).toBe(true)
+    expect(abschlussSheet(abschlussOpenPoints([], 0, 0, { noReport: true }), go).anyOpen).toBe(true)
+  })
+  // UX pick B3·18 (25.11.2026): a paper made before the Nachtrag is the same open point, by its time
+  it('names a paper made before the Nachtrag by its time, in the missing Rapport\'s place', () => {
+    const points = abschlussOpenPoints([], 0, 0, { reportBeforeNachtrag: '2026-11-25T13:30:00Z' })
+    expect(points).toEqual([{ kind: 'report', madeAt: '2026-11-25T13:30:00Z' }])
+    expect(abschlussOpenLabel(points[0])).toMatch(/^Rapport von \d\d:\d\d – vor dem Nachtrag$/)
+    expect(countsAsOpen(points[0])).toBe(true)
+    // «noch nicht erstellt» wins: there is no paper to be old
+    expect(abschlussOpenPoints([], 0, 0, { noReport: true, reportBeforeNachtrag: 'x' })).toEqual([{ kind: 'report' }])
+  })
+  // UX pick B2·9 (25.11.2026): an open Pendenz is a gap the close must name – after the Trupps,
+  // before the queue, by its own words; the row opens the Verlauf on it and turns the button
+  // into «Trotzdem abschliessen»
+  it('names the open Pendenzen by their words and opens the Verlauf on the first', () => {
+    const pendenzen = [{ rowId: 'r1', text: 'Eigentümer informieren.' }, { rowId: 'r2', text: 'Schlüssel zurück' }]
+    const points = abschlussOpenPoints([], 1, 2, { pendenzen })
+    expect(points.map((p) => p.kind)).toEqual(['trupps', 'pendenzen', 'media'])
+    const go = { report: vi.fn(), step: vi.fn(), trupps: vi.fn(), pendenzen: vi.fn(), media: vi.fn() }
+    const { items, anyOpen } = abschlussSheet(abschlussOpenPoints([], 0, 0, { pendenzen }), go)
+    expect(anyOpen).toBe(true)
+    expect(items[0].label).toBe('2 Pendenzen offen')
+    expect(items[0].sub).toBe('Eigentümer informieren. · Schlüssel zurück')
+    items[0].onClick()
+    expect(go.pendenzen).toHaveBeenCalledWith('r1')
+    expect(abschlussOpenLabel({ kind: 'pendenzen', items: pendenzen.slice(0, 1) })).toBe('1 Pendenz offen')
   })
 })
 
@@ -48,7 +73,7 @@ describe('what makes the Abschluss a «trotzdem»', () => {
 
 describe('every open point is a link', () => {
   it('gives each of the eight Mindestangaben its own named row and target', () => {
-    const go = { report: vi.fn(), step: vi.fn(), trupps: vi.fn(), media: vi.fn() }
+    const go = { report: vi.fn(), step: vi.fn(), trupps: vi.fn(), pendenzen: vi.fn(), media: vi.fn() }
     const items = abschlussOpenItems(abschlussOpenPoints([...ABSCHLUSS_STEPS], 0, 0), go)
     expect(items).toHaveLength(ABSCHLUSS_STEPS.length)
     items.forEach((it, i) => {
@@ -62,7 +87,7 @@ describe('every open point is a link', () => {
   })
 
   it('sends a Trupp still out to the Tafel and a queued capture to the Bereitschaft', () => {
-    const go = { report: vi.fn(), step: vi.fn(), trupps: vi.fn(), media: vi.fn() }
+    const go = { report: vi.fn(), step: vi.fn(), trupps: vi.fn(), pendenzen: vi.fn(), media: vi.fn() }
     const items = abschlussOpenItems(abschlussOpenPoints([], 2, 3), go)
     expect(items.map((i) => i.label)).toEqual([
       abschlussOpenLabel({ kind: 'trupps', n: 2 }),
@@ -125,7 +150,7 @@ describe('abschlussEndeItem — the Einsatzende pre-filled with «jetzt»', () =
     const change = vi.fn()
     const d = new Date(2026, 9, 23, 23, 41)
     const row = abschlussEndeItem(d.toISOString(), change)
-    expect(row).toMatchObject({ label: appConfig.copy.abschluss.ende, done: true, end: 'jetzt 23:41' })
+    expect(row).toMatchObject({ label: appConfig.copy.abschluss.ende, done: true, end: 'jetzt 23:41 Uhr' })
     row.onClick()
     expect(change).toHaveBeenCalledTimes(1)
   })
@@ -134,7 +159,7 @@ describe('abschlussEndeItem — the Einsatzende pre-filled with «jetzt»', () =
 /* ONE list for both confirms (31.10.2026); since 11.11.2026 a row only opens its field. */
 describe('abschlussSheet — the open points both confirms show', () => {
   it('a pre-filled row stands in its step\'s place and counts as answered; a Trupp out stays open', () => {
-    const go = { report: vi.fn(), step: vi.fn(), trupps: vi.fn(), media: vi.fn() }
+    const go = { report: vi.fn(), step: vi.fn(), trupps: vi.fn(), pendenzen: vi.fn(), media: vi.fn() }
     const ende = abschlussEndeItem('2026-10-31T21:41:00.000Z', vi.fn())
     const sheet = abschlussSheet(abschlussOpenPoints(['zeiten'], 0, 2), go, { zeiten: ende })
     expect(sheet.items.map((i) => i.label)).toEqual([appConfig.copy.abschluss.ende, abschlussOpenLabel({ kind: 'media', n: 2 })])

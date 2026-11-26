@@ -33,13 +33,6 @@ import { FilterStrip } from './FilterStrip'
 /** (the draft type lives with the Mittel rules, lib/mittel; re-exported for the view's callers) */
 export type { MittelDraft }
 
-/** The largest stock still worth drawing as dots. Seven is where subitizing gives out — up to
- *  it you SEE «zwei von sieben», past it you start counting pips, which is slower than reading
- *  the number. Keyed to the stock, never to the current count, so a row keeps its shape all
- *  through the Einsatz instead of flipping format halfway. */
-const DOTS_MAX_STOCK = 7
-
-
 /** The identity of one recorded line: material + unit + source (see lib/mittel · mittelKey). */
 type MatProbe = Pick<MittelEntry, 'materialId' | 'label' | 'unit' | 'sourceId' | 'sourceLabel'>
 
@@ -55,29 +48,21 @@ interface EditTarget {
   stock?: number
 }
 
-/** Remaining stock, glanceable: filled dots = still there, empty = used (small stocks); larger
- *  stocks fall back to a «noch N» chip. Amber when low, red at nothing left / over-use. */
-function StockDots({ remaining, total, label }: { remaining: number; total: number; label: string }) {
+/** Remaining stock in WORDS: «0 von 1 übrig», red only past what is there – «1 mehr als vorhanden»
+ *  (owner pick UX journeys B2·31, 25.11.2026). Until then dots: filled = still there, empty =
+ *  used, red = none left, the meaning in the tooltip only – after «+» on the one Wärmebildkamera
+ *  both walkers read the red ring as «defekt» or «Fahrzeug fehlt». */
+function StockLeft({ remaining, total }: { remaining: number; total: number }) {
   const M = appConfig.copy.mittel
-  const st = remaining <= 0 ? 'out' : total > 0 && remaining <= total * 0.25 ? 'low' : 'ok'
-  const aria = fillTemplate(M.stockAria, { label, remaining: Math.max(0, remaining), total })
-  if (total > DOTS_MAX_STOCK) {
-    return (
-      <span className={cx(s.noch, st === 'low' && s.low, st === 'out' && s.over)} title={aria}>
-        {fillTemplate(M.noch, { n: Math.max(0, remaining) })}
-      </span>
-    )
-  }
-  return (
-    <span className={cx(s.dots, st === 'low' && s.low, st === 'out' && s.over)} role="img" aria-label={aria} title={aria}>
-      {Array.from({ length: total }, (_, i) => <i key={i} className={cx(i < remaining && s.dotOn)} />)}
-    </span>
-  )
+  return remaining < 0
+    ? <span className={cx(s.noch, s.over)}>{fillTemplate(M.stockOver, { n: -remaining })}</span>
+    : <span className={s.noch}>{fillTemplate(M.stockLeft, { n: remaining, total })}</span>
 }
 
 // The Mittel surface: a deliberately lean material-use log. ONE primary list (decision
 // 2026-07-09): the whole catalogue grouped by category, every row directly editable with a
-// ±stepper — the stepper value IS «verwendet», remaining stock reads as dots. Materials
+// ±stepper — the stepper value IS «verwendet», remaining stock reads in words («0 von 1 übrig»,
+// StockLeft) and a booked row names its vehicle (UX pick B2·31, 25.11.2026). Materials
 // stocked on several vehicles expand to per-source stepper sub-rows. Free-typed lines live
 // in a trailing «Weitere» group (the composer exists only for those). «nach Quelle» stays as
 // the second view — the Nachschub question (what does the TLF need back).
@@ -467,7 +452,7 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
                           view is open. «In Verwendung» used to write the stock as a «/ 4» chip
                           AFTER the stepper — a different notation for the same fact, and it
                           pushed every ± one chip-width off the alignment of the other view. */}
-                      {avail !== undefined && <StockDots remaining={avail - c.menge} total={avail} label={`${c.label} · ${c.sourceLabel ?? ''}`} />}
+                      {avail !== undefined && <StockLeft remaining={avail - c.menge} total={avail} />}
                       {/* the remark: what a number alone can never say — «an Werkhof übergeben»,
                           «Flasche defekt». It rides beside the count, not out at the row's edge. */}
                       {noteField({ materialId: c.materialId, label: c.label, unit: c.unit, sourceId: c.sourceId, sourceLabel: c.sourceLabel }, c.menge, c.label, !c.materialId)}
@@ -511,10 +496,15 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
                   return (
                     <div key={row.key} className={cx(s.row, compact && s.rowCompact)}>
                       <div className={s.rowMain}>
-                        <span className={s.rowLabel}>{row.label}</span>
+                        {/* the vehicle it was booked from, beside the name (UX pick B2·31) – the
+                            row said «1 Stk» and nothing about the TLF the card had named */}
+                        <span className={s.rowLabel}>
+                          {row.label}
+                          {cell.used > 0 && cell.sourceLabel && <span className={s.srcTag}>{cell.sourceLabel}</span>}
+                        </span>
                         {/* remaining-stock indicator sits BEFORE the ±stepper so the counting
                             buttons line up on a consistent right edge across rows */}
-                        {row.totalStock != null && <StockDots remaining={row.totalStock - row.totalUsed} total={row.totalStock} label={row.label} />}
+                        {row.totalStock != null && <StockLeft remaining={row.totalStock - row.totalUsed} total={row.totalStock} />}
                         {compact ? (
                           // ONE tap, not two: it books the 1 and opens the row's full form in the
                           // same beat, so «noch eine» lands on the ±stepper that is already there.
@@ -573,7 +563,7 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
                         <Icon id="chevron-down" className="chev" />
                         <span className={s.rowLabel}>{row.label}</span>
                         {/* stock indicator before the count, matching the single rows */}
-                        {row.totalStock != null && <StockDots remaining={row.totalStock - row.totalUsed} total={row.totalStock} label={row.label} />}
+                        {row.totalStock != null && <StockLeft remaining={row.totalStock - row.totalUsed} total={row.totalStock} />}
                         {!compact && <>
                           {/* #8: allow over-use but flag it — count turns red past the available stock */}
                           <span className={cx(s.rowQty, row.totalStock != null && row.totalUsed > row.totalStock && s.over)}>{row.totalUsed}</span>
@@ -597,7 +587,7 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
                         <div key={cell.sourceId ?? cell.sourceLabel ?? ''} className={s.subRow}>
                           <div className={s.rowMain}>
                             <span className={s.subLabel}>{cell.sourceLabel ?? M.noSource}</span>
-                            {cell.stock != null && <StockDots remaining={cell.stock - cell.used} total={cell.stock} label={`${row.label} · ${cell.sourceLabel ?? ''}`} />}
+                            {cell.stock != null && <StockLeft remaining={cell.stock - cell.used} total={cell.stock} />}
                             {cell.used > 0 && noteField(
                               { materialId: row.materialId, label: row.label, unit: row.unit, sourceId: cell.sourceId, sourceLabel: cell.sourceLabel },
                               cell.used, `${row.label} · ${cell.sourceLabel ?? M.noSource}`,
@@ -677,7 +667,7 @@ function MittelPickSheet({ M, recommendations, sources, catalogue, entries, onCa
     })))
   /** what «noch N» would still stand at this source if the option is picked from it: configured
    *  stock minus what the sheet already carries on that exact line (display-only arithmetic,
-   *  the same as the list's StockDots) */
+   *  the same as the list's StockLeft) */
   const remainingFor = (item: DeploymentMittelItem, sourceId: string | undefined) => {
     const avail = availableFor(catalogue, item.id, sourceId)
     if (avail === undefined) return undefined

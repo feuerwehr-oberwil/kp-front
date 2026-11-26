@@ -19875,6 +19875,17 @@
             ],
             "title": "Last Closed At"
           },
+          "report_ended_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Report Ended At"
+          },
           "is_archived": {
             "type": "boolean",
             "title": "Is Archived"
@@ -20153,6 +20164,17 @@
               }
             ],
             "title": "Last Closed At"
+          },
+          "report_ended_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Report Ended At"
           },
           "is_archived": {
             "type": "boolean",

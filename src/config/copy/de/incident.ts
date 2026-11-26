@@ -192,6 +192,8 @@ export const incidentCopy = {
     // the filter tile's WORD, its facet (button sweep HEADS.2/.6, 17.11.2026 – it was a bare funnel):
     // «Ernstfall / Übung» and «Einsatzart» are both what KIND of Einsatz
     filterWord: 'Art',
+    // the Einsatz closed (or closed again) last, on top (owner pick UX journeys B3·26, 25.11.2026)
+    groupLastClosed: 'Zuletzt abgeschlossen',
   },
   // Abschluss-Assistent — the guided closing ritual over the EXISTING views. Every small
   // incident is a training run on the big-incident tool (practice rationale, 2026-07-08).
@@ -252,8 +254,9 @@ export const incidentCopy = {
     watchEnds: 'Mit dem Abschluss endet die Überwachung dieser Trupps auf allen Geräten.',
     // die sichere, fokussierte Antwort auf der Liste der offenen Punkte
     confirmBack: 'Zurück',
-    // the pre-filled Einsatzende row: «Einsatzende · jetzt 23:41», written with the close
-    endeNow: 'jetzt {t}',
+    // the pre-filled Einsatzende row: «Einsatzende · jetzt 23:41 Uhr», written with the close (a
+    // time of day says «Uhr», owner pick UX journeys B2·43, 25.11.2026)
+    endeNow: 'jetzt {t} Uhr',
     // what an Abschluss left in the media queue stands in the Meldeleiste while it is there — it
     // was the closing toast's second half (S3, 20.10.2026; components/MediaPendingMeldung)
     mediaPendingTitle: '{n} Foto/Audio von «{title}» noch nicht synchronisiert',
@@ -265,6 +268,22 @@ export const incidentCopy = {
     // the close sheet's first open point while neither a PDF nor a finished print exists (M5 · A,
     // 17.11.2026); an edit after the paper makes it «noch nicht erstellt» again
     reportMissing: 'Rapport noch nicht erstellt',
+    // open Pendenzen in the close's «Noch offen» (owner pick UX journeys B2·9, 25.11.2026)
+    pendenzOpenOne: '1 Pendenz offen',
+    pendenzOpenMany: '{n} Pendenzen offen',
+    // …and a paper made before the Nachtrag of a reopened Einsatz (owner pick UX journeys B3·18,
+    // 25.11.2026, lib/reportNachtrag)
+    reportBeforeNachtrag: 'Rapport von {t} – vor dem Nachtrag',
+    // the close over an Einsatzende the Rapport already holds: it stays (owner pick UX journeys B3·20,
+    // 25.11.2026) – «wieder» on a re-close
+    confirmMsgKeep: 'Der Einsatz wird abgeschlossen. Das Einsatzende bleibt {t} – wie im Rapport. Danach nur noch lesen und unterschreiben – für Korrekturen wieder öffnen.',
+    confirmMsgKeepAgain: 'Der Einsatz wird wieder abgeschlossen. Das Einsatzende bleibt {t} – wie im Rapport. Danach nur noch lesen und unterschreiben – für Korrekturen wieder öffnen.',
+    // the receipt of a close on the launcher, until «Ausblenden» (owner pick UX journeys B2·13,
+    // 25.11.2026; components/ClosedReceiptMeldung)
+    closedTitle: 'Einsatz abgeschlossen',
+    closedEnde: 'Einsatzende {t}',
+    closedReport: 'Einsatzrapport erstellt {t}',
+    closedOpenRapport: 'Rapport öffnen',
     // «Noch angemeldet» with several Trupps: the button counts them (B2·15)
     registeredStandDownMany: '{n} Trupps nicht eingesetzt – weiter',
     // …and the line over the buttons that says where the Einsatz really closes (B2·15)

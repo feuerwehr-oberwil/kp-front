@@ -68,7 +68,6 @@ export const materialCopy: Localizable<Pick<Copy, 'mittel' | 'checklists'>> = {
     categoryOther: 'Divers',
     customGroup: 'Autres',
     noch: 'reste {n}',
-    stockAria: '{label} : reste {remaining} sur {total}',
     emptyTitle: 'Aucun matériel saisi.',
     emptyHint: 'Saisir avec «+ Matériel» ce qui a été consommé.',
     emptyReadonly: 'Aucun matériel saisi.',
@@ -114,5 +113,7 @@ export const materialCopy: Localizable<Pick<Copy, 'mittel' | 'checklists'>> = {
     lagePickConfirmOne: 'Saisir 1 position',
     viewBySourceWord: 'Utilisé',
     customMaterialWord: 'Autre',
+    stockLeft: 'reste {n} sur {total}',
+    stockOver: '{n} de plus qu’en stock',
   },
 }

@@ -138,14 +138,13 @@
 
 /* remaining-stock readout on a list row: filled dot = still there, empty = used; larger
    stocks fall back to the «noch N» chip. Low → amber, nothing left / over-use → red. */
-.dots { flex: none; display: inline-flex; align-items: center; gap: var(--sp-1); min-width: 34px; justify-content: flex-end; }
-.dots i { width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--ink-faint); background: none; }
-.dots i.dotOn, .dots .dotOn { border-color: var(--green); background: var(--green); }
-.dots.low .dotOn { border-color: var(--amber-strong); background: var(--amber-strong); }
-.dots.over i { border-color: var(--red); }
-.noch { flex: none; font: var(--fw-bold) var(--fs-1) var(--body); color: var(--ink-dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.noch.low { color: var(--amber-strong); }
-.noch.over { color: var(--red-strong); }
+/* the remaining stock in words, «0 von 1 übrig» (StockLeft) – quiet; red only past what is there */
+.noch { flex: none; font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.noch.over { font-weight: var(--fw-bold); color: var(--red-strong); }
+/* the vehicle a single row was booked from, beside its name («Wärmebildkamera TLF», UX pick B2·31).
+   A read-out, not a choice: components/Chip is a <button> and would claim a tap this tag does not have. */
+.srcTag { display: inline-flex; align-items: center; vertical-align: 1px; height: 22px; margin-left: var(--sp-2); padding: 0 var(--sp-2);
+  border-radius: var(--r-xs); background: var(--fill-soft); font: var(--fw-bold) var(--fs-1) var(--body); color: var(--ink); white-space: nowrap; }
 
 /* multi-source rows: the whole header line is the expand toggle; per-source stepper
    sub-rows indent below it */

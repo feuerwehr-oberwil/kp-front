@@ -51,7 +51,7 @@ export function remoteForm(reportMeta: ReportMeta, sceneEntities: Entity[] | und
     verursacherTel: reportMeta.verursacherTelefon ?? '',
     // ⚠️ The Kroki fallback belongs in here, not beside it: it is what an EMPTY blob shows, so a
     // field sitting on the seeded name is in agreement with the blob and must not count as an
-    // edit this device has to defend (ReportPreflight · seededEinsatzleiter persists it, once).
+    // edit this device has to defend. It is never stored on open (ReportPreflight · «writes nothing»).
     einsatzleiter: reportMeta.einsatzleiter ?? einsatzleiterFromScene(sceneEntities) ?? '',
     endedAt: reportMeta.endedAt ?? closeTimeOf(incident) ?? '',
     ausgerueckt: reportMeta.ausgeruecktAt ?? '',

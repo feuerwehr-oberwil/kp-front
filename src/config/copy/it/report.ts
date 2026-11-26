@@ -103,7 +103,7 @@ export const reportCopy: Localizable<Pick<Copy, 'auswertung' | 'report' | 'print
     lehren: 'Insegnamenti / sicurezza',
   },
   wheel: {
-    invalidTime: 'Inserire un orario valido (00:00–23:59).',
+    invalidTime: 'Ora nel formato HH:MM, ad es. 23:53',
     skippedTime: "Quest'ora non esiste (cambio dell'ora) – scegliere le 03:00 o più tardi.",
     day: 'Giorno',
     hour: 'Ora',
@@ -355,6 +355,10 @@ export const reportCopy: Localizable<Pick<Copy, 'auswertung' | 'report' | 'print
     verursacherPlaceholder: 'Nome / ditta / targa',
     verursacherTelefon: 'Telefono responsabile',
     verursacherCall: 'Chiama il responsabile',
+    attachmentsCountOne: '1 foto',
+    attachmentsJournalPhoto: 'Foto',
+    attachmentsJournalPrints: 'Diario {t} · stampata nel diario d’intervento',
+    attachmentsJournalAt: 'Diario {t}',
   },
   printRelay: {
     send: 'Stampa',

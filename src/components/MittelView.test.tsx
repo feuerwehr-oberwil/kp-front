@@ -211,6 +211,23 @@ describe('kompakte Ruhezeile — eine Position bei 0 trägt nur ein «+»', () =
     expect(stepper('Tauchpumpe Stk.')).toBeTruthy()
   })
 
+  // UX pick B2·31 (25.11.2026): the booked row names its vehicle and says the stock in words;
+  // red only past what is there
+  it('names the vehicle it was booked from and the stock in words, red only past it', () => {
+    cfg.current = { mittel: { catalogue: [tauchpumpe], sources } }
+    const saves: MittelDraft[] = []
+    render(<Live saves={saves} />)
+    expect(screen.getByText(fillTemplate(M.stockLeft, { n: 1, total: 1 }))).toBeTruthy()
+    expect(screen.queryByText('TLF Oberwil')).toBeNull() // nothing booked yet: no vehicle
+    fireEvent.click(screen.getByRole('button', { name: addOne('Tauchpumpe') }))
+    expect(screen.getByText('TLF Oberwil')).toBeTruthy()
+    const left = screen.getByText(fillTemplate(M.stockLeft, { n: 0, total: 1 }))
+    expect(left.className).not.toMatch(/over/)
+    fireEvent.pointerDown(screen.getByRole('button', { name: appConfig.copy.stepper.more }), { button: 0 })
+    fireEvent.pointerUp(window)
+    expect(screen.getByText(fillTemplate(M.stockOver, { n: 1 })).className).toMatch(/over/)
+  })
+
   it('leaves a row that already carries a count in today\'s full form', () => {
     cfg.current = { mittel: { catalogue: [tauchpumpe], sources } }
     mount({

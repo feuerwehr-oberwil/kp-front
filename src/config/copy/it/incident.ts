@@ -129,6 +129,7 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     confirmSubject: 'Ora dell’allarme {t}',
     confirmSubjectExercise: '{name} · Esercizio',
     filterWord: 'Tipo',
+    groupLastClosed: 'Chiuso per ultimo',
   },
   abschluss: {
     leftEarly: 'fino alle {t}',
@@ -182,6 +183,15 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     corrected: 'Ore corrette: {name}',
     attendanceRemoved: 'Presenza di {name} rimossa',
     reportMissing: 'Rapporto non ancora creato',
+    pendenzOpenOne: '1 pendenza aperta',
+    pendenzOpenMany: '{n} pendenze aperte',
+    reportBeforeNachtrag: 'Rapporto delle {t} – prima dell’aggiunta',
+    confirmMsgKeep: 'L’intervento viene chiuso. L’ora di fine resta {t} – come nel rapporto. Dopo può essere solo letto e firmato – riaprire per correggere.',
+    confirmMsgKeepAgain: 'L’intervento viene chiuso di nuovo. L’ora di fine resta {t} – come nel rapporto. Dopo può essere solo letto e firmato – riaprire per correggere.',
+    closedTitle: 'Intervento chiuso',
+    closedEnde: 'Fine intervento {t}',
+    closedReport: 'Rapporto creato {t}',
+    closedOpenRapport: 'Apri rapporto',
 
     registeredStandDownMany: '{n} squadre non impiegate – avanti',
     registeredNext: 'Poi segue «Chiudere l’intervento» – solo lì l’intervento si chiude.',
