@@ -51,7 +51,35 @@ const ROW_SEL = '.wb-botleft, .fab-entry'
  *  `data-float-stack`, a hashed module class), and the Präsentationsmodus pill
  *  (components/Presentation – it stands bottom centre, the chips rise past it; owner's iPhone
  *  06.11.2026) */
-const OBSTACLE_SEL = `.phone-tools .wb-dock, .phone-tools .sel-bar, .phone-tools [data-float-stack], .phone-tools .present-pill, .phone-tools .present-again`
+const OBSTACLES = ['.wb-dock', '.sel-bar', '[data-float-stack]', '.present-pill', '.present-again']
+const OBSTACLE_SEL = OBSTACLES.map((s) => `.phone-tools ${s}`).join(', ')
+/** the Meldeleiste: the ceiling no piece rises past */
+const STRIP_SEL = '.ml'
+/** what moves a row, an obstacle or the strip's foot by being there, through a `:has()` rule
+ *  (15-mobile, 08-toasts): a detail sheet (hides the FAB, raises the ✥ ⟳ bar, caps the strip),
+ *  the georef dock (hides the FAB), a docked Trupp card (hides the tile row), a Tafel page and the
+ *  Rapport's tab strip (move the bars' end, the floor), and what caps the strip's height – the
+ *  layers card, the Atemschutz-Tafel, the row under the top bar (Standort, GPS, wind).
+ *  ⚠️ A new `:has()` that moves a piece, an obstacle or the strip names its subject here, or the
+ *  row is not re-placed when that subject comes or goes. */
+const MOVED_BY = ['.ctx', '.wb-georef-dock', '.wb-pill-card', '.wb-tafel-page', '.rp-tabs',
+  '.layers-card', '.az-tafel', '.tb-share', '.tb-gps', '.phone-wx']
+/** DOM that can move a row: a piece, an obstacle or the strip (and what lies inside one), what
+ *  moves one by CSS, or a phone root that brings them. Bare classes: a node that was just removed
+ *  has no ancestors. */
+const MOVES_SEL = [ROW_SEL, ...OBSTACLES, STRIP_SEL, ...MOVED_BY, '.phone-tools'].join(', ')
+/** the same, for the parent whose children changed – `.phone-tools` is the whole app, so not it;
+ *  `.tb-share` caps the strip once it holds a piece (15-mobile · `.tb-share > *`) */
+const INSIDE_SEL = [ROW_SEL, ...OBSTACLES, STRIP_SEL, '.tb-share'].join(', ')
+
+/** Whether a node that came or went is, or holds, something `place` measures. */
+const moves = (n: Node) => n instanceof Element && (n.matches(MOVES_SEL) || n.querySelector(MOVES_SEL) !== null)
+
+/** Whether a batch of childList records can move a row: its parent lies in a piece, obstacle or
+ *  strip (a dock's options, the strip's rows), or a node it adds or removes is or holds one. */
+const canMoveRow = (records: readonly MutationRecord[]) => records.some((r) =>
+  (r.target instanceof Element && r.target.closest(INSIDE_SEL) !== null)
+  || [...r.addedNodes].some(moves) || [...r.removedNodes].some(moves))
 
 /**
  * How far a row standing at `row` (its floor position) has to rise so that no obstacle comes
@@ -116,37 +144,53 @@ export function useFloatRowPlacement(on: boolean) {
         .map((el) => el.getBoundingClientRect()).filter((r) => r.width && r.height).map(box)
       const obstacles = measure(OBSTACLE_SEL)
       // the ceiling: one gap under the Meldeleiste while one stands
-      const strip = measure('.ml')[0]
+      const strip = measure(STRIP_SEL)[0]
       const ceiling = strip ? strip.bottom + GAP : null
       const placed: Box[] = []
+      // every write only when it changes something: an unchanged value still restyles the row
+      const flag = (el: HTMLElement, key: 'floatPlaced' | 'floatYield' | 'stackLane', on: boolean) => {
+        if (on && el.dataset[key] === undefined) el.dataset[key] = ''
+        else if (!on && el.dataset[key] !== undefined) delete el.dataset[key]
+      }
+      const prop = (el: HTMLElement, name: string, value: string | null) => {
+        const now = el.style.getPropertyValue(name)
+        if (value === null) { if (now) el.style.removeProperty(name) }
+        else if (now !== value) el.style.setProperty(name, value)
+      }
       for (const row of document.querySelectorAll<HTMLElement>(ROW_SEL)) {
         // the floor first (09-whiteboard · .wb-botleft, 15-mobile · .fab-entry [data-float-placed]),
         // then measure from it
-        row.dataset.floatPlaced = ''
+        flag(row, 'floatPlaced', true)
         const content = contentAtFloor(row)
         const lift = content ? rowLift(content, obstacles) : 0
-        row.style.setProperty('--row-lift', `${lift}px`)
-        if (content && crossesCeiling(content, lift, ceiling)) { row.dataset.floatYield = ''; continue }
-        delete row.dataset.floatYield
-        if (content) placed.push({ ...content, top: content.top - lift, bottom: content.bottom - lift })
+        prop(row, '--row-lift', `${lift}px`)
+        const yields = content !== null && crossesCeiling(content, lift, ceiling)
+        flag(row, 'floatYield', yields)
+        if (content && !yields) placed.push({ ...content, top: content.top - lift, bottom: content.bottom - lift })
       }
       // the lane: only while a tool is out — at rest the CSS reserve already is the measurement
       const lane = obstacles.length ? stackLane([...obstacles, ...placed], window.innerHeight) : null
       const root = document.documentElement
-      if (lane === null) { delete root.dataset.stackLane; root.style.removeProperty('--stack-lane') }
-      else { root.dataset.stackLane = ''; root.style.setProperty('--stack-lane', `${lane}px`) }
+      flag(root, 'stackLane', lane !== null)
+      prop(root, '--stack-lane', lane === null ? null : `${lane}px`)
     }
+    // At mount at once (no frame shows an unplaced row), then at most once a frame: a frame
+    // asked for from the observer runs before that frame is painted.
+    let raf = 0
+    const soon = () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; place() }) }
     place()
     // A dock or a bar comes and goes with a tool, and a dock changes width with its options: all
     // of it is DOM coming and going, which a childList observer hears before the frame is
-    // painted. Attributes are deliberately NOT observed — the map moves its markers by style on
-    // every frame of a pan, and this writes a style itself.
-    const mo = new MutationObserver(place)
+    // painted. Everything else on the page (a keystroke, a list row, a toast) is skipped
+    // (`canMoveRow`). Attributes are deliberately NOT observed — the map moves its markers by
+    // style on every frame of a pan, and this writes a style itself.
+    const mo = new MutationObserver((records) => { if (canMoveRow(records)) soon() })
     mo.observe(document.body, { childList: true, subtree: true })
-    window.addEventListener('resize', place)
+    window.addEventListener('resize', soon)
     return () => {
+      cancelAnimationFrame(raf)
       mo.disconnect()
-      window.removeEventListener('resize', place)
+      window.removeEventListener('resize', soon)
       for (const row of document.querySelectorAll<HTMLElement>(ROW_SEL)) {
         delete row.dataset.floatPlaced
         delete row.dataset.floatYield
