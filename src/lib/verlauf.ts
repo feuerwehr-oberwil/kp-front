@@ -249,6 +249,23 @@ export function rowGlyph(e: TimelineEvent): { icon?: string; tone?: ArtTone } {
   return { icon: e.icon }
 }
 
+/** The rows of a run that name their device («auf Tablet 2»): a row whose device differs from the
+ *  last device named above it. Rows without a device (server rows) are skipped, as on the printed
+ *  Einsatzjournal (lib/report · deviceWhereItChanges) – «like the print» (owner pick, morning round
+ *  26.11.2026): Tablet 2 · server row · Tablet 2 names Tablet 2 once. `rows` is the order the
+ *  Verlauf SHOWS – after the search, the «Art» filter and the repeat fold – so a row compares with
+ *  what a reader sees above it, not with a row a filter hid. */
+export function deviceRunStarts(rows: Iterable<TimelineEvent>): Set<string> {
+  const starts = new Set<string>()
+  let lastNamed: string | undefined
+  for (const e of rows) {
+    if (!e.device) continue
+    if (e.device !== lastNamed) starts.add(e.id)
+    lastNamed = e.device
+  }
+  return starts
+}
+
 /** How close two identical lines have to be for the second to read as a REPEAT rather than as
  *  news. Deliberately short: the ping that spams is a state the app re-states every few seconds
  *  (an überfällige Kontaktuhr) or a button tapped six times in two seconds, while a genuinely

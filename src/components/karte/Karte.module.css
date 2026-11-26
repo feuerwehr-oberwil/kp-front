@@ -153,10 +153,17 @@ button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel
    nowrap labels that ran out of their column) */
 .quick { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
 /* …PINNED at the panel's foot, outside the scrolling body (owner pick UX journeys, 25.11.2026 ·
-   B2·58): «Objektbesuch» and «Melden» stay in reach while the sections scroll above them. A
-   hairline says where the scroll ends; the panel's frame is a flex column, so the foot never
-   scrolls. On a phone the foot pays the home indicator's inset, not the body (below). */
-.foot { flex: none; padding: var(--sp-3) var(--sp-4) var(--sp-4); border-top: 1px solid var(--border-soft); }
+   B2·58): «Objektbesuch» and «Melden» stay in reach while the sections scroll above them. The
+   panel's frame is a flex column, so the foot never scrolls. It reads PINNED even scrolled to the
+   end (owner pick, morning round 26.11.2026 – a hairline over the glass looked like one more
+   row): the panel's own tone laid opaque (as .sym-ghead), a firmer edge and a light shadow
+   upward over the scrolling sections (as Zeitplan's pinned coverage row); its lower corners follow
+   the panel's inside the 1px frame. On a phone the foot pays the home indicator's inset, not the
+   body, and the sheet stands flush with the bottom edge, square (below). */
+.foot { flex: none; padding: var(--sp-3) var(--sp-4) var(--sp-4);
+  border-radius: 0 0 calc(var(--r-bar) - 1px) calc(var(--r-bar) - 1px);
+  background: linear-gradient(var(--glass), var(--glass)), var(--surface);
+  border-top: 1px solid var(--border); box-shadow: 0 -4px 12px -6px var(--ink-22); }
 /* ── one rhythm (owner, Karte Haus review round 4: «it feels like some buttons are larger than
    others»; picked mock A, the phone sheet too): ONE size per role in the panel – a list row 44px with a 14px title (round 6:
    «the text is too big for what it is»), its quiet sub on the title's line (it wraps under the title only where the two do not fit:
@@ -243,7 +250,8 @@ button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel
 .sheet .body { flex: 1 1 auto; min-height: 0; padding: 0 max(var(--sp-4), env(safe-area-inset-right)) calc(var(--sp-4) + env(safe-area-inset-bottom)) max(var(--sp-4), env(safe-area-inset-left)); }
 /* with the pinned actions (B2·58) the FOOT is the sheet's bottom edge and takes the inset */
 .sheet .body:has(+ .foot) { padding-bottom: var(--sp-3); }
-.sheet .foot { padding: var(--sp-3) max(var(--sp-4), env(safe-area-inset-right)) calc(var(--sp-4) + env(safe-area-inset-bottom)) max(var(--sp-4), env(safe-area-inset-left)); }
+.sheet .foot { padding: var(--sp-3) max(var(--sp-4), env(safe-area-inset-right)) calc(var(--sp-4) + env(safe-area-inset-bottom)) max(var(--sp-4), env(safe-area-inset-left));
+  border-radius: 0; }
 
 /* ── name tags on the map ─────────────────────────────────────────────────────────────────── */
 /* a long name folds onto two, at most three, balanced lines at 280px instead of running off the

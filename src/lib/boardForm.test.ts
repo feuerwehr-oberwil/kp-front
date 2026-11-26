@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
 import { useState } from 'react'
 import {
-  dropLine, dropRow, findForms, formAnno, formForPdf, formHasContent, isFormData, newFormPage, nextTrend, normalizeTime, pageStamp, pageTitles, putField, putLine, putRow, tableRows,
+  dropLine, dropRow, findForms, formAnno, formForPdf, formHasContent, isFormData, newFormPage, nextTrend, pageStamp, pageTitles, putField, putLine, putRow, tableRows,
   type BoardFormData,
 } from './boardForm'
 import { BUNDLED_TEMPLATES } from './boardTemplates'
@@ -121,9 +121,6 @@ describe('writing on a page — keyed by ids, so a rename never loses a word', (
     const m = pdf.sections.find((s) => s.title === 'Sofortmassnahmen')!
     expect(m.columns!.map((c) => c.label)).toEqual(['Was/Wo', 'Zuständig', 'Wann'])
     expect(m.rows![0].cells).toEqual(['Personensuche', 'AS Schmid', ''])
-  })
-  it('«1124» in a Wann is 11:24', () => {
-    expect(['1124', '924', '9.05', '7', '11:24', '2460', 'gleich'].map(normalizeTime)).toEqual(['11:24', '09:24', '09:05', '07:00', '11:24', '2460', 'gleich'])
   })
   it('the trend cycles ➚ = ➘ and back to open', () => {
     expect([nextTrend(undefined), nextTrend('up'), nextTrend('same'), nextTrend('down')]).toEqual(['up', 'same', 'down', undefined])

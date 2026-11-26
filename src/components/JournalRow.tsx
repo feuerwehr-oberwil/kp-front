@@ -83,6 +83,8 @@ type JournalRowProps = Pick<JournalProps,
   repeated: number
   /** the row is only on this device (Journal · unsentIds): «nur auf diesem Gerät» under it */
   unsent: boolean
+  /** the row starts a run of its device (lib/verlauf · deviceRunStarts): «auf Tablet 2» under it */
+  showDevice: boolean
   /** the row above it prints the same clock: this one's stamp steps back (`.t[data-same]`) */
   sameMinute: boolean
   /** reminder id → the item's own words, and → the row that raised it (a Meldung's anchor) */
@@ -111,7 +113,7 @@ type JournalRowProps = Pick<JournalProps,
 /** One Verlauf row: time, disc, the sentence, its trail of footnotes/media/controls, and the
  *  transcript lines and inline editors under it. Rendered by Journal once per shown row. */
 export function JournalRow({
-  e, plans, live, closedAt, now, replayAtMs, openMap, repeated, unsent, sameMinute, pendenzTitles, pendenzRowIds, reRaised, audioWindows, playing,
+  e, plans, live, closedAt, now, replayAtMs, openMap, repeated, unsent, showDevice, sameMinute, pendenzTitles, pendenzRowIds, reRaised, audioWindows, playing,
   editTx, editRow, marked, jumpToRow, onTogglePlay, onOpenDetail, setEditTx, setEditRow, saveTranscript, saveRowText,
   onSelect, onSeekTo, onTranscript, onEditText, onEditTime, onOpenPlayer, onReminderTick, onReminderNote, onReminderAgain, mediaStatusOf,
 }: JournalRowProps) {
@@ -179,7 +181,7 @@ export function JournalRow({
   const glyph = rowGlyph(e)
   // the footnotes on the row — appended facts about it, so they read AFTER the sentence
   const nachtrag = isNachtrag(e, closedAt)
-  const hasFootnotes = nachtrag || !!e.correctedAt || !!e.timeCorrectedAt || repeated > 1 || e.via === 'atemschutz-link' || e.via === 'atemschutz-fix' || !!e.device
+  const hasFootnotes = nachtrag || !!e.correctedAt || !!e.timeCorrectedAt || repeated > 1 || e.via === 'atemschutz-link' || e.via === 'atemschutz-fix' || (showDevice && !!e.device)
   const txMissing = !!e.audioUrl && !!onTranscript && !hasTx
   const mediaState = (rowPhotos(e).length > 0 || !!e.audioUrl) ? mediaStatusOf?.(e.id) : undefined
   const offersAgain = closedRow && !!onReminderAgain
@@ -265,8 +267,9 @@ export function JournalRow({
                 {/* …and the device that wrote it, the same «where» for a row written in the app (owner
                     note on the B3·47 sign-off, 25.11.2026: on the row, not only in its detail sheet –
                     nobody has to open a row to see which tablet wrote it). Rows from before, or from a
-                    device without a name, say nothing (lib/deviceName). */}
-                {e.device && (
+                    device without a name, say nothing (lib/deviceName). Only the first row of a run
+                    says it, like the print: the rows under it are the same tablet (morning round 26.11.). */}
+                {showDevice && e.device && (
                   <span className="jr-foot-device">{fillTemplate(C.detailDevice, { device: e.device })}</span>
                 )}
               </span>

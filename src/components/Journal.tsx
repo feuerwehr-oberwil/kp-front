@@ -15,7 +15,7 @@ import { openPhoto } from '../lib/ui'
 import { appConfig } from '../config/appConfig'
 import { dueClock, fillTemplate, fmtDuration, formatTime } from '../lib/format'
 import { thumbUrl } from '../lib/mediaUrl'
-import { ART_DISC, groupByDay, isHandWritten, otherDay, isNachtrag, pendenzenBelow, pendenzenCut, repeatRuns, rowPhotos, rowTarget, rowText, rowTime, STRIP_INSET, stripRuns, stripScale, type ArtTone, type LiveTargets } from '../lib/verlauf'
+import { ART_DISC, deviceRunStarts, groupByDay, isHandWritten, otherDay, isNachtrag, pendenzenBelow, pendenzenCut, repeatRuns, rowPhotos, rowTarget, rowText, rowTime, STRIP_INSET, stripRuns, stripScale, type ArtTone, type LiveTargets } from '../lib/verlauf'
 import { journalDisc, withoutAreaPrefix } from '../lib/report'
 import { journalQuery, matchesJournalQuery } from '../lib/journalSearch'
 import { journalCategories, journalFacets, matchesJournalCategories, showsPinnedPendenzen, type JournalCategoryKind } from '../lib/journalFilter'
@@ -309,6 +309,8 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
     return m
   }, [groups])
   const totalRows = rowIndex.size
+  // «auf Tablet 2» only on the first row of a device's run, in the order the list shows (lib/verlauf)
+  const deviceShown = useMemo(() => deviceRunStarts(groups.flatMap((g) => g.events)), [groups])
   // what the head counts: the rows the list can show – a run of repeats folds into one row, so it
   // counts once (duck sweep LISTS.12; it counted `events.length`, and head and scroll disagreed)
   const shownTotal = events.length - repeats.hidden.size
@@ -962,7 +964,7 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
                   marked={marked} jumpToRow={jumpToRow} onOpenDetail={setDetailId}
                   onSelect={onSelect} onSeekTo={onSeekTo} onTranscript={onTranscript} onEditText={onEditText} onEditTime={onEditTime}
                   onOpenPlayer={onOpenPlayer} onReminderTick={onReminderTick} onReminderNote={onReminderNote} onReminderAgain={onReminderAgain}
-                  mediaStatusOf={mediaStatusOf} unsent={!!unsentIds?.has(e.id)}
+                  mediaStatusOf={mediaStatusOf} unsent={!!unsentIds?.has(e.id)} showDevice={deviceShown.has(e.id)}
                 />
               ))}
             </Fragment>

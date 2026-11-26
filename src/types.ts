@@ -223,7 +223,8 @@ export interface SymbolProps {
   /** «Sind zwei» (owner sign-off note on UX journeys B3·33/34, 25.11.2026: «two TLFs can really
    *  be there»): this placed Fahrzeug is a second vehicle, not a double of the GPS one of the same
    *  name beside it, so its sheet no longer asks (lib/gpsTwin). A PROP, so it rides the `objects`
-   *  merge and crosses to a sheet like `done`; set and cleared as an ordinary undoable prop edit. */
+   *  merge and crosses to a sheet like `done`; set and cleared as an ordinary undoable prop edit.
+   *  A rename clears it (lib/gpsTwin · relabel; owner pick, morning round 26.11.2026). */
   gpsTwinOk?: boolean
 }
 
