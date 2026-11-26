@@ -134,29 +134,44 @@ function ModuleSheet({ onNavigate }: { onNavigate: (id: string) => void }) {
 
 // ─── Felder für Vorschläge ─────────────────────────────────────────────────────────────────
 
+/** A Korrekturvorschlag field as the editor holds it. `since` says when the row came to its
+ *  Kennung: 0 for a stored field, the next number for every edit that changes the Kennung. */
+type FieldRow = { id: string; label: string; since?: number }
+
 /** «Felder für Vorschläge»: the Korrekturvorschlag fields (`objectVisits.proposalFields`). A row
- *  the server would refuse stays here with its reason and is not written. */
+ *  the server would refuse stays here with its reason and is not written. Of two rows with one
+ *  Kennung the one that came to it LAST takes the warning – the row being edited, never the
+ *  saved field it now collides with. */
 export function ProposalFieldsEditor() {
   const T = C()
   const { ov, set } = useOv()
-  const stored = Array.isArray(ov.proposalFields) ? ov.proposalFields : []
-  const [editing, setEditing] = useState<{ id: string; label: string }[] | null>(null)
+  const stored: FieldRow[] = Array.isArray(ov.proposalFields) ? ov.proposalFields : []
+  const [editing, setEditing] = useState<FieldRow[] | null>(null)
   const rows = editing ?? stored
-  const problem = (f: { id: string; label: string }, i: number, all: { id: string; label: string }[]): string | null => {
+  const problem = (f: FieldRow, i: number, all: FieldRow[]): string | null => {
     const id = f.id?.trim()
     if (!id || !f.label?.trim()) return T.fieldIncomplete
-    if (all.findIndex((o) => o.id?.trim() === id) !== i) return T.fieldDuplicate
+    // the holder of a Kennung: the row that has had it longest, the upper one on a tie
+    const holder = all.reduce((h, o, j) => (o.id?.trim() === id && (h < 0 || (o.since ?? 0) < (all[h].since ?? 0)) ? j : h), -1)
+    if (holder !== i) return T.fieldDuplicate
     // …and none longer than the schema allows: the boxes hold typing to it (configGuards)
     return tooLongNote([
       ['objectVisits.proposalFields.0.label', T.fieldLabel, f.label.trim()],
       ['objectVisits.proposalFields.0.id', T.fieldId, id],
     ])
   }
-  const write = (next: { id: string; label: string }[]) => {
+  const write = (next: FieldRow[]) => {
     setEditing(next)
     set(['objectVisits', 'proposalFields'], next.filter((f, i) => problem(f, i, next) === null).map((f) => ({ id: f.id.trim(), label: f.label.trim() })))
   }
-  const patch = (i: number, over: Partial<{ id: string; label: string }>) => write(rows.map((r, j) => (j === i ? { ...r, ...over } : r)))
+  const patch = (i: number, over: Partial<FieldRow>) => {
+    const tick = Math.max(0, ...rows.map((r) => r.since ?? 0)) + 1
+    write(rows.map((r, j) => {
+      if (j !== i) return r
+      const row = { ...r, ...over }
+      return row.id?.trim() === r.id?.trim() ? row : { ...row, since: tick }
+    }))
+  }
   const setLabel = (i: number, label: string) => {
     const row = rows[i]
     const follows = !row.id?.trim() || row.id === fieldSlug(row.label ?? '')

@@ -133,7 +133,25 @@ describe('map.objectCategories — the plan modules of a colour rule', () => {
   })
 })
 
-// Sweep 26.11.2026: a row held for its length said nothing: it stayed in the form and out of the save.
+// Sweep 26.11.2026: a cut Kennung could equal a LATER, saved field's – and that saved field took
+// «Diese Kennung gibt es schon» and left the save.
+describe('objectVisits.proposalFields — two fields with one Kennung', () => {
+  const T = appConfig.copy.admin.objectVisits
+
+  it('holds the row being edited and keeps the saved field it now collides with', async () => {
+    const fields = [{ id: 'eigentuemer', label: 'Eigentümer' }, { id: 'kontakt', label: 'Kontakt' }]
+    apiGet.mockResolvedValue({ ...structuredClone(STATION), objectVisits: { proposalFields: fields } })
+    await act(async () => { render(<ConfigProvider><ProposalFieldsEditor /></ConfigProvider>) })
+    const [first] = await waitFor(() => screen.getAllByPlaceholderText(T.fieldIdPlaceholder))
+    await type(first, 'kontakt')
+    await settle()
+    expect(sent()?.objectVisits?.proposalFields).toEqual([{ id: 'kontakt', label: 'Kontakt' }])
+    const warning = screen.getByText(T.fieldDuplicate)
+    expect(warning.closest('.adm-rec')?.contains(first)).toBe(true)
+  })
+})
+
+// …and a row held for its length said nothing: it stayed in the form and out of the save.
 describe('a row held for its length names the limit', () => {
   const R = appConfig.copy.admin.report
   const T = appConfig.copy.admin.objectVisits
