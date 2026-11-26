@@ -146,6 +146,12 @@ async def finish_job(
     return True
 
 
+async def _still_owned(db: AsyncSession, claim: Claim) -> bool:
+    """The job still belongs to the dataset (and so the object) this run read and locked."""
+    owner = select(PlanAlignment.id).where(PlanAlignment.id == claim.id, PlanAlignment.dataset_id == claim.dataset_id)
+    return (await db.execute(owner)).first() is not None
+
+
 async def apply_marker_plan(db: AsyncSession, claim: Claim, plan: MarkerPlan) -> bool:
     """Write the floor pack a PDF's own ``§`` markers propose onto this revision.
 
@@ -343,6 +349,8 @@ async def run_once(factory: async_sessionmaker[AsyncSession] = async_session_mak
             # lock 3 before the floors and the row (plans › the lock order): a merge or a re-key
             # holds the object while it moves this revision's alignment and floors
             await lock_objects(db, object_uuid)
+        if not await _still_owned(db, claim):
+            return True  # moved onto another dataset meanwhile – the next claim takes it there
         requeued = await apply_marker_plan(db, claim, plan) if plan else False
         floors = await load_floors(db, claim.dataset_id, claim.version)
         # …and WHY it is what it is: a pack the markers could not make must not leave the admin

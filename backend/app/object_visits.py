@@ -54,6 +54,7 @@ from .models import (
     ReferenceDataset,
     VisitList,
 )
+from .plans import lock_objects
 from .push import notify_object_visit
 from .schemas import ObjectVisitDestination, ObjectVisitsConfig
 
@@ -1665,11 +1666,24 @@ async def delete_integration_object(db: AsyncSession, source: str, external_id: 
     refuse_unstorable(source, external_id)
     if not SOURCE_RE.match(source):
         raise invalid("source: Kleinbuchstaben, Ziffern, '.', '_' oder '-'")
-    ref = (
-        await db.execute(select(ObjectRef).where(ObjectRef.source == source, ObjectRef.external_id == external_id))
-    ).scalar_one_or_none()
-    if ref is None:
-        return {"removed": "none"}
+    # The object row first, then its ref (`plans` › the lock order): a merge holds the object while
+    # it moves the refs. Re-read under the lock until the ref's owner is the row this holds – a
+    # merge that committed meanwhile has moved it onto the survivor.
+    locked = None
+    while True:
+        ref = (
+            await db.execute(
+                select(ObjectRef)
+                .where(ObjectRef.source == source, ObjectRef.external_id == external_id)
+                .execution_options(populate_existing=True)
+            )
+        ).scalar_one_or_none()
+        if ref is None:
+            return {"removed": "none"}
+        if ref.object_id == locked:
+            break
+        locked = ref.object_id
+        await lock_objects(db, locked)
     object_id = ref.object_id
     await db.delete(ref)
     await db.flush()
