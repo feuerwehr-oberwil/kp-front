@@ -88,10 +88,13 @@ _EXPORT = SecretGate(
 
 
 async def _check_token(db: AsyncSession, request: Request, header_token: str | None) -> None:
-    """Reads the row without creating one — an export against a deployment that never minted
-    a token is a 403, and must not leave a config row behind as a side effect."""
-    row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
-    _EXPORT.check_request(row.stats_secret if row else None, request, header_token)
+    """Reads the secret column, not the config document, and never creates the row — an export
+    against a deployment that never minted a token is a 403, and must not leave a config row
+    behind as a side effect."""
+    secret = (
+        await db.execute(select(DeploymentConfig.stats_secret).where(DeploymentConfig.id == 1))
+    ).scalar_one_or_none()
+    _EXPORT.check_request(secret, request, header_token)
 
 
 def _rapport_state(report_done_at: datetime | None, updated_at: datetime | None) -> str:

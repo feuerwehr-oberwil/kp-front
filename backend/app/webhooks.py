@@ -120,8 +120,12 @@ async def _notify(db: AsyncSession, build_payload: Callable[[str | None], dict])
         urls = [u for u in cfg.webhooks if urlsplit(u).scheme in ("http", "https")]
         if not urls:
             return 0
-        row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
-        payload = build_payload(row.capture_secret if row else None)
+        # The secret column, not the config document — and never `config_row`: a webhook must not
+        # create the row.
+        capture_secret = (
+            await db.execute(select(DeploymentConfig.capture_secret).where(DeploymentConfig.id == 1))
+        ).scalar_one_or_none()
+        payload = build_payload(capture_secret)
         for url in urls:
             # Keep a strong reference once started. asyncio only holds a WEAK one, so a
             # fire-and-forget task can otherwise be collected mid-flight.

@@ -170,11 +170,13 @@ async def _check_token(
 ) -> None:
     """The poster gate, as a dependency — every route below carries it.
 
-    Reads the row without creating one: a deployment that never minted a poster secret answers
-    403 and must not gain a config row from being probed.
+    Reads the secret column, not the config document, and never creates the row: a deployment
+    that never minted a poster secret answers 403 and must not gain a config row from being probed.
     """
-    row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
-    _POSTER.check_request(row.capture_secret if row else None, request, x_capture_token)
+    secret = (
+        await db.execute(select(DeploymentConfig.capture_secret).where(DeploymentConfig.id == 1))
+    ).scalar_one_or_none()
+    _POSTER.check_request(secret, request, x_capture_token)
 
 
 async def _capture_incidents(db: AsyncSession) -> list[Incident]:
