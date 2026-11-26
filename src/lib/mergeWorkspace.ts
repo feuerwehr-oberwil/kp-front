@@ -675,6 +675,8 @@ export const MERGE_POLICY = {
 
 /** The `Saved` fields that merge (every row of MERGE_POLICY that is not `'local'`). */
 export type SyncedKey = { [K in keyof typeof MERGE_POLICY]: (typeof MERGE_POLICY)[K] extends 'local' ? never : K }[keyof typeof MERGE_POLICY]
+/** The `Saved` fields that stay with the device that holds them (the `'local'` rows). */
+export type LocalKey = Exclude<keyof typeof MERGE_POLICY, SyncedKey>
 /* ⚠️ …and each of them must also REACH THE SCREEN: a merged blob only lands through
  * deriveInitial → applyWorkspace, whose setters are typed against InitialState (lib/workspace ·
  * WorkspaceAppliers). So every synced field needs an InitialState slot of the same name, or
@@ -694,7 +696,7 @@ void everySyncedFieldHasASlot
 function resolveTactical(ancestor: TacticalObject, mine: TacticalObject, theirs: TacticalObject, onFormConflict?: (c: RecordConflict) => void): TacticalObject {
   // …and a Tafel PAGE is merged cell by cell (lib/boardFormMerge, review of #338): two devices
   // on one page must both keep what they wrote, and a cell both changed goes to the later edit
-  const page = (o: TacticalObject) => (o.sheet?.anno.kind === 'form' && isFormData(o.sheet.anno.form) ? o.sheet.anno.form : null)
+  const page = (o: TacticalObject) => (o.sheet?.anno?.kind === 'form' && isFormData(o.sheet.anno.form) ? o.sheet.anno.form : null)
   const [pa, pm, pt] = [page(ancestor), page(mine), page(theirs)]
   if (pa && pm && pt && mine.sheet && theirs.sheet) {
     const title = labelText(pm.page.title)
@@ -737,7 +739,11 @@ function resolveTactical(ancestor: TacticalObject, mine: TacticalObject, theirs:
   return withMergedSymbolReadings(mineMachine && !theirsMachine ? theirs : mine, ancestor, mine, theirs)
 }
 
-const readingsOf = (o: TacticalObject) => o.entity?.readings ?? o.sheet?.anno.readings
+/** The Messpunkt rows of a body: only a `symbol` carries them, and only a list of rows counts.
+ *  Any other body — a passenger above all — is never read or rewritten by the readings merge. */
+const symbolReadings = (body: { kind?: unknown; readings?: unknown } | undefined): Reading[] | undefined =>
+  body?.kind === 'symbol' && Array.isArray(body.readings) ? body.readings.filter(isObj) as unknown as Reading[] : undefined
+const readingsOf = (o: TacticalObject) => symbolReadings(o.entity) ?? symbolReadings(o.sheet?.anno)
 
 /**
  * A Messpunkt's history (SymbolProps.readings, lib/symbols · recordReading) when both sides changed
@@ -763,8 +769,8 @@ function withMergedSymbolReadings(won: TacticalObject, base: TacticalObject, min
     .sort((a, b) => a.t - b.t)
   return {
     ...won,
-    ...(won.entity && { entity: { ...won.entity, readings } }),
-    ...(won.sheet && { sheet: { ...won.sheet, anno: { ...won.sheet.anno, readings } } }),
+    ...(won.entity?.kind === 'symbol' && { entity: { ...won.entity, readings } }),
+    ...(won.sheet?.anno?.kind === 'symbol' && { sheet: { ...won.sheet, anno: { ...won.sheet.anno, readings } } }),
   }
 }
 
@@ -779,8 +785,10 @@ function withMergedSymbolReadings(won: TacticalObject, base: TacticalObject, min
  *     reportMeta, building, pickedObjectId) → three-way by value, so a field the resolver didn't
  *     touch yields to the server's concurrent change instead of being reverted.
  * Only genuinely LOCAL view/device state stays mine (the `'local'` rows of MERGE_POLICY:
- * activePlanId, activeModule, layerState, recent, weather, schemaVersion). A key this build does
- * not know at all rides with mine too, as it always has.
+ * activePlanId, activeModule, layerState, recent, weather, schemaVersion).
+ * ⚠️ A key this build does not know is LOST: only mine's keys are carried, and mine is this build's
+ * own payload, which never holds one. So a new key bumps WORKSPACE_SCHEMA_VERSION
+ * (lib/workspaceManifest.json), and the server refuses the older build's save instead.
  * (Same-object field-level edits remain LWW-mine for every collection except trupps, attendance and
  * shifts — see the documented limitation in the tests, mergeTrupp and mergeFields.)
  *
@@ -814,9 +822,11 @@ export function mergeWorkspace(
   // its views), the objects merge per id like any collection, and the three legacy views
   // are then DERIVED from the merged result. Merging views independently beside the
   // objects could let the two disagree about the same id — one truth, derived twice.
+  // A row without an id is no object and is skipped, like in every other list. A row with one
+  // is kept whatever its bodies are: an object of a kind this build does not know is a passenger.
   const objectsOf = (ws: Record<string, unknown>): TacticalObject[] =>
     Array.isArray(ws.objects)
-      ? (ws.objects as TacticalObject[])
+      ? listOf<TacticalObject>(ws.objects)
       : objectsFromLegacy(
           listOf<Entity>(ws.entities),
           listOf<Drawing>(ws.drawings),
@@ -824,7 +834,7 @@ export function mergeWorkspace(
         )
   const objects = mergeById(objectsOf(base), objectsOf(mine), objectsOf(theirs), (a, m, t) => resolveTactical(a, m, t, opts.onFormConflict))
   const cx: MergeCx = { objects, views: viewsOf(objects), onAttendanceConflict, onTruppConflict }
-  const out: Record<string, unknown> = { ...mine } // the 'local' rows (and keys this build doesn't know)
+  const out: Record<string, unknown> = { ...mine } // the 'local' rows; theirs' unknown keys are not kept (see above)
   for (const [k, policy] of Object.entries(MERGE_POLICY) as [keyof Saved, FieldPolicy][]) {
     if (policy !== 'local') out[k] = policy(base[k], mine[k], theirs[k], cx)
   }

@@ -168,7 +168,8 @@ unchanged.
   plus its 6px channel. A literal 60px outlived a 4px shell padding and stood the FAB, the
   message lane, «Zurück zum Rapport» and the page's foot 10px low.
 - *«Zurück zum Rapport» ends the page above it* (11.11.2026, occlusion sweep O1): while the pill
-  stands (Anwesenheit / Material opened from the Rapport) `--float-clear` lifts the page shell's
+  stands (Material opened from the Rapport; the Anwesenheit carries «‹ Rapport» in its page head
+  instead – owner pick UX journeys M·8, 25.11.2026) `--float-clear` lifts the page shell's
   foot by one floating row, so neither the pill nor the FAB lies on the row resting at the list
   foot. The FAB alone does not lift it – the last row clears it (`--fab-safe`). With the keys up
   the Rapport head drops «Drucken · PDF ▾» (O5), and every `.ctx` detail sheet stands on the keys

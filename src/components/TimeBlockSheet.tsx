@@ -42,6 +42,10 @@ export interface TimeBlock {
   to?: string
   /** shown in place of the «bis» field while the block is open (e.g. «noch da») */
   openLabel?: string
+  /** the clock an open end stands for, under `openLabel` – set once the Einsatz has an Einsatzende
+   *  («Einsatzende» / «14:27», pick B3·22, 25.11.2026). The end is then the Einsatz's own bound,
+   *  so it wears the blue of «ab Beginn», not the green of a stretch still running. */
+  openValue?: string
   /** flagged as a problem — a shift overlapping another, or a block whose end is not after its
    *  start. The caller decides: an overlap needs the person's other blocks. */
   warn?: boolean
@@ -55,6 +59,8 @@ export interface TimeBlock {
   /** this start IS the incident start — the field then reads «ab Beginn» instead of a clock, since
    *  that is what it means. The instant is still stored in full, date included. */
   fromIsStart?: boolean
+  /** the clock under the «ab Beginn» word – given beside an `openValue`, so both ends read alike */
+  fromStartClock?: string
   /** «noch da»: empty this block's end, which says the person never left. Offered inside the «bis»
    *  picker, where it replaces the bin glyph — emptying a «bis» records presence, it destroys
    *  nothing, and a bin said the opposite of what it did. */
@@ -170,7 +176,7 @@ export function TimeBlockSheet({ title, subject, sectionTitle, blocks, emptyLabe
                 <DateTimeField className={s.time} ariaLabel={`${labels.from} – ${subject}`} value={b.from}
                   required disabled={!b.onFrom} onCommit={(iso) => { if (iso) b.onFrom?.(iso) }}
                   days={days}
-                  token={b.fromIsStart ? { label: labels.fromStart, tone: 'start' as const } : undefined}
+                  token={b.fromIsStart ? { label: labels.fromStart, tone: 'start' as const, value: b.fromStartClock } : undefined}
                   shortcut={b.onFromStart && {
                     label: labels.fromStart, value: b.fromStartValue,
                     // stays visible while it IS the value, drawn as pressed — otherwise the tab
@@ -184,9 +190,11 @@ export function TimeBlockSheet({ title, subject, sectionTitle, blocks, emptyLabe
                 {/* An open stretch keeps a real field, reading «noch da». It used to be an <em>:
                     it looked like a value, and there was no way to close the stretch from here at
                     all — the one place its times are edited. */}
-                <DateTimeField className={cx(s.time, b.to == null && s.timeOpen)}
+                <DateTimeField className={cx(s.time, b.to == null && !b.openValue && s.timeOpen)}
                   ariaLabel={`${labels.to} – ${subject}`} value={b.to}
-                  token={b.to == null && b.openLabel ? { label: b.openLabel, tone: 'open' as const } : undefined}
+                  token={b.to == null && b.openLabel
+                    ? { label: b.openLabel, tone: b.openValue ? 'start' as const : 'open' as const, value: b.openValue }
+                    : undefined}
                   required={!b.onReopen}
                   disabled={!b.onTo} onCommit={(iso) => { if (iso == null) b.onReopen?.(); else b.onTo?.(iso) }}
                   clearLabel={b.onReopen ? labels.reopen : undefined}

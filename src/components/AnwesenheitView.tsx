@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
 import { ONE_LINE } from '../lib/fieldKeys'
 import { Icon } from '../lib/icons'
 import { SearchField } from './SearchField'
-import type { AttendanceState, LngLat, Person, PresenceInterval, Shift, ShiftBand } from '../types'
+import type { AttendanceState, LngLat, Person, PresenceInterval, ReactivateResult, Shift, ShiftBand } from '../types'
 import { ageMinutes, type LivePerson } from '../lib/usePersonPositions'
 import { fmtDistance, haversineM } from '../lib/geo'
 import type { ZeitplanSheet } from '../lib/zeitplanPrint'
@@ -37,6 +37,7 @@ import { AnrueckendBlock } from './AnrueckendBlock'
 import s from './Anwesenheit.module.css'
 import c from './SurfaceControls.module.css'
 import { FilterStrip } from './FilterStrip'
+import { ClosedStrip } from './ClosedStrip'
 
 /** Zeitraum stops for the Zeitplan axis, in hours — from one watch to a WEEK. The long tail
  *  (120 h, 168 h) is for the deployment that does not end on day four: an Elementarereignis
@@ -91,7 +92,7 @@ const spanOrNothing = (ms: number) => (Number.isFinite(ms) ? fmtSpanShort(ms) : 
  * a return is opened. Built on the SAME sheet the Zeitplan's Schichten use, so the two stay
  * identical rather than drifting apart.
  */
-function PresenceSheet({ person, blocks, note, canEdit, startedAt, onSetTimes, onRemoveBlock, onSetNote, onRemoveGuest, onBack, onClose }: {
+function PresenceSheet({ person, blocks, note, canEdit, startedAt, endedAt, onSetTimes, onRemoveBlock, onSetNote, onRemoveGuest, onBack, onClose }: {
   person: Person
   blocks: PresenceInterval[]
   /** free remark on this person for this incident («Fahrer TLF», «abgelöst 21:40») */
@@ -102,6 +103,9 @@ function PresenceSheet({ person, blocks, note, canEdit, startedAt, onSetTimes, o
   canEdit: boolean
   /** incident alarm time — drives the day labels and the «ab Beginn» shortcut */
   startedAt?: string | null
+  /** the Rapport's Einsatzende, once there is one (closed, or reopened for a Nachtrag) – an open
+   *  stretch then reads as running to it, the way the Personalblatt prints it */
+  endedAt?: string | null
   onSetTimes?: (personId: string, patch: { from?: string; to?: string }, index?: number) => void
   /** drop one recorded block — the sheet was the only place it was visible and the only place it
    *  could not be removed, so a mis-tapped «Weiterer Block» was permanent */
@@ -117,6 +121,14 @@ function PresenceSheet({ person, blocks, note, canEdit, startedAt, onSetTimes, o
   // sheet is open, which is the right trade — this surface is transient, and a ticking hook here
   // is exactly the shape that once cost the phone its battery.
   const [openedAt] = useState(() => Date.now())
+  // ⚠️ Once the Einsatz HAS an Einsatzende, an open stretch does not run on: it ends there, on the
+  // Personalblatt as for everybody else (lib/report · open blocks borrow `endedAt`). «noch da · läuft
+  // 1 h 37» said otherwise, and both walkers set a «bis» by hand – one 6 minutes past the
+  // Einsatzende (owner pick UX journeys B3·22, 25.11.2026). Wording only: the record is unchanged.
+  const endMs = endedAt ? Date.parse(endedAt) : NaN
+  const ended = Number.isFinite(endMs)
+  const days = incidentDays(startedAt, openedAt)
+  const labels = timeBlockLabels(A.blockRemove)
   return (
     <TimeBlockSheet
       title={fillTemplate(A.blocksTitle, { name: person.displayName })}
@@ -131,8 +143,9 @@ function PresenceSheet({ person, blocks, note, canEdit, startedAt, onSetTimes, o
       addLabel={canEdit ? (open ? A.addBlock : A.backAgain) : undefined}
       onAdd={canEdit ? onBack : undefined}
       onClose={onClose}
-      labels={timeBlockLabels(A.blockRemove)}
-      days={incidentDays(startedAt, openedAt)}
+      // the «bis» picker's named clear says what it sets: «Einsatzende» once there is one
+      labels={ended ? { ...labels, reopen: A.incidentEnd } : labels}
+      days={days}
       // The remark belongs to the person on THIS Einsatz, not to their roster entry: «Fahrer
       // TLF», «abgelöst 21:40». It sits with the times because that is the one surface that is
       // already about what this person did here, and it prints on the Personalblatt beside them.
@@ -166,14 +179,18 @@ function PresenceSheet({ person, blocks, note, canEdit, startedAt, onSetTimes, o
         key: String(i),
         from: iv.from,
         to: iv.to,
-        openLabel: A.stillHere,
+        openLabel: ended ? A.incidentEnd : A.stillHere,
+        openValue: ended && endedAt ? fmtStartValue(endedAt, days) : undefined,
+        fromStartClock: ended && startedAt ? fmtStartValue(startedAt, days) : undefined,
         // Same card as the Zeitplan, but the head is a READ-OUT here: a stretch of presence has no
         // second state to flip into — it is running or it is finished, and that is decided by the
         // row in the list, not in this sheet. So no switch, and no «umschalten» on hover.
         head: iv.to
           ? { label: A.ended, tone: 'done' as const }
-          : { label: A.running, tone: 'open' as const },
-        duration: spanOrNothing((iv.to ? Date.parse(iv.to) : openedAt) - Date.parse(iv.from)),
+          : ended
+            ? { label: startedAt && iv.from === startedAt ? A.wholeIncident : A.untilIncidentEnd, tone: 'open' as const }
+            : { label: A.running, tone: 'open' as const },
+        duration: spanOrNothing((iv.to ? Date.parse(iv.to) : ended ? endMs : openedAt) - Date.parse(iv.from)),
         // the instant as the picker showed it, date included (docs/rapport.md › Times): no day is
         // inferred from the other end any more, and a block that ends up reversed says so (warn)
         onFrom: canEdit && onSetTimes ? (iso) => onSetTimes(person.id, { from: iso }, i) : undefined,
@@ -189,7 +206,7 @@ function PresenceSheet({ person, blocks, note, canEdit, startedAt, onSetTimes, o
         onFromStart: canEdit && onSetTimes && startedAt && i === 0
           && (!iv.to || Date.parse(startedAt) < Date.parse(iv.to))
           ? () => onSetTimes(person.id, { from: startedAt }, i) : undefined,
-        fromStartValue: startedAt ? fmtStartValue(startedAt, incidentDays(startedAt, openedAt)) : undefined,
+        fromStartValue: startedAt ? fmtStartValue(startedAt, days) : undefined,
         fromIsStart: !!startedAt && iv.from === startedAt,
         // «noch da» on EVERY end, as asked: emptying it says the person never left, and an open
         // stretch runs to the Einsatzende for the Rapport (attendanceIntervals.totalMinutes).
@@ -314,15 +331,15 @@ function LivePositionChip({ live, center, onShow }: {
   )
 }
 
-// marking them gone (the checkout rule). Order is stable alphabetical so chips don't reflow
-// under your finger while you tap.
+// marking them gone (the checkout rule). Order is stable alphabetical by name (A–Z, not by Grad –
+// pick M·7, 25.11.2026) so chips don't reflow under your finger while you tap.
 export function AnwesenheitView({
   people, attendance, canEdit, loading, error, blockedIds, truppOfPerson,
   onAddGuest, onMarkPresent, onMarkLeft, onClear, onSetOrt, onJumpToTrupp, onReload, onUndo, onRedo, canUndo = false, canRedo = false, topBarUndoHidden = false, onSetTimes, onRemoveBlock, onSetNote, captureUsage,
   shifts, bands, onCreateBand, onSaveBand, onRemoveBand, onCycleCell, onSetCellState, onPutCellState,
   startedAt, onAddShift, onAddShiftSpan, onReplaceShift, onSetShiftTime, onRemoveShift,
   onPrintZeitplan, onDownloadZeitplan, zeitplanPrintOnline,
-  livePositions, incidentCenter, onShowOnMap, incidentId, diveraResponsesFor,
+  livePositions, incidentCenter, onShowOnMap, incidentId, diveraResponsesFor, onBackToRapport, endedAt, closed = false, onReopen,
 }: {
   people: Person[]
   attendance: AttendanceState
@@ -417,6 +434,18 @@ export function AnwesenheitView({
    *  set only for a running Einsatz on a station with Divera, for the EL and the editors.
    *  Absent = no block, and no request: a station without Divera never sees it. */
   diveraResponsesFor?: string
+  /** «‹ Rapport» in the page head – set only while this surface was opened from a Rapport row
+   *  (owner pick UX journeys M·8, 25.11.2026: it replaces the floating «Zurück zum Rapport» pill
+   *  here, which covered the list's last row – WorkspaceMeldungen keeps it for Material) */
+  onBackToRapport?: () => void
+  /** the Rapport's Einsatzende (`reportMeta.endedAt`) – the Zeiten sheet reads an open stretch as
+   *  running to it once it is set (PresenceSheet, pick B3·22) */
+  endedAt?: string | null
+  /** the Einsatz is closed: the list is read-only, and the Rapport's amber strip says so above the
+   *  search, with «Wieder öffnen» for a session that may (owner pick UX journeys B3·24, 25.11.2026 –
+   *  a tap on a row did nothing, without a word) */
+  closed?: boolean
+  onReopen?: () => Promise<ReactivateResult>
 }) {
   const [q, setQ] = useState('')
   const [rankSel, setRankSel] = useState<ReadonlySet<string>>(() => new Set())
@@ -578,8 +607,11 @@ export function AnwesenheitView({
       .filter((p) => !presentOnly || isOnlyPresentMatch(attendance[p.id]))
       .filter((p) => matchesAny(stateSel, (k) => stateMatches(k, attendance[p.id])))
       .filter((p) => !noteOnly || !!attendance[p.id]?.note)
-      // grouped by seniority (most senior first), alpha within a rank
-      .sort((a, b) => rankOrder(a.rank) - rankOrder(b.rank) || a.displayName.localeCompare(b.displayName, 'de'))
+      // ONE list by name, A–Z («Nachname Vorname»), guests among them; the Grad stays a chip on
+      // the row and the «Filter» menu still narrows to one (owner pick UX journeys M·7, 25.11.2026
+      // – replaces «grouped by seniority, alpha within a rank», 19.07.2026: a roll call goes by
+      // name, and the walker hunted for names jumping between rank blocks)
+      .sort((a, b) => a.displayName.localeCompare(b.displayName, 'de'))
   }, [people, guests, q, rankSel, presentOnly, stateSel, noteOnly, attendance])
 
   /* A status set from a SEARCH hands the field straight back, empty and focused (owner,
@@ -717,6 +749,13 @@ export function AnwesenheitView({
   return (
     <div className={s.surface}>
       <header ref={headRef} className={s.head}>
+        {/* the way back where a page's way up stands – before the title, never over the list */}
+        {onBackToRapport && (
+          <button type="button" className={cx('head-tile', s.headBack)} onClick={onBackToRapport}
+            aria-label={appConfig.copy.abschluss.backToRapport} title={appConfig.copy.abschluss.backToRapport}>
+            <Icon id="chevron-left" />{A.backToRapportWord}
+          </button>
+        )}
         <div className={s.headTitles}>
           <h2>{A.title}</h2>
           {/* «12 anwesend · 3 gegangen» — and, once anybody is at the Magazin,
@@ -858,6 +897,9 @@ export function AnwesenheitView({
           </div>
         )}
       </header>
+
+      {/* a closed Einsatz says so before the first tap, the Rapport's own strip (ClosedStrip) */}
+      {closed && <ClosedStrip onReopen={onReopen} />}
 
       {/* always, even on an empty surface: the search is also the Gast entry */}
       <div className={c.controls}>
@@ -1091,24 +1133,45 @@ export function AnwesenheitView({
                 {/* THE one clock in the row, always there: it opens the sheet where several
                     stretches — came, went, came back — are added and corrected. The chip beside it
                     edits the single time shown; this is the way to all the others. */}
-                {/* Am Einsatzort oder noch im Magazin. ONE tap flips it, and the chip says
-                    which it is in a word — this is read at a glance down a column of 12 names,
-                    so it must not be a colour alone. Only on somebody who is HERE: «wo ist
-                    jemand, der gegangen ist» has no answer worth a control. */}
+                {/* Am Einsatzort oder noch im Magazin – a WORD on the row, «Vor Ort ▾» /
+                    «Magazin ▾», and a tap opens the two-row choice (owner pick UX journeys M·8,
+                    25.11.2026 – replaces the one-tap glyph flip of 09.08.2026: a stray tap moved
+                    somebody to the Magazin without a word, two taps and a named choice cannot).
+                    Only on somebody who is HERE: «wo ist jemand, der gegangen ist» has no answer
+                    worth a control. */}
                 {present && (
                   canEdit && onSetOrt ? (
-                    <button
-                      type="button"
-                      className={cx(s.ort, ortOf(a) === 'station' ? s.ortStation : s.ortScene)}
-                      title={fillTemplate(ortOf(a) === 'station' ? A.ortToScene : A.ortToStation, { name: p.displayName })}
-                      aria-label={fillTemplate(ortOf(a) === 'station' ? A.ortToScene : A.ortToStation, { name: p.displayName })}
-                      onClick={() => onSetOrt(p)}
-                    >
-                      <Icon id={ortOf(a) === 'station' ? 'station' : 'pin'} />
-                    </button>
+                    <Menu
+                      trigger={
+                        <button type="button" className={cx(s.ort, ortOf(a) === 'station' ? s.ortStation : s.ortScene)}
+                          title={fillTemplate(A.ortPick, { name: p.displayName })}
+                          aria-label={`${fillTemplate(A.ortPick, { name: p.displayName })}: ${ortOf(a) === 'station' ? A.ortStation : A.ortScene}`}>
+                          <span className={s.ortChip}>
+                            <Icon id={ortOf(a) === 'station' ? 'station' : 'pin'} />
+                            {ortOf(a) === 'station' ? A.ortStation : A.ortScene}
+                            <Icon id="chevron-down" />
+                          </span>
+                        </button>
+                      }
+                      popupClassName={c.menuPop}
+                      itemClassName={() => c.menuItem}
+                      items={[{
+                        kind: 'radio' as const,
+                        value: ortOf(a),
+                        // a pick of the place already set changes nothing – that is the point
+                        onChange: (v: string) => { if (v !== ortOf(a)) onSetOrt(p) },
+                        options: [
+                          { value: 'scene', label: <span className={cx(s.markRow, s.markOrt)}><Icon id="pin" />{A.ortScene}</span> },
+                          { value: 'station', label: <span className={cx(s.markRow, s.markOrt, s.markOrtStation)}><Icon id="station" />{ortOf(a) === 'station' ? A.ortStation : A.ortToStationPick}</span> },
+                        ],
+                      }]}
+                    />
                   ) : (
                     <span className={cx(s.ort, ortOf(a) === 'station' ? s.ortStation : s.ortScene)}>
-                      <Icon id={ortOf(a) === 'station' ? 'station' : 'pin'} />
+                      <span className={s.ortChip}>
+                        <Icon id={ortOf(a) === 'station' ? 'station' : 'pin'} />
+                        {ortOf(a) === 'station' ? A.ortStation : A.ortScene}
+                      </span>
                     </span>
                   )
                 )}
@@ -1132,6 +1195,9 @@ export function AnwesenheitView({
                     onClick={() => setBlocksFor(p.id)}
                   >
                     <Icon id="clock" />
+                    {/* its word under the glyph (pick M·8, 25.11.2026): the clock opened a sheet
+                        nobody could name before tapping */}
+                    <span className={s.actWord} aria-hidden="true">{A.zeitenWord}</span>
                   </button>
                 )}
               </div>
@@ -1171,6 +1237,7 @@ export function AnwesenheitView({
           note={attendance[blocksPerson.id]?.note}
           canEdit={canEdit}
           startedAt={startedAt}
+          endedAt={endedAt}
           onSetTimes={onSetTimes}
           onRemoveBlock={onRemoveBlock}
           onSetNote={onSetNote}
@@ -1184,7 +1251,7 @@ export function AnwesenheitView({
 
       {/* PHONE: the three readings as the docked strip above the nav bar — the Rapport's own
           (PhoneTabBar · 15-mobile.css `.rp-tabs`). Rendering it is what reserves its lane:
-          `--rp-tabs-safe` lifts this shell's bottom edge, the FAB and «Zurück zum Rapport». */}
+          `--rp-tabs-safe` lifts this shell's bottom edge and the FAB. */}
       {!empty && planAvailable && isPhone && (
         <PhoneTabBar<AnwesenheitTab> ariaLabel={A.viewLabel} value={view} onChange={pickView} options={viewOptions} />
       )}

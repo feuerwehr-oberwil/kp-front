@@ -1,4 +1,4 @@
-import { splitDuplicateTruppIds } from './mergeWorkspace'
+import { splitDuplicateTruppIds, type LocalKey } from './mergeWorkspace'
 import { nextTruppNo } from './placedTrupps'
 import type { ReportSignature } from './reportSignature'
 import { ghostCounterNames } from './truppTrails'
@@ -277,6 +277,16 @@ export type Saved = {
   schemaVersion?: number
 }
 
+/**
+ * `Saved` with every key spelled out: an optional key may hold `undefined`, but it must be
+ * NAMED. Both ends of the blob are typed with it — the load gate's rebuild (sanitizeWorkspace)
+ * and the save (useWorkspaceBlob · buildPayload) — so a new `Saved` key that one end forgets
+ * fails `tsc` instead of being dropped on load and deleted by the next save. `Skip` names the
+ * keys that end leaves out on purpose; only a device-local key (a `'local'` row of MERGE_POLICY)
+ * may be one.
+ */
+export type EverySavedKey<Skip extends LocalKey = never> = { [K in Exclude<keyof Saved, Skip>]: Saved[K] }
+
 type LegacyBoardAnno = Omit<BoardAnno, 'kind'> & { kind: BoardAnno['kind'] | 'trupp' }
 const TEAM_COLORS = appConfig.drawing.colors
 
@@ -310,8 +320,10 @@ export const normalizeBoard = (board?: BoardDoc): BoardDoc => {
   }))
 }
 
-/** Version stamped into every saved blob (App's buildPayload). Bump on a breaking shape
- *  change and add a stepwise migration in `sanitizeWorkspace` for the older versions. */
+/** Version stamped into every saved blob (useWorkspaceBlob · buildPayload). Bump on a breaking
+ *  shape change and add a stepwise migration in `sanitizeWorkspace` for the older versions.
+ *  ⚠️ Bump on every new synced key or EntityKind too: a build at the same version deletes what it
+ *  does not know, and the server only refuses OLDER builds (lib/workspaceManifest.json). */
 // v2 (09.09.): the unified `objects` collection joins the blob.
 // The legacy collections are still written as views, so a v1 reader renders — see Saved.objects.
 // v3 (10.10.2026): Tafel pages (board kind `form`). A v2 build cannot keep what it cannot read in
@@ -351,7 +363,8 @@ const num = (v: unknown): v is number => typeof v === 'number' && Number.isFinit
  *  without a row here fails `tsc` instead of being silently dropped from every incident. */
 type Complete<T extends string, U extends readonly string[]> = Exclude<T, U[number]> extends never ? unknown : never
 const kindSet = <T extends string>() => <const U extends readonly T[]>(u: U & Complete<T, U>): ReadonlySet<string> => new Set<string>(u)
-const ENTITY_KINDS = kindSet<EntityKind>()(['symbol', 'vehicle', 'note', 'photo', 'shape', 'team', 'person'])
+/** every map entity kind this build draws (and src/lib/workspaceManifest.json lists) */
+export const ENTITY_KINDS = kindSet<EntityKind>()(['symbol', 'vehicle', 'note', 'photo', 'shape', 'team', 'person'])
 const DRAW_KINDS = kindSet<DrawKind>()(['line', 'area', 'circle'])
 /** every board kind this build draws (and the server's version table lists – lib/boardKinds.test) */
 export const BOARD_KINDS = kindSet<BoardKind>()(['draw', 'area', 'circle', 'text', 'symbol', 'shape', 'resource', 'form'])
@@ -628,7 +641,8 @@ export function sanitizeWorkspace(raw: unknown): WorkspaceGate {
     return out
   })()
   const sv = typeof raw.schemaVersion === 'number' ? raw.schemaVersion : undefined
-  const ws: Saved = {
+  // weather is the replay fold's alone (Saved.weather): a live load never carries it on
+  const ws: EverySavedKey<'weather'> = {
     objects,
     entities: (arr<Entity>(raw.entities, isEntity, (e) => fixDrawProps(e.trail == null ? e : { ...e, trail: arr<GeoTrailPoint>(e.trail, isGeoTrailPt) })) ?? []).map(migrateRauchCloud),
     drawings: arr<Drawing>(raw.drawings, isDrawing, fixDrawProps) ?? [],

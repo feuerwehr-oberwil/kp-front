@@ -95,6 +95,8 @@ scrolling body so it stays visible with the keyboard up):
   for a session that cannot reopen). Nothing asks for a signature: closed means done, and signing
   is the optional card below – open or closed alike (14.11.2026). The closing device lands on the launcher anyway – the strip is what
   «Alle Einsätze» → a closed Einsatz shows. A print still out keeps its own amber band.
+  The Anwesenheit shows the same strip above its search (`components/ClosedStrip`, owner pick UX
+  journeys B3·24, 25.11.2026): its rows ignored a tap without a word.
 
 ## Times – one control, date + time everywhere (12.11.2026)
 
@@ -116,7 +118,8 @@ Owner pick A «Ein Feld» (`components/TimeField · DateTimeField`, header there
   day only when that is not the row's. **The PDF keeps its own formats** (`report · formatDateTime`).
 - **«Jetzt» is the deployment's clock** (`lib/serverClock`), on the two form buttons (Einsatzende,
   Rückmeldung ELZ – tablet, phone and QR-Erfassung) and inside every picker. Grid rows have no form
-  button. The QR-Erfassung learns the clock from its own answers (`captureClient · req`).
+  button. The QR-Erfassung learns the clock from its own answers (`captureClient · req`) and stamps
+  every save with it (`saveAction`); a time somebody types stays as typed.
 - **The QR-Erfassung behaves like the tablet** for the same field: one control, and «Leeren» clears
   an Einsatzende or a Rückmeldung there too (a null commit used to be ignored).
 - **The QR-Erfassung's Personen rows wear the stacked face** (owner pick A «Gestapelt», 13.11.2026,
@@ -189,6 +192,10 @@ the three mockup rounds: `docs/planning/signature-2026-10-15/` (local, gitignore
 - **A one-day Einsatz prints the time alone** («07:03»); the date stands once in the heading,
   «Einsatzjournal · 23.10.2026» (`reportPdfDirect · oneDay` → `ReportPayload.journalDay`). Rows
   across midnight keep «Datum Zeit» on every row.
+- **The Pendenzen follow the sheet's one midnight rule** (`report · pendenzRows` → `spanAwareClock`,
+  25.11.2026): sorted by the instant, not the printed «HH:MM» (00:10 printed above 23:50), and
+  every clock carries its day once the Einsatz spans days. An old row with only its «HH:MM» keeps
+  its place and prints no day.
 
 ## Messungen (10.11.2026)
 

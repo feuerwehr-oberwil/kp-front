@@ -102,7 +102,8 @@ rules that break silently.
 - **Anything that mutates** → [`docs/undo.md`](docs/undo.md): one undo timeline for the Einsatz, the
   three ways to join it, what is deliberately not undoable.
 - **Synced state, storage, ids, the Verlauf, the record** → [`docs/sync-and-offline.md`](docs/sync-and-offline.md):
-  - ⚠️ a new synced field needs a `MERGE_POLICY` row (`mergeWorkspace.ts`);
+  - ⚠️ a new synced field needs a `MERGE_POLICY` row (`mergeWorkspace.ts`). It and a new `EntityKind`
+    bump `WORKSPACE_SCHEMA_VERSION` and join `src/lib/workspaceManifest.json`;
   - ⚠️ a board object kind that a build does not draw is a passenger, never dropped. A new kind
     bumps `WORKSPACE_SCHEMA_VERSION` and joins `backend/app/data/board_kinds.json`;
   - operational state in IndexedDB, «saved» means every queue acknowledged, records append-only,
