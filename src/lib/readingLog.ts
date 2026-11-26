@@ -137,7 +137,7 @@ export function readingsForReport(entities: readonly Entity[], board: BoardDoc):
     for (const a of annos) add(a.id, a, donePlace(a.floorFrom ?? a.storey, a.floorTo))
   }
   const points = [...bodies.values()].flatMap(({ props, place }) => {
-    const rows = readingRows(props, { configured: true }).reverse().flatMap((r): ReportReading[] => {
+    const rows = readingRows(props).reverse().flatMap((r): ReportReading[] => {
       const gas = worstGas({ symbol: props.symbol, fields: r.v })
       if (!gas) return []
       return [{
