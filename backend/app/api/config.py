@@ -48,7 +48,8 @@ Response contract (GET with a session and PUT return the SAME projection ``Deplo
 Never exposes ``updated_by`` or server secrets. The one deliberate client credential is
 ``integrations.cartoBasemapKey``: CARTO requires it in browser tile URLs, so domain restrictions
 rather than secrecy protect it. It is on no public list, so it reaches sessions only. On a fresh /
-empty / corrupt DB row, GET serves the safe empty config above — never 404, never 500.
+empty / corrupt DB row, GET serves the safe empty config above (a value past a length limit
+costs only its entry) — never 404, never 500.
 
 Every config write takes ``config_row(lock=True)`` BEFORE checking a version or deriving a
 replacement. If-Match alone is a check-then-write race: overlapping requests could both accept
@@ -163,7 +164,8 @@ async def stored_document(db: AsyncSession) -> tuple[DeploymentConfigIn, dict]:
     """The stored config as a validated document, plus the raw JSON it came from.
 
     The validated half is ``deployment_config · safe_config``: a missing row or one that fails
-    validation (a hand-edited bad row) reads as the safe empty document. Never raises. The raw
+    validation (a hand-edited bad row) reads as the safe empty document, a value past a length
+    limit as the document without its entry. Never raises. The raw
     half is read on purpose — the ``version`` is a hash of the JSON as stored.
     """
     row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
@@ -344,8 +346,8 @@ async def get_config(
     session is known (src/lib/deploymentConfig · mergePartial, lib/auth). Replacing with it
     would empty a tablet's fleet and map layers.
 
-    On a missing or invalid stored row every caller gets the safe empty config
-    (``stored_document``). Never raises.
+    On a missing or invalid stored row every caller gets the safe empty config; a value past a
+    length limit costs only its entry (``stored_document``). Never raises.
     """
     # `integrations` in the projection is derived from the credential store, so refresh it —
     # otherwise a station that just connected Divera would keep seeing «nicht konfiguriert»
