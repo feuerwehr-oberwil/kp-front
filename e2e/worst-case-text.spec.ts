@@ -85,6 +85,25 @@ async function boxOf(el: Locator, what: string): Promise<Box> {
   return box
 }
 
+/** Wait until the open Trupp card stands still, before its boxes are read one by one. On a phone
+ *  it fades in (Atemschutz.module.css · az-cardOpen, 170ms, a transform) while the list
+ *  smooth-scrolls to it (AtemschutzView · `port.scrollTo`): boxes read during that come from
+ *  different frames and disagree – a flake under CPU load. Its animations finished, then its box
+ *  the same three frames running (at most ~5 s, then the reads report what they see). */
+async function settled(card: Locator) {
+  await card.evaluate(async (el) => {
+    await Promise.all(el.getAnimations({ subtree: true }).map((a) => a.finished.catch(() => undefined)))
+    const frame = () => new Promise<void>((done) => requestAnimationFrame(() => done()))
+    const key = () => JSON.stringify(el.getBoundingClientRect())
+    for (let i = 0, last = '', same = 0; same < 2 && i < 300; i++) {
+      await frame()
+      const now = key()
+      same = now === last ? same + 1 : 0
+      last = now
+    }
+  })
+}
+
 /** Every box of `parts` stands inside `container` – its text clipped by nothing. */
 async function expectInside(parts: Locator, container: Locator, what: string) {
   const outer = await boxOf(container, what)
@@ -167,6 +186,7 @@ for (const device of [
       // the phone's closed row shows no crew: open it by its name
       if (!await card.isVisible()) await page.getByText(WORST.leader, { exact: true }).filter({ visible: true }).first().click()
       await expect(card).toBeVisible()
+      await settled(card)
       await expectInside(card.locator('[class*="crewName"]'), card, 'a crew name')
       const clock = card.locator('[class*="trowClockVal"]').first()
       if (await clock.isVisible()) {
@@ -190,6 +210,7 @@ for (const device of [
       if (!await card.isVisible()) await page.getByText(WORST.leader, { exact: true }).filter({ visible: true }).first().click()
       const line = card.locator('[class*="metaLine"]')
       await expect(line).toBeVisible()
+      await settled(card)
       const items = line.locator(':scope > span')
       // no value cut at its right edge (the ⌄'s 28px box overhangs its line by design, so not the height)
       for (let i = 0; i < await items.count(); i++) {
