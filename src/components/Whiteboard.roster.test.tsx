@@ -53,6 +53,8 @@ const onLage = (entity: Entity) => {
     sym: { byName: {}, symbols: [] } as unknown as MapDetailPanelsProps['sym'], doc: { entities: [entity], drawings: [] },
     rosterFieldHints: () => undefined, personStatus: () => undefined, rosterRank: {}, isVisible: () => true,
     linkRosterFields, commitEntityFields: vi.fn(), patchEntity: vi.fn(), vehicleOverrides: {},
+    // the Lage's layers – read since B2·49 (#758) for the hydrant a free line end sits at
+    layers: [],
   }
   render(<MapDetailPanels {...given as MapDetailPanelsProps} />)
   const props = panel.props!
