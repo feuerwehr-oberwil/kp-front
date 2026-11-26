@@ -487,9 +487,12 @@ export function recordReading(props: SymbolProps, fields: Record<string, string>
 export const READING_BURST_MS = 2 * 60_000
 
 /** The history as the panel lists it: newest first, each burst of edits (one report typed gas by
- *  gas, a typo fixed) folded into its last row. Only usable rows (isUsableReading). */
-export function readingRows(props: SymbolProps): Reading[] {
-  const rs = storedReadings(props).filter(isUsableReading)
+ *  gas, a typo fixed) folded into its last row. Only usable rows (isUsableReading).
+ *  `configured` (the Rapport, lib/readingLog): a row with no value for a gas the preset measures
+ *  now – one removed from the station config since – is no reading, so it folds nothing away. */
+export function readingRows(props: SymbolProps, { configured = false } = {}): Reading[] {
+  const keys = readoutKeys(props)
+  const rs = storedReadings(props).filter((r) => isUsableReading(r) && (!configured || keys.some((k) => r.v[k]?.trim())))
   return rs.filter((r, i) => !(i + 1 < rs.length && rs[i + 1].t - r.t < READING_BURST_MS)).reverse()
 }
 
