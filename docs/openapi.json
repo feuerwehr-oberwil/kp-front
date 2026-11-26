@@ -13992,9 +13992,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Get Programme Api Integrations Visit Programmes  Programme Ref  Get"
+                  "$ref": "#/components/schemas/VisitProgrammeOut"
                 }
               }
             }
@@ -14062,9 +14060,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Put Programme Routes Api Integrations Visit Programmes  Programme Ref  Routes Put"
+                  "$ref": "#/components/schemas/VisitProgrammeOut"
                 }
               }
             }
@@ -14141,9 +14137,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Publish Programme Api Integrations Visit Programmes  Programme Ref  Years  Year  Put"
+                  "$ref": "#/components/schemas/VisitProgrammeOut"
                 }
               }
             }
@@ -14192,9 +14186,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Organizer Catalogue Api Integrations Object Visits Catalogue Get"
+                  "$ref": "#/components/schemas/OrganizerCatalogueOut"
                 }
               }
             }
@@ -14267,9 +14259,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Organizer Changes Api Integrations Object Visits Changes Get"
+                  "$ref": "#/components/schemas/OrganizerFeedOut"
                 }
               }
             }
@@ -14327,9 +14317,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Organizer Visit Api Integrations Object Visits  Visit Id  Get"
+                  "$ref": "#/components/schemas/ObjectVisitOut"
                 }
               }
             }
@@ -14545,9 +14533,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Organizer Object By Ref Api Integrations Objects By Ref  Source   External Id  Get"
+                  "$ref": "#/components/schemas/OrganizerObjectOut"
                 }
               }
             }
@@ -14609,8 +14595,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "type": "object",
-                    "additionalProperties": true
+                    "$ref": "#/components/schemas/OrganizerPlanOut"
                   },
                   "title": "Response Organizer Object Plans Api Integrations Objects  Object Id  Plans Get"
                 }
@@ -14764,11 +14749,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": {
-                    "type": "string"
-                  },
-                  "title": "Response Organizer Delete Object Api Integrations Objects  Source   External Id  Delete"
+                  "$ref": "#/components/schemas/OrganizerObjectDeleteOut"
                 }
               }
             }
@@ -14846,9 +14827,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Organizer Put Object Api Integrations Objects  Source   External Id  Put"
+                  "$ref": "#/components/schemas/OrganizerObjectPutOut"
                 }
               }
             }
@@ -14918,9 +14897,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Organizer Put List Api Integrations Visit Lists  Ref  Put"
+                  "$ref": "#/components/schemas/OrganizerVisitListPutOut"
                 }
               }
             }
@@ -14976,9 +14953,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Organizer Delete List Api Integrations Visit Lists  Ref  Delete"
+                  "$ref": "#/components/schemas/OrganizerVisitListDeleteOut"
                 }
               }
             }
@@ -23449,6 +23424,465 @@
         ],
         "title": "ObjectWithPlans"
       },
+      "OrganizerCatalogueOut": {
+        "properties": {
+          "generatedAt": {
+            "type": "string",
+            "title": "Generatedat"
+          },
+          "canCapture": {
+            "type": "boolean",
+            "title": "Cancapture"
+          },
+          "objects": {
+            "items": {
+              "$ref": "#/components/schemas/ObjectVisitCatalogueObjectOut"
+            },
+            "type": "array",
+            "title": "Objects"
+          },
+          "templates": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Templates"
+          },
+          "lists": {
+            "items": {
+              "$ref": "#/components/schemas/ObjectVisitListOut"
+            },
+            "type": "array",
+            "title": "Lists"
+          },
+          "proposalFields": {
+            "items": {
+              "$ref": "#/components/schemas/ObjectVisitProposalField"
+            },
+            "type": "array",
+            "title": "Proposalfields"
+          },
+          "cartoBasemapKey": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cartobasemapkey"
+          }
+        },
+        "type": "object",
+        "required": [
+          "generatedAt",
+          "canCapture",
+          "objects",
+          "templates",
+          "lists",
+          "proposalFields",
+          "cartoBasemapKey"
+        ],
+        "title": "OrganizerCatalogueOut",
+        "description": "``GET /object-visits/catalogue``: the field catalogue (``canCapture`` false) plus the map key."
+      },
+      "OrganizerFeedItemOut": {
+        "properties": {
+          "seq": {
+            "type": "integer",
+            "title": "Seq"
+          },
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "objectId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Objectid"
+          },
+          "objectRefs": {
+            "items": {},
+            "type": "array",
+            "title": "Objectrefs"
+          },
+          "objectName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Objectname"
+          },
+          "workRef": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workref"
+          },
+          "revision": {
+            "type": "integer",
+            "title": "Revision"
+          },
+          "lifecycle": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "completed",
+              "discarded"
+            ],
+            "title": "Lifecycle"
+          },
+          "ready": {
+            "type": "boolean",
+            "title": "Ready"
+          },
+          "visitedAt": {
+            "type": "string",
+            "title": "Visitedat"
+          },
+          "updatedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updatedat"
+          },
+          "by": {
+            "$ref": "#/components/schemas/ObjectVisitPersonOut"
+          },
+          "with": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "With"
+          },
+          "findings": {
+            "type": "integer",
+            "title": "Findings"
+          },
+          "proposals": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Proposals"
+          },
+          "deliveries": {
+            "items": {
+              "$ref": "#/components/schemas/ObjectVisitDeliveryOut"
+            },
+            "type": "array",
+            "title": "Deliveries"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "target_kind": {
+            "type": "string",
+            "enum": [
+              "object",
+              "location"
+            ],
+            "title": "Target Kind"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ObjectVisitLocationOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "seq",
+          "id",
+          "objectId",
+          "objectRefs",
+          "objectName",
+          "workRef",
+          "revision",
+          "lifecycle",
+          "ready",
+          "visitedAt",
+          "updatedAt",
+          "by",
+          "with",
+          "findings",
+          "proposals",
+          "deliveries",
+          "url",
+          "target_kind",
+          "location"
+        ],
+        "title": "OrganizerFeedItemOut",
+        "description": "One visit at its latest state in the change feed (docs/object-visits.md «FeedItem»)."
+      },
+      "OrganizerFeedOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/OrganizerFeedItemOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "nextAfter": {
+            "type": "integer",
+            "title": "Nextafter"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "nextAfter"
+        ],
+        "title": "OrganizerFeedOut",
+        "description": "``GET /object-visits/changes``: poll again with ``after=nextAfter``."
+      },
+      "OrganizerObjectDeleteOut": {
+        "properties": {
+          "removed": {
+            "type": "string",
+            "enum": [
+              "ref",
+              "object",
+              "none"
+            ],
+            "title": "Removed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "removed"
+        ],
+        "title": "OrganizerObjectDeleteOut",
+        "description": "``DELETE /objects/{source}/{externalId}``: what went (idempotent)."
+      },
+      "OrganizerObjectOut": {
+        "properties": {
+          "objectId": {
+            "type": "string",
+            "title": "Objectid"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "lat": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lat"
+          },
+          "lng": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lng"
+          },
+          "folder": {
+            "type": "string",
+            "title": "Folder"
+          },
+          "refs": {
+            "items": {
+              "$ref": "#/components/schemas/ObjectVisitRefOut"
+            },
+            "type": "array",
+            "title": "Refs"
+          },
+          "hasPlans": {
+            "type": "boolean",
+            "title": "Hasplans"
+          }
+        },
+        "type": "object",
+        "required": [
+          "objectId",
+          "name",
+          "address",
+          "lat",
+          "lng",
+          "folder",
+          "refs",
+          "hasPlans"
+        ],
+        "title": "OrganizerObjectOut",
+        "description": "``GET /objects/by-ref/{source}/{externalId}``: the station object behind the organizer's id."
+      },
+      "OrganizerObjectPutOut": {
+        "properties": {
+          "objectId": {
+            "type": "string",
+            "title": "Objectid"
+          },
+          "created": {
+            "type": "boolean",
+            "title": "Created"
+          }
+        },
+        "type": "object",
+        "required": [
+          "objectId",
+          "created"
+        ],
+        "title": "OrganizerObjectPutOut",
+        "description": "``PUT /objects/{source}/{externalId}``: the object the id resolved to, or was created as."
+      },
+      "OrganizerPlanOut": {
+        "properties": {
+          "module": {
+            "type": "string",
+            "title": "Module"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "revision": {
+            "type": "integer",
+            "title": "Revision"
+          },
+          "contentType": {
+            "type": "string",
+            "title": "Contenttype"
+          },
+          "size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Size"
+          }
+        },
+        "type": "object",
+        "required": [
+          "module",
+          "title",
+          "revision",
+          "contentType",
+          "size"
+        ],
+        "title": "OrganizerPlanOut",
+        "description": "One row of ``GET /objects/{id}/plans``: the current plan of one Modul-Slot."
+      },
+      "OrganizerVisitListDeleteOut": {
+        "properties": {
+          "ref": {
+            "type": "string",
+            "title": "Ref"
+          },
+          "deleted": {
+            "type": "boolean",
+            "title": "Deleted"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ref",
+          "deleted"
+        ],
+        "title": "OrganizerVisitListDeleteOut",
+        "description": "``DELETE /visit-lists/{ref}``: whether a list was there (idempotent)."
+      },
+      "OrganizerVisitListPutOut": {
+        "properties": {
+          "ref": {
+            "type": "string",
+            "title": "Ref"
+          },
+          "objectIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Objectids"
+          },
+          "unresolved": {
+            "items": {
+              "$ref": "#/components/schemas/ObjectVisitRefOut"
+            },
+            "type": "array",
+            "title": "Unresolved"
+          },
+          "done": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ObjectVisitPriorDoneOut"
+            },
+            "type": "object",
+            "title": "Done"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ref",
+          "objectIds",
+          "unresolved",
+          "done"
+        ],
+        "title": "OrganizerVisitListPutOut",
+        "description": "``PUT /visit-lists/{ref}``: the stops resolved now, the refs nothing knows yet."
+      },
       "PersonnelCreate": {
         "properties": {
           "display_name": {
@@ -27281,6 +27715,68 @@
         ],
         "title": "ViewLinkOut",
         "description": "The Rapport's view-only link. `token` is what goes in the URL (`/l/<token>`) — the\nclient builds the full address from its own origin, so nothing here has to be told what\nthe deployment is reachable under. None whenever `enabled` is False."
+      },
+      "VisitProgrammeOut": {
+        "properties": {
+          "revision": {
+            "type": "integer",
+            "title": "Revision"
+          },
+          "routes": {
+            "items": {
+              "$ref": "#/components/schemas/VisitProgrammeRouteOut"
+            },
+            "type": "array",
+            "title": "Routes"
+          },
+          "years": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Years"
+          }
+        },
+        "type": "object",
+        "required": [
+          "revision",
+          "routes",
+          "years"
+        ],
+        "title": "VisitProgrammeOut",
+        "description": "``GET``/``PUT …/visit-programmes/{ref}…``: the routes and the years published from them.\n\nAn unknown ref reads as revision 0 with no routes; ``revision`` guards the next write."
+      },
+      "VisitProgrammeRouteOut": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "objects": {
+            "items": {
+              "$ref": "#/components/schemas/ObjectVisitRefOut"
+            },
+            "type": "array",
+            "title": "Objects"
+          },
+          "retired": {
+            "type": "boolean",
+            "title": "Retired"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "title",
+          "objects",
+          "retired"
+        ],
+        "title": "VisitProgrammeRouteOut",
+        "description": "A reusable route: its ordered stops by the organizer's ids. Retired routes stay listed."
       },
       "WeatherData": {
         "properties": {

@@ -7187,6 +7187,173 @@ export interface components {
             address_match?: boolean | null;
         };
         /**
+         * OrganizerCatalogueOut
+         * @description ``GET /object-visits/catalogue``: the field catalogue (``canCapture`` false) plus the map key.
+         */
+        OrganizerCatalogueOut: {
+            /** Generatedat */
+            generatedAt: string;
+            /** Cancapture */
+            canCapture: boolean;
+            /** Objects */
+            objects: components["schemas"]["ObjectVisitCatalogueObjectOut"][];
+            /** Templates */
+            templates: {
+                [key: string]: unknown;
+            }[];
+            /** Lists */
+            lists: components["schemas"]["ObjectVisitListOut"][];
+            /** Proposalfields */
+            proposalFields: components["schemas"]["ObjectVisitProposalField"][];
+            /** Cartobasemapkey */
+            cartoBasemapKey: string | null;
+        };
+        /**
+         * OrganizerFeedItemOut
+         * @description One visit at its latest state in the change feed (docs/object-visits.md «FeedItem»).
+         */
+        OrganizerFeedItemOut: {
+            /** Seq */
+            seq: number;
+            /** Id */
+            id: string;
+            /** Objectid */
+            objectId: string | null;
+            /** Objectrefs */
+            objectRefs: unknown[];
+            /** Objectname */
+            objectName: string | null;
+            /** Workref */
+            workRef: string | null;
+            /** Revision */
+            revision: number;
+            /**
+             * Lifecycle
+             * @enum {string}
+             */
+            lifecycle: "draft" | "completed" | "discarded";
+            /** Ready */
+            ready: boolean;
+            /** Visitedat */
+            visitedAt: string;
+            /** Updatedat */
+            updatedAt: string | null;
+            by: components["schemas"]["ObjectVisitPersonOut"];
+            /** With */
+            with: string[];
+            /** Findings */
+            findings: number;
+            /** Proposals */
+            proposals: {
+                [key: string]: unknown;
+            }[];
+            /** Deliveries */
+            deliveries: components["schemas"]["ObjectVisitDeliveryOut"][];
+            /** Url */
+            url: string;
+            /**
+             * Target Kind
+             * @enum {string}
+             */
+            target_kind: "object" | "location";
+            location: components["schemas"]["ObjectVisitLocationOut"] | null;
+        };
+        /**
+         * OrganizerFeedOut
+         * @description ``GET /object-visits/changes``: poll again with ``after=nextAfter``.
+         */
+        OrganizerFeedOut: {
+            /** Items */
+            items: components["schemas"]["OrganizerFeedItemOut"][];
+            /** Nextafter */
+            nextAfter: number;
+        };
+        /**
+         * OrganizerObjectDeleteOut
+         * @description ``DELETE /objects/{source}/{externalId}``: what went (idempotent).
+         */
+        OrganizerObjectDeleteOut: {
+            /**
+             * Removed
+             * @enum {string}
+             */
+            removed: "ref" | "object" | "none";
+        };
+        /**
+         * OrganizerObjectOut
+         * @description ``GET /objects/by-ref/{source}/{externalId}``: the station object behind the organizer's id.
+         */
+        OrganizerObjectOut: {
+            /** Objectid */
+            objectId: string;
+            /** Name */
+            name: string;
+            /** Address */
+            address: string | null;
+            /** Lat */
+            lat: number | null;
+            /** Lng */
+            lng: number | null;
+            /** Folder */
+            folder: string;
+            /** Refs */
+            refs: components["schemas"]["ObjectVisitRefOut"][];
+            /** Hasplans */
+            hasPlans: boolean;
+        };
+        /**
+         * OrganizerObjectPutOut
+         * @description ``PUT /objects/{source}/{externalId}``: the object the id resolved to, or was created as.
+         */
+        OrganizerObjectPutOut: {
+            /** Objectid */
+            objectId: string;
+            /** Created */
+            created: boolean;
+        };
+        /**
+         * OrganizerPlanOut
+         * @description One row of ``GET /objects/{id}/plans``: the current plan of one Modul-Slot.
+         */
+        OrganizerPlanOut: {
+            /** Module */
+            module: string;
+            /** Title */
+            title: string | null;
+            /** Revision */
+            revision: number;
+            /** Contenttype */
+            contentType: string;
+            /** Size */
+            size: number | null;
+        };
+        /**
+         * OrganizerVisitListDeleteOut
+         * @description ``DELETE /visit-lists/{ref}``: whether a list was there (idempotent).
+         */
+        OrganizerVisitListDeleteOut: {
+            /** Ref */
+            ref: string;
+            /** Deleted */
+            deleted: boolean;
+        };
+        /**
+         * OrganizerVisitListPutOut
+         * @description ``PUT /visit-lists/{ref}``: the stops resolved now, the refs nothing knows yet.
+         */
+        OrganizerVisitListPutOut: {
+            /** Ref */
+            ref: string;
+            /** Objectids */
+            objectIds: string[];
+            /** Unresolved */
+            unresolved: components["schemas"]["ObjectVisitRefOut"][];
+            /** Done */
+            done: {
+                [key: string]: components["schemas"]["ObjectVisitPriorDoneOut"];
+            };
+        };
+        /**
          * PersonnelCreate
          * @description Manually add a crew member. ``divera_id`` is normally null (hand entry); a bare
          *     name is enough.
@@ -8692,6 +8859,34 @@ export interface components {
             enabled: boolean;
             /** Token */
             token?: string | null;
+        };
+        /**
+         * VisitProgrammeOut
+         * @description ``GET``/``PUT …/visit-programmes/{ref}…``: the routes and the years published from them.
+         *
+         *     An unknown ref reads as revision 0 with no routes; ``revision`` guards the next write.
+         */
+        VisitProgrammeOut: {
+            /** Revision */
+            revision: number;
+            /** Routes */
+            routes: components["schemas"]["VisitProgrammeRouteOut"][];
+            /** Years */
+            years: number[];
+        };
+        /**
+         * VisitProgrammeRouteOut
+         * @description A reusable route: its ordered stops by the organizer's ids. Retired routes stay listed.
+         */
+        VisitProgrammeRouteOut: {
+            /** Code */
+            code: string;
+            /** Title */
+            title: string;
+            /** Objects */
+            objects: components["schemas"]["ObjectVisitRefOut"][];
+            /** Retired */
+            retired: boolean;
         };
         /** WeatherData */
         WeatherData: {
@@ -16114,9 +16309,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["VisitProgrammeOut"];
                 };
             };
             /** @description Validation Error */
@@ -16153,9 +16346,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["VisitProgrammeOut"];
                 };
             };
             /** @description Validation Error */
@@ -16193,9 +16384,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["VisitProgrammeOut"];
                 };
             };
             /** @description Validation Error */
@@ -16226,9 +16415,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["OrganizerCatalogueOut"];
                 };
             };
             /** @description Validation Error */
@@ -16262,9 +16449,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["OrganizerFeedOut"];
                 };
             };
             /** @description Validation Error */
@@ -16297,9 +16482,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["ObjectVisitOut"];
                 };
             };
             /** @description Validation Error */
@@ -16404,9 +16587,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["OrganizerObjectOut"];
                 };
             };
             /** @description Validation Error */
@@ -16439,9 +16620,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    }[];
+                    "application/json": components["schemas"]["OrganizerPlanOut"][];
                 };
             };
             /** @description Validation Error */
@@ -16517,9 +16696,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["OrganizerObjectPutOut"];
                 };
             };
             /** @description Validation Error */
@@ -16553,9 +16730,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: string;
-                    };
+                    "application/json": components["schemas"]["OrganizerObjectDeleteOut"];
                 };
             };
             /** @description Validation Error */
@@ -16594,9 +16769,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["OrganizerVisitListPutOut"];
                 };
             };
             /** @description Validation Error */
@@ -16629,9 +16802,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["OrganizerVisitListDeleteOut"];
                 };
             };
             /** @description Validation Error */

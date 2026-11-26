@@ -8,6 +8,11 @@ does not stand in for the key — and the key opens nothing on the field routes.
 It may: read the catalogue, upsert objects by its own ids, push read-only work lists, poll the
 change feed, and read a visit, its report and its photos. It never writes a visit.
 
+Every JSON answer has a response model (``app/organizer_schemas.py``, exclude-unset like the field
+API), so ``docs/openapi.json`` types it. The object and list PUT bodies stay hand-validated in
+``app.object_visits``: a pydantic body would turn their ``{code, detail}`` 422 into FastAPI's
+``{detail: [...]}``.
+
 ⚠️ Path parameters that carry an organizer's id use the ``:path`` converter: a list ref like
 ``fwo-admin:fu-2026/B4`` contains a «/», and Starlette decodes ``%2F`` before routing.
 """
@@ -29,6 +34,18 @@ from ..credentials import get as credential
 from ..credentials import load as load_credentials
 from ..database import get_db
 from ..models import PlanRevision
+from ..object_visit_schemas import ObjectVisitOut
+from ..organizer_schemas import (
+    OrganizerCatalogueOut,
+    OrganizerFeedOut,
+    OrganizerObjectDeleteOut,
+    OrganizerObjectOut,
+    OrganizerObjectPutOut,
+    OrganizerPlanOut,
+    OrganizerVisitListDeleteOut,
+    OrganizerVisitListPutOut,
+    VisitProgrammeOut,
+)
 from .object_visits import attachment_response, report_response
 
 router = APIRouter(prefix="/integrations", tags=["integrations"])
@@ -56,26 +73,32 @@ async def require_organizer(
 Organizer = Annotated[None, Depends(require_organizer)]
 
 
-@router.get("/visit-programmes/{programme_ref}")
-async def get_programme(programme_ref: str, _org: Organizer, db: AsyncSession = Depends(get_db)) -> dict:
+@router.get("/visit-programmes/{programme_ref}", response_model=VisitProgrammeOut, response_model_exclude_unset=True)
+async def get_programme(programme_ref: str, _org: Organizer, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     return await programmes.read(db, programme_ref)
 
 
-@router.put("/visit-programmes/{programme_ref}/routes")
+@router.put(
+    "/visit-programmes/{programme_ref}/routes", response_model=VisitProgrammeOut, response_model_exclude_unset=True
+)
 async def put_programme_routes(
     programme_ref: str, body: programmes.RoutesUpdate, _org: Organizer, db: AsyncSession = Depends(get_db)
-) -> dict:
+) -> dict[str, Any]:
     return await programmes.save_routes(db, programme_ref, body)
 
 
-@router.put("/visit-programmes/{programme_ref}/years/{year}")
+@router.put(
+    "/visit-programmes/{programme_ref}/years/{year}",
+    response_model=VisitProgrammeOut,
+    response_model_exclude_unset=True,
+)
 async def publish_programme(
     programme_ref: str, year: int, body: programmes.Publish, _org: Organizer, db: AsyncSession = Depends(get_db)
-) -> dict:
+) -> dict[str, Any]:
     return await programmes.publish(db, programme_ref, year, body)
 
 
-@router.get("/object-visits/catalogue")
+@router.get("/object-visits/catalogue", response_model=OrganizerCatalogueOut, response_model_exclude_unset=True)
 async def organizer_catalogue(_org: Organizer, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     result = await ov.catalogue(db, can_capture=False)
     # Public browser credential, shared only with the authenticated organizer. Its map
@@ -84,7 +107,7 @@ async def organizer_catalogue(_org: Organizer, db: AsyncSession = Depends(get_db
     return result
 
 
-@router.get("/object-visits/changes")
+@router.get("/object-visits/changes", response_model=OrganizerFeedOut, response_model_exclude_unset=True)
 async def organizer_changes(
     _org: Organizer,
     after: int = Query(default=0, ge=0),
@@ -95,7 +118,7 @@ async def organizer_changes(
     return await ov.feed(db, after=after, limit=limit)
 
 
-@router.get("/object-visits/{visit_id}")
+@router.get("/object-visits/{visit_id}", response_model=ObjectVisitOut, response_model_exclude_unset=True)
 async def organizer_visit(visit_id: str, _org: Organizer, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     return await ov.serialize_visit(db, await ov.get_visit(db, visit_id))
 
@@ -118,7 +141,9 @@ async def organizer_attachment(
     return await attachment_response(db, visit_id, att_id, thumb)
 
 
-@router.get("/objects/by-ref/{source}/{external_id:path}")
+@router.get(
+    "/objects/by-ref/{source}/{external_id:path}", response_model=OrganizerObjectOut, response_model_exclude_unset=True
+)
 async def organizer_object_by_ref(
     source: str, external_id: str, _org: Organizer, db: AsyncSession = Depends(get_db)
 ) -> dict[str, Any]:
@@ -127,7 +152,7 @@ async def organizer_object_by_ref(
     return await ov.object_summary(db, await ov.object_by_ref(db, source, external_id))
 
 
-@router.get("/objects/{object_id}/plans")
+@router.get("/objects/{object_id}/plans", response_model=list[OrganizerPlanOut], response_model_exclude_unset=True)
 async def organizer_object_plans(
     object_id: uuid.UUID, _org: Organizer, db: AsyncSession = Depends(get_db)
 ) -> list[dict[str, Any]]:
@@ -175,7 +200,9 @@ async def organizer_object_plan(
     )
 
 
-@router.delete("/objects/{source}/{external_id:path}")
+@router.delete(
+    "/objects/{source}/{external_id:path}", response_model=OrganizerObjectDeleteOut, response_model_exclude_unset=True
+)
 async def organizer_delete_object(
     source: str, external_id: str, _org: Organizer, db: AsyncSession = Depends(get_db)
 ) -> dict[str, str]:
@@ -184,7 +211,9 @@ async def organizer_delete_object(
     return await ov.delete_integration_object(db, source, external_id)
 
 
-@router.put("/objects/{source}/{external_id:path}")
+@router.put(
+    "/objects/{source}/{external_id:path}", response_model=OrganizerObjectPutOut, response_model_exclude_unset=True
+)
 async def organizer_put_object(
     source: str,
     external_id: str,
@@ -196,7 +225,7 @@ async def organizer_put_object(
     return await ov.upsert_integration_object(db, source, external_id, body)
 
 
-@router.put("/visit-lists/{ref:path}")
+@router.put("/visit-lists/{ref:path}", response_model=OrganizerVisitListPutOut, response_model_exclude_unset=True)
 async def organizer_put_list(
     ref: str, _org: Organizer, body: Annotated[dict[str, Any], Body()], db: AsyncSession = Depends(get_db)
 ) -> dict[str, Any]:
@@ -204,7 +233,7 @@ async def organizer_put_list(
     return await ov.put_visit_list(db, ref, body)
 
 
-@router.delete("/visit-lists/{ref:path}")
+@router.delete("/visit-lists/{ref:path}", response_model=OrganizerVisitListDeleteOut, response_model_exclude_unset=True)
 async def organizer_delete_list(ref: str, _org: Organizer, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     await programmes.require_unmanaged(db, ref)
     return await ov.delete_visit_list(db, ref)
