@@ -202,7 +202,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
         blocks: [
           { kind: 'lead', text: 'Via **Couches**, vous affichez les données des réseaux et des dangers – classées par type.' },
           { kind: 'list', items: [
-            '**Inhalte** – symboles tactiques, véhicules, traces de véhicules, personnes (en direct), croquis et notes. Si l’une d’elles est masquée, le bouton **Couches** porte un point.',
+            '**Inhalte** – signes conventionnels, véhicules, traces de véhicules, personnes (en direct), croquis et notes. Si l’une d’elles est masquée, le bouton **Couches** porte un point.',
             '**Corps** – constructions souterraines (garages, abris, tunnels) de la mensuration officielle, en tirets dès le zoom rue ; affichées par défaut.',
             'Les couches disponibles dépendent des géodonnées de ce corps – aucune n’est fournie avec l’app. Courantes sont :',
             '**Eaux usées** – eaux sales/mixtes, eaux pluviales/propres, regards / grilles.',
@@ -222,8 +222,8 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
         blocks: [
           { kind: 'lead', text: 'Les outils de la carte – les mêmes sur le plan.' },
           { kind: 'list', items: [
-            '**Symbole** – le symbole tactique (FKS/VKF). Sélection rapide des symboles les plus courants ou recherche dans toute la bibliothèque. Toucher pour placer ; avec «Placer plusieurs», en poser plusieurs à la suite.',
-            '**Formes** – dans la même fenêtre, après les dangers : **Flèche**, **Rectangle** et **Rotation** (avec porteur Héli ou TLF), pour tout ce qui n’a pas de symbole tactique. La poignée fait pivoter ; sur le rectangle, des poignées propres tirent largeur et hauteur, sur la flèche l’extrémité fixe longueur et direction. Sur la flèche, **Barre d’arrêt** ajoute la barre en travers de la pointe – la limite de propagation : jusqu’ici, et arrêté là.',
+            '**Symbole** – le signe conventionnel (FKS/VKF). Sélection rapide des symboles les plus courants ou recherche dans toute la bibliothèque. Toucher pour placer ; avec «Placer plusieurs», en poser plusieurs à la suite.',
+            '**Formes** – dans la même fenêtre, après les dangers : **Flèche**, **Rectangle** et **Rotation** (avec porteur Héli ou TLF), pour tout ce qui n’a pas de signe conventionnel. La poignée fait pivoter ; sur le rectangle, des poignées propres tirent largeur et hauteur, sur la flèche l’extrémité fixe longueur et direction. Sur la flèche, **Barre d’arrêt** ajoute la barre en travers de la pointe – la limite de propagation : jusqu’ici, et arrêté là.',
             '**Sélection** – toucher des objets, les déplacer, les ajuster dans l’éditeur.',
             '**Multiple** – toucher **Sélection** une nouvelle fois pendant qu’elle est active : le bouton passe sur Multiple (icône et mot), et tirer un cadre sélectionne plusieurs symboles/dessins à la fois. Un nouveau toucher ramène à Sélection.',
             '**Ligne** – glisser (**Main levée**) ou toucher des points (**Points**, ✓ Terminé). Dans l’éditeur, d’abord l’**Extrémité** – flèche, flèche avec arrêt (limite de propagation), Teilstück (la conduite se divise) –, en dessous le **Type de ligne** : continue, tiretée, ligne d’arrêt, zone de largage. **Inverser le sens** place l’extrémité à l’autre bout sans déplacer la ligne.',
@@ -305,7 +305,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
         ],
       },
       {
-        id: 'atemschutz', title: 'Binômes et surveillance ARI', icon: 'stopwatch',
+        id: 'atemschutz', title: 'Binômes et surveillance PR', icon: 'stopwatch',
         blocks: [
           { kind: 'lead', text: 'Surveillance sans faille de chaque binôme ARI selon FKS – le signal de sécurité est le **temps depuis le dernier contact radio**, et non une autonomie restante estimée.' },
           { kind: 'sub', text: 'Annoncer le binôme' },
@@ -331,7 +331,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
             'Les binômes en retard remontent en haut et un compteur apparaît. La **cloche** coupe l’alarme par appareil – son **et** notification, et seulement jusqu’à la fin de cette intervention. Si elle est rouge, le navigateur n’a pas autorisé le son : la toucher. La surveillance elle-même n’est jamais muette. Tout est consigné au journal.',
             '**Partager les binômes** (le QR à côté de la cloche) met les binômes aussi sur un autre appareil – voir «Partager et présenter».',
           ] },
-          { kind: 'sub', text: 'Urgence ARI' },
+          { kind: 'sub', text: 'Urgence PR' },
           { kind: 'list', items: [
             'Sur un binôme engagé figure la large tuile **Urgence**. On la **maintient appuyée** jusqu’à ce qu’elle soit entièrement remplie – un toucher bref ne déclenche rien.',
             'Le binôme est alors rouge partout, avec sa propre horloge d’urgence et une alarme sur chaque appareil. Sa page dit ce qui compte maintenant : où il était, dernier contact, dernière pression, canal – et **Engager l’équipe de sécurité**.',
