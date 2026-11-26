@@ -13,6 +13,7 @@ from datetime import UTC, datetime, timedelta
 from functools import partial
 
 import anyio
+from pydantic import ValidationError
 from sqlalchemy import and_, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -306,8 +307,17 @@ async def run_once(factory: async_sessionmaker[AsyncSession] = async_session_mak
         lat = float(obj.lat) if obj and obj.lat is not None else None
         calibration = station.plan_scales_json if station else None
         # the catalogue's say on this module (auto / manual / none) – resolved here, in the
-        # session, so compute never touches the database
-        modules = load_stored_config((station.config_json if station else None) or {}).modules
+        # session, so compute never touches the database.
+        # ⚠️ Not `deployment_config.read_config`: its fallback would align against the SHIPPED
+        # catalogue, which the station did not choose. An unreadable document ends the job here,
+        # before anything is written, and the admin reads why; a retry would only fail the same.
+        try:
+            modules = load_stored_config((station.config_json if station else None) or {}).modules
+        except ValidationError:
+            logger.warning("Plan alignment job %s: the station config cannot be read", claim.id, exc_info=True)
+            await finish_job(db, claim, AlignmentResult("failed", "config_unreadable"))
+            await db.commit()
+            return True
         alignment = module_alignment(modules, module)
         # the station-wide building snapshot – fetched once, clipped per sheet (reference_buildings)
         reference = await ensure_snapshot(db)
