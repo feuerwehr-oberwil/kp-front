@@ -140,6 +140,8 @@ extend-immutable-calls = [
 "app/schemas.py" = ["N815"]
 # Objektbesuche answers mirror the camelCase visit contract (docs/object-visits.md)
 "app/object_visit_schemas.py" = ["N815"]
+# The organizer API's answers mirror the same camelCase contract
+"app/organizer_schemas.py" = ["N815"]
 # Geodata manifest entries mirror the same camelCase referenceLayer contract
 "app/admin_geodata.py" = ["N815"]
 # Objects manifest entries use the same camelCase contract (sourceNote)

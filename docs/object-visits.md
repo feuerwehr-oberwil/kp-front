@@ -298,6 +298,10 @@ off? **No** — with a valid key, module off ⇒ 404 like the field API.
 ref like `fwo-admin:fu-2026/B4` contains «/», and the server decodes `%2F` before routing, so
 either form arrives as the same id.
 
+Every JSON answer below is typed in [`openapi.json`](openapi.json) (`VisitProgrammeOut`,
+`Organizer*Out`, and the field API's `ObjectVisitOut` for a visit): generate a client from it
+instead of copying the shapes from this table.
+
 | Route | Purpose |
 |---|---|
 | `GET /object-visits/catalogue` | same as the field catalogue (`canCapture` false), plus `cartoBasemapKey` (nullable public browser credential) for the organizer's map. Allow the organizer's domain at CARTO too. |

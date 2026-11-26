@@ -553,6 +553,47 @@ async def test_organizer_key_gate(client, editor, on, db_session):
     assert r.status_code == 404 and r.json()["code"] == "object_visits_disabled"
 
 
+async def test_the_change_feed_answers_every_key(client, editor, on, obj, db_session):
+    """The response models (app/organizer_schemas.py) drop every key they do not name, without an
+    error: a feed item keeps all its keys, its delivery its own."""
+    await set_key(db_session)
+    await set_config(db_session, {"destinations": [DEST]})
+    await login(client, editor)
+    vid = new_id("ov")
+    assert (await put(client, vid, visit_doc(vid, obj), None)).status_code == 200
+    feed = (await client.get("/api/integrations/object-visits/changes", headers=bearer())).json()
+    assert sorted(feed) == ["items", "nextAfter"]
+    (item,) = feed["items"]
+    assert sorted(item) == sorted(
+        [
+            *("seq", "id", "objectId", "objectRefs", "objectName", "workRef", "revision", "lifecycle", "ready"),
+            *("visitedAt", "updatedAt", "by", "with", "findings", "proposals", "deliveries", "url"),
+            *("target_kind", "location"),
+        ]
+    )
+    assert sorted(item["by"]) == ["id", "name"]
+    assert sorted(item["location"]) == ["address", "label", "lat", "lng"]
+    assert [sorted(d) for d in item["deliveries"]] == [["at", "destination", "revision", "state"]]
+
+
+async def test_the_feed_passes_a_gone_objects_ref_snapshot_as_written(client, editor, on, db_session):
+    """Once its object is deleted, a feed item's ``objectRefs`` is the document's unchecked
+    snapshot: whatever it holds is sent as it is, and the feed still answers."""
+    await set_key(db_session)
+    gone = await make_object(db_session, name="Abgerissen", address="Weg 9")
+    await login(client, editor)
+    vid = new_id("ov")
+    doc = visit_doc(vid, gone)
+    doc["object"]["refs"] = ["legacy-id", {"source": "fwo", "id": "a", "note": "alt"}]
+    assert (await put(client, vid, doc, None)).status_code == 200
+    await db_session.delete(await db_session.get(ObjectSite, gone.id))
+    await db_session.commit()
+    assert (await put(client, vid, {**doc, "notes": "nachgetragen"}, 1)).status_code == 200
+    r = await client.get("/api/integrations/object-visits/changes", headers=bearer())
+    assert r.status_code == 200, r.text
+    assert r.json()["items"][0]["objectRefs"] == doc["object"]["refs"]
+
+
 async def test_organizer_object_upsert_resolution(client, on, db_session):
     await set_key(db_session)
     plans = await make_object(
