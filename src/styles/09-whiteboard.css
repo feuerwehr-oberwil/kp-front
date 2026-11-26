@@ -306,7 +306,7 @@
    (It was − + glyph squares beside a word-only «Einpassen», 40px – a third anatomy for one act.) */
 .wb-zoom-float { position: absolute; right: 16px; top: calc(16px + env(safe-area-inset-top)); z-index: var(--z-map-util);
   display: flex; align-items: center; gap: 4px; background: var(--glass);
-  backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line); box-shadow: var(--e4); border-radius: var(--r-bar); padding: var(--bar-pad); }
+  backdrop-filter: var(--float-blur); border: 1px solid var(--glass-line); box-shadow: var(--e4); border-radius: var(--r-bar); padding: var(--bar-pad); }
 /* Below 860px the top bar runs the full width, so the cluster drops under it — what the Karte's
    own cluster does at the same width (MapUtility · .toputil). At 820 its «–» sat under the bar
    and a tap on it hit the bar (3am test r4, 26.09.2026). */
@@ -758,7 +758,7 @@ span.wb-ghost-label { cursor: default; }
 .wb-pill-card-x:active { background-image: linear-gradient(var(--press), var(--press)); }
 .wb-pill-acts.docked { position: static; top: auto; transform: none; box-sizing: border-box;
   width: auto; max-width: none; padding: var(--bar-pad); gap: 4px; flex-wrap: nowrap; align-items: center; justify-content: center;
-  border-radius: var(--r-bar); background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
+  border-radius: var(--r-bar); background: var(--glass); backdrop-filter: var(--float-blur);
   border: 1px solid var(--glass-line); box-shadow: var(--e4); color: var(--ink); }
 .wb-pill-acts.docked .wb-pa { width: 46px; height: 46px; padding: 0; color: var(--ink); background: transparent; }
 .wb-pill-acts.docked .wb-pa .i { width: 22px; height: 22px; }
@@ -1001,7 +1001,7 @@ span.wb-ghost-label { cursor: default; }
      the sidebar ugly. */
   flex-wrap: nowrap; max-height: calc(100dvh - 168px); overflow-y: auto; overflow-x: hidden;
   scrollbar-width: thin; scrollbar-color: var(--ink-22) transparent;
-  background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line); box-shadow: var(--e4); color: var(--ink);
+  background: var(--glass); backdrop-filter: var(--float-blur); border: 1px solid var(--glass-line); box-shadow: var(--e4); color: var(--ink);
   border-radius: var(--r-bar); padding: var(--bar-pad); }
 /* THE way out's plate – the dock's ✕ «Abbrechen» and the selection bar's ✕ «Schliessen», and
    nothing else in a bar or a dock (owner pick 22, 17.11.2026, docs/ui-conventions.md · «The colour
@@ -1186,7 +1186,7 @@ span.wb-ghost-label { cursor: default; }
 /* Gebäude rotation popover (30.08.) — what the north dial (PlanCompass), its one door, opens.
    THE popover shell (ui-conventions · Overlays): --r-bar over the even --bar-pad, its label at a
    menu row's 12px inset beyond it, as .tb-weather-pop – it was --r-ctl over 12/16. */
-.wb-orient-popup { background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
+.wb-orient-popup { background: var(--glass); backdrop-filter: var(--float-blur);
   border: 1px solid var(--glass-line); border-radius: var(--r-bar); box-shadow: var(--e4); }
 .wb-orient-pop { display: flex; flex-direction: column; gap: var(--sp-3); padding: calc(var(--bar-pad) + var(--sp-3)); min-width: 250px; }
 .wb-orient-row { display: flex; align-items: center; gap: var(--sp-2); }

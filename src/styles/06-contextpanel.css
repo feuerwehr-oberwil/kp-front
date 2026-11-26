@@ -35,7 +35,7 @@
    was this panel's alone among them. Its 16px inset (not the sheets' 24) is the editor rows': the
    label column and the control edge need the width, so title and ✕ both stand 16 in. */
 .ctx { position: absolute; right: calc(var(--vrail-w, 60px) + 26px); top: var(--rail-top); width: 360px; background: var(--glass);
-  backdrop-filter: blur(14px) saturate(1.4); border-radius: var(--r-hero); z-index: var(--z-chrome);
+  backdrop-filter: var(--float-blur); border-radius: var(--r-hero); z-index: var(--z-chrome);
   box-shadow: var(--e4); max-height: calc(100dvh - var(--rail-top) - 16px - env(safe-area-inset-bottom) - var(--kb-inset, 0px));
   display: flex; flex-direction: column; overflow: hidden; }
 /* …and on a tablet or laptop it stops above the view bar in the bottom corner (07-toolrail ·

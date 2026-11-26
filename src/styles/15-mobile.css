@@ -1092,7 +1092,7 @@
     bottom: calc(var(--rail-h) + 14px + env(safe-area-inset-bottom));
     /* the bar's own glass, so the pair reads as one piece of chrome rather than as a panel
        floating over one (04b-rail.css · .rail) */
-    background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
+    background: var(--glass); backdrop-filter: var(--float-blur);
     border: 1px solid var(--glass-line); box-shadow: var(--e4);
     border-radius: var(--r-bar); padding: var(--bar-pad); box-sizing: border-box;
     /* shown on the phone only — 13-incident.css hides it above (`.rp-tabs { display: none }`) */
@@ -1377,9 +1377,11 @@
      i.e. the one control that must never be hard to reach was the one being clipped. So it
      leaves the flow and floats under the bar on the left, on the same row the wind read-out
      uses on the right, and the bar fits again. Still 44px, still tappable, still everywhere.
-     ⚠️ ABSOLUTE to the bar, not fixed to the screen: the bar's backdrop-filter makes it the
-     containing block of a fixed child anyway, so `fixed; top: 76px; left: 10px` counted from the
-     bar's inner edge and stood the chip at 87/19 – 11px under the wind chip it shares a row with.
+     ⚠️ ABSOLUTE to the bar (itself absolute), not fixed to the screen: by day the bar's
+     backdrop-filter makes it the containing block of a fixed child too, and the night theme has
+     none (01-tokens · --float-blur), so a fixed chip would stand in two places. It did count
+     `fixed; top: 76px; left: 10px` from the bar's inner edge and stood at 87/19 – 11px under the
+     wind chip it shares a row with.
      From the bar: one --float-gap under its outer edge (100% + its 1px border) and flush with its
      left edge, which is the screen's 8px (consistency sweep 12.11.2026). */
   .tb-share { position: absolute; top: calc(100% + 1px + var(--float-gap));

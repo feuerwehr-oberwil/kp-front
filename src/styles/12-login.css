@@ -19,7 +19,7 @@
 .login-card { width: min(408px, 100%); display: flex; flex-direction: column; gap: 24px;
   background: var(--glass); border: 1px solid var(--glass-line);
   border-radius: var(--r-hero); padding: var(--sp-6) var(--sp-5);
-  box-shadow: var(--e4); backdrop-filter: blur(14px) saturate(1.4); animation: pop .3s var(--ease); }
+  box-shadow: var(--e4); backdrop-filter: var(--float-blur); animation: pop .3s var(--ease); }
 
 /* ErrorBoundary fallback — reuses the login card, but centred and with a stacked action list
    (up to three: reload / close incident / discard local copy). Buttons go full-width so the

@@ -32,7 +32,7 @@
 /* the glass shell. Each rail keeps its own `width` (it reads a different custom property)
    and its own placement — .navrail positions itself, .vrail is placed by its wrapper class. */
 .rail { display: flex; flex-direction: column; gap: 4px;
-  background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line);
+  background: var(--glass); backdrop-filter: var(--float-blur); border: 1px solid var(--glass-line);
   box-shadow: var(--e4); border-radius: var(--r-bar); padding: var(--bar-pad); transition: width .18s var(--ease); }
 /* a bar that hugs its tiles: one even gap, and the corner is the tiles' plus that gap (01-tokens · «ONE corner») */
 .rail.dragging { transition: none; }   /* live-resize follows the pointer without easing lag */

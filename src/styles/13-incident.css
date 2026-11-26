@@ -108,7 +108,7 @@
   /* the app's popup chrome, the same set `.tb-weather-pop` carries (10-journal) — `.ui-pop` owns only the
      enter/exit hook, not the surface. THE popover shell: --r-bar over --bar-pad, the facts a
      menu row's 12px further in (it was --r-ctl over 12/16, consistency sweep R2-A) */
-  background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
+  background: var(--glass); backdrop-filter: var(--float-blur);
   border: 1px solid var(--glass-line); border-radius: var(--r-bar); box-shadow: var(--e4); }
 .az-head-detail .az-hd-title { margin: 0; font: var(--fw-heavy) var(--fs-3)/1.35 var(--body); color: var(--ink);
   overflow-wrap: anywhere; }
@@ -2527,7 +2527,7 @@ summary.ip-group-head > .chev { flex: none; width: 16px; height: 16px; margin-le
    width property loses to the automatic minimum — landing screen, 2026-07-15) */
 .ip-emptyapp-card { width: min(408px, 100%); min-width: 0; max-width: 100%; background: var(--glass); border: 1px solid var(--glass-line);
   box-shadow: var(--e4); border-radius: var(--r-hero); padding: 32px 32px 24px; text-align: left;
-  backdrop-filter: blur(14px) saturate(1.4); animation: pop .3s var(--ease); }
+  backdrop-filter: var(--float-blur); animation: pop .3s var(--ease); }
 /* ⚠️ ONE rhythm down this card. The brand block spent 22 + 24 = 46px before the first control,
    the footer 18 + 14 before its rule and 8 between its rows, and the version line another 14 —
    five different gaps in a card with four things in it, which is what made the empty state read
