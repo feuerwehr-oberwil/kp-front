@@ -215,6 +215,11 @@ interface Props {
    *  the Lage's own call (workspace/useRosterRoles · linkRosterFields) with the Lage's arguments:
    *  the symbol before the edit, the fields after it, `force` when its label changed */
   onRosterFields?: (prev: Pick<BoardAnno, 'symbol' | 'label' | 'fields'>, fields: Record<string, string>, opts?: { force?: boolean }) => void
+  /** ONE ↶ step over writes into several domains, each part keeping its own (lib/undoTimeline ·
+   *  group): a symbol panel edit on this sheet and the Anwesenheit filing it causes. Not
+   *  `historyGroup`: inside a compound act the store takes the sheet's step, and its ↶ would name
+   *  the Karte. Omitted ⇒ each write is its own step. */
+  undoGroup?: () => () => void
   /** What is already known about a roster NAME — «unter Atemschutz», «Magazin», «gegangen» —
    *  shown ON the dropdown entry (lib/roleAssignment · personStatusHint). Handed to the plan for
    *  the same reason it is handed to the map: the picker is the moment you learn that the person
@@ -427,7 +432,7 @@ export interface PlanLogExtra {
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
 
-export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange: onChangeAll, building, floorPack, sheetFloors, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterFields, personStatus, fieldHints, onRecent, log, authorName, onStepLabel, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], truppColors, placedTeamNames, teamNameTaken, onLinkTrupp, onShowTrupp, truppFinder, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, historyGroup, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, buildingInfo, readingsChip, incidentId, incidentAddress, incidentPos, onObjectSwitch, planScale = {}, onCalibrate, live = [], photos = [], liveFacts, onPlanLiveMove, onStepEnd, slimTools: slimToolsProp = false, linkViewer = false, railLabels, tafel, presentation, replay = false }: Props) {
+export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange: onChangeAll, building, floorPack, sheetFloors, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterFields, personStatus, fieldHints, onRecent, log, authorName, onStepLabel, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], truppColors, placedTeamNames, teamNameTaken, onLinkTrupp, onShowTrupp, truppFinder, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, historyGroup, undoGroup, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, buildingInfo, readingsChip, incidentId, incidentAddress, incidentPos, onObjectSwitch, planScale = {}, onCalibrate, live = [], photos = [], liveFacts, onPlanLiveMove, onStepEnd, slimTools: slimToolsProp = false, linkViewer = false, railLabels, tafel, presentation, replay = false }: Props) {
   // ⚠️ RIDERS: what lives on a sheet but is not drawn ON it — the Tafel's pages (kind `form`,
   // lib/boardForm) and any board object this build does not understand (lib/workspace ·
   // isPassengerAnno). Nothing positional may see them: every drawing path below reads `annos` —
@@ -435,7 +440,15 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // (`withForms`), so an ink commit can never drop one. The history (useBoardDoc) snapshots the
   // WHOLE list, so ↶ restores both. On a sheet with no riders this is the identity.
   const formAnnos = useMemo(() => annosAll.filter((a) => !isDrawnBoardKind(a.kind)), [annosAll])
-  const annos = useMemo(() => (formAnnos.length ? annosAll.filter((a) => isDrawnBoardKind(a.kind)) : annosAll), [annosAll, formAnnos])
+  // A symbol's name while it is typed in its panel (ContextPanel · onPatch 'typing'): DRAWN with
+  // the sheet, so the glyph's label follows the keystrokes, and written to the sheet once, on the
+  // blur – ONE ↶ step with the Anwesenheit filing it causes (patchSymbol). A write per keystroke
+  // needed its step laid at the first one, before the filing that only the blur knows.
+  const [titleDraft, setTitleDraft] = useState<{ id: string; label: string } | null>(null)
+  const annos = useMemo(() => {
+    const drawn = formAnnos.length ? annosAll.filter((a) => isDrawnBoardKind(a.kind)) : annosAll
+    return titleDraft ? drawn.map((a) => (a.id === titleDraft.id ? { ...a, label: titleDraft.label } : a)) : drawn
+  }, [annosAll, formAnnos, titleDraft])
   const withForms = (next: BoardAnno[]) => (formAnnos.length ? [...next.filter((a) => isDrawnBoardKind(a.kind)), ...formAnnos] : next)
   // repaint the baked placard glyphs (Kemler auto-derived via lookupUN) when the fetched
   // ADR dataset lands — see lib/useHazardData.
@@ -995,10 +1008,10 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // through from the caller — it has to outlive this component's unmount (see Props · hist).
   // which drawing's label is being typed right now (one undo step per edit, not per keystroke)
   const labelLive = useRef<string | null>(null)
-  // …and the same for a symbol's / note's TITLE in the detail panel: the panel streams every
-  // keystroke (ContextPanel · onPatch 'typing') so the glyph's label updates under the finger,
-  // exactly as it does on the Lage. Checkpoint once when typing starts, emit once on blur —
-  // otherwise «Sicherung» is nine undo steps and nine audit rows.
+  // …and the same for a note's TEXT in the detail panel: the panel streams every keystroke
+  // (ContextPanel · onPatch 'typing') so the note updates under the finger, exactly as it does on
+  // the Lage. Checkpoint once when typing starts, emit once on blur — otherwise «Sicherung» is
+  // nine undo steps and nine audit rows. (A symbol's name is a draft instead: `titleDraft`.)
   const titleLive = useRef<string | null>(null)
   /** ↶ / ↷ on the Tafel lands where the step was: the page it changed, else the Skizze */
   const onRestore = (from: BoardAnno[], to: BoardAnno[]) => {
@@ -1497,27 +1510,25 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   /**
    * The symbol panel's one write door (ContextPanel · onPatch), in the sheet's words: the panel's
    * `floor` is the Stockwerk badge, which a sheet stores as `storey` — and on the Gebäude stack,
-   * where the tile IS the storey, not at all. Live while typing, one step on blur — the same
-   * split the Lage's symbol panel has (MapDetailPanels · patchSelected).
+   * where the tile IS the storey, not at all. A typed name is a draft (`titleDraft`); every commit
+   * is ONE ↶ step together with the Anwesenheit filing it causes, as on the Lage (MapDetailPanels ·
+   * patchSelected).
    */
   const patchSymbol = (a: BoardAnno, p: SymbolPatch, phase: PatchPhase) => {
-    if (phase === 'typing') {
-      if (titleLive.current !== a.id) { titleLive.current = a.id; pushPast() }
-      patch(a.id, { label: p.label })
-      return
-    }
+    if (phase === 'typing') { setTitleDraft({ id: a.id, label: p.label ?? '' }); return }
     const { floor, label, fields, ...rest } = p
     const edit: Partial<BoardAnno> = stack || !('floor' in p) ? rest : { ...rest, storey: floor }
-    if (label !== undefined) {
-      const live = titleLive.current === a.id
-      titleLive.current = null
-      if (live) emit('board.edit', { id: a.id, patch: { label }, planId: activeId })
-      else patchCommit(a.id, { label })
-      // the Fahrer's Bemerkung is «Fahrer {Label}» – a renamed vehicle re-files its driver
-      onRosterFields?.({ ...a, label }, a.fields ?? {}, { force: true })
-    }
-    if (fields) { commitAnnoFields(a, fields); onRosterFields?.(a, fields) }
-    if (Object.keys(edit).length) patchCommit(a.id, edit)
+    const end = undoGroup?.() ?? (() => {})
+    try {
+      if (label !== undefined) {
+        setTitleDraft(null)
+        patchCommit(a.id, { label })
+        // the Fahrer's Bemerkung is «Fahrer {Label}» – a renamed vehicle re-files its driver
+        onRosterFields?.({ ...a, label }, a.fields ?? {}, { force: true })
+      }
+      if (fields) { commitAnnoFields(a, fields); onRosterFields?.(a, fields) }
+      if (Object.keys(edit).length) patchCommit(a.id, edit)
+    } finally { end() }
   }
   /** …and a note's: its TEXT is the panel's title. One checkpoint when typing starts, one audit
    *  row on blur — the live `patch` writes without a checkpoint, so committing again on blur used

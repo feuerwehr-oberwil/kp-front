@@ -56,6 +56,9 @@ export interface MapDetailPanelsProps {
   emit: (op_type: string, payload?: Record<string, unknown>, opts?: { observed?: string }) => void
   patchEntity: (id: string, patch: Partial<Entity>) => void
   linkRosterFields: (prev: Entity, fields: Record<string, string>, opts?: { force?: boolean }) => void
+  /** ONE ↶ step over writes into several domains, each part keeping its own (lib/undoTimeline ·
+   *  group): a symbol edit and the Anwesenheit filing it causes */
+  undoGroup: () => () => void
   createCircle: (center: LngLat, radiusM: number) => string
   doc: Doc
   undockTeam: (entityId: string) => void
@@ -131,7 +134,7 @@ export interface MapDetailPanelsProps {
 export function MapDetailPanels({
   detailSlotFree, tacticalLocked, tool, selected, commit, setSelectedId, flyToMapVisible, fitMapVisible, deleteEntity,
   timeline, sym, entityTypedAt, titleLiveRef, beginDrag,
-  setDocRaw, endDrag, emit, patchEntity, linkRosterFields, createCircle, doc, undockTeam, effTrupps,
+  setDocRaw, endDrag, emit, patchEntity, linkRosterFields, undoGroup, createCircle, doc, undockTeam, effTrupps,
   symbolCaptions, rosterNames, rosterRank, personStatus, rosterFieldHints, setEntityDone, commitEntityFields,
   vehicleOverrides, canEditIncident, readOnly, stopPersonSharing, setVehicleOverrides, resetVehicleGps, placeVehicle, holdGpsInstead, keepGpsTwin, fahrzeuge, log,
   assignTypedName, drawings, entities, focusDrawing, noteEntity, notePlacedId, setNotePanelId,
@@ -161,9 +164,9 @@ export function MapDetailPanels({
   const sheetAnnoOf = (id: string) => objects.find((o) => o.id === id)?.sheet?.anno
   /**
    * The symbol panel's one write door (ContextPanel · onPatch). A typed name streams into the doc
-   * silently (snapshot once for undo, no per-keystroke audit event); a commit files the people it
-   * names – a renamed vehicle re-files its Fahrer, a named roster field files its person
-   * (useRosterRoles · linkRosterFields).
+   * silently (snapshot once for undo, no per-keystroke audit event); every commit is ONE ↶ step
+   * together with the Anwesenheit filing it causes – a renamed vehicle re-files its Fahrer, a
+   * named roster field files its person (useRosterRoles · linkRosterFields).
    */
   const patchSelected = (ent: Entity, patch: SymbolPatch, phase: PatchPhase) => {
     if (phase === 'typing') {
@@ -174,19 +177,22 @@ export function MapDetailPanels({
       return
     }
     const { label, fields, ...rest } = patch
-    if (label !== undefined) {
-      // blur: fold the whole live edit into one undo step + a single audit event
-      if (titleLiveRef.current) { titleLiveRef.current = false; endDrag(); emit('entity.edit', { id: ent.id, patch: { label } }) }
-      else patchEntity(ent.id, { label })
-      // ⚠️ …and the Fahrer's Bemerkung is «Fahrer {Label}», so naming the vehicle AFTER
-      // naming its driver has to reach that person. A generic Fahrzeug is placed unlabelled
-      // and gets its Bezeichnung typed later, which makes «Fahrer» with nothing after it
-      // the NORMAL first state rather than an edge case.
-      linkRosterFields({ ...ent, label }, ent.fields ?? {}, { force: true })
-    }
-    // Symbol→Mittel and a Messpunkt's reading ride on the field commit (useMapActions)
-    if (fields) { commitEntityFields(ent, fields); linkRosterFields(ent, fields) }
-    if (Object.keys(rest).length) patchEntity(ent.id, rest)
+    const end = undoGroup()
+    try {
+      if (label !== undefined) {
+        // blur: fold the whole live edit into one undo step + a single audit event
+        if (titleLiveRef.current) { titleLiveRef.current = false; endDrag(); emit('entity.edit', { id: ent.id, patch: { label } }) }
+        else patchEntity(ent.id, { label })
+        // ⚠️ …and the Fahrer's Bemerkung is «Fahrer {Label}», so naming the vehicle AFTER
+        // naming its driver has to reach that person. A generic Fahrzeug is placed unlabelled
+        // and gets its Bezeichnung typed later, which makes «Fahrer» with nothing after it
+        // the NORMAL first state rather than an edge case.
+        linkRosterFields({ ...ent, label }, ent.fields ?? {}, { force: true })
+      }
+      // Symbol→Mittel and a Messpunkt's reading ride on the field commit (useMapActions)
+      if (fields) { commitEntityFields(ent, fields); linkRosterFields(ent, fields) }
+      if (Object.keys(rest).length) patchEntity(ent.id, rest)
+    } finally { end() }
   }
   /** …and a Notiz's: its text streams like a name, and each style edit is remembered as the NEXT
    *  note's default too («D pur», 09.09.: the Notiz dock carries no style controls any more —

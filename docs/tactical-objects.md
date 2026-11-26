@@ -127,7 +127,9 @@ One object, two surfaces: how a tactical object is stored, anchored, projected a
   `subject` (`symbol` · `object` · `live` · `note`), never which callbacks a surface wired. The
   differences that are on purpose: the Schutzabstand rings and «Übernehmen» are the Karte's
   (`erg`, a plan has no metric scale); the Plan maps the card's storey to `storey`, and on the
-  Gebäude stack, where the tile is the storey, to nothing. «Erledigt» is ONE toggle in the foot, in
+  Gebäude stack, where the tile is the storey, to nothing; the Plan draws a name being typed
+  and writes it on the blur, the Karte writes every keystroke silently and folds them on the
+  blur – one ↶ step either way. «Erledigt» is ONE toggle in the foot, in
   the same spot whether the matter is open or over: set, the tile stands pressed (check, green
   tint) and a tap reopens it; when it was set is the header's subtitle («Schadenlage · erledigt
   10:57»), which a read-only card shows too. Both directions stay ordinary undoable prop edits

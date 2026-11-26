@@ -88,7 +88,12 @@ recorded group from either stack, including a group reduced to one part before i
 - *Grouped* – one act over the Tafel and the Checklisten (05.11.2026, `lib/problemLink`): a
   problem's Tendenz set on a page writes the checklist's, a checklist problem deleted on a page un-ticks
   it – the board write and the slice write are ONE step (`UndoTimeline.group('plan')`,
-  `usePlanTafelPages · editPage`); its ↶ caption says when a tick went with a deleted row.
+  `usePlanTafelPages · editPage`); its ↶ caption says when a tick went with a deleted row. The
+  same plain group holds a symbol card's commit and the Anwesenheit filing it causes (26.11.2026,
+  sweep #27 B): a rename re-files its Fahrer, a named roster field files its person, and ONE ↶
+  gives back the name and the Bemerkung together (`MapDetailPanels · patchSelected`, `Whiteboard ·
+  patchSymbol`, through `undoGroup`). Not the compound below on the Plan: inside one, the store
+  takes the sheet's step and its ↶ would name the Karte.
 - *Compound* – one act over the picture and its bookkeeping (24.11.2026, `workspace/compoundStep`):
   a hose drawn or an end snapped onto a crew marker together with the Trupp link it makes, a
   Gebäude-Drehung with its re-glued marks. One group, and in it ONE store step — the first one
