@@ -11,9 +11,10 @@ import { radarIsStale, type ApiWeatherLayer } from './weatherLayer'
 const get = vi.mocked(apiGet)
 const answer = (enabled: boolean) => ({ enabled, generated_at: '2026-10-08T17:20:00Z', radar: null })
 const T0 = Date.parse('2026-10-08T17:20:00Z')
-/** a fresh radar answer (a new object each call, as the network hands it), stale 10 min after T0 */
+/** a fresh radar answer (a new object each call, stamped «now» as the backend does), stale 10 min
+ *  after T0 */
 const radarAnswer = (): ApiWeatherLayer => ({
-  enabled: true, generated_at: '2026-10-08T17:20:00Z',
+  enabled: true, generated_at: new Date().toISOString(),
   radar: {
     frames: [{ key: 'f1', time: '2026-10-08T17:20:00Z' }], coordinates: null, data_time: '2026-10-08T17:20:00Z',
     stale: false, stale_after_seconds: 600, legend: [], attribution: '', source_url: '',
@@ -104,6 +105,23 @@ describe('useWeatherLayer', () => {
     const { data, now } = result.current
     expect(data?.radar && radarIsStale(data.radar, now)).toBe(true)
     expect(renders - before).toBe(1)
+  })
+
+  it('a page back from hidden judges the radar at once when the answer brings nothing new', async () => {
+    vi.setSystemTime(T0 + 60_000)
+    get.mockImplementation(async () => radarAnswer())
+    const { result } = renderHook(() => useWeatherLayer(true))
+    await flush()
+    const hide = (state: 'hidden' | 'visible') => {
+      Object.defineProperty(document, 'visibilityState', { value: state, configurable: true })
+      document.dispatchEvent(new Event('visibilitychange'))
+    }
+    act(() => { hide('hidden') })
+    vi.setSystemTime(T0 + 20 * 60_000)
+    act(() => { hide('visible') })
+    await flush()
+    const { data, now } = result.current
+    expect(data?.radar && radarIsStale(data.radar, now)).toBe(true)
   })
 })
 

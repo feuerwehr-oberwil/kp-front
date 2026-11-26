@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type RefObject } from 'react'
 import { apiGet } from './api'
 import { serverNow } from './serverClock'
 import { visibleInterval } from './visibleInterval'
@@ -14,6 +14,19 @@ const CLOCK_MS = 30_000
  *  clock tick hands out a new `now` only when this changes. */
 const clockFace = (data: ApiWeatherLayer | null, now: number) =>
   `${data?.radar ? radarIsStale(data.radar, now) : ''}|${new Date(now).toDateString()}`
+
+/** The answer as compared: without `generated_at`, which the backend stamps on every answer. */
+const answerText = (answer: ApiWeatherLayer) => JSON.stringify({ ...answer, generated_at: null })
+
+interface Shown { data: ApiWeatherLayer | null; now: number }
+
+/** Hand out a new `now` when the held answer's `clockFace` has moved since the one on screen. */
+function catchUp(shown: RefObject<Shown>, setNow: (now: number) => void): void {
+  const t = serverNow(), held = shown.current
+  if (clockFace(held.data, t) === clockFace(held.data, held.now)) return
+  shown.current = { ...held, now: t }
+  setNow(t)
+}
 
 export interface WeatherLayerApi {
   /** the last good answer, kept through failed polls – it carries its own timestamps */
@@ -34,9 +47,9 @@ export interface WeatherLayerApi {
  * `active: false` (another surface, the replay) fetches nothing and holds the last answer.
  * Paused while the page is hidden (lib/visibleInterval), like the wind reading.
  *
- * An answer equal to the one held sets nothing, and the clock tick sets `now` only when what it
- * judges changes (`clockFace`): every new object rendered the whole workspace (perf sweep
- * 26.11.2026). Compared through refs, not functional updates that return `prev` – React can
+ * An answer equal to the one held (`generated_at` aside) sets nothing, and the clock tick – and
+ * each poll round that brings nothing new – sets `now` only when what it judges changes
+ * (`clockFace`): every new object rendered the whole workspace (perf sweep 26.11.2026). Compared through refs, not functional updates that return `prev` – React can
  * still render once before it bails out of those.
  */
 export function useWeatherLayer(active: boolean): WeatherLayerApi {
@@ -48,28 +61,31 @@ export function useWeatherLayer(active: boolean): WeatherLayerApi {
   const lastAt = useRef<number | null>(null)
   // what is on screen: the answer as text (for the equality check) and the two values themselves
   const shownText = useRef<string | null>(null)
-  const shown = useRef({ data, now })
+  const shown = useRef<Shown>({ data, now })
 
   useEffect(() => {
     if (!active || off) return
     let alive = true
     const poll = async () => {
+      // a round that brings nothing new still judges the clock: back from hidden or on the Karte
+      // again, the radar may have gone stale while nothing ticked
       const last = lastAt.current
-      if (last !== null && Date.now() - last < POLL_MS / 2) return
+      if (last !== null && Date.now() - last < POLL_MS / 2) { catchUp(shown, setNow); return }
       try {
         const next = await apiGet<ApiWeatherLayer>('/api/weather/layer')
         if (!alive) return
         lastAt.current = Date.now()
-        const text = JSON.stringify(next)
+        const text = answerText(next)
         if (text !== shownText.current) {
           shownText.current = text
           shown.current = { data: next, now: serverNow() }
           setData(shown.current.data)
           setNow(shown.current.now)
-        }
+        } else catchUp(shown, setNow)
         if (!next.enabled) setOff(true)
       } catch {
         // keep the last answer: it ages into «Stand hh:mm» on its own
+        if (alive) catchUp(shown, setNow)
       }
     }
     const stop = visibleInterval(() => void poll(), POLL_MS)
@@ -82,12 +98,7 @@ export function useWeatherLayer(active: boolean): WeatherLayerApi {
   const enabled = data?.enabled === true
   useEffect(() => {
     if (!active || !enabled) return
-    return visibleInterval(() => {
-      const t = serverNow(), held = shown.current
-      if (clockFace(held.data, t) === clockFace(held.data, held.now)) return
-      shown.current = { ...held, now: t }
-      setNow(t)
-    }, CLOCK_MS, { leading: false })
+    return visibleInterval(() => catchUp(shown, setNow), CLOCK_MS, { leading: false })
   }, [active, enabled])
 
   return { data, now }
