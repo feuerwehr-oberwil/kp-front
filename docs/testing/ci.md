@@ -86,9 +86,11 @@ on `127.0.0.1` only. Their public test credentials must not expose a database to
 ## Mutation testing
 
 `pnpm test:mutation` runs Stryker against eleven critical frontend modules and their dedicated
-Vitest suites: workspace merging, JSON equality, the audit outbox and event scope, the undo
-timeline, serialized work, the server clock, sync alerts, Atemschutz calculations, alarm
-delivery and device alarm readiness. The source list in `stryker.config.json` and test list in
+Vitest suites: workspace merging, workspace sync, the media queue, the audit outbox and event
+scope, the undo timeline, the server clock, sync alerts, Atemschutz calculations, alarm
+delivery and device alarm readiness. JSON equality and serialized work left the list on
+26.11.2026 (97 % and 100 % in the audit below: nothing left to learn); the next weekly run gives
+the first score of the two that replaced them. The source list in `stryker.config.json` and test list in
 `vitest.mutation.config.ts` define the scope; this is not an application-wide or backend score.
 
 The runner changes copied source inside `.x-stryker-tmp`, never the working files. Four workers
