@@ -373,6 +373,18 @@ describe('(n) ↶ takes back a Notiz while it is being typed', () => {
     expect(notes()).toEqual(['Neu', ''])
   })
 
+  // after a ↶, an existing Notiz opened on the map and closed with ✓, nothing typed
+  it('✓ on an unchanged Notiz lays no step: ↷ stays', async () => {
+    await mount({ workspace: { entities: [truck, { id: 'a', kind: 'note', coord: [7.6, 47.5], label: 'Alt' } as Entity] } as unknown as Saved })
+    await placeNote()
+    await press(appConfig.copy.undo)
+    const map = () => lastMap() as unknown as { onNoteEdit: (id: string) => void; onNoteCommit: (id: string, v: string) => void }
+    act(() => map().onNoteEdit('a'))
+    act(() => map().onNoteCommit('a', 'Alt'))
+    await settle()
+    await press(appConfig.copy.redo)
+    expect(notes()).toEqual(['Alt', ''])
+  })
 })
 
 /* RBAC audit 22.10.2026 (§2): a session that cannot write the Einsatz is handed no door that

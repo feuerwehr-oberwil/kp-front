@@ -1329,7 +1329,8 @@ export function IncidentWorkspace({
    *  audit row for the typing. None at all when the history moved under it – a ↶ / ↷ while it was
    *  open (endDrag with the typing's token), or the Notiz gone (a ↶ took back placing it, another
    *  device removed it): a step from the old snapshot would bring back what the ↶ took and clear
-   *  ↷, which already holds the typed text. */
+   *  ↷, which already holds the typed text. Nothing typed: a step only for a changed text, so a ✓
+   *  on an unchanged Notiz leaves ↷ standing. */
   const noteTextEnd = (id: string, v: string) => {
     const live = titleLiveRef.current
     const token = noteTyping.current
@@ -1341,7 +1342,7 @@ export function IncidentWorkspace({
       if (endDrag(token ?? undefined)) emit('entity.edit', { id, patch: { label: v } })
       return
     }
-    if (note) patchEntity(id, { label: v })
+    if (note && (note.label ?? '') !== v) patchEntity(id, { label: v })
   }
   /** The map editor's commit. It also runs when the editor goes because ANOTHER Notiz opened
    *  (EntityMarker · NoteField), so it closes the editor only while it is still this one's. */
