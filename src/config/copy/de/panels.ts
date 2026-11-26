@@ -42,7 +42,6 @@ export const panelsCopy = {
   },
   // running incident clock in the TopBar
   einsatzuhr: {
-    title: 'Einsatzdauer – Beginn {t}',
     /** the read-out's accessible name: «Einsatzdauer: 1:54» */
     label: 'Einsatzdauer',
     // what a tap on the head's clock says (round 2b: the clock wears no label, the tap names it)

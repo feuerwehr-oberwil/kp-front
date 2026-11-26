@@ -224,7 +224,6 @@ export const panelsCopy: Localizable<Pick<Copy, Keys>> = {
     locatedLate: 'Photo with location',
   },
   einsatzuhr: {
-    title: 'Incident duration – started {t}',
     label: 'Incident duration',
     tap: 'Incident duration · since {t}',
   },

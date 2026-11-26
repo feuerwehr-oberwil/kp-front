@@ -226,7 +226,6 @@ export const panelsCopy: Localizable<Pick<Copy, Keys>> = {
     locatedLate: 'Foto con posizione',
   },
   einsatzuhr: {
-    title: 'Durata dell\'intervento – inizio {t}',
     label: 'Durata dell\'intervento',
     tap: 'Durata dell\'intervento · da {t}',
   },
