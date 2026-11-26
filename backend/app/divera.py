@@ -580,7 +580,8 @@ async def store_responses(db: AsyncSession, responses: dict[int, dict[str, str]]
 
     Only alarms already in the pool are touched — an answer to an alarm this station never took
     in has nowhere to be shown. A poll that saw nothing new writes nothing. An answer whose status
-    nobody can classify yet (the names list not loaded) leaves what was stored before. Never
+    nobody can classify yet (the names list not loaded) leaves what was stored before, and so
+    does every answer of a poll whose station overrides cannot be read (logged). Never
     raises: the answers are a convenience on top of the alarm intake, and must not be able to
     fail it.
     """
@@ -599,6 +600,11 @@ async def store_responses(db: AsyncSession, responses: dict[int, dict[str, str]]
             if not rows:
                 return 0
             overrides = await load_divera_response_kinds(db)
+            if overrides is None:
+                # classified without the station's own readings, a «Komme» could overwrite what an
+                # override had recorded as «kommt nicht» – so this poll stores no answers at all
+                logger.error("Divera answers not stored: the stored roster.diveraResponses cannot be read")
+                return 0
             roster = await person_by_ucr(db)
             now = datetime.now(UTC)
             changed = 0

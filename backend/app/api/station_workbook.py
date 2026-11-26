@@ -140,7 +140,7 @@ async def plan_workbook(db: AsyncSession, data: bytes, *, lock: bool = False) ->
         list(people),
         await personnel_svc.load_roster_index(db),
         await _identity_pairs(db),
-        await personnel_svc.load_roster_name_order(db),
+        await personnel_svc.load_roster_name_order(db) or personnel_svc.DEFAULT_NAME_ORDER,
         digest=hashlib.sha256(data).hexdigest(),
     )
 

@@ -5,6 +5,7 @@ divera_id, and a bad-row error. Runs against the test DB (SQLite locally, postgr
 """
 
 import pytest
+from sqlalchemy import select
 
 pytestmark = pytest.mark.asyncio
 
@@ -227,22 +228,52 @@ async def test_the_name_order_reads_a_malformed_document(client, editor, db_sess
 @pytest.mark.parametrize(
     ("document", "kinds"),
     [
-        ({"roster": ["not", "a", "section"]}, {}),
+        ({}, {}),
+        ({"roster": {"diveraResponses": {"13": "not_coming"}}}, {"13": "not_coming"}),
         # raw on purpose: a part broken ELSEWHERE must not cost the overrides the poll stores with
         (
             {"roster": {"diveraResponses": {"13": "not_coming"}}, "report": {"partnerOrgs": "kaputt"}},
             {"13": "not_coming"},
         ),
+        # …and a roster broken ITSELF is «cannot be read», never a silent «no overrides»
+        ({"roster": "corrupt"}, None),
+        ({"roster": {"diveraResponses": ["13"]}}, None),
+        ({"roster": {"diveraResponses": {"13": "vielleicht"}}}, None),
     ],
-    ids=["broken-roster", "broken-elsewhere"],
+    ids=["unset", "set", "broken-elsewhere", "roster-string", "part-list", "unknown-kind"],
 )
-async def test_divera_response_overrides_read_a_malformed_document(db_session, document, kinds):
+async def test_divera_response_overrides_say_when_the_roster_cannot_be_read(db_session, document, kinds):
     from app.models import DeploymentConfig
     from app.personnel import load_divera_response_kinds
 
     db_session.add(DeploymentConfig(id=1, config_json=document))
     await db_session.commit()
     assert await load_divera_response_kinds(db_session) == kinds
+
+
+@pytest.mark.parametrize(
+    "roster",
+    ["corrupt", {"nameOrder": "vorname-zuerst"}, {"autoSync": "immer"}],
+    ids=["roster-string", "bad-order", "bad-level"],
+)
+async def test_the_divera_sync_writes_nothing_on_a_roster_it_cannot_read(db_session, monkeypatch, roster):
+    """Refused before Divera is even asked: the names would be written in an order, at a level,
+    the station did not choose."""
+    import app.personnel as personnel
+    from app.models import DeploymentConfig, Personnel
+
+    async def no_fetch(*_a, **_kw):
+        raise AssertionError("Divera must not be asked")
+
+    monkeypatch.setattr(personnel, "fetch_divera_members", no_fetch)
+    monkeypatch.setattr(personnel, "credential", lambda _name: "key")
+    db_session.add(DeploymentConfig(id=1, config_json={"roster": roster}))
+    await db_session.commit()
+    run = personnel.auto_sync if isinstance(roster, dict) and "autoSync" in roster else personnel.execute_sync
+    kwargs = {} if run is personnel.auto_sync else {"deactivate_stale": True}
+    with pytest.raises(personnel.RosterUnreadableError, match="lassen sich nicht lesen"):
+        await run(db_session, **kwargs)
+    assert (await db_session.execute(select(Personnel))).first() is None
 
 
 async def test_created_and_patched_person_comes_back_in_the_configured_order(client, editor, db_session):

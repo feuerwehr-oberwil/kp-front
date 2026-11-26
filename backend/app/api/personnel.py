@@ -121,7 +121,7 @@ async def list_personnel(
         stmt = stmt.where(Personnel.is_active.is_(True))
     people = list((await db.execute(stmt)).scalars())
     identities = {} if is_link_session(user) else await _identity_map(db, [p.id for p in people])
-    order = await personnel_svc.load_roster_name_order(db)
+    order = await personnel_svc.load_roster_name_order(db) or personnel_svc.DEFAULT_NAME_ORDER
     out = [_personnel_out(p, identities.get(p.id, []), order) for p in people]
     if is_link_session(user):
         for row in out:
@@ -149,7 +149,7 @@ async def create_person(
         )
     await db.refresh(person)
     identities = await _identity_map(db, [person.id])
-    order = await personnel_svc.load_roster_name_order(db)
+    order = await personnel_svc.load_roster_name_order(db) or personnel_svc.DEFAULT_NAME_ORDER
     return _personnel_out(person, identities.get(person.id, []), order)
 
 
@@ -172,7 +172,7 @@ async def update_person(
     await db.flush()
     await db.refresh(person)
     identities = await _identity_map(db, [person.id])
-    order = await personnel_svc.load_roster_name_order(db)
+    order = await personnel_svc.load_roster_name_order(db) or personnel_svc.DEFAULT_NAME_ORDER
     return _personnel_out(person, identities.get(person.id, []), order)
 
 
@@ -433,6 +433,8 @@ async def sync_preview(_user: EditorOrAdmin, db: AsyncSession = Depends(get_db))
     await _require_divera(db)
     try:
         return await personnel_svc.build_sync_preview(db)
+    except personnel_svc.RosterUnreadableError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from None
     except (DiveraApiError, httpx.HTTPError, ValueError) as e:
         raise HTTPException(status_code=502, detail=_divera_unreachable(e)) from None
 
@@ -457,6 +459,9 @@ async def sync_execute(
         # ride out on the back of its own error report.
         await db.rollback()
         await connector_state.record_failure(db, connector_state.DIVERA_PERSONNEL, e)
+        # an unreadable roster is the station's config, not Divera: 409 and the sentence that says so
+        if isinstance(e, personnel_svc.RosterUnreadableError):
+            raise HTTPException(status_code=409, detail=str(e)) from None
         raise HTTPException(status_code=502, detail=_divera_unreachable(e)) from None
     await connector_state.record(
         db,
