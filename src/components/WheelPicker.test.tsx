@@ -69,33 +69,61 @@ describe('WheelPicker · looping clock wheels', () => {
     fireEvent.click(screen.getByRole('button', { name: 'OK' }))
     expect(onCommit).toHaveBeenCalledWith({ y: 2026, mo: 11, d: 24, h: 23, mi: 39 })
   })
-  // owner, UX journeys sign-off (26.11.2026): «2359 isn't a time, 23:53 is» – the colon is required,
-  // and a value that is not HH:MM commits nothing and says so under the field
+  // owner, UX journeys sign-off (26.11.2026): «2359 isn't a time, 23:53 is». Variant B (picked the
+  // same morning): the colon appears as you type, on the digit pad; nothing invalid commits
   describe('the typed time is HH:MM', () => {
-    const typeAndOk = (value: string, key: 'click' | 'enter' = 'click') => {
+    const open = () => {
       const onCommit = vi.fn()
       render(<WheelPopover anchor={anchor} initial={new Date(2026, 10, 25, 23, 42)} onCommit={onCommit} onClose={() => {}} />)
       fireEvent.click(wheel('Stunde').querySelector('[aria-selected="true"]')!)
-      const field = screen.getByRole('textbox', { name: 'Stunde / Minute' })
-      fireEvent.change(field, { target: { value } })
+      const field = screen.getByRole('textbox', { name: 'Stunde / Minute' }) as HTMLInputElement
+      return { onCommit, field }
+    }
+    // one keystroke after the other, as the field reports them: what it holds plus the new digit
+    const keys = (field: HTMLInputElement, seq: string) => {
+      fireEvent.change(field, { target: { value: '' } })
+      for (const k of seq) fireEvent.change(field, { target: { value: field.value + k } })
+    }
+    const typeAndOk = (value: string, key: 'click' | 'enter' = 'click') => {
+      const { onCommit, field } = open()
+      keys(field, value)
       if (key === 'enter') fireEvent.keyDown(field, { key: 'Enter' })
       else fireEvent.click(screen.getByRole('button', { name: 'OK' }))
       return { onCommit, field, message: screen.queryByRole('alert')?.textContent ?? null }
     }
 
-    it('commits «23:53»', () => {
-      const { onCommit, message } = typeAndOk('23:53')
+    it('«2» «3» shows «23:», «5» «3» shows «23:53» – and that commits', () => {
+      const { onCommit, field } = open()
+      expect(field.getAttribute('inputmode')).toBe('numeric')
+      fireEvent.change(field, { target: { value: '' } })
+      const shown = ['2', '3', '5', '3'].map((k) => {
+        fireEvent.change(field, { target: { value: field.value + k } })
+        return field.value
+      })
+      expect(shown).toEqual(['2', '23:', '23:5', '23:53'])
+      fireEvent.click(screen.getByRole('button', { name: 'OK' }))
       expect(onCommit).toHaveBeenCalledWith(expect.objectContaining({ h: 23, mi: 53 }))
-      expect(message).toBeNull()
     })
-    it.each(['2359', '24:00', '23:60', '23:', ''])('«%s» commits nothing and says HH:MM under the field', (value) => {
+    it('a pasted «2353» reads «23:53»', () => {
+      const { field } = open()
+      fireEvent.change(field, { target: { value: '2353' } })
+      expect(field.value).toBe('23:53')
+    })
+    it('backspace over the colon takes the colon and the digit before it', () => {
+      const { field } = open()
+      keys(field, '23')
+      expect(field.value).toBe('23:')
+      fireEvent.change(field, { target: { value: '23' } })
+      expect(field.value).toBe('2')
+    })
+    it.each(['2400', '2360', '23', '930', ''])('«%s» commits nothing and says HH:MM under the field', (value) => {
       const { onCommit, field, message } = typeAndOk(value)
       expect(onCommit).not.toHaveBeenCalled()
       expect(message).toBe('Zeit als HH:MM, z. B. 23:53')
       expect(field.getAttribute('aria-invalid')).toBe('true')
     })
-    it('Enter with «2359» only shows the message', () => {
-      const { onCommit, message } = typeAndOk('2359', 'enter')
+    it('Enter with «2400» only shows the message', () => {
+      const { onCommit, message } = typeAndOk('2400', 'enter')
       expect(onCommit).not.toHaveBeenCalled()
       expect(message).toBe('Zeit als HH:MM, z. B. 23:53')
     })

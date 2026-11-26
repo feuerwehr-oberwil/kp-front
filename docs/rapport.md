@@ -162,8 +162,11 @@ Owner pick A «Ein Feld» (`components/TimeField · DateTimeField`, header there
   hour or minute under the band swaps the wheels for the typed field a keyboard gets – «23:39», OK.
   Day and time stand on ONE line, «Mi 25.11. – 23:39», and the popover opens above its field, so
   it covers nothing under it, the Rückmeldung's «Entfällt» included (owner sign-off, 26.11.2026).
-  The typed time is HH:MM with its colon: «2359», «24:00» or «23:60» saves nothing and says «Zeit
-  als HH:MM, z. B. 23:53» under the field («2359 isn't a time, 23:53 is», owner, 26.11.2026).
+  The typed time is HH:MM («2359 isn't a time, 23:53 is», owner, 26.11.2026), and the colon appears
+  as you type, on the phone's digit pad: «2» «3» → «23:», «5» «3» → «23:53» (owner pick «variant
+  B», 26.11.2026 – it replaces «the colon must be typed»). Hours take two digits («0930»); backspace
+  over the colon takes the digit before it too. «24:00», «23:60» or a half time saves nothing and
+  says «Zeit als HH:MM, z. B. 23:53» under the field.
   Swiping the wheel stays as it is. Every time field, not only the
   Einsatzende: they all open `WheelPopover`. Both walkers had missed the minute on the wheel.
 - **«Jetzt» is the deployment's clock** (`lib/serverClock`), on the two form buttons (Einsatzende,
