@@ -5,7 +5,7 @@
     "@typescript-eslint/no-non-null-assertion": 325,
     "kp/disable-reason": 102,
     "kp/no-raw-effect": 562,
-    "kp/no-raw-timer": 157,
+    "kp/no-raw-timer": 156,
     "react-hooks/exhaustive-deps": 19,
     "react-hooks/immutability": 20,
     "react-hooks/preserve-manual-memoization": 5,
