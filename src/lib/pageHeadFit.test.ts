@@ -180,6 +180,31 @@ describe('the top bar · the phone street before ↷ (headCrowded)', () => {
     expect(headCrowded(el, 0)).toBe(true)
     expect(headCrowded(el, STREET_BEFORE_STEP)).toBe(false) // 160px shown, above the floor
   })
+  it('an arriving chip is measured as grown: its entrance is not overflow (26.11.2026)', () => {
+    // the weather grows in from max-width 0 (tb-chip-in): 127px of content in a 20px box, so the
+    // bar reads 107px of «overflow» that is only the animation – the bar may still widen to 1148
+    const el = bar(146, 146, false)
+    const chip = document.createElement('span')
+    el.appendChild(chip)
+    Object.defineProperties(chip, { scrollWidth: { get: () => 127 }, clientWidth: { get: () => 20 } })
+    const growing = (w: number, max: string) => {
+      Object.defineProperties(el, {
+        scrollWidth: { get: () => w + 107, configurable: true }, clientWidth: { get: () => w, configurable: true },
+        offsetWidth: { get: () => w + 2, configurable: true },
+      })
+      el.style.maxWidth = max
+    }
+    el.getAnimations = () => [{ playState: 'running', effect: { target: chip } } as unknown as Animation]
+    growing(856, '1148px')
+    expect(headCrowded(el, 0)).toBe(false)
+    // …but a bar that cannot widen that far is crowded, arrival or not
+    growing(1100, '1148px')
+    expect(headCrowded(el, 0)).toBe(true)
+    // and with nothing arriving the same overflow is real
+    el.getAnimations = () => []
+    growing(856, '1148px')
+    expect(headCrowded(el, 0)).toBe(true)
+  })
   it('fitHead hands the step to the judge: a cut street stops the climb right after ↷', () => {
     const el = bar(128, 146)
     expect(fitHead(el)).toBe(STREET_BEFORE_STEP)
