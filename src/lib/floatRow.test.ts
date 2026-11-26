@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { rowLift, stackLane, type Box } from './floatRow'
+import { crossesCeiling, rowLift, stackLane, type Box } from './floatRow'
 
 // A 390px phone: the chip row at its floor, 8px in from the left, 52px tall.
 const chip: Box = { left: 8, right: 60, top: 600, bottom: 652 }
@@ -42,5 +42,17 @@ describe('stackLane — where the message lane starts while a tool is out (sweep
 
   it('nothing in the stack: no lane of its own', () => {
     expect(stackLane([], 844)).toBeNull()
+  })
+})
+
+describe('crossesCeiling — the row never rises onto an alert (owner, 26.11.2026)', () => {
+  it('yields when its lift carries it above the strip\'s foot', () => {
+    // an open Messen panel lifted Eintrag 460px; the strip ends at 300, so the ceiling is 308
+    expect(crossesCeiling(chip, 460, 308)).toBe(true)
+  })
+
+  it('stays when it ends on the ceiling or below it, and with no strip at all', () => {
+    expect(crossesCeiling(chip, 292, 308)).toBe(false)
+    expect(crossesCeiling(chip, 460, null)).toBe(false)
   })
 })

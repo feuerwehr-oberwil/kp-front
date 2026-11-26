@@ -10,9 +10,10 @@ import { EINSATZ_RAIL, dismissFirstViewGebaeude, expect, login, openApp, test } 
 //     a control nobody thought of fails it too);
 //   - every control of the top edge is still on screen and takes its own tap.
 // On the phones the PANELS hung under the bar yield too (owner, 26.11.2026, sign-off block 43): an
-// open Messen panel (Höhenprofil + Wassertransport) and the Plan's «in der Nähe» banner start below
-// the strip. The banner needs an Einsatzobjekt with plans near the Übung (the Musterdorf demo's
-// Schloss): on a stack without one that test skips and says so.
+// open Messen panel (Höhenprofil + Wassertransport) – with the floating row it lifts (Info ·
+// Eintrag) – and the Plan's «in der Nähe» banner start below the strip. The banner needs an
+// Einsatzobjekt with plans near the Übung (the Musterdorf demo's Schloss): on a stack without one
+// that test skips and says so.
 //
 // It opens an Übung of its own and archives it again afterwards.
 // ⚠️ OPT-IN (E2E_WORKFLOWS=1), chromium only: it writes an Einsatz – never against a station in use.
@@ -95,6 +96,23 @@ async function gapUnderStrip(page: Page, sel: string): Promise<number | string> 
     if (!strip || !el) return `missing ${strip ? s : '.ml'}`
     return Math.round(el.getBoundingClientRect().top - strip.getBoundingClientRect().bottom)
   }, sel)
+}
+
+/** The floating row's pieces (Info · Eintrag: the tiles of `.wb-botleft`, and the FAB) that reach
+ *  up into the strip, each with how far (px). Empty when every one starts below it. */
+async function floatRowOnStrip(page: Page): Promise<string[]> {
+  return page.evaluate(() => {
+    const strip = document.querySelector('.ml')
+    if (!strip) return ['no Meldeleiste']
+    const foot = strip.getBoundingClientRect().bottom
+    const out: string[] = []
+    for (const el of document.querySelectorAll('.wb-botleft > *, .fab-entry')) {
+      const r = el.getBoundingClientRect()
+      if (!r.width || !r.height || getComputedStyle(el).visibility === 'hidden') continue
+      if (r.top < foot) out.push(`${el.getAttribute('aria-label') || el.getAttribute('class')} ${Math.round(r.top - foot)}px`)
+    }
+    return out
+  })
 }
 
 for (const device of [
@@ -182,6 +200,10 @@ for (const device of [
       await panel.locator('button[aria-expanded="false"]').first().tap()
       await panel.getByRole('button', { name: /Wassertransport berechnen/ }).tap()
       await expect.poll(() => gapUnderStrip(page, '.phone-tools [data-float-stack]'), 'the panel starts under the strip').toBeGreaterThanOrEqual(0)
+    // …and the floating row it lifts above it (Info · Eintrag) never reaches up into the strip:
+    // where its line would, it yields (lib/floatRow · crossesCeiling)
+    await expect(page.locator('.fab-entry')).toBeAttached()
+    await expect.poll(() => floatRowOnStrip(page), 'the floating row starts under the strip').toEqual([])
     })
 
     test(`the Plan's «in der Nähe» banner starts under the alert (${device.name})`, async ({ page }) => {

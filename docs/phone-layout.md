@@ -169,7 +169,10 @@ unchanged.
   keeps these in the bar, so nothing there shares the strip's band. The PANELS hung under the bar
   yield the same way (owner, 26.11.2026): an open Messen panel ends, and the Plan's «in der Nähe»
   banner starts, at `--under-alert` (15-mobile: one `--float-gap` under the strip, by `--ml-h`) –
-  the one place under the alert that every such piece reads.
+  the one place under the alert that every such piece reads. The floating row (Info · Eintrag)
+  that such a panel lifts never rises past the strip's foot: where its line would, it yields until
+  the panel folds (lib/floatRow · crossesCeiling) – a shorter panel would only put it on Standort
+  or the wind chip instead.
 
 - *A docked tab strip is RESERVED by a sum of tokens, never a number* (30.09.2026, owner: «the
   journal entry slightly overlaps with the selector below»): `--rp-tabs-safe` (15-mobile) is the
