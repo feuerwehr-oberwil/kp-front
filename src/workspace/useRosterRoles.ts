@@ -17,7 +17,7 @@ import { canonicalName, personIdForName } from '../lib/personnel'
 import { initialRapportPage, isRapportPage, writeRapportPage } from '../lib/rapportPages'
 import { mergeRoleNote, personStatusHint, roleConflictHint, rosterFieldRole, truppRoleNote, unrecordedCrewNames, type AssignableRole } from '../lib/roleAssignment'
 import { toast } from '../lib/ui'
-import type { Entity, TimelineEvent, Trupp, TruppFields, Person, AttendanceState, AttendanceEntry } from '../types'
+import type { Entity, SymbolProps, TimelineEvent, Trupp, TruppFields, Person, AttendanceState, AttendanceEntry } from '../types'
 import type { WorkspaceMode } from './types'
 import { useEffect, useMemo, useRef, type Dispatch, type SetStateAction } from 'react'
 
@@ -382,7 +382,7 @@ export function useRosterRoles({
    * re-rendering the panel must not re-open a presence block somebody closed on purpose.
    */
   const ROSTER_FIELDS: readonly string[] = appConfig.symbols.rosterFields
-  const linkRosterFields = (prev: Entity, fields: Record<string, string>, opts?: { force?: boolean }) => {
+  const linkRosterFields = (prev: Pick<SymbolProps, 'symbol' | 'label' | 'fields'>, fields: Record<string, string>, opts?: { force?: boolean }) => {
     // ⚠️ Which fields actually moved is a decision with edge cases (a seeded blank is not a
     // change; a changed FUNKTION has to re-file the name beside it), so it lives in
     // lib/entityEdit · rosterFieldsToRefile with its own tests rather than inline here.
