@@ -19,9 +19,12 @@ let wasHidden = document.visibilityState === 'hidden'
 const onVisibility = () => { if (document.visibilityState === 'hidden') wasHidden = true }
 document.addEventListener('visibilitychange', onVisibility)
 
-/** Record a boot milestone (first call per name wins). */
+/** Record a boot milestone (first call per name wins). Also a User Timing mark `boot:<name>`,
+ *  which the performance journeys (e2e/perf/harness · coverMarks) and a devtools profile read. */
 export function markBoot(name: string): void {
-  marks[name] ??= Math.round(performance.now())
+  if (name in marks) return
+  marks[name] = Math.round(performance.now())
+  performance.mark?.(`boot:${name}`)
 }
 
 /** milestones the browser already timed: navigation, the render-blocking stylesheet, first paint */

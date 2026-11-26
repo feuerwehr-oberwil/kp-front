@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { act, renderHook } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 /** a fresh module per test: the marks are module state, one launch per page */
@@ -66,5 +67,21 @@ describe('reportBoot', () => {
     await vi.advanceTimersByTimeAsync(30_000)
     expect(send).toHaveBeenCalledTimes(1)
     expect(send.mock.calls[0][0].marks.lift).toBeUndefined()
+  })
+
+  it('carries the opening cover\'s marks: the line goes out when the cover\'s splash is gone', async () => {
+    const { reportBoot } = await load()
+    const { BOOT_COVER_FADE_MS, useBootCover } = await import('./bootCover')
+    document.body.innerHTML = '<div id="root"></div><div class="login splash"></div>'
+    const send = vi.fn()
+    reportBoot(send, 'x')
+    const lift = () => document.querySelector('.splash')?.remove()
+    const { rerender } = renderHook(({ wx }) => useBootCover(true, { sym: true, wx }, lift), { initialProps: { wx: false } })
+    rerender({ wx: true })
+    await act(async () => { await new Promise((r) => setTimeout(r, BOOT_COVER_FADE_MS + 20)) })
+    await vi.waitFor(() => expect(send).toHaveBeenCalled())
+    const { marks } = send.mock.calls[0][0]
+    expect(marks).toMatchObject({ sym: expect.any(Number), wx: expect.any(Number), cover: expect.any(Number), lift: expect.any(Number) })
+    expect(marks.cap).toBeUndefined()
   })
 })

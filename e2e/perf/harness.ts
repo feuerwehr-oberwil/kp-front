@@ -419,6 +419,20 @@ export async function buildingAlreadyRead(context: BrowserContext, seeded: Pick<
 }
 
 /** The Einsatz is on screen and its opening cover (lib/bootCover) has lifted. */
+/** The opening cover's waits (lib/bootCover · useBootCover), as the page's `boot:<name>` marks
+ *  recorded them, as `ready_<wait>_ms` after `from` (the page's performance.now()): one per wait
+ *  that held, `ready_cap_ms` when the 8 s cap lifted the cover, `ready_cover_ms` once it was off.
+ *  Which wait comes last is the one that held the snail. */
+export async function coverMarks(page: Page, from = 0): Promise<Record<string, number>> {
+  const marks = await page.evaluate(() => performance.getEntriesByType('mark')
+    .filter((m) => m.name.startsWith('boot:'))
+    .map((m) => [m.name.slice('boot:'.length), m.startTime] as const))
+  return Object.fromEntries(marks
+    .filter(([name]) => COVER_MARKS.includes(name))
+    .map(([name, at]) => [`ready_${name}_ms`, Math.max(0, at - from)]))
+}
+const COVER_MARKS = ['sym', 'map', 'plans', 'wx', 'cap', 'cover']
+
 export async function waitForWorkspace(page: Page, timeout = 60_000) {
   await page.locator(EINSATZ_RAIL).waitFor({ state: 'visible', timeout })
   await page.waitForFunction(() => !document.querySelector('.login.splash'), undefined, { timeout, polling: POLL_MS })

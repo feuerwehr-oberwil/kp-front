@@ -1,7 +1,7 @@
 import { request as apiRequest, type Page } from '@playwright/test'
 import { expect, PIN, test, EINSATZ_RAIL } from './helpers'
 import {
-  Results, blocking, buildingAlreadyRead, calibrate, cdpFor, centre, counters, drain, instrument, isAppApi, isolateFromOutside, median,
+  Results, blocking, buildingAlreadyRead, calibrate, cdpFor, centre, counters, coverMarks, drain, instrument, isAppApi, isolateFromOutside, median,
   painted, recordNetwork, remember, retained, retire, routeTally, seedIncident, signIn, timeTo,
   waitForWorkspace, watchNetwork, CPU_THROTTLE, POLL_MS, type Seeded,
 } from './perf/harness'
@@ -124,6 +124,7 @@ test('cold start: kiosk login → the Einsatz on the Karte', async ({ page, base
   await page.locator('.roster-tile').first().click()
   await page.locator('.pinpad').waitFor({ state: 'visible' })
   for (const digit of PIN) await page.keyboard.press(digit)
+  const loginInPage = await page.evaluate(() => performance.now())
   const loginAt = performance.now()
   await page.keyboard.press('Enter')
   await page.locator(EINSATZ_RAIL).waitFor({ state: 'visible', timeout: 60_000 })
@@ -133,6 +134,8 @@ test('cold start: kiosk login → the Einsatz on the Karte', async ({ page, base
   await waitForWorkspace(page)
   j.r.set('pin_to_ready_ms', performance.now() - loginAt, 'ms')
   j.r.set('total_ms', performance.now() - t0, 'ms')
+  // …and which of its waits came last, after the PIN like pin_to_ready_ms (ungated)
+  for (const [name, ms] of Object.entries(await coverMarks(page, loginInPage))) j.r.set(name, ms, 'ms')
   const { long } = await drain(page)
   j.r.set('blocking_ms', blocking(long), 'ms')
   j.r.set('long_tasks', long.length, 'count')
@@ -161,6 +164,7 @@ test('warm reload: the installed app opens the Einsatz again', async ({ page, ba
   const shell: number[] = []
   const ready: number[] = []
   const blocked: number[] = []
+  const waits: Record<string, number[]> = {}
   let reqs: ReturnType<typeof j.net.since> = []
   for (let i = 0; i < 3; i++) {
     const from = Date.now()
@@ -170,12 +174,15 @@ test('warm reload: the installed app opens the Einsatz again', async ({ page, ba
     shell.push(performance.now() - t0)
     await waitForWorkspace(page)
     ready.push(performance.now() - t0)
+    // since the reload's navigation start, like reload_to_ready_ms
+    for (const [name, ms] of Object.entries(await coverMarks(page))) (waits[name] ??= []).push(ms)
     await page.waitForTimeout(2_000)
     blocked.push(blocking((await drain(page)).long))
     reqs = j.net.since(from)
   }
   j.r.set('reload_to_workspace_ms', median(shell), 'ms')
   j.r.set('reload_to_ready_ms', median(ready), 'ms')
+  for (const [name, ms] of Object.entries(waits)) j.r.set(name, median(ms), 'ms')
   j.r.set('blocking_ms', median(blocked), 'ms')
   // the last reload's traffic: a static request here means the precache missed something
   recordNetwork(j.r, '', reqs)

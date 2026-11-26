@@ -1385,10 +1385,12 @@ export function IncidentWorkspace({
   // top bar. Each of those used to arrive in view, one jump at a time (01.10.2026).
   const [mapSettled, setMapSettled] = useState(false)
   const onMapSettled = useCallback(() => setMapSettled(true), [])
-  const coverPhase = useBootCover(!!openCover, (sym.ready || !!sym.error)
-    && (mode !== 'map' || mapSettled)
-    && plansSettled
-    && (!liveFeeds || !!liveWeather.data || !!liveWeather.error), onOpenCoverDone)
+  const coverPhase = useBootCover(!!openCover, {
+    sym: sym.ready || !!sym.error,
+    map: mode !== 'map' || mapSettled,
+    plans: plansSettled,
+    wx: !liveFeeds || !!liveWeather.data || !!liveWeather.error,
+  }, onOpenCoverDone)
   // The Gebäude card opens by itself the first time THIS device shows the Karte of this Einsatz
   // whose building has anything to show (lib/buildingFirstOpen): after the cover
   // has lifted (never under the snail), on the Karte only — an Einsatz that opens on another
