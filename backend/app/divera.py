@@ -121,6 +121,8 @@ async def active_vocabulary() -> Vocabulary:
         from .database import async_session_maker
         from .models import DeploymentConfig
 
+        # Raw on purpose: alarm intake opens Einsätze unattended, and `read_config`'s fallback on a
+        # document broken elsewhere would type them with keywords the station did not choose.
         async with async_session_maker() as db:
             row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
         cfg: Any = (row.config_json or {}) if row else {}

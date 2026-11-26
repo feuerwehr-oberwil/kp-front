@@ -48,6 +48,8 @@ async def keep_previous(db: AsyncSession, source: Source, actor_id: uuid.UUID | 
     ``admin_config history``.
     """
     try:
+        # Raw on purpose: the history keeps the document as it lies, a malformed one most of all,
+        # because the history is the way back from it.
         row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
         if row is None or not row.config_json:
             return
