@@ -29,7 +29,7 @@ import { useReplay } from './lib/useReplay'
 import { isTypingTarget, keyOwnedElsewhere } from './lib/hotkeys'
 import { navStops } from './lib/navRail'
 import { incident as demoIncident, planDocuments, gebaeudeDoc } from './data/demoIncident'
-import { ergRingOverlays } from './lib/ergRings'
+import { anyRingUn, ergRingOverlays } from './lib/ergRings'
 import { useHazardData } from './lib/useHazardData'
 import type { BoardAnno, Drawing, Entity, Incident, LayerDef, LayerId, LngLat, MittelEntry, ReactivateResult, TimelineEvent, Trupp } from './types'
 import { appConfig } from './config/appConfig'
@@ -743,9 +743,9 @@ export function IncidentWorkspace({
   )
   const drawings = replayActive ? (replayWs?.drawings ?? []) : doc.drawings
 
-  // re-render when the fetched ADR/ERG datasets land (lib/useHazardData) — the rings and
-  // baked placards below read them synchronously.
-  const hazVersion = useHazardData()
+  // the ERG rings below read the ERG table synchronously: it loads once a UN number is on the
+  // board (live or in the replay), and the workspace re-renders when it lands (lib/useHazardData)
+  const hazVersion = useHazardData({ erg: useMemo(() => anyRingUn(entities), [entities]) })
   const resolvedMapDrawings = useMemo(() => resolveMapDrawings(drawings, entities), [drawings, entities])
   /**
    * The ONE thing the header pair does: step the global timeline, then SAY what it stepped.
@@ -1851,8 +1851,8 @@ export function IncidentWorkspace({
   // interaction provides — a Planungshilfe does not warrant its own clock.
   const mapOverlays = useMemo(
     () => [...(undergroundMapOverlay ? [undergroundMapOverlay] : []), ...ergRingOverlays(entities, new Date())],
-    // hazVersion: the ERG table arrives by fetch shortly after boot (lib/useHazardData) —
-    // rings drawn from an already-typed UN appear with it.
+    // hazVersion: the ERG table arrives by fetch once a UN number is on the board
+    // (lib/useHazardData) — rings drawn from an already-typed UN appear with it.
     [entities, hazVersion, undergroundMapOverlay],
   )
 

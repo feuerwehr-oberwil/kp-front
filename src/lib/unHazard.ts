@@ -46,11 +46,11 @@ export interface UnHazardEntry {
 
 // The dataset is a static asset (public/un-hazard.json — 0.5 MB it no longer costs the
 // entry chunk to parse), loaded once via lib/staticData: sync lookups miss (null/empty)
-// until it lands, main.tsx kicks the load at boot, and surfaces re-render on arrival
+// until it lands; a surface that needs it starts the load and re-renders on arrival
 // through lib/useHazardData. See staticData.ts for the contract.
 const ds = createStaticDataset<UnHazardEntry[]>('un-hazard.json')
 
-/** Kick (or await) the dataset load — boot prefetch and the print path call this. */
+/** Kick (or await) the dataset load — lib/useHazardData and the print paths call this. */
 export async function ensureUnHazard(): Promise<void> { await ds.ensure() }
 /** For lib/useHazardData (useSyncExternalStore). */
 export const subscribeUnHazard = ds.subscribe

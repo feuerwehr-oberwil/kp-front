@@ -28,6 +28,8 @@ import {
 } from '../lib/krokiLegend'
 import type { CaptionMode, Drawing, Entity, LayerDef, LngLat, Trupp } from '../types'
 import { krokiStandLabel, type KrokiView } from '../lib/report'
+import { anyPlacardUn } from '../lib/placard'
+import { useHazardData } from '../lib/useHazardData'
 import { cartoRasterTiles, withCartoLabelsBaked } from '../lib/carto'
 
 // WYSIWYG framing of the printed Kroki: the auto-fit (or the last chosen crop) is just the
@@ -129,6 +131,8 @@ export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false,
   onViewChange?: (view: KrokiView) => void
 }) {
   const P = appConfig.copy.preflight
+  // the preview bakes a numbered Tafel's Kemler from the ADR table (lib/krokiPayload · krokiEntity)
+  useHazardData({ un: useMemo(() => anyPlacardUn(scene.entities), [scene.entities]) })
   // read once per open: a ticking «now» would move the slider's right end under the finger
   const [nowMs] = useState(() => Date.now())
   /** where the thumb is WHILE dragging — the reconstruction waits for it to stop */

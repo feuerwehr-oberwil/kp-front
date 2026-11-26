@@ -17,6 +17,8 @@ import { isOnline } from './connectivity'
 import { ApiError } from './api'
 import { downloadPdf } from './download'
 import { buildKrokiPayload } from './krokiPayload'
+import { anyPlacardUn } from './placard'
+import { ensureUnHazard } from './unHazard'
 import { formatDateTime } from './report'
 import type { LiveSection } from './boardTemplate'
 import type { TimelineEvent } from '../types'
@@ -67,6 +69,8 @@ export async function printTafelPages(
   timeline?: readonly TimelineEvent[],
 ): Promise<void> {
   if (!isOnline()) throw new TafelPrintOffline()
+  // the Lagekarte box bakes a numbered Tafel's Kemler from the ADR table (lib/krokiPayload)
+  if (scene && anyPlacardUn(scene.entities)) await ensureUnHazard()
   const form = new FormData()
   form.append('payload', JSON.stringify(tafelPrintPayload(pages, incident, scene, new Date(), titles, timeline)))
   try {

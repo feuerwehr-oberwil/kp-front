@@ -65,6 +65,7 @@ import { isBottomSheet, nudgeSelectionIntoRect, rectCenter, visibleWorkRect, typ
 import { doneAct, doneOf, donePlace, offersDone } from '../lib/objectDone'
 import { serverNow, serverNowIso } from '../lib/serverClock'
 import { useHazardData } from '../lib/useHazardData'
+import { anyPlacardUn } from '../lib/placard'
 import { isMeasuredSymbol, symbolControls, symbolTitleOptions, symbolFieldOptions, symbolPresetFieldKeys } from '../lib/symbols'
 import { ContextPanel, type PatchPhase, type SymbolPatch } from './ContextPanel'
 import { DrawEditor } from './DrawEditor'
@@ -450,9 +451,9 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     return titleDraft ? drawn.map((a) => (a.id === titleDraft.id ? { ...a, label: titleDraft.label } : a)) : drawn
   }, [annosAll, formAnnos, titleDraft])
   const withForms = (next: BoardAnno[]) => (formAnnos.length ? [...next.filter((a) => isDrawnBoardKind(a.kind)), ...formAnnos] : next)
-  // repaint the baked placard glyphs (Kemler auto-derived via lookupUN) when the fetched
-  // ADR dataset lands — see lib/useHazardData.
-  useHazardData()
+  // the baked placard glyphs (Kemler auto-derived via lookupUN): the ADR table loads once a
+  // numbered Tafel is on the sheet, and they repaint when it lands — see lib/useHazardData.
+  useHazardData({ un: useMemo(() => anyPlacardUn(annosAll), [annosAll]) })
   const active = plans.find((p) => p.id === activeId) ?? plans[0]
   // The live OSM outline sheet is a SELECTION surface: it exists to pick the building that becomes
   // the Gebäude view, and nothing else — it is the picking FACE of the one «Gebäude» rail tile

@@ -51,7 +51,7 @@ export function UnHazardSection({ un, ringMode, onRingMode, ergCoord, ergAt, onA
   // read per-render (not module-load) so the resolved locale is applied — see config/copy
   const C = appConfig.copy.contextPanel
   // repaint when the fetched hazard datasets land (lib/useHazardData)
-  useHazardData()
+  useHazardData({ un: true, erg: true })
   // live ADR hazard readout — derived from the current UN-Nr row, so it updates as you
   // type. Only present when this symbol carries a UN-Nr field with a value.
   const unValue = un.trim()
