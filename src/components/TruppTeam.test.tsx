@@ -409,3 +409,25 @@ describe('TruppTeam', () => {
     ], 'remove')
   })
 })
+
+// owner pick UX journeys B2·20 (25.11.2026): the form says who leads – «Gruppenführer» on the top
+// row and every person's Grad – instead of the amber outline alone (field ask 08.09.2026)
+describe('TruppTeam says who leads', () => {
+  const crew = [person('a', 'Weber Marco', 'wm'), person('b', 'Huber Sarah', 'fwm'), person('c', 'Gast Frei')]
+  const slots: Slot[] = [{ name: 'Weber Marco', personId: 'a' }, { name: 'Huber Sarah', personId: 'b' }, { name: 'Frei Nina' }]
+
+  it('puts «Gruppenführer» on the top row and the Grad on each roster person', () => {
+    setup(slots, { personnel: crew })
+    const rows = [...document.querySelectorAll(`.${s.teamChosen} > li`)]
+    expect(rows[0].textContent).toBe(`WmWeber Marco${appConfig.copy.atemschutz.leaderLabel}`)
+    expect(rows[1].textContent).toBe('FwmHuber Sarah')
+    // a typed Gast has no Grad
+    expect(rows[2].textContent).toBe(`Frei Nina${appConfig.copy.atemschutz.teamManual}`)
+  })
+
+  it('on the phone the chips take the Grad, the crown stays colour (no pill re-wraps them)', () => {
+    setup(slots, { personnel: crew, phone: true })
+    const chips = [...document.querySelectorAll(`.${s.teamChips} > li`)]
+    expect(chips[0].textContent).toBe('WmWeber Marco')
+  })
+})

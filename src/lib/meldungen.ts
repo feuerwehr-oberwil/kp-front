@@ -10,6 +10,8 @@
 // away by itself, whatever arrived last. That is what makes «Update bereit» structurally
 // incapable of standing above an overdue Wiedervorlage — by construction, not by luck.
 
+import type { MenuActionItem, MenuHeading, MenuSeparator } from './overlays/Menu'
+
 /** Colour class of a message. Drives the row's left edge and its glyph; never the order (a
  *  `warn`-toned Prüfen row does not overtake a due Wiedervorlage). */
 export type MeldungTone = 'alarm' | 'warn' | 'info' | 'calm'
@@ -90,18 +92,22 @@ export type MeldungKind = keyof typeof MELDUNG_RANK
  *  `Meldeleiste`). WORD ONLY (button sweep SHEETS.4, 17.11.2026): the row's leading glyph already
  *  carries its tone, and a row where two buttons had a glyph and the third none read the bare one
  *  as lesser – so there is no `icon` to set. Only a busy loader takes the glyph slot. */
-export interface MeldungAction {
+export type MeldungAction = {
   label: string
   /** a loader leads the word — the action is running (taking an alarm reaches the server) */
   busy?: boolean
-  onClick: () => void
   /** the row's one filled action (docs/ui-conventions.md · Buttons) */
   primary?: boolean
   /** a primary whose move KEEPS things safely as they are, filled green like the Atemschutz
    *  «Eintritt» (`--green`) — «Am Einsatzort lassen» (GpsFollowMeldung, D3-a). Only with `primary`. */
   go?: boolean
   disabled?: boolean
-}
+} & (
+  | { onClick: () => void; menu?: never }
+  /** …or the button OPENS a menu of these rows instead of acting itself – a choice that belongs to
+   *  the row (the missing Sicherungstrupp's «Bestimmen», lib/safetyPick) */
+  | { menu: (MenuActionItem | MenuHeading | MenuSeparator)[]; onClick?: never }
+)
 
 /** A piece of a sub-line: plain text, or a word the row emphasises – `ins` what is new, `del`
  *  what it replaces, `b` a value to read (the «Alarm aktualisiert» diff, Banners · AlarmUpdateBanner).
@@ -144,6 +150,12 @@ export interface Meldung {
    *  keeps one (20.10.2026, UX sweep S2: «Rückmeldung Strom an EBL: Hauptschalter …» lost the
    *  part that says what to do). The title still opens the whole text in the Verlauf. */
   subLines?: 2
+  /** A text from outside to READ in full, under the title and sub-line: `head` bold, `text` as
+   *  sent – both at the read-out step (08-toasts · .ml-quote), wrapped, never clamped, never
+   *  highlighted. The «Einsatzdaten prüfen» row
+   *  carries the Stichwort and the Alarmmeldung (owner pick UX journeys B3·4, 25.11.2026): «Passt»
+   *  confirms what the crew has just read. The row grows by it; on a phone that is 4–5 lines. */
+  quote?: { head: string; text: string }
 }
 
 /**

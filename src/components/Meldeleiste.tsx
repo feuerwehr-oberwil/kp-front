@@ -5,9 +5,10 @@ import { createPortal } from 'react-dom'
 import { getMeldeleisteHost, subscribeMeldeleisteHost } from '../lib/meldeleisteHost'
 import { fillTemplate } from '../lib/format'
 import { Icon } from '../lib/icons'
+import { Menu } from '../lib/overlays'
 import { appConfig } from '../config/appConfig'
 import { rankMeldungen, type Meldung, type MeldungText } from '../lib/meldungen'
-import { getMeldungen, subscribeMeldungen } from '../lib/useMeldung'
+import { getMeldungen, liveMeldung, subscribeMeldungen } from '../lib/useMeldung'
 
 // ══ Die Meldeleiste ══════════════════════════════════════════════════════════════════════
 // ONE strip under the top bar, spanned between the two rails, for every message that has no
@@ -86,12 +87,19 @@ export function Meldeleiste({ only }: { only?: (m: Meldung) => boolean } = {}) {
     // over each other is what this replaces.
     <div ref={box} className={all ? 'ml ml-all' : 'ml'} role="status" aria-live="polite" aria-label={C.region}>
       {rows.map((m) => (
-        <div key={m.id} className={`ml-row t-${m.tone}${m.wrap ? ' wrap' : ''}${m.subLines === 2 ? ' sub2' : ''}`}>
+        <div key={m.id} className={`ml-row t-${m.tone}${m.wrap ? ' wrap' : ''}${m.subLines === 2 ? ' sub2' : ''}${m.quote ? ' quote' : ''}`}>
           <Icon id={m.icon} className="ml-ic" />
           <span className="ml-txt">
             <MeldungTitle m={m} />
             {m.sub && <span className="ml-sub"><MeldungSpans text={m.sub} /></span>}
             {m.sub2 && <span className="ml-sub"><MeldungSpans text={m.sub2} /></span>}
+            {/* read-only text from outside, in full (lib/meldungen · quote) – inert like the sub-lines */}
+            {m.quote && (
+              <span className="ml-quote">
+                <span className="ml-quote-head">{m.quote.head}</span>
+                {m.quote.text && <span className="ml-quote-text ui-selectable">{m.quote.text}</span>}
+              </span>
+            )}
           </span>
           <MeldungActions m={m} />
           <MeldungDismiss m={m} column={anyDismiss} />
@@ -107,6 +115,10 @@ export function Meldeleiste({ only }: { only?: (m: Meldung) => boolean } = {}) {
   )
   return host ? createPortal(strip, host) : strip
 }
+
+/** A tap on a painted row runs the handler of the row as its publisher LAST wrote it (useMeldung ·
+ *  liveMeldung): the painted one can be a render old. `pick` finds the same control on it. */
+const tap = (m: Meldung, pick: (live: Meldung) => (() => void) | undefined) => () => pick(liveMeldung(m))?.()
 
 /** The row's title — plain text, or the message's own way in where it has one (`onOpen`).
  *
@@ -131,7 +143,7 @@ function MeldungTitle({ m }: { m: Meldung }) {
       className={twin ? 'ml-open plain' : 'ml-open'}
       aria-label={`${m.title} · ${m.onOpen.label}`}
       title={m.onOpen.label}
-      onClick={m.onOpen.onClick}
+      onClick={tap(m, (x) => x.onOpen?.onClick)}
     >
       <span className="ml-title">{m.title}</span>
     </button>
@@ -156,18 +168,28 @@ function MeldungActions({ m }: { m: Meldung }) {
   if (!m.actions?.length) return null
   return (
     <span className="ml-act">
-      {m.actions.map((a) => (
-        <Button
-          key={a.label}
-          variant={a.primary ? (a.go ? 'go' : 'primary') : 'secondary'}
-          className="ml-btn"
-          disabled={a.disabled}
-          onClick={a.onClick}
-          icon={a.busy ? <ShellLoader /> : undefined}
-        >
-          {a.label}
-        </Button>
-      ))}
+      {m.actions.map((a, i) => {
+        const btn = (
+          <Button
+            key={a.label}
+            variant={a.primary ? (a.go ? 'go' : 'primary') : 'secondary'}
+            className="ml-btn"
+            disabled={a.disabled}
+            onClick={a.menu ? undefined : tap(m, (x) => x.actions?.[i]?.onClick)}
+            icon={a.busy ? <ShellLoader /> : undefined}
+          >
+            {a.label}
+          </Button>
+        )
+        // a button that opens the row's own choice (MeldungAction · menu) – the app's menu skin
+        return a.menu
+          ? <Menu key={a.label} trigger={btn} popupClassName="rp-print-menu" itemClassName={() => 'rp-print-menu-item'}
+              items={a.menu.map((it, k) => ('onClick' in it ? { ...it, onClick: tap(m, (x) => {
+                const live = x.actions?.[i]?.menu?.[k]
+                return live && 'onClick' in live ? live.onClick : undefined
+              }) } : it))} />
+          : btn
+      })}
     </span>
   )
 }
@@ -179,7 +201,7 @@ function MeldungActions({ m }: { m: Meldung }) {
 function MeldungDismiss({ m, column }: { m: Meldung; column: boolean }) {
   if (!m.dismiss) return column ? <span className="ml-x ghost" aria-hidden="true" /> : null
   return (
-    <button type="button" className="ml-x" aria-label={m.dismiss.label} onClick={m.dismiss.onClick}>
+    <button type="button" className="ml-x" aria-label={m.dismiss.label} onClick={tap(m, (x) => x.dismiss?.onClick)}>
       <Icon id="close" />
     </button>
   )

@@ -1,5 +1,5 @@
 {
-  "notice": "Cette traduction n’a pas encore été vérifiée par une personne francophone des sapeurs-pompiers – les <a href=\"#kontakt\">suggestions et corrections</a> sont bienvenues. La démo est en allemand.",
+  "notice": "Cette traduction n’a pas encore été relue par un sapeur-pompier francophone. Les <a href=\"#kontakt\">suggestions et corrections</a> sont les bienvenues. La démo est en allemand.",
   "meta": {
     "title": "KP Front – Conduite d’intervention numérique pour les sapeurs-pompiers",
     "description": "KP Front est le poste de commandement numérique sur les lieux : carte, plans, binômes, journal et rapport – hors ligne et open source.",
@@ -53,7 +53,7 @@
     "ctaSelf": "L’exploiter soi-même",
     "ctaNote": "Sans inscription – dans la démo, il y a le feu à Musterdorf (interface en allemand)",
     "alt": {
-      "tablet": "KP Front sur tablette : carte de situation avec signes tactiques, conduite et barres d’outils",
+      "tablet": "KP Front sur tablette : carte de situation avec signes conventionnels, conduite et barres d’outils",
       "phone": "KP Front sur téléphone : la même carte de situation avec barres d’outils et de navigation"
     }
   },
@@ -64,7 +64,7 @@
     }
   },
   "tenet": {
-    "eyebrow": "Notre mesure",
+    "eyebrow": "Le critère décisif",
     "quote": "«&nbsp;Utilisable à <em>3 heures du matin</em> – après six mois sans exercice&nbsp;»",
     "expl": "Dans un corps de milice, personne n’est devant l’écran tous les jours. L’application\n        doit donc pouvoir être utilisée correctement à moitié endormi :\n        <strong>l’essentiel visible d’emblée, de bons réglages par défaut plutôt que des options,\n        et rien qui ne puisse être annulé.</strong>"
   },
@@ -76,7 +76,7 @@
         "h2": "Une image de situation sur chaque appareil.",
         "p": "Signes conventionnels CSSP, secteurs, conduites et notes sur les cartes swisstopo. Bornes hydrantes, conduites et positions des véhicules se trouvent en dessous, sous forme de couches. L’alarme de Divera ou FireHub se reprend en un geste.",
         "li": [
-          "Signes tactiques selon la CSSP – avec étage, propagation et notes",
+          "Signes conventionnels selon la CSSP – avec étage, propagation et notes",
           "Transport d’eau : pression le long de la conduite et emplacement des pompes",
           "Infos sur le bâtiment et mesures immédiates pour l’objet"
         ],
@@ -88,7 +88,7 @@
         "p": "Pression, moment du repli et temps depuis le dernier contact sont décomptés pour chaque équipe. L’application alerte avant que la marge ne devienne trop courte – même si personne ne regarde l’heure. Sur le téléphone comme sur la tablette.",
         "li": [
           "Temps depuis le contact et moment du repli pour chaque équipe",
-          "Urgence ARI tout en haut, immédiatement, sur tous les appareils",
+          "Urgence PR tout en haut, immédiatement, sur tous les appareils",
           "Équipes avec ou sans appareil respiratoire, avec leur mission"
         ],
         "alt": "Équipes sur téléphone : pression et temps depuis le dernier contact pour chaque équipe"
@@ -146,7 +146,7 @@
       },
       {
         "h3": "Adapté à vous",
-        "p": "Votre effectif, vos véhicules, plans, check-lists et couches de carte se configurent dans votre propre espace d’administration – sans programmer."
+        "p": "Votre effectif, vos véhicules, plans, listes de contrôle et couches de carte se configurent dans votre propre espace d’administration – sans programmer."
       }
     ],
     "link": "Guide pour l’exploiter vous-mêmes"
@@ -158,7 +158,7 @@
     "groups": [
       {
         "h3": "Carte &amp; plan",
-        "peek": "Signes tactiques · transport d’eau · matières dangereuses · infos bâtiment · mesures de gaz",
+        "peek": "Signes conventionnels · transport d’eau · matières dangereuses · infos bâtiment · mesures de gaz",
         "items": [
           "<strong>Signes conventionnels</strong> selon la CSSP, avec attributs et libellés",
           "Secteurs, zones de barrage, surfaces et dessin à main levée",
@@ -179,7 +179,7 @@
       },
       {
         "h3": "Effectif &amp; moyens",
-        "peek": "Surveillance ARI · présences · plan de relève · partage de position · matériel",
+        "peek": "Surveillance PR · présences · plan de relève · partage de position · matériel",
         "items": [
           "<strong>Surveillance PR</strong> : pression, moment du repli, temps depuis le dernier contact, alarmes",
           "<strong>Urgence PR</strong>&nbsp;: une équipe en détresse apparaît aussitôt en rouge, tout en haut, sur tous les appareils – avec chrono d’urgence et équipe de sécurité",
@@ -191,8 +191,8 @@
           "Partager l’intervention par lien ; l’accès est clairement signalé et peut être révoqué\n            à tout moment",
           "<strong>Mode présentation</strong> : toute personne qui a l’intervention ouverte suit l’écran de celle qui présente – tous peuvent pointer, rien n’est enregistré",
           "Matériel avec stock et consommation",
-          "Checklists pour l’aide à la conduite et le chef d’intervention",
-          "Rôle chef d’intervention : tenir la présence, les moyens, les check-lists et le rapport – lire la carte et les équipes sans rien déplacer"
+          "Listes de contrôle pour l’aide à la conduite et le chef d’intervention",
+          "Rôle chef d’intervention : tenir la présence, les moyens, les listes de contrôle et le rapport – lire la carte et les équipes sans rien déplacer"
         ]
       },
       {
@@ -223,8 +223,8 @@
           "Peut reprendre les alarmes de Divera ou FireHub ; d’autres systèmes d’alerte peuvent être raccordés par l’interface ouverte <span class=\"opt\">facultatif</span>",
           "Positions des véhicules par GPS <span class=\"opt\">facultatif</span>",
           "Connexion avec Microsoft au compte existant, en plus du PIN <span class=\"opt\">facultatif</span>",
-          "<strong>Visites d’objets</strong> sans intervention, hors ligne – check-list, photos et rapport <span class=\"opt\">facultatif</span>",
-          "<strong>Espace d’administration propre</strong> à chaque corps : effectif, véhicules, checklists, couches cartographiques et modèles"
+          "<strong>Visites d’objets</strong> sans intervention, hors ligne – liste de contrôle, photos et rapport <span class=\"opt\">facultatif</span>",
+          "<strong>Espace d’administration propre</strong> à chaque corps : effectif, véhicules, listes de contrôle, couches cartographiques et modèles"
         ]
       }
     ]
@@ -244,7 +244,7 @@
       },
       {
         "q": "Pour quels corps et quelles interventions KP Front est-il conçu ?",
-        "a": "Pour les sapeurs-pompiers de milice, les corps locaux, les centres de renfort, les sapeurs-pompiers professionnels et d’entreprise – lors d’incendies, d’accidents de la circulation, d’assistance technique, de défense chimique et de lutte contre les hydrocarbures et d’événements majeurs. KP Front est né dans l’engagement d’un corps de sapeurs-pompiers de milice ; il est donc conçu pour des personnes qui ne l’utilisent pas tous les jours."
+        "a": "Pour les corps de sapeurs-pompiers de milice et locaux, les centres de renfort ainsi que les sapeurs-pompiers professionnels et d’entreprise – lors d’incendies, d’accidents de la circulation, d’interventions d’assistance technique, de défense chimique, de lutte contre les hydrocarbures et d’événements majeurs. KP Front est né dans l’engagement d’un corps de sapeurs-pompiers de milice ; il est donc conçu pour des personnes qui ne l’utilisent pas tous les jours."
       },
       {
         "q": "Où sont stockées les données d’intervention sensibles ?",
@@ -272,7 +272,7 @@
       },
       {
         "q": "Peut-on l’adapter à nos procédures ?",
-        "a": "Oui. Chaque corps a son propre espace d’administration : effectif, véhicules, doctrine\n          et modèles y sont librement réglables. Checklists, plans d’objet et couches cartographiques proviennent de vos propres données de corps : un par un, vous les téléversez dans l’espace d’administration ; en nombre, avec les outils en ligne de commande livrés. Et comme tout le code est sur\n          <a href=\"https://github.com/feuerwehr-oberwil/kp-front\" target=\"_blank\" rel=\"noopener\">GitHub <svg class=\"ico\" style=\"width:13px;height:13px;vertical-align:-2px\"><use href=\"#i-gh\"/></svg></a>,\n          tout le reste peut être construit – par vous-mêmes ou sur mandat."
+        "a": "Oui. Chaque corps a son propre espace d’administration : effectif, véhicules, doctrine\n          et modèles y sont librement réglables. Listes de contrôle, plans d’objet et couches cartographiques proviennent de vos propres données de corps : un par un, vous les téléversez dans l’espace d’administration ; en nombre, avec les outils en ligne de commande livrés. Et comme tout le code est sur\n          <a href=\"https://github.com/feuerwehr-oberwil/kp-front\" target=\"_blank\" rel=\"noopener\">GitHub <svg class=\"ico\" style=\"width:13px;height:13px;vertical-align:-2px\"><use href=\"#i-gh\"/></svg></a>,\n          tout le reste peut être construit – par vous-mêmes ou sur mandat."
       },
       {
         "q": "KP Front ne fonctionne-t-il qu’en Suisse ?",

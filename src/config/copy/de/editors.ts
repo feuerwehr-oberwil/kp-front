@@ -374,14 +374,14 @@ export const editorsCopy = {
     gpsStoppedSubMany: 'Folgen gestoppt. {lines} zeigen die Fahrt.',
     /** the vehicle is on site again while the line still follows it (TLF went to refill) */
     gpsBackTitle: '{vehicle} wieder am Einsatzort',
-    gpsBackSub: '{lines} zeigt die Fahrt seit {time}.',
-    gpsBackSubMany: '{lines} zeigen die Fahrt seit {time}.',
+    gpsBackSub: '{lines} zeigt die Fahrt seit {time} Uhr.',
+    gpsBackSubMany: '{lines} zeigen die Fahrt seit {time} Uhr.',
     gpsRevert: 'Zurück auf Stand am Einsatzort',
-    gpsRevertAt: 'Zurück auf Stand am Einsatzort ({time})',
+    gpsRevertAt: 'Zurück auf Stand am Einsatzort ({time} Uhr)',
     /** the ↶ bubble's word for that step */
     gpsRevertStep: '{name} zurück auf Stand am Einsatzort',
     // ── The line editor while an end follows (DrawEditor · the GPS block at the top) ──
-    gpsFollowingHead: '{line} · folgt {vehicle} seit {time}',
+    gpsFollowingHead: '{line} · folgt {vehicle} seit {time} Uhr',
     gpsFollowingHeadBare: '{line} · folgt {vehicle}',
     gpsStoppedHead: '{line} · Folgen gestoppt · {vehicle}',
     gpsDistanceNow: 'jetzt {distance} entfernt',
@@ -400,6 +400,16 @@ export const editorsCopy = {
     colorNames: { '#1f6feb': 'Blau', '#e8392b': 'Rot', '#1f9d57': 'Grün', '#e2920a': 'Orange', '#1b2330': 'Schwarz', '#ffffff': 'Weiss' },
     // the selection bar's copy of ONE object, ⌘D's twin for a touch tablet (rare-user F18)
     duplicate: 'Duplizieren',
+    // ── «Enden»: was die zwei Enden einer Linie halten, in Worten (Owner-Pick UX-Journeys,
+    // 25.11.2026 · B2·49). Die oberste Zeile des Linien-Editors: «Enden ✓ Hydrant 2 m → 🔗 TLF
+    // [Lösen]». Ein Tipp auf die Zeile springt zu «Verbindungen». «Hydrant» ist der nächste
+    // Hydrant der Hydranten-Ebene (angedockt wird dort nicht), gelesen wie «In der Nähe».
+    ends: 'Enden',
+    endHydrant: 'Hydrant',
+    endNone: 'nichts',
+    endsDetach: 'Lösen',
+    endsDetachLabel: 'Verbindung zu {name} lösen',
+    endsGo: 'Zu den Verbindungen',
   },
   topBar: {
     offline: 'Offline',

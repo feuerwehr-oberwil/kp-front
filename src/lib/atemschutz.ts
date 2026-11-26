@@ -528,6 +528,27 @@ export function entryPressureConfirmed(t: Pick<Trupp, 'readings'>): boolean {
   return false
 }
 
+/** The log rows that reset the contact clock – what «the last Kontakt» is made of. `paOn` too: the
+ *  upgrade to Atemschutz stamps the clock (truppActions/lifecycle · editTrupp · kindPatch). */
+const CONTACT_KINDS: ReadonlySet<TruppReading['kind']> = new Set(['entry', 'contact', 'pressure', 'alarm', 'rueckzug', 'resume', 'paOn'])
+
+/**
+ * When the LAST Kontakt of a crew inside came from the handed-over Atemschutz board, its time –
+ * else null (owner pick UX journeys M·12, 25.11.2026). The card's Kontakt tile says «🔗 22:10 ·
+ * über Link» with it, so the tablet does not log a second Kontakt for a call the Eingang already
+ * answered; the next Kontakt logged anywhere else is newer and ends it. Read off the log
+ * (types · TruppReading.via), the newest clock-resetting row of the running deployment.
+ */
+export function contactViaLink(t: Trupp): string | null {
+  if (!truppInField(t)) return null
+  const readings = t.readings ?? []
+  for (let i = readings.length - 1; i >= currentRunStart(readings); i--) {
+    const r = readings[i]
+    if (CONTACT_KINDS.has(r.kind)) return r.via === 'link' ? r.t : null
+  }
+  return null
+}
+
 /* ── Atemschutznotfall (F1, 08.10.2026) ───────────────────────────────────────────────────────
  * One Trupp in distress, said by a person (the held «Notfall»), not derived from a clock. These
  * helpers are the one place «is there a Notfall», «who can go in for them» and «what do we last

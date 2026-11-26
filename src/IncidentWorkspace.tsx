@@ -2031,7 +2031,7 @@ export function IncidentWorkspace({
   const releaseHere = (drawing: Drawing, endpoint: 'start' | 'end') => {
     setDrawingAttachment(drawing.id, endpoint, undefined, resolvedEndOf(drawing, endpoint))
   }
-  /** «Zurück auf Stand am Einsatzort (hh:mm)»: one ↶ (named), one Verlauf row, snapshots cleared. */
+  /** «Zurück auf Stand am Einsatzort (hh:mm Uhr)»: one ↶ (named), one Verlauf row, snapshots cleared. */
   const revertAll = (ends: readonly GpsEnd[]) => {
     const kept = ends.filter((e) => e.before)
     if (!kept.length) return
@@ -3110,7 +3110,7 @@ export function IncidentWorkspace({
             stands in its place (AtemschutzNotfall) */}
         <AtemschutzNotfallMeldungen trupps={trupps} onBoard onGoToTrupp={(id) => setTruppFocus({ id, nonce: Date.now() })} />
         {/* «Kein Sicherungstrupp bereit» – the person at the door is who most needs it (FEEDBACK.1) */}
-        {azAlarmActive && <SafetyMissingMeldung trupps={trupps} />}
+        {azAlarmActive && <SafetyMissingMeldung trupps={trupps} canPick={canEditTrupps} />}
       </div>
     )
   }
@@ -3327,7 +3327,7 @@ export function IncidentWorkspace({
         selectedDrawingId, patchDrawingLabelLive, commitDrawingLabel,
         changeMapEnding, reverseDrawing, setDrawingWallRole, objects, syncLineNoToTrupp, pickablePersonnel, linkTruppLine,
         unlinkLine, setSelectedDrawingId, setMode, setPanel, showTrupp, setGpsRouting, revertAll, gpsEndOf, releaseHere,
-        releaseOnSite, setDrawingAttachment, focusEntity, isVisible, toggleLayer, deleteDrawing,
+        releaseOnSite, setDrawingAttachment, focusEntity, isVisible, toggleLayer, deleteDrawing, layers,
       }} />
 
       <MapToolDocks {...{

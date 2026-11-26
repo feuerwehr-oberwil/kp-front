@@ -34,8 +34,9 @@ export function snapExpanded(width: number, snap = (RAIL_COMPACT + RAIL_WIDE) / 
   return width > snap
 }
 
-/** The ONE name a plan goes by — the rail tile, the phone's «Plan wählen», the object's plan tiles
- *  on the Karte, the Objektbesuch and the Verknüpfen toggle all say it (owner, 27.10.2026: «spelled
+/** The ONE name a plan goes by — the rail tile, the phone's «Plan wählen», the Objektbesuch and the
+ *  Verknüpfen toggle all say it (the object's sheet on the Karte says the plan's TITLE since the
+ *  owner pick UX journeys, 25.11.2026 · B2·61 — KartePanel · PlanTiles) (owner, 27.10.2026: «spelled
  *  out as Wasser, and then with 1 or 2 if there are multiple … the same way as for photovoltaic,
  *  where it's just PV»; on a visit «Modul 1 exactly like on the object»).
  *

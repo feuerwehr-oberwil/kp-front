@@ -528,6 +528,12 @@ describe('an open stretch in an Einsatz with an Einsatzende', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: fillTemplate(A.openBlocks, { name: 'Meier Anna' }) }))
   }
+  // The «bis» field names the day when it is not today, so the clock stands on the Einsatzende's day.
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-11-25T14:00:00.000Z'))
+  })
+  afterEach(() => { vi.useRealTimers() })
 
   it('reads «Ganzer Einsatz», ends at the Einsatzende and counts to it', () => {
     open(startedAt)

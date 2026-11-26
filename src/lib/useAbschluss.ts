@@ -145,16 +145,17 @@ export function useAbschluss({
        abschliessen» IS the confirm — the Einsatz closes at once, and the toast «Einsatz
        abgeschlossen · Wieder öffnen» is the way back. The LAST question of the chain whose «yes»
        is that answer carries the confirm's own sentence (the Rapport closes, Nachträge by
-       reopening). The FU's «Noch angemeldet» answers «Als «nicht eingesetzt» schliessen» — a
+       reopening). The FU's «Noch angemeldet» answers «#2 nicht eingesetzt – weiter» — a
        stand-down, not a «trotzdem» — so the normal confirm still follows it. */
     const notfall = truppsRef.current.filter(truppInNotfall)
     const inside = truppsRef.current.filter(truppStillDeployed)
     /* ⚠️ A Trupp still ANGEMELDET is asked about on its own (24.09.2026, D1 ⑦). On 23.09.
        the Sicherungstrupp T6 stood «angemeldet» to the end, and the confirm below counted only
        the crews inside, so the record closed with a crew neither sent in nor stood down. Three
-       answers: «Zur Tafel» (the focused, safe one) goes there and closes nothing; «Als «nicht
-       eingesetzt» schliessen» is the SAME close-out the card offers (Trupp … nicht eingesetzt,
-       undoable per Trupp); dismissing does nothing at all.
+       answers: «Zur Tafel» (the focused, safe one) goes there and closes nothing; «#2 nicht
+       eingesetzt – weiter» (owner pick UX journeys B2·15, 25.11.2026; until then «Als «nicht
+       eingesetzt» schliessen», which read as closing the Einsatz) is the SAME close-out the card
+       offers (Trupp … nicht eingesetzt, undoable per Trupp); dismissing does nothing at all.
        ⚠️ The answer is only RECORDED here (review 25.09.2026). The stand-down runs after the
        final «Abschliessen» below — «schliessen» and then «Abbrechen» on the next question must
        leave every Trupp exactly as it was.
@@ -208,7 +209,10 @@ export function useAbschluss({
     const subject = title && startedAt ? einsatzSubject({ title, started_at: startedAt, is_exercise: !!incidentMeta.is_exercise }) : undefined
     const askCrew = (which: NonNullable<typeof lastAsked>, spec: Pick<ConfirmSpec, 'title' | 'message' | 'items' | 'confirmLabel'>) => {
       const isConfirm = crewConfirms && which === lastAsked
-      const note = [standDownTrupps ? '' : A.boardNotYours, isConfirm ? A.confirmMsg : ''].filter(Boolean).join(' ')
+      /* the stand-down answer is not the close (owner pick UX journeys B2·15, 25.11.2026): the line
+         over the buttons says the Einsatz closes only at the next question */
+      const next = which === 'registered' && standDownTrupps ? A.registeredNext : ''
+      const note = [standDownTrupps ? '' : A.boardNotYours, next, isConfirm ? A.confirmMsg : ''].filter(Boolean).join(' ')
       const ask = {
         ...spec,
         /* ⚠️ The question that IS the confirm shows what the confirm showed (lead review of FLOW.4,
@@ -251,7 +255,10 @@ export function useAbschluss({
         // every question of the chain carries a title (owner review 26.09.2026)
         title: A.registeredTitle,
         message: registeredAbschlussMessage(registered),
-        confirmLabel: standDownTrupps ? A.registeredStandDown : A.insideClose,
+        // the button names the Trupp and says «weiter» (B2·15): «#2 nicht eingesetzt – weiter»
+        confirmLabel: !standDownTrupps ? A.insideClose
+          : registered.length === 1 ? fillTemplate(A.registeredStandDown, { who: typeof registered[0].no === 'number' ? `#${registered[0].no}` : registered[0].name.trim() })
+          : fillTemplate(A.registeredStandDownMany, { n: registered.length }),
       })
       if (answer === 'alt') { setMode('atemschutz'); setPanel(null); return false }
       if (answer !== true) return false

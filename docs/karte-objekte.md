@@ -336,10 +336,12 @@ The rules that are easy to break:
 - **The panel, in one order** (owner, 17.10.2026 · review round 2; its top 27.10.2026 · mocks
   2B/2C), the same for an object on the phone and on the tablet: head (kind, name, address, ✕) ·
   the station's word (Sofortmassnahmen, then Bemerkungen, no source line since 27.10.2026 — what matters most in
-  a hurry) · Pläne & Module as tiles, two to a line (the plan's name only, offline the «auf diesem
-  Gerät» mark — below) · Gebäude laut Register as bullets (the hazards first, each with ⚠ and its word) · In der Nähe ·
+  a hurry) · Pläne & Module as full-width rows named by the plan's title (the module number in the
+  badge, offline the «auf diesem Gerät» mark — below) · Gebäude laut Register as bullets (the hazards first, each with ⚠ and its word) · In der Nähe ·
   Objektbesuche · the actions, «Objektbesuch» and «Melden» (no map-portal links under them since
-  14.11.2026). A plain building or a dropped pin keeps that order with what
+  14.11.2026) – last in reading order, but PINNED at the panel's foot while the sections scroll
+  above them, phone and tablet alike (owner pick UX journeys, 25.11.2026 · B2·58: both walkers
+  scrolled past the hydrants for the visit button). A plain building or a dropped pin keeps that order with what
   it has (Register as the same bullets, In der Nähe, Melden; a pin also «Koordinaten kopieren»), a
   plan-less object too (no tiles). Every part is a top-level section with its head — no card
   around the first ones, no tabs (owner, 27.10.2026: «keep everything top level»). The action row is two equal halves where both labels fit; else the longer
@@ -482,16 +484,22 @@ The rules that are easy to break:
   object 68 px under an expanded rail's panel (`lib/karte/camera · besidePanel`; the same frame for
   a search pick, a deep link and «Objektplan»). Checked in a browser by
   `e2e/karte-plan-back-camera.mjs`.
-- **A plan tile is the plan's name, nothing else** (owner, review round 4: «just "modul 1",
+- **A plan row in the object's sheet says the plan's TITLE** (owner pick UX journeys, 25.11.2026 ·
+  B2·61): «Übersicht», «Zugang & Objekt» – `lib/karte/plans · planTitle`, with the object's own
+  name before a dash dropped (`titleUnderObject`: the head already says it) – one row a line, the
+  module number only in the badge («1», «2/3»). Both walkers were sent for «die Übersicht» and had
+  to guess which «Modul N» it was. This replaces «the tile is the plan's name, nothing else, two
+  to a line» (review round 4, 27.10.2026 · mock 2C) for the sheet only.
+- **Everywhere else a plan is named by its name** (owner, review round 4: «just "modul 1",
   "modul 2", etc. is enough»; 27.10.2026: «spelled out as Wasser, and then with 1 or 2 if there
   are multiple … the same way as for photovoltaic, where it's just PV»). ONE rule, `lib/navRail ·
-  planLabel`, read by every place a plan is named — these tiles, both rails, the phone's «Plan
-  wählen», the Objektbesuch and the Verknüpfen toggle: «Modul 1», «Modul 2/3», «Modul 4»,
+  planLabel`, read by both rails, the phone's «Plan wählen», the Objektbesuch and the Verknüpfen
+  toggle: «Modul 1», «Modul 2/3», «Modul 4»,
   «PV», «RWA», «Wasser», «Wasser 2», «PV 15» — a numbered module «Modul N», a sub-slot its own
   word (up to three letters upper-cased, a longer one capitalised), never «Modul 5-…» and never
   a lone letter. From the module key, never a file title or the catalogue's code («M4», «W»). No
-  title, no «PDF · 1 Seite · auf Karte ausgerichtet», no number badge; the «Gebäude» tile says
-  «Gebäude». Offline the ●/◐/○ mark trails the words (its word for a screen reader in the label).
+  «PDF · 1 Seite · auf Karte ausgerichtet»; the «Gebäude» tile says «Gebäude». Offline the ●/◐/○
+  mark trails the words (its word for a screen reader in the label).
   A key that is no module key says the plan's title.
 - **Plan titles** (`lib/karte/plans · planTitle`, the tablet rail and the view label): many sheets in the real catalogue are titled by
   their file name, «<object> – <module key>» («Migros – modul2», «Sägestrasse 8 - Schulhaus
@@ -499,8 +507,8 @@ The rules that are easy to break:
   ich herein», «Zugang & Objekt», «Photovoltaik»); a clean title («Übersicht», «Gemeindehaus –
   Übersicht») stays. A family sub-slot without an entry says its own name («Wasser»), a numbered
   sibling keeps its number («Wasser 2»), an unknown key reads «Modul N». The tablet rail's tile
-  names (its accessible label) read the document's title; the panel's tiles, the expanded rail's
-  words and the view label read `planLabel` (above) – the title overflows a 216px rail.
+  names (its accessible label) and the sheet's plan rows read the document's title; the expanded
+  rail's words and the view label read `planLabel` (above) – the title overflows a 216px rail.
 - **A head that is still being looked up is a skeleton**, never «Gebäude» or «…» in place of a
   name: a tapped building until the register answers (a searched address is named at once), a
   dropped pin until its address is known. A plain building carries no «Kein Objekt …»
@@ -529,8 +537,9 @@ The rules that are easy to break:
   its factual first sentence («Kein Objekt an diesem Punkt.») without the «Fehlende
   Angaben heissen nicht …» tail.
 - **The panel remembers where it was scrolled to** (owner, 20.10.2026): leaving an Einsatzobjekt
-  for a plan, an Objektbesuch or the other level and coming back puts «Objektbesuch» back under
-  the thumb instead of the top of the sheet. Per place (`KartePanel · scrollKey`), the last 12,
+  for a plan, an Objektbesuch or the other level and coming back puts the reader back where they
+  were instead of the top of the sheet («Objektbesuch» itself is pinned at the foot since
+  25.11.2026). Per place (`KartePanel · scrollKey`), the last 12,
   restored once the sections that were still loading have made the body tall enough again.
   Another object starts at the top.
 - **Doors by role.** «Objektbesuch» / «Melden» only for `objectVisits.captureRoles`
@@ -1062,6 +1071,11 @@ What the surface shows offline:
   bar) shows only when a row is red or nothing was checked for 90 days, never while an Einsatz runs,
   never under the menu or the search; «Später» hides it 30 days, «Keine Alarme auf diesem Gerät»
   for good. Green = no card, not a line.
+- **The bar's «Bereit für Alarme»** (owner pick UX journeys B3·6, 25.11.2026; `AlarmReadyPill`):
+  a quiet pill after the weather, green while the last alarm poll (the incident list or the Divera
+  pool) answered less than 60 s ago, red «Keine Verbindung – Alarme kommen nicht an» once one
+  fails (`lib/alarmPollHealth`); the lamp alone on a phone. A tap shows «Verbindung» and the
+  «Alarm auf diesem Gerät» line above in a popover. Before the first answer it shows nothing.
 - **The bar's «Offline» chip** (a dot only on the phone) stands where the weather was and opens
   **«Dieses Gerät»** scrolled to what the device holds (`KarteDeviceRows`, under the Alarm line;
   the «Keine Basiskarte» Meldung opens it the same way): Objektkatalog · Karte (this view) · Pläne (PDFs of the whole catalogue) ·
