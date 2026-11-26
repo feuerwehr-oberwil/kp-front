@@ -161,6 +161,12 @@ unchanged.
   start. Never a literal «76px» again. The row at `--under-bar` – Standort · GPS caveat on the
   left, the wind on the right – is the floating family (`--float-h` tall, 14px a side, 16px
   glyphs, owner 13.11.2026); the GPS chip's words wrap before they reach the wind chip.
+  *No piece of that row ever lies on an alert* (owner, 26.11.2026: the Standort tile covered
+  «Atemschutz überfällig – …» and its «Zum Trupp»): while a Meldeleiste stands the whole row
+  steps one `--float-gap` below it, by its measured `--ml-h`, and the strip ends one row higher
+  so the row finds its line above the floating row (15-mobile, beside `.phone-wx`). Position, not
+  z-index – Standort and GPS ride the top bar over the strip, the wind lay under it. The tablet
+  keeps these in the bar, so nothing there shares the strip's band.
 
 - *A docked tab strip is RESERVED by a sum of tokens, never a number* (30.09.2026, owner: «the
   journal entry slightly overlaps with the selector below»): `--rp-tabs-safe` (15-mobile) is the

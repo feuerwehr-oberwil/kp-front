@@ -1405,6 +1405,19 @@
   /* …the family's row: --float-h tall with its 14px a side (owner pick 13.11.2026, sweep R2-C –
      it was --tap tall, 8px before the arrow and 12px after «km/h», owner note r11, 05.11.2026) */
   .phone-wx .tb-weather { min-height: var(--float-h); padding: 0 var(--float-pad-x); border-radius: inherit; }
+  /* ⚠️ No control of this row ever lies on an alert (owner, 26.11.2026: the Standort tile covered
+     «Atemschutz überfällig – Müller Hans / …» and its «Zum Trupp»). The row and the Meldeleiste
+     both hang under the bar (--under-bar, --msg-top), so while a strip stands the WHOLE row steps
+     one --float-gap below it, by the strip's measured height (Meldeleiste · `--ml-h`). Never a
+     z-index: Standort and the GPS chip ride the top bar (z56, over the strip at 54) and covered
+     it; the wind lay under it, out of reach. One rule for the row, so a new piece of it yields too. */
+  :root:has(.ml) :is(.tb-share, .tb-gps, .phone-wx) { margin-top: calc(var(--msg-top) - var(--bar-foot) + var(--ml-h, 0px)); }
+  /* …and while the row holds a piece the strip ENDS one row higher (it scrolls past that), so the
+     row always finds its line between the strip and the floating row: at 320×640 three alarm rows
+     reached the floating row and the row stepped onto «Info» and the FAB. `:where()` keeps this at
+     `.ml`'s own weight, so a tighter cap (the Tafel's, 08-toasts) still wins. */
+  :where(:root:has(.tb-share > *, .tb-gps, .phone-wx)) .ml {
+    max-height: calc(100dvh - var(--msg-top) - var(--nudge-reserve, 0px) - var(--msg-lane-bottom) - var(--float-h) - var(--float-gap)); }
 
   /* Einstellungen rows: the 3-segment controls (Farbschema, Beschriftungen) are wider than
      a phone row leaves next to the label — let the control wrap onto its own right-aligned
