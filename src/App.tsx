@@ -39,7 +39,7 @@ import {
   migrateLegacyWorkspace, takeDiveraAlarm, attachDiveraAlarm, discardWorkspaceCache,
   isIncidentRunning, showAlarmUpdate, type DiveraAlarm, type IncidentFull, type IncidentMeta, type Workspace,
 } from './lib/incidents'
-import { unlockAlarm } from './lib/alarm'
+import { useArmOnAnyTap } from './lib/useArmOnAnyTap'
 import { CRASH_HEALTHY_MS, clearCrash } from './lib/crashLoop'
 import { ApiError } from './lib/api'
 import { useDiveraWatch } from './lib/useDiveraWatch'
@@ -47,6 +47,7 @@ import { actFailedText } from './lib/actFailed'
 import { dismissAlarm, loadDismissedAlarms, shownAlarms, waitingAlarms } from './lib/diveraDismiss'
 import { alarmUpdateHidden } from './lib/alarmUpdate'
 import { useIncidentWatch } from './lib/useIncidentWatch'
+import { useArrivalTone } from './lib/useArrivalTone'
 import { loadReviewedIncidents, needsIntakeReview, sameIncidentList, saveReviewedIncident, shouldReopenClosed, undoTakeReturn } from './lib/incidentAlerts'
 import { AlarmUpdateBanner, EinsatzWizard, FeedbackSheet, HistoryPanel, IncomingAlarmBanner, NewIncidentBanner, HomeDeviceSheet, type FoldedMenuRow } from './components/panels'
 import { Meldeleiste } from './components/Meldeleiste'
@@ -125,6 +126,11 @@ function IncidentApp() {
 
   // hold an icon-only button to read its word — the tablet's title-tooltip (lib/holdTooltip)
   useEffect(() => installHoldTooltip(), [])
+
+  // The first tap anywhere arms the alarm tone (owner pick UX journeys M·3, 25.11.2026 –
+  // lib/useArmOnAnyTap): after a reload, an überfällig Trupp or a new alarm must not stay silent
+  // until somebody happens to open an Einsatz or touch the Tafel. Once somebody is signed in.
+  useArmOnAnyTap(!!user)
 
   const [incidents, setIncidents] = useState<IncidentMeta[] | null>(null)
   // why `incidents` may not be the server's: the boot list failed, or it is the device's copy
@@ -369,15 +375,11 @@ function IncidentApp() {
   }, [isSessionCurrent])
 
   const selectIncident = useCallback(async (id: string, opts: { readOnly?: boolean; meta?: IncidentMeta; boot?: boolean } = {}) => {
-    // ⚠️ THE AUDIO UNLOCK LIVES HERE, before the first `await`, because this is the first touch of
-    // every Einsatz: the launch card, the switcher, «Einsatz eröffnen». A browser only releases
-    // audio inside a real gesture, and the only caller that ever did this was the Atemschutz
-    // Trupp-Formular — so anyone who synced the Trupps from a second device, or only ever tapped
-    // «Kontakt», had a bell showing «an» over an AudioContext that was still `suspended`. Called
-    // on a boot auto-open too, where it is a harmless no-op that leaves the context suspended and
-    // the bell honestly saying «Ton nicht freigegeben» (see useAtemschutzMute).
+    // No audio unlock here any more: the tap that opens an Einsatz has already armed the tone on
+    // its way down (useArmOnAnyTap, above – owner pick M·3, 25.11.2026, replacing the unlock that
+    // lived here since 2026-08). A boot auto-open still leaves the bell honestly saying «Ton nicht
+    // freigegeben» until the first tap (see useAtemschutzMute).
     if (!isSessionCurrent()) return
-    unlockAlarm()
     const opening = activeIdRef.current !== id
     const selected = await syncRef.open(id, opts.meta, {
       debounceMs: appConfig.sync.saveDebounceMs,
@@ -697,6 +699,12 @@ function IncidentApp() {
   })
   /** a surface stands in front of the open Einsatz, which stays mounted behind it (covered) */
   const einsatzBehind = screen === 'karte' || screen === 'visits'
+  // A new alarm row sounds once on the Karte home, not inside an Einsatz (owner pick UX journeys
+  // B3·7, 25.11.2026 – lib/useArrivalTone). The key is the row the strip shows: the untaken
+  // dispatch (IncomingAlarmBanner, editors) before an Einsatz that opened by itself
+  // (NewIncidentBanner, which steps aside while a dispatch row shows).
+  const topAlarm = isEditor ? shownAlarms(poolAlarms, dismissedAlarms)[0] : undefined
+  useArrivalTone(topAlarm ? `alarm:${topAlarm.divera_id}` : freshIncident ? `incident:${freshIncident.id}` : null, screen === 'karte')
 
   // Objektbesuche: the whole screen, home or not — and it does not wait for the Einsatz list.
   // The Meldeleiste and the toast/confirm host stay, the surface's own dialogs need them.

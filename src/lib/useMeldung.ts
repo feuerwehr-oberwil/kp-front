@@ -26,6 +26,7 @@ export const getMeldungen = () => snapshot
  *  every render of their publisher; the strip only has to repaint when one of these changes. */
 const face = (m: Meldung): string => [
   m.kind, m.tone, m.icon, m.title, JSON.stringify(m.sub ?? ''), JSON.stringify(m.sub2 ?? ''), m.dismiss?.label ?? '', m.wrap ? 'wrap' : '', m.subLines ? `sub${m.subLines}` : '',
+  JSON.stringify(m.quote ?? ''),
   // whether the title is a way in at all is READ from the row (underlined words vs plain text),
   // so a message that gains or loses its `onOpen` has to repaint
   m.onOpen ? `open·${m.onOpen.label}` : '',

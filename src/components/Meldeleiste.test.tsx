@@ -247,4 +247,18 @@ describe('the strip paints inside the open Einsatz', () => {
     releaseB?.()
     expect(getMeldeleisteHost()).toBeNull()
   })
+  // owner pick UX journeys B3·4 (25.11.2026): «Einsatzdaten prüfen» shows what «Passt» confirms.
+  // The text arrives after the row – the strip must repaint for it, not keep the bare row.
+  it('a quote row shows its head and text, and repaints when the text arrives', () => {
+    const review = (quote?: Meldung['quote']): Meldung => ({
+      id: 'review:1', kind: 'review', tone: 'info', icon: 'flag', title: 'Einsatzdaten prüfen', quote,
+      actions: [{ label: 'Passt', primary: true, onClick: () => {} }],
+    })
+    const { rerender } = render(<Host items={[review()]} />)
+    expect(document.querySelector('.ml .ml-quote')).toBeNull()
+    rerender(<Host items={[review({ head: 'BRAND: Zimmerbrand', text: 'Eine Person wird vermisst.' })]} />)
+    const quote = document.querySelector<HTMLElement>('.ml .ml-row.quote .ml-quote')!
+    expect(within(quote).getByText('BRAND: Zimmerbrand')).toBeTruthy()
+    expect(within(quote).getByText('Eine Person wird vermisst.')).toBeTruthy()
+  })
 })
