@@ -165,14 +165,16 @@ framed «Abbrechen», then the primary. Trupp Auftrag, Trupp Mannschaft, the Kan
 Schichtband edit and the Mittel pencil wear it; a live sheet has no Abbrechen / primary, so its
 footer is the danger alone (TimeBlockSheet `danger` — the Anwesenheit's «Person entfernen»).
 A save / send / confirm primary is the WORD only (button sweep SHEETS.7, 17.11.2026: a ✓ there
-read as «already saved» – ✓ is «done», the DoneChip's and the Erledigt tile's); a glyph only names
+read as «already saved» – ✓ is «done», the DoneChip's); a glyph only names
 a verb that is not a commit (Drucken, Herunterladen, Orten).
 **A map card's foot is the same family** (button sweep SHEETS.2 + SHEETS.9, 17.11.2026): the
 symbol panel, the Linien-/Flächen-/Absperrkreis-Editor and the Form's sheet render `<Button>` in
 `.ctx-actions` (06-contextpanel only places them, sharing the row by their words), in ONE order on
-the Lage and the Plan: **[Zentrieren · its toggle · bin + «Entfernen»]** – the symbol's toggle is
-«Erledigt», a drawing's and a Form's «Sperren»; a toggle keeps its glyph in both states and only
-its fill says «set» (`--sel`). «Zentrieren» frames a drawing's whole extent on the Karte and
+the Lage and the Plan: **[Zentrieren · its toggle · bin + «Entfernen»]** – a drawing's and a
+Form's toggle is «Sperren»; a toggle keeps its glyph in both states and only its fill says «set»
+(`--sel`). A symbol's foot is **[Zentrieren · Entfernen]**: its «Gelöscht / erledigt» is a
+«Zustand [Brennt | Gelöscht]» row like «Beschriftung» (owner pick UX journeys M·6, 25.11.2026 –
+the tile «Erledigt» read like «close the panel»; replaces SHEETS.9 of 17.11.2026 for symbols). «Zentrieren» frames a drawing's whole extent on the Karte and
 centres the board on it on a Plan; a locked panel keeps it.
 
 **Every row of an editor sheet is a label column and a control edge** (owner pick 27B, sweep
@@ -264,7 +266,10 @@ while the head's subtitle says when («Schadenlage · erledigt 10:57»).
 - **The way out of a layer is ONE rule** (duck sweep 17.11.2026, owner calls 2 + 3;
   `lib/overlays/layer`): **a tap beside a menu, popover or card only closes it** – the whole
   gesture is swallowed, it never places, selects, deselects or pans what lies under it, on every
-  width; **one Esc closes one layer** (taken in the capture phase and stopped, so the surface's
+  width. One exception (owner pick UX journeys M·2, 25.11.2026): a layer that opts in with
+  `throughBars` – today the Gebäude card – lets a tap on a «Bedienleiste» (the rails, the tool
+  bar, the head) close it AND do what the tile says; a tap on the map beside it still only closes
+  it. **One Esc closes one layer** (taken in the capture phase and stopped, so the surface's
   ladder never peels a second); **the native back closes the top layer**, one per press (Android's
   back, the iOS edge swipe – the 05.10. rule «no entry behind the operational screens» stands when
   nothing is open: then back does what it did before); and focus goes back to the opener. The

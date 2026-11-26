@@ -970,56 +970,49 @@ describe('ContextPanel — «Gelöscht / erledigt»', () => {
   const O = appConfig.copy.objectDone
   const AT = '2026-09-23T18:40:00.000Z'
 
-  // slim sweep 27.09.2026 (D8): the press is the foot's middle tile, «Erledigt», wherever it is offered
-  // (a damage or hazard symbol, #226) — it was a full-width row in the body. The 3am
-  // walk-through of 25.09.2026 (a reflex tap on the first row greyed a fresh KP Front) holds: the
-  // foot is never the first thing under the finger.
-  it('offers «Erledigt» as a tile in the foot — between «Zentrieren» and the delete, which is bin + «Entfernen» (SHEETS.1)', () => {
-    const p = setup({ onDone: vi.fn(), onCenter: vi.fn() })
-    const tile = screen.getAllByRole('button', { name: O.actionHint })[0]
-    expect(tile.closest('.ctx-actions')).toBeTruthy()
-    expect(tile.getAttribute('aria-pressed')).toBe('false')
-    // the meaning is the HOLD's, word first, never a `title` a tablet cannot show (audit A1)
-    expect(tile.hasAttribute('data-holdexplain')).toBe(true)
-    expect(tile.title).toBe('')
-    expect(tile.textContent).toBe(O.action)
-    expect(tile.closest('.ctx-body')?.firstElementChild?.contains(tile)).toBe(false)
-    const foot = tile.closest('.ctx-actions')!
-    expect([...foot.querySelectorAll('button')].map((b) => b.textContent || b.getAttribute('aria-label')))
-      .toEqual([appConfig.copy.contextPanel.center, O.action, appConfig.copy.remove])
-    fireEvent.click(tile)
+  // owner pick UX journeys M·6 (25.11.2026): a «Zustand» row like «Beschriftung», not a foot tile —
+  // the tile «Erledigt» read like «close the panel». The foot is [Zentrieren · Entfernen].
+  it('offers «Zustand [Brennt | Gelöscht]» on a Feuer — a row, not a foot tile; the foot is [Zentrieren · Entfernen]', () => {
+    const p = setup({ onDone: vi.fn(), onCenter: vi.fn(), entity: { id: 's1', symbol: 'VKF Feuer', label: 'Brand' } })
+    const row = screen.getAllByRole('group', { name: O.stateLabel })[0]
+    expect(row.closest('.ctx-actions')).toBeNull()
+    expect(within(row).getByRole('button', { name: O.stateActive.fire, pressed: true })).toBeTruthy()
+    // the second half carries its hold sentence (audit A1), never a `title` a tablet cannot show
+    const out = within(row).getByRole('button', { name: fillTemplate(O.stateDoneHint, { word: O.word.fire.title }) })
+    expect(out.textContent).toBe(O.word.fire.title)
+    expect(out.hasAttribute('data-holdexplain')).toBe(true)
+    const foot = document.querySelector('.ctx > .ctx-actions')!
+    expect([...foot.querySelectorAll('button')].map((b) => b.textContent))
+      .toEqual([appConfig.copy.contextPanel.center, appConfig.copy.remove])
+    // the pressed half again is no act
+    fireEvent.click(within(row).getByRole('button', { name: O.stateActive.fire }))
+    expect(p.onDone).not.toHaveBeenCalled()
+    fireEvent.click(out)
     expect(p.onDone).toHaveBeenCalledWith(true)
     const bin = screen.getAllByRole('button', { name: `${appConfig.copy.remove} – ${O.removeHint}` })[0]
-    expect(bin.textContent).toBe(appConfig.copy.remove)
     expect(bin.classList.contains('danger')).toBe(true)
-    expect(bin.hasAttribute('data-holdexplain')).toBe(true)
-    // the ✓ stands at rest too (SHEETS.8): only the fill says set
-    expect(tile.querySelector('svg')).toBeTruthy()
-    expect(screen.queryByRole('button', { name: appConfig.copy.delete })).toBeNull()
   })
 
-  // ONE toggle (31.10.2026): set, the SAME tile stays in the same spot, pressed, and a tap
-  // reopens – the time it was set moved into the header, beside the type.
-  it('set, the same foot tile (same word) stands pressed, its name says it reopens, and a tap takes it back; the header says when', () => {
+  it('set, the row stands on «Gelöscht» and its first half takes it back; the header says when; any other symbol is «Aktiv | Erledigt»', () => {
     const p = setup({ onDone: vi.fn(), onCenter: vi.fn(), entity: { id: 's1', symbol: 'VKF Feuer', label: 'Brand', subtitle: 'Schadenlage', done: { at: AT } } })
-    const tile = screen.getAllByRole('button', { name: O.reopenHint, pressed: true })[0]
-    expect(tile.getAttribute('aria-pressed')).toBe('true')
-    expect(tile.textContent).toBe(O.action)
-    const foot = tile.closest('.ctx-actions')!
-    expect([...foot.querySelectorAll('button')].map((b) => b.textContent || b.getAttribute('aria-label')))
-      .toEqual([appConfig.copy.contextPanel.center, O.action, appConfig.copy.remove])
+    const row = screen.getAllByRole('group', { name: O.stateLabel })[0]
+    expect(within(row).getByRole('button', { pressed: true }).textContent).toBe(O.word.fire.title)
     expect(document.querySelector('.ctx-head p')?.textContent).toMatch(new RegExp(`^Schadenlage · ${O.word.fire.inline} \\d\\d:\\d\\d$`))
-    fireEvent.click(tile)
+    fireEvent.click(within(row).getByRole('button', { name: O.stateActive.fire }))
     expect(p.onDone).toHaveBeenCalledWith(false)
+    cleanup()
+    setup({ onDone: vi.fn(), entity: { id: 's2', symbol: 'VKF Rettungen' } })
+    const other = screen.getAllByRole('group', { name: O.stateLabel })[0]
+    expect([...other.querySelectorAll('button')].map((b) => b.textContent)).toEqual([O.stateActive.other, O.word.other.title])
   })
 
   it('a read-only panel states it and offers nothing; a surface that does not wire it has no row, and its delete is «Entfernen» too', () => {
     setup({ readOnly: true, onDone: vi.fn(), entity: { id: 's1', symbol: 'VKF Rettungen', done: { at: AT } } })
     expect(screen.getByText(new RegExp(`^${O.word.other.inline} \\d\\d:\\d\\d$`))).toBeTruthy()
-    expect(screen.queryByRole('button', { name: new RegExp(O.action) })).toBeNull()
+    expect(screen.queryByRole('group', { name: O.stateLabel })).toBeNull()
     cleanup()
     setup()
-    expect(screen.queryByRole('button', { name: new RegExp(O.action) })).toBeNull()
+    expect(screen.queryByRole('group', { name: O.stateLabel })).toBeNull()
     expect(screen.getAllByRole('button', { name: appConfig.copy.remove }).length).toBeGreaterThan(0)
   })
 })

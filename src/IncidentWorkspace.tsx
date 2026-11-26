@@ -53,7 +53,8 @@ import { useGpsFollow } from './lib/useGpsFollow'
 import { freshBefore, gpsReleaseRow, gpsRevertWords, routingPatch, useGpsNotices, type GpsEnd } from './lib/gpsReturn'
 import { useUndoTimeline } from './lib/useUndoTimeline'
 import { undoCaption, type Dropper, type UndoDomain } from './lib/undoTimeline'
-import { clearUndoCaption, flashUndoCaption } from './lib/undoFlash'
+import { clearUndoCaption, flashUndoCaption, ringStepObject, useSaveWaitStatus, watchSave } from './lib/undoFlash'
+import { storeStepWords } from './lib/undoStepWords'
 import { useUndoableSlice, type UndoableSlice } from './lib/useUndoableSlice'
 import { useJournal } from './lib/useJournal'
 import { useWakeLock } from './lib/useWakeLock'
@@ -458,6 +459,10 @@ export function IncidentWorkspace({
   /** `log`/`emit` are built far below (they need half this component); a timeline entry pushed up
    *  here has to reach the versions that exist when the ↶ is actually pressed. */
   const histSide = useRef<{ log: typeof log; emit: typeof emit }>({ log: () => {}, emit: () => {} })
+  // «zeigen» on the Lage: the drawing gets an outline for a couple of seconds and is NOT selected
+  // (see MapView · flashDrawingId). Cleared on a timer — pointing is a gesture, not a state.
+  // Up here because a ↶ / ↷ points with it too (onCheckpoint · ring, owner pick M·11).
+  const [flashDrawingId, setFlashDrawingId] = useState<string | null>(null)
   /**
    * The Verlauf row + audit event one step owes the record — append-only, so this ADDS a row
    * saying the correction happened and never touches the row it corrects.
@@ -502,9 +507,17 @@ export function IncidentWorkspace({
        *  saying «Änderung auf der Karte» for a corrected georeference described the wrong act
        *  entirely. One-shot: a writer sets it just before its checkpoint, everything else keeps
        *  the domain word, which for a store step is honest (the object IS the Karte's). */
-      onCheckpoint: (step) => {
-        const label = stepLabel.current ?? C_HIST.undoDomains.karte
+      // …and where the writer set no word, the step names itself when it changed ONE object
+      // («TLF verschoben», lib/undoStepWords · owner pick UX journeys M·11, 25.11.2026); that
+      // object is also what the ↶ rings when it steps
+      onCheckpoint: (step, before, after) => {
+        const said = storeStepWords(before, after)
+        const label = stepLabel.current ?? said?.text ?? C_HIST.undoDomains.karte
         stepLabel.current = null
+        const ring = (moved: boolean) => {
+          if (moved && said) { if (said.drawing) setFlashDrawingId(said.id); else ringStepObject(said.id) }
+          return moved
+        }
         const { silent } = compound.laid()
         // a silent step still sends its audit op, it only leaves the counter-row to its act
         const quiet = (moved: boolean, dir: 'undo' | 'redo') => { if (moved) histSide.current.emit(dir); return moved }
@@ -515,8 +528,8 @@ export function IncidentWorkspace({
           // merge keep it when it changed other objects only (lib/undoTimeline · rebase)
           step,
           touches: () => storeStepKeys(step),
-          undo: () => (silent ? quiet(undoDocRef.current(step), 'undo') : histStep(undoDocRef.current(step), 'undo', label, '')),
-          redo: () => (silent ? quiet(redoDocRef.current(step), 'redo') : histStep(redoDocRef.current(step), 'redo', label, '')),
+          undo: () => ring(silent ? quiet(undoDocRef.current(step), 'undo') : histStep(undoDocRef.current(step), 'undo', label, '')),
+          redo: () => ring(silent ? quiet(redoDocRef.current(step), 'redo') : histStep(redoDocRef.current(step), 'redo', label, '')),
         })
       },
       /**
@@ -641,7 +654,7 @@ export function IncidentWorkspace({
   // useTacticalSelection. Declared before enterReplay (which clears it) so its setters are in
   // scope for that callback; threaded into useMapDrawing below just as before.
   const selection = useTacticalSelection()
-  const { selectedId, setSelectedId, tool, setTool, teamPick, setTeamPick, pending, setPending, pendingShape, setPendingShape, placeLock, setPlaceLock, selectedDrawingId, setSelectedDrawingId, selectedDrawIds, setSelectedDrawIds, selectedEntityIds, setSelectedEntityIds } = selection
+  const { selectedId, setSelectedId, tool, setTool, teamPick, setTeamPick, pending, pendingLabel, setPending, pendingShape, setPendingShape, placeLock, setPlaceLock, selectedDrawingId, setSelectedDrawingId, selectedDrawIds, setSelectedDrawIds, selectedEntityIds, setSelectedEntityIds } = selection
   /** Where the currently selected drawing was TAPPED (map-container px), paired with its id so a
    *  selection that arrived some other way can't borrow a stale point. Only the panel nudge reads
    *  it (lib/panelNudge · panelNudgeSelection). */
@@ -743,7 +756,10 @@ export function IncidentWorkspace({
     const r = dir === 'undo' ? undoHist.undo() : undoHist.redo()
     if (r.status === 'empty') return
     if (r.status === 'lost') { toast(appConfig.copy.undoLost, { icon: 'warn' }); return }
-    if (anchor) flashUndoCaption(anchor, fillTemplate(dir === 'undo' ? C_HIST.undoNamed : C_HIST.redoNamed, { action: undoCaption(r.entry) }))
+    if (!anchor) return
+    const flash = flashUndoCaption(anchor, fillTemplate(dir === 'undo' ? C_HIST.undoNamed : C_HIST.redoNamed, { action: undoCaption(r.entry) }))
+    // the caption waits for the server's word (lib/undoFlash · «Bestätigung am Ort», M·11)
+    watchSave(flash)
   }
   /** A merge dropped ↶'s own step (useWorkspaceBlob · onTopDropped): the operator's next ↶ — a
    *  button or the key, never a toast's — says so at the button and does not step, so ↶ never
@@ -1267,9 +1283,7 @@ export function IncidentWorkspace({
     mode, setMode, activePlanId, setActivePlanId, mapRef, setPlanFocus,
     hasPlan: (id) => planDocs.some((d) => d.id === id), selectedId, setSelectedId, journalOpen, setJournalOpen,
   })
-  // «zeigen» on the Lage: the drawing gets an outline for a couple of seconds and is NOT selected
-  // (see MapView · flashDrawingId). Cleared on a timer — pointing is a gesture, not a state.
-  const [flashDrawingId, setFlashDrawingId] = useState<string | null>(null)
+  // «zeigen» on the Lage (flashDrawingId, declared with the undo timeline above): cleared on a timer
   useEffect(() => {
     if (!flashDrawingId) return
     const t = setTimeout(() => setFlashDrawingId(null), appConfig.drawing.flashMs)
@@ -1439,6 +1453,8 @@ export function IncidentWorkspace({
   // The record outboxes alone — what the media drain waits for (below). The badge's status adds
   // the media queue to it once that exists (`syncStatus`, after useMediaQueue).
   const recordsSyncStatus = combinedSyncStatus(workspaceSyncStatus, journal.syncStatus, auditDelivery.status)
+  // ↶ / ↷ «✓ gespeichert» (stepHistory, lib/undoFlash · watchSave)
+  useSaveWaitStatus(recordsSyncStatus)
 
   // --- closed (or reopened) on ANOTHER device while open here (N3, staging 25.09.2026) ---------
   // what this device still holds, sent again after a reopen (workspace/useLifecycleElsewhere)
@@ -2389,7 +2405,7 @@ export function IncidentWorkspace({
   const mapActions = useMapActions({
     clearMapUi, setPaletteOpen, tool, setTool, setPending, setPendingShape, setSelectedId,
     setSelectedDrawingId, setSelectedDrawIds, setSelectedEntityIds, setNotePanelId, setEditNoteId, panel,
-    setPanel, tacticalLocked, pendingShape, rotStart, setRotStart, commit, placeLock, log, emit, pending,
+    setPanel, tacticalLocked, pendingShape, rotStart, setRotStart, commit, placeLock, log, emit, pending, pendingLabel,
     revealLayer, sym, addRecent, noteDefaults, setNotePlacedId, setTeamPick, setDraft, settleDraft, lineMode, measure, mapRef,
     incidentView, entities, liveIds, resolvedMapDrawings, cameraViews, view, setLocateReq, incidentOpen,
     share, setShareParent, setSharePick, setCameraViews, rememberOneShotRef, C_HIST, setViewsOpen,
@@ -2400,11 +2416,11 @@ export function IncidentWorkspace({
     planFit, stepHistory: pressHistory, planKeys, setJournalOpen, setComposerOpen, togglePanel, setSettingsOpen,
     setHelpOpen, coord, notePanelId, notePlacedId, mapWorkRect, drawings, drawTap, beginDrag, setDocRaw,
     endDrag, flyToMapVisible, setVehicleOverrides, vehicleOverrides, trupps, linkTruppLine, patchEntity, objectsRef, objects,
-    setPlanFocus, focusEntity, editNoteId, user, stepLabelRef: stepLabel,
+    setPlanFocus, focusEntity, editNoteId, user, stepLabelRef: stepLabel, historyGroup: compound.open,
   })
   const {
     deleteGroup, deleteEntity, placed, goToModule, goToTrupp, viewsApi, toggleViews, selected,
-    undockTeam, setEntityDone, commitEntityFields, focusDrawing, noteEntity, pick, pickShape, resetVehicleGps, placeVehicle,
+    undockTeam, setEntityDone, commitEntityFields, focusDrawing, noteEntity, pick, pickShape, resetVehicleGps, placeVehicle, holdGpsInstead, keepGpsTwin,
   } = mapActions
   // a generic (untracked) team marker — the map twin of the plan's placeTeamChip
   const teamMarkers = useTeamMarkerActions({
@@ -3323,7 +3339,8 @@ export function IncidentWorkspace({
         timeline, sym, entityTypedAt, titleLiveRef, beginDrag,
         setDocRaw, endDrag, emit, patchEntity, linkRosterFields, createCircle, doc, undockTeam, effTrupps,
         symbolCaptions, rosterNames, rosterRank, personStatus, rosterFieldHints, setEntityDone, commitEntityFields,
-        vehicleOverrides, canEditIncident, readOnly, stopPersonSharing, setVehicleOverrides, resetVehicleGps, placeVehicle, log,
+        vehicleOverrides, canEditIncident, readOnly, stopPersonSharing, setVehicleOverrides, resetVehicleGps, placeVehicle, holdGpsInstead, keepGpsTwin, log,
+        fahrzeuge: reportMeta.fahrzeuge,
         assignTypedName, drawings, entities, focusDrawing, noteEntity, notePlacedId, setNotePanelId,
         noteTextLive, setNoteDefaults, selectedDrawing, patchDrawing,
         selectedDrawingId, patchDrawingLabelLive, commitDrawingLabel,
@@ -3333,7 +3350,7 @@ export function IncidentWorkspace({
       }} />
 
       <MapToolDocks {...{
-        mapUI, tool, pending, setPending, setTool, placeLock, setPlaceLock, lineMode, settleDraft,
+        mapUI, tool, pending, pendingLabel, setPending, setTool, placeLock, setPlaceLock, lineMode, settleDraft,
         setLineMode, draftActive, draftOpen, commitDraft, areaMode, setAreaMode, setTeamPick, placed, setFindTruppOpen,
         measure, pendingShape, setPendingShape, setRotStart, rotStart, tacticalLocked, createLine,
         createArea, replayActive, railLabels, slimMapTools, pick, panel, layersPreset, layersHidden, togglePanel, viewsApi,

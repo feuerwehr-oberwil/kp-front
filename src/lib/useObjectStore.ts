@@ -172,9 +172,9 @@ export interface ObjectStoreOptions {
    *  derived THROUGH the fits, and `getFits` is a ref no memo can see into — this is what tells
    *  it a corrected georeference moved every projection on that sheet. */
   fitsVersion: number
-  /** told whenever a step is laid down, with its id, so the global timeline can record it (see
-   *  useUndoableDoc) */
-  onCheckpoint?: (step: string) => void
+  /** told whenever a step is laid down, with its id and the objects before and after it, so the
+   *  global timeline can record it – and name it (see useUndoableDoc) */
+  onCheckpoint?: (step: string, before: TacticalObject[], after: TacticalObject[]) => void
   /**
    * …and whenever a write moved an object BETWEEN the surfaces (tacticalObjects · anchorChanges).
    *

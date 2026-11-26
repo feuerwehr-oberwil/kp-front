@@ -3,7 +3,7 @@
 // Which DAY a time field commits on. Only ever a question on an incident that spans more than
 // one — but that is the case this control exists for, and both bugs pinned here wrote a stamp
 // onto a day nobody chose, silently, on fields nobody re-reads.
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TimeField } from './TimeField'
 import { TimeBlockSheet } from './TimeBlockSheet'
@@ -35,6 +35,14 @@ const DAYS = [MON, TUE, WED]
 const committedDay = (onCommit: ReturnType<typeof vi.fn>) => {
   const day = onCommit.mock.calls[0][1] as Date | undefined
   return day ? day.toDateString() : undefined
+}
+
+/** correct the CLOCK in the open picker – the minute wheel to «10» – and confirm, without touching
+ *  the day wheel. A date-time field commits nothing on an unchanged «OK», so the minute moves. */
+const correctMinuteAndConfirm = () => {
+  const minute = screen.getByRole('listbox', { name: appConfig.copy.wheel.minute })
+  fireEvent.click(within(minute).getAllByRole('option', { name: '10' })[0])
+  fireEvent.click(screen.getByRole('button', { name: 'OK' }))
 }
 
 describe('TimeField · the day a stamp lands on', () => {
@@ -79,7 +87,7 @@ describe('TimeField · the day a stamp lands on', () => {
       />,
     )
     fireEvent.click(screen.getByRole('button', { name: 'von – Müller Hans' }))
-    fireEvent.click(screen.getByRole('button', { name: 'OK' }))
+    correctMinuteAndConfirm()
     expect(new Date(onFrom.mock.calls[0][0] as string).toDateString()).toBe(MON.toDateString())
   })
 
@@ -115,18 +123,18 @@ describe('TimeField · the day a stamp lands on', () => {
 // them has to CHOOSE between the day the picker hands back and its own fallback rule. A caller
 // that forwards the right day into the field and then ignores it on the way out is exactly as
 // broken as one that never passed it. So each of the three is driven the way an operator drives
-// it — open, tap the field, confirm without touching a wheel — on a Wednesday morning, with the
-// value sitting on Monday night.
+// it — open, tap the field, move the minute and confirm without touching the day — on a Wednesday
+// morning, with the value sitting on Monday night.
 describe('correcting a stamp from an earlier day, on a multi-day Einsatz', () => {
   /** an ISO instant on one of the days above, in local time — the clock the field will show */
   const at = (day: Date, h: number, mi = 0) =>
     new Date(day.getFullYear(), day.getMonth(), day.getDate(), h, mi, 0, 0).toISOString()
   const wednesdayMorning = () => { vi.useFakeTimers(); vi.setSystemTime(new Date(2026, 7, 12, 9, 0)) }
   const person: Person = { id: 'p1', displayName: 'Meier Anna', active: true, updatedAt: at(MON, 22) }
-  /** confirm the picker without moving anything: the correction is to the CLOCK, not to the day */
+  /** open the field and correct its clock: the correction is to the CLOCK, not to the day */
   const confirmPicker = (fieldLabel: string) => {
     fireEvent.click(screen.getByRole('button', { name: fieldLabel }))
-    fireEvent.click(screen.getByRole('button', { name: 'OK' }))
+    correctMinuteAndConfirm()
   }
   const dayOf = (iso?: string) => (iso ? new Date(iso).toDateString() : undefined)
 
