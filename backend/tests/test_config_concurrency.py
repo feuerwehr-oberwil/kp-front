@@ -108,3 +108,34 @@ async def test_workbook_import_reloads_config_loaded_before_another_writer(sessi
         saved = await db.scalar(select(DeploymentConfig.config_json))
     assert saved["doctrine"]["alarmBar"] == 71
     assert saved["report"]["partnerOrgs"] == ["Sanität"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("lock", [False, True])
+async def test_two_first_writers_on_a_new_deployment_share_one_row(session_factory, db_session, lock):
+    """Neither finds the row; both create it. The second waits for the first and reads its row
+    back, instead of failing on the primary key (a 500 on a fresh station)."""
+    if db_session.bind.dialect.name != "postgresql":
+        pytest.skip("requires independent PostgreSQL transactions")
+    from sqlalchemy import text
+
+    from app.deployment_config import config_row
+
+    async with session_factory() as first, session_factory() as second, session_factory() as observer:
+        (await config_row(first, lock=lock)).stats_secret = "first"
+        await first.flush()
+        late = asyncio.create_task(config_row(second, lock=lock))
+        waiting = (
+            "SELECT count(*) FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock'"
+        )
+        for _ in range(100):  # until the second writer waits on the first one's row
+            if (await observer.execute(text(waiting))).scalar_one():
+                break
+            await observer.rollback()  # pg_stat_activity is a snapshot per transaction
+            await asyncio.sleep(0.05)
+        else:
+            pytest.fail("the second writer never waited on the first")
+        await first.commit()
+        row = await late
+        assert row.stats_secret == "first"
+        await second.commit()
