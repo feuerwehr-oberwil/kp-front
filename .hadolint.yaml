@@ -1,0 +1,9 @@
+# hadolint (ci.yml · «Build shared production image», failure-threshold style). Every finding
+# fails the check except these.
+ignored:
+  # Unpinned apt packages. A pinned Debian version breaks the image build the day Debian drops it
+  # from the mirror. The base images are pinned by digest.
+  - DL3008
+  # Non-numeric USER. `app` is created in the Dockerfile with a fixed uid (useradd --uid 10001), so
+  # the name always resolves inside the image.
+  - DL3066

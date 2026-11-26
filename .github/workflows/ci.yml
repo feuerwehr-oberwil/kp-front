@@ -352,9 +352,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Lint Dockerfile (hadolint)
         uses: hadolint/hadolint-action@06be81baf89a55ffd0e24b8f04a4185738dd3387 # v3.5.0
-        continue-on-error: true  # advisory until the existing Dockerfile baseline is clean
         with:
           dockerfile: Dockerfile
+          config: .hadolint.yaml  # the ignored rules, each with its reason
+          failure-threshold: style  # every finding fails, down to style (the action's default is info)
       - name: Build the production image once
         uses: ./.github/actions/build-image
         with:
