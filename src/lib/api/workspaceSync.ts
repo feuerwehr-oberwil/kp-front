@@ -356,10 +356,11 @@ function onlyTruppsChanged(base: Workspace | undefined, ws: Workspace): boolean 
   return true
 }
 
-/** The keys of the `el` role's record slice — MUST mirror the server's allowlist
- *  (backend api/incidents · RECORD_WORKSPACE_KEYS); anything else would be silently dropped
- *  there, so sending it would only fake a successful save. Absent keys mean «no change». */
-const RECORD_SLICE_KEYS = ['attendance', 'shifts', 'bands', 'mittel', 'checklists', 'reportMeta', 'attachments', 'reportSignatures'] as const
+/** The keys of the `el` role's record slice — exactly the server's allowlist, one file both sides
+ *  are tested against (backend/app/data/record_slice_keys.json, lib/api/recordSliceKeys.test.ts);
+ *  anything else would be silently dropped there, so sending it would only fake a successful
+ *  save. Absent keys mean «no change». */
+export const RECORD_SLICE_KEYS = ['attendance', 'shifts', 'bands', 'mittel', 'checklists', 'reportMeta', 'attachments', 'reportSignatures'] as const satisfies readonly (keyof typeof MERGE_POLICY)[]
 
 /** The crew filing's markers riding the record slice (22.10.2026, RBAC audit S4) — mirrors the
  *  server's `RECORD_CREW_FILED_KEY`. `trupps[].crewFiled` says whom the ANWESENHEIT was told

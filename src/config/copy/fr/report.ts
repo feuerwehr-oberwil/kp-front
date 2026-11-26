@@ -250,7 +250,7 @@ export const reportCopy: Localizable<Pick<Copy, 'auswertung' | 'report' | 'print
     attachmentRemoved: 'Photo supprimée',
     linksHead: 'Formulaires & liens',
     shareHead: 'Partager',
-    shareLede: 'Sans connexion, reste valable après la clôture.',
+    shareLede: 'Sans connexion. Reste valable après la clôture – jusqu’à ce que vous révoquiez le lien.',
     shareLiveLede: 'Sans connexion, reste valable après la clôture.',
     shareCreate: 'Créer le lien',
     shareBusy: 'Création du lien …',

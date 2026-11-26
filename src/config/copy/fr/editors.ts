@@ -278,6 +278,12 @@ export const editorsCopy: Localizable<Pick<Copy, Keys>> = {
     fillPct: 'Remplissage {n} %',
     colorNames: { '#1f6feb': 'Bleu', '#e8392b': 'Rouge', '#1f9d57': 'Vert', '#e2920a': 'Orange', '#1b2330': 'Noir', '#ffffff': 'Blanc' },
     duplicate: 'Dupliquer',
+    ends: 'Extrémités',
+    endHydrant: 'Hydrante',
+    endNone: 'rien',
+    endsDetach: 'Libérer',
+    endsDetachLabel: 'Libérer la connexion à {name}',
+    endsGo: 'Vers les connexions',
   },
   topBar: {
     offline: 'Hors ligne',

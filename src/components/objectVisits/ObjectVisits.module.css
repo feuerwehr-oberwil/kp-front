@@ -294,7 +294,12 @@ button.sumToggle:active { background-image: linear-gradient(var(--press), var(--
   padding: 8px max(12px, env(safe-area-inset-right)) 8px max(12px, env(safe-area-inset-left));
   overflow-x: auto;
 }
-.planTabs > * { width: min(680px, 100%); margin: 0 auto; }
+/* the tabs in the page's column, edge on edge with its cards (.col: 680 minus its sides, the
+   safe-area inset where it is wider – a notched phone on its side).
+   ⚠️ `display: flex`: the Segmented track is inline-flex, and an inline box ignores `margin: auto`
+   – the row stood at the screen's left edge, under a centred head (owner, 25.11.2026) */
+.planTabs > * { display: flex; margin: 0 auto;
+  width: min(calc(680px - max(var(--sp-3), env(safe-area-inset-left)) - max(var(--sp-3), env(safe-area-inset-right))), 100%); }
 .planBody { position: relative; flex: 1 1 auto; min-height: 0; background: var(--app-bg); }
 
 /* a work list's finished stop: its number turns into a green tick (the chip stays for what still

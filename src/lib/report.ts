@@ -489,11 +489,12 @@ export interface PendenzPrintRow {
   text: string
   assignee?: string
   urgent: boolean
+  /** every clock of the row follows the sheet's midnight rule (`spanAwareClock`) */
   erteilt: string
   /** absent ⇒ still open when the Rapport was written; the cell prints «offen» */
   erledigt?: string
-  /** HH:MM of the Erinnerung, when the item carried one — the LATEST Wiedervorlage (a Meldung
-   *  can move it), the same rule the pinned block runs on (lib/reminders). */
+  /** the Erinnerung, when the item carried one — the LATEST Wiedervorlage (a Meldung can move
+   *  it), the same rule the pinned block runs on (lib/reminders). */
   faellig?: string
   notes: { timeLabel: string; text: string }[]
 }
@@ -510,12 +511,14 @@ export interface PendenzPrintRow {
  * the timestamp of the row that closed it. Nobody fills a form in for this.
  * ⚠️ The same states as the Tafel's ledger (lib/reminders · pendenzLedger, ENT.4): no closure
  * expiry – an item open at the Einsatzende prints «offen» – and a withdrawn re-raise not at all.
+ *
+ * `bounds` are the incident's, so the clocks carry their day exactly when the rest of the sheet's
+ * do. A row with only its «HH:MM» (`t`, no `at`) prints that and keeps its place: its day is not
+ * known, and guessing one is how 00:10 landed above 23:50.
  */
-export function pendenzRows(events: TimelineEvent[], fallbackDate?: string): PendenzPrintRow[] {
-  const clock = (e: TimelineEvent) => {
-    const iso = eventIso(e, fallbackDate)
-    return iso ? hhmm(new Date(iso)) : e.t
-  }
+export function pendenzRows(events: TimelineEvent[], bounds?: IncidentBounds): PendenzPrintRow[] {
+  const span = spanAwareClock(bounds)
+  const clock = (e: TimelineEvent) => span(e.at) ?? e.t
   const created = new Map<string, TimelineEvent>()
   const doneAt = new Map<string, string>()
   const urgency = new Map<string, boolean>()
@@ -549,22 +552,25 @@ export function pendenzRows(events: TimelineEvent[], fallbackDate?: string): Pen
       })
     } else if (r.op === 'note') notes.set(r.id, [...(notes.get(r.id) ?? []), { timeLabel: clock(e), text: e.text }])
   }
-  return [...created.entries()]
-    .filter(([id]) => !withdrawn.has(id))
-    .map(([id, e]) => ({
-      // the BARE text — the row's own text carries the «Auftrag · » tag or the «Erinnerung gesetzt
-      // für …» lead-in, and the section's own heading already says what these are
-      text: edits.get(id)?.text || e.reminder?.text?.trim() || e.text,
-      assignee: (edits.get(id)?.assignee ?? e.reminder?.assignee) || undefined,
-      urgent: !!urgency.get(id),
-      erteilt: clock(e),
-      erledigt: doneAt.get(id),
-      faellig: due.has(id) ? hhmm(new Date(due.get(id)!)) : undefined,
-      notes: notes.get(id) ?? [],
-    }))
-    // chronological by Erteilt, like the paper form it replaces — NOT the screen's
-    // dringend-first order, which is a working order for a list you act on
-    .sort((a, b) => a.erteilt.localeCompare(b.erteilt))
+  const items = [...created.entries()].filter(([id]) => !withdrawn.has(id))
+  // chronological by Erteilt, like the paper form it replaces — NOT the screen's dringend-first
+  // order, which is a working order for a list you act on. By the instant, never the printed
+  // text; the undated rows stay in the slots they hold in the record.
+  const instant = (e: TimelineEvent) => Date.parse(e.at ?? '')
+  const isDated = (e: TimelineEvent) => Number.isFinite(instant(e))
+  const dated = items.filter(([, e]) => isDated(e)).sort(([, a], [, b]) => instant(a) - instant(b))
+  let next = 0
+  return items.map((item) => (isDated(item[1]) ? dated[next++] : item)).map(([id, e]) => ({
+    // the BARE text — the row's own text carries the «Auftrag · » tag or the «Erinnerung gesetzt
+    // für …» lead-in, and the section's own heading already says what these are
+    text: edits.get(id)?.text || e.reminder?.text?.trim() || e.text,
+    assignee: (edits.get(id)?.assignee ?? e.reminder?.assignee) || undefined,
+    urgent: !!urgency.get(id),
+    erteilt: clock(e),
+    erledigt: doneAt.get(id),
+    faellig: span(due.get(id)),
+    notes: notes.get(id) ?? [],
+  }))
 }
 
 export function missingTranscriptCount(events: TimelineEvent[]): number {
@@ -1384,13 +1390,19 @@ function _partnerLines(before: PartnerContact[], after: PartnerContact[]): strin
   return [...adds, ...changes, ...removals]
 }
 
+/** The rows `before` had and `after` dropped, as empty rows. Clearing a row's last time drops the
+ *  row (lib/alarmzeiten), and that clear is a change the Verlauf has to name. */
+const _droppedRows = (before: { id: string }[], after: { id: string }[]): { id: string }[] =>
+  before.filter((x) => !after.some((y) => y.id === x.id)).map((x) => ({ id: x.id }))
+
 /** Alarmzeit per Gruppe, named by its configured label — «g2» means nothing on paper. */
 function _gruppenLines(before: GruppeZeit[], after: GruppeZeit[]): string[] {
   const P = appConfig.copy.preflight
   const labels = new Map((getDeploymentConfig().alarms?.groups ?? []).map((g) => [g.id, g.label || g.id]))
   const A = new Map(before.map((g) => [g.id, g]))
   const out: string[] = []
-  for (const g of after) {
+  const rows: GruppeZeit[] = [...after, ..._droppedRows(before, after)]
+  for (const g of rows) {
     if (A.get(g.id)?.alarmedAt === g.alarmedAt) continue
     const gruppe = labels.get(g.id) ?? g.id
     out.push(g.alarmedAt
@@ -1410,7 +1422,8 @@ function _fahrzeugLines(before: FahrzeugZeit[], after: FahrzeugZeit[]): string[]
   const slots: [keyof FahrzeugZeit, string][] = [
     ['ausgerueckt', P.metaFahrzeugAus], ['vorOrt', P.metaFahrzeugVorOrt], ['zurueck', P.metaFahrzeugZurueck],
   ]
-  for (const v of after) {
+  const rows: FahrzeugZeit[] = [...after, ..._droppedRows(before, after)]
+  for (const v of rows) {
     const fahrzeug = labels.get(v.id) ?? v.id
     const prev = A.get(v.id)
     for (const [slot, tpl] of slots) {

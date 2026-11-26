@@ -70,7 +70,8 @@ export function viewsOf(objects: TacticalObject[]): ObjectViews {
   const baked: TacticalObject[] = []
   for (const o of objects) {
     if (o.sheet) {
-      ;(board[o.sheet.planId] ??= []).push(o.sheet.anno)
+      // a sheet body without its anno (a malformed row the merge carries) draws nothing
+      if (o.sheet.anno) (board[o.sheet.planId] ??= []).push(o.sheet.anno)
       // no fit for its plan → no baked body → honestly absent from the Karte
       if (o.entity || o.drawing) baked.push(o)
     } else if (o.entity) {

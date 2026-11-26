@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, expect, it } from 'vitest'
 import { POINT_ICON_PX, pointIconRegistry, pointIconVariants, type ImageDataLike, type MapImageHost } from './mapImages'
 
@@ -31,6 +32,21 @@ describe('pointIconVariants — the images the Leitungskataster layers will ask 
     expect(v[0].svg).toContain('#0055ff')
     expect(v[1].svg).toContain('#66aaff')
     expect(v[0].svg).toContain(`width="${POINT_ICON_PX}"`)
+  })
+
+  // owner pick B2·52 (25.11.2026): the symbol stands on a white plate with a shadow, inside the
+  // same POINT_ICON_PX square (updateImage needs the stand-in's size)
+  it('puts the symbol on a white plate with a shadow, the symbol nested inside the square', () => {
+    const [day] = pointIconVariants(LAYERS, { Hydrant: SVG })
+    const doc = new DOMParser().parseFromString(day.svg, 'image/svg+xml')
+    expect(doc.querySelector('parsererror')).toBeNull()
+    const outer = doc.documentElement
+    expect([outer.getAttribute('width'), outer.getAttribute('height')]).toEqual([`${POINT_ICON_PX}`, `${POINT_ICON_PX}`])
+    expect(outer.querySelector(':scope > circle')?.getAttribute('fill')).toBe('#fff')
+    expect(outer.querySelector('feDropShadow')).toBeTruthy()
+    const symbol = outer.querySelector(':scope > svg')!
+    expect(Number(symbol.getAttribute('width'))).toBeLessThan(POINT_ICON_PX)
+    expect(symbol.querySelector('circle')?.getAttribute('fill')).toBe('#0055ff')
   })
 
   it('nothing for a symbol the pack does not know yet', () => {

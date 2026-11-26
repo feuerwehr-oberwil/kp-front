@@ -278,6 +278,12 @@ export const editorsCopy: Localizable<Pick<Copy, Keys>> = {
     fillPct: 'Riempimento {n} %',
     colorNames: { '#1f6feb': 'Blu', '#e8392b': 'Rosso', '#1f9d57': 'Verde', '#e2920a': 'Arancione', '#1b2330': 'Nero', '#ffffff': 'Bianco' },
     duplicate: 'Duplica',
+    ends: 'Estremità',
+    endHydrant: 'Idrante',
+    endNone: 'niente',
+    endsDetach: 'Libera',
+    endsDetachLabel: 'Libera il collegamento a {name}',
+    endsGo: 'Ai collegamenti',
   },
   topBar: {
     offline: 'Offline',

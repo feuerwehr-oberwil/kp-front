@@ -99,5 +99,6 @@ export const captureCopy: Localizable<Pick<Copy, 'capture'>> = {
     beilagenCount: '{n} photo(s)',
     beilagenNone: 'none',
     beilageRemoved: 'Attachment removed',
+    logMetaStatement: '{statement} (QR)',
   },
 }

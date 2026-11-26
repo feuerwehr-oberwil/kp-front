@@ -7,6 +7,7 @@ import type { Dispatch, SetStateAction, RefObject } from 'react'
 import { ContextPanel } from '../components/ContextPanel'
 import { DrawEditor } from '../components/DrawEditor'
 import { ShapeEditor } from '../components/ShapeEditor'
+import { useHydrants } from '../components/karte/useKartePlace'
 import { appConfig } from '../config/appConfig'
 import { connectedLineLabel } from '../lib/connectedLines'
 import { fillTemplate, formatSymbolName, formatTime } from '../lib/format'
@@ -15,6 +16,7 @@ import { ergAdoptedRadii } from '../lib/ergAdopt'
 import { type GpsEnd, hasTraced, freshBefore, gpsLineName, fmtAway, onSiteAnchor, onSiteKnown } from '../lib/gpsReturn'
 import { wandBlock, wandBlockHint } from '../lib/grundriss'
 import { lineLabel } from '../lib/lineDecor'
+import { hydrantAt } from '../lib/karte/places'
 import { autoNoteWPx } from '../lib/notes'
 import { canBeDone, offersDone, doneOf } from '../lib/objectDone'
 import { withResolvedPhotos } from '../lib/photoGeo'
@@ -30,7 +32,7 @@ import type { Doc, FahrzeugZeit } from '../lib/workspace'
 import { gpsTwin } from '../lib/gpsTwin'
 import { gpsDeviceOf, vehicleTimeRows } from '../lib/vehicleTimes'
 import { getDeploymentConfig } from '../lib/deploymentConfig'
-import type { Entity, LngLat, TimelineEvent, Trupp, Drawing, NoteSize, Person, LineEndpoint, LineAttachment, LayerId, CaptionMode, MapTool } from '../types'
+import type { Entity, LngLat, TimelineEvent, Trupp, Drawing, NoteSize, Person, LineEndpoint, LineAttachment, LayerDef, LayerId, CaptionMode, MapTool } from '../types'
 import type { WorkspaceMode } from './types'
 
 export interface MapDetailPanelsProps {
@@ -122,6 +124,8 @@ export interface MapDetailPanelsProps {
   isVisible: (id: LayerId) => boolean
   toggleLayer: (id: LayerId) => void
   deleteDrawing: (id: string) => void
+  /** the Lage's layers – its Hydranten Ebene names the hydrant a free line end sits at (B2·49) */
+  layers: readonly LayerDef[]
 }
 
 export function MapDetailPanels({
@@ -135,8 +139,10 @@ export function MapDetailPanels({
   selectedDrawingId, patchDrawingLabelLive, commitDrawingLabel,
   changeMapEnding, reverseDrawing, setDrawingWallRole, objects, syncLineNoToTrupp, pickablePersonnel, linkTruppLine,
   unlinkLine, setSelectedDrawingId, setMode, setPanel, showTrupp, setGpsRouting, revertAll, gpsEndOf, releaseHere,
-  releaseOnSite, setDrawingAttachment, focusEntity, isVisible, toggleLayer, deleteDrawing,
+  releaseOnSite, setDrawingAttachment, focusEntity, isVisible, toggleLayer, deleteDrawing, layers,
 }: MapDetailPanelsProps) {
+  // the layer hydrants, fetched once a line is selected – for the editor's «Enden» row (B2·49)
+  const { hydrants } = useHydrants(layers, selectedDrawing?.kind === 'line')
   // a Rechteck's figures, for its panel — editable or read-only alike
   const shapeFigures = selected?.kind === 'shape' && selected.shape === 'square' ? (() => {
     // ⚠️ The box on the GROUND, from the two numbers the shape is stored with: `sizeM` is
@@ -543,6 +549,12 @@ export function MapDetailPanels({
               stopped: a.gps.state === 'paused',
               onSite: onSiteKnown(a.gps),
             }]]
+          }))}
+          // a FREE end drawn at a layer hydrant: «✓ Hydrant 2 m» in the «Enden» row (B2·49)
+          endHydrantM={selectedDrawing.kind !== 'line' ? undefined : Object.fromEntries((['start', 'end'] as const).flatMap((endpoint) => {
+            if (endpoint === 'start' ? selectedDrawing.startAttachment : selectedDrawing.endAttachment) return []
+            const m = hydrantAt(hydrants, endpoint === 'start' ? selectedDrawing.coords[0] : selectedDrawing.coords[selectedDrawing.coords.length - 1])
+            return m == null ? [] : [[endpoint, m]]
           }))}
           onRevertGps={tacticalLocked ? undefined : (endpoint) => revertAll([gpsEndOf(selectedDrawing, endpoint)])}
           onDetachHere={tacticalLocked ? undefined : (endpoint) => releaseHere(selectedDrawing, endpoint)}

@@ -192,8 +192,10 @@ export function WorkspaceMeldungen({
       )}
 
       {/* one-tap way back after a Rapport checklist row navigated here — without it, the
-          round trip went through the incident menu every time (feedback 2026-07-08) */}
-      {rapportReturn && (mode === 'anwesenheit' || mode === 'mittel') && (
+          round trip went through the incident menu every time (feedback 2026-07-08). Material
+          only: the Anwesenheit carries «‹ Rapport» in its page head (owner pick UX journeys M·8,
+          25.11.2026 – the pill covered the list's last row; it stood there since 08.07.2026) */}
+      {rapportReturn && mode === 'mittel' && (
         <button
           type="button"
           className="rp-return"
