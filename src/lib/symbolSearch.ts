@@ -24,6 +24,19 @@ function haystack(s: SymbolMeta): string[] {
   ].filter(Boolean)
 }
 
+/**
+ * The station's OWN vehicles a query finds (owner picks UX journeys M·9 + M·10, 25.11.2026): «TLF»
+ * found nothing, so a walker set a bare «Fahrzeug» and went looking for its name. `names` is the
+ * generic Fahrzeug's Bezeichnung list (fleet.attributeLists · VKF Fahrzeug · title – what a placed
+ * Fahrzeug can be called, so the palette and the editor agree; lib/symbols · symbolTitleOptions).
+ * The palette shows them first, and the symbol is placed already named. Empty query → nothing.
+ */
+export function vehicleHits(names: readonly string[] | undefined, query: string): string[] {
+  const q = searchQuery(query)
+  if (!q || !names) return []
+  return names.filter((n) => matchesQuery(q, n))
+}
+
 export function symbolMatchesQuery(s: SymbolMeta, query: string): boolean {
   // ⚠️ An empty query matches NOTHING here (the palette shows its categories instead), which is
   // the opposite of a list filter — hence the explicit check rather than `matchesRaw`.

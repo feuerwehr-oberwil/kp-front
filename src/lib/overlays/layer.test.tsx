@@ -9,10 +9,10 @@ import { resetLayers, useLayer } from './layer'
 
 afterEach(() => { cleanup(); resetLayers() })
 
-function Card({ name, onClose = () => {} }: { name: string; onClose?: () => void }) {
+function Card({ name, onClose = () => {}, throughBars }: { name: string; onClose?: () => void; throughBars?: boolean }) {
   const [open, setOpen] = useState(true)
   const ref = useRef<HTMLDivElement>(null)
-  useLayer({ open, onClose: () => { setOpen(false); onClose() }, inside: [ref] })
+  useLayer({ open, onClose: () => { setOpen(false); onClose() }, inside: [ref], throughBars })
   return open ? <div ref={ref} role="dialog" aria-label={name}><input aria-label={`${name}-feld`} /></div> : null
 }
 
@@ -32,6 +32,26 @@ describe('useLayer', () => {
     fireEvent.pointerDown(map)
     fireEvent.click(map)
     expect(under).toHaveBeenCalledTimes(2)
+  })
+
+  it('throughBars: a rail tile closes the layer AND gets its tap; the map beside it still only closes it', () => {
+    const tile = vi.fn()
+    const under = vi.fn()
+    const { rerender } = render(<><nav className="navrail"><button onClick={tile}>Symbol</button></nav><button onClick={under}>Karte</button><Card name="Gebäude" throughBars /></>)
+    const sym = screen.getByRole('button', { name: 'Symbol' })
+    fireEvent.pointerDown(sym)
+    fireEvent.pointerUp(sym)
+    fireEvent.click(sym)
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(tile).toHaveBeenCalledTimes(1)
+    // a fresh card: the map beside it is swallowed as before
+    rerender(<><nav className="navrail"><button onClick={tile}>Symbol</button></nav><button onClick={under}>Karte</button><Card key="2" name="Gebäude" throughBars /></>)
+    const map = screen.getByRole('button', { name: 'Karte' })
+    fireEvent.pointerDown(map)
+    fireEvent.pointerUp(map)
+    fireEvent.click(map)
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(under).not.toHaveBeenCalled()
   })
 
   it('a press inside the layer is its own', () => {

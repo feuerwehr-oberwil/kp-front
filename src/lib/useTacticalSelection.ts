@@ -1,17 +1,23 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import type { LngLat, MapTool, ShapeKind } from '../types'
 
 /** The armed tool and what it will place next — the pending symbol / shape and the place-lock —
  *  identical on both surfaces: the Lage map (through useTacticalSelection below) and the Plan
  *  board (Whiteboard), which differ only in their tool vocabulary and their rest tool
- *  (`'select'` / `'pan'`). Session-only, never persisted or synced. */
+ *  (`'select'` / `'pan'`). Session-only, never persisted or synced.
+ *  `pendingLabel` is the name the symbol is placed WITH – an own vehicle found by its Bezeichnung
+ *  in the palette («TLF», lib/symbolSearch · vehicleHits) lands already named. Arming without
+ *  one clears it, so no later Fahrzeug inherits it. */
 export function usePlacement<T extends string>(rest: T) {
   const [tool, setTool] = useState<T>(rest)
-  const [pending, setPending] = useState<string | null>(null)
+  const [armed, setArmed] = useState<{ symbol: string; label?: string } | null>(null)
+  const pending = armed?.symbol ?? null
+  const pendingLabel = armed?.label
+  const setPending = useCallback((symbol: string | null, label?: string) => setArmed(symbol ? { symbol, label } : null), [])
   const [pendingShape, setPendingShape] = useState<ShapeKind | null>(null)
   // when on, placing a symbol/shape keeps place-mode active for rapid multi-placement
   const [placeLock, setPlaceLock] = useState(false)
-  return { tool, setTool, pending, setPending, pendingShape, setPendingShape, placeLock, setPlaceLock }
+  return { tool, setTool, pending, pendingLabel, setPending, pendingShape, setPendingShape, placeLock, setPlaceLock }
 }
 
 /** Session-only tactical editing state for the Lage map surface: the placement state above,

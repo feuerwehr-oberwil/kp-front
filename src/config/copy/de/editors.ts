@@ -226,6 +226,25 @@ export const editorsCopy = {
     } as Record<string, string>,
     kemlerDoubled: 'Verstärkte Gefahr (verdoppelte Ziffer)',
     spreadBoundedWhat: 'Ausbreitung hier gestoppt',
+    /** Ein von Hand gesetztes Fahrzeug, das so heisst wie ein GPS-Fahrzeug daneben (lib/gpsTwin,
+     *  Owner-Pick UX-Journeys B3·33/34, 25.11.2026): «Zwei Symbole = zwei Fahrzeuge?» – ein Tipp
+     *  nimmt das Symbol weg und hält das GPS-Fahrzeug an seiner Stelle fest (↶ nimmt beides zurück).
+     *  `gpsTwinHint` steht hinter dem fetten Namen. */
+    gpsTwinHint: 'ist schon per GPS auf der Karte, {m} m daneben. Zwei Symbole = zwei Fahrzeuge?',
+    gpsTwinHold: 'Stattdessen GPS-{name} hier festhalten',
+    gpsTwinStep: 'GPS-{name} statt Symbol festgehalten',
+    /** Die Einsatzzeiten eines Fahrzeugs im Blatt, automatisch aus den Ausrückzeiten des Rapports
+     *  (lib/vehicleTimes, Owner 25.11.2026: «im Detailblatt, als automatisches Attribut»). */
+    vehicleTimes: {
+      ausgerueckt: 'Ausgerückt',
+      vorOrt: 'Vor Ort',
+      zurueck: 'Zurück im Magazin',
+      notYet: 'noch nicht',
+    },
+    /** …und der zweite Ausweg (Owner-Notiz zum Sign-off, 25.11.2026: «zwei TLF können wirklich da
+     *  sein»): «Sind zwei» blendet den Hinweis für dieses Symbol aus, ↶ holt ihn zurück. */
+    gpsTwinKeep: 'Sind zwei – Hinweis ausblenden',
+    gpsTwinKeepStep: 'Hinweis «zwei {name}» ausgeblendet',
   },
   drawingEditor: {
     area: 'Fläche',

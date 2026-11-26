@@ -106,14 +106,16 @@ export function symbolControls(name?: string, cat?: string): Set<SymbolControl> 
  *  structure wherever it is dropped (previously only the map seeded these).
  *
  *  The generic vehicle is special-cased: it is named by the user (like a GPS
- *  unit), so it drops in empty (no label / subtitle / fields) with rotation 0. */
-export function seedSymbolProps(name: string, catalog: { name: string; cat: string }[]): SymbolProps {
+ *  unit), so it drops in empty (no label / subtitle / fields) with rotation 0 – or with the
+ *  Bezeichnung it was picked by (`vehicleLabel`: «TLF» typed into the palette search, owner pick
+ *  UX journeys M·9, 25.11.2026). */
+export function seedSymbolProps(name: string, catalog: { name: string; cat: string }[], vehicleLabel?: string): SymbolProps {
   // the generic vehicle is user-named, so it drops in without a label/subtitle — but it
   // still seeds its preset fields (e.g. the Fahrer picker) like any other symbol.
   if (name === appConfig.symbols.vehicleName) {
     const tmpl = presets.byName[name]?.fields
     const fields = tmpl?.length ? Object.fromEntries(tmpl.map((k) => [k, ''])) : undefined
-    return { symbol: name, label: '', rotation: 0, fields }
+    return { symbol: name, label: vehicleLabel ?? '', rotation: 0, fields }
   }
   const cat = catalog.find((x) => x.name === name)?.cat
   const tmpl = presetFor(name, cat)?.fields
