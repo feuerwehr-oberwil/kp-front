@@ -5,7 +5,7 @@ import type { Copy, Localizable } from '../index'
 
 export const symbolsCopy: Localizable<Pick<Copy, 'symbolNames' | 'symbolAliases' | 'symbolCategories'>> = {
   // Tactical-symbol display labels, keyed by the RAW FireGIS name. Stored identity stays the raw
-  // name; only the label localizes. Missing keys fall back to the German label / displayNames.
+  // name; only the label localizes. Missing keys fall back to the German label.
   symbolNames: {
     'VKF Feuer': 'Fire',
     'VKF Rettungen': 'Rescue',
@@ -94,6 +94,11 @@ export const symbolsCopy: Localizable<Pick<Copy, 'symbolNames' | 'symbolAliases'
     'FW Boot': 'Boat',
     'FW Tauchpumpe': 'Submersible pump',
     'FW Wassersauger': 'Wet vacuum',
+    'FW Beschaedigung': 'Damage',
+    'FW Teilzerstoerung': 'Partial destruction',
+    'FW Totalzerstoerung': 'Total destruction',
+    'FW Ueberschwemmung': 'Flood',
+    'VKF Drohne': 'Drone',
   },
   // Symbol-palette category headings, keyed by the German category key.
   symbolCategories: {

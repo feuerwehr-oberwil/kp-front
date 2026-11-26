@@ -180,8 +180,7 @@ const base = {
     trailsPollMs: 30_000,
     // each live vehicle renders a generic vehicle glyph with its name + heading
     // baked in (see lib/useVehiclePositions.ts · vehicleSymbolSvg); no per-name
-    // symbol mapping needed.
-    status: { online: 'Online', offline: 'Offline', unknown: 'Unbekannt' } as Record<string, string>,
+    // symbol mapping needed. Its status words live in copy (`map.live.vehicleStatus`).
   },
   // Standort teilen — crew members reporting their own position from their own phones, so the
   // command post can see where people are working (the Wassertransport several kilometres out
@@ -200,8 +199,6 @@ const base = {
     /** GPS fixes worse than this are dropped rather than drawn: a 2 km circle rendered as a
      *  dot is a lie, and indoors/underground that is exactly what a phone reports */
     maxAccuracyM: 500,
-    selfReported: 'Selbstauskunft',
-    copyFields: { lastFix: 'Letzte Position', accuracy: 'Genauigkeit' },
   },
   // Multi-device live sync (HTTP, no WebSocket — the backend is last-write-wins on the
   // full workspace blob, polled with a `since`-rev conditional GET that 304s when nothing
@@ -331,91 +328,6 @@ const base = {
     // (below) lists 'rotation' in `controls`, so the drag-to-rotate handle and the
     // editor's Drehung stepper stay in sync from one source (see lib/symbols ·
     // ROTATABLE / symbolControls).
-    // short, clear display labels (raw library name → label). Anything not listed
-    // falls back to the prefix-stripped + umlaut-restored name.
-    displayNames: {
-      'VKF Feuer': 'Feuer',
-      'VKF Rettungen': 'Rettung',
-      'VKF Unfall': 'Unfall',
-      'VKF Gefaehrliche Stoffe': 'Gefahrstoffe',
-      'VKF Wasser': 'Wasser',
-      // damage/Naturereignis signatures (Faltkarte 11/2022, added 2026-07-02)
-      'FW Beschaedigung': 'Beschädigung',
-      'FW Teilzerstoerung': 'Teilzerstörung',
-      'FW Totalzerstoerung': 'Totalzerstörung',
-      'FW Ueberschwemmung': 'Überschwemmung',
-      'FW Gefahr allgemein': 'Gefahr',
-      'FW Gefahr Tafel': 'Gefahrentafel',
-      'FW Gefahr Radioaktiv': 'Radioaktiv',
-      'FW Gefahr Ex': 'Explosion',
-      'FW Gefahr G': 'Gas',
-      'FW Gefahr C': 'Chemie',
-      'FW Gefahr W': 'Wasser',
-      'FW Elektroanlage': 'Elektroanlage',
-      'FW Messpunkt': 'Messpunkt',
-      'VKF Patientensammelstelle': 'Patientensammelstelle',
-      'VKF Sanitaetshilfsstelle': 'Sanitätshilfsstelle',
-      'VKF Totensammelstelle': 'Totensammelstelle',
-      // FKS audit: this glyph (rectangle + two horizontal lines) is the FKS sign for Unverletzte,
-      // not a generic Sammelstelle — the assembly point is the separate FW Sammelplatz (□ + S).
-      'VKF Sammelstelle': 'Unverletzte',
-      'FW Sammelplatz': 'Sammelplatz',
-      'FW Warteraum': 'Warteraum',
-      'FW Verwundetennest': 'Verwundetennest',
-      'VKF Bereich Sanitaet': 'Sanität',
-      'VKF KP Front': 'KP Front',
-      'VKF Einsatzleiter': 'Einsatzleiter',
-      'FW Offizier': 'Offizier',
-      'VKF Kontrollposten': 'Kontrollposten',
-      'VKF Informationszentrum': 'Informationszentrum',
-      'VKF Bereich Materialdepot': 'Materialdepot',
-      'VKF Verkehrssperre ueberwacht': 'Verkehrssperre',
-      'VKF Drehleiter': 'Drehleiter',
-      'VKF Hubretter': 'Hubretter',
-      'VKF Fahrzeug': 'Fahrzeug',
-      'VKF Pumpe Typ2': 'Pumpe',
-      'FW Tauchpumpe': 'Tauchpumpe',
-      'FW Wassersauger': 'Wassersauger',
-      'VKF Helilandeplatz': 'Helilandeplatz',
-      'VKF Drohne': 'Drohne',
-      'VKF Luefter mobil': 'Lüfter',
-      'FW Entrauchung': 'Entrauchung',
-      'FW Kleinloeschgeraet': 'Kleinlöschgerät',
-      'FW Sprungretter': 'Sprungretter',
-      'FW Leiter': 'Leiter',
-      'SI Ueberflurhydrant': 'Überflurhydrant',
-      'SI Unterflurhydrant': 'Unterflurhydrant',
-      'VKF Innenhydrant': 'Innenhydrant',
-      'SI Wasserloeschposten': 'Wasserlöschposten',
-      'WV Loeschweier': 'Löschweiher',
-      'SI Wasserbezugsort': 'Wasserbezugsort',
-      'SI Wasserdruckversorgung': 'Wasserdruckversorgung',
-      'GB Lift': 'Lift',
-      'GB Kamin': 'Kamin',
-      'GB Abzug': 'Abzug',
-      'SI Schieber': 'Schieber',
-      'GB Elektrotableau': 'Elektrotableau',
-      'GB Sprinklerzentrale': 'Sprinklerzentrale',
-      'GB Brandmeldezentrale': 'Brandmeldezentrale',
-      'GB BMA Melder': 'BMA Melder',
-      'GB BMA-Z': 'BMA-Z',
-      'GB RWA-BS': 'RWA-BS',
-      'FW AED': 'AED',
-      'GB Fernsignaltableau': 'Fernsignaltableau',
-      'GB Schluesseldepot': 'Schlüsseldepot',
-      'GB BA Wand F30': 'Wand F30',
-      'GB BA Wand F60': 'Wand F60',
-      'GB BA Wand F180': 'Wand F180',
-      'GB Ture BS R30': 'Türe R30',
-      'GB Ture Durchgang': 'Durchgang',
-      'GB Treppe 8': 'Treppe',
-      'SI Nordpfeil': 'Nordpfeil',
-      'SI Windrichtung': 'Windrichtung',
-      'VKF Bereich Polizei': 'Polizei',
-      'VKF Bereich Chemiewehr': 'Chemiewehr',
-      'VKF Bereich Zivilschutz': 'Zivilschutz',
-      'VKF Bereich Feuerwehr': 'Feuerwehr',
-    } as Record<string, string>,
     // Per-symbol presets. On placement a symbol drops in with its empty `fields`
     // rows (operator just fills the blanks) and the editor shows only the `controls`
     // steppers that carry meaning for it: 'rotation' for directional glyphs (arrows,
@@ -512,7 +424,7 @@ const base = {
         'VKF Patientensammelstelle': { controls: ['count', 'floor'], fields: ['Bedienung'] },
         'VKF Sanitaetshilfsstelle': { controls: ['count', 'floor'], fields: ['Bedienung'] },
         'VKF Totensammelstelle': { controls: ['count', 'floor'], fields: ['Bedienung'] },
-        'VKF Sammelstelle': { controls: ['count', 'floor'], fields: ['Bedienung'] },   // FKS: Unverletzte (see displayNames)
+        'VKF Sammelstelle': { controls: ['count', 'floor'], fields: ['Bedienung'] },   // FKS: Unverletzte (see copy symbolNames)
         'FW Sammelplatz': { fields: ['Bedienung'] },
         'FW Warteraum': { fields: ['Bedienung'] },
         'FW Verwundetennest': { controls: ['count', 'floor'], fields: ['Bedienung'] },

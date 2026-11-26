@@ -94,6 +94,11 @@ export const symbolsCopy: Localizable<Pick<Copy, 'symbolNames' | 'symbolAliases'
     'FW Boot': 'Bateau',
     'FW Tauchpumpe': 'Pompe immergée',
     'FW Wassersauger': 'Aspirateur à eau',
+    'FW Beschaedigung': 'Dégât',
+    'FW Teilzerstoerung': 'Destruction partielle',
+    'FW Totalzerstoerung': 'Destruction totale',
+    'FW Ueberschwemmung': 'Inondation',
+    'VKF Drohne': 'Drone',
   },
   // En-têtes de catégories de la palette, indexés par la clé de catégorie allemande.
   symbolCategories: {

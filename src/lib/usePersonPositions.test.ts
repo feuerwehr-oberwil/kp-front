@@ -5,6 +5,7 @@ import {
   ageMinutes, personSymbolSvg, positionsSignature, usePersonPositions,
   EMPTY_POLL_EVERY, PERSON_STALE_AFTER_MS, type LivePerson,
 } from './usePersonPositions'
+import { applyLocale } from '../config/copy'
 
 const AT = Date.parse('2026-08-05T10:00:00Z')
 
@@ -87,9 +88,10 @@ describe('usePersonPositions polling', () => {
     vi.useFakeTimers()
     vi.setSystemTime(AT)
   })
-  afterEach(() => {
+  afterEach(async () => {
     vi.useRealTimers()
     vi.unstubAllGlobals()
+    await applyLocale('de-CH')
   })
 
   it('polls its incident and maps rows onto the personen layer', async () => {
@@ -156,7 +158,20 @@ describe('usePersonPositions polling', () => {
     await act(async () => { await vi.advanceTimersByTimeAsync(0) })
 
     expect(result.current.people).toHaveLength(1)
-    expect(result.current.people[0].subtitle).toMatch(/vor \d+ min/)
+    expect(result.current.people[0].subtitle).toBe('Selbstauskunft · vor 6 min')
+    unmount()
+  })
+
+  it('speaks the station language: a French station reads the self-report in French', async () => {
+    await applyLocale('fr')
+    const old = new Date(AT - PERSON_STALE_AFTER_MS - 60_000).toISOString()
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify([dto('p1', { ts: old })]), { status: 200 })))
+    const { result, unmount } = renderHook(() => usePersonPositions('inc-1', true))
+    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+
+    const e = result.current.people[0]
+    expect(e.subtitle).toBe('Position transmise · il y a 6 min')
+    expect(Object.keys(e.fields ?? {})).toEqual(['Dernière position', 'Précision'])
     unmount()
   })
 
