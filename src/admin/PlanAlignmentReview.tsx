@@ -48,12 +48,17 @@ const SECTIONS: Section[] = ['ready', 'needs_review', 'none', 'waiting', 'approv
 const BEYOND_PAIRING = new Set(['reference_unreachable', 'printed_scale_missing', 'object_coordinates_missing', 'pdf_unavailable', 'revision_missing', 'preparation_failed', 'georef_dependencies_missing', 'overpass_unconfigured', 'worker_retry_limit', 'multi_page_document', 'unsupported_module', 'config_unreadable'])
 /** …and of those, the ones a fresh run can still fix, which is when «Neu berechnen» is offered. */
 const RETRYABLE = new Set(['reference_unreachable', 'worker_retry_limit', 'preparation_failed', 'invalid_match', 'config_unreadable'])
+/** A fresh worker run is the sheet's way forward: current, ended without a fit, for a reason a
+ *  new run can fix. Not gated on `can_approve` – a multi-page sheet the worker gave up on before
+ *  it read the markers (an unreadable config) cannot be approved yet. */
+const retryable = (item: AlignmentListItem) =>
+  item.is_current && ['no_match', 'failed', 'unavailable'].includes(item.status) && RETRYABLE.has(item.reason ?? '')
 /** A refused write as the review shows it. A 409 the server explained («Freigabe zuerst
- *  zurücknehmen, dann …») keeps the server's sentence; only a bare 409 – lib/api then holds its
- *  status wording, `errors.httpRejected` – reads as the generic «zwischenzeitlich geändert». */
+ *  zurücknehmen, dann …») keeps the server's sentence; only a bare 409 (no `serverMessage`)
+ *  reads as the generic «zwischenzeitlich geändert». */
 const refusalText = (e: unknown): string => {
   const C = appConfig.copy.admin.alignment
-  return e instanceof ApiError && e.status === 409 && e.detail === appConfig.copy.errors.httpRejected ? C.conflict : apiErrorText(e, C.saveFailed)
+  return e instanceof ApiError && e.status === 409 && !e.serverMessage ? C.conflict : apiErrorText(e, C.saveFailed)
 }
 
 /**
@@ -228,7 +233,8 @@ export function PlanAlignmentReview({ compact = false, embedded = false, source 
       <div><h2>{C.title}</h2>{!compact && <p className="adm-hint">{C.intro}</p>}</div>
       {actions}
     </div>}
-    {(error ?? loadError) && <p className="adm-state adm-state-err" role="alert">{error ?? loadError}</p>}
+    {error && <p className="adm-state adm-state-err" role="alert">{error}</p>}
+    {loadError && <p className="adm-state adm-state-err" role="alert">{loadError}</p>}
     {queue && !queue.capability.available && <p className="adm-align-notice" role="status">{C.unavailableHint}</p>}
     {embedded
       ? <div className="adm-align-toolbar">{searchField}{applied}{(staged.length > 0 || overrides.size > 0) && actions}</div>
@@ -414,8 +420,11 @@ function ResolvedAlignmentDetail(props: SeededDetailProps) {
   }, [id, edit_version, attempt])
   // A decision bumps the queue row before the re-read lands: the newer row's fields go over the
   // rings the last detail brought, rather than dropping the editor back to its loading frame.
-  const resolved: AlignmentItem | null = !detail ? null
+  const merged: AlignmentItem | null = !detail ? null
     : detail.edit_version >= edit_version ? detail : { ...detail, ...props.item }
+  // A replacement leaves this row's edit_version alone, so a newer queue read's `is_current` is
+  // taken over by itself – a revision once replaced never becomes current again.
+  const resolved = merged && { ...merged, is_current: merged.is_current && props.item.is_current }
   const retry = <p className="am-error" role="alert">{C.loadFailed} <button className="btn" type="button" onClick={() => setAttempt(n => n + 1)}>{C.refresh}</button></p>
   // The frame – header, back action and all – stands from the first frame: a slow or failed read
   // must not leave the full-screen editor without a way out.
@@ -462,6 +471,10 @@ function FloorPackDetail({ item, onChange, onConflict, onDirty, saveRef, onSaveS
   const pairsDirty = pairsDraft != null && JSON.stringify(pairsDraft.pairs) !== JSON.stringify(item.pairs)
   const stale = pairsDraft != null && pairsDraft.editVersion !== item.edit_version
   const editable = item.is_current && !waiting.has(item.status)
+  const canRetry = retryable(item)
+  // Only a reason a fresh run answers is repeated here: a multi-page or unsupported sheet is
+  // exactly what this editor is for.
+  const reason = canRetry && BEYOND_PAIRING.has(item.reason ?? '') ? reasonText(item.reason) : null
   useEffect(() => {
     mounted.current = true
     const abort = new AbortController()
@@ -506,8 +519,19 @@ function FloorPackDetail({ item, onChange, onConflict, onDirty, saveRef, onSaveS
     return () => { if (saveRef) saveRef.current = null }
   })
   const withdraw = async () => {
-    setBusy(true)
+    setBusy(true); setError(null)
     try { onChange(await undoAlignmentApproval(item)) } catch (e) { setError(apiErrorText(e, C.saveFailed)) } finally { if (mounted.current) setBusy(false) }
+  }
+  const retry = async () => {
+    setBusy(true); setError(null); setNotice(null)
+    try {
+      const next = await retryAlignment(item)
+      if (mounted.current) onChange(next)
+    } catch (e) {
+      if (!mounted.current) return
+      setError(refusalText(e))
+      if (e instanceof ApiError && e.status === 409) await onConflict()
+    } finally { if (mounted.current) setBusy(false) }
   }
   return <section className="adm-align-review adm-editor-detail" aria-label={item.object_name}>
     <EditorHeader item={item} unsaved={dirty} origin={originWord(item, pairs, C)} tip={statusTip(item, C)}
@@ -516,11 +540,15 @@ function FloorPackDetail({ item, onChange, onConflict, onDirty, saveRef, onSaveS
         : undefined}
       actions={<>
       <span className="adm-editor-rule" aria-hidden />
+      {/* held while the admin has changed something (`canUndo`, set pairs) – a pack with no saved
+          floors is «dirty» from its first frame, because the proposal itself is unsaved */}
+      {canRetry && <button type="button" className="btn" disabled={busy || canUndo || pairsDirty} onClick={() => void retry()}>{C.retry}</button>}
       <button type="button" className="btn" disabled={busy || !canUndo} onClick={() => historyRef.current?.undo()}><Icon id="undo" />{appConfig.copy.undo}</button>
       <button type="button" className="btn primary" disabled={!saveable} onClick={() => void save()}>{busy && <ShellLoader />}{busy ? C.saving : F.saveAll}</button>
     </>} />
     <MarkerNotes item={item} />
     {!item.is_current && <p className="adm-align-notice">{C.superseded}</p>}
+    {reason && <p className="adm-hint adm-align-reason">{reason}</p>}
     {/* ONE row, not two: the tabs go INTO the editor's bar, beside the sheet's zoom and over the
         floors column's head (FloorPackEditor · .adm-floors-bar). That is why the editor is mounted
         on the Karte tab too – there it is the bar alone, and the map pane below is this one.
@@ -571,9 +599,7 @@ function SheetDetail({ item, onChange, onConflict, onDirty }: DetailProps) {
   // looked at, so it lands in the overlay view however the modal was opened.
   const pairing = manual && editable
   const reason = BEYOND_PAIRING.has(item.reason ?? '') ? reasonText(item.reason) : null
-  // Not gated on `can_approve`: a multi-page sheet the worker gave up on before it read the
-  // markers (an unreadable config) cannot be approved yet, and a fresh run is its way forward.
-  const retryable = item.is_current && ['no_match', 'failed', 'unavailable'].includes(item.status) && RETRYABLE.has(item.reason ?? '')
+  const canRetry = retryable(item)
 
   useEffect(() => {
     mounted.current = true
@@ -606,11 +632,11 @@ function SheetDetail({ item, onChange, onConflict, onDirty }: DetailProps) {
       aside={item.status === 'approved'
         ? <button type="button" className="btn adm-editor-quiet" disabled={busy} onClick={() => void save('undo')}>{C.withdrawApproval}</button>
         : undefined}
-      actions={editable || retryable ? <>
+      actions={editable || canRetry ? <>
       <span className="adm-editor-rule" aria-hidden />
       {/* a fresh worker run is the only thing this editor can do that aligning by hand cannot,
           so it stands with the actions – the footer that used to hold it is gone */}
-      {retryable && <button type="button" className="btn" disabled={busy || !!draft} onClick={() => void save('retry')}>{C.retry}</button>}
+      {canRetry && <button type="button" className="btn" disabled={busy || !!draft} onClick={() => void save('retry')}>{C.retry}</button>}
       {editable && <button type="button" className="btn primary" disabled={busy || stale || !image || imageFailed || !reviewableAlignment(pairs, item.aspect)} onClick={() => void save('approve')}>{busy && <ShellLoader />}{busy ? C.saving : C.approve}</button>}
     </> : undefined} />
     <nav className="adm-editor-tabs">
