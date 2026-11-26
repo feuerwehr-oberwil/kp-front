@@ -16,7 +16,7 @@ import { ClosedStrip } from './ClosedStrip'
 import { cx } from '../lib/cx'
 import { parseAlarmText } from '../lib/alarmText'
 import { confirmDialog, openPhoto, toast, type ToastAction } from '../lib/ui'
-import { buildDirectReportPayload, downloadDirectReportPdf, readyDirectReportPayload, signedPartOf, signPlace, signPlaceDate, usedStackFloors } from '../lib/reportPdfDirect'
+import { buildDirectReportPayload, signedPartOf, signPlace, signPlaceDate, usedStackFloors, type DirectReportArgs } from '../lib/reportPdfDirect'
 import { activeSignatures, sha256Hex, SIGNATURE_ROLES, signedRoster, type ReportSignature } from '../lib/reportSignature'
 import { newId } from '../lib/ids'
 import { serverNowIso } from '../lib/serverClock'
@@ -32,8 +32,8 @@ import surface from './Surface.module.css'
 import { usePageHeadFit } from '../lib/pageHeadFit'
 import { KrokiFramingPanel } from './KrokiFramingPanel'
 import { ShareIncident } from './panels/ShareIncident'
-import { cancelPrint, editorPrintTransport, enqueuePrint, fetchJobStatus, fetchPrintStatus, prewarmPrint, type PrintJobStatus, type PrintRelayStatus } from '../lib/printRelay'
-import { trackPrintJob } from '../lib/printJobToast'
+import { editorPrintTransport, prewarmPrint } from '../lib/printRelay'
+import { useReportOutput } from './useReportOutput'
 import { appConfig } from '../config/appConfig'
 import { fieldWhen, fillTemplate, fmtSpanShort, hhmm, stripUnprintable, telHref, unitLabel } from '../lib/format'
 import { closeTimeOf, getIncident, type IncidentMeta } from '../lib/incidents'
@@ -80,8 +80,6 @@ import { PHONE_TABS, STEP_TAB, rapportKept, useReportPlace, type PhoneTab } from
 
 const NO_IDS = new Set<string>()
 const NO_SIGNATURES: ReportSignature[] = []
-/** The `kind` (lib/ui · toast) of every answer to the print job's «Prüfen»: a second press replaces the first. */
-const PRINT_CHECK = 'print-check'
 /** The Rapport head's ladder (lib/pageHeadFit): the tiles fold TOGETHER (owner pick 24a,
  *  17.11.2026 – it was one tile at a time), each to its glyph OVER its short word: «Ausdrucken» →
  *  «Drucken», «Einsatz abschliessen» → «Abschliessen» (never a bare glyph, 04.11.2026),
@@ -616,8 +614,9 @@ export function ReportPreflight({
   })
 
   // The freshest blob this surface has seen, for the writes that do NOT happen inside the event
-  // that triggered them (see persist, stampReportMade). Updated in an effect rather than during
-  // render — a ref written while rendering is the pattern the immutability lint objects to.
+  // that triggered them (see persist, useReportOutput · stampReportMade). Updated in an effect
+  // rather than during render — a ref written while rendering is the pattern the immutability lint
+  // objects to.
   const metaRef = useRef(reportMeta)
   useEffect(() => { metaRef.current = reportMeta })
 
@@ -798,47 +797,6 @@ export function ReportPreflight({
       return false
     }
   }
-  const [pdfBusy, setPdfBusy] = useState(false)
-  /** A rapport has just been produced (PDF in hand, or a print job on its way to the station
-   *  printer). The blob remembers WHEN, so the Rapport can tell whoever opens it next that the
-   *  paper already exists — on this device or on any other.
-   *  ⚠️ NOT through `persist`: this write lands SECONDS after the press that started it (a
-   *  server-rendered PDF takes a moment), and `persist` merges the form state of the render it
-   *  was created in — a Kurzbericht typed while the PDF was rendering would be overwritten with
-   *  the text it had when the button was hit. `metaRef` is the freshest blob instead, and every
-   *  field on this surface already persists itself on change, so there is nothing else to carry
-   *  — except `also`, the framing written by the same click (see startOutput). */
-  const stampReportMade = (also: Partial<ReportMeta>) =>
-    canRecord && onSaveMeta({ ...metaRef.current, ...also, reportMadeAt: new Date().toISOString() })
-  /** A job has been handed to the station relay and is not printed yet. Recorded on the blob,
-   *  not just in the toast: «in der Warteschlange» is a STATE and a toast is an event, and the
-   *  poll behind the toast gives up after 90 s. Whoever opens the Rapport next — after a reload,
-   *  on another device — has to see that a print is still outstanding. */
-  const holdPrintJob = (id: string, also: Partial<ReportMeta>) =>
-    canRecord && onSaveMeta({ ...metaRef.current, ...also, printJob: { id, at: new Date().toISOString() } })
-  /** Jobs already settled on THIS surface — the double-settle guard. The toast's `onSettled`
-   *  and this surface's own 15 s poll can both answer for the same job within one render, and
-   *  `metaRef` only catches up on the NEXT render — so without this, the second settler saw the
-   *  job still on the blob and wrote again, re-stamping `reportMadeAt` seconds later. A plain
-   *  synchronous Set: the first settle claims the id before any side effect, the second no-ops. */
-  const settledJobsRef = useRef(new Set<string>())
-  /** The job left the queue. `done` is the ONLY status that earns the «Rapport erstellt» stamp —
-   *  a failed or a cancelled job simply stops being outstanding, and `gone` (the relay no longer
-   *  knows the job — swept after 7 days) clears WITHOUT stamping: the outcome is unknown, and a
-   *  stamp would claim paper that may never have existed.
-   *  ⚠️ ONE write for both halves: `metaRef` only catches up on the next render, so stamping and
-   *  then clearing would merge the clear onto the blob as it was BEFORE the stamp.
-   *  ⚠️ Settles the NAMED job only: a settle that arrives late (the toast poll of a previous
-   *  job) must not clear a newer job that has since been queued. */
-  const settlePrintJob = (jobId: string, status: PrintJobStatus | 'gone') => {
-    if (!canRecord || metaRef.current.printJob?.id !== jobId || settledJobsRef.current.has(jobId)) return
-    settledJobsRef.current.add(jobId)
-    onSaveMeta({
-      ...metaRef.current,
-      ...(status === 'done' ? { reportMadeAt: new Date().toISOString() } : {}),
-      printJob: undefined,
-    })
-  }
   /** The one step left after the paper exists, offered beside the fact rather than demanded:
    *  the Einsatz is still open, and nobody archives one unless they know they have to.
    *  ⚠️ `undefined` while ANY Mindestangabe is missing — printing a half-filled sheet to finish
@@ -846,33 +804,14 @@ export function ReportPreflight({
    *  Same condition the Band under the head uses, so the two can't disagree. */
   const completeOffer = (): ToastAction | undefined =>
     onComplete && !missing.length ? { label: A.complete, onClick: () => void complete() } : undefined
-  // ONE button (decided 2026-07-18): the server composes the complete rapport — map
-  // render included (app/kroki.py) — from pure data. No Druckansicht detour anymore.
-  // `also`: the Kroki framing and the sheet's answers of the same click (startOutput) – on the
-  // paper, and on the stamp that follows it
-  const downloadPdf = async (also: Partial<ReportMeta> = {}) => {
+  // The paper of one press, for the PDF and the printer alike (useReportOutput). The draft is
+  // built at the press; the arguments and the signatures settle in the promise.
+  const paperOf = (also: Partial<ReportMeta>): Promise<DirectReportArgs> => {
     const draft = buildDraft(also)
-    setPdfBusy(true)
-    try {
-      await downloadDirectReportPdf({ ...pdfArgs(draft), signatures: await signaturesFor(draft) })
-      // The PDF is the proof; the next step («Einsatz abschliessen») is the green head tile, which
-      // `reportMadeAt` turns on once nothing is open. No toast beside it (owner #31, 30.10.2026).
-      stampReportMade(also)
-    } catch {
-      toast(appConfig.copy.report.pdfFailed, { icon: 'warn', tone: 'warn' })
-    } finally {
-      setPdfBusy(false)
-    }
+    return (async () => ({ ...pdfArgs(draft), signatures: await signaturesFor(draft) }))()
   }
-  // Station print relay: hidden unless the deployment runs one (fail-closed backend);
-  // the dot mirrors the agent heartbeat, undo cancels while the job is still queued.
-  const [printStatus, setPrintStatus] = useState<PrintRelayStatus | null>(null)
-  const [printBusy, setPrintBusy] = useState(false)
-  useEffect(() => {
-    let alive = true
-    void fetchPrintStatus(editorPrintTransport()).then((s) => { if (alive) setPrintStatus(s) })
-    return () => { alive = false }
-  }, [])
+  const { printStatus, pdfBusy, printBusy, pendingJob, jobNowMs, jobBusy, downloadPdf, sendToPrinter, checkPrintJob, dropPrintJob } =
+    useReportOutput({ incidentId: incident.id, meta: reportMeta, metaRef, canRecord, onSaveMeta, paper: paperOf, completeOffer })
   // Opening this surface is a strong «about to print» signal: once we know the relay is
   // available and the report carries a Kroki, warm the server's map-tile cache so the real
   // enqueue render is near-instant. Fire once, best-effort — reframes reuse overlapping tiles.
@@ -889,125 +828,6 @@ export function ReportPreflight({
   })
   useEffect(() => { warmTiles() }, [printStatus?.available, options.kroki, mapContentCount])
   const R = appConfig.copy.printRelay
-  const sendToPrinter = async (also: Partial<ReportMeta> = {}) => {
-    // ALWAYS confirm — «Ausdrucken» must never produce accidental paper; when the relay is
-    // offline the modal doubles as the store-and-forward warning. That one is now the TITLE and
-    // nothing else: «Stationsdrucker offline» is the whole statement, and the paragraph under it
-    // explaining that the job would be printed later was the sentence that made queuing sound
-    // like printing.
-    const ok = printStatus?.online
-      ? await confirmDialog({ title: R.confirmTitle, message: R.confirmMsg, confirmLabel: R.confirmBtn })
-      : await confirmDialog({ title: R.offlineConfirmTitle, message: '', confirmLabel: R.offlineConfirmBtn })
-    if (!ok) return
-    setPrintBusy(true)
-    try {
-      const t = editorPrintTransport()
-      // the SAME arguments the PDF download sends, signatures included — paper and PDF are one document
-      const draft = buildDraft(also)
-      const payload = await readyDirectReportPayload({ ...pdfArgs(draft), signatures: await signaturesFor(draft) })
-      const jobId = await enqueuePrint(t, incident.id, payload)
-      // ⚠️ NOT `stampReportMade`. EINGEREIHT IST NICHT GEDRUCKT: the stamp is the sole condition
-      // for the head's green «Einsatz abschliessen» (`closeReady`), and until
-      // 22.08. it was set the instant the job left this device — including straight after the
-      // dialog that had just said the printer was offline. So the app offered to close an Einsatz
-      // whose rapport existed on no sheet of paper anywhere. What is recorded here is the OPEN
-      // JOB; the stamp waits for the relay to say `done` (settlePrintJob).
-      holdPrintJob(jobId, also)
-      // …and the Abschluss offer rides the END of the job's own status chain, not a second toast
-      // beside it: the Einsatz is worth closing once the paper is out of the printer.
-      trackPrintJob(t, jobId, completeOffer(), {
-        relayOffline: !printStatus?.online,
-        onSettled: (status) => settlePrintJob(jobId, status),
-      })
-    } catch {
-      toast(R.failed, { icon: 'warn', tone: 'warn' })
-    } finally {
-      setPrintBusy(false)
-    }
-  }
-
-  // --- The print job that has NOT come out yet ------------------------------------------------
-  //
-  // `pollJobUntilDone` gives up after 90 s and its toast is gone from the screen long before
-  // that, and nothing ever read the job again — so a Rapport could sit for an hour claiming to
-  // have been printed while the relay had never come back. An unresolved job is a STATE: it
-  // lives on the blob, it shows under the head, and it is re-read for as long as this surface is
-  // open, across a reload and a change of device.
-  const pendingJob = reportMeta.printJob
-  const [jobBusy, setJobBusy] = useState(false)
-  // «Seit X min» must move. Computed from a bare Date.now() at render it froze at whatever
-  // minute the band appeared in (and read the clock during render, which the purity lint
-  // rightly flags) — a minute tick while a job is outstanding keeps the line honest. The
-  // interval only exists while the band does; an Einsatz without an open job pays nothing.
-  // No synchronous re-read when a job appears (the lint objects to setState in an effect
-  // body, and it is not needed): a just-queued job's negative span is clamped to «Seit 0 min»
-  // where the band renders it, which is the right sentence until the first tick.
-  const [jobNowMs, setJobNowMs] = useState(() => Date.now())
-  useEffect(() => {
-    if (!pendingJob) return
-    const iv = setInterval(() => setJobNowMs(Date.now()), 60_000)
-    return () => clearInterval(iv)
-  }, [pendingJob])
-  // keyed on the JOB, not on the writer: `settlePrintJob` is re-created every render, so the
-  // answer is handled in an effect event that always sees the current one
-  const onJobRead = useEffectEvent((jobId: string, s: Awaited<ReturnType<typeof fetchJobStatus>>) => {
-    // 'gone' = the relay no longer knows the job (swept after 7 days — the relay-was-down-a-
-    // week case). Waiting longer can never resolve it, so stop showing it as open and say so
-    // honestly: the outcome is unknown, no «Rapport erstellt» stamp.
-    if (s === 'gone') { settlePrintJob(jobId, 'gone'); toast(R.jobGone, { icon: 'warn', tone: 'warn' }); return }
-    // null = the relay is unreachable right now, which says nothing about the job — keep it.
-    if (!s || s.status === 'queued' || s.status === 'printing') return
-    settlePrintJob(jobId, s.status)
-  })
-  const pendingJobId = pendingJob?.id
-  useEffect(() => {
-    if (!pendingJobId || !canRecord) return
-    let alive = true
-    const t = editorPrintTransport()
-    const read = async () => {
-      const s = await fetchJobStatus(t, pendingJobId)
-      if (alive) onJobRead(pendingJobId, s)
-    }
-    void read()
-    const iv = setInterval(() => void read(), 15_000)
-    return () => { alive = false; clearInterval(iv) }
-  }, [pendingJobId, canRecord])
-  /** «Prüfen»: ask the relay once, now, and say what came back — including «nothing», which is
-   *  its own answer and used to be indistinguishable from «still queued». */
-  const checkPrintJob = async () => {
-    const job = metaRef.current.printJob
-    if (!job) return
-    setJobBusy(true)
-    const s = await fetchJobStatus(editorPrintTransport(), job.id)
-    setJobBusy(false)
-    // «nicht mehr auffindbar» and «nicht erreichbar» are different answers: the first is about
-    // the JOB (it stopped existing — clear it, outcome unknown), the second about the network.
-    // every answer to «Prüfen» is ONE pill: pressing it again replaces the last answer
-    if (s === 'gone') { settlePrintJob(job.id, 'gone'); toast(R.jobGone, { icon: 'warn', tone: 'warn', kind: PRINT_CHECK }); return }
-    if (!s) { toast(R.jobUnreachable, { icon: 'warn', tone: 'warn', kind: PRINT_CHECK }); return }
-    if (s.status === 'done') { settlePrintJob(job.id, 'done'); toast(R.printed, { icon: 'check', tone: 'success', kind: PRINT_CHECK }); return }
-    if (s.status === 'failed') { settlePrintJob(job.id, 'failed'); toast(R.printFailed, { icon: 'warn', tone: 'warn', kind: PRINT_CHECK }); return }
-    if (s.status === 'cancelled') { settlePrintJob(job.id, 'cancelled'); toast(R.cancelled, { kind: PRINT_CHECK }); return }
-    // still under way: the neutral printer glyph, red is a failure's (FEEDBACK.11)
-    toast(s.status === 'printing' ? R.printing : R.queued, { icon: 'printer', kind: PRINT_CHECK })
-  }
-  /** Give up on a job that is still in the queue. Refused once the agent has claimed it — the
-   *  paper may already be moving, and the button says so rather than pretending. */
-  const dropPrintJob = async () => {
-    const job = metaRef.current.printJob
-    if (!job) return
-    setJobBusy(true)
-    const res = await cancelPrint(editorPrintTransport(), job.id)
-    setJobBusy(false)
-    // cancelled: the job row leaves – only a refusal is said
-    if (res === 'cancelled') { settlePrintJob(job.id, 'cancelled'); return }
-    // The three refusals mean three different things (see printRelay · CancelOutcome):
-    // «zu spät» only when the relay actually SAID the job is past cancelling — a network
-    // failure used to wear the same words, claiming knowledge nobody had.
-    if (res === 'gone') { settlePrintJob(job.id, 'gone'); toast(R.jobGone, { icon: 'warn', tone: 'warn' }); return }
-    if (res === 'unreachable') { toast(R.jobUnreachable, { icon: 'warn', tone: 'warn' }); return }
-    toast(R.undoTooLate, { icon: 'warn', tone: 'warn' })
-  }
 
   /** The ONE way an option changes — it also records the deviation, which is what outlives the
    *  hop to Anwesenheit/Mittel (see rapportKept). Set an option any other way and it is back to
@@ -1086,7 +906,7 @@ export function ReportPreflight({
   /** ⚠️ Through `metaRef`, not `persist` — the tick is offered again when the operator returns
    *  from the form, which is a moment later than the render the offer was built in. `persist`
    *  would merge THAT render's form state and undo whatever was typed since (same reason as
-   *  stampReportMade). Every field on this surface persists itself already. */
+   *  useReportOutput · stampReportMade). Every field on this surface persists itself already. */
   const setLinkDone = (id: string, done: boolean) => {
     if (!canEdit) return
     const next = { ...(metaRef.current.linksDone ?? {}) }
