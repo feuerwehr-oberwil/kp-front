@@ -1453,10 +1453,16 @@ span.wb-ghost-label { cursor: default; }
    offen» pill at its last point (usePlanDraft · openName; the pill's pulse said the dashes' «open»
    twice, design pass C5, 18.11.2026). Where the next point lands is a ring
    and nothing else (owner: «no text, no guide lines»): magenta when it catches, a small grey dot
-   when it is free; a mouse also draws the rubber band from the last point. */
-.wb-draft-open { fill: none; stroke: var(--open); stroke-width: 3; stroke-dasharray: 10 7; animation: wb-ants .8s linear infinite; }
+   when it is free; a mouse also draws the rubber band from the last point.
+   The dashes march at the Karte's cadence (lib/draftAnts, perf sweep 26.11.2026 – a gliding dash
+   offset repainted the board 60×/s): one step per DRAFT_ANTS_TICK_MS = 180ms, each step
+   DRAFT_ANTS_STEP / DRAFT_ANTS.length = 3/14 of a dash period (10 + 7 = 17px). 14 steps then make
+   3 periods: 2.52s, -51px (styles/paintCost.test.ts holds the numbers). A finger on the board
+   stands them still, as on the Karte: `.held` (lib/draftAnts · useDraftAntsHold). */
+.wb-draft-open { fill: none; stroke: var(--open); stroke-width: 3; stroke-dasharray: 10 7; animation: wb-ants 2.52s steps(14) infinite; }
+.wb-ink-svg.held .wb-draft-open { animation-play-state: paused; }
 polygon.wb-draft-open { fill: var(--open); fill-opacity: .1; }
-@keyframes wb-ants { to { stroke-dashoffset: -34; } }
+@keyframes wb-ants { to { stroke-dashoffset: -51; } }
 .wb-open-pill { position: absolute; left: 0; top: 0; z-index: 8; pointer-events: none; white-space: nowrap;
   padding: 2px var(--sp-2); border-radius: var(--r-pill); background: var(--open); color: var(--on-amber);
   font-size: var(--fs-1); font-weight: var(--fw-bold); }
