@@ -271,13 +271,14 @@ async def _store_config(session_factory, document) -> None:
         await db.commit()
 
 
+@pytest.mark.parametrize("document", [{"modules": "not a list"}, []])
 async def test_an_unreadable_station_config_ends_the_job_at_once_and_writes_nothing(
-    session_factory, single_page_store, monkeypatch
+    session_factory, single_page_store, monkeypatch, document
 ):
     """The fallback's shipped catalogue is not the station's choice: no floor, no fit, no retry."""
     async with session_factory() as db:
         await seed(db, single_page_store)
-    await _store_config(session_factory, {"modules": "not a list"})
+    await _store_config(session_factory, document)
     reached = []
     monkeypatch.setattr(worker, "ensure_snapshot", lambda db: reached.append("snapshot"))
     monkeypatch.setattr(worker, "read_plan", lambda key: reached.append("markers"))

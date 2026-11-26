@@ -311,8 +311,9 @@ async def run_once(factory: async_sessionmaker[AsyncSession] = async_session_mak
         # ⚠️ Not `deployment_config.read_config`: its fallback would align against the SHIPPED
         # catalogue, which the station did not choose. An unreadable document ends the job here,
         # before anything is written, and the admin reads why; a retry would only fail the same.
+        stored = station.config_json if station else None
         try:
-            modules = load_stored_config((station.config_json if station else None) or {}).modules
+            modules = load_stored_config({} if stored is None else stored).modules
         except ValidationError:
             logger.warning("Plan alignment job %s: the station config cannot be read", claim.id, exc_info=True)
             await finish_job(db, claim, AlignmentResult("failed", "config_unreadable"))

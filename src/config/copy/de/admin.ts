@@ -1807,7 +1807,7 @@ export const adminCopy = {
         revision_missing: 'Die Plandatei fehlt auf dem Server.',
         preparation_failed: 'Vorbereitung fehlgeschlagen – «Neu berechnen» versucht es erneut.',
         pdf_unavailable: 'Das PDF konnte nicht gelesen werden.',
-        config_unreadable: 'Die Stationskonfiguration konnte nicht gelesen werden – in der Verwaltung prüfen, dann neu berechnen.',
+        config_unreadable: 'Die Stationskonfiguration konnte nicht gelesen werden – in der Verwaltung prüfen.',
       },
       // Die Marker-Diagnose (16.09.2026): was die §-Marker IM PDF falsch sagen – ein
       // geschlossener Code-Satz aus `app/plan_markers.py`, hier zu Sätzen gemacht. Jeder Satz
