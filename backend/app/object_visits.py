@@ -1666,24 +1666,30 @@ async def delete_integration_object(db: AsyncSession, source: str, external_id: 
     refuse_unstorable(source, external_id)
     if not SOURCE_RE.match(source):
         raise invalid("source: Kleinbuchstaben, Ziffern, '.', '_' oder '-'")
+
     # The object row first, then its ref (`plans` › the lock order): a merge holds the object while
-    # it moves the refs. Re-read under the lock until the ref's owner is the row this holds – a
-    # merge that committed meanwhile has moved it onto the survivor.
-    locked = None
+    # it moves the refs. Each owner is locked inside a savepoint and the ref re-read under it; if a
+    # merge or an upsert moved the ref meanwhile, the savepoint goes and takes that lock with it, so
+    # this never holds one object while it waits for the next.
+    def read_ref():
+        return db.execute(
+            select(ObjectRef)
+            .where(ObjectRef.source == source, ObjectRef.external_id == external_id)
+            .execution_options(populate_existing=True)
+        )
+
     while True:
-        ref = (
-            await db.execute(
-                select(ObjectRef)
-                .where(ObjectRef.source == source, ObjectRef.external_id == external_id)
-                .execution_options(populate_existing=True)
-            )
-        ).scalar_one_or_none()
+        ref = (await read_ref()).scalar_one_or_none()
         if ref is None:
             return {"removed": "none"}
-        if ref.object_id == locked:
+        owner = ref.object_id
+        held = await db.begin_nested()
+        await lock_objects(db, owner, deleting=True)  # its last ref may take it along
+        ref = (await read_ref()).scalar_one_or_none()
+        if ref is not None and ref.object_id == owner:
+            await held.commit()  # the lock now belongs to the transaction
             break
-        locked = ref.object_id
-        await lock_objects(db, locked, deleting=True)  # its last ref may take it along
+        await held.rollback()
     object_id = ref.object_id
     await db.delete(ref)
     await db.flush()
