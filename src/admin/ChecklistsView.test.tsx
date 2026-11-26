@@ -159,6 +159,8 @@ describe('Checklisten — cleaning up the leftovers', () => {
 
     const line = await screen.findByText(fillTemplate(C.cleanFailed, { reason: E.serverUnreachable }))
     expect(line.textContent).not.toContain(E.serverUnreachableHint)
+    // the re-read has settled once the button is back
+    await waitFor(() => expect(screen.getByRole('button', { name: C.cleanOrphans }).hasAttribute('disabled')).toBe(false))
     expect(screen.getByText('checklists:alt:p1')).toBeTruthy()
     expect(screen.queryByText(C.loadError)).toBeNull()
     expect(apiPost).not.toHaveBeenCalled()
