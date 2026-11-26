@@ -322,9 +322,10 @@ async function seedFromLive({ baseUrl, project }, site) {
   const seeded = writeRoot(next)
   checkSizes(next)
   // the marker's name goes down BEFORE site/ appears, the marker itself only after – a kill in
-  // between is finished by recoverSwaps, and a marked mirror always has its site/
-  writeFileSync(join(MIRROR, '.project.pending'), `${project}\n`)
+  // between is finished by recoverSwaps, and a marked mirror always has its site/. The (verified
+  // empty) old site/ goes FIRST: a site/ beside .project.pending must only ever be the promoted seed
   rmSync(site, { recursive: true, force: true })
+  writeFileSync(join(MIRROR, '.project.pending'), `${project}\n`)
   renameSync(next, site)
   renameSync(join(MIRROR, '.project.pending'), join(MIRROR, '.project'))
   return seeded
