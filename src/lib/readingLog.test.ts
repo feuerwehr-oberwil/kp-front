@@ -34,6 +34,12 @@ describe('readingAct — a Messpunkt reading and its Verlauf row (owner pick 2A)
     expect(at('8', '0')).toBe('Messung Messpunkt: CO 0 ppm')
   })
 
+  it('says what changed against the last usable reading — a broken stored row behind it does not count', () => {
+    // no gate checks the stored rows (lib/symbols · isUsableReading); the row stays stored
+    const p = mp({ CO: '95' }, [{ t: 1, v: { CO: '95' } }, { t: 2, v: null }] as unknown as Reading[])
+    expect(readingAct(p, { CO: '8' }, { now: 3, place: '' })?.text).toBe('Messung Messpunkt: CO 8 ppm – wieder im Normalbereich')
+  })
+
   it('records over range as the Hauptalarm and an unreadable older value as unreadable', () => {
     const at = (prev: string, next: string) =>
       readingAct(mp({ CO: prev }, [{ t: 1, v: { CO: prev } }]), { CO: next }, { now: 2, place: '' })?.text

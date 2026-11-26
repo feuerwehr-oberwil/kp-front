@@ -440,15 +440,18 @@ export function symbolReadoutText(props: SymbolProps): string | null {
   return symbolReading(props)?.text ?? null
 }
 
-/** A Messpunkt reading a reader can use: an object with its values (`v`). No gate checks the
- *  stored rows – the merge unions them off the server's raw blob – and the history panel, the
- *  map's pill and the next recording read every gas of `v`. So they read through this; a row it
- *  rejects stays in the stored history. */
+/** A Messpunkt reading a reader can use: a finite time and its values (`v`) as text. No gate
+ *  checks the stored rows – the merge unions them off the server's raw blob – and the history
+ *  panel, the map's pill, the Rapport and the next recording do arithmetic on `t` and `.trim()`
+ *  every gas of `v`. So they read through this; a row it rejects stays in the stored history. */
 const isUsableReading = (r: unknown): r is Reading =>
-  typeof r === 'object' && r !== null && 'v' in r && typeof r.v === 'object' && r.v !== null
-/** the newest usable reading */
-function lastReading(props: SymbolProps): Reading | undefined {
-  const rs = props.readings ?? []
+  typeof r === 'object' && r !== null && 't' in r && typeof r.t === 'number' && Number.isFinite(r.t)
+  && 'v' in r && typeof r.v === 'object' && r.v !== null && Object.values(r.v).every((x) => typeof x === 'string')
+/** the stored history as a list (a stored non-list is no history) */
+const storedReadings = (props: SymbolProps): Reading[] => (Array.isArray(props.readings) ? props.readings : [])
+/** the newest usable reading – what «since the last reading» and «what changed» are said against */
+export function lastReading(props: SymbolProps): Reading | undefined {
+  const rs = storedReadings(props)
   for (let i = rs.length - 1; i >= 0; i--) if (isUsableReading(rs[i])) return rs[i]
   return undefined
 }
@@ -472,7 +475,7 @@ export function recordReading(props: SymbolProps, fields: Record<string, string>
   const same = (a: Record<string, string>, b: Record<string, string>) =>
     Object.keys(a).length === Object.keys(b).length && Object.entries(a).every(([k, x]) => b[k] === x)
   if (!Object.keys(v).length || (!again && last && same(last.v, v))) return props.readings
-  return [...(props.readings ?? []), { t: now, v }]
+  return [...storedReadings(props), { t: now, v }]
 }
 
 /** Rows typed within this long of the next one belong to the same radio report. */
@@ -481,7 +484,7 @@ export const READING_BURST_MS = 2 * 60_000
 /** The history as the panel lists it: newest first, each burst of edits (one report typed gas by
  *  gas, a typo fixed) folded into its last row. Only usable rows (isUsableReading). */
 export function readingRows(props: SymbolProps): Reading[] {
-  const rs = (props.readings ?? []).filter(isUsableReading)
+  const rs = storedReadings(props).filter(isUsableReading)
   return rs.filter((r, i) => !(i + 1 < rs.length && rs[i + 1].t - r.t < READING_BURST_MS)).reverse()
 }
 
