@@ -82,44 +82,24 @@ function Cell({ name, svg, onPick }: { name: string; svg: string; onPick: (n: st
   )
 }
 
-/** An own vehicle (the station's Bezeichnung list, lib/symbols · symbolTitleOptions): a BIG named
- *  tile, not a symbol cell (owner pick, morning round 26.11.2026 · «TLF» search): in a 94px cell
- *  the Fahrzeug glyph is a 40px box and the «TLF» it wears was a few pixels high, the label under
- *  it 12.5 px grey – the station's own trucks, the things placed most, read smallest. The tile is
- *  the tap height or more, the glyph as it will stand on the Karte beside the name in the
- *  --fs-3 bold a title wears. Picks the generic Fahrzeug, already named. */
-function VehicleTile({ label, onPick }: { label: string; onPick: (n: string, label: string) => void }) {
+/** An own vehicle found by its Bezeichnung (lib/symbolSearch · vehicleHits): the Fahrzeug glyph
+ *  wearing the name, as it will stand on the Karte – the generic Fahrzeug, picked already named. */
+function VehicleCell({ label, onPick }: { label: string; onPick: (n: string, label: string) => void }) {
   return (
-    <button className="sym-vtile" title={label} onClick={() => onPick(appConfig.symbols.vehicleName, label)} draggable={false}>
-      {/* ⚠️ layout on the inner span, not the button — see .sym-cell-in in 07-toolrail.css */}
-      <span className="sym-vtile-in">
-        {/* SEC-01: the label is station config, and the glyph is built from it – sanitised here too;
-            hidden from the accessible name, which is the name beside it (the glyph spells it twice) */}
-        <span className="sym-vtile-glyph" aria-hidden dangerouslySetInnerHTML={{ __html: sanitizeSvg(vehicleSymbolSvg(label, 0)) }} />
-        <span className="sym-vtile-name">{label}</span>
+    <button className="sym-cell" title={label} onClick={() => onPick(appConfig.symbols.vehicleName, label)} draggable={false}>
+      <span className="sym-cell-in">
+        {/* SEC-01: the label is station config, and the glyph is built from it – sanitised here too */}
+        <span dangerouslySetInnerHTML={{ __html: sanitizeSvg(vehicleSymbolSvg(label, 0)) }} />
+        <small>{label}</small>
       </span>
     </button>
-  )
-}
-
-/** the «Eigene Fahrzeuge» section: first among a search's hits, and in the full list just before
- *  the category that holds the generic Fahrzeug (where the eye looks for a vehicle) */
-function OwnVehicles({ names, onPick }: { names: readonly string[]; onPick: (n: string, label: string) => void }) {
-  return (
-    <section>
-      <div className="sym-ghead">{appConfig.copy.addSheet.ownVehicles}</div>
-      <div className="sym-vgrid">
-        {names.map((v) => <VehicleTile key={v} label={v} onPick={onPick} />)}
-      </div>
-    </section>
   )
 }
 
 // Centred symbol-search modal — no tabs; all signs shown, grouped, scrollable.
 // A query finds the station's own vehicles FIRST, as their own section «Eigene Fahrzeuge» (owner
 // picks UX journeys M·9 + M·10, 25.11.2026: «TLF» found nothing); the other hits then stand under
-// their category headings, so the two kinds of hit never read as one list. Without a query the
-// same section stands before the Fahrzeug's category (owner pick, morning round 26.11.2026).
+// their category headings, so the two kinds of hit never read as one list.
 export function Palette({ sym, onPick, onClose, onPickShape, tools, onPickTool }: Props) {
   const [q, setQ] = useState('')
   const phone = useIsPhone()
@@ -140,9 +120,7 @@ export function Palette({ sym, onPick, onClose, onPickShape, tools, onPickTool }
   // no such symbol
   const toolMatches = query ? sheetTools.filter((t) => matchesRaw(query, t.label)) : []
   const toolMatchCells = toolMatches.map((t) => <ToolCell key={t.id} tool={t} onPick={onPickTool!} />)
-  const ownVehicles = symbolTitleOptions(appConfig.symbols.vehicleName) ?? []
-  const vehicles = vehicleHits(ownVehicles, query)
-  const vehicleCat = sym.symbols.find((s) => s.name === appConfig.symbols.vehicleName)?.cat
+  const vehicles = vehicleHits(symbolTitleOptions(appConfig.symbols.vehicleName), query)
   // an `Overlay` since 15.11.2026 (scroll sweep #5): it was the one hand-rolled sheet, and the
   // one that ignored the keyboard – the keys covered the lower half of the grid. The primitive
   // brings what every other sheet has: focus trap, Esc, backdrop, scroll lock, the grab bar and
@@ -172,7 +150,12 @@ export function Palette({ sym, onPick, onClose, onPickShape, tools, onPickTool }
                   {matches.map((s) => <Cell key={s.name} name={s.name} svg={s.svg} onPick={onPick} />)}
                 </div>
               : <>
-                  <OwnVehicles names={vehicles} onPick={onPick} />
+                  <section>
+                    <div className="sym-ghead">{appConfig.copy.addSheet.ownVehicles}</div>
+                    <div className="sym-grid">
+                      {vehicles.map((v) => <VehicleCell key={v} label={v} onPick={onPick} />)}
+                    </div>
+                  </section>
                   {toolMatches.length > 0 && (
                     <section>
                       <div className="sym-ghead">{appConfig.copy.addSheet.tools}</div>
@@ -200,7 +183,6 @@ export function Palette({ sym, onPick, onClose, onPickShape, tools, onPickTool }
             )}
             {sym.order.map((cat) => (
               <Fragment key={cat}>
-                {cat === vehicleCat && ownVehicles.length > 0 && <OwnVehicles names={ownVehicles} onPick={onPick} />}
                 <section>
                   <div className="sym-ghead">{appConfig.copy.symbolCategories[cat] ?? cat}</div>
                   <div className="sym-grid">

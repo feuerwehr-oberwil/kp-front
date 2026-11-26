@@ -43,7 +43,7 @@ interface Args {
   setTool: (tool: BoardTool) => void
   /** what the symbol / Form tool places next, and the place-lock (lib/useTacticalSelection · usePlacement) */
   pending: string | null
-  /** the name an armed own vehicle is placed with (components/Palette · VehicleTile) */
+  /** the name an armed own vehicle is placed with (components/Palette · VehicleCell) */
   pendingLabel?: string
   setPending: (name: string | null) => void
   pendingShape: ShapeKind | null

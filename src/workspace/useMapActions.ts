@@ -75,7 +75,7 @@ export interface UseMapActionsInputs {
   log: (icon: string, text: string, kind?: TimelineEvent['kind'], audioUrl?: string, entityId?: string, opts?: { rowId?: string; subjectId?: string }) => void
   emit: (op_type: string, payload?: Record<string, unknown>, opts?: { observed?: string }) => void
   pending: string | null
-  /** the name an armed own vehicle is placed with («TLF», components/Palette · VehicleTile) */
+  /** the name an armed own vehicle is placed with («TLF», components/Palette · VehicleCell) */
   pendingLabel?: string
   /** switch a layer this device has off back on – a placement into it (IncidentWorkspace · revealLayer) */
   revealLayer: (id: LayerId) => void

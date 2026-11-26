@@ -414,24 +414,6 @@
    stays as the last resort for a word with no seam that still cannot fit. */
 .sym-cell small { font-size: var(--fs-1); font-weight: var(--fw-medium); color: var(--ink-dim); text-align: center; line-height: 1.1;
   hyphens: manual; -webkit-hyphens: manual; overflow-wrap: break-word; word-break: normal; }
-/* an OWN vehicle (Palette · VehicleTile; owner pick, morning round 26.11.2026 · «TLF» search): a big
-   named tile, not a symbol cell – the glyph as it stands on the Karte beside the Bezeichnung in a
-   title's size. At least a main action's height; two to a row on a phone (15-mobile). The glyph
-   box is square (vehicleSymbolSvg's viewBox) and the truck a band across its middle, so the
-   glyph stands centred in a lower box and its empty top and bottom overflow it. */
-.sym-vgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(176px, 1fr)); gap: var(--sp-2); margin-bottom: var(--sp-2); }
-.sym-vtile { display: block; min-height: 56px; padding: var(--sp-2) var(--sp-3); border-radius: var(--r-ctl);
-  background: var(--fill-soft); border: 1px solid var(--border-soft); color: var(--ink); text-align: left; cursor: pointer; }
-.sym-vtile-in { display: flex; align-items: center; gap: var(--sp-3); }
-@media (hover: hover) {
-  .sym-vtile:hover { border-color: var(--border); }
-}
-.sym-vtile:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-/* flex, not grid: a grid's auto row grows to the 72px glyph and lets it hang out of the bottom;
-   a flex line keeps the box's 36px and centres the overflow both ways */
-.sym-vtile-glyph { flex: none; display: flex; align-items: center; justify-content: center; width: 72px; height: 36px; }
-.sym-vtile-glyph svg { flex: none; display: block; width: 72px; height: 72px; }
-.sym-vtile-name { min-width: 0; font: var(--fw-bold) var(--fs-3)/var(--lh-3) var(--body); overflow-wrap: anywhere; }
 /* terse empty/transient line — search no-match, loading, load error (shared with .pp-empty) */
 .sym-empty, .pp-empty { text-align: center; color: var(--ink-faint); font: var(--fw-medium) var(--fs-2) var(--body); padding: 24px 0; }
 .sym-empty { grid-column: 1/-1; }

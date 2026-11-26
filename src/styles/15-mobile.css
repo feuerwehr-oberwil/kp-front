@@ -1023,8 +1023,6 @@
      neighbours' glyphs on different heights; the first component is the one the eye recognises
      the symbol by (symbolWrap), so it is the last part that goes behind the «…». */
   .sym-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px 4px; }
-  /* own vehicles (07-toolrail · .sym-vtile): two named tiles to a row */
-  .sym-vgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .sym-cell { padding: 8px 1px; }
   .sym-cell small { font-size: var(--fs-micro); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
     line-clamp: 2; overflow: hidden;
