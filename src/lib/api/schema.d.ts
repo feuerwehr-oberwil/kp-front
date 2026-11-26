@@ -2838,8 +2838,8 @@ export interface paths {
         /**
          * Retry Alignment
          * @description «Neu berechnen»: requeues the job – status, reason, lease and attempts reset; the stored
-         *     fit stays until the worker writes a new one. An approved fit and one the worker already
-         *     holds are refused, each saying which of the two it is.
+         *     fit stays until the worker writes a new one. A replaced revision, an approved fit and one
+         *     the worker already holds are refused, each saying which it is.
          */
         post: operations["retry_alignment_api_admin_plan_alignments__item_id__retry_post"];
         delete?: never;

@@ -260,9 +260,12 @@ async def retry_alignment(
     item_id: int, body: AlignmentMutation, _admin: CurrentAdmin, db: AsyncSession = Depends(get_db)
 ):
     """«Neu berechnen»: requeues the job – status, reason, lease and attempts reset; the stored
-    fit stays until the worker writes a new one. An approved fit and one the worker already
-    holds are refused, each saying which of the two it is."""
+    fit stays until the worker writes a new one. A replaced revision, an approved fit and one
+    the worker already holds are refused, each saying which it is."""
     row = await _get(db, item_id)
+    ds = await db.get(ReferenceDataset, row.dataset_id)
+    if ds is None or ds.current_version != row.plan_version:
+        raise HTTPException(status_code=409, detail="Dieser Plan wurde ersetzt – aktuelle Version prüfen")
     if row.status == "approved":
         raise HTTPException(status_code=409, detail="Ausrichtung ist bereits freigegeben.")
     if row.status in {"processing", "pending"}:
