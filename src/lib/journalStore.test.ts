@@ -1213,3 +1213,17 @@ describe('a pull of rows already held', () => {
     } finally { store.dispose() }
   })
 })
+
+it('a legacy row changed under its id rebuilds the rows a viewer shows', async () => {
+  fakeServer()
+  const store = new JournalStore(INC, true)
+  try {
+    await store.init([row('old', { text: 'vorher' })])
+    const before = store.view().rowsKey
+    store.ingestLegacy([row('old', { text: 'vorher' })])
+    expect(store.view().rowsKey).toBe(before) // the same content again: nothing to rebuild
+    store.ingestLegacy([row('old', { text: 'nachher' })])
+    expect(store.view().rowsKey).not.toBe(before)
+    expect(store.display().map((r) => r.text)).toEqual(['nachher'])
+  } finally { store.dispose() }
+})

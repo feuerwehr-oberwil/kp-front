@@ -362,8 +362,10 @@ export class JournalStore {
     const next = [...newestFirst].reverse()
     const changed =
       next.length !== this.legacy.length || next.some((r, i) => r.id !== this.legacy[i]?.id)
+    // the display reads the rows' content: a merge may change a legacy row and keep its id
+    if (changed || next.some((r, i) => r !== this.legacy[i] && JSON.stringify(r) !== JSON.stringify(this.legacy[i]))) this.legacyGen++
     this.legacy = next
-    if (changed) { this.blobEcho = [...this.legacy].reverse(); this.legacyGen++ }
+    if (changed) this.blobEcho = [...this.legacy].reverse()
     if (!this.readOnly && this.legacy.length) {
       const known = this.knownIds()
       const fresh = this.legacy.filter((r) => !known.has(r.id)).map(stripSessionUrls)
