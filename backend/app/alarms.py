@@ -70,10 +70,6 @@ async def lock_alarm_identity(db: AsyncSession, source: str, source_ref: str) ->
     after_completion(db, release)
 
 
-#: The former name of `deployment_config.read_config`, for importers not moved over yet.
-get_config_model = read_config
-
-
 async def get_alarms_config(db: AsyncSession) -> AlarmsConfig:
     """The deployment's `alarms` config section; safe defaults on a missing/corrupt row."""
     return (await read_config(db)).alarms

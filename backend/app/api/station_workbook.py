@@ -45,7 +45,7 @@ from ..auth.dependencies import CurrentAdmin, OptionalUser
 from ..config import settings
 from ..config_history import keep_previous
 from ..database import get_db
-from ..deployment_config import config_row
+from ..deployment_config import config_row, read_config
 from ..models import DeploymentConfig, Personnel, PersonnelExternalIdentity
 from ..schemas import load_stored_config
 from ..services.station_workbook import (
@@ -65,6 +65,12 @@ XLSX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.s
 
 
 async def _stored_config(db: AsyncSession, *, lock: bool = False) -> tuple[DeploymentConfig | None, dict]:
+    """The row and its RAW document, for the import's planner and its write.
+
+    ⚠️ Raw on purpose, not `deployment_config.read_config`: the plan merges the workbook INTO
+    this document and the SharePoint pull applies it unattended, so the shipped defaults of the
+    fallback would be written back as if the station had chosen them.
+    """
     row = (
         await config_row(db, lock=True)
         if lock
@@ -152,8 +158,7 @@ async def export_workbook(
     restores none of them. The backup is Sicherung's JSON export plus ``admin_config
     history/restore``, and the admin page says so in as many words.
     """
-    _row, raw = await _stored_config(db)
-    stored = load_stored_config(raw).model_dump(mode="json")
+    stored = (await read_config(db)).model_dump(mode="json")
     people = await _people(db)
     identities = await _identity_pairs(db)
     order = await personnel_svc.load_roster_name_order(db)

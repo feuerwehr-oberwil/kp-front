@@ -187,6 +187,7 @@ async def _connectors(db: AsyncSession) -> list[dict]:
     from .print_relay import relay_status
 
     await load_credentials(db)
+    # The row for its two secret COLUMNS, not the config document — `read_config` has neither.
     row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
     health = await connector_state.states(db)
 
@@ -312,15 +313,13 @@ async def _setup(db: AsyncSession, counts: dict | None) -> dict:
     (they are mutually exclusive, and LV95 is the Swiss default this product is built for), and
     ``geocoder`` is done on EITHER field (the locality alone already keeps the search at home).
     """
-    from ..models import DeploymentConfig
+    from ..deployment_config import read_config
     from ..sharepoint_sync import sharepoint_status
 
-    row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
-    cfg = (row.config_json if row else None) or {}
-    identity = cfg.get("identity") or {}
-    map_cfg = cfg.get("map") or {}
-    view = map_cfg.get("defaultView") or {}
-    geocoder = map_cfg.get("geocoder") or {}
+    cfg = await read_config(db)
+    identity = cfg.identity
+    view = cfg.map.defaultView
+    geocoder = cfg.map.geocoder
     users = (counts or {}).get("users") or 0
     personnel_active = (counts or {}).get("personnel_active") or 0
     # One unreadable connector must not sink the whole card.
@@ -328,18 +327,17 @@ async def _setup(db: AsyncSession, counts: dict | None) -> dict:
     sharepoint_configured = bool((sharepoint or {}).get("configured"))
 
     done = {
-        "name": bool((identity.get("appName") or "").strip()),
-        "map": _pair(view.get("center")) or _pair(view.get("centerLv95")),
-        "logo": bool((identity.get("assets") or {}).get("logo")),
+        "name": bool((identity.appName or "").strip()),
+        "map": _pair(view.center) or _pair(view.centerLv95),
+        "logo": bool(identity.assets.logo),
         "users": users > 1,
         "personnel": personnel_active > 0,
-        "fleet": len((cfg.get("fleet") or {}).get("vehicles") or []) > 0,
-        "geocoder": bool((geocoder.get("defaultLocality") or "").strip())
-        or bool((geocoder.get("bboxLv95") or "").strip()),
+        "fleet": len(cfg.fleet.vehicles) > 0,
+        "geocoder": bool((geocoder.defaultLocality or "").strip()) or bool((geocoder.bboxLv95 or "").strip()),
         "sharepoint": sharepoint_configured,
         "monitoring": bool(credential("healthcheck_ping_url").strip()),
     }
-    acknowledged = [k for k in ((cfg.get("setup") or {}).get("acknowledged") or []) if isinstance(k, str)]
+    acknowledged = list(cfg.setup.acknowledged)
     return {
         "rows": [{"id": key, "done": done[key]} for key in SETUP_ROWS],
         "acknowledged": acknowledged,

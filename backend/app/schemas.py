@@ -2783,12 +2783,17 @@ def load_stored_config(raw: Any) -> DeploymentConfigIn:
     must not take the whole document down with it. A field that has grown a rule since the row
     was written (`identity.accentColor`, or a station-level zero Alarmdruck) is dropped to its
     unset default and logged, instead of
-    raising — because every reader of the stored row falls back to an EMPTY config when
-    validation fails, and losing a station's fleet, roster and doctrine is not a proportionate
-    answer to one bad colour.
+    raising — because a reader whose validation fails falls back to the shipped defaults, and
+    losing a station's fleet, roster and doctrine is not a proportionate answer to one bad colour.
 
-    ⚠️ Use this for every read of the singleton row. A fresh WRITE (`PUT /api/config`, an
-    `admin_config load`) validates strictly through `DeploymentConfigIn` itself — that is where
-    a value is still being chosen, and where refusing it costs nothing but a corrected keystroke.
+    It still RAISES on a document that fails even this. A reader does not call it bare: it takes
+    `deployment_config.read_config` (or `safe_config` on a document it already holds), which
+    catches that and answers with the defaults. Call it bare only where a raise is the right
+    answer — a write that merges into the stored document, or an unattended job that must not
+    act on defaults the station did not choose.
+
+    A fresh WRITE (`PUT /api/config`, an `admin_config load`) validates strictly through
+    `DeploymentConfigIn` itself — that is where a value is still being chosen, and where
+    refusing it costs nothing but a corrected keystroke.
     """
     return DeploymentConfigIn.model_validate(raw, context={"stored": True})
