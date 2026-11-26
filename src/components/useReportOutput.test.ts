@@ -5,7 +5,7 @@ import { appConfig } from '../config/appConfig'
 import { confirmDialog, toast } from '../lib/ui'
 import { enqueuePrint, fetchJobStatus } from '../lib/printRelay'
 import { trackPrintJob } from '../lib/printJobToast'
-import type { DirectReportArgs } from '../lib/reportPdfDirect'
+import { downloadDirectReportPdf, type DirectReportArgs } from '../lib/reportPdfDirect'
 import type { ReportMeta } from '../lib/workspace'
 import { useReportOutput } from './useReportOutput'
 
@@ -24,6 +24,7 @@ vi.mock('../lib/printJobToast', () => ({ trackPrintJob: vi.fn() }))
 vi.mock('../lib/reportPdfDirect', async (orig) => ({
   ...(await orig<typeof import('../lib/reportPdfDirect')>()),
   readyDirectReportPayload: vi.fn(async () => ({})),
+  downloadDirectReportPdf: vi.fn(async () => {}),
 }))
 
 const R = appConfig.copy.printRelay
@@ -32,12 +33,12 @@ const PAPER = {} as DirectReportArgs
 
 /** The hook as ReportPreflight drives it: `rerender({ meta })` is the form's next render, with
  *  its `metaRef` caught up – a write lands on the blob only then, as in the app. */
-function setup(meta: ReportMeta = {}) {
+function setup(meta: ReportMeta = {}, paper: () => Promise<DirectReportArgs> = async () => PAPER) {
   const metaRef = { current: meta }
   const onSaveMeta = vi.fn<(next: ReportMeta) => void>()
   const view = renderHook(({ meta }: { meta: ReportMeta }) => useReportOutput({
     incidentId: 'inc', meta, metaRef, canRecord: true, onSaveMeta,
-    paper: async () => PAPER, completeOffer: () => undefined,
+    paper, completeOffer: () => undefined,
   }), { initialProps: { meta } })
   const next = (m: ReportMeta) => { metaRef.current = m; view.rerender({ meta: m }) }
   return { ...view, onSaveMeta, next }
@@ -47,6 +48,25 @@ const flush = () => act(async () => {})
 
 beforeEach(() => vi.clearAllMocks())
 afterEach(() => vi.useRealTimers())
+
+describe('useReportOutput · the PDF', () => {
+  it('says a draft that cannot be built and frees «PDF» for the next press', async () => {
+    // ReportPreflight · paperOf builds the draft at the press, so its throw is synchronous
+    const paper = vi.fn<() => Promise<DirectReportArgs>>()
+      .mockImplementationOnce(() => { throw new Error('buildDraft') })
+      .mockResolvedValue(PAPER)
+    const { result, onSaveMeta } = setup({}, paper)
+    await flush()
+    await act(() => result.current.downloadPdf())
+    expect(toast).toHaveBeenCalledWith(appConfig.copy.report.pdfFailed, expect.objectContaining({ tone: 'warn' }))
+    expect(result.current.pdfBusy).toBe(false)
+    expect(onSaveMeta).not.toHaveBeenCalled()
+    // the second press makes the PDF and stamps it
+    await act(() => result.current.downloadPdf())
+    expect(downloadDirectReportPdf).toHaveBeenCalledWith(PAPER)
+    expect(onSaveMeta.mock.calls[0][0].reportMadeAt).toBeDefined()
+  })
+})
 
 describe('useReportOutput · the station printer', () => {
   it('records a queued job as outstanding – never as a rapport made', async () => {

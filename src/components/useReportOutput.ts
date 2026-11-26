@@ -79,11 +79,11 @@ export function useReportOutput({ incidentId, meta, metaRef, canRecord, onSaveMe
   // render included (app/kroki.py) — from pure data. No Druckansicht detour anymore.
   // `also`: the Kroki framing and the sheet's answers of the same click (startOutput) – on the
   // paper, and on the stamp that follows it
+  // A paper that cannot be built (`paper` throws at the press) is a failed PDF like any other.
   const downloadPdf = async (also: Partial<ReportMeta> = {}) => {
-    const args = paper(also)
     setPdfBusy(true)
     try {
-      await downloadDirectReportPdf(await args)
+      await downloadDirectReportPdf(await paper(also))
       // The PDF is the proof; the next step («Einsatz abschliessen») is the green head tile, which
       // `reportMadeAt` turns on once nothing is open. No toast beside it (owner #31, 30.10.2026).
       stampReportMade(also)
