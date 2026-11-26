@@ -6,6 +6,7 @@ import { buzz } from '../lib/haptics'
 import { appConfig } from '../config/appConfig'
 import { shownTeamColor } from '../lib/teamColors'
 import { DRAG_DEADZONE_PX, useHoldToDrag } from '../lib/useHoldToDrag'
+import { useHeldMarker } from '../lib/useHeldMarker'
 import { TAP_GAP_MS, TAP_MAX_DIST_PX, TAP_MAX_MS } from '../lib/tapDragZoom'
 import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
 import { Icon } from '../lib/icons'
@@ -243,6 +244,11 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
    *  (see `grab` below): the host moves, but it is not the thing being handled, so it wears no
    *  halo – the halo on the symbol under a dragged Trupp read as «that symbol is selected» */
   const grabbedId = useRef<string | null>(null)
+  // ⚠️ The held marker moves through its own MapLibre Marker while the finger is down
+  // (lib/useHeldMarker – the Plan chip drag's rule). `onMarkerMove` still runs per move, and its
+  // writer decides whether the store follows live (workspace/useMapActions · writesLive): a plain
+  // symbol is written once, on release.
+  const heldMarker = useHeldMarker()
 
   // ── the pile ────────────────────────────────────────────────────────────────────────────
   // Screen-px offsets for the markers of a fanned pile, keyed by entity id. Computed ONCE, at
@@ -630,6 +636,7 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
         // phone let the detail sheet peek away, so the drag has the whole surface
         if (!st.moved) { st.moved = true; onMarkerDragStart(grab.id); setDraggingId(grab.id); beginSheetPeek() }
         st.last = nc
+        heldMarker.hold(grab.id, nc)
         onMarkerMove(grab.id, nc)
       },
       onDragEnd: () => {
@@ -637,12 +644,14 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
         setDragPan(true)
         setDraggingId(null) // drop the halo once it stops moving
         endSheetPeek() // …and the sheet comes back to the height it had
+        // the release writes where the Marker already stands, so the next render agrees with it
         if (st?.moved && st.last) onMarkerDragEnd(grab.id, st.last)
         // held but never dragged → treat as a select (open the panel). A SELECT
         // resolves the pile like a tap does — by nearest centre, never by whichever
         // node is on top — or a slow gloved tap would hand out the wrong marker
         // while a quick one on the same spot got it right.
         else if (selectedId !== near.id) selectEntity(near)
+        heldMarker.release()
       },
       // An already-selected symbol (panel open) drags INSTANTLY like a mouse — move
       // on the first travel, no hold delay. Unselected touch still needs the deliberate
@@ -679,7 +688,7 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
           readOnly={readOnly} draggable={draggable} editNoteId={editNoteId} project={project} unproject={unproject}
           spoke={fan?.[e.id]} draggingId={draggingId} grabbedId={grabbedId.current}
           renaming={renameTeamId === e.id} onRenaming={(on) => setRenameTeamId(on ? e.id : null)}
-          dockedSlots={dockedSlots} onPress={pressMarker}
+          dockedSlots={dockedSlots} markerRef={heldMarker.refOf(e.id)} onPress={pressMarker}
           rotDown={rotDown} rotMove={rotMove} rotUp={rotUp} shapeDown={shapeDown} shapeMove={shapeMove} shapeUp={shapeUp}
           focusNote={focusNote} focusTeam={focusTeam} noteChange={noteChange} noteBlur={noteBlur} noteKeyDown={noteKeyDown} noteDone={noteDone}
           onSelect={onSelect} onDeselect={onDeselect} onDelete={onDelete} onRotate={onRotate} onShapeTransform={onShapeTransform} onUnlockShape={onUnlockShape} onNoteEdit={onNoteEdit}

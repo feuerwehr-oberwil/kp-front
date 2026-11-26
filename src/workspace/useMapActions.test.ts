@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
-import { useMapActions, type UseMapActionsInputs } from './useMapActions'
+import { useMapActions, writesLive, type UseMapActionsInputs } from './useMapActions'
 import { replayEmits } from '../lib/replay.test-utils'
 import type { Doc } from '../lib/workspace'
 import type { Drawing, Entity, LineAttachment } from '../types'
@@ -265,5 +265,60 @@ describe('keepGpsTwin', () => {
     act(() => { result.current.keepGpsTwin('p', 'TLF') })
     expect(patchEntity).toHaveBeenCalledWith('p', { gpsTwinOk: true })
     expect(given.stepLabelRef.current).toBe('Hinweis «zwei TLF» ausgeblendet')
+  })
+})
+
+// perf sweep 26.11.2026: a held Karte marker is previewed by its own MapLibre Marker (MapMarkers),
+// so a plain one writes the store ONCE, on release; what the picture around it must follow
+// (writesLive) still writes per move
+describe('a Karte marker drag', () => {
+  /** the store's two drag writers over the live doc, counted */
+  const store = (entities: Entity[], drawings: Drawing[]) => {
+    const { deps, given, live } = makeDeps(entities, drawings)
+    let doc = live()
+    const writes: { movedIds?: readonly string[] }[] = []
+    const beginDrag = vi.fn(), endDrag = vi.fn()
+    Object.assign(deps, {
+      beginDrag, endDrag,
+      setDocRaw: (u: SetStateAction<Doc>, opts?: { movedIds?: readonly string[] }) => { doc = typeof u === 'function' ? u(doc) : u; writes.push(opts ?? {}) },
+    })
+    return { deps, given, writes, beginDrag, endDrag, doc: () => doc }
+  }
+  /** 40 moves from [0, 0] to [40, 0], then the release on the last one */
+  const drag = (moves: ReturnType<typeof useMapActions>, id: string) => {
+    moves.startEntityMove(id)
+    for (let i = 1; i <= 40; i++) moves.streamEntityMove(id, [i, 0])
+    moves.finishEntityMove(id, [40, 0])
+  }
+
+  it('a plain symbol: 40 moves, ONE store write and ONE step, on release, at the last sample', () => {
+    const s = store([ent('a', [0, 0])], [])
+    const { result } = renderHook(() => useMapActions(s.deps))
+    act(() => { drag(result.current, 'a') })
+    expect(s.writes).toEqual([{ movedIds: ['a'] }])
+    expect(s.beginDrag).toHaveBeenCalledTimes(1)
+    expect(s.endDrag).toHaveBeenCalledTimes(1)
+    expect(s.doc().entities[0].coord).toEqual([40, 0])
+  })
+
+  it('a symbol a Leitung hangs on writes every move – the hose end follows it live', () => {
+    const s = store([ent('a', [0, 0])], [leitung({ endAttachment: { target: { kind: 'object', id: 'a' }, routing: 'trace' } })])
+    const { result } = renderHook(() => useMapActions(s.deps))
+    act(() => { drag(result.current, 'a') })
+    expect(s.writes).toHaveLength(41)
+    expect(s.endDrag).toHaveBeenCalledTimes(1)
+    const hose = s.doc().drawings[0].coords
+    expect(hose[hose.length - 1]).toEqual([40, 0])
+  })
+
+  // both sides of the one rule: what is drawn from the stored coordinate follows live
+  it.each<[string, Entity[], Drawing[], boolean]>([
+    ['a plain symbol', [ent('a', [0, 0])], [], false],
+    ['a Leitung on ANOTHER symbol', [ent('a', [0, 0]), ent('b', [1, 1])], [leitung({ startAttachment: onObject('b') })], false],
+    ['a Leitung end on it, «Direkt»', [ent('a', [0, 0])], [leitung({ startAttachment: onObject('a') })], true],
+    ['a docked Gefahrentafel', [ent('a', [0, 0]), { ...ent('p', [0, 0]), dockedTo: 'a' }], [], true],
+    ['a Form (moved from the bar’s ✥, no preview)', [{ ...ent('a', [0, 0]), kind: 'shape' } as Entity], [], true],
+  ])('%s → writes live: %s', (_, entities, drawings, live) => {
+    expect(writesLive({ entities, drawings }, 'a')).toBe(live)
   })
 })

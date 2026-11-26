@@ -165,6 +165,20 @@ export interface UseMapActionsInputs {
   historyGroup: () => () => void
 }
 
+/**
+ * A move of the Karte object `id` is written on every pointer move, not only on release: the
+ * picture around it is drawn from its STORED coordinate and must follow it live – a Leitung end
+ * on it (a «Direkt» end is drawn at the coordinate, a «trace» end re-routes), a follower docked
+ * to it (lib/docking · carryDocked: a Gefahrentafel, a Trupp marker in its slot), or a Form,
+ * which moves from the bar's ✥ and has no preview of its own. Everything else is previewed by
+ * its held Marker alone (MapMarkers · the drag) and written once, on release (finishEntityMove).
+ * The Plan's twin: useWbChipDrag · `live`.
+ */
+export function writesLive(d: Pick<Doc, 'entities' | 'drawings'>, id: string): boolean {
+  return d.entities.some((e) => e.dockedTo === id || (e.id === id && e.kind === 'shape'))
+    || linesOnObjects(d.drawings, [id]).length > 0
+}
+
 export function useMapActions({
   clearMapUi, setPaletteOpen, tool, setTool, setPending, setPendingShape, setSelectedId,
   setSelectedDrawingId, setSelectedDrawIds, setSelectedEntityIds, setNotePanelId, setEditNoteId, panel,
@@ -746,11 +760,15 @@ export function useMapActions({
   }
   /** One movement path for a real Lage marker and for that marker's projection on a Modul.
    *  The gesture still writes the ONE source entity, so undo, routed Leitungen, audit and Verlauf
-   *  cannot diverge depending on which picture the operator happened to drag. */
+   *  cannot diverge depending on which picture the operator happened to drag.
+   *  ⚠️ A move writes the store only where `writesLive` says so (and a live vehicle's override
+   *  always): a write per move re-rendered the whole workspace (perf sweep 26.11.2026: 41 store
+   *  writes for a 40-move drag of a plain symbol, now 1 – finishEntityMove's). */
   const startEntityMove = (id: string) => { if (!tacticalLocked && !liveIds.has(id)) beginDrag() }
   const streamEntityMove = (id: string, c: LngLat) => {
     if (tacticalLocked) return
     if (liveIds.has(id)) { placeVehicle(id, { coord: c }); return }
+    if (!writesLive(doc, id)) return
     setDocRaw((d) => ({
       ...d,
       // an angedockte Gefahrentafel rides along mid-drag too (lib/docking), keeping the
