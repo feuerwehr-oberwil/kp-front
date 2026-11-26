@@ -74,8 +74,8 @@ one Functions invocation (free plan: 100 000 a day).
   merged away.
 - `dur` – seconds. `steps` – each caption's start in seconds, ascending: the player's step bar.
 - `video`, `poster`, `vtt` – paths relative to the catalogue's folder. `bytes` – the video's
-  size, measured on the published copy; the worker answers ranges from it. A publish adds it to
-  any catalogue in the mirror that lacks it.
+  size, measured on the published copy; the worker answers ranges from it. `--seed-from-live`
+  adds it to a catalogue from before it existed. Key order carries no meaning.
 
 The subtitles are WebVTT in German: cue i runs from step i to step i+1, the last one to the
 clip's end, both rounded to the millisecond (a cue that rounds to nothing is refused). The cue
@@ -100,7 +100,9 @@ every app's copy of the script shares: `~/.local/share/kp-ueben-site/` (`$UEBEN_
 ~/.local/share/kp-ueben-site/
 ├── site/          what is deployed: front/, rueck/, apps.json, _headers, _worker.js
 ├── .lock          the flock every run holds
+├── .project       the Pages project this mirror is for – written by --init / --seed-from-live
 ├── next-<app>/    a staged app folder (a --dry-run leaves it to look at)
+├── old-<app>/     only while a swap runs – the folder it replaces
 └── .wrangler/     wrangler's cache – outside site/, never uploaded
 ```
 
@@ -108,7 +110,8 @@ every app's copy of the script shares: `~/.local/share/kp-ueben-site/` (`$UEBEN_
 FFMPEG=~/.local/share/x-ffmpeg/ffmpeg node scripts/ueben-publish.mjs <recorder dir | clips.json>…
 #   --app front (default) · --title "…" (required for another app) · --order order.json
 #   --project kp-ueben · --dry-run: stage the app folder only
-node scripts/ueben-publish.mjs --seed-from-live   # recovery: fill an EMPTY mirror from the site
+node scripts/ueben-publish.mjs --seed-from-live   # an empty mirror for a project that is live
+node scripts/ueben-publish.mjs --init             # an empty mirror for a project with nothing live
 ```
 
 Needs `wrangler` logged in to the FWO Cloudflare account and `ffmpeg` (or `$FFMPEG`). Wrangler
@@ -119,17 +122,24 @@ otherwise makes a Workers project without `pages.dev`.
 A publish, start to end under an `flock` on `<mirror>/.lock` (a second run waits; the kernel
 drops the lock when a run ends, crash or not):
 
-1. stages the app in `next-<app>/`: each video **copied** from the recorder output, the poster
-   and the catalogue's `bytes` taken from that copy, a `.vtt` per clip, files above 25 MiB refused;
-2. swaps it into `site/<app>/` (the old folder steps aside first);
-3. regenerates `apps.json` from the app folders present, writes `_headers` and `_worker.js`, and
-   adds `bytes` to any catalogue without them;
-4. deploys all of `site/` – wrangler uploads only files whose hash it has not seen.
+1. puts back any `old-<app>/` whose `site/<app>/` is missing (a swap that died midway) and drops
+   one whose swap finished – it never promotes a `next-<app>/`, so a dry run never goes live;
+2. refuses unless `.project` names this project – a lost or mistyped mirror would otherwise
+   replace the whole site with one app;
+3. stages the app in `next-<app>/`: each video **copied** from the recorder output, the poster
+   and the catalogue's `bytes` taken from that copy, a `.vtt` per clip, files above 25 MiB and
+   clip ids that are not one plain segment (letters, digits, «-») refused;
+4. swaps it into `site/<app>/` (the old folder steps aside to `old-<app>/` first);
+5. regenerates `apps.json` from the app folders present, writes `_headers` and `_worker.js`;
+6. deploys all of `site/` – wrangler uploads only files whose hash it has not seen.
 
 A Pages deployment replaces the whole site, and every deploy uploads the **full** mirror, so
 each one carries every app. If a deploy fails after the swap, or production is rolled back in
 the dashboard, the mirror still holds every app's newest folder and the next publish restores
 it. Nothing is read back from the live site – except by `--seed-from-live`, the one recovery
-path (a new box, a lost mirror). It refuses a mirror whose `site/` is not empty, reads
-`apps.json`, each `catalogue.json` (format 1, its own `app`) and every file it names, each a
-complete uncompressed 200 whose length matches `Content-Length` and, for a video, `bytes`.
+path (a new box, a lost mirror). It refuses a mirror that is not empty, reads `apps.json`, each
+`catalogue.json` (format 1, its own `app`) and every file it names, each a complete
+uncompressed 200 whose length matches `Content-Length` and, for a video, `bytes`. It builds the
+whole site – root files and size checks included – in `seeding/`, renames that to `site/` last
+and only then writes `.project`; a seed that fails leaves the mirror empty and seedable again.
+Neither `--seed-from-live` nor `--init` takes `--dry-run`.

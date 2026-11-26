@@ -1,5 +1,13 @@
+import { spawnSync } from 'node:child_process'
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { buildCatalogue, catalogueFiles, cueText, MAX_FILE_BYTES, oversized, toVtt, withBytes } from './ueben-publish.mjs'
+import { buildCatalogue, catalogueFiles, checkMirror, cueText, MAX_FILE_BYTES, oversized, recoverSwaps, toVtt, withBytes } from './ueben-publish.mjs'
+
+const tmp = () => mkdtempSync(join(tmpdir(), 'ueben-'))
+/** Runs the CLI against a mirror in `mirror`. */
+const cli = (mirror, ...args) => spawnSync(process.execPath, ['scripts/ueben-publish.mjs', ...args], { encoding: 'utf8', env: { ...process.env, UEBEN_SITE_DIR: mirror } })
 
 const clip = (id, chapter, extra = {}) => ({
   id, chapter, title: id, src: `rec-${id}.mp4`, dur: 60,
@@ -21,6 +29,13 @@ describe('buildCatalogue', () => {
       video: 'tafel-a.mp4', poster: 'posters/tafel-a.jpg', vtt: 'tafel-a.vtt', steps: [4, 20],
     })
     expect(files[0]).toMatchObject({ id: 'tafel-a', from: '/r7/rec-tafel-a.mp4', poster: 5 })
+  })
+
+  it('refuses a clip id that is not one plain segment – it names the clip\'s files', () => {
+    expect(buildCatalogue([{ dir: '/r', clips: [clip('startseite-menueUhr', 'A')] }], meta).catalogue.chapters[0].clips[0].video).toBe('startseite-menueUhr.mp4')
+    for (const id of ['../x', 'a/b', '.x', 'a.b', '']) {
+      expect(() => buildCatalogue([{ dir: '/r', clips: [clip(id, 'A')] }], meta)).toThrow(`clip id ${JSON.stringify(id)}`)
+    }
   })
 
   it('lets a later run replace a clip in its first place', () => {
@@ -86,15 +101,13 @@ describe('withBytes', () => {
   it('adds each video size where it is missing and keeps a stated one', () => {
     const { catalogue } = buildCatalogue([{ dir: '/r', clips: [clip('tafel-a', 'Tafel'), clip('tafel-b', 'Tafel')] }], meta)
     catalogue.chapters[0].clips[1].bytes = 7
-    const { catalogue: filled, changed } = withBytes(catalogue, (video) => video.length)
-    expect([changed, filled.chapters[0].clips.map((k) => k.bytes)]).toEqual([true, [11, 7]])
-    expect(withBytes(filled, () => 0).changed).toBe(false)
+    expect(withBytes(catalogue, (video) => video.length).chapters[0].clips.map((k) => k.bytes)).toEqual([11, 7])
   })
 })
 
 describe('catalogueFiles', () => {
   it('lists the files a live app folder needs with the video size, and refuses a path that leaves it', () => {
-    const { catalogue } = withBytes(buildCatalogue([{ dir: '/r', clips: [clip('tafel-a', 'Tafel')] }], meta).catalogue, () => 1234)
+    const catalogue = withBytes(buildCatalogue([{ dir: '/r', clips: [clip('tafel-a', 'Tafel')] }], meta).catalogue, () => 1234)
     expect(catalogueFiles(catalogue, 'front')).toEqual([{ path: 'tafel-a.mp4', bytes: 1234 }, { path: 'posters/tafel-a.jpg' }, { path: 'tafel-a.vtt' }])
     catalogue.chapters[0].clips[0].video = '../../etc/passwd'
     expect(() => catalogueFiles(catalogue, 'front')).toThrow('unsafe path')
@@ -104,5 +117,40 @@ describe('catalogueFiles', () => {
     const { catalogue } = buildCatalogue([{ dir: '/r', clips: [clip('tafel-a', 'Tafel')] }], meta)
     expect(() => catalogueFiles(catalogue, 'rueck')).toThrow('expected format 1 for app «rueck», got format 1 for «front»')
     expect(() => catalogueFiles({ ...catalogue, format: 2 }, 'front')).toThrow('got format 2')
+  })
+})
+
+describe('recoverSwaps', () => {
+  it('puts back an app folder a swap left aside, drops a finished swap\'s leftover, never promotes a staged one', () => {
+    const m = tmp()
+    for (const d of ['site/rueck', 'old-front', 'old-rueck', 'next-probe']) mkdirSync(join(m, d), { recursive: true })
+    writeFileSync(join(m, 'old-front', 'catalogue.json'), '{}')
+    expect(recoverSwaps(m)).toEqual(['restored site/front/ from old-front/ (a swap had died midway)', 'removed old-rueck/ (its swap had finished)'])
+    expect([readdirSync(join(m, 'site')).sort(), existsSync(join(m, 'site/front/catalogue.json')), readdirSync(m).sort()]).toEqual([['front', 'rueck'], true, ['next-probe', 'site']])
+  })
+})
+
+describe('the mirror', () => {
+  it('is refused for a publish until initialised for this project', () => {
+    const m = tmp()
+    expect(() => checkMirror(m, 'kp-ueben')).toThrow('not an initialised mirror (no .project)')
+    writeFileSync(join(m, '.project'), 'other\n')
+    expect(() => checkMirror(m, 'kp-ueben')).toThrow('the mirror of «other», not «kp-ueben»')
+    writeFileSync(join(m, '.project'), 'kp-ueben\n')
+    expect(() => checkMirror(m, 'kp-ueben')).not.toThrow()
+  })
+
+  it('--init fills only an empty mirror, and a publish from an unmarked one stages nothing', () => {
+    const m = tmp()
+    const refused = cli(m, '--dry-run', 'clips.json')
+    expect([refused.status, refused.stderr]).toEqual([1, expect.stringContaining('not an initialised mirror')])
+    expect(cli(m, '--init').status).toBe(0)
+    expect(cli(m, '--init').stderr).toContain('already in use')
+  })
+
+  it('refuses --dry-run with --seed-from-live or --init', () => {
+    const m = tmp()
+    expect([cli(m, '--seed-from-live', '--dry-run').status, cli(m, '--init', '--dry-run').status]).toEqual([2, 2])
+    expect(readdirSync(m)).toEqual(['.lock'])
   })
 })

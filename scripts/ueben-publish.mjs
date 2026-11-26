@@ -7,6 +7,7 @@
 //   node scripts/ueben-publish.mjs [--app front] [--title …] [--order order.json]
 //     [--project kp-ueben] [--dry-run] <recorder dir | clips.json>…
 //   node scripts/ueben-publish.mjs --seed-from-live [--project kp-ueben] [--base-url …]
+//   node scripts/ueben-publish.mjs --init [--project kp-ueben]
 //
 // A recorder dir holds clips.json (or tab-clips.json): [{ id, chapter, title, src, dur,
 // steps: [{ t, text, html }] }], `src` relative to that file. Later inputs win per clip id – a
@@ -18,12 +19,15 @@
 //
 // The source of truth is a LOCAL MIRROR of the whole site, shared by every app's copy of this
 // script on this box: $UEBEN_SITE_DIR, default ~/.local/share/kp-ueben-site/. Its `site/` is
-// what gets deployed (front/, rueck/, apps.json, _headers, _worker.js); `.lock` and the
-// `next-<app>/` staging dirs sit beside it, outside the upload. A publish holds an flock on
-// `.lock` until wrangler returns, stages the app in next-<app>/ (videos copied, posters and
+// what gets deployed (front/, rueck/, apps.json, _headers, _worker.js); `.lock`, the
+// `.project` marker and the `next-<app>/` / `old-<app>/` swap dirs sit beside it, outside the
+// upload. A publish holds an flock on `.lock` until wrangler returns, first puts back any
+// old-<app>/ a crashed swap left without its site/<app>/, refuses a mirror whose `.project`
+// does not name this project, stages the app in next-<app>/ (videos copied, posters and
 // `bytes` taken from the copies), swaps it into site/, regenerates the root files and deploys
 // all of site/ – so every deploy carries every app. `--dry-run` stages and stops (nothing is
-// swapped). `--seed-from-live` fills an EMPTY mirror from the live site, the one recovery path.
+// swapped). An empty mirror is initialised by `--seed-from-live` (an existing project: the live
+// site, the one recovery path) or `--init` (a project with nothing live yet).
 
 import { spawnSync, execFileSync } from 'node:child_process'
 import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs'
@@ -57,6 +61,8 @@ export const HEADERS = `/*
   Content-Type: image/jpeg
 `
 
+const CLIP_ID = /^[A-Za-z0-9][A-Za-z0-9-]*$/
+
 /**
  * The catalogue and the files behind it, from parsed recorder lists (pure – no disk). The
  * videos' `bytes` come later, from the staged copies (withBytes).
@@ -66,7 +72,13 @@ export const HEADERS = `/*
 export function buildCatalogue(inputs, { app, title, order = [] }) {
   /** the latest recording per id, in first-seen order */
   const byId = new Map()
-  for (const { dir, clips } of inputs) for (const clip of clips) byId.set(clip.id, { clip, dir })
+  for (const { dir, clips } of inputs) {
+    for (const clip of clips) {
+      // the id names the clip's files: one plain segment, never a path
+      if (typeof clip.id !== 'string' || !CLIP_ID.test(clip.id)) throw new Error(`clip id ${JSON.stringify(clip.id)}: expected letters, digits and «-» only`)
+      byId.set(clip.id, { clip, dir })
+    }
+  }
   const warnings = []
   const chapterOrder = order.map((o) => o.chapter)
   for (const { clip } of byId.values()) if (!chapterOrder.includes(clip.chapter)) chapterOrder.push(clip.chapter)
@@ -101,19 +113,45 @@ export function buildCatalogue(inputs, { app, title, order = [] }) {
 }
 
 /** The catalogue with `bytes` (the worker answers ranges from it) on every clip that lacks it,
- *  from `sizeOf(video path)`; `changed` says whether any was added. */
+ *  from `sizeOf(video path)`. */
 export function withBytes(catalogue, sizeOf) {
-  let changed = false
   const chapters = catalogue.chapters.map((c) => ({
     ...c,
-    clips: c.clips.map((k) => {
-      if (Number.isInteger(k.bytes)) return k
-      changed = true
-      // right after `video`, where a reader looks for it
-      return Object.fromEntries(Object.entries(k).flatMap(([key, v]) => (key === 'video' ? [[key, v], ['bytes', sizeOf(v)]] : [[key, v]])))
-    }),
+    clips: c.clips.map((k) => (Number.isInteger(k.bytes) ? k : { ...k, bytes: sizeOf(k.video) })),
   }))
-  return { catalogue: { ...catalogue, chapters }, changed }
+  return { ...catalogue, chapters }
+}
+
+/** Puts back what a swap that died midway left behind (call it under the lock, first): an
+ *  old-<app>/ whose site/<app>/ is missing goes back; one beside a present site/<app>/ is the
+ *  finished swap's leftover and goes. next-<app>/ is never promoted – a dry run must not go
+ *  live. Returns what it did, one line each. */
+export function recoverSwaps(mirror) {
+  const done = []
+  for (const name of existsSync(mirror) ? readdirSync(mirror) : []) {
+    if (!name.startsWith('old-')) continue
+    const app = name.slice(4)
+    const live = join(mirror, 'site', app)
+    if (existsSync(live)) {
+      rmSync(join(mirror, name), { recursive: true, force: true })
+      done.push(`removed ${name}/ (its swap had finished)`)
+    } else {
+      mkdirSync(join(mirror, 'site'), { recursive: true })
+      renameSync(join(mirror, name), live)
+      done.push(`restored site/${app}/ from ${name}/ (a swap had died midway)`)
+    }
+  }
+  return done
+}
+
+/** Throws unless `mirror` was initialised (by --init or --seed-from-live) for `project`. */
+export function checkMirror(mirror, project) {
+  const marker = join(mirror, '.project')
+  const named = existsSync(marker) ? readFileSync(marker, 'utf8').trim() : undefined
+  if (named === project) return
+  throw new Error(named === undefined
+    ? `${mirror} is not an initialised mirror (no .project) – a publish from it would replace the whole site. For «${project}» run --seed-from-live (something is live) or --init (nothing is)`
+    : `${mirror} is the mirror of «${named}», not «${project}» – set UEBEN_SITE_DIR`)
 }
 
 const vttTime = (ms) => {
@@ -179,7 +217,7 @@ export function catalogueFiles(catalogue, app) {
 const APP_NAME = /^[a-z][a-z0-9-]*$/
 
 function parseArgs(argv) {
-  const flags = { '--dry-run': 'dryRun', '--seed-from-live': 'seed' }
+  const flags = { '--dry-run': 'dryRun', '--seed-from-live': 'seed', '--init': 'init' }
   const opts = { app: 'front', project: 'kp-ueben', inputs: [] }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
@@ -189,9 +227,11 @@ function parseArgs(argv) {
   }
   opts.baseUrl ??= `https://${opts.project}.pages.dev`
   opts.title ??= opts.app === 'front' ? 'KP Front – Üben' : undefined
-  if (!opts.seed && (!opts.inputs.length || !opts.title || !APP_NAME.test(opts.app))) {
+  const setup = opts.seed || opts.init
+  if ((setup && (opts.dryRun || opts.inputs.length || (opts.seed && opts.init))) || (!setup && (!opts.inputs.length || !opts.title || !APP_NAME.test(opts.app)))) {
     console.error('usage: node scripts/ueben-publish.mjs [--app front] [--title …] [--order order.json] [--project kp-ueben] [--dry-run] <recorder dir | clips.json>…')
     console.error('       node scripts/ueben-publish.mjs --seed-from-live [--project kp-ueben] [--base-url …]')
+    console.error('       node scripts/ueben-publish.mjs --init [--project kp-ueben]')
     console.error('       --title is required for an app other than «front»; --app is lower-case letters, digits, «-»')
     process.exit(2)
   }
@@ -238,27 +278,39 @@ function checkSizes(dir) {
   return all
 }
 
-/** Fills an EMPTY mirror from the live site – the recovery path, e.g. on a new box. */
-async function seedFromLive({ baseUrl }, site) {
-  if (existsSync(site) && readdirSync(site).length) throw new Error(`${site} is not empty – --seed-from-live only fills an empty mirror`)
+/** Throws unless the mirror is empty (no marker, no site files) – the one state setup may fill. */
+function checkEmpty(site) {
+  if (existsSync(join(MIRROR, '.project')) || (existsSync(site) && readdirSync(site).length)) {
+    throw new Error(`${MIRROR} is already in use – --seed-from-live and --init only fill an empty mirror`)
+  }
+}
+
+/** Fills an EMPTY mirror from the live site – the recovery path, e.g. on a new box. Everything,
+ *  root files and size checks included, happens in seeding/; site/ appears last, then the marker. */
+async function seedFromLive({ baseUrl, project }, site) {
+  checkEmpty(site)
   const next = join(MIRROR, 'seeding')
   rmSync(next, { recursive: true, force: true })
   const apps = JSON.parse((await fetchWhole(`${baseUrl}/apps.json`)).toString('utf8'))
   if (!Array.isArray(apps) || !apps.every((a) => typeof a === 'string' && APP_NAME.test(a))) throw new Error(`${baseUrl}/apps.json: not a list of app names`)
   for (const app of apps) {
-    const raw = await fetchWhole(`${baseUrl}/${app}/catalogue.json`)
-    const files = catalogueFiles(JSON.parse(raw.toString('utf8')), app)
+    const catalogue = JSON.parse((await fetchWhole(`${baseUrl}/${app}/catalogue.json`)).toString('utf8'))
+    const files = catalogueFiles(catalogue, app)
     console.log(`seeding ${app}/: ${files.length + 1} files from ${baseUrl}`)
-    mkdirSync(join(next, app), { recursive: true })
-    writeFileSync(join(next, app, 'catalogue.json'), raw)
     for (const f of files) {
       const to = join(next, app, f.path)
       mkdirSync(dirname(to), { recursive: true })
       writeFileSync(to, await fetchWhole(`${baseUrl}/${app}/${f.path}`, f.bytes))
     }
+    // a catalogue from before `bytes` gets them here, before anything is promoted
+    writeJson(join(next, app, 'catalogue.json'), withBytes(catalogue, (v) => statSync(join(next, app, v)).size))
   }
+  const seeded = writeRoot(next)
+  checkSizes(next)
   rmSync(site, { recursive: true, force: true })
   renameSync(next, site)
+  writeFileSync(join(MIRROR, '.project'), `${project}\n`)
+  return seeded
 }
 
 /** Stages one app's folder in next-<app>/: each video copied (never linked – a recorder that
@@ -284,24 +336,16 @@ function stageApp(opts) {
     writeFileSync(join(next, `${f.id}.vtt`), f.vtt)
     execFileSync(ffmpeg, ['-v', 'error', '-y', '-ss', String(f.poster), '-i', video, '-frames:v', '1', '-vf', 'scale=800:-2', '-q:v', '4', join(next, 'posters', `${f.id}.jpg`)])
   }
-  writeJson(join(next, 'catalogue.json'), withBytes(catalogue, (v) => statSync(join(next, v)).size).catalogue)
+  writeJson(join(next, 'catalogue.json'), withBytes(catalogue, (v) => statSync(join(next, v)).size))
   const staged = checkSizes(next)
   const clips = catalogue.chapters.reduce((a, c) => a + c.clips.length, 0)
   console.log(`${next}: ${catalogue.chapters.length} chapters, ${clips} clips, ${staged.length} files`)
   return { next, clips }
 }
 
-/** The root files from the app folders present; backfills `bytes` in any catalogue without. */
+/** The root files from the app folders present. */
 function writeRoot(site) {
   const apps = readdirSync(site, { withFileTypes: true }).filter((e) => e.isDirectory() && existsSync(join(site, e.name, 'catalogue.json'))).map((e) => e.name).sort()
-  for (const app of apps) {
-    const path = join(site, app, 'catalogue.json')
-    const { catalogue, changed } = withBytes(readJson(path), (v) => statSync(join(site, app, v)).size)
-    if (changed) {
-      writeJson(path, catalogue)
-      console.log(`${app}/catalogue.json: added the videos' bytes`)
-    }
-  }
   writeFileSync(join(site, 'apps.json'), `${JSON.stringify(apps)}\n`)
   writeFileSync(join(site, '_headers'), HEADERS)
   copyFileSync(new URL('./ueben-pages-worker.mjs', import.meta.url), join(site, '_worker.js'))
@@ -311,11 +355,14 @@ function writeRoot(site) {
 async function main(argv) {
   const opts = parseArgs(argv)
   const site = join(MIRROR, 'site')
-  if (opts.seed) {
-    await seedFromLive(opts, site)
-    console.log(`${site}: seeded, apps ${writeRoot(site).join(', ')} – nothing deployed`)
-    return
+  for (const line of recoverSwaps(MIRROR)) console.warn(`! ${line}`)
+  if (opts.seed) return console.log(`${site}: seeded for ${opts.project}, apps ${(await seedFromLive(opts, site)).join(', ')} – nothing deployed`)
+  if (opts.init) {
+    checkEmpty(site)
+    writeFileSync(join(MIRROR, '.project'), `${opts.project}\n`)
+    return console.log(`${MIRROR}: initialised, empty, for ${opts.project}`)
   }
+  checkMirror(MIRROR, opts.project)
   const { next, clips } = stageApp(opts)
   if (opts.dryRun) return console.log('dry run: staged only – site/ and the live site are unchanged')
 
