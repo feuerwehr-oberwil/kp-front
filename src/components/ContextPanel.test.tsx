@@ -648,32 +648,6 @@ describe('ContextPanel — live text editing on a note', () => {
     expect(onTitle).toHaveBeenCalledTimes(1)
     expect(onTitle).toHaveBeenCalledWith('An')
   })
-
-  // a tap on the surface deselects and unmounts the panel with the caret still in the text: the
-  // surface already shows the typed words, so they are committed then, once
-  it('commits a typed text on unmount, when no blur ever fired', () => {
-    const onTitle = vi.fn()
-    const { unmount } = render(
-      <ContextPanel entity={{ id: 'n2', label: '' }} subject="note" onPatch={writes({ onTitle }).onPatch}
-        onClose={vi.fn()} onDelete={vi.fn()} />,
-    )
-    fireEvent.change(screen.getByDisplayValue(''), { target: { value: 'Hi' } })
-    unmount()
-    expect(onTitle).toHaveBeenCalledExactlyOnceWith('Hi')
-  })
-
-  it('does not commit the text twice when the blur already did', () => {
-    const onTitle = vi.fn()
-    const { unmount } = render(
-      <ContextPanel entity={{ id: 'n3', label: '' }} subject="note" onPatch={writes({ onTitle }).onPatch}
-        onClose={vi.fn()} onDelete={vi.fn()} />,
-    )
-    const input = screen.getByDisplayValue('')
-    fireEvent.change(input, { target: { value: 'Hi' } })
-    fireEvent.blur(input)
-    unmount()
-    expect(onTitle).toHaveBeenCalledExactlyOnceWith('Hi')
-  })
 })
 
 // Details are stored as a key→value map, so two rows sharing a Bezeichnung collapse into one

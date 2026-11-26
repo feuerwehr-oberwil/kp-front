@@ -471,10 +471,6 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
     if (liveEdited.current) { liveEdited.current = false; commit({ label: title }) }
     else if (title !== (entity.label ?? '')) commit({ label: title })
   }
-  // …and a name still being typed when the panel goes without a blur (a tap on the surface
-  // deselects, a slot swap) is committed then: the surface shows the typed name, so it must be
-  // its step too, not a write nobody can take back.
-  useCommitDraftOnUnmount(() => { if (liveEdited.current) blurTitle() })
   // Committed against a ref, not `entity.notes`: the unmount commit below re-runs blurNotes
   // after a normal blur→close, when the entity prop may not have caught up yet — the ref keeps
   // that second call a no-op instead of a duplicate undo step + audit emit.
