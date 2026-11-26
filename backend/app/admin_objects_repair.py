@@ -37,9 +37,9 @@ from . import storage
 from .admin_cli import fail
 from .admin_objects import _plan_counts, objects_without_coordinates
 from .database import async_session_maker, execute_dml
+from .deployment_config import config_row
 from .geocode import locate_coordinates
 from .models import (
-    DeploymentConfig,
     Incident,
     IncidentEvent,
     JournalEntry,
@@ -653,8 +653,10 @@ async def _merge_into(loser_id: uuid.UUID, survivor_id: uuid.UUID, *, apply: boo
             fail(f"merge: no object {loser_id if loser is None else survivor_id}")
             return 1
         counts = await _plan_counts(db)
-        station = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
-        scales: dict[str, object] = dict(station.plan_scales_json) if station and station.plan_scales_json else {}
+        # `--apply` read-modify-writes `plan_scales_json`, so it holds the row FOR UPDATE from here
+        # to its commit. A dry run writes nothing and takes no lock.
+        station = await config_row(db, lock=apply)
+        scales: dict[str, object] = dict(station.plan_scales_json or {})
         slots: dict[str, ReferenceDataset] = {
             ds.module: ds
             for ds in (
@@ -718,7 +720,7 @@ async def _merge_into(loser_id: uuid.UUID, survivor_id: uuid.UUID, *, apply: boo
             elif taken.object_id != survivor.id:
                 taken.object_id = survivor.id
         scales, _, _ = _retarget_scales(scales, loser.id, survivor.id)
-        if station is not None and scales != (station.plan_scales_json or {}):
+        if scales != (station.plan_scales_json or {}):
             station.plan_scales_json = scales
         await db.commit()
         print(f"\nOK: {loser.id} merged into {survivor.id} and deleted.")

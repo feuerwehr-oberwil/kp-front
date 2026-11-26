@@ -8,6 +8,7 @@
   without one for one release — see `put_plan_scales`.
 """
 
+import asyncio
 import logging
 
 import pytest
@@ -218,6 +219,43 @@ async def test_a_client_that_sends_the_header_leaves_no_line(client, editor, cap
         r = await client.put("/api/plan-scales", json={"default": SCALE}, headers={"If-Match": version})
     assert r.status_code == 200
     assert not any("without If-Match" in m for m in caplog.messages)
+
+
+async def test_overlapping_puts_accept_one_version_once(client, editor, session_factory, db_session):
+    """The token is checked UNDER the row lock. Without it a PUT that read the version while
+    another writer held the row passed the check, waited at its UPDATE, and then overwrote the
+    save it had never seen. SQLite has no row lock, so this runs on PostgreSQL only."""
+    if db_session.bind.dialect.name != "postgresql":
+        pytest.skip("requires independent PostgreSQL transactions")
+    from sqlalchemy import text
+
+    from app.deployment_config import config_row
+    from app.models import DeploymentConfig
+
+    await _login(client, editor)
+    db_session.add(DeploymentConfig(id=1, plan_scales_json={"default": SCALE}))
+    await db_session.commit()
+    version = (await client.get("/api/plan-scales")).json()["version"]
+
+    async with session_factory() as holder, session_factory() as observer:
+        row = await config_row(holder, lock=True)
+        row.plan_scales_json = {"georefByPlan": {"m1": {"pairs": PAIRS}}}
+        await holder.flush()
+        put = asyncio.create_task(client.put("/api/plan-scales", json={"byPlan": {}}, headers={"If-Match": version}))
+        waiting = (
+            "SELECT count(*) FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock'"
+        )
+        for _ in range(100):  # until the PUT waits on the row, wherever it waits
+            if (await observer.execute(text(waiting))).scalar_one():
+                break
+            await observer.rollback()  # pg_stat_activity is a snapshot per transaction
+            await asyncio.sleep(0.05)
+        else:
+            pytest.fail("the PUT never waited on the held row")
+        await holder.commit()
+
+    assert (await put).status_code == 409
+    assert (await client.get("/api/plan-scales")).json()["georefByPlan"]["m1"]["pairs"] == PAIRS
 
 
 # --- the measured aspect -------------------------------------------------------------------------

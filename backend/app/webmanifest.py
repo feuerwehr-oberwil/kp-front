@@ -44,13 +44,12 @@ import re
 from typing import Any
 
 from fastapi import Depends, FastAPI
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import Response
 
 from .config import settings
 from .database import get_db
-from .models import DeploymentConfig
+from .deployment_config import read_config
 
 logger = logging.getLogger(__name__)
 
@@ -195,16 +194,14 @@ def build_manifest(base: dict[str, Any], identity: dict[str, Any]) -> dict[str, 
 
 
 async def _identity(db: AsyncSession) -> dict[str, Any]:
-    """`identity` from the singleton config row — `{}` on any problem. Never raises: a
-    database blip must not cost every tablet its manifest."""
+    """`identity` as `GET /api/config` serves it (`read_config`) — `{}` on any problem. Never
+    raises: a database blip must not cost every tablet its manifest, and a malformed document
+    reads as the shipped defaults, like everywhere else in the app."""
     try:
-        row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
+        return (await read_config(db)).identity.model_dump(mode="json")
     except Exception:
         logger.exception("Manifest: reading the deployment config failed (serving the build defaults)")
         return {}
-    cfg = (row.config_json if (row and row.config_json) else None) or {}
-    identity = cfg.get("identity") if isinstance(cfg, dict) else None
-    return identity if isinstance(identity, dict) else {}
 
 
 def register_manifest_route(app: FastAPI) -> None:

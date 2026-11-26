@@ -1175,6 +1175,38 @@ async def test_a_renamed_folder_re_keys_its_object_and_keeps_everything(db_sessi
     assert got == {"objectId": str(new_id), "created": False}
 
 
+async def test_a_rename_keeps_a_calibration_saved_during_the_run(db_session, blank_env, storage_root):
+    """The re-key moves the old sheets' calibration in `plan_scales_json` — a read-modify-write, so
+    it re-reads the row FOR UPDATE (`config_row(lock=True)`). Without the re-read the session's
+    copy from before the walk was written back, and a calibration an editor saved meanwhile was
+    gone. Changed by TEXTUAL SQL, as in the geodata test above: an ORM update would expire the
+    session's copy, which a write from another process never does."""
+    import json as _json
+
+    from sqlalchemy import text
+
+    old, new = "Musterweg 1-14", "Musterweg 2-14"
+    await configure(db_session, [source("plans")])
+    tenant = FakeTenant({f"{old}/Modul 1.pdf": PDF})
+    await sync_sharepoint(db_session, transport=tenant.transport)
+    old_key = f"object:{object_id_for_key(old)}:plan:modul1"
+    new_key = f"object:{object_id_for_key(new)}:plan:modul1"
+    row = (await db_session.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one()
+    row.plan_scales_json = {"byPlan": {old_key: {"mPerU": 8.0}}}
+    await db_session.flush()
+    saved = {"byPlan": {old_key: {"mPerU": 8.0}, "object:other:plan:modul1": {"mPerU": 3.0}}}
+    await db_session.execute(
+        text("UPDATE deployment_config SET plan_scales_json = :doc WHERE id = 1"), {"doc": _json.dumps(saved)}
+    )
+
+    tenant.rename_folder(old, new)
+    await sync_sharepoint(db_session, transport=tenant.transport)
+    await db_session.flush()
+
+    row = (await db_session.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one()
+    assert row.plan_scales_json["byPlan"] == {new_key: {"mPerU": 8.0}, "object:other:plan:modul1": {"mPerU": 3.0}}
+
+
 async def test_a_rename_with_an_edited_file_is_not_guessed_at(db_session, blank_env, storage_root):
     """A new folder whose files are not ALL the old folder's unchanged files is not a rename: the
     pull mints the new key as always (and `admin_objects_repair merge` folds the old object in)."""

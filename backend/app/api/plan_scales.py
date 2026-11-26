@@ -42,6 +42,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..auth.dependencies import CurrentEditor, UserOrAdmin
 from ..database import get_db
+from ..deployment_config import config_row
 from ..models import DeploymentConfig
 
 logger = logging.getLogger(__name__)
@@ -205,6 +206,8 @@ def _read_tolerantly(raw: object) -> PlanScales:
 
 
 async def _row(db: AsyncSession) -> DeploymentConfig | None:
+    """The singleton row for the GET, never created. It reads the ``plan_scales_json`` column,
+    not the config document, so ``read_config`` has nothing to give it."""
     return (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
 
 
@@ -254,8 +257,10 @@ async def put_plan_scales(
     here (and to drop this paragraph); a line a week says an old tablet is still in the field, and
     closing the window would take its Georeferenz away.
     """
-    row = await _row(db)
-    stored_version = _version(row.plan_scales_json if row else None)
+    # FOR UPDATE before the version check: `If-Match` alone lets two overlapping PUTs both accept
+    # one version before either writes (deployment_config · config_row).
+    row = await config_row(db, lock=True)
+    stored_version = _version(row.plan_scales_json)
     if if_match is None:
         logger.info("plan-scales PUT without If-Match — a client older than the concurrency guard is still writing")
     elif if_match.strip('"') != stored_version:
@@ -265,10 +270,6 @@ async def put_plan_scales(
             headers={"ETag": stored_version},
         )
     doc = body.model_dump(mode="json")
-    if row is None:
-        row = DeploymentConfig(id=1, plan_scales_json=doc)
-        db.add(row)
-    else:
-        row.plan_scales_json = doc
+    row.plan_scales_json = doc
     await db.commit()
     return PlanScalesOut(**body.model_dump(), version=_version(doc))

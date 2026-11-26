@@ -421,6 +421,9 @@ def _push(
 
 
 async def _show() -> list[dict[str, Any]]:
+    """The stored `referenceLayers` for `show`, raw on purpose: an operator compares it with the
+    manifest, and the model would hide keys the schema drops (and read a document broken elsewhere
+    as «none stored»)."""
     async with async_session_maker() as db:
         row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
         cfg = row.config_json if (row and row.config_json) else {}

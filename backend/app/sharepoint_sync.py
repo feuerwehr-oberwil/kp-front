@@ -84,7 +84,7 @@ from .credentials import get as credential
 from .credentials import load as load_credentials
 from .deployment_config import config_row, read_config
 from .geocode import locate_coordinates
-from .models import DeploymentConfig, ObjectSite, SharePointSyncState
+from .models import ObjectSite, SharePointSyncState
 from .plans import plan_max_bytes, store_plan
 from .schemas import SharePointArea, SharePointConfig, SharePointSource
 from .sharepoint_graph import GraphAuthError, GraphClient, GraphDeltaExpiredError, GraphError, RemoteFile
@@ -809,8 +809,10 @@ async def _follow_renames(
     if not renames:
         return []
     identities = {file.path.split("/", 1)[0]: identity for file, identity, _ in usable}
-    station = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
-    scales: dict[str, object] = dict(station.plan_scales_json) if station and station.plan_scales_json else {}
+    # Read-modify-write of `plan_scales_json`, so FOR UPDATE and re-read: a calibration saved while
+    # this run walked the listing must not be overwritten by the copy the session already held.
+    station = await config_row(db, lock=True)
+    scales: dict[str, object] = dict(station.plan_scales_json or {})
     done: list[tuple[str, str]] = []
     memo = dict(state.files or {})
     for old_folder, new_folder in renames.items():
@@ -844,7 +846,7 @@ async def _follow_renames(
         for path in [p for p in memo if p.startswith(f"{old_folder}/")]:
             memo[f"{new_folder}/{path.split('/', 1)[1]}"] = memo.pop(path)
         done.append((old_folder, new_folder))
-    if station is not None and scales != (station.plan_scales_json or {}):
+    if scales != (station.plan_scales_json or {}):
         station.plan_scales_json = scales
     state.files = memo
     await db.flush()
