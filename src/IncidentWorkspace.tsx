@@ -106,7 +106,6 @@ import { ZielPickBar } from './components/ZielPickBar'
 import { ReplayBar } from './components/ReplayBar'
 import { FabEntry } from './components/FabEntry'
 import { useFloatRowPlacement } from './lib/floatRow'
-import { prewarmPlans } from './lib/pdfRaster'
 import { prefetchOutlines } from './components/OsmOutline'
 import {
   WorkspaceSync, 
@@ -164,10 +163,10 @@ import type { PlanStepLink } from './lib/planStepLink'
 import { mittelLineCount } from './lib/mittel'
 import { autoNoteWPx } from './lib/notes'
 import { photoUrlKey, setDevicePositionSource, withPhotoUrls } from './lib/photoGeo'
-import { whenIdle } from './lib/idle'
 import { useSessionRole, useWorkspaceFlags, viewOnlyReason } from './workspace/access'
 import { useOfflinePrefetch } from './workspace/useOfflinePrefetch'
-import { loadReportPreflight, loadWhiteboard, requestReportStep } from './workspace/lazySurfaces'
+import { requestReportStep } from './workspace/lazySurfaces'
+import { useWarmUps } from './workspace/useWarmUps'
 import { useTafelPages } from './workspace/useTafelPages'
 import { calibratePlan } from './workspace/planCalibration'
 import { compoundSteps } from './workspace/compoundStep'
@@ -1814,30 +1813,8 @@ export function IncidentWorkspace({
   // next ordinary open of this browser land on the Atemschutz board for no reason anyone gave.)
   useEffect(() => { savePrefs({ ...loadPrefs(), ...(asLink ? {} : { mode, modeIncidentId: incidentMeta.id }), activePlanId, symbolScaleMap: symbolScale.map, symbolScaleBoard: symbolScale.board, symbolCaptions, keepScreenOn, railLabels }) }, [asLink, mode, incidentMeta.id, activePlanId, symbolScale, symbolCaptions, keepScreenOn, railLabels])
 
-  // …and the CODE of the two lazy surfaces (Plan, Rapport — see loadWhiteboard at the top), on
-  // idle after the first paint, so a mode switch finds its chunk already parsed. Not for an
-  // Atemschutz-Link phone: it is shown the Tafel and nothing else.
-  useEffect(() => {
-    if (asLink) return
-    return whenIdle(() => { void loadWhiteboard(); void loadReportPreflight() })
-  }, [asLink])
-
-  // warm the plan bitmaps at app load (on idle) so the first open of the Plan tab appears
-  // instantly — the exact-fit bake reuses these unless the stage is larger. ⚠️ Only the active
-  // plan and its two rail neighbours are baked at window size; the rest get a small preview
-  // (~5 MB instead of up to ~83 MB each on an iPad — every plan at full size was enough to have
-  // the tab reclaimed before the Plan tab was ever opened). Re-runs on a plan switch, so the
-  // new neighbours are warmed as the operator moves along the rail (PdfViewport · prewarmPlans).
-  useEffect(() => {
-    if (asLink) return // never shows a plan — a phone must not bake every page into memory for nothing
-    const docs = resolvedPlanDocs.filter((p) => p.imageUrl)
-    const urls = docs.map((p) => (p.imageUrl.startsWith('/') || /^https?:/.test(p.imageUrl) ? p.imageUrl : `${import.meta.env.BASE_URL}${p.imageUrl}`))
-    const active = Math.max(0, docs.findIndex((p) => p.id === activePlanId))
-    const run = () => prewarmPlans(urls, window.innerWidth, window.innerHeight, urls.slice(Math.max(0, active - 1), active + 2))
-    const idle = (window as unknown as { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback
-    const id = idle ? idle(run) : window.setTimeout(run, 600)
-    return () => { const ric = (window as unknown as { cancelIdleCallback?: (h: number) => void }).cancelIdleCallback; if (idle && ric) ric(id); else clearTimeout(id) }
-  }, [resolvedPlanDocs, activePlanId, asLink])
+  // the Plan and Rapport chunks and the plan bitmaps, on idle once the opening cover is off
+  useWarmUps({ coverOff: coverPhase === 'off', asLink, resolvedPlanDocs, activePlanId })
 
   // Layers the MAP renders: during replay, apply the reconstructed layerState so
   // `layer.toggle` history (which layer was on/off at that moment) is faithful too.
