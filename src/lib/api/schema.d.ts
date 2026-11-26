@@ -326,8 +326,8 @@ export interface paths {
          *     session is known (src/lib/deploymentConfig · mergePartial, lib/auth). Replacing with it
          *     would empty a tablet's fleet and map layers.
          *
-         *     On a missing or invalid stored row every caller gets the safe empty config
-         *     (``stored_document``). Never raises.
+         *     On a missing or invalid stored row every caller gets the safe empty config; a value past a
+         *     length limit costs only its entry (``stored_document``). Never raises.
          */
         get: operations["get_config_api_config_get"];
         /**
