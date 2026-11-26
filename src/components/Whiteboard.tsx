@@ -2421,10 +2421,28 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     )
   }
 
+  /** A Notiz's edit on the sheet ends (PlanAnno · NoteField). It keeps the note even if empty (a
+   *  placed note must persist, mirroring the Lage map) and records one audit edit for the whole
+   *  session. Once per session: a second call finds the marker cleared. */
+  const endTextEdit = (a: BoardAnno, value: string) => {
+    if (textEditId.current !== a.id) return
+    textEditId.current = null
+    emit('board.edit', { id: a.id, patch: { text: value }, planId: activeId })
+    // …and the Verlauf gets what it SAYS, not that a note exists (parity with the Lage's map
+    // notes, lib/entityEdit). Once per editing session, on the way out — a row per keystroke
+    // would be a wall.
+    const v = value.replace(/\s+/g, ' ').trim()
+    const was = (a.text ?? '').replace(/\s+/g, ' ').trim()
+    if (v !== was) {
+      log('type', v
+        ? fillTemplate(appConfig.copy.log.noteWritten, { value: v })
+        : appConfig.copy.log.notesCleared)
+    }
+  }
   // what every <PlanAnno> reads from this render — one object, handed to each
   const annoBoard: PlanAnnoBoard = {
-    sW, sH, scale, mapY, stack, symBase, txtBase, tool, readOnly, captionMode, sym, annos, trupps, truppSeverities, activeId, textEditId,
-    chipRef, chipDown, setEditId, setSelId, setNotePanelId, pushPast, patch, patchCommit, emit, log,
+    sW, sH, scale, mapY, stack, symBase, txtBase, tool, readOnly, captionMode, sym, annos, trupps, truppSeverities, textEditId,
+    chipRef, chipDown, setEditId, setSelId, setNotePanelId, pushPast, patch, patchCommit, endTextEdit,
     teamNameTaken, onTeamTrupp, onTeamNewTrupp, onShowTrupp, markPosition, clearTrail, removeWithConnections, removeWithTrail,
     toggleTrail, rotDown, rotMove, rotUp,
   }

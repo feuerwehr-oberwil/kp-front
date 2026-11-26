@@ -13,10 +13,11 @@ import { Whiteboard } from './Whiteboard'
 import type { BoardHistory } from './useBoardDoc'
 import type { ContextPanel as RealPanel } from './ContextPanel'
 
-/* A Notiz whose panel goes away while its text field still has the caret – ✕, «Entfernen», a tap
-   elsewhere – gets no blur. Its typing step stayed open, and the NEXT act's ↶ took the Notiz edit
-   back with it (sweep 26.11.2026, found in #792). The Notiz panel here is the real one; the
-   symbol's panel is a stand-in that hands the test its write door, so a rename is one call. */
+/* A Notiz whose text field goes away while it still has the caret – ✕, «Entfernen», ✓ on the
+   sheet, a tap elsewhere – gets no blur. Its typing step stayed open, and the NEXT act's ↶ took the
+   Notiz edit back with it (sweep 26.11.2026, found in #792). The Notiz panel and the Plan's editor
+   on the sheet here are the real ones; the symbol's panel is a stand-in that hands the test its
+   write door, so a rename is one call. */
 type PanelProps = ComponentProps<typeof RealPanel>
 const symbolPanel = vi.hoisted(() => ({ props: null as PanelProps | null }))
 vi.mock('./ContextPanel', async (importOriginal) => {
@@ -154,12 +155,15 @@ describe('a Notiz panel that goes without a blur ends its typing step – on the
 const tafel: PlanDocument = { id: 'tafel', code: 'Tafel', title: 'Leeres Blatt', subtitle: '', imageUrl: '', orientation: 'landscape' }
 const sym: SymbolsApi = { ready: false, error: false, reload: () => {}, order: [], symbols: [], byName: {} }
 
+type PlanHistory = { undo: (expect?: string) => boolean; redo: (expect?: string) => boolean }
 /** The Plan's board over its own per-sheet history; every step it lays is a timeline entry, as
- *  workspace/usePlanStacks records them. `seen` gets the sheet after every write. */
-function PlanRig({ annos: start, timeline, seen }: { annos: BoardAnno[]; timeline: UndoTimeline; seen: (annos: BoardAnno[]) => void }) {
+ *  workspace/usePlanStacks records them. `seen` gets the sheet after every write; `seed` is the
+ *  history the sheet starts with, stepped through `history`. */
+function PlanRig({ annos: start, timeline, seen, seed = {}, history }: { annos: BoardAnno[]; timeline: UndoTimeline; seen: (annos: BoardAnno[]) => void; seed?: BoardHistory; history?: RefObject<PlanHistory | null> }) {
   const [annos, setAnnos] = useState(start)
-  const [hist, setHist] = useState<BoardHistory>({})
-  const historyRef = useRef<{ undo: (expect?: string) => boolean; redo: (expect?: string) => boolean } | null>(null)
+  const own = useRef<PlanHistory | null>(null)
+  const historyRef = history ?? own
+  const [hist, setHist] = useState(seed)
   return <Whiteboard
     plans={[tafel]} activeId="tafel" annos={annos} onChange={(next) => { setAnnos(next); seen(next) }}
     building={null} onSelectBuilding={() => {}} onAddFloor={() => {}} onRemoveFloor={() => {}}
@@ -191,3 +195,50 @@ describe('a Notiz panel that goes without a blur ends its typing step – on the
     expect(now()).toEqual({ vehicle: 'TLF 2', note: 'Wasser ab 14:20' })
   })
 })
+
+describe('a Notiz typed in the editor on the plan, which goes without a blur', () => {
+  const at = { x: 0.5, y: 0.5, floor: 0 }
+  const tap = (el: Element) => fireEvent.pointerDown(el, { pointerType: 'mouse', isPrimary: true })
+  const typeOnSheet = (text: string) => fireEvent.change(document.querySelector('.wb-text-input')!, { target: { value: text } })
+  const done = () => fireEvent.pointerDown(screen.getByRole('button', { name: N.notes.done }))
+  /** `placed`: the sheet holds that anno as just put down – its placing is the step on the stack */
+  const mount = (annos: BoardAnno[], placed?: string) => {
+    const timeline = createUndoTimeline()
+    let sheet: BoardAnno[] = annos
+    const history = createRef<PlanHistory>()
+    const seed: BoardHistory = placed ? { tafel: { past: [{ id: 'placed', snap: annos.filter((a) => a.id !== placed) }], future: [] } } : {}
+    if (placed) timeline.push({ domain: 'plan', label: 'Plan', undo: () => history.current!.undo('placed'), redo: () => history.current!.redo('placed') })
+    const utils = render(<PlanRig annos={annos} timeline={timeline} seen={(a) => { sheet = a }} seed={seed} history={history} />)
+    const now = () => ({ vehicle: sheet.find((a) => a.id === 'v1')?.label, note: sheet.find((a) => a.id === 'n1')?.text })
+    return { ...utils, timeline, now }
+  }
+
+  // ✓ ends the editor with no blur; its typing marker stayed set, and the next typing in that
+  // Notiz folded into the step laid last – here the rename
+  it('✓, then a rename, then typed again: ↶ takes back only the new text', () => {
+    const { container, timeline, now } = mount([{ ...vehicle, ...at }, { id: 'n1', kind: 'text', x: 0.3, y: 0.3, floor: 0, text: 'Alt' }])
+    fireEvent.doubleClick(screen.getByText('Alt'))
+    typeOnSheet('Wasser ab 14:20')
+    done()
+    tap(container.querySelector('.wb-symbol')!)
+    rename('TLF 2')
+    fireEvent.doubleClick(screen.getByText('Wasser ab 14:20'))
+    typeOnSheet('Wasser ab 14:30')
+    done()
+    act(() => { timeline.undo() })
+    expect(now()).toEqual({ vehicle: 'TLF 2', note: 'Wasser ab 14:20' })
+  })
+
+  it('↶ until the Notiz is gone: ↷ brings it back with what was typed', () => {
+    const { timeline, now } = mount([{ ...vehicle, ...at }, { id: 'n1', kind: 'text', x: 0.3, y: 0.3, floor: 0, text: '' }], 'n1')
+    fireEvent.doubleClick(document.querySelector('.wb-text-label')!)
+    typeOnSheet('Wasser ab 14:20')
+    act(() => { timeline.undo() })
+    act(() => { timeline.undo() })
+    expect(now().note).toBeUndefined()
+    act(() => { timeline.redo() })
+    act(() => { timeline.redo() })
+    expect(now()).toEqual({ vehicle: 'TLF', note: 'Wasser ab 14:20' })
+  })
+})
+
