@@ -125,9 +125,21 @@ export function withBytes(catalogue, sizeOf) {
 /** Puts back what a swap that died midway left behind (call it under the lock, first): an
  *  old-<app>/ whose site/<app>/ is missing goes back; one beside a present site/<app>/ is the
  *  finished swap's leftover and goes. next-<app>/ is never promoted – a dry run must not go
- *  live. Returns what it did, one line each. */
+ *  live. A seed killed between promoting site/ and marking the mirror is finished: its
+ *  .project.pending becomes .project when site/ exists, and goes when it does not. Returns
+ *  what it did, one line each. */
 export function recoverSwaps(mirror) {
   const done = []
+  const pending = join(mirror, '.project.pending')
+  if (existsSync(pending) && !existsSync(join(mirror, '.project'))) {
+    if (existsSync(join(mirror, 'site'))) {
+      renameSync(pending, join(mirror, '.project'))
+      done.push('marked the mirror from .project.pending (a seed had died after promoting site/)')
+    } else {
+      rmSync(pending)
+      done.push('removed .project.pending (a seed had died before promoting site/)')
+    }
+  }
   for (const name of existsSync(mirror) ? readdirSync(mirror) : []) {
     if (!name.startsWith('old-')) continue
     const app = name.slice(4)
@@ -291,12 +303,14 @@ async function seedFromLive({ baseUrl, project }, site) {
   checkEmpty(site)
   const next = join(MIRROR, 'seeding')
   rmSync(next, { recursive: true, force: true })
+  mkdirSync(next)
   const apps = JSON.parse((await fetchWhole(`${baseUrl}/apps.json`)).toString('utf8'))
   if (!Array.isArray(apps) || !apps.every((a) => typeof a === 'string' && APP_NAME.test(a))) throw new Error(`${baseUrl}/apps.json: not a list of app names`)
   for (const app of apps) {
     const catalogue = JSON.parse((await fetchWhole(`${baseUrl}/${app}/catalogue.json`)).toString('utf8'))
     const files = catalogueFiles(catalogue, app)
     console.log(`seeding ${app}/: ${files.length + 1} files from ${baseUrl}`)
+    mkdirSync(join(next, app), { recursive: true })
     for (const f of files) {
       const to = join(next, app, f.path)
       mkdirSync(dirname(to), { recursive: true })
@@ -307,9 +321,12 @@ async function seedFromLive({ baseUrl, project }, site) {
   }
   const seeded = writeRoot(next)
   checkSizes(next)
+  // the marker's name goes down BEFORE site/ appears, the marker itself only after – a kill in
+  // between is finished by recoverSwaps, and a marked mirror always has its site/
+  writeFileSync(join(MIRROR, '.project.pending'), `${project}\n`)
   rmSync(site, { recursive: true, force: true })
   renameSync(next, site)
-  writeFileSync(join(MIRROR, '.project'), `${project}\n`)
+  renameSync(join(MIRROR, '.project.pending'), join(MIRROR, '.project'))
   return seeded
 }
 

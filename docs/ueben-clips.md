@@ -140,6 +140,9 @@ it. Nothing is read back from the live site – except by `--seed-from-live`, th
 path (a new box, a lost mirror). It refuses a mirror that is not empty, reads `apps.json`, each
 `catalogue.json` (format 1, its own `app`) and every file it names, each a complete
 uncompressed 200 whose length matches `Content-Length` and, for a video, `bytes`. It builds the
-whole site – root files and size checks included – in `seeding/`, renames that to `site/` last
-and only then writes `.project`; a seed that fails leaves the mirror empty and seedable again.
+whole site – root files and size checks included – in `seeding/`, writes the project name to
+`.project.pending`, renames `seeding/` to `site/` and only then renames the pending file to
+`.project`. A seed that fails before the rename leaves the mirror empty and seedable again; one
+killed after it is finished by the next run's recovery (pending + `site/` → `.project`). A
+marked mirror always has its `site/`.
 Neither `--seed-from-live` nor `--init` takes `--dry-run`.

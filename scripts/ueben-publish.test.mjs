@@ -1,5 +1,6 @@
-import { spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, writeFileSync } from 'node:fs'
+import { execFile, spawnSync } from 'node:child_process'
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { createServer } from 'node:http'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -130,6 +131,20 @@ describe('recoverSwaps', () => {
   })
 })
 
+describe('recoverSwaps after a seed died', () => {
+  it('finishes the marker when site/ was promoted, and drops it when it was not', () => {
+    const promoted = tmp()
+    mkdirSync(join(promoted, 'site'))
+    writeFileSync(join(promoted, '.project.pending'), 'kp-ueben\n')
+    expect(recoverSwaps(promoted)).toEqual(['marked the mirror from .project.pending (a seed had died after promoting site/)'])
+    expect([readFileSync(join(promoted, '.project'), 'utf8'), existsSync(join(promoted, '.project.pending'))]).toEqual(['kp-ueben\n', false])
+    const early = tmp()
+    writeFileSync(join(early, '.project.pending'), 'kp-ueben\n')
+    expect(recoverSwaps(early)).toEqual(['removed .project.pending (a seed had died before promoting site/)'])
+    expect(readdirSync(early)).toEqual([])
+  })
+})
+
 describe('the mirror', () => {
   it('is refused for a publish until initialised for this project', () => {
     const m = tmp()
@@ -152,5 +167,25 @@ describe('the mirror', () => {
     const m = tmp()
     expect([cli(m, '--seed-from-live', '--dry-run').status, cli(m, '--init', '--dry-run').status]).toEqual([2, 2])
     expect(readdirSync(m)).toEqual(['.lock'])
+  })
+})
+
+describe('--seed-from-live', () => {
+  it('seeds an app whose live catalogue has no clips yet', async () => {
+    const live = { '/apps.json': ['rueck'], '/rueck/catalogue.json': { format: 1, app: 'rueck', title: 'R', chapters: [] } }
+    const server = createServer((req, res) => {
+      const body = live[req.url]
+      res.writeHead(body ? 200 : 404, { 'Content-Type': 'application/json' }).end(body ? JSON.stringify(body) : '')
+    })
+    await new Promise((ok) => server.listen(0, '127.0.0.1', ok))
+    const m = tmp()
+    try {
+      // async: the server answers from this process while the CLI runs
+      await new Promise((ok, fail) => execFile(process.execPath, ['scripts/ueben-publish.mjs', '--seed-from-live', '--base-url', `http://127.0.0.1:${server.address().port}`],
+        { env: { ...process.env, UEBEN_SITE_DIR: m } }, (e, out, err) => (e ? fail(new Error(err)) : ok(out))))
+    } finally {
+      server.close()
+    }
+    expect([readFileSync(join(m, 'site/apps.json'), 'utf8'), existsSync(join(m, 'site/rueck/catalogue.json')), readFileSync(join(m, '.project'), 'utf8')]).toEqual(['["rueck"]\n', true, 'kp-ueben\n'])
   })
 })
