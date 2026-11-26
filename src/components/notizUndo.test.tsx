@@ -159,7 +159,7 @@ type PlanHistory = { undo: (expect?: string) => boolean; redo: (expect?: string)
 /** The Plan's board over its own per-sheet history; every step it lays is a timeline entry, as
  *  workspace/usePlanStacks records them. `seen` gets the sheet after every write; `seed` is the
  *  history the sheet starts with, stepped through `history`. */
-function PlanRig({ annos: start, timeline, seen, seed = {}, history }: { annos: BoardAnno[]; timeline: UndoTimeline; seen: (annos: BoardAnno[]) => void; seed?: BoardHistory; history?: RefObject<PlanHistory | null> }) {
+function PlanRig({ annos: start, timeline, seen, seed = {}, history, emit }: { annos: BoardAnno[]; timeline: UndoTimeline; seen: (annos: BoardAnno[]) => void; seed?: BoardHistory; history?: RefObject<PlanHistory | null>; emit?: (op: string, payload?: Record<string, unknown>) => void }) {
   const [annos, setAnnos] = useState(start)
   const own = useRef<PlanHistory | null>(null)
   const historyRef = history ?? own
@@ -167,7 +167,7 @@ function PlanRig({ annos: start, timeline, seen, seed = {}, history }: { annos: 
   return <Whiteboard
     plans={[tafel]} activeId="tafel" annos={annos} onChange={(next) => { setAnnos(next); seen(next) }}
     building={null} onSelectBuilding={() => {}} onAddFloor={() => {}} onRemoveFloor={() => {}}
-    sym={sym} onRecent={() => {}} log={() => {}} focus={null}
+    sym={sym} onRecent={() => {}} log={() => {}} focus={null} emit={emit}
     hist={hist} setHist={setHist} historyRef={historyRef}
     onCheckpoint={(_plan, step) => timeline.push({ domain: 'plan', label: 'Plan', undo: () => historyRef.current!.undo(step), redo: () => historyRef.current!.redo(step) })}
     undoGroup={() => timeline.group()}
@@ -208,9 +208,12 @@ describe('a Notiz typed in the editor on the plan, which goes without a blur', (
     const history = createRef<PlanHistory>()
     const seed: BoardHistory = placed ? { tafel: { past: [{ id: 'placed', snap: annos.filter((a) => a.id !== placed) }], future: [] } } : {}
     if (placed) timeline.push({ domain: 'plan', label: 'Plan', undo: () => history.current!.undo('placed'), redo: () => history.current!.redo('placed') })
-    const utils = render(<PlanRig annos={annos} timeline={timeline} seen={(a) => { sheet = a }} seed={seed} history={history} />)
+    const emit = vi.fn()
+    const utils = render(<PlanRig annos={annos} timeline={timeline} seen={(a) => { sheet = a }} seed={seed} history={history} emit={emit} />)
     const now = () => ({ vehicle: sheet.find((a) => a.id === 'v1')?.label, note: sheet.find((a) => a.id === 'n1')?.text })
-    return { ...utils, timeline, now }
+    /** the audit's edit rows for the Notiz, by the text they record */
+    const noteEdits = () => emit.mock.calls.filter(([op, p]) => op === 'board.edit' && p?.id === 'n1').map(([, p]) => (p as { patch: { text?: string } }).patch.text)
+    return { ...utils, timeline, now, noteEdits }
   }
 
   // ✓ ends the editor with no blur; its typing marker stayed set, and the next typing in that
@@ -230,12 +233,14 @@ describe('a Notiz typed in the editor on the plan, which goes without a blur', (
   })
 
   it('↶ until the Notiz is gone: ↷ brings it back with what was typed', () => {
-    const { timeline, now } = mount([{ ...vehicle, ...at }, { id: 'n1', kind: 'text', x: 0.3, y: 0.3, floor: 0, text: '' }], 'n1')
+    const { timeline, now, noteEdits } = mount([{ ...vehicle, ...at }, { id: 'n1', kind: 'text', x: 0.3, y: 0.3, floor: 0, text: '' }], 'n1')
     fireEvent.doubleClick(document.querySelector('.wb-text-label')!)
     typeOnSheet('Wasser ab 14:20')
     act(() => { timeline.undo() })
     act(() => { timeline.undo() })
     expect(now().note).toBeUndefined()
+    // the typing the ↶ took back leaves no audit row with its text
+    expect(noteEdits()).toEqual([])
     act(() => { timeline.redo() })
     act(() => { timeline.redo() })
     expect(now()).toEqual({ vehicle: 'TLF', note: 'Wasser ab 14:20' })

@@ -1014,8 +1014,11 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // the Lage. Checkpoint once when typing starts, emit once on blur — otherwise «Sicherung» is
   // nine undo steps and nine audit rows. (A symbol's name is a draft instead: `titleDraft`.)
   const titleLive = useRef<string | null>(null)
-  /** ↶ / ↷ on the Tafel lands where the step was: the page it changed, else the Skizze */
+  /** ↶ / ↷ on the Tafel lands where the step was: the page it changed, else the Skizze. Any ↶ / ↷
+   *  also closes the Notiz editor on the sheet (useBoardDoc · undo) and takes its typing session
+   *  with it, so the field's end (endTextEdit) writes no row with the text the step took back. */
   const onRestore = (from: BoardAnno[], to: BoardAnno[]) => {
+    textEditId.current = null
     if (!onTafel) return
     const was = new Map(from.filter((a) => a.kind === 'form').map((a) => [a.id, JSON.stringify(a)]))
     const changed = to.find((a) => a.kind === 'form' && was.get(a.id) !== JSON.stringify(a))
