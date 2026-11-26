@@ -77,6 +77,14 @@
         {
           "path": "docs/roster-snapshot.example.csv",
           "sha256": "3addbbc94a755b66c7350d088177ccd2e89d6d888fcd63e87b78b33ccbfeb1f7"
+        },
+        {
+          "path": "backend/tests/test_roster_snapshot_ingest.py",
+          "sha256": "2a90fe47e6f2c827abbbc24459c63052b3bc03795140f7235abf9e11b9728f4b"
+        },
+        {
+          "path": "backend/tests/test_roster_snapshot_from_csv.py",
+          "sha256": "ef4fef23b851a18cb93181b44ca1f131c1a3e10f7cd7794b319c9bc5f439ddd2"
         }
       ]
     },
@@ -101,6 +109,10 @@
         {
           "path": "docs/station-index.example.json",
           "sha256": "607b30f7add0a6e8a93a61e362c5151952872e91b48737f953f0aa6e18526428"
+        },
+        {
+          "path": "backend/tests/test_station_index.py",
+          "sha256": "73aa518c46e602d42f5b0a5676a96b7ed10485b9235d6fbcab01b4b1e4facf72"
         }
       ]
     },
@@ -150,6 +162,18 @@
       ]
     },
     {
+      "id": "release-notes",
+      "title": "Release notes from the CHANGELOG",
+      "owner": "kp-front",
+      "question": "Could the two apps publish a release with notes cut differently from their CHANGELOG?",
+      "files": [
+        {
+          "path": "scripts/changelog_section.py",
+          "sha256": "19f6340dae07d6cfad0db04d1ac3c39322904e8a05d8789921e3c761f664c52e"
+        }
+      ]
+    },
+    {
       "id": "shared-check",
       "title": "This check itself",
       "owner": "kp-front",
@@ -161,7 +185,7 @@
         },
         {
           "path": "shared/README.md",
-          "sha256": "b076f8eb1f1f43e620c8ab953de17d38cca5db35a992a0bcd89519e0e158e833"
+          "sha256": "8424ecde64c1156a79bbb658b98ffc663ddb73abfac60b37cc49a8e98f3313fb"
         },
         {
           "path": "backend/tests/test_shared_files.py",
