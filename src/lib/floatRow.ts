@@ -28,6 +28,13 @@
 // (sweep 30.10.2026 #7, owner's iPhone with Linie armed: the tip stood 16px over the pill because
 // the CSS reserve counted a chip row that sat beside the dock, and the Gebäude card stood in the
 // same spot). Without a tool the CSS reserve is exact and the property is removed.
+//
+// …and it never rises onto an ALERT (owner, 26.11.2026: «no map control may cover an alert»). An
+// open Messen panel ends one --float-gap under the Meldeleiste (15-mobile · --under-alert), so a
+// row lifted above it landed on the strip's last row. Its ceiling is the strip's foot + a gap; a
+// piece whose lift crosses it YIELDS (`data-float-yield`, hidden in 15-mobile) until the panel
+// folds or the strip goes. Not a shorter panel: the band that would free is the row under the
+// bar's (Standort left, the wind right), where Info and Eintrag would land on those instead.
 
 import { useLayoutEffect } from 'react'
 
@@ -74,6 +81,14 @@ export function stackLane(boxes: readonly Box[], viewportH: number, gap = GAP): 
   return Math.max(...boxes.map((b) => viewportH - b.top)) + gap
 }
 
+/**
+ * Whether a piece at `row` (its floor position), lifted by `lift`, crosses `ceiling` (viewport px:
+ * the highest line it may reach, null when nothing hangs above it) – then it yields.
+ */
+export function crossesCeiling(row: Box, lift: number, ceiling: number | null): boolean {
+  return ceiling !== null && row.top - lift < ceiling
+}
+
 const box = (r: DOMRect): Box => ({ left: r.left, right: r.right, top: r.top, bottom: r.bottom })
 
 /** A piece's own content (the tile row's box spans to the FAB's edge – its tiles hug its left
@@ -100,6 +115,9 @@ export function useFloatRowPlacement(on: boolean) {
       const measure = (sel: string) => [...document.querySelectorAll(sel)]
         .map((el) => el.getBoundingClientRect()).filter((r) => r.width && r.height).map(box)
       const obstacles = measure(OBSTACLE_SEL)
+      // the ceiling: one gap under the Meldeleiste while one stands
+      const strip = measure('.ml')[0]
+      const ceiling = strip ? strip.bottom + GAP : null
       const placed: Box[] = []
       for (const row of document.querySelectorAll<HTMLElement>(ROW_SEL)) {
         // the floor first (09-whiteboard · .wb-botleft, 15-mobile · .fab-entry [data-float-placed]),
@@ -108,6 +126,8 @@ export function useFloatRowPlacement(on: boolean) {
         const content = contentAtFloor(row)
         const lift = content ? rowLift(content, obstacles) : 0
         row.style.setProperty('--row-lift', `${lift}px`)
+        if (content && crossesCeiling(content, lift, ceiling)) { row.dataset.floatYield = ''; continue }
+        delete row.dataset.floatYield
         if (content) placed.push({ ...content, top: content.top - lift, bottom: content.bottom - lift })
       }
       // the lane: only while a tool is out — at rest the CSS reserve already is the measurement
@@ -129,6 +149,7 @@ export function useFloatRowPlacement(on: boolean) {
       window.removeEventListener('resize', place)
       for (const row of document.querySelectorAll<HTMLElement>(ROW_SEL)) {
         delete row.dataset.floatPlaced
+        delete row.dataset.floatYield
         row.style.removeProperty('--row-lift')
       }
       delete document.documentElement.dataset.stackLane
