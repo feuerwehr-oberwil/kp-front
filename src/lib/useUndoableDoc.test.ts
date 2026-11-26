@@ -119,4 +119,16 @@ describe('a gesture ended by its token', () => {
     act(() => { result.current.redo() })
     expect(result.current.current()).toEqual({ n: 2 })
   })
+
+  it('a typing a ↶ stepped over is stale while it holds the slot – not once a newer gesture took it', () => {
+    const { result } = renderHook(() => useUndoableDoc<Doc>(INIT, false))
+    act(() => result.current.commit(() => ({ n: 1 })))
+    let typing = 0
+    act(() => { typing = result.current.beginDrag() })
+    expect(result.current.steppedOver(typing)).toBe(false)
+    act(() => { result.current.undo() })
+    expect(result.current.steppedOver(typing)).toBe(true)
+    act(() => { result.current.beginDrag() }) // a vehicle dragged meanwhile: its slot stays its own
+    expect(result.current.steppedOver(typing)).toBe(false)
+  })
 })

@@ -574,7 +574,7 @@ export function IncidentWorkspace({
     },
   )
   const {
-    objects, doc, board, setDocRaw, setBoard, beginSheetStep, endSheetStep, commit, beginDrag, endDrag, dropDrag, gestureOpen, rebake,
+    objects, doc, board, setDocRaw, setBoard, beginSheetStep, endSheetStep, commit, beginDrag, endDrag, dropDrag, steppedOver, gestureOpen, rebake,
     undo: undoDoc, redo: redoDoc, rebaseObjects, replaceObjects, liveObjects, liveViews, stepKeys: storeStepKeys,
   } = store
   // ⚠️ Through refs: the entry outlives the render that pushed it, and `undoDoc` closes over that
@@ -1318,7 +1318,10 @@ export function IncidentWorkspace({
     // …and the Verlauf's settle window learns that this note is still being written: the canvas
     // editor is not inside a panel, so focus alone cannot tell (see noteEntityEdit)
     entityTypedAt.current.set(id, Date.now())
-    if (!titleLiveRef.current) { titleLiveRef.current = true; noteTyping.current = beginDrag() }
+    // …and once a ↶ / ↷ stepped over the open typing, what is typed next is an edit of its own:
+    // a fresh gesture from the state the ↶ left (its end would lay nothing for the stale one)
+    const stale = noteTyping.current !== null && steppedOver(noteTyping.current)
+    if (!titleLiveRef.current || stale) { titleLiveRef.current = true; noteTyping.current = beginDrag() }
     // a note that has never been resized by hand follows what is typed (lib/notes) — it grows
     // out of the minimum and stops at the maximum, where it wraps as it always did
     setDocRaw((d) => ({ ...d, entities: d.entities.map((e) => (e.id === id

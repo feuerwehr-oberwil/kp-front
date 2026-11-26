@@ -26,6 +26,9 @@ export interface UndoableDoc<D> {
   /** end gesture `token` with NO step, if it is still the open one – a Notiz a ↶ or another
    *  device took away while it was typed */
   dropDrag: (token: number) => void
+  /** gesture `token` is still the open one, and a ↶ / ↷ ran while it was open – its snapshot is
+   *  stale, so a caller still writing (a Notiz typed on after a ↶) begins a fresh one */
+  steppedOver: (token: number) => boolean
   /** is a `beginDrag` gesture open right now (read live, not a render snapshot) */
   dragging: () => boolean
   /** step back one checkpoint; returns true if the doc changed (so the caller can log it).
@@ -127,6 +130,7 @@ export function useUndoableDoc<D>(init: D, readOnly: boolean, onCheckpoint?: (st
     return true
   }
   const dropDrag = (token: number) => { if (token === dragToken.current) dragSnap.current = null }
+  const steppedOver = (token: number) => token === dragToken.current && dragSnap.current !== null && dragStepped.current
   const undo = (expect?: string): boolean => {
     const top = past.current[past.current.length - 1]
     if (readOnly || !top || (expect !== undefined && top.id !== expect)) return false
@@ -176,7 +180,7 @@ export function useUndoableDoc<D>(init: D, readOnly: boolean, onCheckpoint?: (st
   }
 
   return {
-    doc, current: () => docRef.current, setDocRaw, commit, beginDrag, endDrag, dropDrag, dragging: () => dragSnap.current !== null,
+    doc, current: () => docRef.current, setDocRaw, commit, beginDrag, endDrag, dropDrag, steppedOver, dragging: () => dragSnap.current !== null,
     undo, redo, canUndo: depth.past > 0, canRedo: depth.future > 0, replace, rebase, stepKeys, checkpoint,
   }
 }

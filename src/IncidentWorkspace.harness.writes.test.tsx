@@ -373,6 +373,28 @@ describe('(n) ↶ takes back a Notiz while it is being typed', () => {
     expect(notes()).toEqual(['Neu', ''])
   })
 
+  // the map editor stays open through the ↶; what is typed after it is an edit of its own
+  it('typed on after a ↶: the new text is its own ↶ step with its one row', async () => {
+    const append = vi.spyOn(AuditEventStore.prototype, 'append')
+    await mount({ workspace: { entities: [truck, { id: 'a', kind: 'note', coord: [7.6, 47.5], label: 'Alt' } as Entity] } as unknown as Saved })
+    await placeNote()
+    const map = () => lastMap() as unknown as { onNoteEdit: (id: string) => void; onNoteText: (id: string, v: string) => void; onNoteCommit: (id: string, v: string) => void }
+    act(() => map().onNoteEdit('a'))
+    act(() => map().onNoteText('a', 'Erst'))
+    await press(appConfig.copy.undo)
+    expect(notes()).toEqual(['Alt'])
+    act(() => map().onNoteText('a', 'Alt, Wasser ab 14:20'))
+    act(() => map().onNoteCommit('a', 'Alt, Wasser ab 14:20'))
+    await settle()
+    const rows = append.mock.calls.map(([e]) => e).filter((e) => e.op_type === 'entity.edit')
+      .map((e) => (e.payload as { patch?: { label?: string } }).patch?.label)
+    expect(rows).toEqual(['Alt, Wasser ab 14:20'])
+    await press(appConfig.copy.undo)
+    expect(notes()).toEqual(['Alt'])
+    await press(appConfig.copy.redo)
+    expect(notes()).toEqual(['Alt, Wasser ab 14:20'])
+  })
+
   // after a ↶, an existing Notiz opened on the map and closed with ✓, nothing typed
   it('✓ on an unchanged Notiz lays no step: ↷ stays', async () => {
     await mount({ workspace: { entities: [truck, { id: 'a', kind: 'note', coord: [7.6, 47.5], label: 'Alt' } as Entity] } as unknown as Saved })

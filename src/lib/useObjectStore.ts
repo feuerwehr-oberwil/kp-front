@@ -117,6 +117,7 @@ export interface ObjectStore {
   beginDrag: UndoableDoc<Doc>['beginDrag']
   endDrag: UndoableDoc<Doc>['endDrag']
   dropDrag: UndoableDoc<Doc>['dropDrag']
+  steppedOver: UndoableDoc<Doc>['steppedOver']
   /** a hand is mid-gesture on either surface: a Karte drag (`beginDrag`) or a plan step
    *  (`beginSheetStep`) is open. Read live — for the save path (useIncidentSync · gestureOpen). */
   gestureOpen: () => boolean
@@ -426,8 +427,8 @@ export function useObjectStore(
     if (steppedStep.current && !keep(steppedStep.current)) { stepped.current = undefined; steppedStep.current = null }
   }
   const liveViews = () => { const live = store.current(); return { doc: docViewOf(live), board: boardViewOf(live, getFits()) } }
-  const impl = useRef({ setDocRaw, setBoard, beginSheetStep, endSheetStep, commit, beginDrag: store.beginDrag, endDrag: store.endDrag, dropDrag: store.dropDrag, undo: store.undo, redo: store.redo, rebake, gestureOpen, rebaseObjects, stepKeys: store.stepKeys, liveObjects: store.current, liveViews })
-  impl.current = { setDocRaw, setBoard, beginSheetStep, endSheetStep, commit, beginDrag: store.beginDrag, endDrag: store.endDrag, dropDrag: store.dropDrag, undo: store.undo, redo: store.redo, rebake, gestureOpen, rebaseObjects, stepKeys: store.stepKeys, liveObjects: store.current, liveViews }
+  const impl = useRef({ setDocRaw, setBoard, beginSheetStep, endSheetStep, commit, beginDrag: store.beginDrag, endDrag: store.endDrag, dropDrag: store.dropDrag, steppedOver: store.steppedOver, undo: store.undo, redo: store.redo, rebake, gestureOpen, rebaseObjects, stepKeys: store.stepKeys, liveObjects: store.current, liveViews })
+  impl.current = { setDocRaw, setBoard, beginSheetStep, endSheetStep, commit, beginDrag: store.beginDrag, endDrag: store.endDrag, dropDrag: store.dropDrag, steppedOver: store.steppedOver, undo: store.undo, redo: store.redo, rebake, gestureOpen, rebaseObjects, stepKeys: store.stepKeys, liveObjects: store.current, liveViews }
   // ⚠️ Every forwarder spreads the WHOLE parameter list, typed off the public signature, and
   // carries no cast: a hand-written `(a) => …` behind an `as` silently dropped `setBoard`'s
   // `{ gesture }` (24.09.2026), and tsc could not say so. Add an option to a writer and it
@@ -441,6 +442,7 @@ export function useObjectStore(
     beginDrag: (...args: Parameters<ObjectStore['beginDrag']>) => impl.current.beginDrag(...args),
     endDrag: (...args: Parameters<ObjectStore['endDrag']>) => impl.current.endDrag(...args),
     dropDrag: (...args: Parameters<ObjectStore['dropDrag']>) => impl.current.dropDrag(...args),
+    steppedOver: (...args: Parameters<ObjectStore['steppedOver']>) => impl.current.steppedOver(...args),
     undo: (...args: Parameters<ObjectStore['undo']>) => impl.current.undo(...args),
     redo: (...args: Parameters<ObjectStore['redo']>) => impl.current.redo(...args),
     rebake: (...args: Parameters<ObjectStore['rebake']>) => impl.current.rebake(...args),
