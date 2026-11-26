@@ -119,11 +119,15 @@ describe('ReplayBar', () => {
 
   // owner call C4 (17.11.2026): in a running Einsatz the replay opens on the live picture, so a
   // stray ▶ changes nothing visible; ▶ «Abspielen» from there starts at the beginning
+  // The slider shows on the commit; the frame is folded (stateAt) in the effect after it, which
+  // React may run a task later – so wait for both, not for the slider alone.
   it('opens a running Einsatz at «Jetzt», and plays it from the beginning', async () => {
     setup({ journal: rows, running: true })
-    await waitFor(() => expect(screen.getByRole('slider', { name: 'Zeitpunkt' }).getAttribute('aria-valuenow')).toBe('100'))
+    await waitFor(() => {
+      expect(screen.getByRole('slider', { name: 'Zeitpunkt' }).getAttribute('aria-valuenow')).toBe('100')
+      expect(stateAt).toHaveBeenLastCalledWith(bundle, bundle.endMs)
+    })
     expect(screen.getByText('Feuer aus')).toBeTruthy()
-    expect(stateAt).toHaveBeenLastCalledWith(bundle, bundle.endMs)
     fireEvent.click(screen.getByRole('button', { name: 'Abspielen' }))
     await waitFor(() => expect(stateAt).toHaveBeenCalledWith(bundle, bundle.startMs))
     expect(screen.getByRole('button', { name: 'Pause' })).toBeTruthy()
@@ -131,8 +135,10 @@ describe('ReplayBar', () => {
 
   it('opens a closed Einsatz at the beginning', async () => {
     setup({ journal: rows })
-    await waitFor(() => expect(screen.getByRole('slider', { name: 'Zeitpunkt' }).getAttribute('aria-valuenow')).toBe('0'))
-    expect(stateAt).toHaveBeenLastCalledWith(bundle, bundle.startMs)
+    await waitFor(() => {
+      expect(screen.getByRole('slider', { name: 'Zeitpunkt' }).getAttribute('aria-valuenow')).toBe('0')
+      expect(stateAt).toHaveBeenLastCalledWith(bundle, bundle.startMs)
+    })
   })
 
   it('shows the error state when the bundle fails to load', async () => {
