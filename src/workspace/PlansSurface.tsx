@@ -98,6 +98,8 @@ export interface PlansSurfaceProps {
   planScale: PlanScales
   /** open ONE step on the global ↶ timeline over several writes (Whiteboard · historyGroup) */
   historyGroup: () => () => void
+  /** …the plain one, whose parts keep their own steps (Whiteboard · undoGroup) */
+  undoGroup: () => () => void
   /** a hand calibration, as one undo step (workspace/planCalibration) */
   calibratePlan: (planId: string, sc: PlanScale) => () => boolean
   /** the Tafel's pages (workspace/useTafelPages) — absent for a link session */
@@ -112,7 +114,7 @@ export function PlansSurface({
   setPickerOpen, symbolScale, symbolCaptions, mapSuppressedCaptions, readingsChip, georefFits, mapActions,
   replayBoard, replayBuilding, store, trails, deleteGhostTrail, armTrailDrop, building, gebaeude, logPlan,
   roster, addRecent, user, emit, planStacks, planFocus, effTrupps, truppCounterNames, teamNameTaken,
-  azAlarm, truppActions, newTruppFromMarker, showTrupp, planScale, calibratePlan, historyGroup, tafel, truppFinder, presentation,
+  azAlarm, truppActions, newTruppFromMarker, showTrupp, planScale, calibratePlan, historyGroup, undoGroup, tafel, truppFinder, presentation,
   vehicleOverrides,
 }: PlansSurfaceProps) {
   const { activeObjectName, activeObjectAddress, activeObjectNearby } = objectPlans
@@ -254,6 +256,7 @@ export function PlansSurface({
           // call the Karte makes from its own magnet (lib/useMapDrawing · onLineAttached)
           onLineAttached={tacticalLocked ? undefined : (annoId, attachment) => { linkLineToAttachedTrupp(annoId, attachment) }}
           historyGroup={historyGroup}
+          undoGroup={undoGroup}
           onLineDetached={tacticalLocked ? undefined : (annoId, previous) => { unlinkLineFromDetachedTrupp(annoId, previous) }}
           onLineRenumber={tacticalLocked ? undefined : syncLineNoToTrupp}
           // the plan chip's twin of the map marker's jump — it points at the card too

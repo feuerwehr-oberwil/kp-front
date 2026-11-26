@@ -66,7 +66,7 @@ import { doneAct, doneOf, donePlace, offersDone } from '../lib/objectDone'
 import { serverNow, serverNowIso } from '../lib/serverClock'
 import { useHazardData } from '../lib/useHazardData'
 import { isMeasuredSymbol, symbolControls, symbolTitleOptions, symbolFieldOptions, symbolPresetFieldKeys } from '../lib/symbols'
-import { ContextPanel } from './ContextPanel'
+import { ContextPanel, type PatchPhase, type SymbolPatch } from './ContextPanel'
 import { DrawEditor } from './DrawEditor'
 import { ShapeEditor } from './ShapeEditor'
 import { LockChip } from './LockChip'
@@ -215,6 +215,11 @@ interface Props {
    *  the Lage's own call (workspace/useRosterRoles · linkRosterFields) with the Lage's arguments:
    *  the symbol before the edit, the fields after it, `force` when its label changed */
   onRosterFields?: (prev: Pick<BoardAnno, 'symbol' | 'label' | 'fields'>, fields: Record<string, string>, opts?: { force?: boolean }) => void
+  /** ONE ↶ step over writes into several domains, each part keeping its own (lib/undoTimeline ·
+   *  group): a symbol panel edit on this sheet and the Anwesenheit filing it causes. Not
+   *  `historyGroup`: inside a compound act the store takes the sheet's step, and its ↶ would name
+   *  the Karte. Omitted ⇒ each write is its own step. */
+  undoGroup?: () => () => void
   /** What is already known about a roster NAME — «unter Atemschutz», «Magazin», «gegangen» —
    *  shown ON the dropdown entry (lib/roleAssignment · personStatusHint). Handed to the plan for
    *  the same reason it is handed to the map: the picker is the moment you learn that the person
@@ -427,7 +432,7 @@ export interface PlanLogExtra {
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
 
-export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange: onChangeAll, building, floorPack, sheetFloors, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterFields, personStatus, fieldHints, onRecent, log, authorName, onStepLabel, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], truppColors, placedTeamNames, teamNameTaken, onLinkTrupp, onShowTrupp, truppFinder, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, historyGroup, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, buildingInfo, readingsChip, incidentId, incidentAddress, incidentPos, onObjectSwitch, planScale = {}, onCalibrate, live = [], photos = [], liveFacts, onPlanLiveMove, onStepEnd, slimTools: slimToolsProp = false, linkViewer = false, railLabels, tafel, presentation, replay = false }: Props) {
+export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange: onChangeAll, building, floorPack, sheetFloors, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterFields, personStatus, fieldHints, onRecent, log, authorName, onStepLabel, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], truppColors, placedTeamNames, teamNameTaken, onLinkTrupp, onShowTrupp, truppFinder, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, historyGroup, undoGroup, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, buildingInfo, readingsChip, incidentId, incidentAddress, incidentPos, onObjectSwitch, planScale = {}, onCalibrate, live = [], photos = [], liveFacts, onPlanLiveMove, onStepEnd, slimTools: slimToolsProp = false, linkViewer = false, railLabels, tafel, presentation, replay = false }: Props) {
   // ⚠️ RIDERS: what lives on a sheet but is not drawn ON it — the Tafel's pages (kind `form`,
   // lib/boardForm) and any board object this build does not understand (lib/workspace ·
   // isPassengerAnno). Nothing positional may see them: every drawing path below reads `annos` —
@@ -435,7 +440,15 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // (`withForms`), so an ink commit can never drop one. The history (useBoardDoc) snapshots the
   // WHOLE list, so ↶ restores both. On a sheet with no riders this is the identity.
   const formAnnos = useMemo(() => annosAll.filter((a) => !isDrawnBoardKind(a.kind)), [annosAll])
-  const annos = useMemo(() => (formAnnos.length ? annosAll.filter((a) => isDrawnBoardKind(a.kind)) : annosAll), [annosAll, formAnnos])
+  // A symbol's name while it is typed in its panel (ContextPanel · onPatch 'typing'): DRAWN with
+  // the sheet, so the glyph's label follows the keystrokes, and written to the sheet once, on the
+  // blur – ONE ↶ step with the Anwesenheit filing it causes (patchSymbol). A write per keystroke
+  // needed its step laid at the first one, before the filing that only the blur knows.
+  const [titleDraft, setTitleDraft] = useState<{ id: string; label: string } | null>(null)
+  const annos = useMemo(() => {
+    const drawn = formAnnos.length ? annosAll.filter((a) => isDrawnBoardKind(a.kind)) : annosAll
+    return titleDraft ? drawn.map((a) => (a.id === titleDraft.id ? { ...a, label: titleDraft.label } : a)) : drawn
+  }, [annosAll, formAnnos, titleDraft])
   const withForms = (next: BoardAnno[]) => (formAnnos.length ? [...next.filter((a) => isDrawnBoardKind(a.kind)), ...formAnnos] : next)
   // repaint the baked placard glyphs (Kemler auto-derived via lookupUN) when the fetched
   // ADR dataset lands — see lib/useHazardData.
@@ -995,10 +1008,10 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // through from the caller — it has to outlive this component's unmount (see Props · hist).
   // which drawing's label is being typed right now (one undo step per edit, not per keystroke)
   const labelLive = useRef<string | null>(null)
-  // …and the same for a symbol's / note's TITLE in the detail panel: the panel streams every
-  // keystroke (ContextPanel · onTitleLive) so the glyph's label updates under the finger, exactly
-  // as it does on the Lage. Checkpoint once when typing starts, emit once on blur — otherwise
-  // «Sicherung» is nine undo steps and nine audit rows.
+  // …and the same for a note's TEXT in the detail panel: the panel streams every keystroke
+  // (ContextPanel · onPatch 'typing') so the note updates under the finger, exactly as it does on
+  // the Lage. Checkpoint once when typing starts, emit once on blur — otherwise «Sicherung» is
+  // nine undo steps and nine audit rows. (A symbol's name is a draft instead: `titleDraft`.)
   const titleLive = useRef<string | null>(null)
   /** ↶ / ↷ on the Tafel lands where the step was: the page it changed, else the Skizze */
   const onRestore = (from: BoardAnno[], to: BoardAnno[]) => {
@@ -1493,6 +1506,58 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     if (act) onStepLabel?.(act.text)
     patchCommit(a.id, { ...(again ? {} : { fields }), ...(act && { readings: act.readings }) })
     if (act) log(READING_ICON, act.text, { annoId: a.id, x: a.x, y: a.y, floor: a.floor })
+  }
+  /**
+   * The symbol panel's one write door (ContextPanel · onPatch), in the sheet's words: the panel's
+   * `floor` is the Stockwerk badge, which a sheet stores as `storey` — and on the Gebäude stack,
+   * where the tile IS the storey, not at all. A typed name is a draft (`titleDraft`); every commit
+   * is ONE ↶ step together with the Anwesenheit filing it causes, as on the Lage (MapDetailPanels ·
+   * patchSelected).
+   */
+  const patchSymbol = (a: BoardAnno, p: SymbolPatch, phase: PatchPhase) => {
+    if (phase === 'typing') { setTitleDraft({ id: a.id, label: p.label ?? '' }); return }
+    const { floor, label, fields, ...rest } = p
+    const edit: Partial<BoardAnno> = stack || !('floor' in p) ? rest : { ...rest, storey: floor }
+    const end = undoGroup?.() ?? (() => {})
+    try {
+      if (label !== undefined) {
+        setTitleDraft(null)
+        patchCommit(a.id, { label })
+        // the Fahrer's Bemerkung is «Fahrer {Label}» – a renamed vehicle re-files its driver
+        onRosterFields?.({ ...a, label }, a.fields ?? {}, { force: true })
+      }
+      if (fields) { commitAnnoFields(a, fields); onRosterFields?.(a, fields) }
+      if (Object.keys(edit).length) patchCommit(a.id, edit)
+    } finally { end() }
+  }
+  /** …and a note's: its TEXT is the panel's title. One checkpoint when typing starts, one audit
+   *  row on blur — the live `patch` writes without a checkpoint, so committing again on blur used
+   *  to snapshot the ALREADY typed text and «Rückgängig» after renaming a note did nothing at all.
+   *  Each style edit is remembered as the NEXT note's default too («D pur», 09.09.: the Notiz dock
+   *  carries no style controls any more — this is the stickiness). */
+  const patchNote = (n: BoardAnno, p: SymbolPatch, phase: PatchPhase) => {
+    if (phase === 'typing') {
+      if (titleLive.current !== n.id) { titleLive.current = n.id; pushPast() }
+      patch(n.id, { text: p.label })
+      return
+    }
+    const { label, noteSize, ...rest } = p
+    if (label !== undefined) {
+      const live = titleLive.current === n.id
+      titleLive.current = null
+      if (live) emit('board.edit', { id: n.id, patch: { text: label }, planId: activeId })
+      else patchCommit(n.id, { text: label })
+    }
+    // a width set by hand ends the auto-fit; the size-slider step keeps it and re-measures
+    if ('noteSize' in p) {
+      patchCommit(n.id, n.noteAutoW
+        ? { noteSize, wN: autoNoteWN(n.text ?? '', txtBase * scale * noteScale(noteSize), sW) }
+        : { noteSize })
+      setNoteDefaults((d) => ({ ...d, size: noteSize ?? 'm' }))
+    }
+    if (Object.keys(rest).length) patchCommit(n.id, rest)
+    if ('notePlain' in p) setNoteDefaults((d) => ({ ...d, plain: !!p.notePlain }))
+    if ('color' in p) setNoteDefaults((d) => ({ ...d, color: p.color ?? '' }))
   }
 
   const planWorkRect = (canvas: DOMRect, panelEl?: Element | null): NudgeBox => {
@@ -3147,44 +3212,10 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
           // «Zentrieren», as on the Karte (ENT.6): the symbol to the middle of the free board, zoomed
           // in to at least twice the fit
           onCenter={() => centerOnPoint(selSymbol.x ?? 0.5, selSymbol.y ?? 0.5, selSymbol.floor ?? 0, Math.max(scale, 2))}
-          // ⚠️ Live while typing, one step on blur — the same split the Lage's symbol panel has
-          // (IncidentWorkspace · titleLiveRef) and the same one the plan's LINE label already had.
-          // Committing only on blur meant the glyph on the board still read «Fahrzeug» while the
-          // panel already said «TLF 1»: on the Lage the caption follows the keystrokes, on the plan
-          // it did not, and the surface you were looking at decided which.
-          onTitleLive={(v) => {
-            if (titleLive.current !== selSymbol.id) { titleLive.current = selSymbol.id; pushPast() }
-            patch(selSymbol.id, { label: v })
-          }}
-          onTitle={(v) => {
-            const live = titleLive.current === selSymbol.id
-            titleLive.current = null
-            if (live) emit('board.edit', { id: selSymbol.id, patch: { label: v }, planId: activeId })
-            else patchCommit(selSymbol.id, { label: v })
-            // the Fahrer's Bemerkung is «Fahrer {Label}» – a renamed vehicle re-files its driver
-            onRosterFields?.({ ...selSymbol, label: v }, selSymbol.fields ?? {}, { force: true })
-          }}
-          onFields={(fields) => { commitAnnoFields(selSymbol, fields); onRosterFields?.(selSymbol, fields) }}
+          subject="symbol"
+          onPatch={(patch, phase) => patchSymbol(selSymbol, patch, phase)}
           onReadingAgain={() => commitAnnoFields(selSymbol, selSymbol.fields ?? {}, true)}
-          onNotes={(v) => patchCommit(selSymbol.id, { notes: v || undefined })}
-          // Stockwerk — the Lage has always offered it, the Modul boards never did, so a Brand
-          // drawn on «Modul 2» could not say which storey it was on. Absent on the Gebäude
-          // floor-stack ALONE: there the sheet the symbol sits on IS the storey.
-          // the span («Von/Bis») is the same optional extra on both surfaces – the panel keeps it
-          // behind «Über mehrere Geschosse» unless it is set (ContextPanel · showFloorRange)
-          onFloorFrom={(f) => patchCommit(selSymbol.id, stack
-            ? { floorFrom: f ?? undefined, floorTo: selSymbol.floorTo ?? selSymbol.floor ?? 0 }
-            : { storey: undefined, floorFrom: f ?? undefined, floorTo: selSymbol.floorTo ?? selSymbol.storey })}
-          onFloorTo={(f) => patchCommit(selSymbol.id, stack
-            ? { floorFrom: selSymbol.floorFrom ?? selSymbol.floor ?? 0, floorTo: f ?? undefined }
-            : { storey: undefined, floorFrom: selSymbol.floorFrom ?? selSymbol.storey, floorTo: f ?? undefined })}
-          onSpread={(s) => patchCommit(selSymbol.id, { spread: s ?? undefined })}
-          onCount={(n) => patchCommit(selSymbol.id, { count: n && n > 1 ? n : undefined })}
-          onRotate={(deg) => patchCommit(selSymbol.id, { rotation: deg ?? undefined })}
-          onRotate2={(deg) => patchCommit(selSymbol.id, { rotation2: deg ?? undefined })}
-          onCaption={(m) => patchCommit(selSymbol.id, { caption: m })}
           captionDefault={captionMode}
-          onAirflow={(extract) => patchCommit(selSymbol.id, { extract: extract || undefined })}
           // every symbol on a storey tile has storeys – whatever its preset says about the badge
           controls={stack ? new Set([...symbolControls(selSymbol.symbol, sym.symbols.find((x) => x.name === selSymbol.symbol)?.cat), 'floorRange']) : symbolControls(selSymbol.symbol, sym.symbols.find((x) => x.name === selSymbol.symbol)?.cat)}
           titleOptions={symbolTitleOptions(selSymbol.symbol, sym.symbols.find((x) => x.name === selSymbol.symbol)?.cat)}
@@ -3228,8 +3259,9 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
           onCenter={() => centerOnPoint(liveSheet.pt.x, liveSheet.pt.y, 0, Math.max(scale, 2))}
           driver={{ value: liveSheetFacts.driver ?? '' }}
           origin={{ value: liveSheetFacts.origin ?? '' }}
-          // read-only: the panel offers none of these, they only satisfy its props
-          onTitle={() => {}} onFields={() => {}} onDelete={() => {}}
+          subject="live"
+          // read-only: the panel writes none of these, they only satisfy its props
+          onPatch={() => {}} onDelete={() => {}}
         />
       )}
       {/* note detail panel — the same ContextPanel, opened by the tap that selects the note (see
@@ -3243,32 +3275,8 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
           // a note that was just put down opens ready to be written (see notePlacedId)
           autoFocusNote={notePlacedId === selNote.id && !readOnly}
           onClose={() => setNotePanelId(null)}
-          // one checkpoint when typing starts, one audit row on blur — the live `patch` writes
-          // without a checkpoint, so committing again on blur used to snapshot the ALREADY typed
-          // text and «Rückgängig» after renaming a note did nothing at all.
-          onTitleLive={(v) => {
-            if (titleLive.current !== selNote.id) { titleLive.current = selNote.id; pushPast() }
-            patch(selNote.id, { text: v })
-          }}
-          onTitle={(v) => {
-            const live = titleLive.current === selNote.id
-            titleLive.current = null
-            if (live) emit('board.edit', { id: selNote.id, patch: { text: v }, planId: activeId })
-            else patchCommit(selNote.id, { text: v })
-          }}
-          onFields={(fields) => patchCommit(selNote.id, { fields })}
-          onNotes={(v) => patchCommit(selNote.id, { notes: v || undefined })}
-          // a width set by hand ends the auto-fit; the size-slider step keeps it and re-measures
-          // …each style edit is remembered as the NEXT note's default too («D pur», 09.09.:
-          // the Notiz dock carries no style controls any more — this is the stickiness)
-          onNoteSize={(s) => {
-            patchCommit(selNote.id, selNote.noteAutoW
-              ? { noteSize: s, wN: autoNoteWN(selNote.text ?? '', txtBase * scale * noteScale(s), sW) }
-              : { noteSize: s })
-            setNoteDefaults((d) => ({ ...d, size: s ?? 'm' }))
-          }}
-          onNotePlain={(p) => { patchCommit(selNote.id, { notePlain: p || undefined }); setNoteDefaults((d) => ({ ...d, plain: p })) }}
-          onColor={(c) => { patchCommit(selNote.id, { color: c || undefined }); setNoteDefaults((d) => ({ ...d, color: c })) }}
+          subject="note"
+          onPatch={(patch, phase) => patchNote(selNote, patch, phase)}
           onDelete={() => { setNotePanelId(null); void removeWithConnections(selNote) }}
         />
       )}

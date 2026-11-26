@@ -228,7 +228,7 @@ describe('SEC-01 · every glyph sink sanitises the string it renders', () => {
   it('ContextPanel renders a selected entity\'s glyph sanitised', () => {
     const entity: SymbolView = { id: 's1', symbol: 'evil', label: 'Brand' }
     const { container } = render(
-      <ContextPanel entity={entity} svg={HOSTILE_SVG} onClose={vi.fn()} onTitle={vi.fn()} onFields={vi.fn()} onDelete={vi.fn()} />,
+      <ContextPanel entity={entity} svg={HOSTILE_SVG} subject="symbol" onPatch={vi.fn()} onClose={vi.fn()} onDelete={vi.fn()} />,
     )
     assertClean(container)
   })

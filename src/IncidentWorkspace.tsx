@@ -493,6 +493,9 @@ export function IncidentWorkspace({
   }
   /** ONE compound act on the timeline, with ONE store step (workspace/compoundStep) */
   const compound = useState(() => compoundSteps(() => undoHist.group()))[0]
+  /** …and a plain one, whose parts keep their own steps: a symbol panel edit with the Anwesenheit
+   *  filing it causes (MapDetailPanels / Whiteboard · undoGroup) */
+  const undoGroup = () => undoHist.group()
 
   // --- THE tactical store (undoable) — one collection of objects, the Karte's `doc` and the
   // plans' `board` as views of it (lib/useObjectStore, schema 2). Every writer below still speaks
@@ -3368,7 +3371,7 @@ export function IncidentWorkspace({
       <MapDetailPanels {...{
         detailSlotFree, tacticalLocked, tool, selected, commit, setSelectedId, flyToMapVisible, fitMapVisible, deleteEntity,
         timeline, sym, entityTypedAt, titleLiveRef, beginDrag,
-        setDocRaw, endDrag, emit, patchEntity, linkRosterFields, createCircle, doc, undockTeam, effTrupps,
+        setDocRaw, endDrag, emit, patchEntity, linkRosterFields, undoGroup, createCircle, doc, undockTeam, effTrupps,
         symbolCaptions, rosterNames, rosterRank, personStatus, rosterFieldHints, setEntityDone, commitEntityFields,
         vehicleOverrides, canEditIncident, readOnly, stopPersonSharing, setVehicleOverrides, resetVehicleGps, placeVehicle, holdGpsInstead, keepGpsTwin, log,
         fahrzeuge: reportMeta.fahrzeuge,
@@ -3396,7 +3399,7 @@ export function IncidentWorkspace({
         setPickerOpen, symbolScale, symbolCaptions, mapSuppressedCaptions, georefFits, mapActions,
         replayBoard, replayBuilding, store, trails, deleteGhostTrail, armTrailDrop, building, gebaeude, logPlan,
         roster, addRecent, user, emit, planStacks, planFocus, effTrupps, truppCounterNames, teamNameTaken,
-        azAlarm, truppActions, newTruppFromMarker, showTrupp, planScale, calibratePlan: calibratePlanScale, historyGroup: compound.open, tafel: tafelPendenzen.tafel,
+        azAlarm, truppActions, newTruppFromMarker, showTrupp, planScale, calibratePlan: calibratePlanScale, historyGroup: compound.open, undoGroup, tafel: tafelPendenzen.tafel,
         truppFinder: { open: () => setFindTruppOpen(true), disabled: placed.length === 0 },
         readingsChip: replayActive ? null : <ReadingsChip points={readingPoints} compact={isPhone} onGo={goToReading} />,
         presentation: presentation.board,

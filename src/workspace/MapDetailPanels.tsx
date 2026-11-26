@@ -4,7 +4,7 @@
 // selection and `detailSlotFree` (the slot holds exactly ONE thing — see its note there).
 
 import type { Dispatch, SetStateAction, RefObject } from 'react'
-import { ContextPanel } from '../components/ContextPanel'
+import { ContextPanel, type PatchPhase, type SymbolPatch } from '../components/ContextPanel'
 import { DrawEditor } from '../components/DrawEditor'
 import { ShapeEditor } from '../components/ShapeEditor'
 import { useHydrants } from '../components/karte/useKartePlace'
@@ -56,6 +56,9 @@ export interface MapDetailPanelsProps {
   emit: (op_type: string, payload?: Record<string, unknown>, opts?: { observed?: string }) => void
   patchEntity: (id: string, patch: Partial<Entity>) => void
   linkRosterFields: (prev: Entity, fields: Record<string, string>, opts?: { force?: boolean }) => void
+  /** ONE ↶ step over writes into several domains, each part keeping its own (lib/undoTimeline ·
+   *  group): a symbol edit and the Anwesenheit filing it causes */
+  undoGroup: () => () => void
   createCircle: (center: LngLat, radiusM: number) => string
   doc: Doc
   undockTeam: (entityId: string) => void
@@ -131,7 +134,7 @@ export interface MapDetailPanelsProps {
 export function MapDetailPanels({
   detailSlotFree, tacticalLocked, tool, selected, commit, setSelectedId, flyToMapVisible, fitMapVisible, deleteEntity,
   timeline, sym, entityTypedAt, titleLiveRef, beginDrag,
-  setDocRaw, endDrag, emit, patchEntity, linkRosterFields, createCircle, doc, undockTeam, effTrupps,
+  setDocRaw, endDrag, emit, patchEntity, linkRosterFields, undoGroup, createCircle, doc, undockTeam, effTrupps,
   symbolCaptions, rosterNames, rosterRank, personStatus, rosterFieldHints, setEntityDone, commitEntityFields,
   vehicleOverrides, canEditIncident, readOnly, stopPersonSharing, setVehicleOverrides, resetVehicleGps, placeVehicle, holdGpsInstead, keepGpsTwin, fahrzeuge, log,
   assignTypedName, drawings, entities, focusDrawing, noteEntity, notePlacedId, setNotePanelId,
@@ -159,6 +162,58 @@ export function MapDetailPanels({
   })() : {}
   /** a line's own anno on the sheet it was drawn on, when it was drawn on one */
   const sheetAnnoOf = (id: string) => objects.find((o) => o.id === id)?.sheet?.anno
+  /**
+   * The symbol panel's one write door (ContextPanel · onPatch). A typed name streams into the doc
+   * silently (snapshot once for undo, no per-keystroke audit event); every commit is ONE ↶ step
+   * together with the Anwesenheit filing it causes – a renamed vehicle re-files its Fahrer, a
+   * named roster field files its person (useRosterRoles · linkRosterFields).
+   */
+  const patchSelected = (ent: Entity, patch: SymbolPatch, phase: PatchPhase) => {
+    if (phase === 'typing') {
+      entityTypedAt.current.set(ent.id, Date.now())
+      if (!titleLiveRef.current) { titleLiveRef.current = true; beginDrag() }
+      // (relabel: a rename takes back «Sind zwei», lib/gpsTwin)
+      setDocRaw((d) => ({ ...d, entities: d.entities.map((e) => (e.id === ent.id ? relabel(e, patch.label ?? '') : e)) }))
+      return
+    }
+    const { label, fields, ...rest } = patch
+    const end = undoGroup()
+    try {
+      if (label !== undefined) {
+        // blur: fold the whole live edit into one undo step + a single audit event
+        if (titleLiveRef.current) { titleLiveRef.current = false; endDrag(); emit('entity.edit', { id: ent.id, patch: { label } }) }
+        else patchEntity(ent.id, { label })
+        // ⚠️ …and the Fahrer's Bemerkung is «Fahrer {Label}», so naming the vehicle AFTER
+        // naming its driver has to reach that person. A generic Fahrzeug is placed unlabelled
+        // and gets its Bezeichnung typed later, which makes «Fahrer» with nothing after it
+        // the NORMAL first state rather than an edge case.
+        linkRosterFields({ ...ent, label }, ent.fields ?? {}, { force: true })
+      }
+      // Symbol→Mittel and a Messpunkt's reading ride on the field commit (useMapActions)
+      if (fields) { commitEntityFields(ent, fields); linkRosterFields(ent, fields) }
+      if (Object.keys(rest).length) patchEntity(ent.id, rest)
+    } finally { end() }
+  }
+  /** …and a Notiz's: its text streams like a name, and each style edit is remembered as the NEXT
+   *  note's default too («D pur», 09.09.: the Notiz dock carries no style controls any more —
+   *  this is the stickiness). */
+  const patchNote = (note: Entity, patch: SymbolPatch, phase: PatchPhase) => {
+    if (phase === 'typing') { noteTextLive(note.id, patch.label ?? ''); return }
+    const { label, noteSize, ...rest } = patch
+    if (label !== undefined) {
+      if (titleLiveRef.current) { titleLiveRef.current = false; endDrag(); emit('entity.edit', { id: note.id, patch: { label } }) }
+      else patchEntity(note.id, { label })
+    }
+    // setting a width in the panel is a hand-made decision too — it ends the auto-fit the S/M/L
+    // step keeps following the text, so it re-measures at the new font size
+    if ('noteSize' in patch) {
+      patchEntity(note.id, note.noteAutoW ? { noteSize, noteW: autoNoteWPx(note.label ?? '', noteSize) } : { noteSize })
+      setNoteDefaults((d) => ({ ...d, size: noteSize ?? 'm' }))
+    }
+    if (Object.keys(rest).length) patchEntity(note.id, rest)
+    if ('notePlain' in patch) setNoteDefaults((d) => ({ ...d, plain: !!patch.notePlain }))
+    if ('color' in patch) setNoteDefaults((d) => ({ ...d, color: patch.color ?? '' }))
+  }
   return (
     <>
       {/* `tool === 'select'`, matching the Plan (Whiteboard gates all four of its editors on
@@ -226,51 +281,23 @@ export function MapDetailPanels({
           svg={selected.symbolSvg ?? (selected.symbol === appConfig.symbols.vehicleName ? vehicleSymbolSvg(selected.label ?? '', selected.rotation ?? 0) : selected.symbol ? sym.byName[selected.symbol] : undefined)}
           onClose={() => setSelectedId(null)}
           onCenter={() => flyToMapVisible(selected.coord, 18.4)}
-          onTitleLive={(v) => {
-            // stream into the doc so the note-pill / label updates live, but silently —
-            // snapshot once for undo, no per-keystroke audit event
-            entityTypedAt.current.set(selected.id, Date.now())
-            if (!titleLiveRef.current) { titleLiveRef.current = true; beginDrag() }
-            // (relabel: a rename takes back «Sind zwei», lib/gpsTwin)
-            setDocRaw((d) => ({ ...d, entities: d.entities.map((e) => (e.id === selected.id ? relabel(e, v) : e)) }))
-          }}
-          onTitle={(v) => {
-            // blur: fold the whole live edit into one undo step + a single audit event
-            if (titleLiveRef.current) { titleLiveRef.current = false; endDrag(); emit('entity.edit', { id: selected.id, patch: { label: v } }) }
-            else patchEntity(selected.id, { label: v })
-            // ⚠️ …and the Fahrer's Bemerkung is «Fahrer {Label}», so naming the vehicle AFTER
-            // naming its driver has to reach that person. A generic Fahrzeug is placed unlabelled
-            // and gets its Bezeichnung typed later, which makes «Fahrer» with nothing after it
-            // the NORMAL first state rather than an edge case.
-            linkRosterFields({ ...selected, label: v }, selected.fields ?? {}, { force: true })
-          }}
-          // Symbol→Mittel: only where the station mapped at least one material to a symbol.
-          // No switch to find — a Wehr that has not configured it never gets an offer.
-          onFields={(fields) => { commitEntityFields(selected, fields); linkRosterFields(selected, fields) }}
+          subject={selected.live ? 'live' : selected.kind === 'symbol' ? 'symbol' : 'object'}
+          onPatch={(patch, phase) => patchSelected(selected, patch, phase)}
           onReadingAgain={selected.kind === 'symbol' && !selected.live ? () => commitEntityFields(selected, selected.fields ?? {}, true) : undefined}
-          onNotes={!selected.live ? (v) => patchEntity(selected.id, { notes: v || undefined }) : undefined}
-          onFloor={selected.kind === 'symbol' && !selected.live ? (f) => patchEntity(selected.id, { floor: f ?? undefined }) : undefined}
-          onFloorFrom={selected.kind === 'symbol' && !selected.live ? (f) => patchEntity(selected.id, { floor: undefined, floorFrom: f ?? undefined, floorTo: selected.floorTo ?? selected.floor }) : undefined}
-          onFloorTo={selected.kind === 'symbol' && !selected.live ? (f) => patchEntity(selected.id, { floor: undefined, floorFrom: selected.floorFrom ?? selected.floor, floorTo: f ?? undefined }) : undefined}
-          onSpread={selected.kind === 'symbol' && !selected.live ? (s) => patchEntity(selected.id, { spread: s ?? undefined }) : undefined}
-          onCount={selected.kind === 'symbol' && !selected.live ? (n) => patchEntity(selected.id, { count: n && n > 1 ? n : undefined }) : undefined}
-          onRotate={selected.kind === 'symbol' && !selected.live ? (deg) => patchEntity(selected.id, { rotation: deg ?? undefined }) : undefined}
-          // Karte only: the Schutzabstand rings are metric geometry, which the Plan cannot draw
-          // (lib/ergRings). 'small' is the default and is stored as absent, so a fresh placard
-          // syncs the same in both directions.
-          onErgRings={selected.kind === 'symbol' && !selected.live ? (mode) => patchEntity(selected.id, { ergRings: mode === 'small' ? undefined : mode }) : undefined}
-          ergCoord={selected.coord}
           // «Übernehmen» (Feldtest 07.09.): the ERG distance becomes a REAL Absperrkreis around
           // the symbol — createCircle selects it, so the operator lands on the editable cordon.
           // The derived preview rings go quiet for this placard: the real circle replaces them,
           // and two red rings at the same radius would read as a rendering bug.
           // A one-time action (docs/ui-conventions.md · One-time actions): the row's done state is
           // read off the Karte (lib/ergAdopt), and ↶ takes the circle back with the rings – no toast.
-          onAdoptRadius={selected.kind === 'symbol' && !selected.live && !tacticalLocked ? (radiusM) => {
-            createCircle(selected.coord, radiusM)
-            patchEntity(selected.id, { ergRings: 'off' })
-          } : undefined}
-          ergAdopted={selected.kind === 'symbol' ? ergAdoptedRadii(doc.drawings, selected.coord) : undefined}
+          erg={{
+            coord: selected.coord,
+            adopted: selected.kind === 'symbol' ? ergAdoptedRadii(doc.drawings, selected.coord) : undefined,
+            onAdopt: selected.kind === 'symbol' && !selected.live && !tacticalLocked ? (radiusM) => {
+              createCircle(selected.coord, radiusM)
+              patchEntity(selected.id, { ergRings: 'off' })
+            } : undefined,
+          }}
           // Angedockte Gefahrentafel (lib/docking): name the host, offer the release — the drop
           // gesture that made the bond draws nothing, so this row is where it becomes visible.
           dockedToLabel={selected.dockedTo ? doc.entities.find((e) => e.id === selected.dockedTo)?.label || appConfig.copy.entities.fallbackObjectName : undefined}
@@ -292,10 +319,7 @@ export function MapDetailPanels({
               onRelease: tacticalLocked ? undefined : () => undockTeam(e.id),
             }]
           })}
-          onRotate2={selected.kind === 'symbol' && !selected.live ? (deg) => patchEntity(selected.id, { rotation2: deg ?? undefined }) : undefined}
-          onCaption={selected.kind === 'symbol' && !selected.live ? (m) => patchEntity(selected.id, { caption: m }) : undefined}
           captionDefault={symbolCaptions ?? 'auto'}
-          onAirflow={selected.kind === 'symbol' && !selected.live ? (extract) => patchEntity(selected.id, { extract: extract || undefined }) : undefined}
           controls={symbolControls(selected.symbol, sym.symbols.find((x) => x.name === selected.symbol)?.cat)}
           titleOptions={selected.kind === 'symbol' && !selected.live ? symbolTitleOptions(selected.symbol, sym.symbols.find((x) => x.name === selected.symbol)?.cat) : undefined}
           fieldOptions={selected.kind === 'symbol' && !selected.live ? symbolFieldOptions(selected.symbol, sym.symbols.find((x) => x.name === selected.symbol)?.cat, rosterNames) : undefined}
@@ -419,24 +443,8 @@ export function MapDetailPanels({
           // full text is exactly the kind of thing an Einsatzleiter needs to read off the map
           readOnly={tacticalLocked}
           onClose={() => setNotePanelId(null)}
-          onTitleLive={(v) => noteTextLive(noteEntity.id, v)}
-          onTitle={(v) => {
-            if (titleLiveRef.current) { titleLiveRef.current = false; endDrag(); emit('entity.edit', { id: noteEntity.id, patch: { label: v } }) }
-            else patchEntity(noteEntity.id, { label: v })
-          }}
-          onFields={(fields) => patchEntity(noteEntity.id, { fields })}
-          // setting a width in the panel is a hand-made decision too — it ends the auto-fit
-          // the S/M/L step keeps following the text, so it re-measures at the new font size
-          // …each style edit is remembered as the NEXT note's default too («D pur», 09.09.:
-          // the Notiz dock carries no style controls any more — this is the stickiness)
-          onNoteSize={(s) => {
-            patchEntity(noteEntity.id, noteEntity.noteAutoW
-              ? { noteSize: s, noteW: autoNoteWPx(noteEntity.label ?? '', s) }
-              : { noteSize: s })
-            setNoteDefaults((d) => ({ ...d, size: s ?? 'm' }))
-          }}
-          onNotePlain={(p) => { patchEntity(noteEntity.id, { notePlain: p || undefined }); setNoteDefaults((d) => ({ ...d, plain: p })) }}
-          onColor={(c) => { patchEntity(noteEntity.id, { color: c || undefined }); setNoteDefaults((d) => ({ ...d, color: c })) }}
+          subject="note"
+          onPatch={(patch, phase) => patchNote(noteEntity, patch, phase)}
           onDelete={() => { setNotePanelId(null); deleteEntity(noteEntity.id) }}
         />
       )}

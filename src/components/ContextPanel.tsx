@@ -123,8 +123,32 @@ export interface SymbolView extends SymbolProps {
   takenAt?: string
 }
 
+/** The fields this panel writes, in its own vocabulary (`SymbolView` – the Plan maps `floor` to
+ *  its `storey`, a note's `label` to its `text`). ONE door for every edit: a field the panel
+ *  offers reaches both surfaces' commits by construction, where 31 callbacks mapped by hand on
+ *  each surface had let one drift (the Anwesenheit filing of #762). Values arrive normalised –
+ *  an empty or default value is `undefined`, so the record stores it as absent on both surfaces. */
+export type SymbolPatch = Partial<Pick<SymbolView,
+  | 'label' | 'fields' | 'notes' | 'floor' | 'floorFrom' | 'floorTo' | 'spread' | 'count' | 'rotation'
+  | 'rotation2' | 'caption' | 'extract' | 'ergRings' | 'noteSize' | 'notePlain' | 'color'>>
+
+/** `typing` – a keystroke in the name, shown on the surface but not yet a step; `commit` – the
+ *  edit is done (a blur, a pick, a tap): the surface's ONE ↶ step for it. */
+export type PatchPhase = 'typing' | 'commit'
+
+/** What the panel is open on, which decides the fields it offers – the surface says it once:
+ *  - `symbol` – a placed tactical symbol: name, details, Notizen and every glyph control its
+ *    preset lists (`controls`); the Schutzabstand rings where the surface passes `erg`
+ *  - `object` – a placed object that is no symbol (a photo marker): name, details, Notizen
+ *  - `live` – a feed-sourced object (a GPS vehicle, a person's own dot): its details, read out
+ *  - `note` – a Notiz: its text and the Notiz row (size, look, ink) */
+export type PanelSubject = 'symbol' | 'object' | 'live' | 'note'
+
 export interface ContextPanelProps {
   entity: SymbolView
+  subject: PanelSubject
+  /** every field edit (see SymbolPatch); the surface commits it and lays its own ↶ step */
+  onPatch: (patch: SymbolPatch, phase: PatchPhase) => void
   svg?: string
   onClose: () => void
   /** recenter the surface on this object — absent where the surface can't (yet) recenter */
@@ -136,62 +160,20 @@ export interface ContextPanelProps {
   originalLabel?: string
   // (no «Auf {plan} zeigen» / «Auf Karte zeigen» any more, 31.10.2026: every object is drawn on
   // the Karte and on its linked plans alike, so a door to «the same thing over there» said nothing)
-  /** commit the final label on blur (folds the whole edit into one undo step / audit event) */
-  onTitle: (label: string) => void
-  /** stream the label on every keystroke so the on-surface glyph/note updates live while
-   *  typing; the surface keeps it silent (no per-keystroke undo/audit) and finalises on
-   *  onTitle. Absent → legacy commit-only-on-blur behaviour. */
-  onTitleLive?: (label: string) => void
-  /** replace the whole detail map (rows are added / edited / removed locally) */
-  onFields: (fields: Record<string, string>) => void
-  /** commit the general free-text notes (absent for read-only entities) */
-  onNotes?: (notes: string) => void
-  /** set/clear the storey the symbol is on (null clears the badge). Absent for
-   *  entities where a floor makes no sense (e.g. live vehicles, plan tiles). */
-  /** @deprecated the single «Geschoss» stepper is gone (15.09.2026) – Von/Bis is the storey control */
-  onFloor?: (floor: number | null) => void
-  /** set/clear the lower / upper storey of a vertical span (stairs, lift). Wired on
-   *  both surfaces (the span renders on the glyph everywhere). */
-  onFloorFrom?: (floor: number | null) => void
-  onFloorTo?: (floor: number | null) => void
-  /** set/clear the FKS Entwicklung (spread) arrows (null clears them). Absent where
-   *  spread makes no sense (only Feuer/Wasser/Gefahrstoffe wire it). */
-  onSpread?: (spread: Spread | null) => void
-  /** set/clear the quantity (null or 1 clears the badge). Absent where it makes no sense. */
-  onCount?: (count: number | null) => void
-  /** set/clear the rotation in degrees (null resets to 0). Absent where rotation
-   *  makes no sense (e.g. live vehicles, whose heading comes from the GPS feed). */
-  onRotate?: (deg: number | null) => void
-  /** ERG Schutzabstand rings around a Gefahrentafel (SymbolProps.ergRings, lib/ergRings) —
-   *  Aus / Klein / Gross. Wired only on the Karte (the Plan has no metric scale), and the
-   *  control only renders where the UN number actually resolves to TIH distances. */
-  onErgRings?: (mode: 'off' | 'small' | 'large') => void
-  /** where the rings stand ([lng, lat], the placard's coord): the sun there decides whether the
-   *  ring uses the day or the night distance, and the control names the reason
-   *  (lib/ergRings · ergDayNote). Absent → the national fallback coordinate. */
-  ergCoord?: [number, number]
-  /** «Übernehmen» on an ERG distance row (Feldtest 07.09.): turn that distance into a REAL
-   *  Absperrkreis drawing around this symbol — editable, printable, synced — instead of the
-   *  derived preview ring. Karte-only, like the rings. */
-  onAdoptRadius?: (radiusM: number) => void
-  /** the radii already adopted around this symbol (lib/ergAdopt) – their row shows ✓ instead */
-  ergAdopted?: readonly number[]
-  /** secondary rotation (the composite Grosslüfter's fan/airflow). Absent on every other
-   *  symbol; when wired AND the symbol's preset lists 'rotation2', the rotation control
-   *  splits into a Fahrzeug (body) + Lüfter (fan) pair. */
-  onRotate2?: (deg: number | null) => void
-  /** set this symbol's on-canvas caption mode (Aus / Auto / Alle). Absent for non-symbols.
-   *  See SymbolProps.caption / lib/symbols. */
-  onCaption?: (mode: CaptionMode) => void
+  /** The ERG Schutzabstand around a Gefahrentafel (SymbolProps.ergRings, lib/ergRings) – Karte
+   *  only, because the Plan has no metric scale. `coord` is where the rings stand ([lng, lat]):
+   *  the sun there decides the day or the night distance (lib/ergRings · ergDayNote); absent →
+   *  the national fallback coordinate. The Aus / Klein / Gross control renders on a `symbol`
+   *  whose UN number resolves to TIH distances. `onAdopt` («Übernehmen», Feldtest 07.09.) turns
+   *  a distance into a REAL Absperrkreis around the symbol; `adopted` are the radii already
+   *  adopted (lib/ergAdopt) – their row shows ✓ instead. */
+  erg?: { coord?: [number, number]; adopted?: readonly number[]; onAdopt?: (radiusM: number) => void }
   /** the device-wide caption default, shown as active when this symbol has no explicit override
-   *  (so the picker never needs a separate "Standard/inherit" option). Defaults to 'auto'. */
+   *  (so the picker never needs a separate "Standard/inherit" option). Defaults to 'auto'.
+   *  See SymbolProps.caption / lib/symbols. */
   captionDefault?: CaptionMode
-  /** set the Lüfter airflow direction (false = Einblasen, true = Absaugen). Wired only where
-   *  the symbol's preset lists 'airflow' (the mobile Lüfter). See SymbolProps.extract. */
-  onAirflow?: (extract: boolean) => void
-  /** which built-in steppers this symbol declares as meaningful (its preset). A
-   *  stepper shows only if BOTH its callback is wired (surface supports it) AND it
-   *  is in this set. Absent = show every wired stepper (back-compat / non-symbols). */
+  /** which built-in steppers this symbol declares as meaningful (its preset). A `symbol` shows a
+   *  stepper only if it is in this set. Absent = every stepper. */
   controls?: Set<SymbolControl>
   /** combobox suggestions for the title input (e.g. common vehicle types) */
   titleOptions?: string[]
@@ -225,7 +207,7 @@ export interface ContextPanelProps {
    *  still on, or a phone dies holding its last fix, and the dot then claims a crew is
    *  somewhere they are not. Removing it takes data away and shows nothing new. */
   onStopSharing?: () => void
-  /** entity is externally sourced (live GPS) — title/fields are not editable and it can't be deleted */
+  /** nothing on the panel is editable (a locked session, a feed-sourced object) */
   readOnly?: boolean
   /** Löschen stays available on a panel that is otherwise read-only. The one caller is a
    *  Georeferenz twin whose kind has no editor on THIS surface: «read-only» there means «no
@@ -270,18 +252,9 @@ export interface ContextPanelProps {
    *  bond as a glyph on the tile; this is the one place it is in words with a door out. */
   dockedTeams?: { id: string; label: string; onRelease?: () => void }[]
   onFocusLine?: (id: string) => void
-  // --- free-text note (Lage 'note' / Plan 'text') -------------------------------------------
-  // Wiring ANY of these turns the panel into a note editor: the Notiz section appears and the
-  // symbol-only chrome (steppers, hazard readout) stays hidden.
-  onNoteSize?: (size: NoteSize) => void
   /** the note was just PLACED: open with the caret in its text field, so putting a Notiz down
    *  and writing it are one act. Read once, on mount — the panel is keyed by the note's id. */
   autoFocusNote?: boolean
-  onNotePlain?: (plain: boolean) => void
-  /** note ink colour ('' clears back to the default note ink). */
-  onColor?: (color: string) => void
-  /** recolour a placed Atemschutz-Trupp (null = back to automatic). Present only for a team
-   *  marker that is bound to a Trupp — it writes the TRUPP's colour, not just this marker. */
 }
 
 // signed storey label for the badge / stepper readout: +2, -1, 0 (EG). The Von/Bis steppers keep
@@ -326,7 +299,7 @@ function LinkBtn({ onClick, text }: { onClick: () => void; text: string }) {
   )
 }
 
-export function ContextPanel({ entity, svg, onClose, onCenter, onOriginal, originalLabel, onTitle, onTitleLive, onFields, onNotes, onReadingAgain, onFloorFrom, onFloorTo, onSpread, onCount, onRotate, onErgRings, ergCoord, onAdoptRadius, ergAdopted, onRotate2, onCaption, captionDefault = 'auto', onAirflow, controls, titleOptions, fieldOptions, rosterRank, protectedKeys, onDelete, onDone, onStopSharing, readOnly, allowDelete = false, hasOverride, onPinGps, onResetGps, driver, origin, vehicleTimes = [], gpsTwin, personStatus, fieldHints, connectedLines = [], onFocusLine, dockedToLabel, onUndock, dockedTeams = [], onNoteSize, autoFocusNote = false, onNotePlain, onColor }: ContextPanelProps) {
+export function ContextPanel({ entity, subject, onPatch, svg, onClose, onCenter, onOriginal, originalLabel, onReadingAgain, erg, captionDefault = 'auto', controls, titleOptions, fieldOptions, rosterRank, protectedKeys, onDelete, onDone, onStopSharing, readOnly, allowDelete = false, hasOverride, onPinGps, onResetGps, driver, origin, vehicleTimes = [], gpsTwin, personStatus, fieldHints, connectedLines = [], onFocusLine, dockedToLabel, onUndock, dockedTeams = [], autoFocusNote = false }: ContextPanelProps) {
   // read per-render (not module-load) so the resolved locale is applied — see config/copy
   const C = appConfig.copy.contextPanel
   const N = appConfig.copy.notes
@@ -368,15 +341,19 @@ export function ContextPanel({ entity, svg, onClose, onCenter, onOriginal, origi
 const SPREAD_GLYPH = { left: 'spread-left', right: 'spread-right', up: 'spread-up', down: 'spread-down' } satisfies Record<SpreadDir, string>
 const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', down: 'grenze-down' } satisfies Record<SpreadDir, string>
 
-  // a stepper is offered only where its callback is wired (the surface supports it)
-  // AND the symbol's preset lists it; no preset passed ⇒ show all wired steppers.
-  const allow = (c: SymbolControl) => !controls || controls.has(c)
+  // What the subject offers (PanelSubject): the glyph controls are a symbol's, each one only where
+  // its preset lists it (no preset passed ⇒ all of them); the Notizen a placed object's.
+  const isSymbol = subject === 'symbol'
+  const isNote = subject === 'note'
+  const offersNotes = isSymbol || subject === 'object'
+  const allow = (c: SymbolControl) => isSymbol && (!controls || controls.has(c))
+  const commit = (patch: SymbolPatch) => onPatch(patch, 'commit')
 
   // ⚠️ normalized, not raw: a symbol placed before 2026-08 carries the old exclusive
   // `h`/`hBounded`/`vBounded` shape (lib/spread.ts). Reading it raw would show no arrows and
   // then SAVE that emptiness over a spread somebody had set.
   const sp = normalizeSpread(entity.spread)
-  const setSpread = (patch: Partial<Spread>) => onSpread?.(tidySpread({ ...sp, ...patch }))
+  const setSpread = (patch: Partial<Spread>) => commit({ spread: tidySpread({ ...sp, ...patch }) ?? undefined })
   /** Turning an arrow off takes its own Grenze with it — a bar without its arrow cannot print. */
   const toggleDir = (d: SpreadDir) =>
     setSpread(sp[d] ? { [d]: false, [boundedKey(d)]: false } : { [d]: true })
@@ -477,9 +454,8 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // live-title editing: stream each keystroke to onTitleLive (silent surface update) and
-  // finalise on blur via onTitle (one undo step + audit). Without onTitleLive we fall back
-  // to the legacy "commit only on blur" path.
+  // live-title editing: every keystroke goes out as `typing` (the surface shows it, silently) and
+  // the blur finalises it as ONE `commit` (one undo step + audit).
   const liveEdited = useRef(false)
   const changeTitle = (raw: string) => {
     // ⚠️ Emoji are stripped where text ENTERS, not where it prints: this label rides onto the
@@ -487,11 +463,13 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
     // (lib/format · stripUnprintable). Same guard on the detail fields and the notes below.
     const v = stripUnprintable(raw)
     setTitle(v)
-    if (onTitleLive) { liveEdited.current = true; onTitleLive(v) }
+    liveEdited.current = true
+    onPatch({ label: v }, 'typing')
+    return v
   }
   const blurTitle = () => {
-    if (liveEdited.current) { liveEdited.current = false; onTitle(title) }
-    else if (title !== (entity.label ?? '')) onTitle(title)
+    if (liveEdited.current) { liveEdited.current = false; commit({ label: title }) }
+    else if (title !== (entity.label ?? '')) commit({ label: title })
   }
   // Committed against a ref, not `entity.notes`: the unmount commit below re-runs blurNotes
   // after a normal blur→close, when the entity prop may not have caught up yet — the ref keeps
@@ -500,7 +478,7 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
   const blurNotes = () => {
     if (notes === notesCommitted.current || notes === (entity.notes ?? '')) return
     notesCommitted.current = notes
-    onNotes?.(notes)
+    commit({ notes: notes || undefined })
   }
   // A swipe-dismiss / slot swap unmounts the focused textarea without a blur — commit the draft
   // then, or the typed Notiz dies with the sheet (Feldtest 07.09.).
@@ -585,7 +563,7 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
     // …this is now what the entity says, as far as this panel is concerned (see the sync effect)
     writtenRef.current = JSON.stringify(rec)
     rowsDirty.current = false
-    onFields(rec)
+    commit({ fields: rec })
   }
   const setRow = (i: number, patch: Partial<Row>) => {
     rowsDirty.current = true
@@ -637,22 +615,30 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
   // symbol that knows storeys at all – a single storey is Von = Bis. The old single «Geschoss»
   // stepper is gone; on the Gebäude the tile seeds both ends (Whiteboard), on the Karte they
   // start empty. The `floor`/`storey` fields stay readable for what older records carry.
-  const showFloorRange = (onFloorFrom || onFloorTo) && (allow('floorRange') || allow('floor'))
-  const showCount = onCount && allow('count')
-  const showRotate = onRotate && allow('rotation')
-  const showRotate2 = onRotate2 && allow('rotation2')   // composite Grosslüfter: body + fan
-  const showAirflow = onAirflow && allow('airflow')     // mobile Lüfter: Einblasen / Absaugen
-  const showSpread = onSpread && allow('spread')
+  const showFloorRange = allow('floorRange') || allow('floor')
+  const showCount = allow('count')
+  const showRotate = allow('rotation')
+  const showRotate2 = allow('rotation2')   // composite Grosslüfter: body + fan
+  const showAirflow = allow('airflow')     // mobile Lüfter: Einblasen / Absaugen
+  const showSpread = allow('spread')
+  /** one end of the Von/Bis span: the other end keeps what the panel shows, and the old single
+   *  `floor` goes (the span replaces it) */
+  const setFloor = (end: 'from' | 'to', f: number | null) => commit({
+    floor: undefined,
+    floorFrom: end === 'from' ? f ?? undefined : entity.floorFrom ?? entity.floor,
+    floorTo: end === 'to' ? f ?? undefined : entity.floorTo ?? entity.floor,
+  })
+  /** a bearing from a stepper (null = ✕), stored in [0, 360) and 0 as absent */
+  const turn = (v: number | null) => (v == null ? undefined : bearing360(v))
   // live ADR hazard readout — derived from the current UN-Nr row, so it updates as you
   // type. Only present when this symbol carries a UN-Nr field with a value. The block itself is
   // UnHazardSection, shared with the Gefahrgut lookup of «Karte & Objekte».
   const unValue = findVal(rows, UN_KEY).trim()
   const showUnHazard = unValue.length > 0
-  // A note reuses this panel, but none of the symbol chrome applies to it: it has no glyph to
-  // rotate, no preset fields, and its own text already IS the free-text field — a second
+  // A note reuses this panel (`isNote`), but none of the symbol chrome applies to it: it has no
+  // glyph to rotate, no preset fields, and its own text already IS the free-text field — a second
   // "Notizen" box inside a note would be a riddle. So the details block is suppressed outright
   // and the Notiz section below is all a note gets.
-  const isNote = !!(onNoteSize || onNotePlain)
   /** A symbol whose LABEL is its identity — today exactly the generic Fahrzeug, recognised by the
    *  fact that the station configured a title list for it. Those keep an editable name (as a
    *  «Bezeichnung» field below); every other symbol's header is its own name and read-only. */
@@ -664,7 +650,7 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
   /** the symbol's own name, for the header of everything that is NOT user-labelled */
   const symbolName = entity.symbol ? formatSymbolName(entity.symbol) : ''
   // a live vehicle's Fahrer / Herkunft count as details too – a read-only sheet with no other row hid them
-  const showDetails = !isNote && (showFloorRange || showCount || showRotate || showSpread || showAirflow || onNotes || rows.length > 0 || showUnHazard || !readOnly || !!driver || !!origin || vehicleTimes.length > 0)
+  const showDetails = !isNote && (showFloorRange || showCount || showRotate || showSpread || showAirflow || offersNotes || rows.length > 0 || showUnHazard || !readOnly || !!driver || !!origin || vehicleTimes.length > 0)
 
   /* on-canvas caption override for THIS symbol — small + de-emphasised down by the actions
      (the field values matter first; visibility is a rare tweak). Standard follows the device
@@ -676,13 +662,13 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
   const capMode = entity.caption ?? captionDefault
   const capWord = { off: C.captionOff, auto: C.captionAuto, all: C.captionAll } as const
   // a locked panel STATES the mode (RBAC audit 22.10.2026): a read-out, not three faded buttons
-  const caprow = onCaption && (
+  const caprow = isSymbol && (
     <div className="ctx-caprow">
       <span className="ctx-caprow-lbl">{C.caption}</span>
       {readOnly ? <b className="kv-val-ro">{capWord[capMode]}</b> : (
         <Segmented ariaLabel={C.caption} value={capMode}
           options={(['off', 'auto', 'all'] as const).map((value) => ({ value, label: capWord[value] }))}
-          onChange={(v) => onCaption(v)} />
+          onChange={(v) => commit({ caption: v })} />
       )}
     </div>
   )
@@ -843,45 +829,39 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
                 onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); (e.target as HTMLTextAreaElement).blur() } }}
               />
             </div>
-            {onNoteSize && (
-              <div className="field">
-                <span>{N.size}</span>
-                <Segmented
-                  ariaLabel={N.size}
-                  options={[{ value: 's', label: N.sizeS }, { value: 'm', label: N.sizeM }, { value: 'l', label: N.sizeL }]}
-                  value={entity.noteSize ?? 'm'}
-                  onChange={(v) => onNoteSize(v as NoteSize)}
-                />
+            <div className="field">
+              <span>{N.size}</span>
+              <Segmented
+                ariaLabel={N.size}
+                options={[{ value: 's', label: N.sizeS }, { value: 'm', label: N.sizeM }, { value: 'l', label: N.sizeL }]}
+                value={entity.noteSize ?? 'm'}
+                onChange={(v) => commit({ noteSize: v as NoteSize })}
+              />
+            </div>
+            <div className="field">
+              <span>{N.look}</span>
+              <Segmented
+                ariaLabel={N.look}
+                // «Klartext» said nothing on its own: the hold says both (audit A10, 17.11.2026)
+                explain
+                options={[{ value: false, label: N.lookPill, title: N.lookPillWhat }, { value: true, label: N.lookPlain, title: N.lookPlainWhat }]}
+                value={!!entity.notePlain}
+                onChange={(v) => commit({ notePlain: v || undefined })}
+              />
+            </div>
+            <div className="field">
+              <span>{N.color}</span>
+              {/* the drawing palette, plus a "default note ink" swatch first — same colours as
+                  every other coloured thing on the surface, so there is no second palette */}
+              <div className="ctx-note-colors">
+                <button className={`dh-color note-ink${entity.color ? '' : ' on'}`} title={N.color} aria-label={N.color}
+                  aria-pressed={!entity.color} onClick={() => commit({ color: undefined })} />
+                {NOTE_COLORS.map((c) => (
+                  <button key={c} className={`dh-color${entity.color === c ? ' on' : ''}`} style={{ background: c }}
+                    aria-pressed={entity.color === c} aria-label={colorName(c)} onClick={() => commit({ color: c })} />
+                ))}
               </div>
-            )}
-            {onNotePlain && (
-              <div className="field">
-                <span>{N.look}</span>
-                <Segmented
-                  ariaLabel={N.look}
-                  // «Klartext» said nothing on its own: the hold says both (audit A10, 17.11.2026)
-                  explain
-                  options={[{ value: false, label: N.lookPill, title: N.lookPillWhat }, { value: true, label: N.lookPlain, title: N.lookPlainWhat }]}
-                  value={!!entity.notePlain}
-                  onChange={(v) => onNotePlain(v)}
-                />
-              </div>
-            )}
-            {onColor && (
-              <div className="field">
-                <span>{N.color}</span>
-                {/* the drawing palette, plus a "default note ink" swatch first — same colours as
-                    every other coloured thing on the surface, so there is no second palette */}
-                <div className="ctx-note-colors">
-                  <button className={`dh-color note-ink${entity.color ? '' : ' on'}`} title={N.color} aria-label={N.color}
-                    aria-pressed={!entity.color} onClick={() => onColor('')} />
-                  {NOTE_COLORS.map((c) => (
-                    <button key={c} className={`dh-color${entity.color === c ? ' on' : ''}`} style={{ background: c }}
-                      aria-pressed={entity.color === c} aria-label={colorName(c)} onClick={() => onColor(c)} />
-                  ))}
-                </div>
-              </div>
-            )}
+            </div>
           </div>
         )}
         {showDetails && <>
@@ -939,22 +919,22 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
               {showFloorRange && (
                 <>
                   <LabeledStepper label={C.floorFrom} value={entity.floorFrom ?? entity.floor ?? null} format={floorStr} placeholder={C.floorNone} seed={0} seedOnDec
-                    onChange={(v) => onFloorFrom!(v)} onClear={() => onFloorFrom!(null)} canClear={entity.floorFrom != null || entity.floor != null}
+                    onChange={(v) => setFloor('from', v)} onClear={() => setFloor('from', null)} canClear={entity.floorFrom != null || entity.floor != null}
                     min={FLOOR_MIN} max={FLOOR_MAX} readOnly={readOnly} ariaLabel={C.floorFrom} />
                   <LabeledStepper label={C.floorTo} value={entity.floorTo ?? entity.floor ?? null} format={floorStr} placeholder={C.floorNone} seed={0} seedOnDec
-                    onChange={(v) => onFloorTo!(v)} onClear={() => onFloorTo!(null)} canClear={entity.floorTo != null || entity.floor != null}
+                    onChange={(v) => setFloor('to', v)} onClear={() => setFloor('to', null)} canClear={entity.floorTo != null || entity.floor != null}
                     min={FLOOR_MIN} max={FLOOR_MAX} readOnly={readOnly} ariaLabel={C.floorTo} />
                 </>
               )}
               {showCount && (
                 <LabeledStepper label={countLabel} value={entity.count ?? 1}
-                  onChange={(v) => onCount!(v)} onClear={() => onCount!(null)} canClear={(entity.count ?? 1) > 1}
+                  onChange={(v) => commit({ count: v > 1 ? v : undefined })} onClear={() => commit({ count: undefined })} canClear={(entity.count ?? 1) > 1}
                   min={1} max={COUNT_MAX} readOnly={readOnly} ariaLabel={countLabel} />
               )}
               {showRotate && (
                 // when a fan rotation is also present (Grosslüfter) the body stepper reads «Fahrzeug»
                 <LabeledStepper label={showRotate2 ? C.rotationVehicle : C.rotation} value={signedDeg(entity.rotation ?? 0)} step={ROT_STEP} snap format={fmtDeg}
-                  onChange={(v) => onRotate!(bearing360(v))} onClear={() => onRotate!(null)} canClear={(entity.rotation ?? 0) !== 0}
+                  onChange={(v) => commit({ rotation: turn(v) })} onClear={() => commit({ rotation: turn(null) })} canClear={(entity.rotation ?? 0) !== 0}
                   min={-180} max={180} readOnly={readOnly} ariaLabel={showRotate2 ? C.rotationVehicle : C.rotation} />
               )}
               {showRotate2 && (() => {
@@ -962,7 +942,7 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
                 const partLabel = C[compositeSpec(entity.symbol)?.partLabel ?? 'rotationFan']
                 return (
                   <LabeledStepper label={partLabel} value={signedDeg(entity.rotation2 ?? 0)} step={ROT_STEP} snap format={fmtDeg}
-                    onChange={(v) => onRotate2!(bearing360(v))} onClear={() => onRotate2!(null)} canClear={(entity.rotation2 ?? 0) !== 0}
+                    onChange={(v) => commit({ rotation2: turn(v) })} onClear={() => commit({ rotation2: turn(null) })} canClear={(entity.rotation2 ?? 0) !== 0}
                     min={-180} max={180} readOnly={readOnly} ariaLabel={partLabel} />
                 )
               })()}
@@ -976,7 +956,7 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
                   {readOnly ? <b className="kv-val-ro">{entity.extract ? C.airflowExtract : C.airflowBlow}</b> : (
                     <Segmented ariaLabel={C.airflow} value={entity.extract ?? false}
                       options={[{ value: false, label: C.airflowBlow }, { value: true, label: C.airflowExtract }]}
-                      onChange={(v) => onAirflow!(v)} />
+                      onChange={(v) => commit({ extract: v || undefined })} />
                   )}
                 </div>
               )}
@@ -1049,7 +1029,7 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
               <Combo
                 value={title} options={titleOptions ?? []} placeholder={C.titlePlaceholder}
                 allowCustom
-                onChange={(v) => { changeTitle(v); onTitle(v) }}
+                onChange={(raw) => { const v = changeTitle(raw); liveEdited.current = false; commit({ label: v }) }}
               />
             </label>
           ))}
@@ -1180,23 +1160,25 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
           {showUnHazard && (
             <UnHazardSection
               un={unValue}
-              ringMode={onErgRings ? (entity.ergRings ?? DEFAULT_ERG_RING_MODE) : undefined}
-              // a locked panel reads the Schutzabstand, it does not switch it (UnHazardSection)
-              onRingMode={readOnly ? undefined : onErgRings}
-              ergCoord={ergCoord}
-              onAdoptRadius={onAdoptRadius}
-              adoptedRadii={ergAdopted}
+              ringMode={isSymbol && erg ? (entity.ergRings ?? DEFAULT_ERG_RING_MODE) : undefined}
+              // a locked panel reads the Schutzabstand, it does not switch it (UnHazardSection).
+              // 'small' is the default and is stored as absent, so a fresh placard syncs the same
+              // in both directions.
+              onRingMode={readOnly || !isSymbol || !erg ? undefined : (mode) => commit({ ergRings: mode === 'small' ? undefined : mode })}
+              ergCoord={erg?.coord}
+              onAdoptRadius={erg?.onAdopt}
+              adoptedRadii={erg?.adopted}
             />
           )}
 
           {/* one general free-text notes field — static text in view state (a readOnly
               textarea still takes focus), and only when there ARE notes */}
-          {readOnly ? ((onNotes || notes.trim()) && (
+          {readOnly ? ((offersNotes || notes.trim()) && (
             <div className="ctx-section ctx-notes">
               <span className="ctx-section-label">{C.notes}</span>
               <p className="ctx-notes-ro">{notes || '–'}</p>
             </div>
-          )) : (onNotes || notes) && (
+          )) : (offersNotes || notes) && (
             <div className="ctx-section ctx-notes">
               <span className="ctx-section-label">{C.notes}</span>
               <textarea
