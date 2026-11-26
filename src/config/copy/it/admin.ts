@@ -1502,6 +1502,7 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
         revision_missing: 'Il file del piano manca sul server.',
         preparation_failed: 'Preparazione non riuscita – «Ricalcola» riprova.',
         pdf_unavailable: 'Il PDF non è stato leggibile.',
+        config_unreadable: 'La configurazione della stazione non è stata leggibile – verificarla nell’amministrazione.',
       },
       markerWarnings: {
         unknown_tag: '«{tag}» a pagina {page}: non è un marcatore noto al sistema – un refuso?',

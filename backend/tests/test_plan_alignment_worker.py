@@ -13,7 +13,7 @@ from sqlalchemy import select, update
 from app import plan_alignment_compute as compute
 from app import plan_alignment_worker as worker
 from app import storage
-from app.models import ObjectSite, PlanAlignment, PlanRevision, ReferenceDataset
+from app.models import DeploymentConfig, ObjectSite, PlanAlignment, PlanPageFloor, PlanRevision, ReferenceDataset
 
 
 @pytest.fixture
@@ -263,6 +263,44 @@ async def test_multipage_pack_is_not_published_or_expanded_into_misleading_jobs(
         assert jobs[0].status == "unsupported" and jobs[0].reason == "multi_page_document"
         assert jobs[0].aspect == pytest.approx(1.4)
         assert jobs[0].pairs == []
+
+
+async def _store_config(session_factory, document) -> None:
+    async with session_factory() as db:
+        db.add(DeploymentConfig(id=1, config_json=document))
+        await db.commit()
+
+
+@pytest.mark.parametrize("document", [{"modules": "not a list"}, []])
+async def test_an_unreadable_station_config_ends_the_job_at_once_and_writes_nothing(
+    session_factory, single_page_store, monkeypatch, document
+):
+    """The fallback's shipped catalogue is not the station's choice: no floor, no fit, no retry."""
+    async with session_factory() as db:
+        await seed(db, single_page_store)
+    await _store_config(session_factory, document)
+    reached = []
+    monkeypatch.setattr(worker, "ensure_snapshot", lambda db: reached.append("snapshot"))
+    monkeypatch.setattr(worker, "read_plan", lambda key: reached.append("markers"))
+
+    assert await worker.run_once(session_factory)
+    assert not await worker.run_once(session_factory)  # ended, not waiting for a retry
+    assert reached == []
+    async with session_factory() as db:
+        job = (await db.execute(select(PlanAlignment))).scalar_one()
+        assert (job.status, job.reason, job.attempts) == ("failed", "config_unreadable", 1)
+        assert job.claimed_at is None and job.pairs == [] and job.marker_notes is None
+        assert (await db.execute(select(PlanPageFloor))).first() is None
+
+
+async def test_a_well_formed_station_config_still_steers_the_job(session_factory, single_page_store, matcher):
+    async with session_factory() as db:
+        await seed(db, single_page_store)
+    await _store_config(session_factory, {"modules": [{"id": "modul2", "alignment": "manual"}]})
+    assert await worker.run_once(session_factory)
+    async with session_factory() as db:
+        job = (await db.execute(select(PlanAlignment))).scalar_one()
+        assert (job.status, job.reason) == ("no_match", "manual_module")
 
 
 def test_module_alignment_is_the_catalogue_choice_with_the_shipped_defaults():

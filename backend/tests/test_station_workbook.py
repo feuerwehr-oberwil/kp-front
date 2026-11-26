@@ -214,6 +214,16 @@ async def test_export_carries_every_sheet_and_its_rows(client, station):
     assert sorted(r[1] for r in data[SHEET_PERSONAL]) == ["Feuerwehrmann", "Hauptmann", "Wachtmeister"]
 
 
+async def test_an_unreadable_stored_config_still_exports_the_people(client, station):
+    """The export is a reader: a broken document reads as the shipped defaults, not a 500."""
+    row = (await station.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one()
+    row.config_json = {**STATION_CONFIG, "roster": "not a section"}
+    await station.commit()
+    data = sheets_of(await export(client))
+    assert data[SHEET_FAHRZEUGE] == []
+    assert len(data[SHEET_PERSONAL]) == len(CREW)
+
+
 async def test_edited_workbook_changes_exactly_what_was_edited(client, station):
     data = sheets_of(await export(client))
     data[SHEET_FAHRZEUGE].append(["adl-41", "ADL 41"])

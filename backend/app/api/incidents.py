@@ -22,7 +22,7 @@ from sqlalchemy.orm import defer
 
 from .. import alarm_update, audit, incident_archive, live_wait, storage
 from ..alarm_validation import validate_trupp
-from ..alarms import get_config_model, is_demo_deployment
+from ..alarms import is_demo_deployment
 from ..auth.dependencies import (
     CurrentAtemschutzWriter,
     CurrentEditor,
@@ -37,6 +37,7 @@ from ..auth.dependencies import (
 )
 from ..auth.viewer_scope import is_viewer, viewer_history, viewer_window_clause
 from ..database import execute_dml, get_db
+from ..deployment_config import read_config
 from ..geocode import geocode
 from ..incident_service import (
     INCIDENT_NOT_FOUND,
@@ -216,7 +217,7 @@ async def _atemschutz_due(db: AsyncSession, ids: list[uuid.UUID]) -> dict[uuid.U
     slices = (await db.execute(select(Incident.id, ws["trupps"], ws["settings"]).where(Incident.id.in_(ids)))).all()
     if not any(trupps for _, trupps, _ in slices):
         return {}
-    doctrine = (await get_config_model(db)).doctrine.model_dump()
+    doctrine = (await read_config(db)).doctrine.model_dump()
     now_ms = datetime.now(UTC).timestamp() * 1000
     out: dict[uuid.UUID, list[AtemschutzDue]] = {}
     for inc_id, trupps, settings in slices:
