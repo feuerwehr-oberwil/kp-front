@@ -81,6 +81,15 @@
   background: var(--surface); box-shadow: var(--e2); border-radius: var(--r-sm);
   font-size: var(--fs-1); color: var(--ink-dim);
 }
+/* «Zeit als HH:MM, z. B. 23:53» under a «Wann» that holds no time (lib/typedTime). Wider than
+   the 67px column it hangs from, so it reads on one line, like the wheel popover's own message –
+   and it grows to the LEFT from the cell's right edge: «Wann» is a table's last column, and
+   growing right ran it off the page. */
+.timeError {
+  position: absolute; right: 0; top: 100%; z-index: 2; width: max-content; max-width: 240px;
+  padding: var(--sp-1) var(--sp-2); background: var(--surface); box-shadow: var(--e2); border-radius: var(--r-sm);
+  font-size: var(--fs-1); line-height: 1.4; color: var(--red-strong);
+}
 .breakKey {
   position: absolute; top: 0; right: 0; width: var(--tap); height: var(--tap);
   display: inline-flex; align-items: center; justify-content: center;

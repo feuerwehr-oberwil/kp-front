@@ -123,7 +123,12 @@ The Erste Führung's Problemerfassung box, the page «Problemerfassung» and a `
 | Alt+↑ / Alt+↓ (⌥ on a Mac) | Moves the entry the cell belongs to up / down — a problem line, a Massnahme, a Mittel or Verbindungen row, a row written under the Abspracherapport's fixed ones (those stay fixed). One ↶ step, with what was typed in the cell. |
 | Esc | Keeps what was typed and leaves the cell, like tapping away – the blur commits it, one ↶ step (owner, 17.11.2026: Esc never reverts; it used to restore the stored value). |
 
-- In a «Wann» (`time`) cell, `1124` is stored as `11:24`. Under a finger (`pointer: coarse`) a tap
+- A «Wann» (`time`) cell holds HH:MM or nothing – the rule of every typed time (`lib/typedTime`,
+  owner pick 26.11.2026). The colon appears as you type («2» «3» → «23:», «5» «3» → «23:53») on
+  the digit pad; hours need two digits. «24:00», «23:60» or a half-typed «23:5» shows «Zeit als
+  HH:MM, z. B. 23:53» under the cell and is never written: Enter and Tab stay in the cell, a tap
+  away leaves the typing standing unwritten. (Until then `1124`, `924` and `9.05` were read as
+  times by themselves.) Under a finger (`pointer: coarse`) a tap
   on a time cell opens THE time picker (`WheelPopover`: wheels, «Jetzt», «Leeren») instead of the
   soft keyboard, and its answer is one commit (20.10.2026, owner: «with keyboard / desktop type,
   otherwise wheel»); a mouse and a hardware keyboard keep typing.

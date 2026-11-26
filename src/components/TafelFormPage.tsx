@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent as ReactPointerEvent, type RefObject } from 'react'
+import { Fragment, useCallback, useEffect, useId, useLayoutEffect, useReducer, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent as ReactPointerEvent, type RefObject } from 'react'
 import { clearDraft, keepDraft, readDraft } from '../lib/draftKeep'
 import { leaveOnEscape } from '../lib/fieldKeys'
 import { useMediaQuery } from '../lib/useIsPhone'
@@ -10,12 +10,13 @@ import { fillTemplate, hhmm, localeDate, pad2 } from '../lib/format'
 import { dayBreaks } from '../lib/formDays'
 import { newId } from '../lib/ids'
 import { serverNow } from '../lib/serverClock'
+import { autoColon, parseTypedTime } from '../lib/typedTime'
 import {
   colMinScale, editableColumns, labelText, problemColumns, shownColumns, shownFixedRows, shownSections, tableAddsRows, writtenColumns,
   type Label, type QuadSection, type TableSection, type TemplateColumn, type TextSection,
 } from '../lib/boardTemplate'
 import {
-  boxLines, dropLine, dropRow, moveLine, moveRow, nextTrend, normalizeTime, pageStamp, putField, putHead, putLine, putRow, tableRows, writtenRows,
+  boxLines, dropLine, dropRow, moveLine, moveRow, nextTrend, pageStamp, putField, putHead, putLine, putRow, tableRows, writtenRows,
   type BoardFormData, type EntrySource, type FormHead,
 } from '../lib/boardForm'
 import { NEW, navTarget, type NavAt, type NavKey, type NavSection } from '../lib/boardFormNav'
@@ -87,6 +88,9 @@ const navAtOf = (a: Addr): NavAt => a.kind === 'line' ? { sec: a.sec, box: a.box
   : a.kind === 'cell' ? { sec: a.sec, row: a.row, col: a.col }
     : a.kind === 'field' ? { sec: a.sec, col: a.col } : { sec: HEAD_SEC, col: a.col }
 
+/** what a «Wann» cell must never write: neither empty nor HH:MM (lib/typedTime) */
+const notATime = (v: string) => v !== '' && !parseTypedTime(v)
+
 /** a press on a field must not start a pan or a selection on anything under it */
 const keep = (e: { stopPropagation: () => void }) => e.stopPropagation()
 
@@ -132,6 +136,11 @@ export function Cell({ k, kn, value, label, readOnly, time = false, placeholder,
    *  and a mouse never sees the wheels — Tab, Enter and «1124» stay the paper-fast path. */
   const wheel = time && coarse && !readOnly
   const [wheelAt, setWheelAt] = useState<DOMRect | null>(null)
+  /** a «Wann» holds HH:MM or nothing, the rule of every typed time (lib/typedTime, owner pick
+   *  26.11.2026): «24:00», «23:6» or «9» is said under the cell (`invalid`) and never written –
+   *  Enter, Tab and Alt+↑↓ stay in the cell, a blur leaves the typing standing unwritten */
+  const [invalid, setInvalid] = useState(false)
+  const errorId = useId()
   /** the stored value the typing started from — a different one at commit time means another
    *  device wrote this cell meanwhile */
   const base = useRef(value)
@@ -170,11 +179,12 @@ export function Cell({ k, kn, value, label, readOnly, time = false, placeholder,
     if (!dirty.current) return
     if (l.draft === l.value) { dirty.current = false; if (draftKey) clearDraft(draftKey); return }
     if (l.readOnly) { if (draftKey) keepDraft(draftKey, l.draft); return }
+    if (time && notATime(l.draft)) { setInvalid(true); return }
     dirty.current = false
     if (draftKey) clearDraft(draftKey)
     clashCheck(l.draft)
     l.onCommit(l.draft)
-  }, [draftKey])
+  }, [draftKey, time])
   // …when the page goes away, the app is hidden, or the cell itself goes
   useEffect(() => {
     const onHide = () => { if (document.visibilityState === 'hidden') flush() }
@@ -201,6 +211,7 @@ export function Cell({ k, kn, value, label, readOnly, time = false, placeholder,
   }
   const nav = (key: NavKey) => {
     const changed = dirty.current && draft !== value
+    if (changed && time && notATime(draft)) { setInvalid(true); return }
     if (changed) clashCheck(draft)
     handled.current = true
     dirty.current = false
@@ -219,6 +230,7 @@ export function Cell({ k, kn, value, label, readOnly, time = false, placeholder,
     if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && e.altKey && !e.metaKey && !e.ctrlKey && !e.shiftKey && onMove && !readOnly) {
       e.preventDefault()
       const changed = dirty.current && draft !== value
+      if (changed && time && notATime(draft)) { setInvalid(true); return }
       if (changed) clashCheck(draft)
       dirty.current = false
       if (draftKey) clearDraft(draftKey)
@@ -245,6 +257,7 @@ export function Cell({ k, kn, value, label, readOnly, time = false, placeholder,
   /** what the wheels hand back is written at once — one ↶ step, like a cell left with Enter */
   const commitWheel = (v: string) => {
     setWheelAt(null)
+    setInvalid(false)
     handled.current = false
     dirty.current = false
     if (draftKey) clearDraft(draftKey)
@@ -255,8 +268,8 @@ export function Cell({ k, kn, value, label, readOnly, time = false, placeholder,
   }
   const wheelInitial = () => {
     const d = new Date()
-    const m = /^(\d{2}):(\d{2})$/.exec(normalizeTime(draft))
-    if (m) d.setHours(Number(m[1]), Number(m[2]), 0, 0)
+    const t = parseTypedTime(draft)
+    if (t) d.setHours(t[0], t[1], 0, 0)
     return d
   }
   // a soft keyboard has no Shift/Alt+Enter: on touch the focused cell offers the line break itself.
@@ -279,11 +292,13 @@ export function Cell({ k, kn, value, label, readOnly, time = false, placeholder,
         enterKeyHint={last ? 'done' : 'next'}
         inputMode={wheel ? 'none' : time ? 'numeric' : undefined}
         aria-haspopup={wheel ? 'dialog' : undefined}
+        aria-invalid={invalid || undefined} aria-describedby={invalid ? errorId : undefined}
         spellCheck={!time}
         onPointerDown={keep}
         onClick={wheel ? (e) => setWheelAt(e.currentTarget.getBoundingClientRect()) : undefined}
         onFocus={() => { handled.current = false; setFocused(true); if (!dirty.current) base.current = value }}
-        onChange={(e) => { handled.current = false; dirty.current = true; setDraft(e.target.value) }}
+        // a time cell puts the colon in as you type (lib/typedTime): «2» «3» → «23:»
+        onChange={(e) => { handled.current = false; dirty.current = true; setInvalid(false); setDraft(time ? autoColon(draft, e.target.value) : e.target.value) }}
         onBlur={() => {
           setFocused(false)
           if (handled.current) { handled.current = false; return }
@@ -297,6 +312,7 @@ export function Cell({ k, kn, value, label, readOnly, time = false, placeholder,
           onCommit={(v) => commitWheel(`${pad2(v.h)}:${pad2(v.mi)}`)}
           onClear={draft ? () => commitWheel('') : undefined} />
       )}
+      {invalid && <span id={errorId} className={s.timeError} role="alert">{appConfig.copy.wheel.invalidTime}</span>}
       {focused && draft.length >= CELL_MAX && <span className={s.capHint} role="status">{fillTemplate(T0.cellCap, { n: CELL_MAX })}</span>}
       {breakKey && (
         // keeps the focus (and the keyboard) where it is: the press never reaches the textarea's blur
@@ -567,17 +583,13 @@ export function TafelFormPage({ pageKey, title, data, readOnly, isPhone, onChang
     switch (a.kind) {
       case 'line': return putLine(data, a.sec, a.box, a.row, { text: raw }, at)
       case 'tag': return putLine(data, a.sec, a.box, a.row, { tag: raw }, at)
-      case 'field': {
-        const sec = sections.find((x) => x.id === a.sec) as TextSection | undefined
-        const f = sec?.fields.find((x) => x.id === a.col)
-        return putField(data, a.sec, a.col, f?.type === 'time' ? normalizeTime(raw) : raw, at)
-      }
-      case 'head': return putHead(data, a.col, a.col === 'alarm' ? normalizeTime(raw) : raw, at)
+      // a time cell hands on HH:MM or nothing (Cell · notATime), so every kind writes what it got
+      case 'field': return putField(data, a.sec, a.col, raw, at)
+      case 'head': return putHead(data, a.col, raw, at)
       case 'cell': {
         const sec = sections.find((x) => x.id === a.sec) as TableSection | undefined
         if (!sec) return data
-        const col = sec.columns.find((c) => c.id === a.col)
-        const cells: Record<string, string> = { [a.col]: col?.type === 'time' ? normalizeTime(raw) : raw }
+        const cells: Record<string, string> = { [a.col]: raw }
         const tc = timeCol(sec)
         if (stamp && tc && tc.id !== a.col) {
           const row = tableRows(data, sec).find((r) => r.id === a.row)

@@ -252,16 +252,6 @@ export const boxLines = (d: BoardFormData, sec: string, box: string): FormLine[]
 
 // ── writing ───────────────────────────────────────────────────────────────────────────────────
 
-/** «1124» → «11:24», «9.05» → «09:05», «7» → «07:00»; anything that is not a clock stays as typed. */
-export function normalizeTime(raw: string): string {
-  const s = raw.trim()
-  const m = /^(\d{1,2})(?:[.:,h ]?(\d{2}))?$/.exec(s)
-  if (!m) return s
-  const h = Number(m[1]), min = Number(m[2] ?? '0')
-  if (h > 23 || min > 59) return s
-  return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`
-}
-
 const sectionValue = (d: BoardFormData, sec: string): FormSectionValue => d.values[sec] ?? {}
 export const withSection = (d: BoardFormData, sec: string, v: FormSectionValue): BoardFormData => ({ ...d, values: { ...d.values, [sec]: v } })
 /** Field-wise JSON equality of two plain objects (a line, a row, a row's cells). */

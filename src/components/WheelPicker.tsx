@@ -8,7 +8,7 @@
 // under the band swaps the wheels for a typed field («23:39», OK – owner pick UX journeys B2·28,
 // 25.11.2026): one line «day – time», opened above its field (owner sign-off, 26.11.2026). The typed
 // time is HH:MM, never «2339»: the colon appears as you type, on the phone's digit pad (owner pick
-// «variant B», 26.11.2026 – it replaces «the colon must be typed» of the same morning; see autoColon).
+// «variant B», 26.11.2026 – it replaces «the colon must be typed» of the same morning; lib/typedTime).
 // Portalled to <body> so no card/accordion can clip it.
 
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
@@ -19,6 +19,7 @@ import { fmtWheelDay } from '../lib/zeitplanFormat'
 import { scrollBehavior } from '../lib/reducedMotion'
 import { serverNow } from '../lib/serverClock'
 import { pointAtField } from '../lib/pointAtField'
+import { autoColon, parseTypedTime } from '../lib/typedTime'
 import w from './WheelPicker.module.css'
 import { usePopoverGuard } from '../lib/overlays/popoverGuard'
 
@@ -122,33 +123,6 @@ export interface WheelValue { y: number; mo: number; d: number; h: number; mi: n
 
 const isCoarse = () =>
   typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches
-
-/**
- * What the field shows after a keystroke: the digits as HH:MM, the colon put in after the second
- * digit. «2» «3» → «23:», «5» «3» → «23:53»; a pasted «2353» → «23:53». Backspace over the colon
- * takes the hour's last digit with it («23:» → «2»), else the colon would come straight back.
- * ⚠️ Owner pick «variant B» (UX journeys, 26.11.2026: «2359 isn't a time, 23:53 is»): what is
- * saved is what stood in the field, and the iPhone's digit pad (no colon key) stays. Hours need
- * two digits – «0930», never «930». It replaces variant A of the same morning (the colon had to be
- * typed, so the field opened the full keyboard); before that «930» and «2339» were read as times.
- */
-function autoColon(prev: string, raw: string): string {
-  let digits = raw.replace(/\D/g, '').slice(0, 4)
-  if (raw.length < prev.length && prev.endsWith(':') && !raw.includes(':')) digits = digits.slice(0, -1)
-  return digits.length < 2 ? digits : `${digits.slice(0, 2)}:${digits.slice(2)}`
-}
-
-/**
- * '23:53' → [h, mi]; null while it is still being typed («23:5») or out of range («24:00», «23:60»).
- * A value that does not parse gets `invalidTime` under the field and is never committed.
- */
-function parseTyped(raw: string): [number, number] | null {
-  const m = /^(\d{2}):(\d{2})$/.exec(raw.trim())
-  if (!m) return null
-  const h = Number(m[1])
-  const mi = Number(m[2])
-  return h <= 23 && mi <= 59 ? [h, mi] : null
-}
 
 /** The popover itself. A day column appears when `days` holds more than one day (`dayAlways`: one). */
 export function WheelPopover({ anchor, initial, onCommit, onClose, onClear, shortcut, clearLabel, clearActive, days, dayAlways = false, title, note, noNow, onNow }: {
@@ -255,7 +229,7 @@ export function WheelPopover({ anchor, initial, onCommit, onClose, onClear, shor
 
   const commit = () => {
     if (typing) {
-      const time = parseTyped(typed)
+      const time = parseTypedTime(typed)
       if (!time) { setInvalid(true); return }
       const out = { ...v, h: time[0], mi: time[1] }
       // Enter reaches here without the button — the note's veto holds for it too
@@ -386,7 +360,7 @@ export function WheelPopover({ anchor, initial, onCommit, onClose, onClear, shor
                 const shown = autoColon(typed, e.target.value)
                 setTyped(shown)
                 setInvalid(false)
-                const hhmm = parseTyped(shown)
+                const hhmm = parseTypedTime(shown)
                 if (hhmm) setV((p) => ({ ...p, h: hhmm[0], mi: hhmm[1] }))
               }}
               onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); commit() } }}
