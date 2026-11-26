@@ -353,9 +353,9 @@ describe('a sheet edit of an object the sheet does not own', () => {
     expect(result.current.gestureOpen()).toBe(true)
     act(() => result.current.endSheetStep())
     expect(result.current.gestureOpen()).toBe(false)
-    act(() => result.current.beginDrag())
+    act(() => { result.current.beginDrag() })
     expect(result.current.gestureOpen()).toBe(true)
-    act(() => result.current.endDrag())
+    act(() => { result.current.endDrag() })
     expect(result.current.gestureOpen()).toBe(false)
   })
 
