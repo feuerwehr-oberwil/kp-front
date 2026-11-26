@@ -3,8 +3,8 @@
 // 16.11.2026 found the «Aus den Einsatzdaten» values «just a bit too big» at 16. 16 is a FIELD's
 // size (iOS zooms into anything smaller), so a read-out that copies the fields drifts back up –
 // this pins it.
-import { readFileSync } from 'node:fs'
 import { beforeAll, describe, expect, it } from 'vitest'
+import { addStyles, appStylesheets } from '../test/dom.test-utils'
 
 /** jsdom does not expand a `font` shorthand that holds a var(): each one also names its size as
  *  `font-size`, so the cascade decides the size across shorthands and longhands alike. A whole-font
@@ -46,14 +46,10 @@ function splitSelectorLists(parent: CSSStyleSheet | CSSGroupingRule) {
 // what the app's global stylesheets (app.css, in its cascade order) give each read-out – jsdom
 // applies no @media
 beforeAll(() => {
-  const read = (f: string) => readFileSync(`${process.cwd()}/src/${f}`, 'utf8')
-  const sheets = [...read('app.css').matchAll(/@import '\.\/(styles\/[^']+)'/g)].map(([, f]) => read(f))
+  const sheets = appStylesheets()
   const tokens = new Map<string, string>()
   for (const [, name, value] of sheets.join('\n').matchAll(/(--[\w-]+)\s*:\s*([^;{}]+)/g)) if (!tokens.has(name)) tokens.set(name, value)
-  for (const text of sheets) {
-    const style = document.head.appendChild(Object.assign(document.createElement('style'), { textContent: withFontSizes(text, tokens) }))
-    splitSelectorLists(style.sheet!)
-  }
+  for (const sheet of addStyles(...sheets.map((text) => withFontSizes(text, tokens)))) splitSelectorLists(sheet)
   // the read-outs in the shapes ReportPreflight, ReportSignatures and the Meldeleiste draw them
   document.body.innerHTML = `<div class="report-preflight-body">
     <dl class="report-meta-readout ui-selectable"><div><dt>Stichwort</dt><dd>Brand</dd></div></dl>

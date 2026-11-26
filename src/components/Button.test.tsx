@@ -4,12 +4,12 @@
 // and size land as classes, an icon button always carries its word, a chip says it is chosen.
 
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { readFileSync } from 'node:fs'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Button, IconButton } from './Button'
 import { Chip } from './Chip'
 import s from './Button.module.css'
 import c from './Chip.module.css'
+import { addStyles, appStylesheets, cssModuleText } from '../test/dom.test-utils'
 
 afterEach(cleanup)
 
@@ -20,11 +20,7 @@ let styled = false
 function useAppStyles() {
   if (styled) return
   styled = true
-  const read = (f: string) => readFileSync(`${process.cwd()}/src/${f}`, 'utf8')
-  const named = (f: string, names: Record<string, string>) => read(f).replace(/\.([A-Za-z_][\w-]*)/g, (m, n: string) => (names[n] ? `.${names[n]}` : m))
-  const sheets = [...read('app.css').matchAll(/@import '\.\/(styles\/[^']+)'/g)].map(([, f]) => read(f))
-  sheets.push(named('components/Button.module.css', s), named('components/Chip.module.css', c))
-  for (const text of sheets) document.head.appendChild(Object.assign(document.createElement('style'), { textContent: text }))
+  addStyles(...appStylesheets(), cssModuleText('components/Button.module.css', s), cssModuleText('components/Chip.module.css', c))
 }
 
 describe('Button', () => {
