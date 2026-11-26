@@ -105,7 +105,7 @@ const truppWeight = (t: Trupp) => (t.removedAt ? 0 : 2) + (wentIn(t) ? 2 : 1)
 /** The label an object shows, where the object is a Trupp chip/marker at all — the sheet's
  *  when it is sheet-anchored (that body is its truth), else the map's. */
 function chipOf(o: TacticalObject): { label: string | undefined; truppId: string | undefined } | undefined {
-  if (o.sheet) return o.sheet.anno.kind === 'resource' ? { label: o.sheet.anno.text, truppId: o.sheet.anno.truppId } : undefined
+  if (o.sheet) return o.sheet.anno?.kind === 'resource' ? { label: o.sheet.anno.text, truppId: o.sheet.anno.truppId } : undefined
   return o.entity?.kind === 'team' ? { label: o.entity.label, truppId: o.entity.truppId } : undefined
 }
 
@@ -122,7 +122,7 @@ function chipNo(o: TacticalObject): number | undefined {
 function counterNames(objects: readonly TacticalObject[], trails: readonly TruppTrail[]): (string | undefined)[] {
   const out: (string | undefined)[] = []
   for (const o of objects) {
-    if (o.sheet?.anno.kind === 'resource') out.push(o.sheet.anno.text)
+    if (o.sheet?.anno?.kind === 'resource') out.push(o.sheet.anno.text)
     if (o.entity?.kind === 'team') out.push(o.entity.label)
   }
   return [...out, ...ghostCounterNames(trails)]
@@ -286,7 +286,7 @@ export function resolveTruppNumbers(
       // both bodies, where both exist: a sheet chip's baked map body carries the same label
       const out: TacticalObject = { ...o }
       if (o.entity?.kind === 'team') out.entity = { ...o.entity, label: relabel(o.entity.label, n) }
-      if (o.sheet?.anno.kind === 'resource') out.sheet = { ...o.sheet, anno: { ...o.sheet.anno, text: relabel(o.sheet.anno.text, n) } }
+      if (o.sheet?.anno?.kind === 'resource') out.sheet = { ...o.sheet, anno: { ...o.sheet.anno, text: relabel(o.sheet.anno.text, n) } }
       return out
     }),
   }

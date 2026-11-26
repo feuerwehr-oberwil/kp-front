@@ -558,7 +558,7 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
     }))
 
   // Aufträge / Pendenzen — derived from the same rows, printed as a section right after them
-  const pendenzen = args.scopeOnly ? [] : pendenzRows(events, meta.startedAt ?? incident.started_at)
+  const pendenzen = args.scopeOnly ? [] : pendenzRows(events, { alarmedAt: meta.alarmiertAt ?? incident.started_at, endedAt: meta.endedAt ?? closeTimeOf(incident) })
 
   const kroki = draft.options.kroki && scene
     ? buildKrokiPayload({

@@ -24,7 +24,7 @@ import type { useJournal } from '../lib/useJournal'
 import { boardViewOf } from '../lib/useObjectStore'
 import { onNewerBuildMissing, requireNewerBuild, updateForNewerData } from '../lib/swUpdate'
 import type { VehicleOverrides } from '../lib/useVehicleLayer'
-import { type WorkspaceGate, type PlanScales, type ReportMeta, type IncidentSettings, type Saved, type InitialState, gateReport, sanitizeWorkspace, deriveInitial, applyInitialState, WORKSPACE_SCHEMA_VERSION } from '../lib/workspace'
+import { type WorkspaceGate, type PlanScales, type ReportMeta, type IncidentSettings, type Saved, type EverySavedKey, type InitialState, gateReport, sanitizeWorkspace, deriveInitial, applyInitialState, WORKSPACE_SCHEMA_VERSION } from '../lib/workspace'
 import type { LayerDef, BuildingDoc, Trupp, AttendanceState, MittelEntry, Shift, ShiftBand, CameraView, ReportAttachment, BoardDoc } from '../types'
 import type { ReportSignature } from '../lib/reportSignature'
 
@@ -240,6 +240,9 @@ export function useWorkspaceBlob({
      * every device can resolve, and is part of the record like any placed object. */
     const persisted = objects.filter((o) => o.entity?.kind !== 'photo' || !!o.entity.photoOf)
     const views = viewsOf(persisted)
+    // Every `Saved` key is named (EverySavedKey), so a new one that is not written here fails
+    // tsc instead of being deleted by this save. Left out: `activeModule` (device-local, this build
+    // never writes it) and `weather` (the replay fold's alone).
     return {
     objects: persisted,
     entities: views.entities,
@@ -251,7 +254,7 @@ export function useWorkspaceBlob({
     // rows only until they're safely on the server, then ships empty forever (see JournalStore).
     timeline: journal.blobTimeline,
     schemaVersion: WORKSPACE_SCHEMA_VERSION,
-  }
+  } satisfies EverySavedKey<'activeModule' | 'weather'>
   }, [objects, journal.blobTimeline, recent, activePlanId, pickedObjectId, building, vehicleOverrides, checklists, allTrupps, attendance, mittel, shifts, bands, cameraViews, trails, planScale, reportMeta, attachments, reportSignatures, incidentSettings, planBindings, intakeReviewedAt])
 
   // …and they are remembered here instead, per incident, on this device only. Written on every

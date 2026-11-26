@@ -1717,6 +1717,9 @@ button.rp-sign-row:disabled { cursor: default; }
   justify-content: center; gap: 1px; min-width: 84px; padding: var(--sp-1) var(--sp-2); }
 .timefield-trigger.stacked .timefield-day { margin: 0; font-size: var(--fs-1); line-height: 1.1; }
 .timefield-trigger.stacked .timefield-clock { font-size: var(--fs-3); line-height: 1.15; }
+/* a token with its clock under the word (TimeField · TokenFace): «Einsatzende» over «14:27» */
+.timefield-token { display: inline-flex; flex-direction: column; align-items: center; line-height: 1.15; }
+.timefield-token-value { font: var(--fw-medium) var(--fs-1) var(--body); font-variant-numeric: tabular-nums; }
 .timefield-trigger:disabled { opacity: var(--disabled); cursor: default; }
 .timefield-now { min-height: 44px; padding: 8px 12px; border: 1px solid var(--glass-line);
   border-radius: var(--r-sm); background: var(--surface); color: var(--ink);
