@@ -1332,9 +1332,11 @@ export function IncidentWorkspace({
     if (live) { endDrag(); emit('entity.edit', { id, patch: { label: v } }) }
     else patchEntity(id, { label: v })
   }
+  /** The map editor's commit. It also runs when the editor goes because ANOTHER Notiz opened
+   *  (EntityMarker · NoteField), so it closes the editor only while it is still this one's. */
   const noteTextCommit = (id: string, v: string) => {
     if (!tacticalLocked) noteTextEnd(id, v)
-    setEditNoteId(null)
+    setEditNoteId((open) => (open === id ? null : open))
   }
   // which note has its detail panel open. NOT derived from selectedId: unlike a symbol, selecting
   // a note stays quiet — it is placed mid-sentence and a panel sliding in on every tap would be

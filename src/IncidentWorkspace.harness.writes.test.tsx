@@ -339,6 +339,19 @@ describe('(n) ↶ takes back a Notiz while it is being typed', () => {
     await press(appConfig.copy.redo)
     expect(notes()).toEqual(['Wasser ab 14:20'])
   })
+
+  // a double tap on another Notiz opens its editor; the first one's goes and ends its edit then
+  it('the editor of the Notiz opened next stays open when the first one’s edit ends', async () => {
+    const note = (id: string) => ({ id, kind: 'note', coord: [7.601, 47.501], label: '' }) as Entity
+    await mount({ workspace: { entities: [truck, note('a'), note('b')] } as unknown as Saved })
+    const map = () => lastMap() as unknown as { editNoteId: string | null; onNoteEdit: (id: string) => void; onNoteText: (id: string, v: string) => void; onNoteCommit: (id: string, v: string) => void }
+    act(() => map().onNoteEdit('a'))
+    act(() => map().onNoteText('a', 'Wasser ab 14:20'))
+    act(() => map().onNoteEdit('b'))
+    act(() => map().onNoteCommit('a', 'Wasser ab 14:20'))
+    await settle()
+    expect(map().editNoteId).toBe('b')
+  })
 })
 
 /* RBAC audit 22.10.2026 (§2): a session that cannot write the Einsatz is handed no door that
