@@ -292,10 +292,14 @@ export function truppLifecycleActions(deps: LifecycleDeps) {
     // «Weitere Trupps» apart (AtemschutzView), so a card whose neighbour in the global key space
     // sits in the other section jumped over something invisible — the same dead button in a new
     // costume. One key space, two sections: a move steps to the next card of the same kind.
+    // ⚠️ Key first, section second: a Trupp without `order` is keyed by its position in the whole
+    // visible list, as the board's comparator does (AtemschutzView · orderKey). Keyed after the
+    // kind filter, [PA a, plain x, PA b] gave a the slot 2 that b already holds on the board, so
+    // «nach unten» left a above b (CodeRabbit on #755).
     const self = ts.find((t) => t.id === id)
     if (!self) return ts
-    const ordered = handOrder(ts.filter((t) =>
-      !t.removedAt && isAtemschutzTrupp(t) === isAtemschutzTrupp(self)))
+    const ordered = handOrder(ts.filter((t) => !t.removedAt))
+      .filter((e) => isAtemschutzTrupp(e.t) === isAtemschutzTrupp(self))
     const next = nextMoveOrder(ordered, ordered.findIndex((e) => e.t.id === id), dir)
     if (next === null) return ts
     return ts.map((t) => (t.id === id ? { ...t, order: next } : t))
