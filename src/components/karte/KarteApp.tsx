@@ -113,7 +113,6 @@ import { useKarteOverlays } from './useKarteOverlays'
 import { tagText, useTagPlacement } from './useKarteTags'
 import { NoBasemapMeldung } from '../NoBasemapMeldung'
 import { UpdateBanner } from '../UpdateBanner'
-import { useHazardData } from '../../lib/useHazardData'
 import s from './Karte.module.css'
 
 const NO_HYDRANTS: NamedPoint[] = []
@@ -205,9 +204,6 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
 
   // ── tools, the way back, the menu, the search ─────────────────────────────────────────────
   const { tool, setToolState, toggleTool, measure, erg, setErg, viewsOpen, setViewsOpen, ergKeys, keysFor } = useKarteTools(null)
-  // Gefahrgut (KarteGefahrgut): both tables load as the tool opens, not on the first key, and
-  // its rings (lib/karte/overlays · ergOverlays) repaint when the ERG table lands
-  useHazardData({ un: tool === 'erg', erg: tool === 'erg' })
   // the phone sheet pushed away / ✕ while its place stays selected (outline, tag, pin): a tap on
   // the place again brings it back (owner R2). Every new selection opens it.
   const [sheetShut, setSheetShut] = useState(false)

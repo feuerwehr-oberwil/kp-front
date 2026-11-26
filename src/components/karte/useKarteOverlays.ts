@@ -4,13 +4,14 @@
 
 import { useMemo } from 'react'
 import type { NamedPoint } from '../../lib/karte/places'
-import { pointerOverlays, stationOverlays, UNDERGROUND_LAYER, type ErgState } from '../../lib/karte/overlays'
+import { ergRowOf, pointerOverlays, stationOverlays, UNDERGROUND_LAYER, type ErgState } from '../../lib/karte/overlays'
 import type { TileXY } from '../../lib/karte/availability'
 import type { ObjectCategory } from '../../lib/karte/categories'
 import type { Hover, ObjectOutlines, Sel } from '../../lib/karte/selection'
 import type { StationObject } from '../../lib/api/stationReference'
 import { themeToken, uiBlue } from '../../lib/themeToken'
 import { undergroundOverlay, type UndergroundState } from '../../lib/underground'
+import { useHazardData } from '../../lib/useHazardData'
 import type { LngLat, PreparedMapOverlay } from '../../types'
 import type { Tool } from './useKarteTools'
 
@@ -34,6 +35,10 @@ export function useKarteOverlays(p: {
   nearAt: LngLat | null
 }): PreparedMapOverlay[] {
   const { outlines, cats, catOff, sel, selObj, ringsNear, tool, erg, uncached, under, underOn, outlined, hydPoint, nearAt } = p
+  // Gefahrgut (KarteGefahrgut): both tables load as the tool opens, not on the first key, and its
+  // rings are rebuilt when the ERG table lands (the row changes from undefined)
+  useHazardData({ un: tool === 'erg', erg: tool === 'erg' })
+  const ergRow = tool === 'erg' ? ergRowOf(erg) : undefined
   // «has plans» (01-tokens · --obj-plans): ink, near-white at night, near-black by day — red is danger's
   const plansInk = themeToken('--obj-plans', '#1b2330')
   const hatchInk = themeToken('--ink-faint', '#6c7686')
@@ -50,8 +55,8 @@ export function useKarteOverlays(p: {
     sel, selId: selObj?.id ?? null, ringsNear,
     underground: underOn ? underOverlay : null,
     uncached,
-    erg: tool === 'erg' ? erg : null,
-  }), [outlines, selObj, sel, tool, erg, plansInk, ringsNear, uncached, hatchInk, cats, catOff, underOn, underOverlay])
+    erg: tool === 'erg' ? erg : null, ergRow,
+  }), [outlines, selObj, sel, tool, erg, ergRow, plansInk, ringsNear, uncached, hatchInk, cats, catOff, underOn, underOverlay])
   const blue = uiBlue()
   const [px, py] = nearAt ?? [null, null]
   const hoverOverlays = useMemo<PreparedMapOverlay[]>(() => pointerOverlays({

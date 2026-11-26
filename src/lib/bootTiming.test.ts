@@ -84,4 +84,24 @@ describe('reportBoot', () => {
     expect(marks).toMatchObject({ sym: expect.any(Number), wx: expect.any(Number), cover: expect.any(Number), lift: expect.any(Number) })
     expect(marks.cap).toBeUndefined()
   })
+
+  it('a kiosk\'s cold start: the line leaves at the PIN pad, the cover\'s marks follow in a late line', async () => {
+    const { markBoot, reportBoot } = await load()
+    document.body.innerHTML = '<div id="root"><div class="login splash boot-splash"></div></div>'
+    const send = vi.fn()
+    reportBoot(send, 'k1')
+    document.getElementById('root')!.innerHTML = '<div class="pinpad"></div>'
+    await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(1))
+    expect(send.mock.calls[0][0].marks.cover).toBeUndefined()
+    // the PIN typed: the Einsatz opens behind its cover (lib/bootCover)
+    markBoot('sym'); markBoot('wx')
+    expect(send).toHaveBeenCalledTimes(1)
+    markBoot('cover')
+    expect(send).toHaveBeenCalledTimes(2)
+    const late = send.mock.calls[1][0]
+    expect(late).toMatchObject({ nav: 'late', build: 'k1' })
+    expect(Object.keys(late.marks)).toEqual(['sym', 'wx', 'cover'])
+    markBoot('cover'); markBoot('later')
+    expect(send).toHaveBeenCalledTimes(2)
+  })
 })

@@ -8,7 +8,7 @@
 //     overlays of their own, so a hover never rebuilds (and re-sends) the station's outlines.
 
 import { appConfig } from '../../config/appConfig'
-import { lookupErg } from '../erg'
+import { lookupErg, type ErgTihRow } from '../erg'
 import { ergRingsFor, type ErgRingMode } from '../ergRings'
 import { UNDER_DASH } from '../underground'
 import type { LayerId, LngLat, PreparedMapOverlay } from '../../types'
@@ -70,11 +70,16 @@ function selectionOverlays(p: { outlines: ObjectOutlines; cats: Categories; ink:
   return out
 }
 
-/** Gefahrgut's isolation and protection rings, once it has a UN number and a centre */
-function ergOverlays(erg: ErgState): PreparedMapOverlay[] {
+/** The ERG Table-1 row of Gefahrgut's UN number — undefined while the ERG table loads */
+export function ergRowOf(erg: ErgState): ErgTihRow | undefined {
+  return erg.un ? lookupErg(erg.un)?.tih?.[0] : undefined
+}
+
+/** Gefahrgut's isolation and protection rings, once it has a UN number and a centre. `row` is
+ *  its ERG Table-1 row; a caller that memoises passes it so the ERG table's arrival shows. */
+function ergOverlays(erg: ErgState, row = ergRowOf(erg)): PreparedMapOverlay[] {
   const { center } = erg
   if (!erg.un || !center) return []
-  const row = lookupErg(erg.un)?.tih?.[0]
   return ergRingsFor(row, erg.mode, erg.at, center).map((ring): PreparedMapOverlay => {
     const iso = ring.kind === 'isolation'
     return {
@@ -104,13 +109,15 @@ export function stationOverlays(p: {
   underground: PreparedMapOverlay | null
   uncached: readonly TileXY[]
   erg: ErgState | null
+  /** `erg`'s row (ergRowOf), looked up when absent */
+  ergRow?: ErgTihRow
 }): PreparedMapOverlay[] {
   const out: PreparedMapOverlay[] = []
   if (p.uncached.length) out.push({ id: 'karte-uncached', kind: 'polygons', layer: UNCACHED_LAYER, rings: p.uncached.map(tileRing), color: p.hatchInk, hatch: true, fillOpacity: 0.55, lineWidth: 0, lineOpacity: 0 })
   if (p.underground) out.push(p.underground)
   out.push(...objectOverlays(p.outlines, p.cats, p.hidden, p.selId, p.ink))
   out.push(...selectionOverlays(p))
-  if (p.erg) out.push(...ergOverlays(p.erg))
+  if (p.erg) out.push(...ergOverlays(p.erg, p.ergRow))
   return out
 }
 

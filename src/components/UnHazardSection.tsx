@@ -1,7 +1,7 @@
 import { Icon } from '../lib/icons'
 import { cx } from '../lib/cx'
 import { appConfig } from '../config/appConfig'
-import { decodeKemler, lookupUN, substanceName, type UnHazardEntry } from '../lib/unHazard'
+import { decodeKemler, lookupUN, substanceName, unHazardVersion, type UnHazardEntry } from '../lib/unHazard'
 import { getLocaleId } from '../config/copy'
 import { ergVersionLabel, lookupErg, type ErgEntry } from '../lib/erg'
 import { useHazardData } from '../lib/useHazardData'
@@ -117,7 +117,8 @@ export function UnHazardSection({ un, ringMode, onRingMode, ergCoord, ergAt, onA
       {kemler?.reactsWithWater && (
         <p className="un-haz-water"><Icon id="warn" /> {C.unWater}</p>
       )}
-      {!unHit && <p className="un-haz-none">{C.unNoMatch}</p>}
+      {/* «not in the table» only once the table is here: while it loads, a valid number is no miss */}
+      {!unHit && unHazardVersion() > 0 && <p className="un-haz-none">{C.unNoMatch}</p>}
       {hazTiles.length > 0 && (
         <div className="un-haz-tiles">
           {hazTiles.map((t) => (
