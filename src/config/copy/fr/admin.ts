@@ -136,6 +136,7 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
       standardOn: 'Oui',
       standardOff: 'Non',
       newEntry: 'Nouvelle entrée',
+      textTooLong: '{field} : {n} caractères au plus – l’entrée n’est pas enregistrée ainsi.',
     },
     numbers: {
       integer: 'Valeur pas encore enregistrée – un nombre entier est attendu.',
@@ -687,6 +688,7 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
       catModulesTip: 'Seulement les objets avec un plan de ce module, séparés par des virgules ; * remplace n’importe quels caractères (modul5-pv* trouve modul5-pv, modul5-pv15 …). Vide = peu importe.',
       catModulesPlaceholder: 'modul5-pv*, modul5-wasser*',
       catAdd: 'Ajouter une catégorie',
+      catId: 'Clé',
     },
     doctrine: {
       defaultFunkkanal: 'Canal radio (par défaut)',
@@ -1717,7 +1719,7 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
       liveSnapshot: 'État système en direct',
       updatedAt: 'Mis à jour à {time}',
       healthSummary: 'État du système',
-      loginLocksTitle: 'Connexion bloquée pour les nouveaux appareils',
+      loginLocksTitle: 'Blocages de connexion',
       loginLocksTip: 'Trop de codes PIN erronés ont été saisis pour ce compte depuis des appareils inconnus. Les appareils déjà connectés une fois avec ce compte ne sont pas concernés. Le blocage prend fin de lui-même ; si les tentatives continuent, il revient. En cas de doute, réinitialiser le PIN du compte.',
       loginLockRow: '{name} – nouveaux appareils bloqués encore {minutes} min',
       server: 'Serveur',

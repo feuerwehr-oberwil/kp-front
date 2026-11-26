@@ -3,7 +3,7 @@ import { appConfig } from '../config/appConfig'
 import { Icon } from '../lib/icons'
 import { categoryId, categoryLabel, INK, isCategoryColor, writableRules, type ObjectCategoryRule, type ObjectKind } from '../lib/karte/categories'
 import { getPath, useConfig } from './ConfigContext'
-import { TEXT_MAX_LENGTH } from './configGuards'
+import { TEXT_MAX_LENGTH, tooLongNote } from './configGuards'
 import { ConfirmButton, RecordRows, RecordTable, SettingRow, SettingsNote } from './ui'
 
 // «Objektfarben» — the station's colours for its objects on «Karte & Objekte»
@@ -62,7 +62,13 @@ export function ObjectCategoriesCard() {
         const kinds = row.match?.kinds ?? []
         const modules = row.match?.modules ?? []
         const ink = row.color === INK
-        const problem = !name.trim() ? C.catNoName : !isCategoryColor(row.color) ? C.catBadColor : null
+        // …and the bounds `writableRules` holds a rule to: the name derives a short id and the box
+        // cuts each glob, so only a stored rule (the CLI, an import) can be past one
+        const problem = !name.trim() ? C.catNoName : !isCategoryColor(row.color) ? C.catBadColor
+          : tooLongNote([
+            ['map.objectCategories.0.id', C.catId, row.id],
+            ...modules.map((m) => ['map.objectCategories.0.match.modules.0', C.catModules, m] as const),
+          ])
         return (
           <RecordRows
             key={i}

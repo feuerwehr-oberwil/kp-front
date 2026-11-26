@@ -5,7 +5,7 @@ import { legacyFleetToAttributeLists, DEFAULT_MODULES, OFFLINE_RADIUS_M } from '
 import { geoDatasetId, geoLayerUrl, inspectGeojson, listReference, uploadReference, type ReferenceDataset } from '../lib/incidents'
 import { apiGet } from '../lib/api'
 import { useConfig, getPath } from './ConfigContext'
-import { ALARM_BAR_STATION_MIN, NUMBER_GUARDS, TEXT_MAX_LENGTH, fitsText, type NumberField, type NumberGuard } from './configGuards'
+import { ALARM_BAR_STATION_MIN, NUMBER_GUARDS, TEXT_MAX_LENGTH, fitsText, tooLongNote, type NumberField, type NumberGuard } from './configGuards'
 // No `Field` any more: every setting on these pages is a row of the settings table now, and
 // the list editors' records are a divider plus their fields as rows of the same grid.
 import {
@@ -2166,6 +2166,12 @@ function ReportLinksEditor() {
     <>
       {rows.map((row, i) => {
         const preview = resolveLinkUrl(row.url ?? '', linkTokenValues(SAMPLE_LINK_FACTS))
+        // the bounds `write` holds the row to, as the line under it
+        const tooLong = tooLongNote([
+          ['report.links.0.title', C.linkTitle, row.title],
+          ['report.links.0.note', C.linkNote, row.note],
+          ['report.links.0.url', C.linkUrl, row.url],
+        ])
         return (
           <div className="adm-formlink" key={row.id}>
             <SettingsGroup
@@ -2230,6 +2236,7 @@ function ReportLinksEditor() {
                   </p>
                 )}
             </SettingRow>
+            {tooLong && <SettingsNote tone="warn">{tooLong}</SettingsNote>}
           </div>
         )
       })}

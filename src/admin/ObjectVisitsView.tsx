@@ -23,7 +23,7 @@ import {
 import { DEFAULT_DESTINATION, DEFAULT_LOCATION_FOLDER, destinationValid, previewFolder, previewLocationFolder } from '../objectVisits/folders'
 import { personName, type DeliveryRow, type NotifyState, type VisitFiling, type VisitSummary, type VisitTemplate } from '../objectVisits/types'
 import { getPath, useConfig, type ConfigCtx } from './ConfigContext'
-import { NUMBER_GUARDS, TEXT_MAX_LENGTH, fitsText } from './configGuards'
+import { NUMBER_GUARDS, TEXT_MAX_LENGTH, tooLongNote } from './configGuards'
 import { apiErrorText } from './apiErrors'
 import {
   Card, ConfirmButton, CopyChip, EmptyState, RecordRows, RecordTable, ResultChip, SettingRow, SettingsNote,
@@ -134,27 +134,45 @@ function ModuleSheet({ onNavigate }: { onNavigate: (id: string) => void }) {
 
 // ─── Felder für Vorschläge ─────────────────────────────────────────────────────────────────
 
+/** A Korrekturvorschlag field as the editor holds it. `since` says when the row came to its
+ *  Kennung: 0 for a stored field, the next number for every edit that changes the Kennung. */
+type FieldRow = { id: string; label: string; since?: number }
+
 /** «Felder für Vorschläge»: the Korrekturvorschlag fields (`objectVisits.proposalFields`). A row
- *  the server would refuse stays here with its reason and is not written. */
+ *  the server would refuse stays here with its reason and is not written. Of two rows with one
+ *  Kennung the one that came to it LAST takes the warning – the row being edited, never the
+ *  saved field it now collides with. */
 export function ProposalFieldsEditor() {
   const T = C()
   const { ov, set } = useOv()
-  const stored = Array.isArray(ov.proposalFields) ? ov.proposalFields : []
-  const [editing, setEditing] = useState<{ id: string; label: string }[] | null>(null)
+  const stored: FieldRow[] = Array.isArray(ov.proposalFields) ? ov.proposalFields : []
+  const [editing, setEditing] = useState<FieldRow[] | null>(null)
   const rows = editing ?? stored
-  const problem = (f: { id: string; label: string }, i: number, all: { id: string; label: string }[]): string | null => {
+  const problem = (f: FieldRow, i: number, all: FieldRow[]): string | null => {
     const id = f.id?.trim()
+    // the holder of a Kennung: the row that has had it longest, the upper one on a tie – checked
+    // before the label, so a new row given a taken Kennung first says that
+    const holder = all.reduce((h, o, j) => (o.id?.trim() === id && (h < 0 || (o.since ?? 0) < (all[h].since ?? 0)) ? j : h), -1)
+    if (id && holder !== i) return T.fieldDuplicate
     if (!id || !f.label?.trim()) return T.fieldIncomplete
-    return all.findIndex((o) => o.id?.trim() === id) === i ? null : T.fieldDuplicate
-  }
-  const write = (next: { id: string; label: string }[]) => {
-    setEditing(next)
     // …and none longer than the schema allows: the boxes hold typing to it (configGuards)
-    const fits = (f: { id: string; label: string }) =>
-      fitsText('objectVisits.proposalFields.0.id', f.id.trim()) && fitsText('objectVisits.proposalFields.0.label', f.label.trim())
-    set(['objectVisits', 'proposalFields'], next.filter((f, i) => problem(f, i, next) === null && fits(f)).map((f) => ({ id: f.id.trim(), label: f.label.trim() })))
+    return tooLongNote([
+      ['objectVisits.proposalFields.0.label', T.fieldLabel, f.label.trim()],
+      ['objectVisits.proposalFields.0.id', T.fieldId, id],
+    ])
   }
-  const patch = (i: number, over: Partial<{ id: string; label: string }>) => write(rows.map((r, j) => (j === i ? { ...r, ...over } : r)))
+  const write = (next: FieldRow[]) => {
+    setEditing(next)
+    set(['objectVisits', 'proposalFields'], next.filter((f, i) => problem(f, i, next) === null).map((f) => ({ id: f.id.trim(), label: f.label.trim() })))
+  }
+  const patch = (i: number, over: Partial<FieldRow>) => {
+    const tick = Math.max(0, ...rows.map((r) => r.since ?? 0)) + 1
+    write(rows.map((r, j) => {
+      if (j !== i) return r
+      const row = { ...r, ...over }
+      return row.id?.trim() === r.id?.trim() ? row : { ...row, since: tick }
+    }))
+  }
   const setLabel = (i: number, label: string) => {
     const row = rows[i]
     const follows = !row.id?.trim() || row.id === fieldSlug(row.label ?? '')
@@ -197,6 +215,10 @@ export function ProposalFieldsEditor() {
 }
 
 // ─── Ablageziel · SharePoint ───────────────────────────────────────────────────────────────
+
+/** The destination's boxes with a schema length (configGuards · TEXT_MAX_LENGTH). */
+const DEST_TEXT = ['siteUrl', 'library', 'root', 'objectFolder', 'visitFolder', 'locationFolder'] as const
+type DestText = (typeof DEST_TEXT)[number]
 
 function DestinationCard({ onNavigate }: { onNavigate: (id: string) => void }) {
   const T = C()
@@ -250,7 +272,8 @@ function DestinationCard({ onNavigate }: { onNavigate: (id: string) => void }) {
     objectName: T.previewPlace, locationLabel: T.previewPlace, date: new Date().toISOString().slice(0, 10),
     checklist: T.previewPlaceChecklist, visitId: 'ov0000000000000-7f3a',
   })
-  const text = (key: 'siteUrl' | 'library' | 'root' | 'objectFolder' | 'visitFolder' | 'locationFolder', label: string, opts: { mono?: boolean; placeholder?: string; tip?: string } = {}) => (
+  const tooLong = tooLongNote(DEST_TEXT.map((k) => [`objectVisits.destinations.0.${k}`, T[k], dest[k]] as const))
+  const text = (key: DestText, label: string, opts: { mono?: boolean; placeholder?: string; tip?: string } = {}) => (
     <SettingRow label={label} tip={opts.tip} span>
       <input className={`adm-input${opts.mono ? ' adm-input-mono' : ''}`} type="text" value={dest[key] ?? ''}
         maxLength={TEXT_MAX_LENGTH[`objectVisits.destinations.0.${key}`]}
@@ -272,7 +295,9 @@ function DestinationCard({ onNavigate }: { onNavigate: (id: string) => void }) {
           ))}
         </span>
       </SettingRow>
-      {!destinationValid(dest) && <SettingsNote tone="warn">{T.destIncomplete}</SettingsNote>}
+      {/* a value past its length names that box – the general line («https:// …, beide Ordner»)
+          would send the admin to the wrong one */}
+      {!destinationValid(dest) && <SettingsNote tone="warn">{tooLong ?? T.destIncomplete}</SettingsNote>}
       {text('siteUrl', T.siteUrl, { mono: true, placeholder: T.siteUrlPlaceholder })}
       {text('library', T.library)}
       {text('root', T.root, { mono: true })}

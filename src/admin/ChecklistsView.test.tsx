@@ -24,6 +24,7 @@ vi.mock('../lib/download', () => ({ downloadBlob: (b: Blob, n: string) => downlo
 import { ChecklistsView } from './ChecklistsView'
 import { parseChecklistTemplate } from './stationDataApi'
 import { appConfig } from '../config/appConfig'
+import { ApiError } from '../lib/api'
 
 const C = appConfig.copy.admin.checklists
 
@@ -125,6 +126,38 @@ describe('Checklisten — deleting, because uploading alone leaves ghosts', () =
     // re-read at delete time, so a template uploaded from another tab meanwhile is not collateral
     expect(apiGet).toHaveBeenCalledWith('/api/reference')
     expect(apiPost).toHaveBeenCalledWith('/api/reference/checklists/prune', ['checklists:fu-aktion'])
+  })
+})
+
+// Sweep 26.11.2026: a failed «Reste löschen» said nothing – the card had no place for it.
+describe('Checklisten — cleaning up the leftovers', () => {
+  it('shows why a cleanup failed and lists what is still there', async () => {
+    const orphans = [ds('checklists:alt:p1', { content_type: 'image/png' }), ds('checklists:alt:p2', { content_type: 'image/png' })]
+    apiGet
+      .mockResolvedValueOnce([...REGISTRY, ...orphans]) // the page
+      .mockResolvedValueOnce([...REGISTRY, ...orphans]) // the fresh read the prune is built from
+      .mockResolvedValue([...REGISTRY, orphans[1]]) // after the failure: one went, one stayed
+    apiPost.mockRejectedValue(new ApiError(503, 'Datenbank nicht erreichbar'))
+    render(<ChecklistsView />)
+    fireEvent.click(await screen.findByRole('button', { name: C.cleanOrphans }))
+
+    expect((await screen.findByText('Datenbank nicht erreichbar')).className).toContain('adm-state-err')
+    expect(screen.getByText('checklists:alt:p2')).toBeTruthy()
+    expect(screen.queryByText('checklists:alt:p1')).toBeNull()
+  })
+
+  it('keeps the error when the list cannot be read again either', async () => {
+    const orphan = ds('checklists:alt:p1', { content_type: 'image/png' })
+    apiGet
+      .mockResolvedValueOnce([...REGISTRY, orphan])
+      .mockResolvedValueOnce([...REGISTRY, orphan])
+      .mockRejectedValue(new ApiError(503, 'Datenbank nicht erreichbar'))
+    apiPost.mockRejectedValue(new ApiError(503, 'Datenbank nicht erreichbar'))
+    render(<ChecklistsView />)
+    fireEvent.click(await screen.findByRole('button', { name: C.cleanOrphans }))
+
+    await screen.findByText(C.loadError)
+    expect(screen.getByText('Datenbank nicht erreichbar')).toBeTruthy()
   })
 })
 
