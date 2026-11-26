@@ -113,12 +113,16 @@ async def finish_job(
     *,
     digest: str | None = None,
 ) -> bool:
-    """A lost lease cannot overwrite a successor, an edited proposal or an approval."""
+    """A lost lease cannot overwrite a successor, an edited proposal, an approval or a job that a
+    merge or re-key moved onto another dataset."""
     finished = (
         await db.execute(
             update(PlanAlignment)
             .where(
                 PlanAlignment.id == claim.id,
+                # a merge or re-key moved the job onto another dataset (and object) meanwhile: the
+                # object this run locked is not its owner any more, so leave it to the next claim
+                PlanAlignment.dataset_id == claim.dataset_id,
                 PlanAlignment.status == "processing",
                 PlanAlignment.attempts == claim.attempt,
                 PlanAlignment.edit_version == claim.edit_version,
@@ -335,6 +339,10 @@ async def run_once(factory: async_sessionmaker[AsyncSession] = async_session_mak
         except Exception:
             logger.exception("Plan markers unreadable for job %s", claim.id)
     async with factory() as db:
+        if object_uuid is not None:
+            # lock 3 before the floors and the row (plans › the lock order): a merge or a re-key
+            # holds the object while it moves this revision's alignment and floors
+            await lock_objects(db, object_uuid)
         requeued = await apply_marker_plan(db, claim, plan) if plan else False
         floors = await load_floors(db, claim.dataset_id, claim.version)
         # …and WHY it is what it is: a pack the markers could not make must not leave the admin

@@ -1260,20 +1260,25 @@ async def test_a_merge_waits_for_the_run_instead_of_deadlocking_with_it(
         return tenant._handle(request)
 
     run = asyncio.create_task(sync_sharepoint(db_session, transport=httpx.MockTransport(paused)))
-    await reached.wait()
-    merge = asyncio.create_task(admin_objects_repair._merge_into(loser, survivor, apply=True))
-    waiting = "SELECT count(*) FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock'"
-    async with session_factory() as observer:
-        for _ in range(100):
-            if merge.done() or (await observer.execute(text(waiting))).scalar_one():
-                break
-            await observer.rollback()  # pg_stat_activity is a snapshot per transaction
-            await asyncio.sleep(0.05)
-    release.set()
-    result = await run
+    merge = None
+    try:
+        await asyncio.wait_for(reached.wait(), timeout=30)
+        merge = asyncio.create_task(admin_objects_repair._merge_into(loser, survivor, apply=True))
+        waiting = (
+            "SELECT count(*) FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock'"
+        )
+        async with session_factory() as observer:
+            for _ in range(100):
+                if merge.done() or (await observer.execute(text(waiting))).scalar_one():
+                    break
+                await observer.rollback()  # pg_stat_activity is a snapshot per transaction
+                await asyncio.sleep(0.05)
+    finally:
+        release.set()
+    result = await asyncio.wait_for(run, timeout=60)
     await db_session.commit()
 
-    assert await merge == 0
+    assert await asyncio.wait_for(merge, timeout=60) == 0
     assert {area: r["status"] for area, r in result["areas"].items()} == {"plans": "ok", "geodata": "ok"}
     assert await db_session.get(ObjectSite, loser, populate_existing=True) is None
     moved = await db_session.get(ReferenceDataset, f"plan:{survivor}:modul1", populate_existing=True)

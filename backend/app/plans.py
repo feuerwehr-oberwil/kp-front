@@ -66,9 +66,9 @@ logger = logging.getLogger(__name__)
 # Every transaction that writes a plan or an alignment takes its locks in this order:
 #
 #   1. lock_plan_maintenance   the writers that change MANY objects, or plans and the config row,
-#                              in one transaction: a SharePoint run, `admin_objects_repair merge
-#                              --apply`, `admin_objects load`, the demo reset. First, before any
-#                              row; so they never overlap.
+#                              in one transaction: a SharePoint run, the S3 pull (`pull_plans`),
+#                              `admin_objects_repair merge --apply`, `admin_objects load`, the demo
+#                              reset. First, before any row; so they never overlap.
 #   2. the config row          `deployment_config.config_row(lock=True)`
 #   3. lock_objects            the object whose plans or alignments change
 #   4. the plan rows           `plan:*` reference_datasets, plan_revisions, plan_alignments,
@@ -96,10 +96,17 @@ async def lock_plan_maintenance(db: AsyncSession) -> None:
 
 
 async def lock_objects(db: AsyncSession, *object_ids: uuid.UUID) -> None:
-    """Lock 3 of the order above: these object rows FOR UPDATE to the end of the transaction, in id
-    order, so two callers that lock the same pair cannot deadlock on it."""
+    """Lock 3 of the order above: these object rows to the end of the transaction, in id order, so
+    two callers that lock the same pair cannot deadlock on it.
+
+    FOR NO KEY UPDATE, not FOR UPDATE: it excludes every other caller of this, but not the key-share
+    lock a foreign-key check takes – a visit or a ref written against the object meanwhile does not
+    wait for a whole SharePoint run, nor deadlock with a merge that moves it."""
     await db.execute(
-        select(ObjectSite.id).where(ObjectSite.id.in_(object_ids)).order_by(ObjectSite.id).with_for_update()
+        select(ObjectSite.id)
+        .where(ObjectSite.id.in_(object_ids))
+        .order_by(ObjectSite.id)
+        .with_for_update(key_share=True)
     )
 
 
@@ -499,6 +506,7 @@ async def pull_plans(db: AsyncSession) -> dict[str, int | str]:
             logger.error("Objektplan-Pull: refusing the whole run — %s. Nothing changed.", e)
             return {"status": "refused"}
 
+        await lock_plan_maintenance(db)  # one transaction over many objects (the lock order above)
         objs = {
             o.source_key: o
             for o in (

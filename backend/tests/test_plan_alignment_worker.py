@@ -234,6 +234,18 @@ async def test_explicit_retry_cannot_reuse_a_stale_completion_token(db_session, 
     assert await worker.finish_job(db_session, current, compute.AlignmentResult("no_match"))
 
 
+async def test_a_job_moved_onto_another_dataset_is_not_finished(db_session, pdf_store):
+    """A merge or re-key keeps the alignment's id and moves it onto another dataset (and object)
+    while the worker renders. The run locked the OLD object, so it must not write – nor approve –
+    the moved row; the next claim takes it under its new owner."""
+    await seed(db_session, pdf_store)
+    claim = await worker.claim_job(db_session)
+    assert claim
+    moved = replace(claim, dataset_id="plan:00000000-0000-4000-8000-000000000000:modul1")
+    assert not await worker.finish_job(db_session, moved, compute.AlignmentResult("ready"))
+    assert (await db_session.execute(select(PlanAlignment.status))).scalar_one() == "processing"
+
+
 async def test_tick_uses_revision_blob_and_persists_frontend_reference_contract(
     session_factory, single_page_store, matcher
 ):
