@@ -284,12 +284,12 @@ describe('a Karte marker drag', () => {
     let doc = live()
     const writes: { movedIds?: readonly string[] }[] = []
     const beginDrag = vi.fn(), endDrag = vi.fn()
-    // the live objects (IncidentWorkspace · objectsRef), what a remote edit mid-drag lands in
-    const objectsRef = { current: [] as TacticalObject[] }
-    const sync = () => { objectsRef.current = [...doc.entities.map((entity) => ({ id: entity.id, entity })), ...doc.drawings.map((drawing) => ({ id: drawing.id, drawing }))] }
+    // the store's live objects (lib/useObjectStore · liveObjects), what a remote edit mid-drag lands in
+    let objects: TacticalObject[] = []
+    const sync = () => { objects = [...doc.entities.map((entity) => ({ id: entity.id, entity })), ...doc.drawings.map((drawing) => ({ id: drawing.id, drawing }))] }
     sync()
     Object.assign(deps, {
-      beginDrag, endDrag, objectsRef,
+      beginDrag, endDrag, liveObjects: () => objects,
       setDocRaw: (u: SetStateAction<Doc>, opts?: { movedIds?: readonly string[] }) => { doc = typeof u === 'function' ? u(doc) : u; sync(); writes.push(opts ?? {}) },
     })
     /** another device's edit arriving while the finger is down */

@@ -2441,7 +2441,7 @@ export function IncidentWorkspace({
     shareLink, composerOpen, georefActive, georefMode, replayActive, readOnly, linkScoped, goToNav,
     planFit, stepHistory: pressHistory, planKeys, setJournalOpen, setComposerOpen, togglePanel, setSettingsOpen,
     setHelpOpen, coord, notePanelId, notePlacedId, mapWorkRect, drawings, drawTap, beginDrag, setDocRaw,
-    endDrag, flyToMapVisible, setVehicleOverrides, vehicleOverrides, trupps, linkTruppLine, patchEntity, objectsRef, objects,
+    endDrag, flyToMapVisible, setVehicleOverrides, vehicleOverrides, trupps, linkTruppLine, patchEntity, objectsRef, liveObjects, objects,
     setPlanFocus, focusEntity, editNoteId, user, stepLabelRef: stepLabel, historyGroup: compound.open,
   })
   const {

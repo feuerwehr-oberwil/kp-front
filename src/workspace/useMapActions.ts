@@ -156,6 +156,8 @@ export interface UseMapActionsInputs {
   linkTruppLine: (truppId: string, lineId: string) => boolean
   patchEntity: (id: string, patch: Partial<Entity>) => void
   objectsRef: RefObject<TacticalObject[]>
+  /** the store's objects as of NOW, advanced synchronously by every write (lib/useObjectStore) */
+  liveObjects: () => TacticalObject[]
   objects: TacticalObject[]
   setPlanFocus: Dispatch<SetStateAction<{ x: number; y: number; floor: number; annoId?: string; twinEntityId?: string; flash?: boolean; nonce: number } | null>>
   focusEntity: (id: string) => void
@@ -197,7 +199,7 @@ export function useMapActions({
   shareLink, composerOpen, georefActive, georefMode, replayActive, readOnly, linkScoped, goToNav,
   planFit, stepHistory, planKeys, setJournalOpen, setComposerOpen, togglePanel, setSettingsOpen,
   setHelpOpen, coord, notePanelId, notePlacedId, mapWorkRect, drawings, drawTap, beginDrag, setDocRaw,
-  endDrag, flyToMapVisible, setVehicleOverrides, vehicleOverrides, trupps, linkTruppLine, patchEntity, objectsRef,
+  endDrag, flyToMapVisible, setVehicleOverrides, vehicleOverrides, trupps, linkTruppLine, patchEntity, objectsRef, liveObjects,
   objects, setPlanFocus, focusEntity, editNoteId, user, stepLabelRef, historyGroup,
 }: UseMapActionsInputs) {
   // Every path through here ends the "I am reading this object" state — reaching for a tool means
@@ -773,9 +775,9 @@ export function useMapActions({
   const streamEntityMove = (id: string, c: LngLat) => {
     if (tacticalLocked) return
     if (liveIds.has(id)) { placeVehicle(id, { coord: c }); return }
-    // …asked of the LIVE objects: the gesture holds this render's closure, and another device may
-    // attach a Leitung or dock a follower while the finger is down
-    if (!writesLive(viewsOf(objectsRef.current), id)) return
+    // …asked of the store as it is NOW: the gesture holds the press-time closure, and another
+    // device may attach a Leitung or dock a follower while the finger is down
+    if (!writesLive(viewsOf(liveObjects()), id)) return
     setDocRaw((d) => ({
       ...d,
       // an angedockte Gefahrentafel rides along mid-drag too (lib/docking), keeping the
