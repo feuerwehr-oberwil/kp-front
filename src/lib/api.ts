@@ -155,6 +155,10 @@ export class ApiError extends Error {
    *  wissen es noch nicht». The SharePoint sync button is the case that named this: a run
    *  carrying one 11 MB Modul 6 takes ~60 s, and the operator was told it had failed. */
   timedOut?: boolean
+  /** `detail` is the server's own sentence (a string `detail` or `detail.message` in the body),
+   *  not our wording for the bare status. A caller with a better sentence of its own for a bare
+   *  status keys on this, never on the text (admin/PlanAlignmentReview · refusalText). */
+  serverMessage?: boolean
   constructor(status: number, detail: string, retryAfter?: number) {
     super(detail)
     this.name = 'ApiError'
@@ -397,10 +401,12 @@ async function throwApiError(res: Response): Promise<never> {
     let fields: { path: string; msg: string; kind?: string; input?: unknown }[] | undefined
     let code: string | undefined
     let data: Record<string, unknown> | undefined
+    let serverMessage = false
     try {
       const body = await res.json()
       if (body && typeof body.detail === 'string') {
         detail = body.detail
+        serverMessage = detail !== ''
         hint = undefined
         // `{code, detail, …}` — a named refusal with its sentence beside the name (object visits)
         if (typeof body.code === 'string') { code = body.code; data = body as Record<string, unknown> }
@@ -410,6 +416,7 @@ async function throwApiError(res: Response): Promise<never> {
       // German sentence a string detail would have carried, so nothing is lost by ignoring code.
       else if (body?.detail && typeof body.detail === 'object' && typeof body.detail.message === 'string') {
         detail = body.detail.message
+        serverMessage = detail !== ''
         // `code` or `error` — the same field under the two names the backend has used for it
         // (`api/config` · would_empty_sections says `error`). One reader, both spellings.
         code = typeof body.detail.code === 'string' ? body.detail.code
@@ -451,6 +458,7 @@ async function throwApiError(res: Response): Promise<never> {
     err.fields = fields
     err.code = code
     err.data = data
+    err.serverMessage = serverMessage
     throw err
 }
 
