@@ -39,6 +39,12 @@ describe('destination folders', () => {
     expect(destinationValid({ ...ok, id: 'Bad Id' })).toBe(false)
     expect(destinationValid({ ...ok, locationFolder: '../x' })).toBe(false)
     expect(destinationValid({ ...ok, locationFolder: undefined })).toBe(true)
+    // the schema's lengths (admin/configGuards · TEXT_MAX_LENGTH)
+    expect(destinationValid({ ...ok, objectFolder: 'o'.repeat(201) })).toBe(false)
+    expect(destinationValid({ ...ok, visitFolder: 'v'.repeat(201) })).toBe(false)
+    expect(destinationValid({ ...ok, locationFolder: 'l'.repeat(201) })).toBe(false)
+    expect(destinationValid({ ...ok, root: 'r'.repeat(401) })).toBe(false)
+    expect(destinationValid({ ...ok, objectFolder: 'o'.repeat(200) })).toBe(true)
   })
   it('names a destination for a person, not by its id', () => {
     const kind = () => 'SharePoint'

@@ -23,7 +23,7 @@ import {
 import { DEFAULT_DESTINATION, DEFAULT_LOCATION_FOLDER, destinationValid, previewFolder, previewLocationFolder } from '../objectVisits/folders'
 import { personName, type DeliveryRow, type NotifyState, type VisitFiling, type VisitSummary, type VisitTemplate } from '../objectVisits/types'
 import { getPath, useConfig, type ConfigCtx } from './ConfigContext'
-import { NUMBER_GUARDS } from './configGuards'
+import { NUMBER_GUARDS, TEXT_MAX_LENGTH, fitsText } from './configGuards'
 import { apiErrorText } from './apiErrors'
 import {
   Card, ConfirmButton, CopyChip, EmptyState, RecordRows, RecordTable, ResultChip, SettingRow, SettingsNote,
@@ -38,6 +38,7 @@ const C = () => appConfig.copy.admin.objectVisits
 
 /** `owner_contact` from «Kontakt Eigentümer» — the organizer's key, typed once. */
 const fieldSlug = (s: string) => fold(s).replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')
+  .slice(0, TEXT_MAX_LENGTH['objectVisits.proposalFields.0.id'])
 
 export function ObjectVisitsView({ onNavigate }: { onNavigate: (id: string) => void }) {
   return (
@@ -133,7 +134,9 @@ function ModuleSheet({ onNavigate }: { onNavigate: (id: string) => void }) {
 
 // ─── Felder für Vorschläge ─────────────────────────────────────────────────────────────────
 
-function ProposalFieldsEditor() {
+/** «Felder für Vorschläge»: the Korrekturvorschlag fields (`objectVisits.proposalFields`). A row
+ *  the server would refuse stays here with its reason and is not written. */
+export function ProposalFieldsEditor() {
   const T = C()
   const { ov, set } = useOv()
   const stored = Array.isArray(ov.proposalFields) ? ov.proposalFields : []
@@ -146,7 +149,10 @@ function ProposalFieldsEditor() {
   }
   const write = (next: { id: string; label: string }[]) => {
     setEditing(next)
-    set(['objectVisits', 'proposalFields'], next.filter((f, i) => problem(f, i, next) === null).map((f) => ({ id: f.id.trim(), label: f.label.trim() })))
+    // …and none longer than the schema allows: the boxes hold typing to it (configGuards)
+    const fits = (f: { id: string; label: string }) =>
+      fitsText('objectVisits.proposalFields.0.id', f.id.trim()) && fitsText('objectVisits.proposalFields.0.label', f.label.trim())
+    set(['objectVisits', 'proposalFields'], next.filter((f, i) => problem(f, i, next) === null && fits(f)).map((f) => ({ id: f.id.trim(), label: f.label.trim() })))
   }
   const patch = (i: number, over: Partial<{ id: string; label: string }>) => write(rows.map((r, j) => (j === i ? { ...r, ...over } : r)))
   const setLabel = (i: number, label: string) => {
@@ -171,11 +177,11 @@ function ProposalFieldsEditor() {
           >
             <SettingRow label={T.fieldLabel}>
               <input className="adm-input" type="text" value={row.label ?? ''} placeholder={T.fieldLabelPlaceholder}
-                onChange={(e) => setLabel(i, e.target.value)} />
+                maxLength={TEXT_MAX_LENGTH['objectVisits.proposalFields.0.label']} onChange={(e) => setLabel(i, e.target.value)} />
             </SettingRow>
             <SettingRow label={T.fieldId}>
               <input className="adm-input adm-input-mono" type="text" value={row.id ?? ''} placeholder={T.fieldIdPlaceholder}
-                onChange={(e) => patch(i, { id: e.target.value })} />
+                maxLength={TEXT_MAX_LENGTH['objectVisits.proposalFields.0.id']} onChange={(e) => patch(i, { id: e.target.value })} />
             </SettingRow>
             {warn && <SettingsNote tone="warn">{warn}</SettingsNote>}
           </RecordRows>
@@ -247,6 +253,7 @@ function DestinationCard({ onNavigate }: { onNavigate: (id: string) => void }) {
   const text = (key: 'siteUrl' | 'library' | 'root' | 'objectFolder' | 'visitFolder' | 'locationFolder', label: string, opts: { mono?: boolean; placeholder?: string; tip?: string } = {}) => (
     <SettingRow label={label} tip={opts.tip} span>
       <input className={`adm-input${opts.mono ? ' adm-input-mono' : ''}`} type="text" value={dest[key] ?? ''}
+        maxLength={TEXT_MAX_LENGTH[`objectVisits.destinations.0.${key}`]}
         placeholder={opts.placeholder} onChange={(e) => patch({ [key]: e.target.value })} />
     </SettingRow>
   )

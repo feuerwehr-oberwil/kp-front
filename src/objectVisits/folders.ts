@@ -2,7 +2,7 @@
 // uses (docs/object-visits.md · «Deployment config»), for the admin's live example. The server is
 // the authority; this only has to show the operator what their template will produce.
 
-import { TEXT_MAX_LENGTH } from '../admin/configGuards'
+import { TEXT_MAX_LENGTH, fitsText } from '../admin/configGuards'
 
 export interface FolderVars {
   objectFolder?: string | null
@@ -83,10 +83,13 @@ export const DEFAULT_DESTINATION = {
 /** A destination's Kennung: lowercase, digits, `_` and `-`, at most the schema's length. */
 const DESTINATION_ID = new RegExp(`^[a-z0-9][a-z0-9_-]{0,${TEXT_MAX_LENGTH['objectVisits.destinations.0.id'] - 1}}$`)
 
+/** The destination's text fields with a schema length (admin/configGuards · TEXT_MAX_LENGTH). */
+const TEXT_FIELDS = ['siteUrl', 'library', 'root', 'objectFolder', 'visitFolder', 'locationFolder'] as const
+
 /** Would the server accept this destination (schemas · ObjectVisitDestination)? A destination
  *  that would not is kept on the admin page and NOT written: the config PUT is the whole
  *  document, and one refused row would stop every Station page from saving. */
-export function destinationValid(d: { id?: string; siteUrl?: string | null; root?: string | null; objectFolder?: string | null; visitFolder?: string | null; locationFolder?: string | null }): boolean {
+export function destinationValid(d: { id?: string; siteUrl?: string | null; library?: string | null; root?: string | null; objectFolder?: string | null; visitFolder?: string | null; locationFolder?: string | null }): boolean {
   const plain = (p: string, allowEmpty: boolean) => {
     const v = p.replace(/\\/g, '/').trim().replace(/^\/+|\/+$/g, '')
     if (!v) return allowEmpty
@@ -99,6 +102,8 @@ export function destinationValid(d: { id?: string; siteUrl?: string | null; root
     && plain(d.visitFolder ?? '', false)
     // absent = the default; present must be a plain pattern (schemas · locationFolder)
     && (d.locationFolder == null || plain(d.locationFolder, false))
+    // the card's boxes hold typing to these lengths; a stored value is checked all the same
+    && TEXT_FIELDS.every((k) => fitsText(`objectVisits.destinations.0.${k}`, d[k]))
 }
 
 /**
