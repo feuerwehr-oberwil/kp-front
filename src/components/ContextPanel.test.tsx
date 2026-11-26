@@ -4,7 +4,7 @@ import { render, screen, cleanup, fireEvent, within } from '@testing-library/rea
 import { ContextPanel, type PatchPhase, type SymbolPatch, type SymbolView } from './ContextPanel'
 import type { SymbolControl } from '../types'
 import { appConfig } from '../config/appConfig'
-import { fillTemplate } from '../lib/format'
+import { fillTemplate, stripUnprintable } from '../lib/format'
 // The ADR/ERG datasets are fetched static assets now (lib/staticData) — inject them the
 // way the boot prefetch would, so the autofill/readout under test sees the real tables.
 import unData from '../../public/un-hazard.json'
@@ -120,6 +120,17 @@ describe('ContextPanel — basic wiring', () => {
     // station having configured a title list for it
     setup({ entity: { id: 'v1', symbol: 'VKF Fahrzeug', label: 'TLF' }, titleOptions: ['TLF', 'MTF'] })
     expect(screen.getByText('Bezeichnung')).toBeTruthy()
+  })
+
+  // Sol review 26.11.2026: a name picked or typed in the list commits what the field shows – the
+  // Kroki's Helvetica draws a black box for an emoji (lib/format · stripUnprintable)
+  it('commits a typed Bezeichnung without its emoji', () => {
+    const p = setup({ entity: { id: 'v1', symbol: 'VKF Fahrzeug', label: 'TLF' }, titleOptions: ['TLF', 'MTF'] })
+    fireEvent.click(screen.getByText('TLF').closest('button')!)
+    fireEvent.change(screen.getByPlaceholderText(appConfig.copy.combo.searchOrType), { target: { value: 'TLF 🔥' } })
+    fireEvent.click(screen.getByRole('button', { name: /«TLF 🔥»/ }))
+    expect(p.onTitle).toHaveBeenCalledExactlyOnceWith(stripUnprintable('TLF 🔥'))
+    expect(stripUnprintable('TLF 🔥')).not.toContain('🔥')
   })
 
   // sweep K12 (29.09.2026): the head showed «TLF» as an underlined button AND the field said «TLF»

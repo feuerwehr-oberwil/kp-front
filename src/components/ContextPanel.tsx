@@ -465,6 +465,7 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
     setTitle(v)
     liveEdited.current = true
     onPatch({ label: v }, 'typing')
+    return v
   }
   const blurTitle = () => {
     if (liveEdited.current) { liveEdited.current = false; commit({ label: title }) }
@@ -1032,7 +1033,7 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
               <Combo
                 value={title} options={titleOptions ?? []} placeholder={C.titlePlaceholder}
                 allowCustom
-                onChange={(v) => { changeTitle(v); liveEdited.current = false; commit({ label: v }) }}
+                onChange={(raw) => { const v = changeTitle(raw); liveEdited.current = false; commit({ label: v }) }}
               />
             </label>
           ))}
