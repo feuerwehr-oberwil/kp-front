@@ -150,10 +150,11 @@ export function ProposalFieldsEditor() {
   const rows = editing ?? stored
   const problem = (f: FieldRow, i: number, all: FieldRow[]): string | null => {
     const id = f.id?.trim()
-    if (!id || !f.label?.trim()) return T.fieldIncomplete
-    // the holder of a Kennung: the row that has had it longest, the upper one on a tie
+    // the holder of a Kennung: the row that has had it longest, the upper one on a tie – checked
+    // before the label, so a new row given a taken Kennung first says that
     const holder = all.reduce((h, o, j) => (o.id?.trim() === id && (h < 0 || (o.since ?? 0) < (all[h].since ?? 0)) ? j : h), -1)
-    if (holder !== i) return T.fieldDuplicate
+    if (id && holder !== i) return T.fieldDuplicate
+    if (!id || !f.label?.trim()) return T.fieldIncomplete
     // …and none longer than the schema allows: the boxes hold typing to it (configGuards)
     return tooLongNote([
       ['objectVisits.proposalFields.0.label', T.fieldLabel, f.label.trim()],
