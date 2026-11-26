@@ -400,6 +400,16 @@ export const editorsCopy = {
     colorNames: { '#1f6feb': 'Blau', '#e8392b': 'Rot', '#1f9d57': 'Grün', '#e2920a': 'Orange', '#1b2330': 'Schwarz', '#ffffff': 'Weiss' },
     // the selection bar's copy of ONE object, ⌘D's twin for a touch tablet (rare-user F18)
     duplicate: 'Duplizieren',
+    // ── «Enden»: was die zwei Enden einer Linie halten, in Worten (Owner-Pick UX-Journeys,
+    // 25.11.2026 · B2·49). Die oberste Zeile des Linien-Editors: «Enden ✓ Hydrant 2 m → 🔗 TLF
+    // [Lösen]». Ein Tipp auf die Zeile springt zu «Verbindungen». «Hydrant» ist der nächste
+    // Hydrant der Hydranten-Ebene (angedockt wird dort nicht), gelesen wie «In der Nähe».
+    ends: 'Enden',
+    endHydrant: 'Hydrant',
+    endNone: 'nichts',
+    endsDetach: 'Lösen',
+    endsDetachLabel: 'Verbindung zu {name} lösen',
+    endsGo: 'Zu den Verbindungen',
   },
   topBar: {
     offline: 'Offline',

@@ -9,7 +9,7 @@
 //   · «In der Nähe» is distance and nothing else (`nearbyPlaces`): the panel lists it under its
 //     own heading with the sentence that it does not belong to the selected building.
 
-import type { LngLat } from '../../types'
+import type { LayerDef, LngLat } from '../../types'
 import { haversineM } from '../geo'
 import { ringContains } from '../footprintPick'
 import type { StationObject } from '../api/stationReference'
@@ -203,6 +203,26 @@ export function compass8(from: LngLat, to: LngLat): number {
   const dy = to[1] - from[1]
   const deg = ((Math.atan2(dx, dy) * 180) / Math.PI + 360) % 360
   return Math.round(deg / 45) % 8
+}
+
+/** The deployment's hydrant layer: a point layer whose id, label or symbol says «hydrant». */
+export function isHydrantLayer(l: Pick<LayerDef, 'geojson' | 'vectorKind' | 'id' | 'label' | 'symbol'>): boolean {
+  return !!l.geojson && l.vectorKind === 'point' && /hydrant/i.test(`${l.id} ${l.label} ${l.symbol ?? ''}`)
+}
+
+/** A line's end counts as AT a hydrant this close to one (the drawn end, not a docking – line
+ *  ends do not dock onto the Hydranten Ebene). */
+export const LINE_END_HYDRANT_M = 10
+
+/** The metres from `at` to the nearest of `hydrants` when it is within `maxM`, else null — the
+ *  line editor's «Enden» row (owner pick UX journeys, 25.11.2026 · B2·49: «✓ Hydrant 2 m»). */
+export function hydrantAt(hydrants: readonly NamedPoint[], at: LngLat, maxM = LINE_END_HYDRANT_M): number | null {
+  let best: number | null = null
+  for (const h of hydrants) {
+    const d = haversineM(at, h.coord)
+    if (d <= maxM && (best == null || d < best)) best = d
+  }
+  return best
 }
 
 /** Point features of a GeoJSON FeatureCollection as named points (a hydrant layer). The label is

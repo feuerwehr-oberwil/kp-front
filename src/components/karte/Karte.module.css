@@ -152,6 +152,11 @@ button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel
    (owner, review round 5: «koordinaten kopieren clips the button»; it was a 1fr 1fr grid of
    nowrap labels that ran out of their column) */
 .quick { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+/* …PINNED at the panel's foot, outside the scrolling body (owner pick UX journeys, 25.11.2026 ·
+   B2·58): «Objektbesuch» and «Melden» stay in reach while the sections scroll above them. A
+   hairline says where the scroll ends; the panel's frame is a flex column, so the foot never
+   scrolls. On a phone the foot pays the home indicator's inset, not the body (below). */
+.foot { flex: none; padding: var(--sp-3) var(--sp-4) var(--sp-4); border-top: 1px solid var(--border-soft); }
 /* ── one rhythm (owner, Karte Haus review round 4: «it feels like some buttons are larger than
    others»; picked mock A, the phone sheet too): ONE size per role in the panel – a list row 44px with a 14px title (round 6:
    «the text is too big for what it is»), its quiet sub on the title's line (it wraps under the title only where the two do not fit:
@@ -188,11 +193,12 @@ button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel
 .note { display: flex; gap: var(--sp-2); align-items: flex-start; padding: var(--sp-2) var(--sp-3); border-radius: var(--r-sm); background: var(--ink-5);
   font: var(--fw-medium) var(--fs-1)/1.4 var(--body); color: var(--ink); }
 .note svg { width: 16px; height: 16px; flex: none; margin-top: 1px; color: var(--ink-dim); }
-/* the plan tiles, two to a line (PlanTiles, owner 27.10.2026 · mock 2C): the list row's height and
-   type (one rhythm, below); a long name ends in «…» rather than growing the tile. The panel's ONE
+/* the plan tiles, ONE a line, named by the title (PlanTiles, owner pick UX journeys 25.11.2026 ·
+   B2·61; two to a line from 27.10.2026 · mock 2C): the list row's height and type (one rhythm,
+   below); a long title ends in «…» rather than growing the tile. The panel's ONE
    lifted surface – the .list-card's opaque fill and hairline ring, the glyph in full ink (owner,
    12.11.2026 · variant A «Leiser Rest»: the plans are what matters, they were the dimmest thing) */
-.planTiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-2); }
+.planTiles { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-2); }
 .planTile { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; min-height: var(--tap); padding: 0 var(--sp-3);
   border: none; border-radius: var(--r-sm); background: var(--surface); box-shadow: 0 0 0 1px var(--border-soft); color: var(--ink); font: var(--fw-bold) var(--fs-2)/1.2 var(--body);
   text-align: left; cursor: pointer; }
@@ -235,6 +241,9 @@ button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel
 /* the home indicator's inset is the body's end padding, inside the scroll – the frame pays none
    (15-mobile · .layers-card, scroll sweep 15.11.2026 #2) */
 .sheet .body { flex: 1 1 auto; min-height: 0; padding: 0 max(var(--sp-4), env(safe-area-inset-right)) calc(var(--sp-4) + env(safe-area-inset-bottom)) max(var(--sp-4), env(safe-area-inset-left)); }
+/* with the pinned actions (B2·58) the FOOT is the sheet's bottom edge and takes the inset */
+.sheet .body:has(+ .foot) { padding-bottom: var(--sp-3); }
+.sheet .foot { padding: var(--sp-3) max(var(--sp-4), env(safe-area-inset-right)) calc(var(--sp-4) + env(safe-area-inset-bottom)) max(var(--sp-4), env(safe-area-inset-left)); }
 
 /* ── name tags on the map ─────────────────────────────────────────────────────────────────── */
 /* a long name folds onto two, at most three, balanced lines at 280px instead of running off the

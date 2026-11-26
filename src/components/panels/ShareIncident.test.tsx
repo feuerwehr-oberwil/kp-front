@@ -10,7 +10,8 @@ import { createShareLink, fetchShareLink, revokeShareLink, type ShareLink } from
 // rather than what it looks like:
 //   1. Opening the surface never mints a link — only the button that says so does.
 //   2. Wherever the address is shown, the sentence saying what it hands over is shown WITH it —
-//      and it is the sentence of the door actually selected.
+//      and it is the sentence of the door actually selected. It stands above «Link erstellen»
+//      too, so it is read before the link exists (owner pick B2·55, 25.11.2026).
 //   3. Revoking asks first, and only revokes on a yes.
 //   4. Each door talks to its own link; switching never re-asks for one already fetched.
 //   5. A closed Einsatz is never offered the Atemschutz door: that link is dead (404).
@@ -58,14 +59,23 @@ describe('«Einsatz · lesen»', () => {
     expect(screen.getByText(C.shareWarn)).toBeTruthy()
   })
 
+  it('says what the link hands over before it exists, above «Link erstellen»', async () => {
+    render(<ShareIncident incidentId="i1" />)
+    const create = await screen.findByText(C.shareCreate)
+    const warn = screen.getByText(C.shareWarn)
+    expect(warn.compareDocumentPosition(create) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
   // One line, before and after (29.09.2026): the tab already says «lesen», so the lede carries the
-  // two facts it does not — no login, and it outlives the Abschluss. The long explanation (both
-  // audiences, both lifetimes) is in Hilfe · «Rapport & Abschluss».
+  // two facts it does not — no login, and it outlives the Abschluss. Before the link exists it also
+  // says «bis du den Link aufhebst» (B2·55, 25.11.2026): there is no «Link aufheben» button yet to
+  // say it. The long explanation (both audiences, both lifetimes) is in Hilfe · «Rapport & Abschluss».
   it('says in one line that it needs no login and outlives the Abschluss, with a link and without', async () => {
     render(<ShareIncident incidentId="i1" />)
     const before = await screen.findByText(C.shareLede)
     expect(before.textContent).toMatch(/Login/)
     expect(before.textContent).toMatch(/Abschluss/)
+    expect(before.textContent).toMatch(/aufhebst/)
 
     cleanup()
     vi.mocked(fetchShareLink).mockResolvedValue(on)

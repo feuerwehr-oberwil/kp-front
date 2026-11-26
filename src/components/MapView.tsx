@@ -23,7 +23,7 @@ import { LockChip } from './LockChip'
 import { LINE_DASH_ML } from '../lib/draw'
 import { DRAFT_ANTS, marchDraftAnts } from '../lib/draftAnts'
 import { MapImages } from './MapImages'
-import { markerParamsAlong, markerSpacing, lerpPoint, vertexHandleIndices, evenIndices, endMarkIndices, DEFAULT_INK, EXTEND_STEP_PX } from '../lib/lineStyle'
+import { markerParamsAlong, markerSpacing, lerpPoint, vertexHandleIndices, evenIndices, endMarkIndices, isShortLine, DEFAULT_INK, EXTEND_STEP_PX } from '../lib/lineStyle'
 import { centroid, rotateAround, turnedBy } from '../lib/selectionTransform'
 import { SelectionBar } from './SelectionBar'
 import { SelectionTurn } from './SelectionTurn'
@@ -902,11 +902,22 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
   // densifies as the operator zooms in, since the thinning is measured in projected px. Recomputed
   // on every render; the map bumps a render on moveend (see bumpLabelFrame), so a pinch-zoom lands
   // the new spread when the fingers come off.
+  const editPx = editNodes && editDraw && mapInst.current
+    ? editDraw.coords.map((c) => { const p = mapInst.current!.project(c as [number, number]); return [p.x, p.y] as [number, number] })
+    : null
   const editHandleIdx = editNodes && editDraw
-    ? mapInst.current
-      ? vertexHandleIndices(editDraw.coords.map((c) => { const p = mapInst.current!.project(c as [number, number]); return [p.x, p.y] as [number, number] }))
-      : evenIndices(editDraw.coords.length)
+    ? editPx ? vertexHandleIndices(editPx) : evenIndices(editDraw.coords.length)
     : []
+  // ⚠️ A SHORT line (< SHORT_LINE_PX on screen) shows its end pads and nothing else: no «+», no
+  // «Verlängern» arrows, no detach ✕ (owner pick UX journeys, 25.11.2026 · B2·49 – a fresh
+  // Zubringleitung from the hydrant to the TLF disappeared under its own grips, and neither end
+  // could be seen). It grows by dragging an end; the editor's «Enden» row says what each end
+  // hangs on and offers «Lösen». Measured in the current projection, so zooming in brings the
+  // grips back.
+  const editShort = !!editDraw && editDraw.kind === 'line' && !!editPx && isShortLine(editPx)
+  // …and a line's two END pads are hollow rings, whatever the line's Abschluss, so what an end
+  // sits on (the hydrant, the TLF) shows through the pad (B2·49)
+  const editEndRing = editNodes && editDraw && !editArea && editDraw.coords.length >= 2 ? [0, editDraw.coords.length - 1] : []
   // The vertex that carries the end mark (arrowhead, Teilstück fork) is drawn HOLLOW, and the mark
   // is painted again ABOVE it (EditArrowMark; the fork's marker lifts to MARKER_Z.endMark): the
   // arrow is a symbol layer on the canvas and every node pad is a DOM marker, so a hollow ring
@@ -926,7 +937,7 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
   // half-way point ALONG the stroke between the two pads, and inserting it changes no geometry at
   // all — it only leaves a grabbable node where there was none. On an unthinned line that is
   // exactly the segment midpoint the «+» has always been.
-  const editInserts = editNodes && editDraw && editDraw.coords.length >= 2
+  const editInserts = editNodes && editDraw && editDraw.coords.length >= 2 && !editShort
     ? handleGaps(editHandleIdx, editDraw.coords.length, editArea).map(([a, b]) => subPathInsert(editDraw.coords, a, b))
     : []
   const editFC = useMemo(() => fc(editDraw ? [editCircle ? polyFeat(circleRing(editDraw)) : editArea ? polyFeat(editDraw.coords) : lineFeat(editDraw.coords)] : []), [editDraw, editCircle, editArea])
@@ -1967,7 +1978,7 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
           onClick={keepClickOnPad}
         >
           <div
-            className={`draw-handle ${editRingIdx.includes(i) ? 'draw-handle--ring' : ''} ${vertexPress.armed?.key === `draw:${i}` ? 'doomed' : ''}`}
+            className={`draw-handle ${editRingIdx.includes(i) || editEndRing.includes(i) ? 'draw-handle--ring' : ''} ${vertexPress.armed?.key === `draw:${i}` ? 'doomed' : ''}`}
             title={appConfig.copy.measure.deleteNode}
             {...vertexPress.press(`draw:${i}`, () => deleteVertexKeepSelection(editDraw.id, i), editDraw.coords.length > (editArea ? 3 : 2))}
             onContextMenu={(ev) => { ev.stopPropagation(); ev.preventDefault(); if (editDraw.coords.length > (editArea ? 3 : 2)) deleteVertexKeepSelection(editDraw.id, i) }}
@@ -1999,7 +2010,7 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
           handle and, when attached, the detach chip. A grip on top of those would be a third
           thing competing for the same pixel.
           Lines only — an area has no end to grow from, and a circle is centre + radius. */}
-      {editDraw && editDraw.kind === 'line' && editNodes && onDrawingEdit && onDrawingVertexInsert && editDraw.coords.length >= 2
+      {editDraw && editDraw.kind === 'line' && editNodes && onDrawingEdit && onDrawingVertexInsert && editDraw.coords.length >= 2 && !editShort
         && (['start', 'end'] as const).map((ep) => {
         const coords = editDraw.coords
         const i = ep === 'start' ? 0 : coords.length - 1
@@ -2055,8 +2066,9 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
       })}
 
       {/* explicit detach: a × chip beside a connected endpoint of the selected line. Dragging the node
-          only moves/re-targets (never severs), so this is how a connection is broken on-canvas. */}
-      {editDraw && editDraw.kind === 'line' && onDrawingAttachment && !endpointDrag && (['start', 'end'] as const).map((ep) => {
+          only moves/re-targets (never severs), so this is how a connection is broken on-canvas.
+          Not on a SHORT line (B2·49): there it is the editor's «Lösen» in its «Enden» row. */}
+      {editDraw && editDraw.kind === 'line' && onDrawingAttachment && !endpointDrag && !editShort && (['start', 'end'] as const).map((ep) => {
         const a = ep === 'start' ? selectedDrawing?.startAttachment : selectedDrawing?.endAttachment
         if (!a || editDraw.coords.length < 2) return null
         const pt = ep === 'start' ? editDraw.coords[0] : editDraw.coords[editDraw.coords.length - 1]
