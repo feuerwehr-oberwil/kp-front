@@ -28,7 +28,10 @@ import type { useSymbols } from '../lib/useSymbols'
 import { positionOverride, type VehicleOverrides, type VehiclePosition } from '../lib/useVehicleLayer'
 import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import type { TacticalObject } from '../lib/tacticalObjects'
-import type { Doc } from '../lib/workspace'
+import type { Doc, FahrzeugZeit } from '../lib/workspace'
+import { gpsTwin } from '../lib/gpsTwin'
+import { gpsDeviceOf, vehicleTimeRows } from '../lib/vehicleTimes'
+import { getDeploymentConfig } from '../lib/deploymentConfig'
 import type { Entity, LngLat, TimelineEvent, Trupp, Drawing, NoteSize, Person, LineEndpoint, LineAttachment, LayerDef, LayerId, CaptionMode, MapTool } from '../types'
 import type { WorkspaceMode } from './types'
 
@@ -74,6 +77,12 @@ export interface MapDetailPanelsProps {
   resetVehicleGps: (id: string, name: string) => void
   /** a hand places a live vehicle (useMapActions · placeVehicle) */
   placeVehicle: (id: string, pos: VehiclePosition) => void
+  /** a placed Fahrzeug goes and its GPS twin is held there instead (useMapActions · holdGpsInstead) */
+  holdGpsInstead: (symbolId: string, vehicleId: string, name: string) => void
+  /** …or it stays, a second vehicle, and the hint goes for good (useMapActions · keepGpsTwin) */
+  keepGpsTwin: (symbolId: string, name: string) => void
+  /** the Rapport's vehicle times – a vehicle's sheet reads its clocks (lib/vehicleTimes) */
+  fahrzeuge: FahrzeugZeit[] | undefined
   log: (icon: string, text: string, kind?: TimelineEvent['kind'], audioUrl?: string, entityId?: string, opts?: { rowId?: string; subjectId?: string }) => void
   assignTypedName: (name: string, role: AssignableRole, note?: string) => string | undefined
   drawings: Drawing[]
@@ -124,7 +133,7 @@ export function MapDetailPanels({
   timeline, sym, entityTypedAt, titleLiveRef, beginDrag,
   setDocRaw, endDrag, emit, patchEntity, linkRosterFields, createCircle, doc, undockTeam, effTrupps,
   symbolCaptions, rosterNames, rosterRank, personStatus, rosterFieldHints, setEntityDone, commitEntityFields,
-  vehicleOverrides, canEditIncident, readOnly, stopPersonSharing, setVehicleOverrides, resetVehicleGps, placeVehicle, log,
+  vehicleOverrides, canEditIncident, readOnly, stopPersonSharing, setVehicleOverrides, resetVehicleGps, placeVehicle, holdGpsInstead, keepGpsTwin, fahrzeuge, log,
   assignTypedName, drawings, entities, focusDrawing, noteEntity, notePlacedId, setNotePanelId,
   noteTextLive, setNoteDefaults, selectedDrawing, patchDrawing,
   selectedDrawingId, patchDrawingLabelLive, commitDrawingLabel,
@@ -362,6 +371,28 @@ export function MapDetailPanels({
               })),
             }
             : undefined}
+          // «Ausgerückt 13:40 · Vor Ort 13:48» – a GPS vehicle by its device, a placed Fahrzeug by
+          // its Bezeichnung (lib/vehicleTimes; owner, batch-3 round #5, 25.11.2026: «Sheet only»)
+          vehicleTimes={selected.live && selected.kind === 'vehicle'
+            ? vehicleTimeRows({ name: selected.label, device: gpsDeviceOf(selected.id) }, getDeploymentConfig().fleet?.vehicles ?? [], fahrzeuge)
+            : selected.symbol === appConfig.symbols.vehicleName
+              ? vehicleTimeRows({ name: selected.label }, getDeploymentConfig().fleet?.vehicles ?? [], fahrzeuge)
+              : undefined}
+          // a placed Fahrzeug named like the GPS vehicle beside it: «Zwei Symbole = zwei
+          // Fahrzeuge?» and the way out (lib/gpsTwin, owner picks UX journeys B3·33/34)
+          gpsTwin={selected.symbol === appConfig.symbols.vehicleName ? (() => {
+            const twin = gpsTwin(selected, entities)
+            if (!twin) return undefined
+            const name = twin.vehicle.label ?? ''
+            return {
+              name,
+              distM: twin.distM,
+              ...(tacticalLocked || !canEditIncident ? null : {
+                onHold: () => holdGpsInstead(selected.id, twin.vehicle.id, name),
+                onKeep: () => keepGpsTwin(selected.id, name),
+              }),
+            }
+          })() : undefined}
           // each row says what tells the lines apart — «Linie · 42 m → Hydrant H-142» (K11)
           connectedLines={drawings.filter((d) => [d.startAttachment, d.endAttachment].some((a) => a?.target.kind === 'object' && a.target.id === selected.id)).map((d) => ({
             id: d.id,

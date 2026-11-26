@@ -295,14 +295,6 @@ export const drawingCopy = {
       fire: { title: 'Gelöscht', inline: 'gelöscht' },
       other: { title: 'Erledigt', inline: 'erledigt' },
     },
-    /** die Kachel im Fuss des Symbol-Editors – EIN Wort für jede Familie (D8, 27.09.2026: das
-     *  Feuer ist gelöscht, das Symbol erledigt; der Doppelname «Gelöscht / erledigt» war die
-     *  Brücke vom alten «Löschen» und ist gefallen). `actionHint` ist ihr Halte-Satz (data-holdexplain, 17.11.2026). Seit 31.10.2026
-     *  ein Schalter: gesetzt bleibt dieselbe Kachel stehen, gedrückt, und `reopenHint` ist ihr
-     *  Name – ein Tippen setzt das Symbol wieder aktiv. */
-    action: 'Erledigt',
-    actionHint: 'Erledigt – bleibt grau auf Karte und Rapport',
-    reopenHint: 'Erledigt – wieder aktiv setzen',
     /** der gesetzte Zustand im Kopf des Editors und auf dem Rapport: «erledigt 20:40» */
     state: '{word} {time}',
     /** Der Knopf selbst heisst überall «Entfernen» (copy · remove); auf einem Symbol mit «Gelöscht /
@@ -312,6 +304,13 @@ export const drawingCopy = {
      *  derselbe Moment, den `done.at` hält; eine Uhrzeit in Klammern sagte es zweimal. */
     logDone: '{name} {word}',
     logReopened: '{name} wieder aktiv',
+    /** Die Zeile «Zustand [Brennt | Gelöscht]» im Symbol-Editor, wie «Beschriftung» (Owner-Pick
+     *  UX-Journeys M·6, 25.11.2026): ein Zustand, keine Aktion – die Kachel «Erledigt» im Fuss las
+     *  sich wie «Panel schliessen». Die zweite Hälfte ist `word.*.title`; `stateActive` die erste,
+     *  nach Familie. `stateDoneHint` ist der Halte-Satz der zweiten Hälfte. */
+    stateLabel: 'Zustand',
+    stateActive: { fire: 'Brennt', other: 'Aktiv' },
+    stateDoneHint: '{word} – bleibt grau auf Karte und Rapport',
   },
   /** Jede Messung eines Messpunkts als Verlaufszeile (Entscheid 2A, 10.11.2026, lib/readingLog):
    *  «Messung Keller Heizraum (UG): CO 180 ppm – A2 Hauptalarm erreicht · O₂ 20,4 Vol-%».
@@ -329,7 +328,9 @@ export const drawingCopy = {
   // unified, append-only journal (Verlauf) shared by Karte + Plan
   // PHONE: the «+» tile's word and the first section of its sheet (lib/toolFold · Palette) —
   // Linie · Fläche · Absperrkreis · Notiz · Trupp leave the bar for it
-  addSheet: { tile: 'Hinzufügen', tools: 'Zeichnen & Trupp' },
+  addSheet: { tile: 'Hinzufügen', tools: 'Zeichnen & Trupp',
+    /** die Treffer der Suche aus der Bezeichnungsliste der Wache (Owner-Pick UX-Journeys M·9, 25.11.2026) */
+    ownVehicles: 'Eigene Fahrzeuge' },
   toolDock: {
     // Tap-away while a node draft is in progress no longer discards silently (29.08.):
     // a committable draft auto-commits with this toast, whose «Rückgängig» hands the

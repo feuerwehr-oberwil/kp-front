@@ -175,9 +175,9 @@ Run `just` without an argument to list every recipe.
 | --- | --- |
 | `just dev` | the whole stack: database + backend + frontend |
 | `just db-stop` / `just db-reset` | stop the dev database / wipe its volume |
-| `just lint` / `just test` | lint / test both stacks |
+| `just lint` / `just test` | lint / test both stacks; a first look, not the gate before a push |
 | `just test-changed` | short frontend feedback loop plus backend last failures; not a full gate |
-| `just ci` | the static, coverage and backend gates your diff can affect, in parallel; `just ci-all` runs all of them |
+| `just ci` | the gate before a push: the static, coverage, backend and static-analysis gates your diff can affect, in parallel – the recipes CI's jobs run; `just ci-all` runs all of them |
 | `just test-backend <pytest args…>` | backend tests on a disposable PostgreSQL database |
 | `just build` | type-check + production build |
 | `just config-example` | print a starting deployment config (copy & edit) |

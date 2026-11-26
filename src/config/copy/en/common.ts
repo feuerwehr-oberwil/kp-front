@@ -9,6 +9,7 @@ type Keys =
   | 'exerciseInitial' | 'keepPlacing' | 'delete' | 'remove' | 'undo' | 'redo' | 'undoNamed'
   | 'redoNamed' | 'undoLost' | 'removedToast' | 'undoDomains' | 'undoSurfaces' | 'undoTopDropped'
   | 'undoDroppedWhat' | 'play' | 'clear' | 'clearSearch' | 'noHits' | 'keepPlacingShort' | 'filterNoHits'
+  | 'filterStrip' | 'undoStep'
   | 'filterStrip' | 'timeOfDay'
 
 export const commonCopy: Localizable<Pick<Copy, Keys>> = {
@@ -67,6 +68,13 @@ export const commonCopy: Localizable<Pick<Copy, Keys>> = {
     sorted: 'Sorted:',
     count: '{n} of {m}',
     showAll: 'Show all',
+  },
+  undoStep: {
+    placed: '{name} placed',
+    removed: '{name} removed',
+    moved: '{name} moved',
+    changed: '{name} changed',
+    saved: 'saved',
   },
   timeOfDay: '{time}',
 }

@@ -2336,7 +2336,7 @@ describe('«Gelöscht / erledigt» on the plan', () => {
 
   it('offers the row at the top of the symbol’s panel and keeps the symbol — greyed, with the time', () => {
     const { onChange, log, emit } = open([feuer])
-    fireEvent.click(screen.getAllByRole('button', { name: new RegExp(O.action) })[0])
+    fireEvent.click(screen.getAllByRole('button', { name: fillTemplate(O.stateDoneHint, { word: O.word.fire.title }) })[0])
     const saved = lastSaved(onChange)
     expect(saved).toHaveLength(1) // still there
     expect(saved[0].done?.at).toBeTruthy()
@@ -2350,13 +2350,13 @@ describe('«Gelöscht / erledigt» on the plan', () => {
     expect(emit).toHaveBeenCalledWith('entity.edit', { id: 'f1', patch: { done: saved[0].done } })
   })
 
-  it('states a set one and the pressed «Erledigt» takes it back – a row, and `done: null` for the replay', () => {
+  it('states a set one and «Brennt» in its Zustand row takes it back – a row, and `done: null` for the replay', () => {
     const done = { at: '2026-09-23T18:40:00.000Z' }
     const { onChange, log, emit, container } = open([{ ...feuer, done }])
     // greyed on the board, the time in its corner
     expect(container.querySelector('.ts.ts-done .sym-done')?.textContent).toMatch(/^\d\d:\d\d$/)
     expect(screen.getAllByText(new RegExp(`^${O.word.fire.inline} \\d\\d:\\d\\d$`)).length).toBeGreaterThan(0)
-    fireEvent.click(screen.getAllByRole('button', { name: O.reopenHint, pressed: true })[0])
+    fireEvent.click(screen.getAllByRole('button', { name: O.stateActive.fire, pressed: false })[0])
     expect(lastSaved(onChange)[0].done).toBeUndefined()
     expect(log.mock.calls[0][1]).toBe('Feuer EG wieder aktiv')
     expect(emit).toHaveBeenCalledWith('board.edit', expect.objectContaining({ id: 'f1', patch: { done: null } }))
@@ -2387,20 +2387,20 @@ describe('«Gelöscht / erledigt» on the plan', () => {
   it('offers no row on a Fahrzeug — its editor has only «Entfernen»', () => {
     const car: BoardAnno = { id: 'v1', kind: 'symbol', x: 0.5, y: 0.5, floor: 0, symbol: 'VKF Fahrzeug', label: 'TLF' }
     open([car])
-    expect(screen.queryByRole('button', { name: new RegExp(O.action) })).toBeNull()
+    expect(screen.queryByRole('group', { name: O.stateLabel })).toBeNull()
     expect(screen.getAllByRole('button', { name: appConfig.copy.remove }).length).toBeGreaterThan(0)
   })
 
   it('…but a Fahrzeug that already carries `done` (an older record) can still be reopened', () => {
     const car: BoardAnno = { id: 'v1', kind: 'symbol', x: 0.5, y: 0.5, floor: 0, symbol: 'VKF Fahrzeug', label: 'TLF', done: { at: '2026-09-23T18:40:00.000Z' } }
     const { onChange } = open([car])
-    fireEvent.click(screen.getAllByRole('button', { name: O.reopenHint, pressed: true })[0])
+    fireEvent.click(screen.getAllByRole('button', { name: O.stateActive.other, pressed: false })[0])
     expect(lastSaved(onChange)[0].done).toBeUndefined()
   })
 
   it('offers nothing on a read-only board — but still states that it is done', () => {
     open([{ ...feuer, done: { at: '2026-09-23T18:40:00.000Z' } }], { readOnly: true })
-    expect(screen.queryByRole('button', { name: new RegExp(O.action) })).toBeNull()
+    expect(screen.queryByRole('group', { name: O.stateLabel })).toBeNull()
     expect(screen.getAllByText(new RegExp(`^${O.word.fire.inline} \\d\\d:\\d\\d$`)).length).toBeGreaterThan(0)
   })
 })
@@ -2569,5 +2569,27 @@ describe('a single Objekt plan on a phone', () => {
       hist={{}} setHist={() => {}} focus={null} objectAddress="Schlossgasse 9" buildingInfo={info} />)
     const row = container.querySelector('.wb-botleft')!
     expect(within(row as HTMLElement).getByRole('button', { name: /^Gebäude/ })).toBeTruthy()
+  })
+})
+
+// sweep 25.11.2026 #12: the Lage's seed rule (MapView · relationship, 15.09.) – a selected Trupp
+// chip lit the water source at the far end of its hose, which read as «that is selected too»
+describe('the relationship halo on the Plan', () => {
+  const hyd: BoardAnno = { id: 's2', kind: 'symbol', symbol: 'FW Hydrant', label: 'H-142', x: 0.8, y: 0.8, floor: 0 }
+  const hose = { id: 'l9', kind: 'draw', pts: [[0.5, 0.5, 0], [0.8, 0.8, 0]], floor: 0,
+    startAttachment: { target: { kind: 'object', id: 'c1' } }, endAttachment: { target: { kind: 'object', id: 's2' } } } as BoardAnno
+
+  it('is not seeded from a selected Trupp chip', () => {
+    const { container } = renderPlan([chip, hyd, hose])
+    mouseDown(screen.getByText('Trupp 1'))
+    expect(container.querySelectorAll('.network-halo')).toHaveLength(0)
+    expect(container.querySelectorAll('.wb-anno.network')).toHaveLength(0)
+  })
+
+  it('…while a selected symbol still lights its hose and what hangs on it', () => {
+    const { container } = renderPlan([chip, hyd, hose])
+    mouseDown(container.querySelector('.wb-symbol')!)
+    // the halo sits on a networked object that is NOT the selected one: the chip at the far end
+    expect(container.querySelectorAll('.wb-resource.network .network-halo')).toHaveLength(1)
   })
 })

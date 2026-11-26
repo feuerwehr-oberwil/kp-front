@@ -147,6 +147,17 @@ export const commonCopy = {
     count: '{n} von {m}',
     showAll: 'Alle zeigen',
   },
+  /** Was ein Karten-Schritt mit EINEM Objekt tat – die Worte, die ↶ nennt, wo der Schreiber keine
+   *  eigenen setzt (lib/undoStepWords; Owner-Pick UX-Journeys M·11, 25.11.2026: «Rückgängig:
+   *  Änderung auf der Karte» nannte nichts). `saved` steht in der ↶-Blase, sobald der Server den
+   *  Schritt hat (lib/undoFlash). */
+  undoStep: {
+    placed: '{name} gesetzt',
+    removed: '{name} entfernt',
+    moved: '{name} verschoben',
+    changed: '{name} geändert',
+    saved: 'gespeichert',
+  },
   // THE time of day as a value (lib/format · timeOfDay): «22:10 Uhr». A time of day ends on «Uhr»,
   // a duration never – «00:15» was read as the Einsatz clock's «5:00» (owner pick UX journeys
   // B2·43, 25.11.2026; docs/copy-and-wording.md). A template that frames the time itself says

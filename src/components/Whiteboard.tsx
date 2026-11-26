@@ -212,8 +212,9 @@ interface Props {
   /** name → rank key, for the officer-first sort + "nur Offiziere" filter on leadership symbols */
   rosterRank?: Record<string, string | undefined>
   /** a roster field on a plan symbol («Fahrer», «Name») names somebody who is standing there —
-   *  same rule as on the Lage, so the Anwesenheit learns about it from either surface */
-  onRosterField?: (symbol: string | undefined, label: string | undefined, key: string, name: string) => void
+   *  the Lage's own call (workspace/useRosterRoles · linkRosterFields) with the Lage's arguments:
+   *  the symbol before the edit, the fields after it, `force` when its label changed */
+  onRosterFields?: (prev: Pick<BoardAnno, 'symbol' | 'label' | 'fields'>, fields: Record<string, string>, opts?: { force?: boolean }) => void
   /** What is already known about a roster NAME — «unter Atemschutz», «Magazin», «gegangen» —
    *  shown ON the dropdown entry (lib/roleAssignment · personStatusHint). Handed to the plan for
    *  the same reason it is handed to the map: the picker is the moment you learn that the person
@@ -426,7 +427,7 @@ export interface PlanLogExtra {
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
 
-export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange: onChangeAll, building, floorPack, sheetFloors, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, authorName, onStepLabel, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], truppColors, placedTeamNames, teamNameTaken, onLinkTrupp, onShowTrupp, truppFinder, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, historyGroup, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, buildingInfo, readingsChip, incidentId, incidentAddress, incidentPos, onObjectSwitch, planScale = {}, onCalibrate, live = [], photos = [], liveFacts, onPlanLiveMove, onStepEnd, slimTools: slimToolsProp = false, linkViewer = false, railLabels, tafel, presentation, replay = false }: Props) {
+export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange: onChangeAll, building, floorPack, sheetFloors, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterFields, personStatus, fieldHints, onRecent, log, authorName, onStepLabel, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], truppColors, placedTeamNames, teamNameTaken, onLinkTrupp, onShowTrupp, truppFinder, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, historyGroup, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, buildingInfo, readingsChip, incidentId, incidentAddress, incidentPos, onObjectSwitch, planScale = {}, onCalibrate, live = [], photos = [], liveFacts, onPlanLiveMove, onStepEnd, slimTools: slimToolsProp = false, linkViewer = false, railLabels, tafel, presentation, replay = false }: Props) {
   // ⚠️ RIDERS: what lives on a sheet but is not drawn ON it — the Tafel's pages (kind `form`,
   // lib/boardForm) and any board object this build does not understand (lib/workspace ·
   // isPassengerAnno). Nothing positional may see them: every drawing path below reads `annos` —
@@ -502,7 +503,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // own placement state (lib/useTacticalSelection · usePlacement). Placing one at a time by
   // default (drop to pan + select it after each), or holding the lock to keep placing several,
   // is identical to the Lage map placement model.
-  const { tool: armedTool, setTool, pending, setPending, pendingShape, setPendingShape, placeLock, setPlaceLock } = usePlacement<BoardTool>('pan')
+  const { tool: armedTool, setTool, pending, pendingLabel, setPending, pendingShape, setPendingShape, placeLock, setPlaceLock } = usePlacement<BoardTool>('pan')
   /** measure node currently in the hand — its cumulative label (25px over the fingertip) steps
    *  aside and the fixed .measure-readout carries the number instead (mirrors MapView) */
   const [measDragNode, setMeasDragNode] = useState<number | null>(null)
@@ -1190,7 +1191,8 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     return [port[0] / sW, localY(port[1] / sH, floor), floor]
   }
   for (const l of attachmentLines) resolvedPts.set(l.id, resolveLinePoints(l, { lines: attachmentLines, objectPoint, linePoint }))
-  const relationship = relationshipNetwork(attachmentLines, selId && attachmentLines.some((l) => l.id === selId) ? [selId] : [], selId && annos.some((a) => a.id === selId && (a.kind === 'symbol' || a.kind === 'resource')) ? [selId] : [])
+  // ⚠️ seeded from a selected symbol, never a Trupp chip – the Lage's rule (MapView · relationship)
+  const relationship = relationshipNetwork(attachmentLines, selId && attachmentLines.some((l) => l.id === selId) ? [selId] : [], selId && annos.some((a) => a.id === selId && a.kind === 'symbol') ? [selId] : [])
   // resolvedPts already carries the dragged endpoint at the finger position (attachmentLines injects
   // it above), so the anno list needs no second override.
   const renderAnnos = shownAnnos.map((a) => (resolvedPts.has(a.id) ? { ...a, pts: resolvedPts.get(a.id)! } : a))
@@ -1257,7 +1259,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   const stopPlacing = () => { setPending(null); setPendingShape(null); setTool('pan') }
   // the armed tool's readout, the first tile of its dock (ToolDock · armed, lib/armedTool) – the
   // Lage's own (MapToolDocks); every dock but Messen's, whose results panel names the tool
-  const armed = armedReadout(tool, appConfig.copy.planTools, { symbol: pending, svg: pending ? sym.byName[pending] : undefined, shape: pendingShape })
+  const armed = armedReadout(tool, appConfig.copy.planTools, { symbol: pending, label: pendingLabel, svg: pending ? sym.byName[pending] : undefined, shape: pendingShape })
   // Back from the background (C3, 17.11.2026 · lib/useOnResume): the armed tool, symbol or shape is
   // put down – a line draft is released through the same `setTool('pan')` Escape uses, so a
   // committable one asks – a half-laid Rotation goes, and «Mehrere platzieren» goes off.
@@ -1351,7 +1353,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
 
   // --- create-tool interactions (on the ink overlay) — components/usePlanCreate ---
   const { inkDown, inkMove, inkUp, placeTeamChip, doorGhost, clearDoorGhost } = usePlanCreate({
-    tool, setTool, pending, setPending, pendingShape, setPendingShape, placeLock, setPaletteOpen, stack, drawings: storeyDrawings,
+    tool, setTool, pending, pendingLabel, setPending, pendingShape, setPendingShape, placeLock, setPaletteOpen, stack, drawings: storeyDrawings,
     toNorm, floorAt, localY, mapY, sW, sH, tileAR, scale, posRef, scaleRef, applyView, zoomTo, canvasRef, boardRef, inkTapRef: inkTap,
     planDraft, rotor, measure: planMeasure, rotPlacing, rotStart, setRotStart, rotN, noteDefaults, txtBase, setNotePanelId, setNotePlacedId,
     sym, onRecent, annos, trupps, placedTeamNames, onLinkTrupp, setTruppPick, add, log, setSelId,
@@ -1683,8 +1685,8 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   }, [flashId])
 
   // the Durchgang on the Gebäude stack places «mehrere» by default: 20 doors are 20 taps (owner, 27.10.2026)
-  const pickSymbol = (name: string) => {
-    setPending(name); setPendingShape(null); setTool('symbol'); setPaletteOpen(false); onRecent(name)
+  const pickSymbol = (name: string, label?: string) => {
+    setPending(name, label); setPendingShape(null); setTool('symbol'); setPaletteOpen(false); onRecent(name)
     if (stack && name === DOOR_SYMBOL) setPlaceLock(true)
   }
   const pickShape = (kind: ShapeKind) => { setPendingShape(kind); setPending(null); setTool('shape'); setPaletteOpen(false) }
@@ -3159,14 +3161,10 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
             titleLive.current = null
             if (live) emit('board.edit', { id: selSymbol.id, patch: { label: v }, planId: activeId })
             else patchCommit(selSymbol.id, { label: v })
+            // the Fahrer's Bemerkung is «Fahrer {Label}» – a renamed vehicle re-files its driver
+            onRosterFields?.({ ...selSymbol, label: v }, selSymbol.fields ?? {}, { force: true })
           }}
-          onFields={(fields) => {
-            const before = selSymbol.fields ?? {}
-            commitAnnoFields(selSymbol, fields)
-            for (const [k, v] of Object.entries(fields)) {
-              if (v.trim() && before[k] !== v) onRosterField?.(selSymbol.symbol, selSymbol.label, k, v)
-            }
-          }}
+          onFields={(fields) => { commitAnnoFields(selSymbol, fields); onRosterFields?.(selSymbol, fields) }}
           onReadingAgain={() => commitAnnoFields(selSymbol, selSymbol.fields ?? {}, true)}
           onNotes={(v) => patchCommit(selSymbol.id, { notes: v || undefined })}
           // Stockwerk — the Lage has always offered it, the Modul boards never did, so a Brand

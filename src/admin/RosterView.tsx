@@ -575,7 +575,7 @@ function NameOrderCard() {
   const C = appConfig.copy.admin.roster
   // 'last-first' is the shipped default AND what the Divera sync writes — an unset config and a
   // config set to last-first have to look the same in the picker.
-  const value = getPath<string>(draft, ['roster', 'nameOrder']) === 'first-last' ? 'first-last' : 'last-first'
+  const value = getPath(draft, ['roster', 'nameOrder']) === 'first-last' ? 'first-last' : 'last-first'
   // The Standard column speaks in the picker's own words, not in the stored key — «last-first»
   // is not a word anybody chose. It stays silent while the shipped order is in force.
   // ⚠️ The SHORT labels, not the picker's: the option carries an example («Nachname Vorname ·
@@ -617,7 +617,7 @@ function AutoSyncCard({ provider }: { provider: string | null | undefined }) {
   const C = appConfig.copy.admin.roster
   // «safe» is both the shipped default and what an unset field means (backend · personnel ·
   // DEFAULT_AUTO_SYNC), so the two have to look identical in the picker.
-  const stored = getPath<string>(draft, ['roster', 'autoSync'])
+  const stored = getPath(draft, ['roster', 'autoSync'])
   const value = stored === 'off' || stored === 'full' ? stored : 'safe'
   if (provider !== 'divera') return null
   const chosen = value === 'off' ? C.autoSyncShortOff : value === 'full' ? C.autoSyncShortFull : C.autoSyncShortSafe

@@ -29,9 +29,9 @@ export function MaterialView({ onNavigate }: { onNavigate?: (id: string) => void
   const C = appConfig.copy.admin.material
   // Array.isArray, not `?? []`: the document can be written straight into the DB by the
   // `admin_config` CLI, and a hand-edited `mittel.catalogue: {}` must not white-screen the page.
-  const rawItems = getPath<unknown>(draft, ['mittel', 'catalogue'])
-  const rawSources = getPath<unknown>(draft, ['mittel', 'sources'])
-  const rawUnits = getPath<unknown>(draft, ['mittel', 'units'])
+  const rawItems = getPath(draft, ['mittel', 'catalogue'])
+  const rawSources = getPath(draft, ['mittel', 'sources'])
+  const rawUnits = getPath(draft, ['mittel', 'units'])
   const items: DeploymentMittelItem[] = Array.isArray(rawItems) ? rawItems : []
   const sources: DeploymentMittelSource[] = Array.isArray(rawSources) ? rawSources : []
   const units: string[] = Array.isArray(rawUnits) ? rawUnits.filter((u): u is string => typeof u === 'string') : []

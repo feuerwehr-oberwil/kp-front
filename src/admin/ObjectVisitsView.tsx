@@ -22,7 +22,8 @@ import {
 } from '../objectVisits/api'
 import { DEFAULT_DESTINATION, DEFAULT_LOCATION_FOLDER, destinationValid, previewFolder, previewLocationFolder } from '../objectVisits/folders'
 import { personName, type DeliveryRow, type NotifyState, type VisitFiling, type VisitSummary, type VisitTemplate } from '../objectVisits/types'
-import { getPath, useConfig } from './ConfigContext'
+import { getPath, useConfig, type ConfigCtx } from './ConfigContext'
+import { NUMBER_GUARDS } from './configGuards'
 import {
   Card, ConfirmButton, CopyChip, EmptyState, RecordRows, RecordTable, ResultChip, SettingRow, SettingsNote,
   SettingsSheet, StatusBadge, Table, fmtDateTime,
@@ -51,9 +52,11 @@ export function ObjectVisitsView({ onNavigate }: { onNavigate: (id: string) => v
   )
 }
 
-function useOv(): { ov: DeploymentObjectVisits; set: (path: (string | number)[], v: unknown) => void } {
+const LOCK = NUMBER_GUARDS['objectVisits.lockAfterHours']
+
+function useOv(): { ov: DeploymentObjectVisits; set: ConfigCtx['set'] } {
   const { draft, set } = useConfig()
-  const ov = getPath<DeploymentObjectVisits>(draft, ['objectVisits']) ?? {}
+  const ov = getPath(draft, ['objectVisits']) ?? {}
   return { ov: ov && typeof ov === 'object' ? ov : {}, set }
 }
 
@@ -109,12 +112,12 @@ function ModuleSheet({ onNavigate }: { onNavigate: (id: string) => void }) {
       {/* how long a completed visit may still be corrected (owner, 20.10.2026); the SERVER
           enforces it — empty is «never lock», never «lock at once» */}
       <SettingRow label={T.lockHours} tip={T.lockHoursTip}>
-        <input className="adm-input" type="number" min={0} max={8760} step={1}
+        <input className="adm-input" type="number" min={LOCK.min} max={LOCK.max} step={1}
           value={typeof ov.lockAfterHours === 'number' ? ov.lockAfterHours : ov.lockAfterHours === null ? '' : DEFAULT_VISIT_LOCK_HOURS}
           onChange={(e) => {
             const raw = e.target.value.trim()
             const n = Number(raw)
-            set(['objectVisits', 'lockAfterHours'], raw === '' ? null : Number.isFinite(n) ? Math.min(8760, Math.max(0, Math.round(n))) : null)
+            set(['objectVisits', 'lockAfterHours'], raw === '' ? null : Number.isFinite(n) ? Math.min(LOCK.max, Math.max(LOCK.min, Math.round(n))) : null)
           }} />
       </SettingRow>
       <SettingRow label={T.checklists} tip={T.checklistsTip} span>

@@ -20,8 +20,11 @@ import s from './BuildingFloat.module.css'
  * pan, and has no plan-side twin. The row never covers a symbol, it is the same place on both
  * surfaces (Lage ↔ Plan), and the floating row already budgets for it (15-mobile · --float-row,
  * the message lane stands above it). The card is non-modal: no scrim, nothing trapped. ✕, the
- * chip, Esc, the native back and a tap beside it close it – that tap ONLY closes it, it never pans,
- * selects or places on the map under it (lib/overlays/layer, owner call 2, 17.11.2026).
+ * chip, Esc, the native back and a tap beside it close it – a tap on the MAP beside it ONLY closes
+ * it, it never pans, selects or places on the map under it (lib/overlays/layer, owner call 2,
+ * 17.11.2026). A tap on a rail, the tool bar or the head closes it AND does what it says (owner
+ * pick UX journeys M·2, 25.11.2026 – replaces call 2 for those bars: the card is open on every
+ * first visit, and «Symbol» doing nothing on the first tap read as a frozen app).
  *
  * Closed, the chip says what it is and what a crew must not miss: «Gebäude-Info», then the hazards
  * as glyph + WORD («⚠ Gebäude-Info · Gas · PV») on a tablet (owner pick C8, 05.11.2026: «always
@@ -69,10 +72,10 @@ export function BuildingFloat({ info, autoOpen = false, onRead }: {
   // the way out is every layer's (lib/overlays/layer, 17.11.2026): a tap beside the card only
   // closes it (it did nothing), Esc closes it ALONE – it used to also drop the Lage's selection or
   // put the Plan's placement down with the same press – the native back closes it, and focus goes
-  // back to the chip
+  // back to the chip. A rail / tool / head tile goes through (`throughBars`, owner pick M·2).
   const anchor = useRef<HTMLSpanElement>(null)
   const chip = useRef<HTMLButtonElement>(null)
-  useLayer({ open, onClose: close, inside: [anchor], returnFocus: chip })
+  useLayer({ open, onClose: close, inside: [anchor], returnFocus: chip, throughBars: true })
   if (!summary) return null
   const C = appConfig.copy.building
   return (

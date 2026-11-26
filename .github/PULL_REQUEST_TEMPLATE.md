@@ -5,7 +5,7 @@
 ## Checklist
 
 - [ ] Focused, coherent change (no unrelated edits)
-- [ ] Ran `pnpm lint && pnpm test` (and `pytest` if the backend changed)
+- [ ] Ran `just ci`
 - [ ] Followed conventions in `CONTRIBUTING.md` / `CLAUDE.md` (replace in place, German domain
       language, copy in `appConfig.copy.*`, theming tokens)
 - [ ] Considered the 3am tenet (recognition over recall, sensible defaults, undoable)

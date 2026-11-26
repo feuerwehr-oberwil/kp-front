@@ -110,7 +110,7 @@ export function FleetAttributesViewer({ lists, origins = [] }: {
     }
     for (const r of customRows) {
       const isRoster = ROSTER_FIELDS.has(r.field.trim())
-      rows.push({ key: `c:${r.field}`, label: r.field, cells: fieldCells(C, { roster: isRoster, configured: true, options: r.options }) })
+      rows.push({ key: `c:${r.field}`, label: r.field, cells: fieldCells(C, { roster: isRoster, configured: true, options: r.options ?? [] }) })
     }
     if (rows.length === 0) {
       // A symbol with no fields gets the house dash, not a sentence: in a dense table a cell
