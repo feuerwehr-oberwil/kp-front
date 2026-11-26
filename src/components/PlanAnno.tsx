@@ -91,20 +91,19 @@ export interface PlanAnnoBoard {
   trupps: Trupp[]
   /** per-Trupp alarm tier – a chip wears its Trupp's (lib/truppLines · truppMarkerTone) */
   truppSeverities?: Record<string, 1 | 2>
-  /** which note is mid-edit on the canvas — one checkpoint per editing session, board-wide */
-  textEditId: React.MutableRefObject<string | null>
   /** a Trupp chip reports its rendered size (components/useWbChipSizes) */
   chipRef: (el: HTMLElement | null) => void
   chipDown: ReturnType<typeof useWbChipDrag>['chipDown']
   setEditId: (id: string | null) => void
   setSelId: (id: string | null) => void
   setNotePanelId: (id: string | null) => void
-  pushPast: BoardDoc['pushPast']
-  patch: BoardDoc['patch']
   patchCommit: BoardDoc['patchCommit']
-  /** a Notiz's edit on the sheet ends, with what its field holds – on the blur and when the field
-   *  goes without one (NoteField); the second call does nothing (Whiteboard · endTextEdit) */
+  /** a keystroke in a Notiz's field: one ↶ step per editing session (Whiteboard · typeText) */
+  typeText: (id: string, p: Partial<BoardAnno> & { text: string }) => void
+  /** the session ends on the field's blur, with what it holds (Whiteboard · endTextEdit) … */
   endTextEdit: (a: BoardAnno, value: string) => void
+  /** …or when the field goes without one (NoteField · onEnd; Whiteboard · textFieldEnded) */
+  textFieldEnded: (id: string) => void
   teamNameTaken?: (id: string, label: string) => boolean
   onTeamTrupp?: (annoId: string, truppId: string | undefined) => void
   onTeamNewTrupp?: (annoId: string) => void
@@ -140,8 +139,8 @@ interface Props {
 /** One non-ink anno on the Plan, positioned in board px; see the file header. */
 export function PlanAnno({ a, selected, grouped, networked, editing, trailShown, board, spoke }: Props) {
   const {
-    sW, sH, scale, mapY, stack, symBase, txtBase, tool, readOnly, captionMode, sym, annos, trupps, truppSeverities, textEditId,
-    chipRef, chipDown, setEditId, setSelId, setNotePanelId, pushPast, patch, patchCommit, endTextEdit,
+    sW, sH, scale, mapY, stack, symBase, txtBase, tool, readOnly, captionMode, sym, annos, trupps, truppSeverities,
+    chipRef, chipDown, setEditId, setSelId, setNotePanelId, patchCommit, typeText, endTextEdit, textFieldEnded,
     teamNameTaken, onTeamTrupp, onTeamNewTrupp, onShowTrupp, markPosition, clearTrail, removeWithConnections, removeWithTrail,
     toggleTrail, rotDown, rotMove, rotUp,
   } = board
@@ -273,14 +272,13 @@ export function PlanAnno({ a, selected, grouped, networked, editing, trailShown,
         } as React.CSSProperties
         return editing
           ? <NoteField className={cls('wb-text-input')} ref={focusOnce} value={a.text} placeholder={appConfig.copy.whiteboard.textPlaceholder} rows={1} style={style}
-              onEnd={() => endTextEdit(a, a.text ?? '')}
+              onEnd={() => textFieldEnded(a.id)}
               onPointerDown={(e) => e.stopPropagation()}
               // stream each keystroke live into the note (silent — checkpoint once on the
               // first edit), so the text shows as you type and the note never vanishes
               onChange={(e) => {
-                if (textEditId.current !== a.id) { textEditId.current = a.id; pushPast() }
                 const v = e.target.value
-                patch(a.id, { text: v, ...(a.noteAutoW ? { wN: autoNoteWN(v, noteFontPx, sW) } : null) })
+                typeText(a.id, { text: v, ...(a.noteAutoW ? { wN: autoNoteWN(v, noteFontPx, sW) } : null) })
                 autoGrow(e.currentTarget)
               }}
               onBlur={(e) => { setEditId(null); endTextEdit(a, e.target.value) }}

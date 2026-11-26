@@ -153,19 +153,25 @@ describe('a Notiz panel that goes without a blur ends its typing step – on the
 /* ── the Plan ─────────────────────────────────────────────────────────────────────────────────── */
 
 const tafel: PlanDocument = { id: 'tafel', code: 'Tafel', title: 'Leeres Blatt', subtitle: '', imageUrl: '', orientation: 'landscape' }
+const modul2: PlanDocument = { id: 'modul2', code: 'M2', title: 'Modul 2', subtitle: '', imageUrl: '', orientation: 'landscape' }
 const sym: SymbolsApi = { ready: false, error: false, reload: () => {}, order: [], symbols: [], byName: {} }
 
 type PlanHistory = { undo: (expect?: string) => boolean; redo: (expect?: string) => boolean }
+/** what a test does to the rig from outside: another device's write lands, the sheet switches */
+type PlanDrive = { setAnnos: (annos: BoardAnno[]) => void; show: (planId: string) => void }
 /** The Plan's board over its own per-sheet history; every step it lays is a timeline entry, as
  *  workspace/usePlanStacks records them. `seen` gets the sheet after every write; `seed` is the
- *  history the sheet starts with, stepped through `history`. */
-function PlanRig({ annos: start, timeline, seen, seed = {}, history, emit }: { annos: BoardAnno[]; timeline: UndoTimeline; seen: (annos: BoardAnno[]) => void; seed?: BoardHistory; history?: RefObject<PlanHistory | null>; emit?: (op: string, payload?: Record<string, unknown>) => void }) {
+ *  history the sheet starts with, stepped through `history`. Both sheets show the same annos – a
+ *  Notiz the Karte lends to two sheets. */
+function PlanRig({ annos: start, timeline, seen, seed = {}, history, emit, drive }: { annos: BoardAnno[]; timeline: UndoTimeline; seen: (annos: BoardAnno[]) => void; seed?: BoardHistory; history?: RefObject<PlanHistory | null>; emit?: (op: string, payload?: Record<string, unknown>) => void; drive?: RefObject<PlanDrive | null> }) {
   const [annos, setAnnos] = useState(start)
+  const [activeId, show] = useState('tafel')
+  useImperativeHandle(drive, () => ({ setAnnos, show }))
   const own = useRef<PlanHistory | null>(null)
   const historyRef = history ?? own
   const [hist, setHist] = useState(seed)
   return <Whiteboard
-    plans={[tafel]} activeId="tafel" annos={annos} onChange={(next) => { setAnnos(next); seen(next) }}
+    plans={[tafel, modul2]} activeId={activeId} annos={annos} onChange={(next) => { setAnnos(next); seen(next) }}
     building={null} onSelectBuilding={() => {}} onAddFloor={() => {}} onRemoveFloor={() => {}}
     sym={sym} onRecent={() => {}} log={() => {}} focus={null} emit={emit}
     hist={hist} setHist={setHist} historyRef={historyRef}
@@ -209,11 +215,13 @@ describe('a Notiz typed in the editor on the plan, which goes without a blur', (
     const seed: BoardHistory = placed ? { tafel: { past: [{ id: 'placed', snap: annos.filter((a) => a.id !== placed) }], future: [] } } : {}
     if (placed) timeline.push({ domain: 'plan', label: 'Plan', undo: () => history.current!.undo('placed'), redo: () => history.current!.redo('placed') })
     const emit = vi.fn()
-    const utils = render(<PlanRig annos={annos} timeline={timeline} seen={(a) => { sheet = a }} seed={seed} history={history} emit={emit} />)
+    const drive = createRef<PlanDrive>()
+    const utils = render(<PlanRig annos={annos} timeline={timeline} seen={(a) => { sheet = a }} seed={seed} history={history} emit={emit} drive={drive} />)
     const now = () => ({ vehicle: sheet.find((a) => a.id === 'v1')?.label, note: sheet.find((a) => a.id === 'n1')?.text })
-    /** the audit's edit rows for the Notiz, by the text they record */
+    /** the audit's edit rows for the Notiz: the text each records, and the sheet */
     const noteEdits = () => emit.mock.calls.filter(([op, p]) => op === 'board.edit' && p?.id === 'n1').map(([, p]) => (p as { patch: { text?: string } }).patch.text)
-    return { ...utils, timeline, now, noteEdits }
+    const noteEditSheets = () => emit.mock.calls.filter(([op, p]) => op === 'board.edit' && p?.id === 'n1').map(([, p]) => (p as { planId: string }).planId)
+    return { ...utils, timeline, now, noteEdits, noteEditSheets, drive: () => drive.current!, sheet: () => sheet }
   }
 
   // ✓ ends the editor with no blur; its typing marker stayed set, and the next typing in that
@@ -245,5 +253,29 @@ describe('a Notiz typed in the editor on the plan, which goes without a blur', (
     act(() => { timeline.redo() })
     expect(now()).toEqual({ vehicle: 'TLF', note: 'Wasser ab 14:20' })
   })
-})
 
+  it('another device removes it while it is typed: no row for the Notiz that is gone', () => {
+    const start: BoardAnno[] = [{ ...vehicle, ...at }, { id: 'n1', kind: 'text', x: 0.3, y: 0.3, floor: 0, text: 'Alt' }]
+    const { noteEdits, drive } = mount(start)
+    fireEvent.doubleClick(screen.getByText('Alt'))
+    typeOnSheet('Wasser ab 14:20')
+    act(() => drive().setAnnos(start.filter((a) => a.id !== 'n1')))
+    expect(noteEdits()).toEqual([])
+  })
+
+  it('a sheet switch while it is typed ends the edit on the sheet it was typed on', () => {
+    const { noteEditSheets, drive } = mount([{ ...vehicle, ...at }, { id: 'n1', kind: 'text', x: 0.3, y: 0.3, floor: 0, text: 'Alt' }])
+    fireEvent.doubleClick(screen.getByText('Alt'))
+    typeOnSheet('Wasser ab 14:20')
+    act(() => drive().show('modul2'))
+    expect(noteEditSheets()).toEqual(['tafel'])
+  })
+
+  it('the board closing while it is typed ends the edit: its one row', () => {
+    const { noteEdits, unmount } = mount([{ ...vehicle, ...at }, { id: 'n1', kind: 'text', x: 0.3, y: 0.3, floor: 0, text: 'Alt' }])
+    fireEvent.doubleClick(screen.getByText('Alt'))
+    typeOnSheet('Wasser ab 14:20')
+    unmount()
+    expect(noteEdits()).toEqual(['Wasser ab 14:20'])
+  })
+})
