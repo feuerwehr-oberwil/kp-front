@@ -1,6 +1,9 @@
 // What a jsdom test needs from the browser that jsdom does not give: the app's stylesheets on the
-// document. Import it in the test that needs it – it is no global setup.
+// document, and an answer from `matchMedia`. Import it in the test that needs it – it is no
+// global setup. (The one global piece, the default «no query matches», is ./jsdom.setup.ts.)
 import { readFileSync } from 'node:fs'
+import { vi } from 'vitest'
+import { staticMediaList } from './mediaList'
 
 const readSrc = (file: string) => readFileSync(`${process.cwd()}/src/${file}`, 'utf8')
 
@@ -24,4 +27,10 @@ export function addStyles(...texts: string[]): CSSStyleSheet[] {
     if (!sheet) throw new Error('addStyles: jsdom parsed no stylesheet')
     return sheet
   })
+}
+
+/** Make `window.matchMedia` answer `matches(query)` for every query, asked at each call. Through
+ *  `vi.stubGlobal`, so `vi.unstubAllGlobals()` goes back to the default (no query matches). */
+export function stubMatchMedia(matches: (query: string) => boolean): void {
+  vi.stubGlobal('matchMedia', (query: string) => staticMediaList(query, matches(query)))
 }

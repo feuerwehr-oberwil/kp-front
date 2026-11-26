@@ -1,18 +1,10 @@
 // @vitest-environment jsdom
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { SignatureSheet } from './SignatureSheet'
 import { appConfig } from '../config/appConfig'
 
 afterEach(cleanup)
-beforeAll(() => {
-  // jsdom has no matchMedia; the sheet asks whether it is on a phone (useIsPhone)
-  window.matchMedia = ((q: string) => ({
-    matches: false, media: q, onchange: null,
-    addEventListener: () => {}, removeEventListener: () => {},
-    addListener: () => {}, removeListener: () => {}, dispatchEvent: () => false,
-  })) as unknown as typeof window.matchMedia
-})
 
 const mount = (onSetEndNow?: () => void) => render(
   <SignatureSheet open onClose={() => {}} initialRole="el" signedRoles={{}}

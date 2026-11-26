@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { render, screen, cleanup } from '@testing-library/react'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { appConfig } from '../config/appConfig'
 
 // The «Weitergeben» section is the Einsatz's share sheet inline, and that sheet asks the server
@@ -16,13 +16,6 @@ vi.mock('./KrokiFramingPanel', () => ({ KrokiFramingPanel: () => null }))
 
 import { ReportPreflight } from './ReportPreflight'
 
-beforeAll(() => {
-  window.matchMedia = ((q: string) => ({
-    matches: false, media: q, onchange: null,
-    addEventListener: () => {}, removeEventListener: () => {},
-    addListener: () => {}, removeListener: () => {}, dispatchEvent: () => false,
-  })) as unknown as typeof window.matchMedia
-})
 afterEach(() => { cleanup(); fetchShareLink.mockClear() })
 
 const INCIDENT = {

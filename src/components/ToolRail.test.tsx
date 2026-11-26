@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { stubMatchMedia } from '../test/dom.test-utils'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { RailKey, ToolRail } from './ToolRail'
 import { PANEL_KEY } from '../lib/hotkeys'
@@ -9,16 +10,12 @@ import { slimTools, MAP_READONLY_TOOLS } from '../lib/readOnlyTools'
 
 afterEach(() => { cleanup(); document.cookie = 'kp-front-prefs=; max-age=0; path=/' })
 
-/** jsdom has no `matchMedia`, and the rail asks it whether this is a phone (lib/useIsPhone) —
+/** The rail asks whether this is a phone (lib/useIsPhone) —
  *  the bar folds there. Every suite below is the vertical rail unless it says otherwise. */
 let phone = false
 beforeEach(() => {
   phone = false
-  window.matchMedia = ((query: string) => ({
-    matches: phone, media: query, onchange: null,
-    addEventListener: () => {}, removeEventListener: () => {},
-    addListener: () => {}, removeListener: () => {}, dispatchEvent: () => false,
-  })) as typeof window.matchMedia
+  stubMatchMedia(() => phone)
 })
 
 // The rail a locked surface gets is the SAME component with a smaller tool list — same place,

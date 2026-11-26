@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { StrictMode } from 'react'
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
+import { stubMatchMedia } from '../test/dom.test-utils'
 import { act, render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
 import { Journal } from './Journal'
 import type { BoardAnno, TimelineEvent } from '../types'
@@ -455,10 +456,7 @@ describe('Journal · the classification column', () => {
 describe('Journal · correcting a line\'s time', () => {
   beforeEach(() => {
     Element.prototype.scrollTo = Element.prototype.scrollTo ?? (() => {})
-    vi.stubGlobal('matchMedia', (q: string) => ({
-      matches: q.includes('fine'), media: q, onchange: null, addListener: () => {}, removeListener: () => {},
-      addEventListener: () => {}, removeEventListener: () => {}, dispatchEvent: () => false,
-    }))
+    stubMatchMedia((q) => q.includes('fine'))
   })
   afterEach(() => vi.unstubAllGlobals())
 
@@ -824,7 +822,7 @@ describe('Journal · a Trupp named in a row', () => {
 // Einsatz into the past – and stands at the left end of the time ruler on every device: worded on
 // a tablet, the bare glyph on a phone.
 describe('Journal · «Wiedergabe starten»', () => {
-  const asPhone = (on: boolean) => vi.stubGlobal('matchMedia', (q: string) => ({ matches: on, media: q, addEventListener() {}, removeEventListener() {} }))
+  const asPhone = (on: boolean) => stubMatchMedia(() => on)
   afterEach(() => { vi.unstubAllGlobals() })
   const replayBtn = () => screen.getByRole('button', { name: 'Wiedergabe starten' })
 

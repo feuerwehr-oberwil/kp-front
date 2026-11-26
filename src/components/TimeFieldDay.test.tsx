@@ -5,6 +5,7 @@
 // onto a day nobody chose, silently, on fields nobody re-reads.
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { stubMatchMedia } from '../test/dom.test-utils'
 import { TimeField } from './TimeField'
 import { TimeBlockSheet } from './TimeBlockSheet'
 import { AnwesenheitView } from './AnwesenheitView'
@@ -19,11 +20,7 @@ afterEach(() => { cleanup(); vi.useRealTimers() })
 beforeEach(() => {
   Element.prototype.scrollTo = Element.prototype.scrollTo ?? (() => {})
   // the popover draws its wheels only on a coarse pointer — a phone, which is what this is
-  vi.stubGlobal('matchMedia', (q: string) => ({
-    matches: q.includes('coarse'), media: q, onchange: null,
-    addListener: () => {}, removeListener: () => {},
-    addEventListener: () => {}, removeEventListener: () => {}, dispatchEvent: () => false,
-  }))
+  stubMatchMedia((q) => q.includes('coarse'))
 })
 
 const MON = new Date(2026, 7, 10) // the Einsatz starts Monday 22:00…

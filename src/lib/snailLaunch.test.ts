@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { stubMatchMedia } from '../test/dom.test-utils'
 import { readFileSync } from 'node:fs'
 
 // Exercise the actual inline bootstrap: it runs before any bundle, including this module.
@@ -11,7 +12,6 @@ beforeEach(() => {
   vi.resetModules()
   vi.useFakeTimers()
   sessionStorage.clear()
-  vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: false })))
   vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => setTimeout(() => callback(performance.now()), 16))
 })
 
@@ -290,7 +290,7 @@ describe('snail launch', () => {
 
   it('skips the hold for reduced motion', async () => {
     boot()
-    vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: true })))
+    stubMatchMedia(() => true)
     const { waitForSnailArrival } = await import('./snailLaunch')
     await waitForSnailArrival()
     expect(vi.getTimerCount()).toBe(0)

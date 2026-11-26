@@ -4,15 +4,14 @@
 // and, on the QR poster, wrote «Zeiten von … korrigiert (QR)» for a time nobody corrected.
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { stubMatchMedia } from '../test/dom.test-utils'
 import { appConfig } from '../config/appConfig'
 import { DateTimeField } from './TimeField'
 
 afterEach(() => { cleanup(); vi.unstubAllGlobals() })
 beforeEach(() => {
   Element.prototype.scrollTo ??= () => {}
-  vi.stubGlobal('matchMedia', (q: string) => ({
-    matches: q.includes('coarse'), addEventListener() {}, removeEventListener() {},
-  }))
+  stubMatchMedia((q) => q.includes('coarse'))
 })
 
 const recorded = new Date(2026, 10, 12, 9, 0, 37).toISOString() // 09:00:37

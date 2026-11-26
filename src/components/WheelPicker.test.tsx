@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { stubMatchMedia } from '../test/dom.test-utils'
 import { WheelPopover } from './WheelPicker'
 import { fmtWheelDay } from '../lib/zeitplanFormat'
 import { DateTimeField } from './TimeField'
@@ -12,11 +13,7 @@ afterEach(cleanup)
 beforeEach(() => {
   // jsdom has no scroll implementation; the wheel calls scrollTo when a row is tapped
   Element.prototype.scrollTo = Element.prototype.scrollTo ?? (() => {})
-  vi.stubGlobal('matchMedia', (q: string) => ({
-    matches: q.includes('coarse'), media: q, onchange: null,
-    addListener: () => {}, removeListener: () => {},
-    addEventListener: () => {}, removeEventListener: () => {}, dispatchEvent: () => false,
-  }))
+  stubMatchMedia((q) => q.includes('coarse'))
 })
 
 const anchor = { left: 100, top: 100, bottom: 140, right: 300, width: 200, height: 40, x: 100, y: 100, toJSON: () => ({}) } as DOMRect

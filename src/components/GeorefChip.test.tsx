@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { stubMatchMedia } from '../test/dom.test-utils'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import type { BuildingDoc, PlanDocument } from '../types'
 import type { SymbolsApi } from '../lib/useSymbols'
@@ -40,10 +41,6 @@ beforeAll(() => {
   // jsdom has neither pointer capture nor a layout engine — the capture layer needs both
   Element.prototype.setPointerCapture ??= () => {}
   Element.prototype.releasePointerCapture ??= () => {}
-  window.matchMedia = ((q: string) => ({
-    matches: false, media: q, onchange: null,
-    addEventListener: () => {}, removeEventListener: () => {}, dispatchEvent: () => false,
-  })) as unknown as typeof window.matchMedia
 })
 afterEach(() => { cleanup(); resetGeorefMode(); store.pairs = [] })
 
@@ -365,11 +362,7 @@ describe('leaving Überlagerung prüfen', () => {
 
 describe('the phone can start a pair on either surface', () => {
   it('commits the fixed Plan target only through the explicit action', () => {
-    const previous = window.matchMedia
-    window.matchMedia = ((q: string) => ({
-      matches: q === PHONE_QUERY, media: q, onchange: null,
-      addEventListener: () => {}, removeEventListener: () => {}, dispatchEvent: () => false,
-    })) as unknown as typeof window.matchMedia
+    stubMatchMedia((q) => q === PHONE_QUERY)
     try {
       act(() => georefDispatch({ type: 'start', planId: 'modul2', pairs: [], aspect: 1.5 }))
       const unregister = registerGeorefPhoneTarget('plan', () => ({ x: 0.45, y: 0.35 }))
@@ -378,18 +371,14 @@ describe('the phone can start a pair on either surface', () => {
       expect(georefSnapshot().slots).toEqual([{ plan: { x: 0.45, y: 0.35 }, kind: 'gesetzt' }])
       unregister()
     } finally {
-      window.matchMedia = previous
+      vi.unstubAllGlobals()
     }
   })
 
   // ⚠️ The steps live behind the STATUS (sweep 27.10.2026 #13, the owner's pick «A»): the slim
   // bar is one row, and the status «0/2 Paare ⓘ» opens exactly what to do, naming the plan.
   it('opens the steps behind the status, naming the plan, sticky once opened', () => {
-    const previous = window.matchMedia
-    window.matchMedia = ((q: string) => ({
-      matches: q === PHONE_QUERY, media: q, onchange: null,
-      addEventListener: () => {}, removeEventListener: () => {}, dispatchEvent: () => false,
-    })) as unknown as typeof window.matchMedia
+    stubMatchMedia((q) => q === PHONE_QUERY)
     try {
       act(() => georefDispatch({ type: 'start', planId: 'modul2', pairs: [], aspect: 1.5 }))
       render(<GeorefModeBars planLabel="Wasser" />)
@@ -404,18 +393,14 @@ describe('the phone can start a pair on either surface', () => {
       expect(screen.getByText(/dieselbe Stelle unter das Fadenkreuz/)).toBeTruthy()
       unregister()
     } finally {
-      window.matchMedia = previous
+      vi.unstubAllGlobals()
     }
   })
 
   // The exit stays ✕ «Schliessen» once two pairs stand (M7 C, 13.11.2026: closing loses nothing,
   // «Fertig» only commits a draft); the status says «Verknüpft», and it leaves the mode.
   it('keeps the exit «Schliessen» once two pairs link the plan, and leaves the mode', () => {
-    const previous = window.matchMedia
-    window.matchMedia = ((q: string) => ({
-      matches: q === PHONE_QUERY, media: q, onchange: null,
-      addEventListener: () => {}, removeEventListener: () => {}, dispatchEvent: () => false,
-    })) as unknown as typeof window.matchMedia
+    stubMatchMedia((q) => q === PHONE_QUERY)
     try {
       act(() => georefDispatch({ type: 'start', planId: 'modul2', pairs: TWO, aspect: 1.5 }))
       render(<GeorefModeBars planLabel="Modul 2" />)
@@ -424,17 +409,13 @@ describe('the phone can start a pair on either surface', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Schliessen' }))
       expect(georefSnapshot().planId).toBeNull()
     } finally {
-      window.matchMedia = previous
+      vi.unstubAllGlobals()
     }
   })
 
   // toast diet, 17.11.2026: «+» with the cross off the surface says so on the dock, not as a toast
   it('says «Fadenkreuz zuerst …» on the dock when «+» finds no target, and the next «+» clears it', () => {
-    const previous = window.matchMedia
-    window.matchMedia = ((q: string) => ({
-      matches: q === PHONE_QUERY, media: q, onchange: null,
-      addEventListener: () => {}, removeEventListener: () => {}, dispatchEvent: () => false,
-    })) as unknown as typeof window.matchMedia
+    stubMatchMedia((q) => q === PHONE_QUERY)
     const outside = appConfig.copy.whiteboard.georef.targetOutside
     try {
       act(() => georefDispatch({ type: 'start', planId: 'modul2', pairs: [], aspect: 1.5 }))
@@ -447,16 +428,12 @@ describe('the phone can start a pair on either surface', () => {
       expect(screen.queryByText(outside)).toBeNull()
       unregister()
     } finally {
-      window.matchMedia = previous
+      vi.unstubAllGlobals()
     }
   })
 
   it('switches to Karte before any Modul point exists and records a map-first half', () => {
-    const previous = window.matchMedia
-    window.matchMedia = ((q: string) => ({
-      matches: q === PHONE_QUERY, media: q, onchange: null,
-      addEventListener: () => {}, removeEventListener: () => {}, dispatchEvent: () => false,
-    })) as unknown as typeof window.matchMedia
+    stubMatchMedia((q) => q === PHONE_QUERY)
     try {
       act(() => georefDispatch({ type: 'start', planId: 'modul2', pairs: [], aspect: 1.5 }))
       render(<GeorefModeBars planLabel="Modul 2" />)
@@ -468,7 +445,7 @@ describe('the phone can start a pair on either surface', () => {
       expect(georefSnapshot().slots).toEqual([{ map: { lng: 7.5, lat: 47.5 }, kind: 'gesetzt' }])
       unregister()
     } finally {
-      window.matchMedia = previous
+      vi.unstubAllGlobals()
     }
   })
 })
@@ -502,11 +479,7 @@ describe('the armed plan surface places on a tap and pans on a drag', () => {
   })
 
   it('a phone tap only aims or pans; it never commits without Punkt setzen', () => {
-    const previous = window.matchMedia
-    window.matchMedia = ((q: string) => ({
-      matches: q === PHONE_QUERY, media: q, onchange: null,
-      addEventListener: () => {}, removeEventListener: () => {}, dispatchEvent: () => false,
-    })) as unknown as typeof window.matchMedia
+    stubMatchMedia((q) => q === PHONE_QUERY)
     try {
       const { capture } = arm()
       fireEvent.pointerDown(capture, at(400, 300))
@@ -514,7 +487,7 @@ describe('the armed plan surface places on a tap and pans on a drag', () => {
       expect(georefSnapshot().slots).toEqual([])
     } finally {
       cleanup()
-      window.matchMedia = previous
+      vi.unstubAllGlobals()
     }
   })
 

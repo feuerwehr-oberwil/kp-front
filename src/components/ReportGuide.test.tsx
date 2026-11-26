@@ -4,7 +4,7 @@
 // 15B, 28.10.2026): after a jump from «n offen» it names the next open point down the page, and as
 // soon as everything is recorded the Abschluss band names the next step – the PDF, then the close.
 import { render, screen, cleanup, fireEvent, waitFor, within } from '@testing-library/react'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('./KrokiFramingPanel', () => ({ KrokiFramingPanel: () => null }))
 vi.mock('../lib/reportPdfDirect', async (orig) => ({
@@ -20,13 +20,6 @@ import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import type { ReportMeta } from '../lib/workspace'
 
-beforeAll(() => {
-  window.matchMedia = ((q: string) => ({
-    matches: false, media: q, onchange: null,
-    addEventListener: () => {}, removeEventListener: () => {},
-    addListener: () => {}, removeListener: () => {}, dispatchEvent: () => false,
-  })) as unknown as typeof window.matchMedia
-})
 afterEach(cleanup)
 
 const P = appConfig.copy.preflight

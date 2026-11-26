@@ -8,7 +8,6 @@ import { TimeField } from './TimeField'
 import { Sheet } from '../lib/overlays/Sheet'
 
 beforeEach(() => {
-  vi.stubGlobal('matchMedia', (q: string) => ({matches: false, media:q,onchange:null,addListener(){},removeListener(){},addEventListener(){},removeEventListener(){},dispatchEvent(){return false}}))
   Element.prototype.scrollTo = () => {}
 })
 afterEach(() => { cleanup(); resetPopoverGuard(); vi.unstubAllGlobals() })

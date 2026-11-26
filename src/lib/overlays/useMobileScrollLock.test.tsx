@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { stubMatchMedia } from '../../test/dom.test-utils'
 import { act, cleanup, render } from '@testing-library/react'
 import { useRef } from 'react'
 import { AXIS_SLOP_PX, touchAxis, touchMayScroll, useMobileScrollLock, useScrollOnlyIn, type ScrollBox } from './useMobileScrollLock'
@@ -20,7 +21,7 @@ function touch(el: Element, ...moves: [number, number][]) {
   event('touchstart', 100, 100)
   return moves.map(([dx, dy]) => event('touchmove', 100 - dx, 100 - dy))
 }
-const phoneMedia = () => vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener: () => {}, removeEventListener: () => {} }))
+const phoneMedia = () => stubMatchMedia(() => true)
 function gesture(el: Element, dx: number, dy: number) {
   const event = (type: string, x: number, y: number) => {
     const e = new Event(type, { bubbles: true, cancelable: true })
@@ -38,7 +39,7 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals() })
 
 describe('mobile modal scrolling', () => {
   it('blocks background scrolling while allowing sheet, suggestion and portalled menu scrolling', () => {
-    vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener: () => {}, removeEventListener: () => {} }))
+    stubMatchMedia(() => true)
     const view = render(<Sheet />)
     const list = view.getByTestId('list'), suggestions = view.getByTestId('suggestions'), menu = view.getByRole('menu')
     dimensions(list, { scrollHeight: 600, clientHeight: 200, scrollTop: 100 })
@@ -55,7 +56,7 @@ describe('mobile modal scrolling', () => {
     expect(gesture(document.body, 0, 30)).toBe(false)
   })
   it('leaves tablet scrolling alone', () => {
-    vi.stubGlobal('matchMedia', () => ({ matches: false, addEventListener: () => {}, removeEventListener: () => {} }))
+    stubMatchMedia(() => false)
     const view = render(<Sheet />)
     expect(gesture(view.getByTestId('background'), 0, 30)).toBe(false)
   })
@@ -63,6 +64,7 @@ describe('mobile modal scrolling', () => {
     let matches = false
     let change: (() => void) | undefined
     const media = { get matches() { return matches }, addEventListener: (_: string, on: () => void) => { change = on }, removeEventListener: () => { change = undefined } }
+    // its own list: this answer changes and tells its listener, stubMatchMedia's never does
     vi.stubGlobal('matchMedia', () => media)
     const view = render(<Sheet />)
     const background = view.getByTestId('background')

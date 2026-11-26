@@ -55,11 +55,6 @@ const reportMeta = { einsatzleiter: 'Muster Hans', summary: 'Kleinbrand gelösch
 const attendance = { p1: entry('present') }
 
 beforeEach(() => {
-  window.matchMedia = ((q: string) => ({
-    matches: false, media: q, onchange: null,
-    addEventListener: () => {}, removeEventListener: () => {},
-    addListener: () => {}, removeListener: () => {}, dispatchEvent: () => false,
-  })) as unknown as typeof window.matchMedia
   Element.prototype.scrollTo = vi.fn() as unknown as Element['scrollTo']
 })
 afterEach(cleanup)

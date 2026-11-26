@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { useState } from 'react'
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
@@ -19,13 +19,6 @@ vi.mock('../lib/deploymentConfig', async () => {
 const { MittelView } = await import('./MittelView')
 
 afterEach(cleanup)
-beforeAll(() => {
-  window.matchMedia = ((q: string) => ({
-    matches: false, media: q, onchange: null,
-    addEventListener: () => {}, removeEventListener: () => {},
-    addListener: () => {}, removeListener: () => {}, dispatchEvent: () => false,
-  })) as unknown as typeof window.matchMedia
-})
 beforeEach(() => { cfg.current = {} })
 
 const M = appConfig.copy.mittel

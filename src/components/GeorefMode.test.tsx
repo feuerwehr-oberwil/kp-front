@@ -18,10 +18,6 @@ beforeAll(() => {
   // jsdom has neither pointer capture nor a layout engine — the capture layer needs both stubs
   Element.prototype.setPointerCapture ??= () => {}
   Element.prototype.releasePointerCapture ??= () => {}
-  window.matchMedia = ((q: string) => ({
-    matches: false, media: q, onchange: null,
-    addEventListener: () => {}, removeEventListener: () => {}, dispatchEvent: () => false,
-  })) as unknown as typeof window.matchMedia
 })
 afterEach(() => { cleanup(); resetGeorefMode(); vi.restoreAllMocks() })
 

@@ -27,10 +27,6 @@ vi.mock('../components/PdfViewport', () => ({ PdfViewport: () => <div data-testi
 import AlignmentPairing from './AlignmentPairing'
 
 beforeAll(() => {
-  window.matchMedia ??= ((q: string) => ({
-    matches: false, media: q, onchange: null,
-    addEventListener: () => {}, removeEventListener: () => {}, dispatchEvent: () => false,
-  })) as unknown as typeof window.matchMedia
   globalThis.ResizeObserver ??= class { observe() {} unobserve() {} disconnect() {} } as unknown as typeof ResizeObserver
 })
 afterEach(() => { cleanup(); resetGeorefMode(); vi.restoreAllMocks() })

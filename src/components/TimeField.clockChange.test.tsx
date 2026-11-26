@@ -3,6 +3,7 @@
 // The station's wall clock is Zurich; the suite pins it for this file.
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterAll, afterEach, expect, it, vi } from 'vitest'
+import { stubMatchMedia } from '../test/dom.test-utils'
 import { appConfig } from '../config/appConfig'
 import { DateTimeField } from './TimeField'
 
@@ -12,9 +13,7 @@ afterAll(() => { process.env.TZ = tz })
 afterEach(() => { cleanup(); vi.unstubAllGlobals() })
 
 function openTime(value: string, coarse: boolean) {
-  vi.stubGlobal('matchMedia', (query: string) => ({
-    matches: coarse && query.includes('coarse'), addEventListener() {}, removeEventListener() {},
-  }))
+  stubMatchMedia((query) => coarse && query.includes('coarse'))
   Element.prototype.scrollTo ??= () => {}
   const onCommit = vi.fn()
   render(<DateTimeField value={value} days={[new Date(value)]} ariaLabel="Einsatzende" onCommit={onCommit} />)

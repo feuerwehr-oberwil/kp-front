@@ -32,10 +32,6 @@ beforeAll(() => {
   el.setPointerCapture ??= () => {}
   el.releasePointerCapture ??= () => {}
   el.hasPointerCapture ??= () => false
-  window.matchMedia = ((q: string) => ({
-    matches: false, media: q, onchange: null,
-    addEventListener: () => {}, removeEventListener: () => {}, dispatchEvent: () => false,
-  })) as unknown as typeof window.matchMedia
 })
 afterEach(() => { cleanup(); panel.props = null })
 

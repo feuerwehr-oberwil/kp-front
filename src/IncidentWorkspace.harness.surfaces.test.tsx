@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest'
+import { stubMatchMedia } from './test/dom.test-utils'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { useState } from 'react'
 import type { BoardAnno, MittelEntry } from './types'
@@ -261,10 +262,7 @@ describe('(d) the render budget', () => {
 describe('(h) the phone FAB stays on the Trupps page', () => {
   it('shows on the Karte and on the Trupps page', async () => {
     const before = window.matchMedia
-    window.matchMedia = ((q: string) => ({
-      matches: q.includes('max-width: 600px'), media: q, onchange: null, addListener: () => {}, removeListener: () => {},
-      addEventListener: () => {}, removeEventListener: () => {}, dispatchEvent: () => false,
-    })) as unknown as typeof window.matchMedia
+    stubMatchMedia((q) => q.includes('max-width: 600px'))
     try {
       await mount()
       expect(document.querySelector('.fab-entry')).toBeTruthy()
