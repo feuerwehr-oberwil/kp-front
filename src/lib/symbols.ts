@@ -446,7 +446,7 @@ export function symbolReadoutText(props: SymbolProps): string | null {
  *  every gas of `v`. So they read through this; a row it rejects stays in the stored history. */
 const isUsableReading = (r: unknown): r is Reading =>
   typeof r === 'object' && r !== null && 't' in r && typeof r.t === 'number' && Number.isFinite(r.t)
-  && 'v' in r && typeof r.v === 'object' && r.v !== null && Object.values(r.v).every((x) => typeof x === 'string')
+  && 'v' in r && typeof r.v === 'object' && r.v !== null && !Array.isArray(r.v) && Object.values(r.v).every((x) => typeof x === 'string')
 /** the stored history as a list (a stored non-list is no history) */
 const storedReadings = (props: SymbolProps): Reading[] => (Array.isArray(props.readings) ? props.readings : [])
 /** the newest usable reading – what «since the last reading» and «what changed» are said against */
