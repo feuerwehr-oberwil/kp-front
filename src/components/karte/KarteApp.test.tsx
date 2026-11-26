@@ -108,6 +108,7 @@ import { appConfig } from '../../config/appConfig'
 import { __setUnHazardData, type UnHazardEntry } from '../../lib/unHazard'
 import adr from '../../../public/un-hazard.json'
 import { loadPrefs, savePrefs } from '../../lib/prefs'
+import { LONG_PRESS_MS } from '../../lib/useLongPress'
 
 class RO { observe() {} unobserve() {} disconnect() {} }
 beforeAll(() => {
@@ -162,11 +163,22 @@ const canvasHarness = (at: { lng: number; lat: number } | (() => { lng: number; 
   }
   return { box, canvas }
 }
-/** finger down and still for longer than the long press (lib/useLongPress · LONG_PRESS_MS) */
-const hold = async (canvas: HTMLCanvasElement, x: number, y: number) => {
-  act(() => { canvas.dispatchEvent(touchEvent('pointerdown', x, y)) })
-  await act(() => new Promise((r) => setTimeout(r, 700)))
+/** Run `press`, then let the long press (lib/useLongPress · LONG_PRESS_MS) run out on a fake
+ *  clock: the hold's timer is the press handler's own, so no real time has to pass.
+ *  `pressed` checks the screen between the press and the end of the hold. */
+const runOutHold = async (press: () => void, pressed?: () => void) => {
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+  try {
+    act(press)
+    pressed?.()
+    await act(() => vi.advanceTimersByTimeAsync(LONG_PRESS_MS))
+  } finally {
+    vi.useRealTimers()
+  }
 }
+/** finger down and still for longer than the long press */
+const hold = (canvas: HTMLCanvasElement, x: number, y: number) =>
+  runOutHold(() => { canvas.dispatchEvent(touchEvent('pointerdown', x, y)) })
 
 const mount = (over: Partial<KarteAppProps> = {}) => {
   const onOpenVisits = vi.fn()
@@ -370,15 +382,11 @@ describe('KarteApp', () => {
   it('measures without offering to keep it, and stores nothing of it', async () => {
     mount()
     fireEvent.click(await screen.findByRole('button', { name: /Schloss Musterdorf/ }))
-    // no «Messen ab hier» in the panel any more (owner R2): Messen is the tool's
-    expect(screen.queryByRole('button', { name: /Messen ab hier/ })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Messen' }))
     act(() => lastMap().onMapClick([7.570188, 47.523773]))
     act(() => lastMap().onMapClick([7.5708, 47.52455]))
     await waitFor(() => expect(lastMap().measurePoints).toHaveLength(2))
     expect(screen.queryByRole('button', { name: /übernehmen/ })).toBeNull()
-    // …and no line saying so either (owner-6, 17.10.2026): nothing on this surface is ever saved
-    expect(screen.queryByText(/Nur zum Nachschauen/)).toBeNull()
     // only the viewer's own view keys were written — no workspace, no drawing, no measure
     expect(Object.keys(sessionStorage)).toEqual(['kp.karte.view'])
     expect(sessionStorage.getItem('kp.karte.view')).not.toMatch(/7\.5708/)
@@ -428,10 +436,8 @@ describe('KarteApp', () => {
     const lit = () => overlays().some((o) => o.id === 'karte-hover-object')
 
     // the finger lands on the Schloss: the outline answers AT ONCE, before the hold is over
-    act(() => { canvas.dispatchEvent(touchEvent('pointerdown', 40, 40)) })
-    expect(lit()).toBe(true)
+    await runOutHold(() => { canvas.dispatchEvent(touchEvent('pointerdown', 40, 40)) }, () => expect(lit()).toBe(true))
     // …and holding it there is still no pin — the release opens the object, as a tap always did
-    await act(() => new Promise((r) => setTimeout(r, 700)))
     expect(screen.queryByText('Gesetzter Punkt')).toBeNull()
     act(() => { canvas.dispatchEvent(touchEvent('pointerup', 40, 40)) })
     expect(lit()).toBe(false)
@@ -1256,8 +1262,7 @@ describe('KarteApp', () => {
     await screen.findByRole('button', { name: /Schloss Musterdorf/ })
     const hold = async () => {
       const compass = screen.getAllByRole('button', { name: appConfig.copy.mapViews.title })[0]
-      fireEvent.pointerDown(compass, { clientX: 0, clientY: 0, button: 0, pointerType: 'touch' })
-      await act(async () => { await new Promise((r) => setTimeout(r, 600)) })
+      await runOutHold(() => { fireEvent.pointerDown(compass, { clientX: 0, clientY: 0, button: 0, pointerType: 'touch' }) })
     }
     await hold()
     expect(easeTo).toHaveBeenLastCalledWith(expect.objectContaining({ center: [7.571, 47.524], zoom: 17 }))

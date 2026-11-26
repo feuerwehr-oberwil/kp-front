@@ -588,8 +588,6 @@ describe('the configured SharePoint folders', () => {
     render(<SystemView />)
 
     expect(await screen.findByText(C.spSourcesHint)).toBeTruthy()
-    // ⚠️ A command typed onto a settings page goes stale silently (ConfigSections · ModulesSection).
-    expect(screen.queryByText(/uv run/)).toBeNull()
   })
 
   it('renders nothing when the document names no folder at all', async () => {

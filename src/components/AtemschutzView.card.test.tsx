@@ -20,6 +20,18 @@ import { fillTemplate } from '../lib/format'
 import { Overlays } from '../lib/ui'
 import { fmtTime } from './truppCardText'
 
+/** Put the board's own stylesheet on the document under this run's class names, once – no other
+ *  sheet can name its (module) classes – so getComputedStyle answers what its cascade gives an
+ *  element. jsdom applies no @media and draws no pseudo-element. */
+let styled = false
+function useBoardStyles() {
+  if (styled) return
+  styled = true
+  const css = readFileSync(`${process.cwd()}/src/components/Atemschutz.module.css`, 'utf8')
+    .replace(/\.([A-Za-z_][\w-]*)/g, (m, n: string) => (s[n] ? `.${s[n]}` : m))
+  document.head.appendChild(Object.assign(document.createElement('style'), { textContent: css }))
+}
+
 vi.mock('../lib/useIsPhone', async (original) => ({ ...await original<typeof import('../lib/useIsPhone')>(), useIsPhone: vi.fn(() => false) }))
 registerAtemschutzViewHooks()
 
@@ -401,13 +413,26 @@ describe('an abgeschlossener Einsatz (frozenAt)', () => {
     // …and the colours that mean «running» go too (N5): the board wears the frozen tone, whose
     // rules neutralise the red status edge and the green clocks
     expect(document.querySelector(`.${s.surfaceFrozen}`)).toBeTruthy()
-    const css = readFileSync(`${process.cwd()}/src/components/Atemschutz.module.css`, 'utf8')
-    expect(css).toMatch(/\.surfaceFrozen \.trow \{ background: var\(--surface\); \}/)
-    expect(css).toMatch(/\.surfaceFrozen \.trow::before \{ content: none; \}/)
-    expect(css).toMatch(/\.surfaceFrozen \.trowClockVal, \.surfaceFrozen \.tabClock \{ color: var\(--ink-dim\)/)
-    // …the SICHERUNGSTRUPP head included — no amber title on a closed Tafel (r6, F3; a head since
-    // the slim-down of 26.09.2026)
-    expect(css).toMatch(/\.surfaceFrozen \.sectDue \.sectTitle \{ color: var\(--ink-dim\); \}/)
+    useBoardStyles()
+    const style = (sel: string) => getComputedStyle(document.querySelector(sel)!)
+    expect(style(`.${s.trowClockVal}`).color).toBe('var(--ink-dim)')
+    // a row whose running look has a tint of its own (Draussen) wears the plain surface
+    cleanup()
+    mount({ trupps: [{ ...trupp, status: 'raus', exitTime: new Date(entry + 30 * 60_000).toISOString() }], frozenAt: entry + 40 * 60_000 })
+    expect(style(`.${s.trowOut}`).background).toBe('var(--surface)')
+    // …the SICHERUNGSTRUPP head included — no amber title on a closed Tafel (the phone board)
+    cleanup()
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    try {
+      mount({ trupps: [trupp], frozenAt: entry + 40 * 60_000 })
+      expect(style(`.${s.sectDue} .${s.sectTitle}`).color).toBe('var(--ink-dim)')
+      // …and the clock of a Trupp in the handed-over Tafel's strip (the open tab's follows its tab)
+      cleanup()
+      mount({ lite: { subtitle: 'Brand' }, trupps: [trupp, { ...trupp, id: 'tr2', name: 'Trupp 2' }], frozenAt: entry + 40 * 60_000 })
+      expect(style(`.${s.tab}:not(.${s.tabOn}) .${s.tabClock}`).color).toBe('var(--ink-dim)')
+    } finally {
+      vi.mocked(useIsPhone).mockReturnValue(false)
+    }
   })
 })
 
@@ -502,8 +527,8 @@ describe('the opened phone card wears the collapsed row’s line and pair', () =
     fireEvent.click(row)
     const head = document.querySelector(`[data-az-open] .${s.trowHead}`)!
     expect(head.querySelector(`.${s.trowSub}`)!.textContent).toBe(caption)
-    const css = readFileSync(`${process.cwd()}/src/components/Atemschutz.module.css`, 'utf8')
-    expect(css).not.toMatch(/^\.trowHead \.trowSub \{[^}]*display: none/m)
+    useBoardStyles()
+    expect(getComputedStyle(head.querySelector(`.${s.trowSub}`)!).display).not.toBe('none')
   })
 
   it('opens without the band, the big Kontakt and the Druck row the card used to add', () => {

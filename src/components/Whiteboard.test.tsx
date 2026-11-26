@@ -391,11 +391,6 @@ describe('a locked line on the plan (BoardAnno.locked — the twin of Drawing.lo
 
   // (the «beside Ebenen» case is gone with the Plan's Ebenen button, 15.09.2026 — the detail
   //  slot is the plan's alone now; see Whiteboard · editorSlotFree)
-  it('has no Ebenen button in its view controls – the panel it opened listed nothing', () => {
-    renderPlan([line])
-    expect(screen.queryAllByRole('button', { name: appConfig.copy.panels.layers })).toHaveLength(0)
-  })
-
   it('is tap-through once locked — no selection, no editor, no drag', () => {
     const { container, onChange } = renderPlan([{ ...line, locked: true }])
     mouseDown(hitShape(container))

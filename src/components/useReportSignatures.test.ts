@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest'
-import { act, renderHook } from '@testing-library/react'
+import { renderHook, waitFor } from '@testing-library/react'
 import { sha256Hex, type ReportSignature } from '../lib/reportSignature'
 import { printedSignatures, signaturesToPrint, useSignatureLock } from './useReportSignatures'
 
@@ -24,29 +24,25 @@ describe('printedSignatures', () => {
 })
 
 describe('useSignatureLock', () => {
-  // SHA-256 is WebCrypto: it resolves on a later task, not a microtask
-  const settle = () => act(async () => { await new Promise((r) => setTimeout(r, 20)) })
+  // SHA-256 is WebCrypto: it resolves on a later task, not a microtask – so each check waits for its state
   it('checks the signed part as it stands: an edit is never «valid» on an earlier hash', async () => {
     // the scope `sig` carries is the hash of this part
     const part = 'signed part'
     const live = { el: sig({ scope: await sha256Hex(part) }) }
     const { result, rerender } = renderHook(({ p }) => useSignatureLock(live, p, true), { initialProps: { p: part } })
     expect(result.current.sigState('el')).toBe('pending')
-    await settle()
-    expect(result.current).toMatchObject({ anyValid: true, signedLock: true })
+    await waitFor(() => expect(result.current).toMatchObject({ anyValid: true, signedLock: true }))
     // same length, different content: pending at once, then «ungültig» – and nothing locked
     rerender({ p: 'signed Part' })
     expect(result.current.sigState('el')).toBe('pending')
     expect(result.current.signedLock).toBe(false)
-    await settle()
-    expect(result.current.sigState('el')).toBe('stale')
+    await waitFor(() => expect(result.current.sigState('el')).toBe('stale'))
   })
   // owner, 14.11.2026: a signature is the current state, independent of open / closed
   it('a signature made while open holds through the close and a reopen – only the hash decides', async () => {
     const scoped = { el: sig({ scope: await sha256Hex('x') }) }
     const { result, rerender } = renderHook(({ closed }) => useSignatureLock(scoped, 'x', closed), { initialProps: { closed: false } })
-    await settle()
-    expect(result.current).toMatchObject({ anyValid: true, signedLock: false })
+    await waitFor(() => expect(result.current).toMatchObject({ anyValid: true, signedLock: false }))
     rerender({ closed: true })
     expect(result.current).toMatchObject({ anyValid: true, signedLock: true })
     rerender({ closed: false })

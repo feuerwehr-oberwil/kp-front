@@ -19,7 +19,7 @@ vi.mock('../api', () => ({
   isUnverifiable: (e: unknown) => e instanceof ApiError && [0, 502, 503, 504].includes(e.status),
 }))
 
-import { __resetIdbForTests } from '../idb'
+import { __resetIdbForTests, idbGet } from '../idb'
 import { buildingResilient, buildingWhere, getBuilding, mergeBuilding, type BuildingInfo } from './building'
 
 const info = (over: Partial<BuildingInfo> = {}): BuildingInfo => ({
@@ -42,6 +42,8 @@ const info = (over: Partial<BuildingInfo> = {}): BuildingInfo => ({
 const HERE = buildingWhere('Hauptstrasse 10, 4104 Oberwil', 47.515297, 7.557682)
 const THERE = buildingWhere('Hauptstrasse 12, 4104 Oberwil', 47.5154, 7.5578)
 const card = (incidentId: string, where = HERE) => buildingResilient(incidentId, null, 'de', where)
+// the cache write is fire-and-forget (idb · readThrough): wait until the copy is on the device
+const cached = (incidentId: string) => vi.waitFor(async () => expect(await idbGet(`kp-front-building-${incidentId}`)).not.toBeNull())
 
 beforeEach(() => {
   globalThis.indexedDB = new IDBFactory()
@@ -95,7 +97,7 @@ describe('buildingResilient', () => {
   it('offline → the last copy of THIS Einsatz at THIS place; never one → nothing', async () => {
     apiGet.mockResolvedValueOnce(info())
     expect((await card('inc-1'))?.egid).toBe('408319')
-    await new Promise((r) => setTimeout(r, 10)) // the cache write is fire-and-forget
+    await cached('inc-1')
     apiGet.mockRejectedValue(new ApiError(0, 'offline'))
     expect((await card('inc-1'))?.gwr?.floors).toBe(2)
     expect(await card('inc-2')).toBeNull()
@@ -106,7 +108,7 @@ describe('buildingResilient', () => {
   it('a refusal is not silence: no cached card, no throw', async () => {
     apiGet.mockResolvedValueOnce(info())
     await card('inc-1')
-    await new Promise((r) => setTimeout(r, 10))
+    await cached('inc-1')
     apiGet.mockRejectedValue(new ApiError(403, 'nein'))
     expect(await card('inc-1')).toBeNull()
   })
@@ -114,7 +116,7 @@ describe('buildingResilient', () => {
   it('merges a failed source with the cached one on the way in', async () => {
     apiGet.mockResolvedValueOnce(info())
     await card('inc-1')
-    await new Promise((r) => setTimeout(r, 10))
+    await cached('inc-1')
     apiGet.mockResolvedValueOnce(info({ plants: [], pv_status: 'error' }))
     expect((await card('inc-1'))?.plants).toHaveLength(1)
   })

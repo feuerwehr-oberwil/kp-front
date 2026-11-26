@@ -12,7 +12,8 @@ describe('prefetchPlanTiles', () => {
   let fetched: string[]
   let store: Set<string>
   let complete: boolean
-  const settle = () => new Promise((r) => setTimeout(r, 20))
+  // every stub below answers at once, so the prefetch runs on microtasks only: one task drains it
+  const settle = () => new Promise((r) => setTimeout(r, 0))
 
   beforeEach(() => {
     vi.resetModules()

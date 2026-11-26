@@ -1,6 +1,6 @@
 import 'fake-indexeddb/auto'
 import { IDBFactory } from 'fake-indexeddb'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError } from '../lib/api'
 import { __resetIdbForTests, idbGet } from '../lib/idb'
 import {
@@ -27,6 +27,9 @@ const cat = (over: Partial<Catalogue> = {}): Catalogue => ({
   ...over,
 })
 
+// the device copy is written fire-and-forget (idb · readThrough): wait until it is there
+const cached = () => vi.waitFor(async () => expect(await idbGet(CATALOGUE_KEY)).not.toBeNull())
+
 beforeEach(() => {
   globalThis.indexedDB = new IDBFactory()
   __resetIdbForTests()
@@ -38,20 +41,20 @@ describe('loadCatalogue', () => {
     expect(r.state).toBe('ready')
     if (r.state !== 'ready') return
     expect(r.catalogue.templates.every((t) => t.kind === 'visit')).toBe(true)
-    await new Promise((res) => setTimeout(res, 10))
+    await cached()
     expect(await idbGet(CATALOGUE_KEY)).toMatchObject({ generatedAt: '2026-10-03T08:12:00Z' })
   })
 
   it('offline → the device copy, marked stale', async () => {
     await loadCatalogue(async () => cat())
-    await new Promise((res) => setTimeout(res, 10))
+    await cached()
     const r = await loadCatalogue(async () => { throw new ApiError(0, 'offline') })
     expect(r.state).toBe('stale')
   })
 
   it('a lapsed session still opens the device copy (work does not stop with a login)', async () => {
     await loadCatalogue(async () => cat())
-    await new Promise((res) => setTimeout(res, 10))
+    await cached()
     expect((await loadCatalogue(async () => { throw new ApiError(401, 'x') })).state).toBe('stale')
   })
 

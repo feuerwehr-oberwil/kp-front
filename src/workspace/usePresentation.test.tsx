@@ -27,11 +27,12 @@ function mount(canPresent = false) {
 }
 
 describe('the presentation follow runs only while one is presented', () => {
-  afterEach(() => { resetPresentationMarkers(); vi.clearAllMocks() })
+  afterEach(() => { vi.useRealTimers(); resetPresentationMarkers(); vi.clearAllMocks() })
 
   it('asks nothing while the workspace follow says none runs – and an editor may still start one', async () => {
+    vi.useFakeTimers()
     const h = mount(true)
-    await act(async () => { await new Promise((r) => setTimeout(r, 2500)) }) // past the loop's first spacing
+    await act(() => vi.advanceTimersByTimeAsync(2500)) // past the loop's first spacing
     expect(api.pollPresentation).not.toHaveBeenCalled()
     expect(h.result.current.available).toBe(false)
     expect(h.result.current.canStart).toBe(true)
@@ -39,17 +40,19 @@ describe('the presentation follow runs only while one is presented', () => {
   })
 
   it('starts at once when the marker names one, and lets go when it is gone', async () => {
+    vi.useFakeTimers() // every round of the loop is on this clock
     api.pollPresentation.mockImplementation(async () => running)
     const h = mount()
     act(() => setPresentationMarker('inc-1', 'p1'))
-    await waitFor(() => expect(h.result.current.follow).toEqual({ kind: 'invited', id: 'p1' }), { timeout: 1000 })
+    await act(() => vi.advanceTimersByTimeAsync(0)) // «at once»: no spacing passes
+    expect(h.result.current.follow).toEqual({ kind: 'invited', id: 'p1' })
     expect(h.result.current.available).toBe(true)
 
     act(() => setPresentationMarker('inc-1', null))
     expect(h.result.current.follow.kind).toBe('none')
     expect(h.result.current.available).toBe(false)
     const asked = api.pollPresentation.mock.calls.length
-    await act(async () => { await new Promise((r) => setTimeout(r, 600)) })
+    await act(() => vi.advanceTimersByTimeAsync(2500)) // past the restarted loop's first spacing
     expect(api.pollPresentation.mock.calls.length).toBe(asked)
     h.unmount()
   })

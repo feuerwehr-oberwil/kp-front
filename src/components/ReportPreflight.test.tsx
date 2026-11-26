@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { ReportPreflight } from './ReportPreflight'
 import { Overlays } from '../lib/ui'
 import { appConfig } from '../config/appConfig'
@@ -279,22 +279,21 @@ describe('ReportPreflight · a signature after an edit', () => {
   const signed = (scope: string): ReportSignature => ({
     id: 'g1', role: 'el', name: 'Amrein Patrick', at, scope, strokes: { w: 100, h: 40, d: [[1, 1, 50, 30]] },
   })
-  const settle = () => act(async () => { await new Promise((r) => setTimeout(r, 300)) })
   const S = appConfig.copy.signature
 
   it('goes «ungültig» on a renamed person and leaves the printed line empty', async () => {
     const view = render(sheet('Amrein Patrick', [signed('0'.repeat(64))]))
-    await settle()
+    // the part is hashed (WebCrypto, a later task): a scope of zeros is then «ungültig»
+    await waitFor(() => expect(screen.getAllByText(S.invalid).length).toBeGreaterThan(0))
     // sign the content exactly as it stands
     const results = vi.mocked(signedPartOf).mock.results
     const part = results[results.length - 1].value as string
     view.rerender(sheet('Amrein Patrick', [signed(await sha256Hex(part))]))
-    await settle()
+    // the same part, its hash already known: valid in this render
     expect(screen.queryByText(S.invalid)).toBeNull()
 
     view.rerender(sheet('Amrein Peter', [signed(await sha256Hex(part))]))
-    await settle()
-    expect(screen.getAllByText(S.invalid).length).toBeGreaterThan(0)
+    await waitFor(() => expect(screen.getAllByText(S.invalid).length).toBeGreaterThan(0))
 
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: P.pdfFull })) })
     // the Mindestangaben ask: make it anyway

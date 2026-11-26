@@ -7,12 +7,26 @@ import { IDBFactory } from 'fake-indexeddb'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { BOOT_COVER_FADE_MS, useBootCover } from './bootCover'
-import { __resetIdbForTests, idbGet } from './idb'
+import { __resetIdbForTests, idbGet, idbRead } from './idb'
 import type { BuildingInfo } from './api/building'
 import {
   buildingReadKey, loadReadBuildings, markBuildingRead, resetBuildingReadMemory,
   shouldAutoOpenBuilding, useBuildingFirstOpen,
 } from './buildingFirstOpen'
+
+// the real store, its reads watched: `flagRead` waits for the hook's own read of the flag
+vi.mock('./idb', async (importOriginal) => {
+  const real = await importOriginal<typeof import('./idb')>()
+  return { ...real, idbRead: vi.fn(real.idbRead) }
+})
+const reads = () => vi.mocked(idbRead).mock.results
+/** The first read after `before` reads – inc-1's flag – has answered, and the render it causes has
+ *  run: what is left after the read is microtasks only, so one task later they are done. */
+const flagRead = (before: number) => act(async () => {
+  expect(vi.mocked(idbRead).mock.calls[before]?.[0]).toBe('kp-front-building-read:inc-1')
+  await reads()[before].value
+  await new Promise((r) => setTimeout(r, 0))
+})
 
 beforeEach(() => {
   globalThis.indexedDB = new IDBFactory()
@@ -96,8 +110,9 @@ describe('useBuildingFirstOpen', () => {
     await waitFor(async () => expect(await idbGet('kp-front-building-read:inc-1')).toEqual([buildingReadKey(gas)]))
     h.unmount()
     resetBuildingReadMemory() // the next open of the same Einsatz on this device
+    const before = reads().length
     const again = run({ info: gas, eligible: true })
-    await act(async () => { await new Promise((r) => setTimeout(r, 20)) })
+    await flagRead(before)
     expect(again.result.current.autoOpen).toBe(false)
     // …another Einsatz with the same building is its own
     const other = run({ info: gas, eligible: true, id: 'inc-2' })
@@ -140,12 +155,13 @@ describe('useBuildingFirstOpen', () => {
 
 describe('never under the opening cover (lib/bootCover)', () => {
   it('opens only once the snail has faded out — not while it is on, not while it leaves', async () => {
+    const before = reads().length
     const h = renderHook((p: { ready: boolean }) => {
       const phase = useBootCover(true, p.ready)
       return { phase, ...useBuildingFirstOpen('inc-1', gas, phase === 'off') }
     }, { initialProps: { ready: false } })
     await waitFor(() => expect(h.result.current.phase).toBe('on'))
-    await act(async () => { await new Promise((r) => setTimeout(r, 20)) }) // the flag has been read
+    await flagRead(before)
     expect(h.result.current.autoOpen).toBe(false)
     vi.useFakeTimers()
     try {

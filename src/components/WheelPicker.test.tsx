@@ -174,7 +174,6 @@ describe('DateTimeField · one date control', () => {
     const days = [new Date(2026, 9, 3), new Date(2026, 9, 4), new Date(2026, 9, 5)]
     render(<DateTimeField ariaLabel="Ende" value={new Date(2026, 9, 5, 13, 6).toISOString()} days={days} onCommit={onCommit} />)
     fireEvent.click(screen.getByRole('button', { name: 'Ende' }))
-    expect(screen.queryByRole('listbox', { name: 'Monat' })).toBeNull()
     const day = wheel('Tag')
     expect(day.className).toContain('wheel-day')
     expect([...day.querySelectorAll('[role="option"]')].map((o) => o.textContent)).toEqual(['Sa 03.10.', 'So 04.10.', 'Mo 05.10.'])

@@ -13,6 +13,20 @@ import c from './Chip.module.css'
 
 afterEach(cleanup)
 
+/** Put the app's global stylesheets (app.css, in its cascade order) and these components' CSS
+ *  modules (under this run's class names) on the document, once – so getComputedStyle answers
+ *  what the cascade gives an element. jsdom applies no @media and lays nothing out. */
+let styled = false
+function useAppStyles() {
+  if (styled) return
+  styled = true
+  const read = (f: string) => readFileSync(`${process.cwd()}/src/${f}`, 'utf8')
+  const named = (f: string, names: Record<string, string>) => read(f).replace(/\.([A-Za-z_][\w-]*)/g, (m, n: string) => (names[n] ? `.${names[n]}` : m))
+  const sheets = [...read('app.css').matchAll(/@import '\.\/(styles\/[^']+)'/g)].map(([, f]) => read(f))
+  sheets.push(named('components/Button.module.css', s), named('components/Chip.module.css', c))
+  for (const text of sheets) document.head.appendChild(Object.assign(document.createElement('style'), { textContent: text }))
+}
+
 describe('Button', () => {
   it('is type=button unless told otherwise, so it never submits a form by accident', () => {
     const onSubmit = vi.fn((e: Event) => e.preventDefault())
@@ -38,7 +52,8 @@ describe('Button', () => {
   it('go is its own class, the green primary', () => {
     render(<Button variant="go">Am Einsatzort lassen</Button>)
     expect(screen.getByRole('button').className).toBe('ip-btn go')
-    expect(readFileSync('src/styles/13-incident.css', 'utf8')).toMatch(/\.ip-btn\.go \{[^}]*var\(--green-fill\)/)
+    useAppStyles()
+    expect(getComputedStyle(screen.getByRole('button')).background).toBe('var(--green-fill)')
   })
 
   it('secondary is the base look — no variant class', () => {
@@ -83,14 +98,16 @@ describe('Chip', () => {
   })
 })
 
-// The floor is the point of the components: 44px for every one, 52 for the big action — read
-// from the stylesheets, since jsdom lays nothing out.
+// The floor is the point of the components: 44px for every one, 52 for the big action — what the
+// cascade gives each rendered component, since jsdom lays nothing out.
 describe('the touch floor', () => {
-  const css = (f: string) => readFileSync(`${process.cwd()}/src/${f}`, 'utf8')
   it('every button and chip stands on --tap', () => {
-    expect(css('styles/13-incident.css')).toMatch(/\n\.ip-btn \{[^}]*min-height: var\(--tap\)/)
-    expect(css('styles/13-incident.css')).toMatch(/\.ip-btn\.lg \{[^}]*min-height: var\(--tap-lg\)/)
-    expect(css('components/Button.module.css')).toMatch(/\.icon \{[^}]*width: var\(--tap\); height: var\(--tap\)/)
-    expect(css('components/Chip.module.css')).toMatch(/\.chip \{[^}]*min-height: var\(--tap\)/)
+    useAppStyles()
+    render(<><Button>Ändern</Button><Button size="lg">Los</Button><IconButton label="Schliessen"><svg /></IconButton><Chip>Alle</Chip></>)
+    const style = (name: string) => getComputedStyle(screen.getByRole('button', { name }))
+    expect(style('Ändern').minHeight).toBe('var(--tap)')
+    expect(style('Los').minHeight).toBe('var(--tap-lg)')
+    expect([style('Schliessen').width, style('Schliessen').height]).toEqual(['var(--tap)', 'var(--tap)'])
+    expect(style('Alle').minHeight).toBe('var(--tap)')
   })
 })

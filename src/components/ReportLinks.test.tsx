@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, cleanup, fireEvent, act } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent, act, waitFor } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { ReportMeta } from '../lib/workspace'
 
@@ -39,7 +39,7 @@ afterEach(async () => {
   // toasts leave in two phases (mark `.out`, drop the node .16s later — lib/ui.tsx) and their
   // store is module-level: let a previous test's «Erledigt» pill finish leaving, or the
   // negative assertions below would find the fading leftover
-  await act(async () => { await new Promise((r) => setTimeout(r, 180)) })
+  await waitFor(() => expect(document.querySelector('.toast.out')).toBeNull())
   cleanup()
 })
 

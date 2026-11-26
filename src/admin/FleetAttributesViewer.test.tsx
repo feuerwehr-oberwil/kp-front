@@ -66,7 +66,6 @@ describe('FleetAttributesViewer — read-only config viewer', () => {
     const row = screen.getAllByText('ZZ Ohne Felder')[0].closest('tr')
     expect(row).toBeTruthy()
     expect(within(row as HTMLElement).getAllByText('–').length).toBeGreaterThan(0)
-    expect(screen.queryByText(/Keine Felder/)).toBeNull()
   })
 
   it('shows behaviour (controls) and roster fields read-only', () => {

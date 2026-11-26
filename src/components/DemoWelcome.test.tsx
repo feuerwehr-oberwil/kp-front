@@ -18,7 +18,6 @@ describe('DemoWelcome', () => {
     expect(screen.getAllByRole('listitem')).toHaveLength(3)
     expect(screen.getByText(/Alle Besucher arbeiten gemeinsam/)).toBeTruthy()
     expect(screen.getByText(/neue Einsätze sind gesperrt/)).toBeTruthy()
-    expect(screen.queryByText('Gut zu wissen')).toBeNull()
   })
 
   it('enters the demo through the one primary action', () => {

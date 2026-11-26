@@ -65,7 +65,9 @@ describe('a session whose probe ended without a user', () => {
     auth.mounts = 0
     render(<StandingApp token={null} />)
     const retry = await screen.findByRole('button', { name: appConfig.copy.incidentLink.retry })
-    expect(auth.mounts).toBe(1)
+    // the count is the provider's effect, which React runs after the commit that showed the
+    // button – findByRole can answer between the two
+    await waitFor(() => { expect(auth.mounts).toBe(1) })
     fireEvent.click(retry)
     await waitFor(() => { expect(auth.mounts).toBe(2) }) // a new mount is a new probe
   })

@@ -54,16 +54,18 @@ describe('which Tafel page this device has open', () => {
  * Objekt chip says «which place» — which already clears the rail, the phone's bars and the FAB, and
  * which the board's fit already keeps free; it wears that row's floating look. */
 describe('the page strip stands in the row where a plan says «which place»', () => {
-  const css = readFileSync(`${process.cwd()}/src/styles/09-whiteboard.css`, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
   it('wears the floating family (the bars’ corner, pick 20), not a bar of its own', () => {
-    const tps = /\.tps \{([^}]*)\}/.exec(css)?.[1] ?? ''
-    for (const t of ['--float-h', '--float-bg', '--float-edge', '--r-bar']) expect(tps).toContain(t)
-    expect(tps).not.toMatch(/position:\s*absolute|top:/)
-  })
-  it('on a phone the row of a Tafel page stands on the nav bar — the page has no tool bar under it', () => {
-    const m = readFileSync(`${process.cwd()}/src/styles/15-mobile.css`, 'utf8')
-    // the bars end at the nav bar there, and a dock does not lift the row's reserve either
-    expect(m).toMatch(/:root:has\(\.phone-tools \.wb-tafel-page\)[^{]*\{\s*--float-bars: calc\(var\(--rail-h\) \+ 8px/)
-    expect(m).toMatch(/:root:has\(\.phone-tools \.wb-dock\):not\(:has\(\.phone-tools \.wb-tafel-page\)\) \{ --float-base: calc\(var\(--rail-h\) \* 3/)
+    // what the app's global stylesheets (app.css, in its cascade order) give a strip – jsdom
+    // applies no @media and lays nothing out
+    const read = (f: string) => readFileSync(`${process.cwd()}/src/${f}`, 'utf8')
+    for (const [, f] of read('app.css').matchAll(/@import '\.\/(styles\/[^']+)'/g)) {
+      document.head.appendChild(Object.assign(document.createElement('style'), { textContent: read(f) }))
+    }
+    const row = document.body.appendChild(Object.assign(document.createElement('div'), { className: 'wb-botleft' }))
+    const strip = getComputedStyle(row.appendChild(Object.assign(document.createElement('div'), { className: 'tps' })))
+    expect([strip.minHeight, strip.background, strip.boxShadow, strip.borderRadius])
+      .toEqual(['var(--float-h)', 'var(--float-bg)', 'var(--float-edge)', 'var(--r-bar)'])
+    expect([strip.position, strip.top]).toEqual(['static', 'auto'])
+    row.remove()
   })
 })

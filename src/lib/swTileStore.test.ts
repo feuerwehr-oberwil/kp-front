@@ -17,6 +17,7 @@ const MANIFEST = 'https://kp.test/api/reference/plan:a/tiles?v=3'
 function worker({ allowed = true, legacy = {} as Record<string, string[]>, legacyDate = new Date().toUTCString(), legacyRead = Promise.resolve() } = {}) {
   const handlers = new Map<string, Handler>()
   const caches = new Map(Object.entries(legacy).map(([name, urls]) => [name, new Map(urls.map((u) => [u, `old ${u}`]))]))
+  let legacyReads = 0
   const cacheStorage = {
     has: async (name: string) => caches.has(name),
     open: async (name: string) => {
@@ -25,7 +26,7 @@ function worker({ allowed = true, legacy = {} as Record<string, string[]>, legac
       const key = (r: RequestInfo) => (typeof r === 'string' ? r : r.url)
       return {
         match: async (r: RequestInfo) => (c.has(key(r)) ? new Response(c.get(key(r)), { headers: { 'content-type': 'image/png', date: legacyDate } }) : undefined),
-        keys: async () => { await legacyRead; return [...c.keys()].map((u) => new Request(u)) },
+        keys: async () => { legacyReads++; await legacyRead; return [...c.keys()].map((u) => new Request(u)) },
         delete: async (r: RequestInfo) => c.delete(key(r)),
       }
     },
@@ -68,7 +69,7 @@ function worker({ allowed = true, legacy = {} as Record<string, string[]>, legac
     await pending
   }
 
-  return { get, message, fetchMock, caches, self, goOffline: () => { offline = true } }
+  return { get, message, fetchMock, caches, self, goOffline: () => { offline = true }, legacyReads: () => legacyReads }
 }
 
 beforeEach(async () => {
@@ -166,7 +167,7 @@ describe('sw-tile-store', () => {
       return new Response('plan bytes', { headers: { 'content-type': 'image/png' } })
     })
     const pending = w.get(PLAN)
-    await new Promise((r) => setTimeout(r, 10))
+    await vi.waitFor(() => expect(release).toBeDefined()) // the plan's fetch is under way
     await w.self.kpClearTiles!(['plan', 'manifest'])
     release()
     expect(await pending).toBe('plan bytes')
@@ -177,7 +178,7 @@ describe('sw-tile-store', () => {
     let release!: () => void
     const w = worker({ legacy: { 'plan-tiles': [PLAN] }, legacyRead: new Promise<void>((r) => { release = r }) })
     const moving = w.message({ type: 'kp-tile-migrate' })
-    await new Promise((r) => setTimeout(r, 10))
+    await vi.waitFor(() => expect(w.legacyReads()).toBeGreaterThan(0)) // the move-over is reading the old cache
     await w.self.kpClearTiles!(['plan', 'manifest'])
     release()
     await moving
