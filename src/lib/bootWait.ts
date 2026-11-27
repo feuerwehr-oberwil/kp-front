@@ -66,3 +66,9 @@ export function offlineLine(lastSyncedAt: number | null): string {
     ? C.bootOffline
     : fillTemplate(C.bootOfflineAt, { time: fmtWhen(new Date(lastSyncedAt).toISOString(), { todayShort: true }) })
 }
+
+/** The line once ANOTHER Einsatz is on screen than the one whose stored copy it timed: the same
+ *  line without the time. Any other note (a failed list, none at all) stays as it is. */
+export function offlineLineUntimed(note: string | null, timed: number | null): string | null {
+  return timed != null && note === offlineLine(timed) ? offlineLine(null) : note
+}

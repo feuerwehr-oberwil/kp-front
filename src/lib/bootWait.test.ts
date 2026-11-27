@@ -46,7 +46,7 @@ const { ApiError, SESSION_EXPIRED_EVENT } = await import('./api')
 const { setWorkspaceCacheOwner, storedCopy } = await import('./api/workspaceSync')
 const { IncidentSelection } = await import('./incidentSelection')
 const { bootPlan } = await import('./karte/home')
-const { bootList, offlineLine, BOOT_STORED_WAIT_MS } = await import('./bootWait')
+const { bootList, offlineLine, offlineLineUntimed, BOOT_STORED_WAIT_MS } = await import('./bootWait')
 
 const meta = (id: string, over: Partial<IncidentMeta> = {}) =>
   ({ id, title: id, source: 'manual', started_at: '2026-11-27T05:00:00Z', is_archived: false, ...over }) as IncidentMeta
@@ -229,5 +229,14 @@ describe('offlineLine', () => {
     expect(offlineLine(new Date(2026, 10, 27, 14, 5).getTime())).toBe('Offline – gespeicherte Daten von 14:05 werden angezeigt.')
     expect(offlineLine(new Date(2026, 10, 26, 23, 50).getTime())).toBe('Offline – gespeicherte Daten von 26.11. 23:50 werden angezeigt.')
     expect(offlineLine(null)).toBe('Offline – gespeicherte Daten werden angezeigt.')
+  })
+
+  it('loses the time when another Einsatz is on screen, and leaves any other note alone', () => {
+    vi.setSystemTime(new Date(2026, 10, 27, 15, 0))
+    const at = new Date(2026, 10, 27, 14, 5).getTime()
+    expect(offlineLineUntimed(offlineLine(at), at)).toBe('Offline – gespeicherte Daten werden angezeigt.')
+    expect(offlineLineUntimed('Liste konnte nicht geladen werden', at)).toBe('Liste konnte nicht geladen werden')
+    expect(offlineLineUntimed(null, at)).toBeNull()
+    expect(offlineLineUntimed(offlineLine(null), null)).toBe(offlineLine(null))
   })
 })

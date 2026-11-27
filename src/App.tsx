@@ -61,7 +61,7 @@ import { onStorageDegraded } from './lib/idb'
 import { loadRoster } from './lib/usePersonnel'
 import { HelpOverlay } from './components/HelpOverlay'
 import { installHoldTooltip } from './lib/holdTooltip'
-import { bootList, offlineLine } from './lib/bootWait'
+import { bootList, offlineLine, offlineLineUntimed } from './lib/bootWait'
 
 // Objektbesuche (/besuche…, docs/object-visits.md): its own lazy chunk — precached with the field
 // app, so the surface opens offline — mounted in place of home while its route is on.
@@ -437,7 +437,12 @@ function IncidentApp() {
     setWorkspace(seed)
     setForceReadOnly(!!opts.readOnly)
     setActiveId(id)
-    if (bootStored.current?.id !== id) bootStored.current = null // the line's time is that Einsatz's copy only
+    // the line's time is that Einsatz's copy only: with another one on screen it goes at once
+    if (bootStored.current && bootStored.current.id !== id) {
+      const timed = bootStored.current.lastSyncedAt
+      bootStored.current = null
+      setListNote((note) => offlineLineUntimed(note, timed))
+    }
     setCoverId(opening ? id : null)
     setRemount((n) => n + 1)
     // ⚠️ A HUMAN open leaves «Karte & Objekte», in the same batch as the switch — whichever door
