@@ -130,13 +130,16 @@ the module they concern (`lib/connectivity`, `lib/eventScope`, `lib/jsonEqual`,
   something, keeps the loop hot. Guarded in `lib/useJournal.test.ts`.
 - **A pull is never saved back; an edit that renders with one is** (27.11.2026). Pushed back,
   a pulled state would wake the other device, and two devices would save each other's pulls for
-  ever. The echo guard is content-matched (`useWorkspaceBlob · pulled`, `echoOfPull`): a pull
+  ever. The echo guard is content-matched (`useWorkspaceBlob · pulled`, `adoptedBlob`): a pull
   remembers every input exactly as it handed it in (a record it did not change keeps its live
-  identity), and the save skips the next build only when each input IS that (the Verlauf echo by
-  row ids). A tap, an async write (a plan binding, a seed) or a pick back to the old value that
-  React renders with the pull makes the build differ, and it is saved. It replaced «skip the next save», which such a tap spent on
-  itself: the tap showed on the screen, but was not saved. Guarded by the harness cases
-  «(f) a pull moves only what it changed» (`IncidentWorkspace.harness.writes.test.tsx`).
+  identity), and a pull that moved an input forces the one build after it (`pullTick`). That
+  build is skipped when each input IS what the pull handed in (the Verlauf echo by row ids).
+  Any other build is compared with the blob the pull adopted, not with the last push, and saved
+  when it differs: a tap, an async write (a plan binding, a seed), or a pick back to the old value
+  that React renders with the pull – also when that pick was all the pull changed and React
+  commits no change. It replaced «skip the next save», which such a tap spent on itself: the tap
+  showed on the screen, but was not saved. Guarded by the harness cases «(f) a pull moves only
+  what it changed» (`IncidentWorkspace.harness.writes.test.tsx`).
 - **Sync supports task-scoped collaboration.** Multiple editors may work different domains in the
   same incident (e.g. Atemschutz + Lage drawing); this is not shared-cursor co-editing of the same
   object. Cross-domain concurrent edits must merge. Mergeable collections merge three-way **by

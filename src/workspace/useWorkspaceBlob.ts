@@ -31,6 +31,37 @@ import type { ReportSignature } from '../lib/reportSignature'
 /** the same Verlauf rows, by id and order — what the blob's echo of them changes on */
 const sameRowIds = (a: readonly TimelineEvent[], b: readonly TimelineEvent[]) => a.length === b.length && a.every((r, i) => r.id === b[i]?.id)
 
+/** The synced slices the blob is built from (useWorkspaceBlob · slices). */
+type BlobSlices = Omit<LiveSlices, 'objects' | 'layers'>
+
+/** The blob these inputs make — what `buildPayload` saves, and what a pull adopted. */
+const blobOf = (from: BlobSlices, objs: TacticalObject[], timeline: TimelineEvent[], planId: string, layerState: Saved['layerState']): Saved => {
+  /* ⚠️ A LEGACY `photo` entity never rides the blob: its `photoUrl` is a session `blob:` URL
+   * that means nothing on another device or after a reload. It is kept on screen for as long
+   * as the incident is open and dropped HERE — at the wire, from the store and from its views
+   * together, so the two cannot disagree about what was saved. A photo marker placed from a
+   * Verlauf picture (F16) names that picture by row + index (`photoOf`, lib/photoGeo), which
+   * every device can resolve, and is part of the record like any placed object. */
+  const persisted = objs.filter((o) => o.entity?.kind !== 'photo' || !!o.entity.photoOf)
+  const views = viewsOf(persisted)
+  // Every `Saved` key is named (EverySavedKey), so a new one that is not written here fails
+  // tsc instead of being deleted by this save. Left out: `activeModule` (device-local, this build
+  // never writes it) and `weather` (the replay fold's alone).
+  return {
+    ...from,
+    objects: persisted,
+    entities: views.entities,
+    drawings: views.drawings, board: views.board, activePlanId: planId,
+    // ⚠️ NOT `layers` — the Ebenen this device is looking at stay on this device (see
+    // useWorkspaceBlob · syncedLayerState and lib/layerPrefs). The record's own value goes back unchanged.
+    layerState,
+    // Verlauf rows live in the journal store now; the blob echoes an older incident's legacy
+    // rows only until they're safely on the server, then ships empty forever (see JournalStore).
+    timeline,
+    schemaVersion: WORKSPACE_SCHEMA_VERSION,
+  } satisfies EverySavedKey<'activeModule' | 'weather'>
+}
+
 export interface UseWorkspaceBlobInputs {
   bootGate: WorkspaceGate
   /** the blob came from a NEWER build — the workspace's read-only state (workspace/access ·
@@ -147,7 +178,7 @@ export function useWorkspaceBlob({
   })
 
   // Write an authoritative workspace (conflict take-server or live-follow poll) into App's
-  // state slices. useIncidentSync drives it from the poll/auto-merge paths and asks `echoOfPull`
+  // state slices. useIncidentSync drives it from the poll/auto-merge paths and asks `adoptedBlob`
   // before it saves; the state lives here, so the writer does too.
   // …reached through a ref because the Anwesenheit's history is created much further down (it
   // needs the roster and the attendance actions), while this merge path has to exist up here.
@@ -166,24 +197,31 @@ export function useWorkspaceBlob({
   const syncedLayerState = useRef<Saved['layerState']>(bootGate.ws?.layerState ?? [])
   /** The synced slices the blob is built from, one object per change of any of them — what
    *  `buildPayload` writes. */
-  const slices = useMemo((): Omit<LiveSlices, 'objects' | 'layers'> => ({
+  const slices = useMemo((): BlobSlices => ({
     recent, building, vehicleOverrides, checklists, trupps: allTrupps, attendance, mittel, shifts, bands, cameraViews, trails,
     planScale, reportMeta, attachments, reportSignatures, settings: incidentSettings, planBindings, pickedObjectId, intakeReviewedAt,
   }), [recent, building, vehicleOverrides, checklists, allTrupps, attendance, mittel, shifts, bands, cameraViews, trails, planScale, reportMeta, attachments, reportSignatures, incidentSettings, planBindings, pickedObjectId, intakeReviewedAt])
-  /** The slices the last merge handed out, until the save builds again — the state a second merge
-   *  before that render is written over */
-  const handed = useRef({ slices })
+  /** The slices (and Verlauf echo) the last merge handed out, until the save builds again — the
+   *  state a second merge before that render is written over */
+  const handed = useRef({ slices, timeline: journal.blobTimeline })
   /** ⚠️ THE ECHO GUARD's memory: every input exactly as the last pull handed it in — a record the
    *  pull did not change keeps its live identity (lib/workspace · shareLive). The next build is an
-   *  echo of the pull (`echoOfPull`) only when each input IS that; a tap rendered with the pull
+   *  echo of the pull (`adoptedBlob`) only when each input IS that; a tap rendered with the pull
    *  (folded into a store that already held it), an async write landing in that render, or a
-   *  re-pick back to the old value makes it a local edit, and it is saved. Spent by that build.
-   *  Replaces «skip the next save», which such a tap spent on itself. */
-  const pulled = useRef<{ slices: typeof slices; objects: TacticalObject[]; timeline: TimelineEvent[] } | null>(null)
+   *  re-pick back to the old value makes it a local edit, and it is compared with what the pull
+   *  adopted, not with the last push (`adoptedBlob`). Spent by that build. Replaces «skip the next
+   *  save», which such a tap spent on itself. Only a pull that moved an input is remembered: one
+   *  that moved nothing left the inputs as the last build had them. */
+  const pulled = useRef<{ slices: typeof slices; objects: TacticalObject[]; timeline: TimelineEvent[]; tick: number } | null>(null)
+  /** ⚠️ …and that pull forces the one build after it, stamped with this tick: a local write
+   *  rendered with the pull may put every input back where the last build had it — a re-pick of
+   *  the object the pull just replaced — and React then commits no change, so no save would look. */
+  const [pullTick, setPullTick] = useState(0)
+  const ticks = useRef(0)
   /** the Plan the last build showed — a pull never moves it */
   const builtPlanId = useRef(activePlanId)
-  /** the last build that was an echo of a pull — what `echoOfPull` answers for */
-  const echoBuild = useRef<Saved | null>(null)
+  /** the last build after a pull, and the blob that pull adopted — what `adoptedBlob` answers */
+  const afterPull = useRef<{ build: Saved; adopted: Saved } | null>(null)
   /** the Ebenen as this device last remembered them (below) */
   const rememberedLayers = useRef(layers)
   /** Write `ws` into the slices, and remember what it handed in (`pulled`). */
@@ -200,7 +238,8 @@ export function useWorkspaceBlob({
     // shareLive), so one Trupp saved elsewhere re-renders what shows that Trupp, not the workspace.
     // ⚠️ One setter per slice, typed (lib/workspace · WorkspaceAppliers): a synced slice without
     // a line here fails tsc. This was a hand-kept list until 25.09.2026, and it had lost `mittel`.
-    const { next, held } = applyInitialState(derived, { ...handed.current.slices, layers: rememberedLayers.current, objects: liveObjects() }, {
+    const before = handed.current, live = liveObjects()
+    const { next, held } = applyInitialState(derived, { ...before.slices, layers: rememberedLayers.current, objects: live }, {
       // the store swaps in below, WITH its history (carryUndoThroughMerge: `rebaseObjects`, or
       // `replaceObjects` when the bookkeeping fails) — a replace here would drop every Karte step
       objects: () => {},
@@ -256,54 +295,41 @@ export function useWorkspaceBlob({
     setSelectedId((id) => (id && next.doc.entities.some((e) => e.id === id) ? id : null))
     setSelectedDrawingId((id) => (id && next.doc.drawings.some((d) => d.id === id) ? id : null))
     setSelectedDrawIds((ids) => ids.filter((id) => next.doc.drawings.some((d) => d.id === id)))
-    handed.current = { slices: held }
-    pulled.current = { slices: held, objects: next.objects, timeline: next.timeline }
+    handed.current = { slices: held, timeline: next.timeline }
+    if (next.objects !== live || !sameRowIds(next.timeline, before.timeline)
+      || (Object.keys(before.slices) as (keyof typeof before.slices)[]).some((k) => held[k] !== before.slices[k])) {
+      const tick = ++ticks.current
+      pulled.current = { slices: held, objects: next.objects, timeline: next.timeline, tick }
+      setPullTick(tick)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [incidentMeta.id, incidentMeta.type])
 
   // Build the workspace blob from the current slices. The memo deps are exactly the persisted
-  // slices, so its identity changes iff one of them does — that's what re-fires the save in
-  // useIncidentSync (replacing the old slice-keyed persistence effect's dependency array).
+  // slices (and `pullTick`), so its identity changes iff one of them does — that's what re-fires
+  // the save in useIncidentSync (replacing the old slice-keyed persistence effect's dependency array).
   const buildPayload = useCallback((): Saved => {
-    /* ⚠️ A LEGACY `photo` entity never rides the blob: its `photoUrl` is a session `blob:` URL
-     * that means nothing on another device or after a reload. It is kept on screen for as long
-     * as the incident is open and dropped HERE — at the wire, from the store and from its views
-     * together, so the two cannot disagree about what was saved. A photo marker placed from a
-     * Verlauf picture (F16) names that picture by row + index (`photoOf`, lib/photoGeo), which
-     * every device can resolve, and is part of the record like any placed object. */
-    const persisted = objects.filter((o) => o.entity?.kind !== 'photo' || !!o.entity.photoOf)
-    const views = viewsOf(persisted)
+    const timeline = journal.blobTimeline
+    const payload = blobOf(slices, objects, timeline, activePlanId, syncedLayerState.current)
     // an echo is exactly what the pull handed in (see `pulled`) — the Verlauf echo by its row ids,
     // because the journal store hands out its own copy (journalStore · ingestLegacy)
-    const p = pulled.current
+    // …the pull this build follows: the one whose forced render it is
+    const p = pulled.current?.tick === pullTick ? pulled.current : null
     const echo = p !== null && activePlanId === builtPlanId.current && objects === p.objects
-      && sameRowIds(journal.blobTimeline, p.timeline)
+      && sameRowIds(timeline, p.timeline)
       && (Object.keys(slices) as (keyof typeof slices)[]).every((k) => slices[k] === p.slices[k])
+    afterPull.current = p === null ? null
+      : { build: payload, adopted: echo ? payload : blobOf(p.slices, p.objects, sameRowIds(timeline, p.timeline) ? timeline : p.timeline, builtPlanId.current, syncedLayerState.current) }
     pulled.current = null
     builtPlanId.current = activePlanId
-    handed.current = { slices }
-    // Every `Saved` key is named (EverySavedKey), so a new one that is not written here fails
-    // tsc instead of being deleted by this save. Left out: `activeModule` (device-local, this build
-    // never writes it) and `weather` (the replay fold's alone).
-    const payload: Saved = {
-    ...slices,
-    objects: persisted,
-    entities: views.entities,
-    drawings: views.drawings, board: views.board, activePlanId,
-    // ⚠️ NOT `layers` — the Ebenen this device is looking at stay on this device (see
-    // syncedLayerState above and lib/layerPrefs). The record's own value goes back unchanged.
-    layerState: syncedLayerState.current,
-    // Verlauf rows live in the journal store now; the blob echoes an older incident's legacy
-    // rows only until they're safely on the server, then ships empty forever (see JournalStore).
-    timeline: journal.blobTimeline,
-    schemaVersion: WORKSPACE_SCHEMA_VERSION,
-  } satisfies EverySavedKey<'activeModule' | 'weather'>
-    echoBuild.current = echo ? payload : null
+    handed.current = { slices, timeline }
     return payload
-  }, [objects, journal.blobTimeline, activePlanId, slices])
-  /** Whether `payload` (a `buildPayload` result) is built from nothing but what pulls handed in —
-   *  the one save useIncidentSync skips. Asked about the build just made. */
-  const echoOfPull = useCallback((payload: Saved) => payload === echoBuild.current, [])
+  }, [objects, journal.blobTimeline, activePlanId, slices, pullTick])
+  /** The blob the last pull adopted, as this device builds it, when `payload` is the first build
+   *  after that pull — `payload` itself when nothing but the pull made it (an echo: not saved);
+   *  null after no pull. useIncidentSync compares a build after a pull with this, never with its
+   *  last push: the server holds the pull now. */
+  const adoptedBlob = useCallback((payload: Saved) => (afterPull.current?.build === payload ? afterPull.current.adopted : null), [])
 
   // …and they are remembered here instead, per incident, on this device only. Written on every
   // change (not just on a deliberate toggle) so the set derived at boot — including the
@@ -312,5 +338,5 @@ export function useWorkspaceBlob({
     rememberedLayers.current = layers
     saveLayerPrefs(incidentMeta.id, layers.map((l) => ({ id: l.id, visible: l.visible, opacity: l.opacity })))
   }, [layers, incidentMeta.id])
-  return { buildPayload, applyWorkspace, echoOfPull, ghostReseedRef, sliceRebase }
+  return { buildPayload, applyWorkspace, adoptedBlob, ghostReseedRef, sliceRebase }
 }

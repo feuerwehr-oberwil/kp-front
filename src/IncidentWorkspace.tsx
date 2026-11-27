@@ -1460,7 +1460,7 @@ export function IncidentWorkspace({
 
   // The blob both ways — the load gate's toast, applyWorkspace (merge in) and buildPayload (save
   // out), and this device's own Ebenen (workspace/useWorkspaceBlob)
-  const { buildPayload, applyWorkspace, echoOfPull, ghostReseedRef, sliceRebase } = useWorkspaceBlob({
+  const { buildPayload, applyWorkspace, adoptedBlob, ghostReseedRef, sliceRebase } = useWorkspaceBlob({
     bootGate, olderBuild, setOlderBuild, incidentMeta, setLayers, journal, setRecent, setBuilding, setVehicleOverrides, setChecklists,
     setTrupps, setAttendance, setMittel, setShifts, setBands, setCameraViews, setTrails, setPlanScale,
     setReportMeta, setAttachments, setReportSignatures, setIncidentSettings, setPlanBindings, setPickedObjectId,
@@ -1490,7 +1490,7 @@ export function IncidentWorkspace({
     // on the flags derived from `readOnly`. …and never the blob of a newer build (olderBuild):
     // the Verlauf and audit outboxes still deliver, the workspace is not pushed or flushed.
     sync, readOnly: outboxReadOnly || olderBuild, incidentId: incidentMeta.id, lockHeldAtOpen: tabLockHeldAtOpen,
-    buildPayload, applyWorkspace, echoOfPull, flushEvents, flushEventsBeacon,
+    buildPayload, applyWorkspace, adoptedBlob, flushEvents, flushEventsBeacon,
     // attendance-divergence note (both sides changed the same person → one Verlauf row)
     // Not for an Atemschutz-Link session: the server refuses every non-«team» row from it (403,
     // deliberately not a 422), and a refused row at the head of the outbox would block the

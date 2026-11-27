@@ -53,11 +53,13 @@ interface IncidentSyncDeps {
   buildPayload: () => Saved
   /** Write an authoritative workspace (a pull or a merge) into App's state. */
   applyWorkspace: (ws: Workspace) => void
-  /** THE ECHO GUARD: whether a payload `buildPayload` just built comes from nothing but what
-   *  `applyWorkspace` handed in. That save is skipped — pushed back, the other device would pull
-   *  its own state, and the two would save each other's pulls for ever. A payload with anything
-   *  else folded in is a local edit and is saved, in whatever order React committed the two. */
-  echoOfPull: (payload: Saved) => boolean
+  /** THE ECHO GUARD: for the first payload `buildPayload` builds after an `applyWorkspace`, the
+   *  blob that pull adopted — the payload itself when nothing but the pull made it. That save is
+   *  skipped: pushed back, the other device would pull its own state, and the two would save each
+   *  other's pulls for ever. Any other payload is compared with the adopted blob, not with the last
+   *  push, so a local edit rendered with the pull is saved even when it lands on the old value.
+   *  null for a payload no pull precedes. */
+  adoptedBlob: (payload: Saved) => Saved | null
   flushEvents: () => void
   flushEventsBeacon: () => void
   /** Append one Verlauf row (journal store) — used for the attendance-divergence note when a
@@ -100,7 +102,7 @@ interface IncidentSyncDeps {
  * the reactive sync-status badge. State writes stay in App via `applyWorkspace`/`buildPayload`; this
  * hook owns the sync-internal refs (first/liveRev) + effects so the wiring is one unit.
  */
-export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, applyWorkspace, echoOfPull, flushEvents, flushEventsBeacon, appendJournal, appendTeamRow, alarmUrgent, gestureOpen, incidentOpen, slowFollow, lockHeldAtOpen = false }: IncidentSyncDeps) {
+export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, applyWorkspace, adoptedBlob, flushEvents, flushEventsBeacon, appendJournal, appendTeamRow, alarmUrgent, gestureOpen, incidentOpen, slowFollow, lockHeldAtOpen = false }: IncidentSyncDeps) {
   const incidentOpenRef = useRef(incidentOpen)
   useEffect(() => { incidentOpenRef.current = incidentOpen }, [incidentOpen])
   /** What the SERVER last said about the lifecycle (its `X-Incident-Open`), which is what the next
@@ -120,8 +122,8 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
    *  (Since 25.09.2026 a hydrate drops only the steps whose records it changed, and an echo
    *  changes none — but the echo is still a wasted push.) Content, not identity, is the only
    *  thing that can tell those apart.
-   *  Held as the serialized string — or, after a skipped mid-gesture compare (below), as the
-   *  payload itself, serialized only when the next compare needs it. */
+   *  Held as the serialized string — or, after a skipped mid-gesture compare (below) or a pull
+   *  (the blob it adopted), as the blob itself, serialized only when the next compare needs it. */
   const lastPushed = useRef<string | Saved | null>(null)
 
   // Attendance divergence → ONE Verlauf note per affected person: a merge kept LWW but saw
@@ -200,8 +202,11 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
   useEffect(() => {
     const payload = buildPayload()
     if (firstSave.current) { firstSave.current = false; lastPushed.current = JSON.stringify(payload); return }
-    // an echo of a pull is not pushed back (`echoOfPull`) — but it is what the server holds now
-    if (echoOfPull(payload)) { lastPushed.current = JSON.stringify(payload); return }
+    // an echo of a pull is not pushed back (`adoptedBlob`) — but it is what the server holds now,
+    // and so is the blob the pull adopted, which any other build after it is compared with
+    const adopted = adoptedBlob(payload)
+    if (adopted === payload) { lastPushed.current = JSON.stringify(payload); return }
+    if (adopted) lastPushed.current = adopted
     // ⚠️ Mid-gesture, with a push already owed, the compare is skipped (perf sweep 23.09.2026).
     // A Karte drag writes the document per pointer move, a plan chip drag per sample, the Rapport
     // per keystroke — and each of those re-serialized the WHOLE workspace here, 60 times a second

@@ -110,7 +110,7 @@ async function openDevice() {
   const buildPayload = () => device.shown as never
   const applyWorkspace = (ws: unknown) => { device.shown = ws as Ws }
   const noop = () => {}
-  renderHook(() => useIncidentSync({ sync, readOnly: false, incidentId: 'inc', buildPayload, applyWorkspace, echoOfPull: () => false, flushEvents: noop, flushEventsBeacon: noop }))
+  renderHook(() => useIncidentSync({ sync, readOnly: false, incidentId: 'inc', buildPayload, applyWorkspace, adoptedBlob: () => null, flushEvents: noop, flushEventsBeacon: noop }))
   return device
 }
 type Device = Awaited<ReturnType<typeof openDevice>>

@@ -326,6 +326,28 @@ describe('(f) a pull moves only what it changed', () => {
     expect(saved.trupps?.map((t) => t.entryPressureBar)).toEqual([300, 280])
   })
 
+  // …also when the pick was the ONLY thing the pull changed: React then commits no change at all,
+  // so the pull forces the one build, and it is compared with what the pull adopted
+  it('a pick back, when the pick was all the pull changed, is saved', async () => {
+    const { sync, save, held } = await device()
+    act(() => {
+      sync.onApplyMerged!({ ...held, pickedObjectId: 'obj2' } as unknown as Blob, 1)
+      boundPlans.onPick!(undefined)
+    })
+    await settle(60)
+    expect(save).toHaveBeenCalledTimes(1)
+    expect((save.mock.lastCall![0] as Saved).pickedObjectId).toBeUndefined()
+  })
+
+  it('a pull that changed only the pick, or only a Plan\'s scale, is not saved back', async () => {
+    const { sync, save, held } = await device()
+    act(() => { sync.onApplyMerged!({ ...held, pickedObjectId: 'obj2' } as unknown as Blob, 1) })
+    await settle(60)
+    const scaled = { ...held, pickedObjectId: 'obj2', planScale: { modul1: { mPerU: 120, refM: 30, ar: 1.4 } } }
+    expect(await pullCost(sync, scaled as unknown as Blob)).toEqual({ keptEntities: 2, keptLayers: true, serializations: 1, layerWrites: 0 })
+    expect(save).not.toHaveBeenCalled()
+  })
+
   it('a plan binding that lands in the pull\'s render is saved, the pulled Trupp with it', async () => {
     const { sync, save, held } = await device()
     act(() => {
