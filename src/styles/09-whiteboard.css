@@ -984,7 +984,8 @@ span.wb-ghost-label { cursor: default; }
 
 /* vertical tool-option dock — anchored to the right edge beside the rail, so a
    tool's options appear right where you picked it instead of bottom-centre */
-/* top is set inline to the active tool's rail-button level; falls back to 14px
+/* top is set inline to the rail's top on EVERY surface (ToolDock · useRailLevel: Karte, Moduls,
+   Gebäude, Tafel – owner, Üben feedback 27.11.2026); .wb-dock-map's centring is the fallback
    ⚠️ ONE material on every surface (Karte, Einsatz, Plan/Skizze; phone and tablet), and it is the
    floating family's glass: light by day, dark by night (owner 20.10.2026: «why do we have a dark
    sidebar in lightmode?»). The dock wore --ink-fill — dark in BOTH themes, the «armed mode»
@@ -1101,9 +1102,9 @@ span.wb-ghost-label { cursor: default; }
   .wb-dock-tog.on:hover:not(:disabled) { filter: brightness(1.08); }
 }
 .wb-dock-tog:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-/* Lage map: the tool rail is vertically centred at right:16px (width 88px), so the
-   draw dock sits just left of it and is centred to match — same right-edge, top-down,
-   ×-led dock as the Plan whiteboard (which instead pins `top` to its rail button) */
+/* every surface's dock (the class is ToolDock's, Karte and Plan alike): just left of the tool
+   rail, its `top` set inline level with the rail's (ToolDock · useRailLevel); the centring here
+   is only the fallback until measured */
 /* sits just left of the right tool rail and tracks its width, so expanding the rail pushes
    the dock left instead of letting the rail overlap it. --vrail-w is published by ToolRail;
    16px rail inset + width + 26px gap. */

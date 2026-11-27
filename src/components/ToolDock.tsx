@@ -127,12 +127,16 @@ export function ToolDock({ groups, armed = null }: { groups: DockItem[][]; armed
  *  follows its tools, so the dock reads the rail's top rather than guessing it. The foot is the
  *  view bar's top less the floating gap where the bar stands in the corner (07-toolrail ·
  *  .view-bar), the screen's 16px edge otherwise. Off on a phone, where the dock is a bottom bar
- *  (15-mobile) and the CSS centring is the fallback until measured. */
+ *  (15-mobile) and the CSS centring is the fallback until measured.
+ *  ⚠️ The rail is found by the shared ToolRail class `.vrail`, never a surface's own hook: it read
+ *  the Karte's `.tool-rail`, so on every Plan (`.wb-tools`) it found nothing and the dock stood
+ *  centred while the Karte's stood at the top (owner, Üben feedback 27.11.2026). One rail is
+ *  mounted at a time – the Karte's and a Plan's never stand together. */
 function useRailLevel(ref: RefObject<HTMLDivElement | null>, on: boolean): CSSProperties | undefined {
   const [level, setLevel] = useState<CSSProperties>()
   useLayoutEffect(() => {
     const dock = ref.current
-    const rail = on ? document.querySelector<HTMLElement>('.tool-rail') : null
+    const rail = on ? document.querySelector<HTMLElement>('aside.vrail') : null
     if (!dock || !rail) { setLevel(undefined); return }
     const read = () => {
       const host = (dock.offsetParent as HTMLElement | null)?.getBoundingClientRect().top ?? 0
