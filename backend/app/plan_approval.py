@@ -33,7 +33,7 @@ from .api.plan_scales import GeorefPair
 from .models import PlanAlignment, PlanAlignmentEvent, PlanRevision, ReferenceDataset
 from .plan_floors import fit_publishable, load_floors
 from .plan_revision_info import revision_page_count
-from .plans import lock_object_plans
+from .plans import lock_object_plans, plan_target
 
 #: an admin acting in the review UI …
 ADMIN = "admin"
@@ -77,9 +77,12 @@ async def lock_plans_of(db: AsyncSession, row: PlanAlignment) -> ReferenceDatase
     act on an older revision: a merge or the demo reset deletes the alignment's history under it,
     and a decision committed in between would abort that on the history's foreign key."""
     ds = await db.get(ReferenceDataset, row.dataset_id)
-    if ds is not None and ds.object_id is not None:
+    # a row from before plans had an object (main left jobs on some): its id still names one
+    named = plan_target(ds.id) if ds is not None else None
+    owner = (ds.object_id or (named[0] if named else None)) if ds is not None else None
+    if ds is not None and owner is not None:
         held = row.dataset_id
-        await lock_object_plans(db, ds.object_id)
+        await lock_object_plans(db, owner)
         # a merge or a re-key that committed while this waited moved the alignment onto another
         # dataset (and object) – this holds the wrong lock, so it must not write it
         if await db.get(PlanAlignment, row.id, populate_existing=True) is None or row.dataset_id != held:

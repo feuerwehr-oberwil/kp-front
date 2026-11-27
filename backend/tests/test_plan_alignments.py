@@ -11,7 +11,7 @@ from sqlalchemy import event, select, text
 
 from app import storage
 from app.api.report import resolve_report_assets
-from app.models import DeploymentConfig, ObjectSite, PlanAlignment, PlanAlignmentEvent, PlanRevision
+from app.models import DeploymentConfig, ObjectSite, PlanAlignment, PlanAlignmentEvent, PlanRevision, ReferenceDataset
 from app.plans import store_plan
 from app.report import ReportPayload
 
@@ -423,6 +423,39 @@ async def test_a_first_put_of_a_plan_id_takes_the_plan_write_path(client, admin_
     job = (await db_session.execute(select(PlanAlignment))).scalar_one()
     assert (revision.dataset_id, job.dataset_id) == (f"plan:{obj.id}:modul1",) * 2
     assert response.json()["object_id"] == str(obj.id)
+
+
+async def test_a_legacy_plan_row_without_an_object_is_replaced_as_it_always_was(client, admin_login, db_session):
+    """A `plan:` row from before plans had an object (object_id and module empty) has no «plans of an
+    object» to lock. `PUT /api/reference/…` replaces it the way main did – a new file and version –
+    and hangs no revision and no alignment job off it."""
+    obj = ObjectSite(name="Altbestand")
+    db_session.add(obj)
+    await db_session.flush()
+    ds_id = f"plan:{obj.id}:modul1"
+    db_session.add(ReferenceDataset(id=ds_id, kind="pdf", storage_key="reference/old.pdf", current_version=1))
+    await db_session.commit()
+    await admin_login(client)
+    response = await client.put(f"/api/reference/{ds_id}", files={"file": ("m1.pdf", PDF1, "application/pdf")})
+    assert response.status_code == 200, response.text
+    assert response.json()["current_version"] == 2
+    assert (await db_session.execute(select(PlanAlignment))).scalars().all() == []
+    assert (await db_session.execute(select(PlanRevision))).scalars().all() == []
+
+
+async def test_store_plan_links_a_legacy_row_to_its_object_before_it_queues_a_job(db_session):
+    """…while the object's own upload (`store_plan`) adopts such a row by its id: no alignment job
+    ever exists for a plan without an object."""
+    obj = ObjectSite(name="Altbestand")
+    db_session.add(obj)
+    await db_session.flush()
+    ds_id = f"plan:{obj.id}:modul1"
+    db_session.add(ReferenceDataset(id=ds_id, kind="pdf", storage_key="reference/old.pdf", current_version=1))
+    await db_session.commit()
+    ds = await store_plan(db_session, obj, "modul1", PDF1)
+    await db_session.commit()
+    assert (ds.object_id, ds.module) == (obj.id, "modul1")
+    assert len((await db_session.execute(select(PlanAlignment))).scalars().all()) == 1
 
 
 async def _until_waiting(observer, task) -> None:

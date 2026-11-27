@@ -273,6 +273,10 @@ async def store_plan(
     digest = hashlib.sha256(data).hexdigest()
 
     def apply_metadata(ds: ReferenceDataset) -> None:
+        # a row from before plans had an object is this object's by its id: link it, so no
+        # revision or alignment job ever hangs off a plan with no object (and so no lock 3)
+        ds.object_id = ds.object_id or obj.id
+        ds.module = ds.module or module
         ds.title = title or ds.title or f"{obj.name} – {module}"
         ds.source_note = source_note if source_note is not None else ds.source_note
         ds.source_type = source_type

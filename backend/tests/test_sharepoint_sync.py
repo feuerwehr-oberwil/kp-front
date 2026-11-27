@@ -20,7 +20,7 @@ from app import credentials as creds
 from app import sharepoint_sync
 from app.admin_objects import object_id_for_key
 from app.config import settings
-from app.models import DeploymentConfig, ObjectSite, ReferenceDataset, SharePointSyncState
+from app.models import DeploymentConfig, ObjectRef, ObjectSite, ReferenceDataset, SharePointSyncState
 from app.schemas import SharePointConfig
 from app.services.station_workbook import build_workbook
 from app.sharepoint_sync import _module_for, _ModuleRule, sharepoint_status, sync_sharepoint
@@ -1301,3 +1301,141 @@ async def test_a_second_run_skips_while_one_holds_the_plans(db_session, session_
         await other.commit()
     assert tenant.seen == []
     assert (await sync_sharepoint(db_session, transport=tenant.transport))["status"] == "ok"
+
+
+# --- an object deleted while the run imports it ----------------------------------------------
+
+
+async def _holding_up_x(session_factory, tenant, x_id, *, delete_x):
+    """Run a pull while another session holds X's lock 3, so the run waits at X's first sheet;
+    `delete_x(session)` is started meanwhile, then the holder lets go. Returns the run's result."""
+    import asyncio
+
+    from sqlalchemy import text
+
+    from app import plans
+
+    waiting = "SELECT count(*) FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock'"
+
+    async def until(task, n=1):
+        async with session_factory() as observer:
+            for _ in range(100):
+                if task.done() or (await observer.execute(text(waiting))).scalar_one() >= n:
+                    return
+                await observer.rollback()
+                await asyncio.sleep(0.05)
+
+    async def pull():
+        async with session_factory() as db:
+            out = await sync_sharepoint(db, transport=tenant.transport)
+            await db.commit()
+            return out
+
+    async with session_factory() as holder, session_factory() as deleter:
+        await plans.lock_object_plans(holder, x_id)
+        run = asyncio.create_task(pull())
+        await until(run)
+        deleting = asyncio.create_task(delete_x(deleter))
+        await until(deleting, 2)
+        await holder.commit()
+        result = await asyncio.wait_for(run, 10)
+        await asyncio.wait_for(deleting, 10)
+    return result
+
+
+async def _organizer_removes_its_ref(db):
+    """The organizer's `DELETE /api/integrations/objects/fwo/x`: the object goes along with its last
+    ref when nothing else stands on it (object_visits · delete_integration_object)."""
+    from app import object_visits as ov
+
+    out = await ov.delete_integration_object(db, "fwo", "x")
+    await db.commit()
+    return out
+
+
+async def _organizer_object(db, x_id, **fields) -> None:
+    db.add(ObjectSite(id=x_id, name="Musterweg 1", source_note="Integration: fwo", **fields))
+    await db.flush()
+    db.add(ObjectRef(object_id=x_id, source="fwo", external_id="x"))
+
+
+async def test_an_object_deleted_after_the_run_queued_its_folder_keeps_the_area_whole(
+    db_session, session_factory, blank_env, storage_root
+):
+    """The run refreshes X's filing folder, then – while the run downloads its first sheet – the
+    organizer deletes X. The refresh is an UPDATE the run holds X's row with, so the delete waits for
+    the run; it used to be a pending ORM change, and its flush hit the deleted row (StaleDataError)
+    and rolled the area's other imports back. PostgreSQL only."""
+    import asyncio
+
+    import httpx
+    from sqlalchemy import text
+
+    if db_session.bind.dialect.name != "postgresql":
+        pytest.skip("requires independent PostgreSQL transactions")
+    x_id, y_id = object_id_for_key("Musterweg 1"), object_id_for_key("Dorfmatt")
+    await _organizer_object(db_session, x_id)  # no folder yet
+    await configure(db_session, [source("plans")])
+    await db_session.commit()
+    tenant = FakeTenant({"Dorfmatt/Modul 1.pdf": PDF, "Musterweg 1/Modul 1.pdf": PDF})
+    reached, release = asyncio.Event(), asyncio.Event()
+
+    async def paused(request: httpx.Request) -> httpx.Response:
+        if "/download/" in request.url.path and not reached.is_set():  # after the folder refresh
+            reached.set()
+            await release.wait()
+        return tenant._handle(request)
+
+    async def pull():
+        async with session_factory() as db:
+            out = await sync_sharepoint(db, transport=httpx.MockTransport(paused))
+            await db.commit()
+            return out
+
+    run = asyncio.create_task(pull())
+    await asyncio.wait_for(reached.wait(), 10)
+    async with session_factory() as deleter, session_factory() as observer:
+        deleting = asyncio.create_task(_organizer_removes_its_ref(deleter))
+        waiting = (
+            "SELECT count(*) FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock'"
+        )
+        for _ in range(40):  # until the removal waits for the run's row, or is through
+            if deleting.done() or (await observer.execute(text(waiting))).scalar_one():
+                break
+            await observer.rollback()
+            await asyncio.sleep(0.05)
+        release.set()
+        result = await asyncio.wait_for(run, 10)
+        await asyncio.wait_for(deleting, 10)
+
+    assert result["areas"]["plans"]["status"] == "ok"
+    assert await datasets(db_session, f"plan:{y_id}:") == [f"plan:{y_id}:modul1"]
+    # the removal waited for the run, then found a plan on X: only the ref went
+    assert await datasets(db_session, f"plan:{x_id}:") == [f"plan:{x_id}:modul1"]
+
+
+async def test_an_object_deleted_during_the_run_is_skipped_whole_and_imported_next_time(
+    db_session, session_factory, blank_env, storage_root
+):
+    """The organizer deletes X while the run waits at X's first sheet. ALL of X's sheets are
+    skipped – the second must not recreate X – the area says so, the other object's import stays,
+    and the next run imports every sheet of X again. PostgreSQL only."""
+    if db_session.bind.dialect.name != "postgresql":
+        pytest.skip("requires independent PostgreSQL transactions")
+    x_id, y_id = object_id_for_key("Musterweg 1"), object_id_for_key("Dorfmatt")
+    await _organizer_object(db_session, x_id, filing_folder="Musterweg 1")
+    await configure(db_session, [source("plans")])
+    await db_session.commit()
+    tenant = FakeTenant({"Musterweg 1/Modul 1.pdf": PDF, "Musterweg 1/Modul 2.pdf": PDF, "Dorfmatt/Modul 1.pdf": PDF})
+
+    result = await _holding_up_x(session_factory, tenant, x_id, delete_x=_organizer_removes_its_ref)
+
+    assert result["areas"]["plans"]["status"] == "needs_review"
+    db_session.expire_all()
+    assert await db_session.get(ObjectSite, x_id) is None
+    assert await datasets(db_session, f"plan:{x_id}:") == []
+    assert await datasets(db_session, f"plan:{y_id}:") == [f"plan:{y_id}:modul1"]
+
+    again = await sync_sharepoint(db_session, transport=tenant.transport)
+    assert again["areas"]["plans"]["imported"] == 2
+    assert await datasets(db_session, f"plan:{x_id}:") == [f"plan:{x_id}:modul1", f"plan:{x_id}:modul2"]

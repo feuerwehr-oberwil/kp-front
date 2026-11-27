@@ -62,13 +62,14 @@ import json
 import logging
 import re
 import unicodedata
+import uuid
 from collections import Counter
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
 import httpx
-from sqlalchemy import select
+from sqlalchemy import or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 # `_upsert` is the ONE checklist write path (dataset id, storage key, version bump). Private by
@@ -495,6 +496,8 @@ _RESUMABLE = ("ok", "unchanged")
 #: timeout, a storage host having a bad minute. Its own constant because `_grade` treats it
 #: differently from the reasons that are about the FILE.
 _UNFETCHED = "could not be fetched from SharePoint"
+#: …and the one for a sheet whose Einsatzobjekt was deleted while the run imported it
+_GONE = "its Einsatzobjekt was deleted during the run"
 
 
 def _grade(out: AreaOutcome, source: SharePointSource) -> None:
@@ -702,23 +705,39 @@ async def _sync_plans(
     # a folder renamed in SharePoint keeps its object (keyed on the name half) and must move the
     # filing with it. Objects this pull created follow the listing; any other object only gets a
     # folder where it has none (a manifest's own `folder` is that pipeline's statement).
+    # One UPDATE per object rather than an ORM change waiting for the next flush: an object the
+    # organizer deletes meanwhile is 0 rows here, not a StaleDataError that takes the area down.
     listed_folders = {file.path.split("/")[0]: identity for file, identity, _ in usable}
     for raw_folder, identity in listed_folders.items():
-        listed = await db.get(ObjectSite, identity.object_id)
         folder_nfc = unicodedata.normalize("NFC", raw_folder).strip()
-        if (
-            listed is not None
-            and listed.filing_folder != folder_nfc
-            and (listed.source_note == "SharePoint" or not listed.filing_folder)
-        ):
-            listed.filing_folder = folder_nfc
+        await db.execute(
+            update(ObjectSite)
+            .where(
+                ObjectSite.id == identity.object_id,
+                ObjectSite.filing_folder.is_distinct_from(folder_nfc),
+                or_(
+                    ObjectSite.source_note == "SharePoint",
+                    ObjectSite.filing_folder.is_(None),
+                    ObjectSite.filing_folder == "",
+                ),
+            )
+            .values(filing_folder=folder_nfc)
+            .execution_options(synchronize_session="fetch")
+        )
 
     # What the memo may record: a file this run imported, or one it already had. Anything that
     # fell out below keeps its OLD eTag instead, so the next run tries it again (`_remember`).
     stored: list[RemoteFile] = []
+    # Objects deleted while this run imported their plans (the organizer's last ref took them
+    # along): ALL their sheets are skipped – the next one must not recreate the object – and none
+    # of them is remembered, so the next run, which walks again, imports them all.
+    gone: set[uuid.UUID] = set()
     progress.files(len(usable))  # the work of this area, as the card counts it
     for file, identity, module in usable:
         progress.step()
+        if identity.object_id in gone:
+            out.skip(_GONE)
+            continue
         if not _changed(state, file):
             out.skipped += 1
             stored.append(file)
@@ -754,8 +773,12 @@ async def _sync_plans(
                 fetch_url=f"sharepoint:{file.path}",
             )
         except ObjectGoneError:
-            out.skip("its Einsatzobjekt was deleted meanwhile")
-            logger.warning("SharePoint plans: the object of %s was deleted meanwhile — skipped", file.path)
+            db.expunge(obj)  # with whatever this run still had pending for it
+            gone.add(identity.object_id)
+            out.skip(_GONE)
+            logger.warning(
+                "SharePoint plans: the object of %s was deleted meanwhile — all its sheets skipped", file.path
+            )
             continue
         out.imported += 1
         stored.append(file)
@@ -771,7 +794,16 @@ async def _sync_plans(
             + ". Widen that module's 'match' capture so the two names produce two slots."
         )
 
+    if gone:
+        owner = {file.path: identity.object_id for file, identity, _ in usable}
+        stored = [f for f in stored if owner[f.path] not in gone]
+        out.status = "needs_review"  # not resumable: the next run walks, and finds them new
+        note = f"{len(gone)} Einsatzobjekt(e) deleted during the run — their sheets are imported again next time"
+        out.detail = f"{out.detail} · {note}" if out.detail else note
+
     out.missing = _remember(state, stored, listed=[f for f, _, _ in usable])
+    if gone:
+        state.files = {p: e for p, e in (state.files or {}).items() if owner.get(p) not in gone}
     return out
 
 
@@ -907,7 +939,13 @@ async def _object_for(db: AsyncSession, folder: FolderIdentity, raw_folder: str 
         # one thing it fills in is where the plans LIVE (`filing_folder`, read by the Objektbesuche
         # delivery), and only while nobody has said.
         if filing and not obj.filing_folder:
-            obj.filing_folder = filing
+            # an UPDATE, not a pending change: see the filing-folder refresh in `_sync_plans`
+            await db.execute(
+                update(ObjectSite)
+                .where(ObjectSite.id == oid, or_(ObjectSite.filing_folder.is_(None), ObjectSite.filing_folder == ""))
+                .values(filing_folder=filing)
+                .execution_options(synchronize_session="fetch")
+            )
         return obj
     obj = ObjectSite(
         id=oid, name=folder.name, address=folder.address, source_note="SharePoint", filing_folder=filing or None

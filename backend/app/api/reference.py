@@ -454,11 +454,12 @@ async def _replace_reference(
     # An Objektplan replacement goes through the ONE plan write path (app/plans.py · store_plan):
     # revision pinning, identical-bytes dedupe, the alignment job and lock 3 all live there, and
     # this route must not fork a second, revision-less way of writing the same dataset – also not
-    # for a plan id whose row does not exist yet. A canonical id never takes the generic path.
-    target = canonical or ((ds.object_id, ds.module) if ds is not None and ds.object_id else None)
+    # for a plan id whose row does not exist yet. A row that exists without an object (from before
+    # plans had one) stays what it was on main: a plain replace below, no revision, no job.
+    target = ((ds.object_id, ds.module) if ds.object_id else None) if ds is not None else canonical
     if dataset_id.startswith("plan:") and target is not None:
         obj = await db.get(ObjectSite, target[0], populate_existing=True)
-        if obj is None and canonical is not None:
+        if obj is None and ds is None:
             raise HTTPException(status_code=404, detail="Objekt nicht gefunden")
         if obj is not None:
             if content_type not in ("application/pdf", "application/octet-stream"):

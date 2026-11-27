@@ -1000,6 +1000,7 @@ async def test_the_sharepoint_pull_records_the_folder(db_session, monkeypatch):
     obj = await sharepoint_sync._object_for(db_session, folder_identity(folder), folder)
     assert obj.filing_folder == folder and obj.name == "Gemeindeverwaltung"
     obj.filing_folder = None
+    await db_session.flush()  # an object whose folder is empty in the database
     again = await sharepoint_sync._object_for(db_session, folder_identity(folder), folder)
     assert again.filing_folder == folder  # filled in where empty, nothing else touched
 
