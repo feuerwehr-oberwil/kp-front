@@ -162,31 +162,38 @@ export function useWorkspaceBlob({
    * live layers, never wiped — whatever the record already says goes back unchanged. */
   const syncedLayerState = useRef<Saved['layerState']>(bootGate.ws?.layerState ?? [])
   /** The synced slices the blob is built from, one object per change of any of them — what
-   *  `buildPayload` writes, and (as `built`) what a merge is written over. */
+   *  `buildPayload` writes. */
   const slices = useMemo((): Omit<LiveSlices, 'objects' | 'layers'> => ({
     recent, building, vehicleOverrides, checklists, trupps: allTrupps, attendance, mittel, shifts, bands, cameraViews, trails,
     planScale, reportMeta, attachments, reportSignatures, settings: incidentSettings, planBindings, pickedObjectId, intakeReviewedAt,
   }), [recent, building, vehicleOverrides, checklists, allTrupps, attendance, mittel, shifts, bands, cameraViews, trails, planScale, reportMeta, attachments, reportSignatures, incidentSettings, planBindings, pickedObjectId, intakeReviewedAt])
-  // …as the save last built them (useIncidentSync builds on every change), and the Ebenen as this
-  // device last remembered them (below) — committed state, read by a merge that lands later
-  const built = useRef(slices)
+  /** What the save last built the blob from (useIncidentSync builds on every change): the slices,
+   *  the store's objects and the Verlauf echo — the journal store swaps that exactly when the ids
+   *  of the blob's legacy rows change (journalStore · ingestLegacy). Committed state. */
+  const built = useRef({ slices, objects, timeline: journal.blobTimeline })
+  /** …and what the last merge handed out on top of it, until the save builds again — the state a
+   *  second merge before that render is written over */
+  const handed = useRef({ slices, objects, timeline: journal.blobTimeline })
+  /** the Ebenen as this device last remembered them (below) */
   const rememberedLayers = useRef(layers)
-  /** …and the Verlauf echo the save last built: the journal store swaps it exactly when the ids
-   *  of the blob's legacy rows change (journalStore · ingestLegacy), and the save follows */
-  const builtTimeline = useRef(journal.blobTimeline)
-  /** Write `ws` into the slices; true when it moved one the saved blob is built from — false
-   *  means no save will follow it (useIncidentSync · hydrate then puts its echo guard back). */
+  /** Write `ws` into the slices. Returns whether the blob will be built from anything other than
+   *  what the save last built — false means no save effect follows, and useIncidentSync · hydrate
+   *  must not arm its echo guard. Measured against the committed build, so two merges in one batch
+   *  that end where they started answer false. */
   const applyWorkspace = useCallback((ws: Workspace): boolean => {
     const gate = sanitizeWorkspace(ws)
     reportGate(gate)
     syncedLayerState.current = gate.ws?.layerState ?? []
-    const derived = deriveInitial(gate.ws, incidentMeta.id, prefs, incidentMeta.type)
+    // ⚠️ A pull never moves this device's Ebenen (lib/layerPrefs): what deriveInitial reads back is
+    // this device's own remembered set — or, where that store failed, the blob's seed, which must
+    // not reset what the operator is looking at.
+    const derived = { ...deriveInitial(gate.ws, incidentMeta.id, prefs, incidentMeta.type), layers: rememberedLayers.current }
     // every synced slice the merge CHANGED takes the merged value (the objects come in with their
     // history below); every record it did not change keeps its live identity (lib/workspace ·
     // shareLive), so one Trupp saved elsewhere re-renders what shows that Trupp, not the workspace.
     // ⚠️ One setter per slice, typed (lib/workspace · WorkspaceAppliers): a synced slice without
     // a line here fails tsc. This was a hand-kept list until 25.09.2026, and it had lost `mittel`.
-    const { next, held, moved } = applyInitialState(derived, { ...built.current, layers: rememberedLayers.current, objects: liveObjects() }, {
+    const { next, held } = applyInitialState(derived, { ...handed.current.slices, layers: rememberedLayers.current, objects: liveObjects() }, {
       // the store swaps in below, WITH its history (carryUndoThroughMerge: `rebaseObjects`, or
       // `replaceObjects` when the bookkeeping fails) — a replace here would drop every Karte step
       objects: () => {},
@@ -242,13 +249,12 @@ export function useWorkspaceBlob({
     setSelectedId((id) => (id && next.doc.entities.some((e) => e.id === id) ? id : null))
     setSelectedDrawingId((id) => (id && next.doc.drawings.some((d) => d.id === id) ? id : null))
     setSelectedDrawIds((ids) => ids.filter((id) => next.doc.drawings.some((d) => d.id === id)))
-    // a second merge before this one renders is written over what this one handed out
-    built.current = held; rememberedLayers.current = held.layers
-    const echo = builtTimeline.current
-    const timelineMoved = next.timeline.length !== echo.length || next.timeline.some((r, i) => r.id !== echo[i]?.id)
-    builtTimeline.current = timelineMoved ? next.timeline : echo
-    // the Ebenen are this device's own and never ride the blob (buildPayload)
-    return timelineMoved || moved.some((k) => k !== 'layers')
+    const echo = handed.current.timeline
+    const timeline = next.timeline.length !== echo.length || next.timeline.some((r, i) => r.id !== echo[i]?.id) ? next.timeline : echo
+    handed.current = { slices: held, objects: next.objects, timeline }
+    const b = built.current
+    return next.objects !== b.objects || timeline !== b.timeline
+      || (Object.keys(b.slices) as (keyof typeof b.slices)[]).some((k) => held[k] !== b.slices[k])
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [incidentMeta.id, incidentMeta.type])
 
@@ -264,7 +270,7 @@ export function useWorkspaceBlob({
      * every device can resolve, and is part of the record like any placed object. */
     const persisted = objects.filter((o) => o.entity?.kind !== 'photo' || !!o.entity.photoOf)
     const views = viewsOf(persisted)
-    built.current = slices; builtTimeline.current = journal.blobTimeline
+    built.current = handed.current = { slices, objects, timeline: journal.blobTimeline }
     // Every `Saved` key is named (EverySavedKey), so a new one that is not written here fails
     // tsc instead of being deleted by this save. Left out: `activeModule` (device-local, this build
     // never writes it) and `weather` (the replay fold's alone).

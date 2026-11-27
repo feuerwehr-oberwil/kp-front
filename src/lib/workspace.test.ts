@@ -785,7 +785,6 @@ describe('applyInitialState — a pull hands over only what it changed (perf swe
     const { calls, set } = recorder()
     const out = applyInitialState(next, held(live), set)
     expect(calls).toEqual(['timeline', 'trupps'])
-    expect(out.moved).toEqual(['trupps'])
     expect(out.next.trupps[0]).toBe(live.trupps[0])
     expect(out.next.trupps[1]).not.toBe(live.trupps[1])
     expect(out.next.objects).toBe(live.objects)
@@ -796,7 +795,7 @@ describe('applyInitialState — a pull hands over only what it changed (perf swe
   it('the same blob again moves nothing', () => {
     const live = deriveInitial(blob, 'i', {})
     const { calls, set } = recorder()
-    expect(applyInitialState(deriveInitial(blob, 'i', {}), held(live), set).moved).toEqual([])
+    expect(applyInitialState(deriveInitial(blob, 'i', {}), held(live), set).held.trupps).toBe(live.trupps)
     expect(calls).toEqual(['timeline'])
   })
 })

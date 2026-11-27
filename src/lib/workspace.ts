@@ -789,6 +789,7 @@ export type WorkspaceAppliers = { [K in AppliedKey]: (value: InitialState[K]) =>
  *  The Verlauf is not among them: its rows go to the journal store, which drops a repeat itself. */
 export type LiveSlices = { [K in Exclude<AppliedKey, 'timeline'>]: InitialState[K] }
 
+const ownKey = (o: object, k: string) => Object.prototype.hasOwnProperty.call(o, k)
 const hasStringId = (v: unknown): v is { id: string } => isObj(v) && typeof v.id === 'string'
 
 /**
@@ -816,14 +817,13 @@ export function shareLive<T>(live: T, next: T): T {
     return same ? live : out as T
   }
   if (isObj(live) && isObj(next)) {
-    let same = Object.keys(live).every((k) => live[k] === undefined || k in next)
-    const out: Record<string, unknown> = {}
-    for (const [k, n] of Object.entries(next)) {
-      const l = live[k]
+    let same = Object.keys(live).every((k) => live[k] === undefined || ownKey(next, k))
+    const out = Object.fromEntries(Object.entries(next).map(([k, n]) => {
+      const l = ownKey(live, k) ? live[k] : undefined
       const v = l !== undefined && jsonEqual(l, n) ? l : n
       if (v !== l) same = false
-      out[k] = v
-    }
+      return [k, v]
+    }))
     return same ? live : out as T
   }
   return jsonEqual(live, next) ? live : next
@@ -834,26 +834,23 @@ export function shareLive<T>(live: T, next: T): T {
  * order `set` lists them; a slice that did not change is not handed over at all. The Verlauf
  * always goes. Returns `next` as written — every unchanged record the live one, for the caller's
  * own diff and history re-lay — the same slices as `held` (what the device holds once this lands,
- * for a second merge before it renders) and the slices that moved.
+ * for a second merge before it renders).
  */
-export function applyInitialState(next: InitialState, live: LiveSlices, set: WorkspaceAppliers): { next: InitialState; held: LiveSlices; moved: (keyof LiveSlices)[] } {
+export function applyInitialState(next: InitialState, live: LiveSlices, set: WorkspaceAppliers): { next: InitialState; held: LiveSlices } {
   const out: InitialState = { ...next }
   const held: LiveSlices = { ...live }
-  const moved: (keyof LiveSlices)[] = []
   const one = <K extends keyof LiveSlices>(k: K, cur: InitialState[K]) => {
     const v = shareLive(cur, next[k])
     out[k] = v
     // the same slot: tsc cannot correlate LiveSlices[K] with InitialState[K] for a generic K
     held[k] = v as LiveSlices[K]
-    if (v === cur) return
-    moved.push(k)
-    set[k](v)
+    if (v !== cur) set[k](v)
   }
   for (const k of Object.keys(set) as (keyof WorkspaceAppliers)[]) {
     if (k === 'timeline') set.timeline(next.timeline)
     else one(k, live[k])
   }
-  return { next: out, held, moved }
+  return { next: out, held }
 }
 
 // the plan a fresh emergency opens on: Modul 1 (the Übersicht), falling back to the first

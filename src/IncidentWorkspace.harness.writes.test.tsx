@@ -241,6 +241,20 @@ describe('(f) a pull moves only what it changed', () => {
     expect((save.mock.lastCall![0] as Saved).objects?.map((o) => o.id)).toEqual(['p2'])
   })
 
+  it('two pulls in one batch that end where they started: the local edit after them is saved', async () => {
+    const { sync, save, held } = await device()
+    act(() => {
+      sync.onApplyMerged!({ ...held, intakeReviewedAt: '2026-09-23T10:30:00Z' } as unknown as Blob, 1)
+      sync.onApplyMerged!(held as unknown as Blob, 2)
+    })
+    await settle(60)
+    expect(save).not.toHaveBeenCalled()
+    act(() => { lastMap().onSelect(lastMap().entities[0]) })
+    act(() => { key('Delete') })
+    await settle(60)
+    expect(save).toHaveBeenCalledTimes(1)
+  })
+
   it('a pull that changed one Trupp is not saved back, and the local edit after it is', async () => {
     const { sync, save, held } = await device()
     act(() => { sync.onApplyMerged!(oneTrupp(held), 1) })
