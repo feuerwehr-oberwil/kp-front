@@ -106,6 +106,8 @@ export function useMediaQueue({ incidentId, readOnly, writable, onUploaded, onRe
   const [items, setItems] = useState<MediaQueueItem[]>([])
   const [durable, setDurable] = useState(true)
   const [reconnected, setReconnected] = useState(0)
+  /** a recovery signal (flushMediaQueue `due`) that came while this tab could not write */
+  const missedDue = useRef<'online' | 'reachable'>(undefined)
   /** when a recovery signal held back by the early-try spacing gets its try (FlushOutcome · deferredUntil) */
   const [earlyAt, setEarlyAt] = useState<number>()
   const status = useRef<SyncStatus>('synced')
@@ -168,7 +170,13 @@ export function useMediaQueue({ incidentId, readOnly, writable, onUploaded, onRe
    *  signal it would arm the next one, and two waiting captures would hand each other a try a
    *  minute for ever on a link that answers nothing. */
   const run = useCallback(async (options: { retry?: boolean; due?: 'online' | 'reachable' } | undefined, hold: boolean) => {
-    if (!mayWrite()) return
+    if (!mayWrite()) {
+      // kept for the promotion below: the open of the engine that brings the edit lock here can
+      // be the very answer that fired it, while this tab is still read-only
+      if (options?.due) missedDue.current = options.due
+      return
+    }
+    missedDue.current = undefined
     const { deferredUntil } = await flushMediaQueue(incidentId, uploadMedia, options)
     if (hold && deferredUntil != null) setEarlyAt(deferredUntil)
     await replay()
@@ -259,7 +267,7 @@ export function useMediaQueue({ incidentId, readOnly, writable, onUploaded, onRe
       .then(() => listMediaQueue(incidentId))
       .then((q) => reattach(q, () => mounted.current, true))
       .then(() => {}, () => {})
-    void restored.current.then(() => flush())
+    void restored.current.then(() => flush(missedDue.current && { due: missedDue.current }))
   }, [readOnly, flush, incidentId, reattach])
 
   // Retry the moment connectivity is back – the browser's `online` event, or the server answering

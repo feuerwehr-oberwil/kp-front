@@ -206,3 +206,21 @@ it('the tab that gets the edit lock plays the voice memo the other tab re-record
   view.rerender({ readOnly: false })
   await waitFor(() => expect(onRestore).toHaveBeenLastCalledWith('row', 'audio', 'blob:here-2', 'blob:here-1', undefined, undefined))
 })
+
+// The back-off on a dead link (27.11.2026) meets the hand-over: the open of the promoted tab's
+// engine can be the first answer after the link died, and its recovery signal reaches this hook
+// while it is still read-only. The promotion's flush takes that signal: the capture tries at once,
+// not after the rest of its pause.
+it('a recovery signal while the tab is still read-only reaches the flush of its promotion', async () => {
+  vi.stubGlobal('URL', { createObjectURL: () => 'blob:here', revokeObjectURL: vi.fn() })
+  upload.mockReset().mockResolvedValue({ url: '/uploaded' })
+  await enqueueMedia('late-signal', 'row', 'audio', new Blob(['a']), 'a.webm', new Date().toISOString())
+  const key = 'kp-front-mediaq-late-signal'
+  state.store.set(key, (state.store.get(key) as object[]).map((i) => ({ ...i, misses: 6, retryAt: Date.now() + 300_000 })))
+  const view = renderHook(({ readOnly }: { readOnly: boolean }) => useMediaQueue({ incidentId: 'late-signal', readOnly, onUploaded: () => true, onRestore: () => {} }), { initialProps: { readOnly: true } })
+  await waitFor(() => expect(view.result.current.syncStatus).toBe('synced'))
+  noteUnreached()
+  act(() => { noteAnswered() }) // the promoted engine's open: the server answers again
+  view.rerender({ readOnly: false })
+  await waitFor(() => expect(upload).toHaveBeenCalledOnce())
+})
