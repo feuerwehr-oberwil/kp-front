@@ -1,15 +1,15 @@
 import type { AtemschutzAuftrag, EinfachAuftrag, SymbolControl } from '../types'
 import { getCopy, type Copy } from './copy'
 
-/** One symbol's curated defaults: which built-in steppers make sense for it
- *  (`controls`) and the empty detail rows it drops in with (`fields`). Omitted
- *  `controls` = none; omitted `fields` = no detail rows. See lib/symbols. */
 /** One alarm stage of a measured field: reached from `atLeast`, or below `below`. */
 interface AlarmLimit {
   atLeast?: number
   below?: number
 }
 
+/** One symbol's curated defaults: which built-in steppers make sense for it
+ *  (`controls`) and the empty detail rows it drops in with (`fields`). Omitted
+ *  `controls` = none; omitted `fields` = no detail rows. See lib/symbols. */
 interface SymbolPreset {
   controls?: SymbolControl[]
   fields?: string[]
