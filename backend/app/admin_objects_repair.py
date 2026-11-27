@@ -348,7 +348,6 @@ class Rekey:
     name: str  # the NFC-composed spelling the re-keyed row carries
     address: str | None = None  # the address the re-keyed row carries
     datasets: list[tuple[str, str]] = field(default_factory=list)  # (old key, new key)
-    incidents: list[uuid.UUID] = field(default_factory=list)
     blocked: str | None = None  # set when something already sits on the target id
 
 
@@ -396,7 +395,6 @@ async def _plan_rekey(
     if kept:
         plan.blocked = f"{len(kept)} calibration key(s) already exist under {target}"
         return plan
-    plan.incidents = await _incidents_naming(db, row.id)
     return plan
 
 
@@ -567,6 +565,11 @@ async def _apply_rekey(db: AsyncSession, plan: Rekey) -> None:
     The row is re-created rather than updated in place: the plans reference ``objects.id`` and the
     FK has no ON UPDATE CASCADE, so a parent key cannot change while children point at it. Same
     order as a loser fold — new row, everything moved onto it, old row last.
+
+    The Einsätze that name the old id are NOT re-pointed here: that is the caller's, as the last
+    write before its commit (:func:`_retarget_incident`), so their rows are not held while the
+    caller goes on – the SharePoint run re-points them at its end (sharepoint_sync ·
+    _repoint_einsaetze). The merge (:func:`_apply_pair`) re-points its own in its short transaction.
     """
     old = plan.row
     source_key = old.source_key
@@ -594,8 +597,6 @@ async def _apply_rekey(db: AsyncSession, plan: Rekey) -> None:
     await _move_object_links(db, old.id, plan.target)
     for old_id, new_id in plan.datasets:
         await _rekey_dataset(db, old_id, new_id, plan.target)
-    for incident_id in plan.incidents:
-        await _retarget_incident(db, incident_id, old.id, plan.target)
     if source_key is not None:
         old.source_key = None  # UNIQUE — free it before the re-keyed row takes it
         await db.flush()
