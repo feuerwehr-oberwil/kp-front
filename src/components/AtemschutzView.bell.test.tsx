@@ -17,22 +17,25 @@ vi.mock('../lib/useIsPhone', async (original) => ({ ...await original<typeof imp
 registerAtemschutzViewHooks()
 
 // The browser's context: suspended until a gesture resumes it, and resume() answers later with
-// a statechange – the order a real tablet reports it in.
-let ctx: FakeCtx | undefined
+// a statechange – the order a real tablet reports it in. A mouse press activates on the press, a
+// finger only on the lift (`gesture`: whether the event being dispatched may unlock audio).
+let gesture = true
 class FakeCtx {
   state = 'suspended'
   private listeners = new Set<() => void>()
-  constructor() { ctx = this } // eslint-disable-line @typescript-eslint/no-this-alias -- the test needs the instance the lib builds
-  resume = vi.fn(async () => { this.state = 'running'; this.dispatch() })
+  resume = vi.fn(async () => { if (!gesture) return; this.state = 'running'; this.dispatch() })
   addEventListener = (type: string, fn: () => void) => { if (type === 'statechange') this.listeners.add(fn) }
   dispatch() { for (const fn of this.listeners) fn() }
 }
-;(globalThis as { AudioContext?: unknown }).AudioContext = FakeCtx
+// the constructor hands the instance out: the tests put the lib's context back to `suspended`
+let ctx: FakeCtx | undefined
+;(globalThis as { AudioContext?: unknown }).AudioContext = function () { return (ctx = new FakeCtx()) }
 
 // lib/alarm keeps its context for the page's life: each test starts from a fresh page's state –
 // audio taken away again (as a phone call does), no mute stored
 beforeEach(() => {
   vi.mocked(useIsPhone).mockReturnValue(false)
+  gesture = true
   localStorage.clear()
   if (ctx) { ctx.state = 'suspended'; ctx.dispatch() }
 })
@@ -47,11 +50,20 @@ function Board() {
 const bell = () => document.querySelector<HTMLButtonElement>(`.${s.muteBtn}`)!
 /** the bell's word – its honest state: «Alarmton» / «Stumm» / «Ton freigeben» */
 const word = () => bell().textContent
-/** a finger's tap; the context's async statechange lands between the press and the click */
+/** a mouse click: the press unlocks, and the context's statechange lands before the click */
 const tap = async (el: Element) => {
-  fireEvent.pointerDown(el)
+  fireEvent.pointerDown(el, { pointerType: 'mouse' })
   await act(async () => {})
-  fireEvent.pointerUp(el)
+  fireEvent.pointerUp(el, { pointerType: 'mouse' })
+  fireEvent.click(el)
+}
+/** a finger: only the lift unlocks, and the statechange lands between the lift and the click */
+const touchTap = async (el: Element) => {
+  gesture = false
+  fireEvent.pointerDown(el, { pointerType: 'touch' })
+  gesture = true
+  fireEvent.pointerUp(el, { pointerType: 'touch' })
+  await act(async () => {})
   fireEvent.click(el)
 }
 
@@ -64,6 +76,24 @@ describe('the bell\'s «Ton freigeben»', () => {
     await tap(bell())
     expect(word()).toBe(az.alarmWord)
     expect(bell().getAttribute('aria-pressed')).toBe('false')
+  })
+
+  it('a finger\'s tap, unlocked on the lift, leaves the tone on too', async () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    render(<Board />)
+    await touchTap(bell())
+    expect(word()).toBe(az.alarmWord)
+  })
+
+  // Sol review: a press that never got its click must not decide a later click with no press
+  it('a cancelled press is forgotten – a later click with no press (VoiceOver) mutes', async () => {
+    render(<Board />)
+    fireEvent.pointerDown(bell(), { pointerType: 'mouse' })
+    await act(async () => {})
+    fireEvent.pointerCancel(bell())
+    expect(word()).toBe(az.alarmWord)
+    fireEvent.click(bell())
+    expect(word()).toBe(az.alarmMutedWord)
   })
 
   it('a later tap on «Alarmton» still mutes', async () => {
