@@ -67,9 +67,9 @@ async function openStored(readOnly = false) {
   const { workspace } = await sync.init()
   const device = { sync, shown: workspace as Ws }
   const buildPayload = () => device.shown as never
-  const applyWorkspace = (ws: unknown) => { device.shown = ws as Ws; return true }
+  const applyWorkspace = (ws: unknown) => { device.shown = ws as Ws }
   const noop = () => {}
-  renderHook(() => useIncidentSync({ sync, readOnly, incidentId: 'inc', buildPayload, applyWorkspace, flushEvents: noop, flushEventsBeacon: noop, lockHeldAtOpen: true }))
+  renderHook(() => useIncidentSync({ sync, readOnly, incidentId: 'inc', buildPayload, applyWorkspace, echoOfPull: () => false, flushEvents: noop, flushEventsBeacon: noop, lockHeldAtOpen: true }))
   return device
 }
 
@@ -102,6 +102,8 @@ describe('the stored copy on screen, the server reached later', () => {
     await pass(5_000)
     expect(notfallOn(d.shown)).toBe(NOTFALL)
     if (!readOnly) expect(d.sync.rev).toBe(2)
+    // the adopted state is not saved back
+    expect(vi.mocked(fetch).mock.calls.filter(([, init]) => init?.method === 'PUT')).toEqual([])
   })
 
   // 5 s of boot wait + one spacing and one 6 s round trip of the follow ≈ 13 s (before: ≈ 12 s,

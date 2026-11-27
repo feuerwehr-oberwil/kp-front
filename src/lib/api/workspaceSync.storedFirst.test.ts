@@ -109,6 +109,23 @@ describe('storedFirst: the stored copy now', () => {
 })
 
 describe('storedFirst: the request goes on', () => {
+  // the narrowing: the open's own answer is never applied – an older one least of all
+  it('an answer older than the copy changes nothing on screen or in the cache', async () => {
+    store.set('kp-front-ws-i1', slot())
+    const req = pending()
+    const handed: unknown[] = []
+    const sync = new WorkspaceSync('i1', { storedFirst: true, onServerWorkspace: (ws) => handed.push(ws) })
+    await sync.init()
+    req.answer({ workspace: { from: 'older' }, workspace_rev: 3 })
+    await settle()
+    await settle()
+    expect(handed).toEqual([])
+    expect(sync.workspace).toEqual(BASE)
+    expect(sync.rev).toBe(4)
+    expect(store.get('kp-front-ws-i1')).toMatchObject({ workspace: BASE, baseRev: 4 })
+    sync.dispose()
+  })
+
   it('a 401 closes the cached reads; silence leaves the copy', async () => {
     store.set('kp-front-ws-i1', slot())
     const silent = pending()
