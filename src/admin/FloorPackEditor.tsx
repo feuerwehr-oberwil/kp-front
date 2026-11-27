@@ -93,6 +93,11 @@ export function FloorPackEditor({ item, onDraft, view, tabs, historyRef, onUndoS
   const [browsing, setBrowsing] = useState(false)
   const fullOpen = phone && view === 'edit' && (mode != null || browsing)
   const closeFull = () => { setMode(null); setBrowsing(false) }
+  // the full-screen sheet is the phone layout's own session: crossing the breakpoint, either
+  // way, ends it and any mode with it, so neither layout inherits a mode the other armed (its
+  // floor may sit on a page the other one is not showing). The edits and their undo stay.
+  const [layout, setLayout] = useState(phone)
+  if (layout !== phone) { setLayout(phone); setMode(null); setBrowsing(false) }
   const chipsHeld = mode?.kind === 'region' || (mode?.kind === 'join' && !mode.at)
   const undo = () => { setHistory((h) => h.past.length ? { stack: h.past[h.past.length - 1], past: h.past.slice(0, -1) } : h); setMode(null) }
   useEffect(() => {

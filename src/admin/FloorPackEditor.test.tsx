@@ -347,6 +347,27 @@ describe('on a phone', () => {
     await waitFor(() => expect(fullView()).toBeNull())
   })
 
+  it('crossing the breakpoint ends the full-screen session and keeps the edits', async () => {
+    let narrow = true
+    const listeners = new Set<() => void>()
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      get matches() { return narrow && query === '(max-width: 700px)' },
+      addEventListener: (_: string, on: () => void) => listeners.add(on), removeEventListener: (_: string, on: () => void) => listeners.delete(on),
+    }))
+    const resize = (phone: boolean) => act(() => { narrow = phone; listeners.forEach((on) => on()) })
+    render(<FloorPackEditor item={twoPages} view="edit" />)
+    fireEvent.click(screen.getAllByRole('listitem')[0])
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Keller' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Bereich zeichnen' }))
+    expect(fullView()).not.toBeNull()
+    resize(false)
+    await waitFor(() => expect(fullView()).toBeNull())
+    expect(screen.getByRole('button', { name: 'Bereich zeichnen' }).getAttribute('aria-pressed')).toBe('false') // no mode armed on the desktop
+    resize(true)
+    expect(fullView()).toBeNull() // nothing reopens by itself
+    expect((screen.getByRole('textbox') as HTMLInputElement).value).toBe('Keller')
+  })
+
   it('a chip picks the other floor while the join keeps its first point', async () => {
     const onDraft = vi.fn()
     const clipped = {
