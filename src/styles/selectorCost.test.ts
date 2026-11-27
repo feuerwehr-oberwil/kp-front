@@ -37,7 +37,7 @@ function keyed(compound: string): boolean {
 /** Whether one complex selector has a `:has()` in a compound before its subject, and a subject
  *  that is not keyed. */
 export function restylesWholePage(selector: string): boolean {
-  const compounds = splitTop(selector.replace(/\s*([>+~])\s*/g, ' '), ' ')
+  const compounds = splitTop(selector.replace(/\s*([>+~])\s*/g, ' ').replace(/\s+/g, ' '), ' ')
   if (compounds.length < 2) return false
   const subject = compounds[compounds.length - 1]
   return compounds.slice(0, -1).some((c) => c.includes(':has(')) && !keyed(subject)
@@ -56,6 +56,7 @@ describe('restylesWholePage', () => {
   it('finds the shape the composer paid for, and only that', () => {
     expect(restylesWholePage('.modalStack:global(.is-kb):has(.teamSearch input:focus) .stack > :not(:has(> .team))')).toBe(true)
     expect(restylesWholePage('.stack:has(.teamSearch input:focus) > *')).toBe(true)
+    expect(restylesWholePage('.a:has(.x)\n  .b > :not(.c)')).toBe(true) // a line break is a combinator too
     expect(restylesWholePage('.modalStack:global(.is-kb):has(.teamSearch input:focus) .stack > .searchHides')).toBe(false)
     expect(restylesWholePage('.modalStack:global(.is-kb):has(.teamSearch input:focus) .modalFoot')).toBe(false)
     expect(restylesWholePage(':root:has(.ml) .toaster')).toBe(false)
