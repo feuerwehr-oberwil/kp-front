@@ -713,7 +713,7 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     broken, act now; grey = normal status and in-progress. **Blue means «chosen» and nothing else**
     (style sweep T2, owner pick A, 15.11.2026): a filled `--sel` or a `--sel-wash` marks the
     SELECTED thing (and the «open/armed» wash). A text link is ink (an `<a>` keeps its underline),
-    a text action is the neutral `<Button>` or a `.row-go` row («Alle zeigen», «Zum Original»), a
+    a text action is the neutral `<Button>` or a `.row-go` row («Alle zeigen»), a
     count is `--ink-dim`, a decorative glyph or bullet `--ink-dim`/`--ink-faint`. A drawing's own
     colour (the Messen/Massstab path, the edit handles) is not chrome and keeps its blue.
   - *Text on colour (23.10.2026, sweep G.2/G.4–G.6):* red as TEXT or a glyph is `--red-strong`;

@@ -462,7 +462,7 @@ export function IncidentSwitcher({
                   Einsatz one line above, so «Einsatz abschliessen» would say it twice — the full
                   wording rides along as the button's title/aria-label. Glyph + word on EVERY
                   device, full ink (owner, button sweep SHEETS.11, 17.11.2026 – the phone hid them);
-                  «Teilen» wears the app's share glyph, not the «Zum Original» door.
+                  «Teilen» wears the app's share glyph.
                   ⚠️ ONE LINE, always (decision 01.09.): three verbs that wrap to a second row
                   stop reading as one set of choices. The label is its own <span> (the badge is
                   the tile's other child) — see .ip-card-acts, which carries the measured widths.
