@@ -162,7 +162,8 @@ it.each([
   const a = await tab(id)
   const b = await tab(id)
   edit(a, { entities: [marker] as unknown as Saved['entities'] })
-  await vi.advanceTimersByTimeAsync(1_100) // A's PUT with the marker is on its way
+  await vi.advanceTimersByTimeAsync(1_100) // A's PUT with the marker is on its way…
+  await vi.waitFor(() => expect(put).toHaveBeenCalled()) // …once its record committed
   if (deletedInA) { edit(a, { entities: [] }); await settle() }
   if (offlineOpen) net.server.reachable = false
   b.takeOver()
@@ -179,29 +180,92 @@ it.each([
   expect((await slot(id))?.workspace.entities).toEqual([])
 })
 
-// A pull while the old holder's save is `handed` (perf sweep 27.11.2026: a pull hands the view only
-// the slices it changed – useIncidentSync · hydrate). The live-follow poll adopts only a revision
-// past the one the new holder opened at, so the handed PUT has landed or can only 409: the adopt
-// drops it, and what the new holder deletes after the pull stays deleted.
-it('a pull that adopts the old holder’s landed PUT: the new holder’s delete after it holds', async () => {
-  const id = `pull-${n}`
-  const net = slowFirstPut()
+/** A server that holds every PUT until the test lands it: `land(i)` answers the i-th PUT. */
+function heldPuts() {
+  const server = { rev: 1, workspace: baseline as Saved }
+  get.mockImplementation(async () => ({ workspace: server.workspace, workspace_rev: server.rev }))
+  const waiting: (() => void)[] = []
+  put.mockImplementation((_id, ws, baseRev) => new Promise((resolve, reject) => {
+    waiting.push(() => {
+      if (baseRev !== server.rev) { reject(new ApiError(409, 'conflict')); return }
+      server.rev++
+      server.workspace = ws as Saved
+      resolve({ workspace: null, workspace_rev: server.rev })
+    })
+  }))
+  return { server, puts: () => waiting.length, land: (i: number) => waiting[i]() }
+}
+
+// Sol r1 (27.11.2026): two hand-overs while both saves are on their way – the second engine's
+// `sending` must not push out what the first handed it: A's PUT can still be the one that lands.
+it('a steal back while both PUTs are on their way does not bring back what B deleted', async () => {
+  const id = `two-puts-${n}`
+  const net = heldPuts()
   const a = await tab(id)
   const b = await tab(id)
   edit(a, { entities: [marker] as unknown as Saved['entities'] })
-  await vi.advanceTimersByTimeAsync(1_100) // A's PUT with the marker is on its way
+  await vi.advanceTimersByTimeAsync(1_100)
+  await vi.waitFor(() => expect(net.puts()).toBe(1)) // A's PUT with the marker is on its way
   b.takeOver()
   await vi.waitFor(() => expect(b.editing).toBe(true))
-  net.land() // …and lands: the server is one revision past what B opened at
-  await vi.advanceTimersByTimeAsync(0)
-  expect(net.server.rev).toBeGreaterThan(engine(b).rev)
-  engine(b).adoptServer(net.server.workspace, net.server.rev) // the poll's answer (B holds nothing unsynced)
   edit(b, { entities: [] })
-  await engine(b).flush()
-  await vi.advanceTimersByTimeAsync(70_000)
+  await vi.advanceTimersByTimeAsync(1_100)
+  await vi.waitFor(() => expect(net.puts()).toBe(2)) // B's PUT without it is on its way too
+  a.takeOver()
+  await vi.waitFor(() => expect(a.editing).toBe(true))
+  expect(engine(a).workspace.entities).toEqual([])
+  net.land(0) // A's old PUT wins: the marker is on the server
+  net.land(1) // B's 409s, and B has retired
+  edit(a, { reportMeta: { remarks: 'A again' } })
+  await vi.advanceTimersByTimeAsync(1_100)
+  await vi.waitFor(() => expect(net.puts()).toBe(3))
+  net.land(2) // 409: the server holds A's old PUT – A merges
+  await vi.waitFor(() => expect(net.puts()).toBe(4))
+  net.land(3)
+  await vi.waitFor(() => expect(engine(a).hasUnsynced).toBe(false))
   expect(net.server.workspace.entities).toEqual([])
-  expect((await slot(id))?.workspace.entities).toEqual([])
-  expect(engine(b).hasUnsynced).toBe(false)
+  expect(net.server.workspace.reportMeta).toEqual({ remarks: 'A again' })
+})
+
+/** Hold every main-slot write that records a save on its way (CacheEntry.sending) until released. */
+function holdSendingRecord() {
+  const real = idb.idbSetFenced
+  let release!: () => void
+  const held = new Promise<void>((resolve) => { release = resolve })
+  vi.spyOn(idb, 'idbSetFenced').mockImplementation(async (key, value, fence, refused) => {
+    if ((value as { sending?: unknown }).sending) await held
+    return real(key, value, fence, refused)
+  })
+  return () => release()
+}
+
+// Sol r1 (27.11.2026): a PUT that left before its record committed is a PUT the next holder
+// cannot know of – landing late, it would bring back what that holder deleted since.
+it('a PUT leaves only once the cache has recorded it on its way', async () => {
+  const id = `record-${n}`
+  put.mockResolvedValue({ workspace: null, workspace_rev: 2 })
+  const a = await tab(id)
+  const release = holdSendingRecord()
+  edit(a, { reportMeta: { remarks: 'from A' } })
+  await vi.advanceTimersByTimeAsync(1_100) // the push debounce is over: the record is being written
+  expect(put).not.toHaveBeenCalled()
+  release()
+  await vi.waitFor(() => expect(put).toHaveBeenCalledOnce())
+})
+
+it('a takeover while the record is still being written: the old holder’s PUT never leaves', async () => {
+  const id = `record-steal-${n}`
+  const a = await tab(id)
+  const b = await tab(id)
+  const holder = engine(a).writerId
+  const release = holdSendingRecord()
+  edit(a, { reportMeta: { remarks: 'from A' } })
+  await vi.advanceTimersByTimeAsync(1_100)
+  b.takeOver() // A retires at once; its record lands (or is refused) after that
+  release()
+  await vi.waitFor(() => expect(b.editing).toBe(true))
+  await vi.advanceTimersByTimeAsync(70_000)
+  expect(put.mock.calls.filter((c) => c[4] === holder)).toEqual([])
 })
 
 it('a promotion overtaken by a steal back does not fence the thief out of its slot', async () => {

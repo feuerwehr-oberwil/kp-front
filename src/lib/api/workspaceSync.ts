@@ -63,17 +63,31 @@ type CacheEntry = {
    *  the server copy it was built on – stored before it is sent, cleared by a later success or a
    *  409. Another tab (the edit lock moved) or a later page opens it as `handed`. */
   sending?: SentSave
-  /** A save of the engine this one opened the slot from, maybe still on its way (Sol r2/r3,
-   *  25.11.2026): landing after this engine's open, it would make an object deleted since look
-   *  like a fresh server addition, and a merge would bring it back. So every merge applies it to
-   *  both sides first (withSent) – it reads the same whether it landed or not. The newest one is
-   *  taken (that engine's own save on its way, else what it had been handed); kept until this
-   *  engine's own save succeeds: from then on the old one can only 409. */
-  handed?: SentSave
+  /** The saves of the engines this one opened the slot from that may still be on their way,
+   *  oldest first (Sol r2/r3 25.11.2026, r1 27.11.2026): landing after this engine's open, one
+   *  would make an object deleted since look like a fresh server addition, and a merge would bring
+   *  it back. So every merge applies them to both sides first (withSent) – it reads the same
+   *  whether they landed or not. An open takes what its predecessor had been handed and its save
+   *  on its way (`handedFrom`); kept until this engine's own save succeeds: from then on the old
+   *  ones can only 409. */
+  handed?: SentSave[]
 }
 type SentSave = { workspace: Workspace; base: Workspace }
-/** `ws` with `sent`'s changes applied – the same whether that save reached the server or not. */
-const withSent = (sent: SentSave | undefined, ws: Workspace): Workspace => (sent ? mergeWorkspace(sent.base, sent.workspace, ws) : ws)
+/** `ws` with every `sent` save's changes applied, oldest first – the same whether they reached the
+ *  server or not. */
+const withSent = (sent: readonly SentSave[] | undefined, ws: Workspace): Workspace =>
+  (sent ?? []).reduce((acc, s) => mergeWorkspace(s.base, s.workspace, acc), ws)
+/** At most this many predecessor saves are carried – each is a whole workspace in the slot. Two
+ *  cover a steal back while both tabs' PUTs are on their way; a third PUT still on its way after
+ *  three hand-overs is the documented limit. */
+const MAX_HANDED = 2
+/** What an engine opening `cached` is handed: what that engine had been handed, then its save on
+ *  its way. A save equal to one already carried is carried once. */
+function handedFrom(cached: CacheEntry): SentSave[] | undefined {
+  const next = [...(cached.handed ?? []), ...(cached.sending ? [cached.sending] : [])]
+  const once = next.filter((s, i) => !next.slice(0, i).some((t) => jsonEqual(t.workspace, s.workspace) && jsonEqual(t.base, s.base)))
+  return once.length ? once.slice(-MAX_HANDED) : undefined
+}
 const cacheKey = (id: string) => `kp-front-ws-${id}`
 // Which engine may write the main slot (opts.lock): the writerId of the tab that last took the
 // edit lock. Checked inside every main-slot write's own transaction (idb · idbSetFenced), so a
@@ -1238,12 +1252,12 @@ export class WorkspaceSync {
         // instead of the local ones being silently dropped. The merge result stays dirty and a
         // later flush pushes it at the new rev.
         if (cached.baseRev === workspace_rev) {
-          this.entry = { ...cached, handed: cached.sending ?? cached.handed, sending: undefined }
+          this.entry = { ...cached, handed: handedFrom(cached), sending: undefined }
           this.setStatus('pending')
           return { workspace: cached.workspace, rev: workspace_rev, fromCache: true }
         }
         const server = workspace ?? {}
-        const handed = cached.sending ?? cached.handed
+        const handed = handedFrom(cached)
         const merged = this.mergeReporting(withSent(handed, cached.base ?? {}), cached.workspace, withSent(handed, server))
         // the offline work was written (and its Verlauf rows with it) under the cached numbers
         this.reportRenumbered(cached.workspace, merged)
@@ -1271,7 +1285,7 @@ export class WorkspaceSync {
         throw e
       }
       if (cached && mayRead(cached)) {
-        this.entry = { ...cached, handed: cached.sending ?? cached.handed, sending: undefined }
+        this.entry = { ...cached, handed: handedFrom(cached), sending: undefined }
         this.setStatus(cached.dirty ? 'pending' : 'synced')
         return { workspace: cached.workspace, rev: cached.baseRev, fromCache: true }
       }
@@ -1366,9 +1380,8 @@ export class WorkspaceSync {
         } else {
           // the cache must carry what is about to become the ancestor – and that it is on its way
           // (CacheEntry.sending), before it is
-          this.entry = { ...this.entry, sending: { workspace: this.entry.workspace, base: this.entry.base ?? {} } }
-          this.writeCache()
-          this.flushCache()
+          const recorded = this.recordSending(() => this.entry.workspace)
+          if (recorded !== true && !(await recorded)) return
         }
         await this.pushCurrent()
       } catch (e) {
@@ -1534,10 +1547,11 @@ export class WorkspaceSync {
         const merged = this.mergeReporting(withSent(handed, this.entry.base ?? {}), this.entry.workspace, withSent(handed, server.workspace ?? {}))
         this.pendingViewMerge = { view: this.viewState, merged }
         // the merge's own PUT is on its way once the cache below has it (CacheEntry.sending)
-        this.entry = { ...this.entry, workspace: merged, base: server.workspace ?? {}, baseRev: server.workspace_rev, dirty: true, sending: { workspace: merged, base: server.workspace ?? {} } }
-        this.writeCache()
-        this.flushCache() // persist this dirty ancestor before the PUT, as drain() does on the first attempt
+        this.entry = { ...this.entry, workspace: merged, base: server.workspace ?? {}, baseRev: server.workspace_rev, dirty: true }
         const seqAtStart = this.saveSeq
+        // persist this dirty ancestor and its record before the PUT, as drain() does
+        const recorded = this.recordSending(() => merged)
+        if (recorded !== true && !(await recorded)) return false
         const { workspace_rev } = await this.push(merged, server.workspace_rev)
         if (!this.sessionActive) return false
         this.opts.onRev?.(workspace_rev)
@@ -1946,6 +1960,34 @@ export class WorkspaceSync {
   /** epoch ms of the last successful server sync, or null if never synced this session. */
   get lastSyncedAt(): number | null {
     return this.entry.lastSyncedAt
+  }
+
+  /**
+   * Record the save about to leave as `sending` (CacheEntry) – `payload` is what the PUT will send –
+   * and write the cache. Under the edit lock (opts.lock) the record is COMMITTED before the PUT
+   * leaves: a takeover that read the slot without it would not know this PUT can still land, and
+   * landing late it would bring back what the new holder deleted (Sol r1, 27.11.2026). Recorded
+   * again if an edit came in meanwhile, so the record is what is sent. False: this engine may no
+   * longer write (the lock went, the fence refused) – send nothing. A write that failed for any
+   * other reason (a full store) still sends: the edit must reach the server.
+   */
+  private recordSending(payload: () => Workspace): true | Promise<boolean> {
+    const record = () => {
+      const recorded = payload()
+      this.entry = { ...this.entry, sending: { workspace: recorded, base: this.entry.base ?? {} } }
+      this.writeCache()
+      return { recorded, wrote: this.flushCache() }
+    }
+    const first = record()
+    // without the lock there is no other tab to tell: the PUT leaves at once, as it always did
+    if (!this.opts.lock) return true
+    return (async () => {
+      for (let { recorded, wrote } = first; ; { recorded, wrote } = record()) {
+        await wrote
+        if (!this.sessionActive || this.fencedOut) return false
+        if (payload() === recorded) return true
+      }
+    })()
   }
 
   /**
