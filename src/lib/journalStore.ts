@@ -598,9 +598,9 @@ export class JournalStore {
    *  soon as it commits, and a quiet Verlauf costs one request per 20 s. `signal` aborts that
    *  held request when the loop restarts or tears down.
    *
-   *  The outcome is a three-way answer, not a boolean, because the loop treats the two
-   *  non-productive cases differently: 'none' means the server answered (go straight into the
-   *  next round), 'failed' means it didn't (ease off before retrying). */
+   *  The outcome is a three-way answer, not a boolean: 'new' brought rows, 'none' means the
+   *  server answered with nothing new, 'failed' means it didn't answer. The cadence each one
+   *  gets is the loop's rule (useJournal). */
   async pull(opts?: { wait?: boolean; signal?: AbortSignal }): Promise<PullResult> {
     if (this.disposed) return 'none'
     const wait = opts?.wait ?? false

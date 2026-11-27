@@ -34,7 +34,7 @@ vi.mock('./journalStore', () => {
 })
 
 import { appConfig } from '../config/appConfig'
-import { createLongPollLoop, LONG_POLL_SPACING_MS } from './pollBackoff'
+import { LONG_POLL_SPACING_MS } from './pollBackoff'
 import { useJournal } from './useJournal'
 
 function setHidden(hidden: boolean) {
@@ -112,27 +112,10 @@ async function pullsPer30s(answer: 'none' | 'new', holdMs: number) {
   return pull.mock.calls.length - before
 }
 
-// The workspace loop in the same model: a quick empty answer is «unanswered» (useIncidentSync ·
-// QUICK_EMPTY_ANSWER_MS), so its rounds are the loop's ease-off on the app's cadence.
-async function workspaceRoundsPer30sQuickEmpty() {
-  let rounds = 0
-  const loop = createLongPollLoop({
-    round: () => { rounds += 1; return Promise.resolve(false) },
-    baseMs: appConfig.sync.livePollMs, maxMs: appConfig.sync.livePollMaxMs, hiddenMs: () => appConfig.sync.hiddenPollMs,
-  })
-  loop.start(appConfig.sync.livePollMs)
-  await vi.advanceTimersByTimeAsync(40_000)
-  const before = rounds
-  await vi.advanceTimersByTimeAsync(30_000)
-  loop.stop()
-  return rounds - before
-}
-
 describe('useJournal — a long poll the server does not hold', () => {
-  it('eases off like the workspace loop when every held poll answers «nothing new» at once', async () => {
-    const workspace = await workspaceRoundsPer30sQuickEmpty()
-    const journal = await pullsPer30s('none', 0)
-    expect({ journal, workspace }).toEqual({ journal: workspace, workspace: 2 })
+  it('eases off when every held poll answers «nothing new» at once', async () => {
+    // the ease-off ceiling (livePollMaxMs, 15 s) – the workspace loop's number in this model
+    expect(await pullsPer30s('none', 0)).toBe(2)
   })
 
   it('a poll held its normal time loops at once – the healthy link keeps its rhythm', async () => {
