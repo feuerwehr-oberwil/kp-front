@@ -189,7 +189,8 @@ export function useFloatRowPlacement(on: boolean) {
     // …and when the strip changes SIZE with no DOM change: its cap follows the lane and the
     // reserves (08-toasts · .ml), and Messen's panel hangs under it (Meldeleiste · `--ml-h` →
     // 15-mobile · `--under-alert`). Armed under a strip taller than the cap, the panel grew 8px
-    // after the pass and the row stood on it until the first tap.
+    // after the pass and the row stood on it until the first tap. A size is reported after the
+    // frame's own pass, so this one lands a frame later.
     const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(soon) : null
     place()
     // A dock or a bar comes and goes with a tool, and a dock changes width with its options: all
