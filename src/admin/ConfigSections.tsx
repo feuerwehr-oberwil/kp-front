@@ -2117,7 +2117,7 @@ function ReportLinksEditor() {
   // Null until the first edit, so a config arriving from elsewhere still shows through.
   const [editing, setEditing] = useState<ReportLink[] | null>(null)
   const rows = editing ?? stored
-  const { edited, saved } = useStoredRows(stored, writableLinks, (l) => !fitsText('report.links.0.title', l.title)
+  const { edited, saved, isStored } = useStoredRows(stored, writableLinks, (l) => !fitsText('report.links.0.title', l.title)
     || !fitsText('report.links.0.url', l.url) || !fitsText('report.links.0.note', l.note))
   // the URL field a chip inserts into: the one that was focused last. Held as an element ref
   // rather than an index, because the insert needs its live selection anyway.
@@ -2179,7 +2179,7 @@ function ReportLinksEditor() {
           ['report.links.0.title', C.linkTitle, row.title],
           ['report.links.0.note', C.linkNote, row.note],
           ['report.links.0.url', C.linkUrl, row.url],
-        ])
+        ], isStored(row))
         return (
           <div className="adm-formlink" key={row.id}>
             <SettingsGroup

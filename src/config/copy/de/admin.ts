@@ -152,6 +152,9 @@ export const adminCopy = {
       newEntry: 'Neuer Eintrag',
       // ein Feld über der Länge, die der Server annimmt (configGuards · tooLongNote)
       textTooLong: '{field}: höchstens {n} Zeichen – so wird der Eintrag nicht gespeichert.',
+      // …dasselbe für eine GESPEICHERTE Zeile über der Länge: sie bleibt in jedem Speichern, und
+      // der Server nimmt die ganze Konfiguration nicht an, bis sie gekürzt oder gelöscht ist
+      textTooLongStored: '{field}: höchstens {n} Zeichen – bitte kürzen oder die Zeile löschen. Bis dahin werden keine Einstellungen gespeichert.',
       // Zeilentitel des frisch erzeugten Werts auf jeder Schlüssel-Seite. Er steht genau
       // einmal – nach dem Erzeugen –, darum sagt der Titel, dass er neu ist, und nicht bloss
       // noch einmal «Schlüssel».

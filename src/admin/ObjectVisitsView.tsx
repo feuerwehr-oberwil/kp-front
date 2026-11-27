@@ -153,7 +153,9 @@ export function ProposalFieldsEditor() {
   // row a new key: an armed «Löschen?» is dropped instead of deleting the row that moved up.
   const [layout, setLayout] = useState(0)
   const rows = editing ?? stored
-  const problem = (f: FieldRow, i: number, all: readonly FieldRow[]): string | null => {
+  // `stored`: the row stands for a stored original (useStoredRows · isStored) – only the line's
+  // wording, never whether the row is written
+  const problem = (f: FieldRow, i: number, all: readonly FieldRow[], stored = false): string | null => {
     const id = f.id?.trim()
     // the holder of a Kennung: the row that has had it longest, the upper one on a tie – checked
     // before the label, so a new row given a taken Kennung first says that
@@ -164,9 +166,9 @@ export function ProposalFieldsEditor() {
     return tooLongNote([
       ['objectVisits.proposalFields.0.label', T.fieldLabel, f.label.trim()],
       ['objectVisits.proposalFields.0.id', T.fieldId, id],
-    ])
+    ], stored)
   }
-  const { edited, saved } = useStoredRows(stored, (all) => all.filter((f, i) => problem(f, i, all) === null),
+  const { edited, saved, isStored } = useStoredRows(stored, (all) => all.filter((f, i) => problem(f, i, all) === null),
     (f) => !fitsText('objectVisits.proposalFields.0.label', f.label) || !fitsText('objectVisits.proposalFields.0.id', f.id))
   const write = (next: FieldRow[]) => {
     setEditing(next)
@@ -190,7 +192,7 @@ export function ProposalFieldsEditor() {
     <RecordTable title={T.fields} tip={T.fieldsTip} recordLabel={T.fieldsRecord}>
       {rows.length === 0 && <SettingsNote>{T.fieldsEmpty}</SettingsNote>}
       {rows.map((row, i) => {
-        const warn = problem(row, i, rows)
+        const warn = problem(row, i, rows, isStored(row))
         return (
           <RecordRows
             key={`${layout}:${i}`}

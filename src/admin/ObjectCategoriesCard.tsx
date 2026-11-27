@@ -51,7 +51,7 @@ export function ObjectCategoriesCard() {
   // at its index and deleting the rule that moved there.
   const [layout, setLayout] = useState(0)
   const rows = editing ?? stored
-  const { edited, saved } = useStoredRows(stored, writableRules, (r) => chars(r.id) > TEXT_MAX_LENGTH['map.objectCategories.0.id']
+  const { edited, saved, isStored } = useStoredRows(stored, writableRules, (r) => chars(r.id) > TEXT_MAX_LENGTH['map.objectCategories.0.id']
     || (r.match?.modules ?? []).some((m) => chars(m) > MODULE_MAX))
 
   const write = (next: ObjectCategoryRule[]) => {
@@ -92,7 +92,7 @@ export function ObjectCategoriesCard() {
           : tooLongNote([
             ['map.objectCategories.0.id', C.catId, row.id],
             ...modules.map((m) => ['map.objectCategories.0.match.modules.0', C.catModules, m] as const),
-          ])
+          ], isStored(row))
         return (
           <RecordRows
             key={`${layout}:${i}`}

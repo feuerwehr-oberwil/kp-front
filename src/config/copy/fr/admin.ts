@@ -137,6 +137,7 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
       standardOff: 'Non',
       newEntry: 'Nouvelle entrée',
       textTooLong: '{field} : {n} caractères au plus – l’entrée n’est pas enregistrée ainsi.',
+      textTooLongStored: '{field} : {n} caractères au plus – veuillez raccourcir ou supprimer la ligne. D’ici là, aucun réglage n’est enregistré.',
     },
     numbers: {
       integer: 'Valeur pas encore enregistrée – un nombre entier est attendu.',

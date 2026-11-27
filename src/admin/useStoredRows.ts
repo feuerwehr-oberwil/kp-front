@@ -26,6 +26,7 @@ const retired = new WeakSet<object>()
  * kept) is left out as before: keeping it could refuse a save the server takes. Pass every
  * row an edit replaces through `edited(before, after)`, which carries its stored original along,
  * and write `saved(rows, clean)`: `clean` shapes a written row (a trim), never a stored original.
+ * `isStored(row)` tells the editor's warning which of its rows stands for such an original.
  */
 export function useStoredRows<T extends object>(
   stored: readonly T[],
@@ -34,17 +35,18 @@ export function useStoredRows<T extends object>(
 ) {
   const { save, dirty } = useConfig()
   const held = useRef<ReadonlySet<T> | null>(null)
-  const heldRows = () => {
-    if (!held.current) {
-      const ok = writable(stored)
-      held.current = new Set(stored.filter((r) => !ok.includes(r) && overCap(r)))
-    }
-    return held.current
+  const heldIn = (list: readonly T[]): ReadonlySet<T> => {
+    const ok = writable(list)
+    return new Set(list.filter((r) => !ok.includes(r) && overCap(r)))
   }
-  const original = (row: T): T | undefined => {
-    const o = heldRows().has(row) ? row : (origins.get(row) as T | undefined)
+  const heldRows = () => (held.current ??= heldIn(stored))
+  const original = (row: T, heldNow: ReadonlySet<T> = heldRows()): T | undefined => {
+    const o = heldNow.has(row) ? row : (origins.get(row) as T | undefined)
     return o && !retired.has(o) ? o : undefined
   }
+  // before the first edit the held rows are not fixed yet: a render reads them from the draft
+  // as it is, so a config that arrives after the first render still counts
+  let heldPreview: ReadonlySet<T> | undefined
   /** Before each write: if the server took a save of the draft as it is now, every repair in that
    *  draft is stored, and its original retires. Checked here, at the next write, the only place
    *  where it matters. */
@@ -57,6 +59,10 @@ export function useStoredRows<T extends object>(
   }
 
   return {
+    /** Does `row` stand for a stored original past a bound – the row whose length refuses every
+     *  save of the config, not only its own? The editor's warning says so. */
+    isStored: (row: T): boolean =>
+      original(row, held.current ?? (heldPreview ??= heldIn(stored))) !== undefined,
     edited: (before: T, after: T): T => {
       retire()
       const o = original(before)
