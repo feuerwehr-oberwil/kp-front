@@ -26,6 +26,10 @@
  * all three from the same config – so a new language never needs a second list – and
  * site/content/release.json, the latest GitHub release as last seen (see below).
  *
+ * A side page is a further site/<name>.template.html (the demo wake page is one). It is
+ * built per language into <language dir><name>/index.html from the same texts – see
+ * «Side pages» below. A repository without one builds exactly what it built before.
+ *
  * theme.js is embedded before CSS in every page; picture sources retain both themes
  * in the offline bundle. Keep this builder and theme.js identical in both repositories.
  *
@@ -33,7 +37,7 @@
  * template does not change. A language ships only once it is listed in
  * config.json: an empty `it/` is worse than none.
  */
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs'
+import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
@@ -596,6 +600,56 @@ for (const locale of config.locales) {
 //
 // Without it GitHub serves its own «Page not found · GitHub Pages» — grey, GitHub-branded, and
 // with no way back to kp-front.ch.
+// ─── Side pages ───────────────────────────────────────────────────────────────
+//
+// Every site/<name>.template.html besides the landing and the 404 is a side page: one per
+// language, at <language dir><name>/index.html (`demo/`, `fr/demo/`, …), rendered from the
+// same merged and typeset texts as the landing. A side page is a utility, not content: it is
+// not in the sitemap and has no single-file hand-out, and its template says `noindex` itself.
+// The scope is the texts plus what a page one level down needs to stand up:
+//
+//   base       the way up to site/ (`../`, `../../`) – stylesheet, fonts, icons
+//   home       this language's landing, relative
+//   canonical  this side page's own absolute URL
+//   product    config.json `product`, so a page can name the app or the demo it is about
+//   langLinks  the same side page in every language, relative
+//   lang, themeScript
+const SIDE_PAGE = /^([a-z0-9-]+)\.template\.html$/
+const sidePages = readdirSync(HERE)
+  .map((file) => SIDE_PAGE.exec(file)?.[1])
+  .filter((name) => name && name !== 'index' && name !== '404')
+  .sort()
+
+for (const name of sidePages) {
+  const tpl = read(`${name}.template.html`).replace(TEMPLATE_ONLY, '').replace(STANDALONE, '$1')
+  for (const locale of config.locales) {
+    const isBase = locale.code === baseLocale.code
+    const content = isBase ? base : merge(base, readJson('content', `${locale.code}.json`))
+    const rel = `${dirOf(locale)}${name}/`
+    const up = '../'.repeat(rel.split('/').filter(Boolean).length)
+    const missing = new Set()
+    const html = hideSpriteIcons(render(tpl, [{
+      ...typeset(locale.code, content),
+      lang: locale.code,
+      base: up,
+      home: `${up}${dirOf(locale)}` || './',
+      canonical: `${urlOf(locale)}${name}/`,
+      product: config.product,
+      themeScript: read('theme.js'),
+      langLinks: config.locales.map((l) => ({
+        code: l.code,
+        label: l.label,
+        name: l.name,
+        href: `${up}${dirOf(l)}${name}/`,
+        current: l.code === locale.code,
+      })),
+    }], missing))
+      .replace(/^<!doctype html>/i, `<!doctype html>\n${BANNER(locale.code).replace('index.template', `${name}.template`)}`)
+    if (missing.size) problems.push(`${rel}: ${[...missing].join(', ')}`)
+    put(`${rel}index.html`, html)
+  }
+}
+
 {
   const notFoundTpl = read('404.template.html').replace(TEMPLATE_ONLY, '').replace(STANDALONE, '$1')
   const missing = new Set()

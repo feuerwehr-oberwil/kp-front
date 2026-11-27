@@ -112,7 +112,7 @@
       <span class="langs desktop-options" role="group" aria-label="{{nav.languageAria}}">{{#langLinks}}<a class="lang{{#current}} on{{/current}}" data-language-link href="{{href}}" hreflang="{{code}}" lang="{{code}}"{{#current}} aria-current="page"{{/current}}><abbr title="{{name}}">{{label}}</abbr></a>{{/langLinks}}</span>
       <button class="icon-link theme-toggle desktop-options" type="button" aria-label="{{theme.label}}" title="{{theme.label}}" aria-pressed="false" hidden><svg class="ico theme-moon"><use href="#i-moon"/></svg><svg class="ico theme-sun"><use href="#i-sun"/></svg></button>
       <a class="icon-link desktop-options" href="https://github.com/feuerwehr-oberwil/kp-front" target="_blank" rel="noopener" aria-label="{{nav.githubAria}}"><svg class="ico"><use href="#i-gh"/></svg></a>
-      <a class="cta" href="https://demo.kp-front.ch" target="_blank" rel="noopener"><svg class="ico"><use href="#i-play"/></svg>{{nav.demo}}</a>
+      <a class="cta" href="{{canonical}}demo/" target="_blank" rel="noopener"><svg class="ico"><use href="#i-play"/></svg>{{nav.demo}}</a>
 
       <details class="mobile-options">
         <summary aria-label="{{nav.options}}" title="{{nav.options}}"><svg class="ico menu-icon"><use href="#i-menu"/></svg><svg class="ico close-icon"><use href="#i-close"/></svg></summary>
@@ -154,7 +154,7 @@
     <h1>{{hero.h1}}</h1>
     <p class="lede">{{hero.lede}}</p>
     <div class="cta-row">
-      <a class="btn btn-primary" href="https://demo.kp-front.ch" target="_blank" rel="noopener"><svg class="ico"><use href="#i-play"/></svg>{{hero.cta}}</a>
+      <a class="btn btn-primary" href="{{canonical}}demo/" target="_blank" rel="noopener"><svg class="ico"><use href="#i-play"/></svg>{{hero.cta}}</a>
       <a class="btn btn-ghost" href="#betrieb">{{hero.ctaSelf}}</a>
     </div>
     <p class="cta-note">{{hero.ctaNote}}</p>
@@ -310,7 +310,7 @@
     <h2>{{contact.h2}}</h2>
     <p class="close-p">{{contact.p}}</p>
     <div class="cta-row">
-      <a class="btn btn-primary" href="https://demo.kp-front.ch" target="_blank" rel="noopener"><svg class="ico"><use href="#i-play"/></svg>{{hero.cta}}</a>
+      <a class="btn btn-primary" href="{{canonical}}demo/" target="_blank" rel="noopener"><svg class="ico"><use href="#i-play"/></svg>{{hero.cta}}</a>
       <a class="btn btn-ghost" href="#betrieb">{{hero.ctaSelf}}</a>
     </div>
     <!--@template The shared-demo notice sits under the closing «Demo öffnen»: every visitor
@@ -378,7 +378,7 @@
       {{/latestRelease}}
       <a href="https://github.com/feuerwehr-oberwil/kp-front" target="_blank" rel="noopener">GitHub</a>
       <a href="https://github.com/feuerwehr-oberwil" target="_blank" rel="noopener me">{{footer.org}}</a>
-      <a href="https://demo.kp-front.ch" target="_blank" rel="noopener">{{footer.demo}}</a>
+      <a href="{{canonical}}demo/" target="_blank" rel="noopener">{{footer.demo}}</a>
       <a href="{{sister}}">KP Rück</a>
       <a href="#kontakt">{{footer.contact}}</a>
       <a href="https://github.com/feuerwehr-oberwil/kp-front/security/policy" target="_blank" rel="noopener">{{footer.security}}</a>
@@ -397,6 +397,10 @@
   //
   // ⚠️ Nur der Pfad der Seite und der Hostname des Verweises verlassen diese Datei. Die
   // vollständige Referrer-URL bleibt hier: sie gehört dem Menschen, der dem Link gefolgt ist.
+  //
+  // Nebenbei weckt der Zähler die schlafende Demo, während jemand diese Seite liest – ein Klick
+  // auf «Demo» (→ demo/, die Weckseite) wartet dann kürzer. Wach HALTEN kann er sie nicht: der
+  // Treffer zählt im Backend nicht als Nutzung (app/demo_sleep · QUIET_PATHS).
   (function () {
     if (typeof navigator.sendBeacon !== 'function') return;
     var host = '';

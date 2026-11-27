@@ -279,6 +279,10 @@ code, but the counters need `VISIT_STATS=true`, which is set on the public demo 
 else — unset means nothing is counted at all, not that counting happens locally. The landing
 page's request goes to the demo host, so a station's server is not involved in it either.
 
+**The demo's wake page.** The public demo sleeps when nobody uses it. The «Demo» links open a
+page on `kp-front.ch` that asks the demo host every second or two whether it is ready, then opens
+it. That question carries nothing — no cookie, no identifier, no payload — and it is not counted.
+
 The mechanism is [`backend/app/visits.py`](backend/app/visits.py) and the browser's half is the
 short block at the bottom of [`site/index.template.html`](site/index.template.html) — read those
 rather than believing this section.

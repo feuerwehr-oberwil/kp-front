@@ -1,0 +1,205 @@
+<!doctype html>
+<!-- Built from site/demo.template.html + site/content/fr.json.
+     Edits here are lost on the next `node site/build.mjs`. -->
+<html lang="fr">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<script>
+// Shared by KP Front and KP Rück: keep this file byte-identical in both repositories.
+// Run in the head before CSS to avoid a flash. The default follows the OS; only a manual
+// choice is persisted. Native picture sources cover the no-JavaScript case as well.
+(function () {
+  var root = document.documentElement;
+  var key = 'kp-landing-theme';
+  var system = window.matchMedia('(prefers-color-scheme: dark)');
+  var choice = null;
+  try { choice = localStorage.getItem(key); } catch (_) { /* Storage can be blocked. */ }
+  if (choice !== 'light' && choice !== 'dark') choice = null;
+
+  function apply() {
+    var dark = choice ? choice === 'dark' : system.matches;
+    root.dataset.theme = dark ? 'dark' : 'light';
+    document.querySelectorAll('source[data-theme-dark]').forEach(function (source) {
+      source.media = dark ? 'all' : 'not all';
+    });
+    document.querySelectorAll('.theme-toggle').forEach(function (button) {
+      button.setAttribute('aria-pressed', String(dark));
+      button.hidden = false;
+    });
+  }
+
+  apply();
+  document.addEventListener('DOMContentLoaded', function () {
+    apply();
+    document.querySelectorAll('.mobile-options').forEach(function (menu) {
+      document.addEventListener('pointerdown', function (event) {
+        if (!menu.contains(event.target)) menu.open = false;
+      });
+      document.addEventListener('keydown', function (event) {
+        // An open dialog (the lightbox) stands in front of the menu, so Escape is its own first.
+        if (event.key !== 'Escape' || !menu.open || document.querySelector('dialog[open]')) return;
+        menu.open = false;
+        menu.querySelector('summary').focus();
+        event.preventDefault();
+      });
+      // A link to a section of this page does not load a page, so the menu closes itself.
+      menu.addEventListener('click', function (event) {
+        if (event.target.closest('a[href^="#"]')) menu.open = false;
+      });
+    });
+    document.querySelectorAll('.theme-toggle').forEach(function (button) {
+      button.addEventListener('click', function () {
+        choice = root.dataset.theme === 'dark' ? 'light' : 'dark';
+        try { localStorage.setItem(key, choice); } catch (_) { /* Keep the in-page choice. */ }
+        apply();
+      });
+    });
+  });
+  system.addEventListener('change', apply);
+  window.addEventListener('storage', function (event) {
+    if (event.key !== key && event.key !== null) return;
+    var next = event.key === null ? null : event.newValue;
+    choice = next === 'light' || next === 'dark' ? next : null;
+    apply();
+  });
+})();
+
+</script>
+<title>Démarrage de la démo – KP Front</title>
+<meta name="robots" content="noindex">
+<link rel="canonical" href="https://kp-front.ch/fr/demo/">
+<link rel="icon" type="image/svg+xml" href="../../favicon.svg">
+<link rel="apple-touch-icon" href="../../apple-touch-icon.png">
+<link rel="preload" href="../../fonts/sora.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="../../landing.css">
+
+<main class="wake" id="wake" data-app="https://demo.kp-front.ch/" hidden>
+  <img class="wake-logo" src="../../favicon.svg" width="56" height="56" alt="">
+  <h1 id="wake-title" aria-live="polite" data-ready="Prête – la démo s’ouvre…" data-fail="La démo ne démarre pas pour l’instant">La démo démarre…</h1>
+  <div class="wake-run" id="wake-run">
+    <div class="wake-bar" aria-hidden="true"><i id="wake-bar"></i></div>
+    <ol class="wake-steps">
+      <li><b></b>Le serveur démarre</li>
+      <li><b></b>La base de données se réveille</li>
+      <li><b></b>Chargement de l’exercice Musterdorf</li>
+    </ol>
+    <p class="wake-time" id="wake-time" aria-hidden="true">0:00</p>
+    <p class="wake-note">La démo se met en veille quand personne ne l’utilise. Le démarrage prend en général 10 à 30 secondes.</p>
+  </div>
+  <div class="wake-fail" id="wake-fail" hidden>
+    <p>Elle n’a pas répondu après 90 secondes. Un deuxième essai suffit en général.</p>
+    <button class="btn btn-primary" type="button" id="wake-retry">Réessayer</button>
+    <a href="https://demo.kp-front.ch/">Ouvrir directement la démo</a>
+  </div>
+</main>
+<noscript>
+  <main class="wake">
+    <img class="wake-logo" src="../../favicon.svg" width="56" height="56" alt="">
+    <p class="wake-note">La démo se met en veille quand personne ne l’utilise. Le premier accès peut prendre jusqu’à 30 secondes.</p>
+    <a class="btn btn-primary" href="https://demo.kp-front.ch/">Ouvrir directement la démo</a>
+  </main>
+</noscript>
+
+<script>
+  (function () {
+    var root = document.getElementById('wake')
+    var app = root.getAttribute('data-app')
+    var title = document.getElementById('wake-title')
+    var bar = document.getElementById('wake-bar')
+    var time = document.getElementById('wake-time')
+    var runBox = document.getElementById('wake-run')
+    var failBox = document.getElementById('wake-fail')
+    var retry = document.getElementById('wake-retry')
+    var steps = root.querySelectorAll('.wake-steps > li')
+    var wakingText = title.textContent
+
+    // Seconds. The steps advance on an ESTIMATE of a cold start (container, database, demo
+    // reset) – only a real «ready» completes the last one and fills the bar.
+    var STEP_AT = [0, 4, 9]
+    var EXPECTED = 25
+    var GRACE = 0.7
+    var GIVE_UP = 90
+    var POLL = 1.5
+    var PROBE_TIMEOUT = 10
+
+    var run = 0
+    var started = 0
+    var ticker = null
+
+    var elapsed = function () { return (performance.now() - started) / 1000 }
+    var sleep = function (ms) { return new Promise(function (r) { setTimeout(r, ms) }) }
+    var open = function () { location.replace(app) }
+
+    // A sleeping demo may hold the request while it boots or answer 502 without CORS headers –
+    // both are «not yet», never an error the visitor sees.
+    var probe = function () {
+      var ctrl = typeof AbortController === 'function' ? new AbortController() : null
+      var timer = setTimeout(function () { if (ctrl) ctrl.abort() }, PROBE_TIMEOUT * 1000)
+      return fetch(app + 'api/demo/wake', { cache: 'no-store', credentials: 'omit', signal: ctrl && ctrl.signal })
+        .then(function (res) { return res.ok ? res.json() : null })
+        .then(function (body) { return !!(body && body.ready === true) })
+        .catch(function () { return false })
+        .finally(function () { clearTimeout(timer) })
+    }
+
+    var paint = function () {
+      var t = elapsed()
+      for (var i = 0; i < steps.length; i++) {
+        var next = STEP_AT[i + 1]
+        steps[i].className = next !== undefined && t >= next ? 'done' : t >= STEP_AT[i] ? 'run' : ''
+      }
+      bar.style.width = Math.min(1, t / EXPECTED) * 90 + '%'
+      var s = Math.floor(t)
+      time.textContent = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0')
+    }
+
+    var ready = function () {
+      clearInterval(ticker)
+      for (var i = 0; i < steps.length; i++) steps[i].className = 'done'
+      bar.style.width = '100%'
+      root.setAttribute('data-state', 'ready')
+      title.textContent = title.getAttribute('data-ready')
+      setTimeout(open, 600)
+    }
+
+    var fail = function () {
+      clearInterval(ticker)
+      root.setAttribute('data-state', 'fail')
+      title.textContent = title.getAttribute('data-fail')
+      runBox.hidden = true
+      failBox.hidden = false
+      retry.focus()
+    }
+
+    var wake = function () {
+      var id = ++run
+      started = performance.now()
+      root.removeAttribute('data-state')
+      title.textContent = wakingText
+      runBox.hidden = false
+      failBox.hidden = true
+      paint()
+      clearInterval(ticker)
+      ticker = setInterval(paint, 250)
+      var grace = setTimeout(function () { root.hidden = false }, GRACE * 1000)
+      var loop = function () {
+        return probe().then(function (ok) {
+          if (id !== run) return
+          if (ok) {
+            clearTimeout(grace)
+            return root.hidden ? open() : ready()
+          }
+          root.hidden = false
+          if (elapsed() >= GIVE_UP) return fail()
+          return sleep(POLL * 1000).then(loop)
+        })
+      }
+      loop()
+    }
+
+    retry.addEventListener('click', wake)
+    wake()
+  })()
+</script>
+</html>

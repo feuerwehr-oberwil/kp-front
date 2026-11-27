@@ -149,11 +149,11 @@
       "files": [
         {
           "path": "site/landing.css",
-          "sha256": "86e4079b1e82f3586ec5530724d49f7a73fb93e61749b2474a13c49653f28401"
+          "sha256": "0dbdafd83ae9d652088bd6502694af0c00f74e0c1b398a10274a3e02a7fe25a9"
         },
         {
           "path": "site/build.mjs",
-          "sha256": "517989ed794cc106b21ab8c824157b930b7a5a727ece8bc317ae11acca8a7913"
+          "sha256": "94e783a251c77a55fdd7f743d4f53576fe0f3180325299a1ad473c275aa91162"
         },
         {
           "path": "site/theme.js",

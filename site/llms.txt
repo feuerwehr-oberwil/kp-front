@@ -21,7 +21,7 @@
 
 ## Official resources
 
-- Public demo: https://demo.kp-front.ch/
+- Public demo: https://kp-front.ch/demo/ (wakes the demo, which sleeps when unused, then opens https://demo.kp-front.ch/)
 - Source code: https://github.com/feuerwehr-oberwil/kp-front
 - Setup guide: https://github.com/feuerwehr-oberwil/kp-front/blob/main/docs/SETUP.md
 - Changelog: https://github.com/feuerwehr-oberwil/kp-front/blob/main/CHANGELOG.md
