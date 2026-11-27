@@ -113,6 +113,8 @@ function mergePersisted(into: Persisted, from: Persisted): void {
   into.refused = into.refused.filter((r) => !sent.has(r.id))
   into.dead = into.dead.filter((r) => !sent.has(r.id))
   into.latestSeq = Math.max(into.latestSeq, from.latestSeq ?? 0)
+  // a kept row the merged cursor has already read past is not on the server (see SentRow)
+  into.sent = into.sent.filter((r) => r.upTo > into.latestSeq)
 }
 const FLUSH_BATCH = 400
 /** How soon a hydration whose IndexedDB read FAILED is tried again (see JournalStore.hydrate). */
