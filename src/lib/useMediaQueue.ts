@@ -171,13 +171,15 @@ export function useMediaQueue({ incidentId, readOnly, writable, onUploaded, onRe
    *  minute for ever on a link that answers nothing. */
   const run = useCallback(async (options: { retry?: boolean; due?: 'online' | 'reachable' } | undefined, hold: boolean) => {
     if (!mayWrite()) {
-      // kept for the promotion below: the open of the engine that brings the edit lock here can
-      // be the very answer that fired it, while this tab is still read-only
-      if (options?.due) missedDue.current = options.due
+      // kept for the first run that may write (the promotion below): the open of the engine that
+      // brings the edit lock here can be the very answer that fired it, while this tab is still
+      // read-only. `online` is not rationed, so it is not given up for a `reachable`.
+      if (options?.due) missedDue.current = missedDue.current === 'online' ? 'online' : options.due
       return
     }
+    const due = options?.due ?? missedDue.current
     missedDue.current = undefined
-    const { deferredUntil } = await flushMediaQueue(incidentId, uploadMedia, options)
+    const { deferredUntil } = await flushMediaQueue(incidentId, uploadMedia, due ? { ...options, due } : options)
     if (hold && deferredUntil != null) setEarlyAt(deferredUntil)
     await replay()
     await refresh()
@@ -267,7 +269,7 @@ export function useMediaQueue({ incidentId, readOnly, writable, onUploaded, onRe
       .then(() => listMediaQueue(incidentId))
       .then((q) => reattach(q, () => mounted.current, true))
       .then(() => {}, () => {})
-    void restored.current.then(() => flush(missedDue.current && { due: missedDue.current }))
+    void restored.current.then(() => flush())
   }, [readOnly, flush, incidentId, reattach])
 
   // Retry the moment connectivity is back – the browser's `online` event, or the server answering
