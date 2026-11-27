@@ -347,6 +347,24 @@ describe('on a phone', () => {
     await waitFor(() => expect(fullView()).toBeNull())
   })
 
+  it('a join reaches a floor on another page by its chip', async () => {
+    const onDraft = vi.fn()
+    render(<FloorPackEditor item={twoPages} view="edit" onDraft={onDraft} />)
+    fireEvent.click(screen.getAllByRole('listitem')[1]) // the EG, on page 2
+    fireEvent.click(screen.getByRole('button', { name: 'Verbinden' }))
+    const view = within(fullView()!)
+    const sheet = fullView()!.querySelector<HTMLElement>('.adm-floors-sheet')!
+    sheet.getBoundingClientRect = () => ({ left: 0, top: 0, width: 1000, height: 500, right: 1000, bottom: 500, x: 0, y: 0, toJSON: () => ({}) })
+    const tap = (x: number, y: number) => { fireEvent.pointerDown(sheet, { clientX: x, clientY: y, pointerId: 1 }); fireEvent.pointerUp(sheet, { clientX: x, clientY: y, pointerId: 1 }) }
+    expect(view.getByText('Verbinden · Seite 2 von 2')).toBeTruthy()
+    tap(200, 150)
+    fireEvent.click(view.getByRole('button', { name: '+1 · 1. OG' }))
+    expect(view.getByText('Verbinden · Seite 1 von 2')).toBeTruthy() // the chip turned the sheet
+    tap(650, 350)
+    expect(onDraft.mock.lastCall?.[0].floors.find((f: { join: unknown }) => f.join)).toMatchObject({ page: 1, index: 0, join: { to: 1, at: [0.2, 0.3], there: [0.65, 0.7] } })
+    await waitFor(() => expect(fullView()).toBeNull())
+  })
+
   it('crossing the breakpoint ends the full-screen session and keeps the edits', async () => {
     let narrow = true
     const listeners = new Set<() => void>()
