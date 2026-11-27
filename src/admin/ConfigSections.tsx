@@ -2182,10 +2182,11 @@ function ReportLinksEditor() {
     <>
       {rows.map((row, i) => {
         const preview = resolveLinkUrl(row.url ?? '', linkTokenValues(SAMPLE_LINK_FACTS))
-        // the bounds `write` holds the row to, as the line under it – for a link the save replaces
-        // by its stored original, that original's: it blocks every save until the link is fixed
+        // the bounds `write` holds the row to, as the line under it. A link the save replaces by its
+        // stored original blocks every save until it is fixed: the field still too long in the
+        // edit, else the original's
         const original = kept.get(row)
-        const tooLong = original ? linkLength(original, true) : linkLength(row)
+        const tooLong = original ? linkLength(row, true) ?? linkLength(original, true) : linkLength(row)
         return (
           <div className="adm-formlink" key={row.id}>
             <SettingsGroup

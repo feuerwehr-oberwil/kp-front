@@ -95,10 +95,11 @@ export function ObjectCategoriesCard() {
         const modules = row.match?.modules ?? []
         const ink = row.color === INK
         const other = !name.trim() ? C.catNoName : !isCategoryColor(row.color) ? C.catBadColor : null
-        // a rule the save replaces by its stored original: that original's length, beside any
-        // other reason – it blocks every save until the rule is fixed
+        // a rule the save replaces by its stored original blocks every save until it is fixed: the
+        // field still too long in the edit, else the original's, beside any other reason
         const original = kept.get(row)
-        const problems = (original ? [other, lengthNote(original, true)] : [other ?? lengthNote(row)]).filter((p) => p !== null)
+        const problems = (original ? [other, lengthNote(row, true) ?? lengthNote(original, true)] : [other ?? lengthNote(row)])
+          .filter((p) => p !== null)
         return (
           <RecordRows
             key={`${layout}:${i}`}

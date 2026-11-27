@@ -210,6 +210,15 @@ describe('a row held for its length names the limit', () => {
       expect(storedLine(R.linkTitle, 120)).not.toBeNull()
     })
 
+    it('names the field still too long in the edit, not one already shortened', async () => {
+      const url = `https://formulare.example/?q=${'x'.repeat(TEXT_MAX_LENGTH['report.links.0.url'])}`
+      apiGet.mockResolvedValue(structuredClone({ ...STATION, report: { ...STATION.report, links: [{ id: 'lnk1', title: 'T'.repeat(130), url }] } }))
+      await act(async () => { render(<ConfigProvider><ReportSection /></ConfigProvider>) })
+      await type((await waitFor(titles))[0], 'T'.repeat(120))
+      expect(storedLine(R.linkTitle, 120)).toBeNull()
+      expect(storedLine(R.linkUrl, TEXT_MAX_LENGTH['report.links.0.url'])).not.toBeNull()
+    })
+
     it('says «not saved like this» again once the repair was saved', async () => {
       const long = { id: 'lnk1', title: 'T'.repeat(130), url: 'https://formulare.example/lang' }
       apiGet.mockResolvedValue(structuredClone({ ...STATION, report: { ...STATION.report, links: [long] } }))
@@ -242,6 +251,13 @@ describe('a row held for its length names the limit', () => {
       expect(screen.getAllByText(/höchstens/)).toHaveLength(1)
       await type(labels()[0], 'L'.repeat(122))
       expect(storedLine(T.fieldLabel, 120)).not.toBeNull()
+    })
+
+    it('counts a stored label as it is sent, untrimmed', async () => {
+      apiGet.mockResolvedValue({ ...structuredClone(STATION), objectVisits: { proposalFields: [{ id: 'leer', label: ' '.repeat(121) }] } })
+      await act(async () => { render(<ConfigProvider><ProposalFieldsEditor /></ConfigProvider>) })
+      await waitFor(() => expect(storedLine(T.fieldLabel, 120)).not.toBeNull())
+      expect(screen.getByText(T.fieldIncomplete)).toBeTruthy()
     })
 
     it('keeps that line beside another reason the edit gives the row, also once the label fits', async () => {

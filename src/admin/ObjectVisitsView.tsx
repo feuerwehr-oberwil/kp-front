@@ -162,10 +162,11 @@ export function ProposalFieldsEditor() {
     return id && holder !== i ? T.fieldDuplicate : !id || !f.label?.trim() ? T.fieldIncomplete : null
   }
   /** …and none longer than the schema allows: the boxes hold typing to it (configGuards).
-   *  `stored`: the wording for a stored original (useStoredRows · keptOriginals). */
-  const lengthNote = (f: FieldRow, stored = false) => tooLongNote([
-    ['objectVisits.proposalFields.0.label', T.fieldLabel, f.label?.trim()],
-    ['objectVisits.proposalFields.0.id', T.fieldId, f.id?.trim()],
+   *  `stored`: the wording for a stored original (useStoredRows · keptOriginals). `raw`: the
+   *  values as they are sent – a stored original goes out untrimmed. */
+  const lengthNote = (f: FieldRow, stored = false, raw = false) => tooLongNote([
+    ['objectVisits.proposalFields.0.label', T.fieldLabel, raw ? f.label : f.label?.trim()],
+    ['objectVisits.proposalFields.0.id', T.fieldId, raw ? f.id : f.id?.trim()],
   ], stored)
   const { edited, saved, keptOriginals } = useStoredRows(stored, (all) => all.filter((f, i) => reason(f, i, all) === null && lengthNote(f) === null),
     (f) => !fitsText('objectVisits.proposalFields.0.label', f.label) || !fitsText('objectVisits.proposalFields.0.id', f.id))
@@ -192,10 +193,12 @@ export function ProposalFieldsEditor() {
     <RecordTable title={T.fields} tip={T.fieldsTip} recordLabel={T.fieldsRecord}>
       {rows.length === 0 && <SettingsNote>{T.fieldsEmpty}</SettingsNote>}
       {rows.map((row, i) => {
-        // a row the save replaces by its stored original: that original's length, beside any
-        // other reason – it blocks every save until the row is fixed
+        // a row the save replaces by its stored original blocks every save until it is fixed: the
+        // field still too long in the edit, else the original's, beside any other reason
         const original = kept.get(row)
-        const warns = (original ? [reason(row, i, rows), lengthNote(original, true)] : [reason(row, i, rows) ?? lengthNote(row)])
+        const warns = (original
+          ? [reason(row, i, rows), lengthNote(row, true) ?? lengthNote(original, true, true)]
+          : [reason(row, i, rows) ?? lengthNote(row)])
           .filter((w) => w !== null)
         return (
           <RecordRows
