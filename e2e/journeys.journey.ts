@@ -121,6 +121,7 @@ test('cold start: kiosk login → the Einsatz on the Karte', async ({ page, base
   // what a kiosk user waits for: the boot cover gone over the roster (ungated until baselined)
   const coverOff = page.waitForFunction(() => !document.querySelector('.boot-splash'), undefined, { polling: POLL_MS, timeout: 30_000 })
     .then(() => performance.now() - t0)
+  coverOff.catch(() => {}) // handled where it is awaited, after total_ms
   await shown(page, { css: '.roster-tile' })
   j.r.set('login_screen_ms', performance.now() - t0, 'ms')
   // the PIN typed, the ✓ pressed: from here on it is the app's time, not the test's. Raw input
