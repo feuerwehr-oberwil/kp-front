@@ -635,8 +635,10 @@ export class WorkspaceSync {
    *  (bounded, lib/tabLock · TAB_LOCK_ANSWER_MS): a tab opening behind the holder must not write a
    *  server copy over the holder's draft. A write flushed synchronously (teardown, push) does not wait. */
   private cacheDue = () => {
-    if (this.lockAnswers.get(this.incidentId) !== undefined) void this.flushCache()
-    else void this.lockAnswers.answered(this.incidentId).then(this.flushCache)
+    if (this.lockAnswers.get(this.incidentId) !== undefined) { void this.flushCache(); return }
+    const due = this.cacheTimer
+    // a newer save re-armed the debounce meanwhile: its own timer writes it
+    void this.lockAnswers.answered(this.incidentId).then(() => { if (this.cacheTimer === due) void this.flushCache() })
   }
 
   /** This tab lost the edit lock, or opened behind its holder: drop every write still waiting – the
@@ -1371,7 +1373,7 @@ export class WorkspaceSync {
         // ⚠️ The slice validates EVERY Trupp it is sent; the full save keeps an unchanged legacy
         // row it would refuse (backend alarm_validation · retained rows). A 422 here may be one
         // of those, so the whole document goes as it always did — and answers for itself.
-        if (!this.sessionActive || !(e instanceof ApiError && e.status === 422)) throw e
+        if (!this.sessionActive || this.followed || !(e instanceof ApiError && e.status === 422)) throw e
       }
     }
     return putWorkspace(this.incidentId, workspace, baseRev, this.editedAtIso(), this.writerId)
@@ -1549,7 +1551,7 @@ export class WorkspaceSync {
 
     // (2) the record part, on its own route — only the full-document engine can have one to save
     let landed: { workspace: Workspace; rev: number } | null = null
-    if (this.sessionActive && !this.opts.slice && base) {
+    if (this.sessionActive && !this.followed && !this.opts.slice && base) {
       const record = recordSlice(pushed)
       const changed = RECORD_SLICE_KEYS.some((k) => !jsonEqual(record[k], base[k]))
       if (changed) {
@@ -1717,7 +1719,7 @@ export class WorkspaceSync {
     // ⚠️ Only once every slot was actually read: emptying a slot that could not be read would
     // destroy what an earlier session parked there. Unread ⇒ nothing is re-sent now; the next
     // attempt (the next render that sees the Einsatz running) reads again.
-    if (!(await this.loadRefused())) return
+    if (!(await this.loadRefused()) || this.followed) return
     const parked = this.ownRefused()
     if (!parked.length) return
     const transferred = new Set(this.entry.requeuedRefused)
@@ -1733,7 +1735,8 @@ export class WorkspaceSync {
     this.handToView(ws, this.entry.baseRev)
     // Commit the replacement FIRST. Even a quota failure or a reload in this await leaves
     // one durable copy. The marker above makes retry after a failed clear idempotent.
-    if (!(await this.flushCache()) || !this.sessionActive) return
+    // …and only a write of THIS draft: a follower's save writes nothing (see `followed`)
+    if (!(await this.flushCache()) || !this.sessionActive || this.followed) return
     const markers = new Set(parked.map((p) => p.id ?? p.refusedAt))
     const main = refusedCacheKey(this.incidentId)
     for (const key of this.refusedKeys) {

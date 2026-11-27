@@ -200,8 +200,10 @@ export class IncidentTabLock {
 /** React binding: editable-here state + take-over action for the active incident.
  *  `heldAtOpen`: the lock's FIRST answer for this incident — true when this tab got it at once
  *  (or there are no Web Locks), false when it opened behind another tab, null until it answers.
- *  `held` alone cannot say it: it starts true optimistically. */
-export function useIncidentTabLock(incidentId: string | null): { held: boolean; heldAtOpen: boolean | null; takeOver: () => void } {
+ *  `held` alone cannot say it: it starts true optimistically.
+ *  `onHeld`: called with the incident each time this tab is granted the lock – where the App
+ *  reopens an Einsatz whose engine followed another tab (docs/sync-and-offline.md › Two tabs). */
+export function useIncidentTabLock(incidentId: string | null, onHeld?: (incidentId: string) => void): { held: boolean; heldAtOpen: boolean | null; takeOver: () => void } {
   // starts true so the common single-tab case never flashes the read-only banner; the
   // try-acquire settles within milliseconds and corrects this if another tab holds the lock.
   const [held, setHeld] = useState(true)
@@ -209,11 +211,14 @@ export function useIncidentTabLock(incidentId: string | null): { held: boolean; 
   // stand for the next one through the render before the effect resets it
   const [firstAnswer, setFirstAnswer] = useState<{ id: string; held: boolean } | null>(null)
   const ref = useRef<IncidentTabLock | null>(null)
+  const onHeldRef = useRef(onHeld)
+  useEffect(() => { onHeldRef.current = onHeld }, [onHeld])
   useEffect(() => {
     if (!incidentId) { setHeld(true); return }
     const lock = new IncidentTabLock(incidentLockName(incidentId), (now) => {
       setHeld(now)
       setFirstAnswer((first) => (first?.id === incidentId ? first : { id: incidentId, held: now }))
+      if (now) onHeldRef.current?.(incidentId)
     })
     ref.current = lock
     lock.start()

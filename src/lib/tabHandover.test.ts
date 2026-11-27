@@ -10,10 +10,11 @@ import type { Workspace } from './api/workspace'
 const store = vi.hoisted(() => new Map<string, unknown>())
 const get = vi.hoisted(() => vi.fn())
 const put = vi.hoisted(() => vi.fn())
+const putTrupps = vi.hoisted(() => vi.fn())
 const truppsBeacon = vi.hoisted(() => vi.fn())
 vi.mock('./api/workspace', async (importOriginal) => ({
   ...await importOriginal<typeof import('./api/workspace')>(),
-  getWorkspace: get, putWorkspace: put, putWorkspaceTrupps: put,
+  getWorkspace: get, putWorkspace: put, putWorkspaceTrupps: putTrupps,
   putWorkspaceRecord: vi.fn(), putWorkspaceRecordBeacon: vi.fn(), putWorkspaceTruppsBeacon: truppsBeacon,
 }))
 vi.mock('./idb', () => ({
@@ -79,7 +80,7 @@ function close(t: Tab) {
   t.selection.dispose()
 }
 const editable = (t: Tab) => vi.waitFor(() => expect(t.held && !engine(t).lockLost).toBe(true))
-const putsBy = (e: WorkspaceSync) => put.mock.calls.filter((c) => c.includes(e.writerId)).length
+const putsBy = (e: WorkspaceSync) => [...put.mock.calls, ...putTrupps.mock.calls].filter((c) => c.includes(e.writerId)).length
 
 beforeEach(() => {
   vi.useFakeTimers()
@@ -88,6 +89,7 @@ beforeEach(() => {
   setWorkspaceCacheOwner('anna')
   get.mockReset().mockResolvedValue({ workspace: {}, workspace_rev: 1 })
   put.mockReset().mockRejectedValue(offline)
+  putTrupps.mockReset().mockRejectedValue(offline)
   truppsBeacon.mockReset()
 })
 afterEach(() => {
@@ -175,6 +177,33 @@ it('a tab that loses the lock drops its waiting cache write, its push and its re
   await vi.advanceTimersByTimeAsync(70_000)
   expect(putsBy(holder)).toBe(1)
   expect(slot()?.workspace.reportMeta).toEqual({ remarks: 'pushed, refused offline' })
+})
+
+it('a Trupp save refused with 422 after the lock was lost does not fall back to a full PUT', async () => {
+  const a = await tab()
+  const b = await tab()
+  const holder = engine(a)
+  let refuse!: () => void
+  putTrupps.mockImplementationOnce(() => new Promise((_, reject) => { refuse = () => reject(new ApiError(422, 'legacy row')) }))
+  holder.save({ ...holder.workspace, trupps: [{ id: 't1', name: 'Trupp 1' }] }) // only the Trupps changed: the slice route
+  await vi.advanceTimersByTimeAsync(1_100)
+  expect(putTrupps).toHaveBeenCalledOnce()
+  b.lock!.takeOver()
+  await editable(b)
+  refuse()
+  await vi.advanceTimersByTimeAsync(70_000)
+  expect(put.mock.calls.filter((c) => c.includes(holder.writerId))).toEqual([])
+})
+
+it('a follower re-sending refused saves leaves the parked copies on disk', async () => {
+  const parked = [{ id: 'r1', owner: 'anna', workspace: { reportMeta: { remarks: 'refused' } }, base: {}, baseRev: 1, refusedAt: 1 }]
+  store.set(`kp-front-ws-${ID}::__refused__`, parked)
+  await tab()
+  const b = await tab()
+  expect(b.held).toBe(false)
+  await engine(b).requeueRefused()
+  await vi.advanceTimersByTimeAsync(70_000)
+  expect(store.get(`kp-front-ws-${ID}::__refused__`)).toEqual(parked)
 })
 
 it('one tab, a lock that never answers: the cache write and the PUT go after the bound, as on main', async () => {

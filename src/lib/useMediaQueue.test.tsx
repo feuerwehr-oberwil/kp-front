@@ -193,3 +193,25 @@ it.each([
     Reflect.deleteProperty(navigator, 'locks')
   }
 })
+
+it('a tab that loses the edit lock mid-flush starts no further upload', async () => {
+  vi.stubGlobal('URL', { createObjectURL: () => 'blob:restored', revokeObjectURL: vi.fn() })
+  Object.defineProperty(navigator, 'locks', { value: {}, configurable: true })
+  const id = 'tab-lost'
+  tabLockAnswers.set(incidentLockName(id), true)
+  try {
+    upload.mockReset().mockImplementation(async () => {
+      tabLockAnswers.set(incidentLockName(id), false) // another tab took over during this upload
+      return { url: '/media/1' }
+    })
+    await enqueueMedia(id, 'row1', 'photo', new Blob(['a']), 'a.jpg', new Date().toISOString(), 'blob:a')
+    await enqueueMedia(id, 'row2', 'photo', new Blob(['b']), 'b.jpg', new Date().toISOString(), 'blob:b')
+    renderHook(() => useMediaQueue({ incidentId: id, readOnly: false, onUploaded: () => true, onRestore: () => {} }))
+    await waitFor(() => expect(upload).toHaveBeenCalledOnce())
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)) })
+    expect(upload).toHaveBeenCalledOnce()
+  } finally {
+    tabLockAnswers.set(incidentLockName(id), undefined)
+    Reflect.deleteProperty(navigator, 'locks')
+  }
+})
