@@ -95,7 +95,10 @@ export function useMapCanvasGestures({ mapInst, mapReady, freehand, onFreehand, 
     const cancelRaf = () => { if (fhRaf.current != null) { cancelAnimationFrame(fhRaf.current); fhRaf.current = null } }
     const preview = (pts: LngLat[]) => {
       // the map may already be torn down when a tool change's cleanup lands here
-      try { map.getSource<GeoJSONSource>(FREEHAND_SOURCE)?.setData(pts.length >= 2 ? fc([lineFeat(pts)]) : FREEHAND_EMPTY) } catch { /* map gone */ }
+      try {
+        map.getSource<GeoJSONSource>(FREEHAND_SOURCE)?.setData(pts.length >= 2 ? fc([lineFeat(pts)]) : FREEHAND_EMPTY)
+          .catch(() => { /* map gone: nothing left to draw on */ })
+      } catch { /* map gone */ }
     }
     const flushPreview = () => { fhRaf.current = null; if (fhActive.current) preview(fhPoints.current) }
     const schedule = () => { if (fhRaf.current == null) fhRaf.current = requestAnimationFrame(flushPreview) }

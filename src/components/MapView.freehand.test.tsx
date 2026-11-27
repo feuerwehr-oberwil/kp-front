@@ -45,7 +45,7 @@ type Handler = (e: unknown) => void
  *  the `s-fh` source's `setData` as a spy; every other call answers inertly. */
 function fakeMap() {
   const handlers: Record<string, Handler[]> = {}
-  const fh = { setData: vi.fn<(d: FeatureCollection) => void>() }
+  const fh = { setData: vi.fn<(d: FeatureCollection) => Promise<void>>(() => Promise.resolve()) }
   const m: Record<string, unknown> = {
     project: (c: LngLat | { lng: number; lat: number }) => {
       const [lng, lat] = Array.isArray(c) ? c : [c.lng, c.lat]
