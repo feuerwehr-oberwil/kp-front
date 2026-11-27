@@ -34,7 +34,7 @@ vi.mock('./journalStore', () => {
 })
 
 import { appConfig } from '../config/appConfig'
-import { LONG_POLL_SPACING_MS } from './pollBackoff'
+import { createLongPollLoop, LONG_POLL_SPACING_MS } from './pollBackoff'
 import { useJournal } from './useJournal'
 
 function setHidden(hidden: boolean) {
@@ -98,5 +98,64 @@ describe('useJournal — live-follow loop', () => {
     expect(held?.aborted).toBe(false)
     unmount()
     expect(held?.aborted).toBe(true)
+  })
+})
+
+// Requests in 30 s after a 40 s warm-up, for a server whose answer to every poll is `answer`
+// after `holdMs` (0 = the proxy that does not hold `wait=1`).
+async function pullsPer30s(answer: 'none' | 'new', holdMs: number) {
+  pull.mockImplementation(() => new Promise((res) => setTimeout(() => { res(answer) }, holdMs)))
+  mount()
+  await vi.advanceTimersByTimeAsync(40_000)
+  const before = pull.mock.calls.length
+  await vi.advanceTimersByTimeAsync(30_000)
+  return pull.mock.calls.length - before
+}
+
+// The workspace loop in the same model: a quick empty answer is «unanswered» (useIncidentSync ·
+// QUICK_EMPTY_ANSWER_MS), so its rounds are the loop's ease-off on the app's cadence.
+async function workspaceRoundsPer30sQuickEmpty() {
+  let rounds = 0
+  const loop = createLongPollLoop({
+    round: () => { rounds += 1; return Promise.resolve(false) },
+    baseMs: appConfig.sync.livePollMs, maxMs: appConfig.sync.livePollMaxMs, hiddenMs: () => appConfig.sync.hiddenPollMs,
+  })
+  loop.start(appConfig.sync.livePollMs)
+  await vi.advanceTimersByTimeAsync(40_000)
+  const before = rounds
+  await vi.advanceTimersByTimeAsync(30_000)
+  loop.stop()
+  return rounds - before
+}
+
+describe('useJournal — a long poll the server does not hold', () => {
+  it('eases off like the workspace loop when every held poll answers «nothing new» at once', async () => {
+    const workspace = await workspaceRoundsPer30sQuickEmpty()
+    const journal = await pullsPer30s('none', 0)
+    expect({ journal, workspace }).toEqual({ journal: workspace, workspace: 2 })
+  })
+
+  it('a poll held its normal time loops at once – the healthy link keeps its rhythm', async () => {
+    // one round = 20 s hold + the spacing floor
+    expect(await pullsPer30s('none', 20_000)).toBe(2)
+  })
+
+  it('new rows are followed at once, also when they came back fast (a real wake)', async () => {
+    // the base never eased off and keeps the spacing floor – the same count as before the guard
+    expect(await pullsPer30s('new', 0)).toBe(119)
+  })
+
+  it('the first held poll after a back-off brings the normal rhythm back', async () => {
+    const calledAt: number[] = []
+    pull.mockImplementation(() => { calledAt.push(Date.now()); return Promise.resolve('none') })
+    mount()
+    await vi.advanceTimersByTimeAsync(40_000) // parked on the ease-off ceiling
+    pull.mockImplementationOnce(() => {
+      calledAt.push(Date.now())
+      return new Promise((res) => setTimeout(() => { res('none') }, 20_000))
+    })
+    const held = calledAt.length
+    await vi.advanceTimersByTimeAsync(appConfig.sync.livePollMaxMs + 20_000 + LONG_POLL_SPACING_MS)
+    expect(calledAt[held + 1] - calledAt[held]).toBe(20_000 + LONG_POLL_SPACING_MS)
   })
 })

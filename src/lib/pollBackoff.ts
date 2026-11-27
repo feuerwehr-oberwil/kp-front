@@ -23,6 +23,11 @@
  *  it's issued, an immediately-failing preflight) can't spin the loop into a tight retry. */
 export const LONG_POLL_SPACING_MS = 250
 
+/** A held poll that answers «nothing new» faster than this did not hold (a proxy or backend that
+ *  ignores `wait=1`). Its round reports «unanswered», so the loop eases off instead of asking
+ *  again every LONG_POLL_SPACING_MS. A round that brought something stays hot. */
+export const QUICK_EMPTY_ANSWER_MS = 1_000
+
 export interface BackoffOpts {
   /** the fast/base cadence (ms) — the first retry after a failed or skipped round. */
   baseMs: number

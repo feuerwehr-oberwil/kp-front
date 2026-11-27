@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from 'react'
 import { JournalStore, type JournalOwner } from './journalStore'
+import { QUICK_EMPTY_ANSWER_MS } from './pollBackoff'
 import { useLongPoll } from './useLongPoll'
 import type { TimelineEvent } from '../types'
 import type { PhotoSlot } from './verlauf'
@@ -48,10 +49,14 @@ export function useJournal({ incidentId, readOnly, legacy, slowFollow = false, o
       // event (e2e «offline journal entries survive reload and reconnect», 24.09.2026). A round
       // with an empty outbox costs nothing here: flush() returns at once.
       void store.flush()
+      const askedAt = Date.now()
       const result = await store.pull({ wait: !hidden, signal })
       void store.flush()
       // 'failed' (offline, aborted, backend down) → the loop eases off so a dead server isn't
-      // hammered; anything else answered and a visible tab goes straight into the next round.
+      // hammered. So does a held poll that came back at once with nothing new: it was not held
+      // (QUICK_EMPTY_ANSWER_MS, the workspace round's rule). Anything else answered, and a visible
+      // tab goes straight into the next round.
+      if (result === 'none' && !hidden && Date.now() - askedAt < QUICK_EMPTY_ANSWER_MS) return false
       return result !== 'failed'
     },
     // the outbox retries as soon as the link is back — the loop restarts the PULL on its own

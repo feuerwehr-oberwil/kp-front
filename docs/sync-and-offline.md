@@ -122,6 +122,12 @@ the module they concern (`lib/connectivity`, `lib/eventScope`, `lib/jsonEqual`,
   Only the engine whose state holds a save may send its id (never a save made around it, never a
   beacon). Guarded on the real stack by `e2e/live-follow.spec.ts`, with two real engines in
   `lib/liveFollow.twoDevice.test.ts`, and the rule in `backend/tests/test_long_poll.py`.
+- **A long poll that does not hold eases off** (27.11.2026). Both live-follow loops (workspace ·
+  Verlauf) ask with `wait=1`. A visible tab's answer «nothing new» that comes back faster than
+  `pollBackoff · QUICK_EMPTY_ANSWER_MS` (1 s) was not held – a proxy or backend that ignores
+  `wait`. The round then counts as unanswered and the loop eases off (2 → 15 s) instead of asking
+  every 250 ms (the Verlauf asked 119 times per 30 s). A held answer, or one that brings
+  something, keeps the loop hot. Guarded in `lib/useJournal.test.ts`.
 - **Sync supports task-scoped collaboration.** Multiple editors may work different domains in the
   same incident (e.g. Atemschutz + Lage drawing); this is not shared-cursor co-editing of the same
   object. Cross-domain concurrent edits must merge. Mergeable collections merge three-way **by
