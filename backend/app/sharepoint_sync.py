@@ -358,7 +358,8 @@ async def _repoint_einsaetze(db: AsyncSession, rekeyed: list[tuple[uuid.UUID, uu
 
     Until the run commits, other sessions see neither the re-key nor this: the old object and the
     Einsätze that name it, consistent. Found now, not when the re-key ran, so an Einsatz that began
-    to name the old id during the downloads is caught too. The rows are then locked in id order
+    to name the old id during the downloads is caught too; one that begins to name it after this
+    scan and before the run's commit is not. The rows are then locked in id order
     under ONE deadline for the whole batch – `statement_timeout` around a single locking SELECT
     by id, since `lock_timeout` bounds each row's wait and several held rows would add up. The
     scan that finds them stays outside the deadline: it reads every Einsatz blob, which takes
