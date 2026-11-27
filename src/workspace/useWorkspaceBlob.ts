@@ -314,8 +314,15 @@ export function useWorkspaceBlob({
     const payload = blobOf(slices, objects, timeline, activePlanId, syncedLayerState.current)
     // an echo is exactly what the pull handed in (see `pulled`) — the Verlauf echo by its row ids,
     // because the journal store hands out its own copy (journalStore · ingestLegacy)
-    // …the pull this build follows: the one whose forced render it is
-    const p = pulled.current?.tick === pullTick ? pulled.current : null
+    // ⚠️ A pull that landed after this render committed, before its save ran, is not this build's:
+    // the build it forces decides. This one is answered as an echo (no save) and touches none of
+    // the pull's bookkeeping — clearing it here wrote the pull back from that next build.
+    if (pulled.current !== null && pulled.current.tick !== pullTick) {
+      afterPull.current = { build: payload, adopted: payload }
+      return payload
+    }
+    // …the pull this build follows (a pull that moved nothing keeps the tick)
+    const p = pulled.current
     const echo = p !== null && activePlanId === builtPlanId.current && objects === p.objects
       && sameRowIds(timeline, p.timeline)
       && (Object.keys(slices) as (keyof typeof slices)[]).every((k) => slices[k] === p.slices[k])

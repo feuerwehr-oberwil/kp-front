@@ -134,10 +134,11 @@ the module they concern (`lib/connectivity`, `lib/eventScope`, `lib/jsonEqual`,
   remembers every input exactly as it handed it in (a record it did not change keeps its live
   identity), and a pull that moved an input forces the one build after it (`pullTick`). That
   build is skipped when each input IS what the pull handed in (the Verlauf echo by row ids).
-  Any other build is compared with the blob the pull adopted, not with the last push, and saved
-  when it differs: a tap, an async write (a plan binding, a seed), or a pick back to the old value
+  Any other build is compared with the blob the pull adopted (`jsonEqual`, as the merge
+  compares), not with the last push, and saved when it differs: a tap, an async write (a plan binding, a seed), or a pick back to the old value
   that React renders with the pull – also when that pick was all the pull changed and React
-  commits no change. It replaced «skip the next save», which such a tap spent on itself: the tap
+  commits no change. A save effect whose render committed before a pull landed leaves that pull to
+  the build it forces. It replaced «skip the next save», which such a tap spent on itself: the tap
   showed on the screen, but was not saved. Guarded by the harness cases «(f) a pull moves only
   what it changed» (`IncidentWorkspace.harness.writes.test.tsx`).
 - **Sync supports task-scoped collaboration.** Multiple editors may work different domains in the

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest'
 import { act, createEvent, fireEvent, render, screen, within } from '@testing-library/react'
-import { useState } from 'react'
+import { useLayoutEffect, useState } from 'react'
 import type { Entity, MittelEntry } from './types'
 import type { MittelDraft } from './components/MittelView'
 import { AUTH, SYM, rec, registerHarnessHooks, lastMap, lastBoard, meta, truck, workspaceTree, settle, mount, lastBtn, key, openPlan, type BoardProps, type WsProps } from './IncidentWorkspace.harness.setup'
@@ -370,6 +370,37 @@ describe('(f) a pull moves only what it changed', () => {
     act(() => {
       sync.onApplyMerged!({ ...held, planScale: { modul1: { ar: 1.4, mPerU: 120, refM: 30 } } } as unknown as Blob, 1)
       calibrate('modul1', { mPerU: 120, refM: 30, ar: 1.4 })
+    })
+    await settle(60)
+    expect(save).not.toHaveBeenCalled()
+  })
+
+  // a pull that lands after a render committed but before its save ran: that older save leaves
+  // the pull to the build the pull forces (a layout effect runs between the two)
+  it('a pull that lands between a render and its save is not saved back', async () => {
+    const m = meta()
+    const sync = new WorkspaceSync(m.id)
+    const save = vi.spyOn(sync, 'save')
+    const { tree } = workspaceTree(m, { sync, workspace: { entities: [truck, other], trupps: [tr('t1', 1, 'Tst Ida'), tr('t2', 2, 'Tst Jan')] } as unknown as Saved })
+    let pullNow: () => void = () => {}
+    let fire: (pull: () => void) => void = () => {}
+    function Probe() {
+      const [n, setN] = useState(0)
+      fire = (pull) => { pullNow = pull; setN((v) => v + 1) }
+      useLayoutEffect(() => { if (n) pullNow() }, [n])
+      return null
+    }
+    render(<>{tree}<Probe /></>)
+    await settle(60); await settle(60)
+    await openPlan('tafel')
+    const calibrate = lastBoard()!.onCalibrate as (planId: string, sc: { mPerU: number; refM: number; ar: number }) => unknown
+    act(() => { calibrate('modul1', { mPerU: 120, refM: 30, ar: 1.4 }) })
+    await settle(60)
+    const held = save.mock.lastCall![0] as Saved
+    save.mockClear()
+    act(() => {
+      calibrate('modul1', { mPerU: 120, refM: 30, ar: 1.4 }) // the same calibration again: nothing to save
+      fire(() => { sync.onApplyMerged!({ ...held, pickedObjectId: 'obj2' } as unknown as Blob, 1) })
     })
     await settle(60)
     expect(save).not.toHaveBeenCalled()
