@@ -27,7 +27,7 @@
 <link rel="stylesheet" href="{{base}}landing.css">
 
 <!--@template Hidden until the script has asked once: an awake demo opens without a flash. -->
-<main class="wake" id="wake" data-app="{{product.demoApp}}" hidden>
+<main class="wake" id="wake" hidden>
   <img class="wake-logo" src="{{base}}favicon.svg" width="56" height="56" alt="">
   <h1 id="wake-title" aria-live="polite" data-ready="{{wake.ready}}" data-fail="{{wake.failTitle}}">{{wake.title}}</h1>
   <div class="wake-run" id="wake-run">
@@ -56,8 +56,10 @@
 
 <script>
   (function () {
+    // A literal from config.json (`product.demoApp`), never read back from the page: whatever
+    // this script navigates to is fixed at build time.
+    var app = '{{product.demoApp}}'
     var root = document.getElementById('wake')
-    var app = root.getAttribute('data-app')
     var title = document.getElementById('wake-title')
     var bar = document.getElementById('wake-bar')
     var time = document.getElementById('wake-time')

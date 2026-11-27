@@ -74,7 +74,7 @@
 <link rel="preload" href="../../fonts/sora.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="../../landing.css">
 
-<main class="wake" id="wake" data-app="https://demo.kp-front.ch/" hidden>
+<main class="wake" id="wake" hidden>
   <img class="wake-logo" src="../../favicon.svg" width="56" height="56" alt="">
   <h1 id="wake-title" aria-live="polite" data-ready="Prête – la démo s’ouvre…" data-fail="La démo ne démarre pas pour l’instant">La démo démarre…</h1>
   <div class="wake-run" id="wake-run">
@@ -103,8 +103,10 @@
 
 <script>
   (function () {
+    // A literal from config.json (`product.demoApp`), never read back from the page: whatever
+    // this script navigates to is fixed at build time.
+    var app = 'https://demo.kp-front.ch/'
     var root = document.getElementById('wake')
-    var app = root.getAttribute('data-app')
     var title = document.getElementById('wake-title')
     var bar = document.getElementById('wake-bar')
     var time = document.getElementById('wake-time')
