@@ -137,6 +137,18 @@ the module they concern (`lib/connectivity`, `lib/eventScope`, `lib/jsonEqual`,
   React renders with the pull makes the build differ, and it is saved. It replaced «skip the next save», which such a tap spent on
   itself: the tap showed on the screen, but was not saved. Guarded by the harness cases
   «(f) a pull moves only what it changed» (`IncidentWorkspace.harness.writes.test.tsx`).
+- **A pull merges into a queued signature or Beilage; it does not write over it** (27.11.2026).
+  Both are appended through a functional setter after an await (the signature hash, the image
+  preparation), so the live poll's continuation can run between the append and its render. A
+  plain set queued behind it wiped the append: the Verlauf said «unterschrieben», the Rapport
+  showed no signature, and no later save carried it. Now `applyInitialState` hands these two
+  setters an updater that merges three-way by their `MERGE_POLICY` rows (ancestor = what the last
+  build held, mine = what React queued, theirs = the pull): both appends stand, a removal by
+  another device applies beside a local append. With nothing queued it hands back the incoming
+  list itself, so the echo guard sees a pull; a merged list differs and is saved – unless it came
+  out as the incoming list (the pull already held the append). Only these two slices: every other
+  slice is still a plain set. Guarded by «(f) a signature or a Beilage queued before a pull stays»
+  (`IncidentWorkspace.harness.writes.test.tsx`) and `lib/workspace.test.ts`.
 - **Sync supports task-scoped collaboration.** Multiple editors may work different domains in the
   same incident (e.g. Atemschutz + Lage drawing); this is not shared-cursor co-editing of the same
   object. Cross-domain concurrent edits must merge. Mergeable collections merge three-way **by

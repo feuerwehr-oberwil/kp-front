@@ -1,4 +1,4 @@
-import { splitDuplicateTruppIds, type LocalKey } from './mergeWorkspace'
+import { MERGE_POLICY, splitDuplicateTruppIds, type LocalKey } from './mergeWorkspace'
 import { nextTruppNo } from './placedTrupps'
 import type { ReportSignature } from './reportSignature'
 import { ghostCounterNames } from './truppTrails'
@@ -783,7 +783,18 @@ type NotApplied = 'activePlanId' | 'doc' | 'board'
  *  `mittel`: another device's Mittel entries never reached this device's screen, and its next
  *  save — whose ancestor did hold them — read them as local deletions (delete wins). */
 type AppliedKey = Exclude<keyof InitialState, NotApplied>
-export type WorkspaceAppliers = { [K in AppliedKey]: (value: InitialState[K]) => void }
+
+/** The slices a pull MERGES into what this device has queued, instead of writing over it: a
+ *  Rapport signature or Beilage is appended through a functional setter after an await (the
+ *  signature hash, the image preparation), so the live poll's continuation can run between that
+ *  append and its render. A plain set queued behind it wiped it — the Verlauf row and the audit
+ *  event of the signature arrived, the Rapport showed none, and no later save carried it. Each
+ *  merges by its own `MERGE_POLICY` row; their setter takes an updater (applyInitialState). */
+type MergedOnApply = 'attachments' | 'reportSignatures'
+
+export type WorkspaceAppliers =
+  & { [K in Exclude<AppliedKey, MergedOnApply>]: (value: InitialState[K]) => void }
+  & { [K in MergedOnApply]: (update: (queued: InitialState[K]) => InitialState[K]) => void }
 
 /** The applied slices as this device holds them right now — what `applyInitialState` writes over.
  *  The Verlauf is not among them: its rows go to the journal store, which drops a repeat itself. */
@@ -835,19 +846,37 @@ export function shareLive<T>(live: T, next: T): T {
  * always goes. Returns `next` as written — every unchanged record the live one, for the caller's
  * own diff and history re-lay — the same slices as `held` (what the device holds once this lands,
  * for a second merge before it renders).
+ * ⚠️ `live` is what the last build (or a merge before it, in this batch) held. A `MergedOnApply`
+ * slice is merged three-way at React's turn: `live` the ancestor, the queued state mine, `next`
+ * theirs. With nothing queued the updater hands back the incoming value itself, so the echo guard
+ * (useWorkspaceBlob · pulled, which remembers `held`) sees a pull; with a write merged in, the
+ * build differs from `held` and is saved — unless the merge came out as the incoming list.
  */
 export function applyInitialState(next: InitialState, live: LiveSlices, set: WorkspaceAppliers): { next: InitialState; held: LiveSlices } {
   const out: InitialState = { ...next }
   const held: LiveSlices = { ...live }
-  const one = <K extends keyof LiveSlices>(k: K, cur: InitialState[K]) => {
+  /** `next[k]`, sharing every record it did not change with `cur` (`live[k]`), as written */
+  const take = <K extends keyof LiveSlices>(k: K, cur: InitialState[K]) => {
     const v = shareLive(cur, next[k])
     out[k] = v
     // the same slot: tsc cannot correlate LiveSlices[K] with InitialState[K] for a generic K
     held[k] = v as LiveSlices[K]
-    if (v !== cur) set[k](v)
+    return v
+  }
+  const plain: { [K in Exclude<AppliedKey, MergedOnApply>]: (value: InitialState[K]) => void } = set
+  const one = <K extends Exclude<keyof LiveSlices, MergedOnApply>>(k: K, cur: InitialState[K]) => {
+    const v = take(k, cur)
+    if (v !== cur) plain[k](v)
+  }
+  // pure (StrictMode runs an updater twice): reads only its argument, `cur` and `v`. The merge
+  // returns rows of its three inputs, so its list is one of this slice.
+  const merged = <T>(cur: T, v: T, apply: (update: (queued: T) => T) => void, merge: (b: unknown, m: unknown, t: unknown) => unknown) => {
+    if (v !== cur) apply((queued) => (queued === cur ? v : shareLive(v, merge(cur, queued, v) as T)))
   }
   for (const k of Object.keys(set) as (keyof WorkspaceAppliers)[]) {
     if (k === 'timeline') set.timeline(next.timeline)
+    else if (k === 'attachments') merged(live.attachments, take(k, live.attachments), set.attachments, MERGE_POLICY.attachments)
+    else if (k === 'reportSignatures') merged(live.reportSignatures, take(k, live.reportSignatures), set.reportSignatures, MERGE_POLICY.reportSignatures)
     else one(k, live[k])
   }
   return { next: out, held }

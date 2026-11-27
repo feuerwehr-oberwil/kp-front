@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { applyInitialState, autoActivateLayers, CONTACT_BOUNDS, demoClockAnchor, DEMO_SEED_REV, demoSeedRebase, deriveInitial, isBoardAnno, latestTruppStamp, normalizeBoard, numberTrupps, rebaseDemoClocks, gateReport, sanitizeWorkspace, shareLive, WORKSPACE_SCHEMA_VERSION, type InitialState, type LiveSlices, type Saved, type WorkspaceAppliers } from './workspace'
-import type { LayerDef, Trupp } from '../types'
+import type { LayerDef, ReportAttachment, Trupp } from '../types'
+import type { ReportSignature } from './reportSignature'
 
 // Inject one station reference layer with a category rule so the auto-activation path is
 // exercisable (the bundled demo layers carry no autoActivate).
@@ -797,6 +798,67 @@ describe('applyInitialState — a pull hands over only what it changed (perf swe
     const { calls, set } = recorder()
     expect(applyInitialState(deriveInitial(blob, 'i', {}), held(live), set).held.trupps).toBe(live.trupps)
     expect(calls).toEqual(['timeline'])
+  })
+})
+
+describe('applyInitialState — a signature or Beilage queued before the pull is merged, not written over (perf sweep 27.11.2026, case b)', () => {
+  const att = (id: string): ReportAttachment => ({ id, url: `/api/media/${id}`, at: T(0) })
+  const sig = (id: string, role: ReportSignature['role']): ReportSignature =>
+    ({ id, role, name: role, at: T(1), scope: 'a'.repeat(64), strokes: { w: 1, h: 1, d: [[0, 0]] } })
+  const ids = (l: readonly { id: string }[]) => l.map((r) => r.id)
+  /** a device holding `live` whose React queue holds `queued` (a local write not yet rendered);
+   *  `land` runs the pull's updater the way React does — twice, as StrictMode does */
+  const pull = (live: Partial<Saved>, incoming: Partial<Saved>, queued: Partial<Pick<InitialState, 'attachments' | 'reportSignatures'>> = {}) => {
+    const cur = deriveInitial(ws(live), 'i', {})
+    const updaters: { [K in 'attachments' | 'reportSignatures']?: (q: InitialState[K]) => InitialState[K] } = {}
+    const set: WorkspaceAppliers = {
+      objects: () => {}, layers: () => {}, timeline: () => {}, recent: () => {}, building: () => {}, vehicleOverrides: () => {}, checklists: () => {}, trupps: () => {}, attendance: () => {}, mittel: () => {}, shifts: () => {}, bands: () => {}, cameraViews: () => {}, trails: () => {}, planScale: () => {}, reportMeta: () => {}, settings: () => {}, planBindings: () => {}, pickedObjectId: () => {}, intakeReviewedAt: () => {},
+      attachments: (u) => { updaters.attachments = u }, reportSignatures: (u) => { updaters.reportSignatures = u },
+    }
+    const out = applyInitialState(deriveInitial(ws({ ...live, ...incoming }), 'i', {}), { ...cur, pickedObjectId: undefined, intakeReviewedAt: undefined }, set)
+    const land = <K extends 'attachments' | 'reportSignatures'>(k: K): InitialState[K] => {
+      const u: ((q: InitialState[K]) => InitialState[K]) | undefined = updaters[k]
+      const q = queued[k] ?? cur[k]
+      if (!u) return q
+      const before = structuredClone(q)
+      const first = u(q)
+      expect(u(q)).toEqual(first) // pure: the second run gives the same
+      expect(q).toEqual(before) // …and writes nothing it was handed
+      return first
+    }
+    return { out, land, cur }
+  }
+
+  it('nothing queued: the incoming list itself lands — what the echo guard remembers', () => {
+    const { out, land } = pull({ attachments: [att('a1')] }, { attachments: [att('a1'), att('a2')] })
+    expect(land('attachments')).toBe(out.held.attachments)
+    expect(ids(out.held.attachments)).toEqual(['a1', 'a2'])
+  })
+
+  it('a signature queued here and another device\'s in the pull: both, the pull\'s first', () => {
+    const { out, land } = pull({}, { reportSignatures: [sig('s-el', 'el')] }, { reportSignatures: [sig('s-kdt', 'kdt')] })
+    const landed = land('reportSignatures')
+    expect(ids(landed)).toEqual(['s-el', 's-kdt'])
+    expect(landed).not.toBe(out.held.reportSignatures) // the build differs from the pull: it is saved
+  })
+
+  it('a remote removal applies — with nothing queued, and beside a Beilage queued here', () => {
+    const live = { attachments: [att('a1'), att('a2')] }
+    expect(ids(pull(live, { attachments: [att('a1')] }).land('attachments'))).toEqual(['a1'])
+    const { land } = pull(live, { attachments: [att('a1')] }, { attachments: [att('a1'), att('a2'), att('a3')] })
+    expect(ids(land('attachments'))).toEqual(['a1', 'a3'])
+  })
+
+  it('the pull already holds the signature queued here: once, and the incoming list itself lands', () => {
+    const mine = sig('s-kdt', 'kdt')
+    const { out, land } = pull({}, { reportSignatures: [mine] }, { reportSignatures: [{ ...mine }] })
+    expect(land('reportSignatures')).toBe(out.held.reportSignatures)
+  })
+
+  it('a slice the pull did not change gets no updater: the queued write stays as it is', () => {
+    const queued = [att('a1'), att('a9')]
+    const { land } = pull({ attachments: [att('a1')] }, { reportSignatures: [sig('s-el', 'el')] }, { attachments: queued })
+    expect(land('attachments')).toBe(queued)
   })
 })
 

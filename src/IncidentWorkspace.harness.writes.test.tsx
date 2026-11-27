@@ -2,7 +2,8 @@
 import { describe, expect, it, vi } from 'vitest'
 import { act, createEvent, fireEvent, render, screen, within } from '@testing-library/react'
 import { useState } from 'react'
-import type { Entity, MittelEntry } from './types'
+import type { Entity, MittelEntry, ReportAttachment } from './types'
+import type { ReportSignature } from './lib/reportSignature'
 import type { MittelDraft } from './components/MittelView'
 import { AUTH, SYM, rec, registerHarnessHooks, lastMap, lastBoard, meta, truck, workspaceTree, settle, mount, lastBtn, key, openPlan, type BoardProps, type WsProps } from './IncidentWorkspace.harness.setup'
 import { Meldeleiste } from './components/Meldeleiste'
@@ -89,6 +90,10 @@ vi.mock('./lib/mediaQueue', async (importOriginal) => {
   const mod = await importOriginal<typeof import('./lib/mediaQueue')>()
   return { ...mod, flushMediaQueue: async (...a: Parameters<typeof mod.flushMediaQueue>) => { rec.order.push('flush'); return mod.flushMediaQueue(...a) } }
 })
+
+// a Beilage's preparation (thumbnail, resized bytes) settles at once: jsdom decodes no image
+vi.mock('./lib/imagePrep', async (importOriginal) => ({ ...(await importOriginal<typeof import('./lib/imagePrep')>()), prepareUploadImage: (f: Blob) => Promise.resolve(f) }))
+vi.mock('./lib/mediaUrl', async (importOriginal) => ({ ...(await importOriginal<typeof import('./lib/mediaUrl')>()), mintLocalThumb: () => Promise.resolve() }))
 
 /** the plan resolver's doors (useObjectPlans): a binding it fetched (`onBind`) — the test calls it
  *  where the resolver's fetch would land — and the operator's object pick (`onPick`) */
@@ -337,6 +342,102 @@ describe('(f) a pull moves only what it changed', () => {
     const saved = save.mock.lastCall![0] as Saved
     expect(saved.planBindings?.map((b) => b.id)).toEqual([binding.id])
     expect(saved.trupps?.map((t) => t.entryPressureBar)).toEqual([300, 280])
+  })
+})
+
+// Perf sweep 27.11.2026, case (b): a signature (or a Beilage) appended just before a pull's
+// continuation ran was queued first, and the pull's plain replacement of the list behind it wiped
+// it — the Verlauf said «unterschrieben», the Rapport showed no signature, and no later save
+// carried it. Now the pull merges into what React queued (lib/workspace · applyInitialState).
+describe('(f) a signature or a Beilage queued before a pull stays', () => {
+  type Blob = Parameters<NonNullable<WorkspaceSync['onApplyMerged']>>[0]
+  type Report = { reportSignatures: ReportSignature[]; attachments: ReportAttachment[]; onSign: (s: ReportSignature) => void; onAddAttachments: (f: File[]) => void }
+  const report = () => rec.report as unknown as Report
+  const sig = (id: string, role: ReportSignature['role']): ReportSignature =>
+    ({ id, role, name: `${role} Test`, at: '2026-11-27T10:00:00Z', scope: 'a'.repeat(64), strokes: { w: 10, h: 10, d: [[0, 0, 1, 1]] } })
+  const att = (id: string): ReportAttachment => ({ id, url: `/api/media/${id}`, at: '2026-11-27T09:00:00Z' })
+  /** an editor on the Rapport, settled — `held` is the blob as this device saved it at boot */
+  const device = async (ws: Partial<Saved> = {}) => {
+    const m = meta()
+    const sync = new WorkspaceSync(m.id)
+    const save = vi.spyOn(sync, 'save')
+    const trupps = [{ id: 't1', no: 1, name: 'Tst Ida', members: [], entryPressureBar: 300, entryTime: '', lastContactTime: '', status: 'angemeldet', readings: [] }]
+    const { tree } = workspaceTree(m, { sync, workspace: { entities: [truck], trupps, ...ws } as unknown as Saved })
+    render(tree)
+    await settle(60); await settle(60)
+    key('r'); await settle(60)
+    const held = save.mock.lastCall![0] as Saved
+    save.mockClear()
+    return { sync, save, held }
+  }
+  const ids = (list: readonly { id: string }[] | undefined) => (list ?? []).map((r) => r.id)
+  /** a Beilage added here, its preparation settled and its row queued — the pull lands after it,
+   *  before React renders either */
+  const addThenPull = async (sync: WorkspaceSync, blob: Blob) => {
+    const emitted = vi.spyOn(AuditEventStore.prototype, 'append')
+    await act(async () => {
+      report().onAddAttachments([new File(['x'], 'b.jpg', { type: 'image/jpeg' })])
+      while (!emitted.mock.calls.some(([e]) => e.op_type === 'report.attachment.add')) await Promise.resolve()
+      sync.onApplyMerged!(blob, 1)
+    })
+    emitted.mockRestore()
+    await settle(60)
+  }
+
+  it('Kdt signs while a pull brings the EL\'s signature: both show, and both are saved', async () => {
+    const { sync, save, held } = await device()
+    act(() => {
+      report().onSign(sig('s-kdt', 'kdt')) // queued, not yet rendered
+      sync.onApplyMerged!({ ...held, reportSignatures: [sig('s-el', 'el')] } as unknown as Blob, 1)
+    })
+    await settle(60)
+    expect(ids(report().reportSignatures)).toEqual(['s-el', 's-kdt'])
+    expect(save).toHaveBeenCalled()
+    expect(ids((save.mock.lastCall![0] as Saved).reportSignatures)).toEqual(['s-el', 's-kdt'])
+  })
+
+  it('the pull already holds this device\'s signature: it shows once, and nothing is saved back', async () => {
+    const { sync, save, held } = await device()
+    const mine = sig('s-kdt', 'kdt')
+    act(() => {
+      report().onSign(mine)
+      sync.onApplyMerged!({ ...held, reportSignatures: [mine] } as unknown as Blob, 1)
+    })
+    await settle(60)
+    expect(ids(report().reportSignatures)).toEqual(['s-kdt'])
+    expect(save).not.toHaveBeenCalled()
+  })
+
+  it('a pull that changes the signatures with nothing queued is applied as it came, not saved back', async () => {
+    const { sync, save, held } = await device({ reportSignatures: [sig('s-el', 'el')] })
+    const pulled = [{ ...sig('s-el', 'el'), voidedAt: '2026-11-27T10:05:00Z' }, sig('s-el2', 'el')]
+    act(() => { sync.onApplyMerged!({ ...held, reportSignatures: pulled } as unknown as Blob, 1) })
+    await settle(60)
+    expect(report().reportSignatures).toEqual(pulled)
+    expect(save).not.toHaveBeenCalled()
+  })
+
+  it('a Beilage added while a pull brings another device\'s: both show, and both are saved', async () => {
+    const { sync, save, held } = await device()
+    await addThenPull(sync, { ...held, attachments: [att('a-theirs')] } as unknown as Blob)
+    const shown = ids(report().attachments)
+    expect(shown).toHaveLength(2)
+    expect(shown[0]).toBe('a-theirs')
+    expect(ids((save.mock.lastCall![0] as Saved).attachments)).toEqual(shown)
+  })
+
+  it('a Beilage another device removed goes here too — with or without a Beilage queued here', async () => {
+    const { sync, save, held } = await device({ attachments: [att('a1'), att('a2')] })
+    act(() => { sync.onApplyMerged!({ ...held, attachments: [att('a1')] } as unknown as Blob, 1) })
+    await settle(60)
+    expect(ids(report().attachments)).toEqual(['a1'])
+    expect(save).not.toHaveBeenCalled()
+    // the remote removal applies, the local add stays (MERGE_POLICY · attachments: by id)
+    await addThenPull(sync, { ...held, attachments: [] } as unknown as Blob)
+    const shown = ids(report().attachments)
+    expect(shown).toHaveLength(1)
+    expect(shown[0]).not.toBe('a1')
+    expect(ids((save.mock.lastCall![0] as Saved).attachments)).toEqual(shown)
   })
 })
 
