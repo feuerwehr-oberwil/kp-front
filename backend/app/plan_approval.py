@@ -41,6 +41,10 @@ ADMIN = "admin"
 MARKERS = "markers"
 
 
+#: the refusal of a decision on an alignment somebody else changed meanwhile
+STALE = "Ausrichtung wurde zwischenzeitlich geändert – neu laden"
+
+
 class ApprovalError(Exception):
     """Why a fit may not be published: the HTTP status and the German sentence the API returns."""
 
@@ -74,7 +78,12 @@ async def lock_plans_of(db: AsyncSession, row: PlanAlignment) -> ReferenceDatase
     and a decision committed in between would abort that on the history's foreign key."""
     ds = await db.get(ReferenceDataset, row.dataset_id)
     if ds is not None and ds.object_id is not None:
+        held = row.dataset_id
         await lock_object_plans(db, ds.object_id)
+        # a merge or a re-key that committed while this waited moved the alignment onto another
+        # dataset (and object) – this holds the wrong lock, so it must not write it
+        if await db.get(PlanAlignment, row.id, populate_existing=True) is None or row.dataset_id != held:
+            raise ApprovalError(409, STALE)
         ds = await db.get(ReferenceDataset, row.dataset_id, populate_existing=True)
     return ds
 
@@ -189,4 +198,4 @@ async def approve_fit(
         actor=actor,
     )
     if not written:
-        raise ApprovalError(409, "Ausrichtung wurde zwischenzeitlich geändert – neu laden")
+        raise ApprovalError(409, STALE)

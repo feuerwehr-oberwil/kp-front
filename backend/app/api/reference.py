@@ -19,7 +19,15 @@ from ..database import get_db
 from ..models import ObjectSite, PlanAlignment, PlanAlignmentEvent, PlanRevision, ReferenceDataset, User
 from ..plan_floors import fit_publishable, load_floors
 from ..plan_revision_info import revision_page_count
-from ..plans import TooLargeError, brief_lock_wait, plan_target, plans_pull_enabled, pull_one_plan, store_plan
+from ..plans import (
+    TooLargeError,
+    brief_lock_wait,
+    lock_object_plans,
+    plan_target,
+    plans_pull_enabled,
+    pull_one_plan,
+    store_plan,
+)
 from ..schemas import ReferenceDatasetOut
 
 router = APIRouter(prefix="/reference", tags=["reference"])
@@ -409,7 +417,16 @@ async def _replace_reference(
     title: str | None,
     source_note: str | None,
 ) -> ReferenceDataset:
-    ds = (await db.execute(select(ReferenceDataset).where(ReferenceDataset.id == dataset_id))).scalar_one_or_none()
+    # The id `store_plan` writes for (object, module): lock 3 FIRST, then read – the object or its
+    # row may be a run's, not yet committed, and must not be taken for «no such plan».
+    canonical = plan_target(dataset_id)
+    if canonical is not None:
+        await lock_object_plans(db, canonical[0])
+    ds = (
+        await db.execute(
+            select(ReferenceDataset).where(ReferenceDataset.id == dataset_id).execution_options(populate_existing=True)
+        )
+    ).scalar_one_or_none()
     content_type = file.content_type or "application/octet-stream"
     cl_role = _checklist_role(dataset_id)
     # octet-stream is tolerated only for JSON-backed slots (geo:/symbols:/checklist templates),
@@ -437,10 +454,12 @@ async def _replace_reference(
     # An Objektplan replacement goes through the ONE plan write path (app/plans.py · store_plan):
     # revision pinning, identical-bytes dedupe, the alignment job and lock 3 all live there, and
     # this route must not fork a second, revision-less way of writing the same dataset – also not
-    # for a plan id whose row does not exist yet (or is a run's, not yet committed).
-    target = plan_target(dataset_id) if ds is None else (ds.object_id, ds.module) if ds.object_id else None
+    # for a plan id whose row does not exist yet. A canonical id never takes the generic path.
+    target = canonical or ((ds.object_id, ds.module) if ds is not None and ds.object_id else None)
     if dataset_id.startswith("plan:") and target is not None:
-        obj = await db.get(ObjectSite, target[0])
+        obj = await db.get(ObjectSite, target[0], populate_existing=True)
+        if obj is None and canonical is not None:
+            raise HTTPException(status_code=404, detail="Objekt nicht gefunden")
         if obj is not None:
             if content_type not in ("application/pdf", "application/octet-stream"):
                 raise HTTPException(

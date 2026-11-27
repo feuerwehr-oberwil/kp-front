@@ -827,7 +827,7 @@ async def _follow_renames(
             continue
         # locks 3 and 3b (the row goes), then read: an upload waits for the re-key, and a position
         # saved meanwhile is the one copied
-        await lock_object_plans(db, old_id.object_id)
+        await lock_object_plans(db, old_id.object_id, new_id.object_id)  # both: the plans move over
         await lock_object_rows(db, old_id.object_id)
         obj = await db.get(ObjectSite, old_id.object_id, populate_existing=True)
         if obj is None:

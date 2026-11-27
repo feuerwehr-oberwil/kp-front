@@ -13,6 +13,7 @@ from ..models import ObjectSite, PlanAlignment, PlanPageFloor, PlanRevision, Ref
 from ..plan_alignment_compute import alignment_capability, render_preview
 from ..plan_approval import (
     ADMIN,
+    STALE,
     ApprovalError,
     approve_fit,
     lock_current_revision,
@@ -220,6 +221,16 @@ async def alignment_preview(
     return Response(data, media_type=media_type, headers={"Cache-Control": "private, max-age=3600"})
 
 
+async def _lock_plans(db: AsyncSession, row: PlanAlignment) -> None:
+    """plan_approval.lock_plans_of, with its refusal as the HTTP answer – for a decision that may
+    act on an older revision of the same sheet, not on one a merge has moved away."""
+    try:
+        if await lock_plans_of(db, row) is None:
+            raise ApprovalError(409, STALE)
+    except ApprovalError as refused:
+        raise HTTPException(status_code=refused.status_code, detail=refused.detail) from refused
+
+
 async def _lock_current(db: AsyncSession, row: PlanAlignment) -> None:
     """plan_approval.lock_current_revision, with its refusal as the HTTP answer."""
     try:
@@ -231,7 +242,7 @@ async def _lock_current(db: AsyncSession, row: PlanAlignment) -> None:
 async def _change(db: AsyncSession, row: PlanAlignment, edit_version: int, action: str, values: dict) -> dict:
     """One admin decision: the shared CAS-plus-history write (plan_approval.record_change)."""
     if not await record_change(db, row, edit_version, action, values, actor=ADMIN):
-        raise HTTPException(status_code=409, detail="Ausrichtung wurde zwischenzeitlich geändert – neu laden")
+        raise HTTPException(status_code=409, detail=STALE)
     return await _item(db, row)
 
 
@@ -258,7 +269,7 @@ async def reject_alignment(
     anything. The sheet can still be aligned by hand (manual approve) or the decision undone."""
     async with brief_lock_wait(db):
         row = await _get(db, item_id)
-        await lock_plans_of(db, row)
+        await _lock_plans(db, row)
         if row.status not in {"ready", "needs_review", "no_match", "failed", "unavailable"}:
             raise HTTPException(status_code=409, detail="Kein offener Vorschlag zum Ablehnen vorhanden")
         return await _change(db, row, body.edit_version, "reject", {"status": "rejected", "approved_at": None})
@@ -271,7 +282,7 @@ async def undo_decision(
     """Takes back an approval or a rejection; either way the sheet is back to «Bitte prüfen»."""
     async with brief_lock_wait(db):
         row = await _get(db, item_id)
-        await lock_plans_of(db, row)
+        await _lock_plans(db, row)
         if row.status not in {"approved", "rejected"}:
             raise HTTPException(status_code=409, detail="Keine Entscheidung zum Zurücknehmen vorhanden")
         return await _change(db, row, body.edit_version, "withdraw", {"status": "needs_review", "approved_at": None})

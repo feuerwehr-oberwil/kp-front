@@ -249,6 +249,10 @@ async def store_plan(
     # lock 3 BEFORE the dataset is read: an alignment decision on the outgoing revision either
     # commits first or waits for this replacement and is refused (the lock order above)
     await lock_object_plans(db, obj.id)
+    # …and the object may have gone while this waited (a merge folded it away): say so, not a 500.
+    # Asked by id, not by reloading `obj` – that would drop the caller's unflushed changes to it.
+    if (await db.execute(select(ObjectSite.id).where(ObjectSite.id == obj.id))).scalar_one_or_none() is None:
+        raise HTTPException(status_code=404, detail="Objekt nicht gefunden")
     # populate_existing: a caller may have loaded the row before the lock (api/reference does)
     ds = (
         await db.execute(
