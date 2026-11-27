@@ -11,6 +11,7 @@ vi.mock('./idb', () => ({
 }))
 vi.mock('./mediaUrl', () => ({ forgetLocalThumb: vi.fn(), mintLocalThumb: async () => {} }))
 import { ApiError } from './api'
+import { noteAnswered, noteUnreached } from './connectivity'
 import { enqueueMedia, __resetMediaQueueForTests } from './mediaQueue'
 import { useMediaQueue } from './useMediaQueue'
 
@@ -70,4 +71,97 @@ it('keeps a receipt «not saved» until onUploaded acknowledges its link, withou
   await act(async () => { await result.current.replayReceipts() })
   expect(result.current).toMatchObject({ receiptCount: 0, syncStatus: 'synced' })
   expect(upload).toHaveBeenCalledTimes(1)
+})
+
+// a dead link backs the pause off to minutes; the first answer from the server ends it at once
+it('uploads at once when the server is reachable again, not after the remaining pause', async () => {
+  vi.useFakeTimers()
+  vi.spyOn(Math, 'random').mockReturnValue(0.5)
+  vi.stubGlobal('URL', { createObjectURL: () => 'blob:restored', revokeObjectURL: vi.fn() })
+  upload.mockReset().mockRejectedValue(new ApiError(0, 'Netzwerkfehler'))
+  await enqueueMedia('cellar-hook', 'row', 'audio', new Blob(['audio']), 'voice.webm', new Date().toISOString())
+  const { result } = renderHook(() => useMediaQueue({ incidentId: 'cellar-hook', readOnly: false, onUploaded: () => true, onRestore: () => {} }))
+  // tries at 0, 5, 15, 35, 75, 155 s: the next pause is 160 s
+  for (let s = 0; s < 32; s++) await act(async () => { await vi.advanceTimersByTimeAsync(5_000) })
+  expect(upload).toHaveBeenCalledTimes(6)
+  upload.mockResolvedValue({ url: '/uploaded' })
+  noteUnreached()
+  act(() => { noteAnswered() })
+  await act(async () => { await vi.advanceTimersByTimeAsync(1) })
+  expect(upload).toHaveBeenCalledTimes(7)
+  expect(result.current.pendingCount).toBe(0)
+})
+
+it('uploads at once on the `online` event, not after the remaining pause', async () => {
+  vi.useFakeTimers()
+  vi.spyOn(Math, 'random').mockReturnValue(0.5)
+  vi.stubGlobal('URL', { createObjectURL: () => 'blob:restored', revokeObjectURL: vi.fn() })
+  upload.mockReset().mockRejectedValue(new ApiError(0, 'Netzwerkfehler'))
+  await enqueueMedia('online-hook', 'row', 'audio', new Blob(['audio']), 'voice.webm', new Date().toISOString())
+  const { result } = renderHook(() => useMediaQueue({ incidentId: 'online-hook', readOnly: false, onUploaded: () => true, onRestore: () => {} }))
+  for (let s = 0; s < 32; s++) await act(async () => { await vi.advanceTimersByTimeAsync(5_000) })
+  expect(upload).toHaveBeenCalledTimes(6)
+  upload.mockResolvedValue({ url: '/uploaded' })
+  act(() => { window.dispatchEvent(new Event('online')) })
+  await act(async () => { await vi.advanceTimersByTimeAsync(1) })
+  expect(upload).toHaveBeenCalledTimes(7)
+  expect(result.current.pendingCount).toBe(0)
+})
+
+// one recovery signal while the capture's last early try is under a minute old is held, not lost
+it('a recovery signal during the early-try spacing gets its try when the spacing ends', async () => {
+  vi.useFakeTimers()
+  vi.spyOn(Math, 'random').mockReturnValue(0.5)
+  vi.stubGlobal('URL', { createObjectURL: () => 'blob:restored', revokeObjectURL: vi.fn() })
+  upload.mockReset().mockRejectedValue(new ApiError(0, 'Netzwerkfehler'))
+  await enqueueMedia('spacing-hook', 'row', 'audio', new Blob(['audio']), 'voice.webm', new Date().toISOString())
+  const { result } = renderHook(() => useMediaQueue({ incidentId: 'spacing-hook', readOnly: false, onUploaded: () => true, onRestore: () => {} }))
+  for (let s = 0; s < 32; s++) await act(async () => { await vi.advanceTimersByTimeAsync(5_000) })
+  expect(upload).toHaveBeenCalledTimes(6)
+  noteUnreached()
+  act(() => { noteAnswered() }) // the early try, missed: the next pause is 5 min
+  await act(async () => { await vi.advanceTimersByTimeAsync(1) })
+  expect(upload).toHaveBeenCalledTimes(7)
+  await act(async () => { await vi.advanceTimersByTimeAsync(20_000) })
+  upload.mockResolvedValue({ url: '/uploaded' })
+  noteUnreached()
+  act(() => { noteAnswered() }) // the link is back – but the last early try is 20 s old
+  await act(async () => { await vi.advanceTimersByTimeAsync(1) })
+  expect(upload).toHaveBeenCalledTimes(7)
+  await act(async () => { await vi.advanceTimersByTimeAsync(38_000) })
+  expect(upload).toHaveBeenCalledTimes(7)
+  await act(async () => { await vi.advanceTimersByTimeAsync(2_000) }) // 60 s after the early try
+  expect(upload).toHaveBeenCalledTimes(8)
+  expect(result.current.pendingCount).toBe(0)
+})
+
+// one signal, a bounded number of uploads: the held try must not count as a fresh signal
+it('two waiting captures do not hand each other an early try a minute after one recovery signal', async () => {
+  vi.useFakeTimers()
+  vi.spyOn(Math, 'random').mockReturnValue(0.5)
+  vi.stubGlobal('URL', { createObjectURL: () => 'blob:restored', revokeObjectURL: vi.fn() })
+  upload.mockReset().mockRejectedValue(new ApiError(0, 'Netzwerkfehler'))
+  await enqueueMedia('pair-hook', 'a', 'audio', new Blob(['a']), 'a.webm', new Date().toISOString())
+  const { result } = renderHook(() => useMediaQueue({ incidentId: 'pair-hook', readOnly: false, onUploaded: () => true, onRestore: () => {} }))
+  for (let s = 0; s < 32; s++) await act(async () => { await vi.advanceTimersByTimeAsync(5_000) })
+  noteUnreached()
+  act(() => { noteAnswered() }) // T: a's early try, missed – its pause is 5 min from here
+  await act(async () => { await vi.advanceTimersByTimeAsync(1_000) })
+  expect(upload).toHaveBeenCalledTimes(7)
+  // T+1 s: b joins and misses at 1, 6, 16 and 36 s; its pause then runs to T+76 s
+  await enqueueMedia('pair-hook', 'b', 'audio', new Blob(['b']), 'b.webm', new Date().toISOString())
+  await act(async () => { await result.current.flush() })
+  for (let s = 0; s < 49; s++) await act(async () => { await vi.advanceTimersByTimeAsync(1_000) })
+  expect(upload).toHaveBeenCalledTimes(11)
+  noteUnreached()
+  act(() => { noteAnswered() }) // T+50 s, the one signal under test: a is held until T+60 s, b tries early
+  await act(async () => { await vi.advanceTimersByTimeAsync(1) })
+  expect(upload).toHaveBeenCalledTimes(12)
+  // ten minutes with no further signal
+  for (let s = 0; s < 120; s++) await act(async () => { await vi.advanceTimersByTimeAsync(5_000) })
+  const since = (row: string) => upload.mock.calls.slice(12).filter(([, , , name]) => name === `${row}.webm`).length
+  // a: its held try at T+60 s, then its 5-min pauses · b: its stored pauses of 80, 160 and 300 s.
+  // Handing each other a try, each would go about once a minute: ten times.
+  expect(since('a')).toBeLessThanOrEqual(3)
+  expect(since('b')).toBeLessThanOrEqual(4)
 })

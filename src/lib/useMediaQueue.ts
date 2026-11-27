@@ -1,7 +1,8 @@
 // React binding for the offline media upload queue (see mediaQueue.ts). It keeps the queued
 // items in state, restores pending captures onto their timeline rows after a reload (the blob
 // lives in IndexedDB; the row's session-only blob: URL was dropped on save), and re-drains the
-// queue whenever connectivity returns so nothing sits un-uploaded once we're back online.
+// queue whenever connectivity returns (the `online` event, or the server answering again –
+// connectivity · onReachable) so nothing sits out a dead link's backoff once we're back online.
 // `target: 'attachment'` keeps Rapport-Beilagen on that same durable/retrying path, with their
 // restore/upload callbacks routed to attachment ids rather than append-only journal rows.
 // Uploads land as RECEIPTS (mediaQueue header): `replay` hands each to `onUploaded` after every
@@ -10,6 +11,7 @@
 // store it links into may already be gone. Receipts keep their `target` for that call.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { onReachable } from './connectivity'
 import { uploadMedia } from './incidents'
 import { forgetLocalThumb, mintLocalThumb } from './mediaUrl'
 import {
@@ -99,6 +101,8 @@ export function useMediaQueue({ incidentId, readOnly, onUploaded, onRestore }: O
   const [items, setItems] = useState<MediaQueueItem[]>([])
   const [durable, setDurable] = useState(true)
   const [reconnected, setReconnected] = useState(0)
+  /** when a recovery signal held back by the early-try spacing gets its try (FlushOutcome · deferredUntil) */
+  const [earlyAt, setEarlyAt] = useState<number>()
   const status = useRef<SyncStatus>('synced')
   // keep callbacks in refs so the window/online listeners always call the fresh versions
   const cb = useRef({ onUploaded, onRestore })
@@ -150,12 +154,18 @@ export function useMediaQueue({ incidentId, readOnly, onUploaded, onRestore }: O
     }
   }, [incidentId, readOnly])
 
-  const flush = useCallback(async (options?: { retry?: boolean }) => {
+  /** One pass over the queue. `hold`: a recovery signal that the early-try spacing held back
+   *  arms its one later try (earlyAt). That later try runs with `hold` off: taken as a fresh
+   *  signal it would arm the next one, and two waiting captures would hand each other a try a
+   *  minute for ever on a link that answers nothing. */
+  const run = useCallback(async (options: { retry?: boolean; due?: 'online' | 'reachable' } | undefined, hold: boolean) => {
     if (readOnly) return
-    await flushMediaQueue(incidentId, uploadMedia, options)
+    const { deferredUntil } = await flushMediaQueue(incidentId, uploadMedia, options)
+    if (hold && deferredUntil != null) setEarlyAt(deferredUntil)
     await replay()
     await refresh()
   }, [incidentId, readOnly, refresh, replay])
+  const flush = useCallback((options?: { retry?: boolean; due?: 'online' | 'reachable' }) => run(options, true), [run])
 
   const replayReceipts = useCallback(async () => {
     await replay()
@@ -201,12 +211,24 @@ export function useMediaQueue({ incidentId, readOnly, onUploaded, onRestore }: O
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [incidentId])
 
-  // Retry the moment the browser reports connectivity is back.
+  // Retry the moment connectivity is back – the browser's `online` event, or the server answering
+  // again after a dead link (which the browser never announces). The pauses that dead link grew
+  // are over: every waiting capture is due (mediaQueue · flushMediaQueue `due`).
   useEffect(() => {
-    const onOnline = () => { setReconnected((n) => n + 1); void flush() }
+    const onOnline = () => { setReconnected((n) => n + 1); void flush({ due: 'online' }) }
     window.addEventListener('online', onOnline)
-    return () => window.removeEventListener('online', onOnline)
+    const offReachable = onReachable(() => { void flush({ due: 'reachable' }) })
+    return () => { window.removeEventListener('online', onOnline); offReachable() }
   }, [flush])
+
+  // A recovery signal that came while a capture's last early try was too recent: try it once
+  // the spacing is over (its stored pause, if shorter, has its own timer below). Once per
+  // signal – this try arms no further one (run · hold).
+  useEffect(() => {
+    if (earlyAt == null) return
+    const timer = setTimeout(() => { setEarlyAt(undefined); void run({ due: 'reachable' }, false) }, Math.max(0, earlyAt - Date.now()))
+    return () => clearTimeout(timer)
+  }, [earlyAt, run])
 
   // Retry only pending captures, at their persisted deadline. Updating attempts must never
   // cause an immediate render → upload → render loop; permanently failed items need a tap.

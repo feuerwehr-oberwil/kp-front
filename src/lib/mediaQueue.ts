@@ -61,6 +61,10 @@ interface MediaQueueEntry {
   filename: string
   createdAt: string              // ISO — when the capture was made
   attempts: number               // count of failed upload attempts that got an HTTP answer (network drops don't count)
+  /** Tries in a row that got no answer at all (offline, a link that routes nowhere). Only grows
+   *  the pause, never counts toward `failed`; gone again on any server answer. Absent = 0, also
+   *  on entries stored before 27.11.2026. */
+  misses?: number
   lastError?: string
   /** Earliest automatic retry. Failed items wait for the operator instead. */
   retryAt?: number
@@ -101,7 +105,7 @@ const MAX_ATTEMPTS = 3
  *  by themselves, backed off, and never end `failed`. */
 const BACKEND_DOWN = new Set([502, 503, 504])
 
-/** Pause before the next automatic attempt: 5 s doubling per counted attempt, capped at 5 min,
+/** Pause before the next automatic attempt: 5 s doubling per counted attempt or miss, capped at 5 min,
  *  ±10 % jitter so a fleet of tablets does not return in lockstep after an outage. */
 const retryDelay = (attempts: number) => Math.round(Math.min(300_000, 5_000 * 2 ** attempts) * (0.9 + Math.random() * 0.2))
 
@@ -132,6 +136,20 @@ function laneFor(incidentId: string) {
  *  the one it attempted. */
 const sameCapture = (a: MediaQueueItem, b: MediaQueueItem) =>
   a.id === b.id && a.rev === b.rev && a.createdAt === b.createdAt
+
+/** Shortest gap between two early tries of one capture on `due: 'reachable'`. The owner's
+ *  decision (27.11.2026): a photo waiting out 5 min on a link that is back is too long at an
+ *  Einsatz, and one try a minute cannot flood anything. */
+const EARLY_TRY_SPACING_MS = 60_000
+
+/** When each capture last had its early try on `due: 'reachable'`. A capture whose upload keeps
+ *  failing re-arms connectivity · onReachable with every no-answer or 502/503/504, and the next
+ *  answered poll would send its Blob again – so it gets an early try at most once per
+ *  EARLY_TRY_SPACING_MS; its stored pause still runs as before. Only the upload landing forgets
+ *  it. The browser's `online` event (`due: 'online'`) is not limited. In memory only: a reload
+ *  starts from the stored pause. */
+const triedEarly = new Map<string, number>()
+const captureKey = (item: MediaQueueItem) => `${item.incidentId}|${item.id}|${item.rev ?? item.createdAt}`
 
 const navigatorOnline = () => (typeof navigator !== 'undefined' ? navigator.onLine : true)
 
@@ -251,6 +269,14 @@ export type MediaUploader = (
 export interface FlushOutcome {
   uploaded: { id: string; rowId: string; kind: 'photo' | 'audio'; url: string; localUrl?: string; target?: MediaTarget }[]
   remaining: MediaQueueItem[]
+  /** A `due: 'reachable'` flush skipped captures whose early try was too recent (triedEarly):
+   *  the earliest time one of them may try early again, when that comes before its stored pause
+   *  ends. The caller flushes `due: 'reachable'` ONCE more then, so a recovery signal that came
+   *  during the spacing is not lost – and must not act on the `deferredUntil` of that second
+   *  flush: one signal, one held try. A capture whose spacing ends later waits out its stored
+   *  pause; holding the try until every spacing has ended would make the first one wait behind
+   *  the others' uploads. */
+  deferredUntil?: number
 }
 
 /** Attempt every queued capture of an incident. A successful upload becomes a RECEIPT (its server
@@ -259,18 +285,33 @@ export interface FlushOutcome {
  *  unchanged — it never got to the server). A 502/503/504 counts an attempt (the backoff grows)
  *  but stays `pending`: the backend comes back. Any other HTTP error flips to `failed` once
  *  attempts reach MAX_ATTEMPTS – so one after a long outage fails at once. One attempt per item
- *  per flush, and none before its `retryAt`. Receipts are never uploaded again, `retry` or not. Never throws —
- *  a bad flush just leaves work queued for the next one. */
-export function flushMediaQueue(incidentId: string, upload: MediaUploader, { retry = false }: { retry?: boolean } = {}): Promise<FlushOutcome> {
+ *  per flush, and none before its `retryAt` – unless `due`: connectivity is back, so a pause
+ *  still running from a dead link is over (`'online'`: the browser's event; `'reachable'`: the
+ *  server answered another request – an early try per capture at most once a minute, see
+ *  triedEarly). Failed items still wait for `retry`. No answer at all counts a miss instead (`misses`): the pause doubles while the link stays dead. Receipts
+ *  are never uploaded again, `retry` or not. Never throws — a bad flush just leaves work queued
+ *  for the next one. */
+export function flushMediaQueue(incidentId: string, upload: MediaUploader, { retry = false, due }: { retry?: boolean; due?: 'online' | 'reachable' } = {}): Promise<FlushOutcome> {
   const lane = laneFor(incidentId)
   return lane.flush(async () => {
     const { items } = await lane.edit(() => readQueue(incidentId))
     const uploaded: FlushOutcome['uploaded'] = []
     /** per attempted entry: its updated state (a receipt once it is on the server) */
     const settled: { item: MediaQueueItem; next: MediaQueueItem }[] = []
+    let deferredUntil: number | undefined
     for (const item of items) {
       if (isReceipt(item)) continue
-      if (!retry && (item.status === 'failed' || (item.retryAt ?? 0) > Date.now())) continue
+      const key = captureKey(item)
+      const early = (item.retryAt ?? 0) > Date.now()
+      const spacedAt = (triedEarly.get(key) ?? -Infinity) + EARLY_TRY_SPACING_MS
+      if (!retry && item.status !== 'failed' && early && due === 'reachable' && spacedAt > Date.now()) {
+        // the stored pause wins when it ends first: the normal retry comes then anyway
+        if (spacedAt < (item.retryAt ?? 0)) deferredUntil = Math.min(deferredUntil ?? Infinity, spacedAt)
+        continue
+      }
+      if (!retry && (item.status === 'failed' || (early && !due))) continue
+      // only the reachable try is rationed: an `online` try that misses leaves it unused
+      if (early && !retry && due === 'reachable') triedEarly.set(key, Date.now())
       // Older JSON fallbacks may already hold {} instead of a Blob. Keep the record visible
       // as failed, but never crash the restore/upload path or pretend the bytes are present.
       if (!(item.blob instanceof Blob)) {
@@ -280,19 +321,23 @@ export function flushMediaQueue(incidentId: string, upload: MediaUploader, { ret
       try {
         const { url } = await upload(incidentId, item.blob, item.kind, item.filename, item.rev)
         uploaded.push({ id: item.id, rowId: item.rowId, kind: item.kind, url, localUrl: item.localUrl, ...(item.target ? { target: item.target } : {}) })
-        const { blob: _bytes, status: _status, lastError: _error, retryAt: _retryAt, ...entry } = item
+        const { blob: _bytes, status: _status, lastError: _error, retryAt: _retryAt, misses: _misses, ...entry } = item
         settled.push({ item, next: { ...entry, status: 'uploaded', url } })
+        triedEarly.delete(key)
       } catch (e) {
         // No answer at all (offline, our own timeout) is not the item's fault — keep it pending
-        // without burning an attempt. A backend that is down counts (the pause grows) but never
-        // fails the item; any other HTTP answer counts toward `failed`.
+        // without burning an attempt; it counts a miss, so the pause still grows. A backend that
+        // is down counts (the pause grows) but never fails the item; any other HTTP answer counts
+        // toward `failed`. Any answer ends the run of misses.
         const networkDown = !navigatorOnline() || (e instanceof ApiError && e.status === 0)
         const backendDown = e instanceof ApiError && BACKEND_DOWN.has(e.status)
         const previous = retry && item.status === 'failed' ? 0 : item.attempts
         const attempts = networkDown ? previous : previous + 1
         const status: MediaStatus = !networkDown && !backendDown && attempts >= MAX_ATTEMPTS ? 'failed' : 'pending'
-        const retryAt = Date.now() + retryDelay(attempts)
-        settled.push({ item, next: { ...item, attempts, status, retryAt, lastError: e instanceof Error ? e.message : String(e) } })
+        const misses = item.misses ?? 0
+        const retryAt = Date.now() + retryDelay(networkDown ? attempts + misses : attempts)
+        const { misses: _misses, ...rest } = item
+        settled.push({ item, next: { ...rest, attempts, status, retryAt, lastError: e instanceof Error ? e.message : String(e), ...(networkDown ? { misses: misses + 1 } : {}) } })
       }
     }
     // Write back against the queue as it is NOW, not the snapshot above: whatever was captured
@@ -301,11 +346,14 @@ export function flushMediaQueue(incidentId: string, upload: MediaUploader, { ret
     // re-sent from a stale stored copy while this page lives.
     const remaining = await lane.edit(async () => {
       const { items: current, known } = await readQueue(incidentId)
+      // nothing was tried and nothing waits in memory for a write that lands: the stored queue,
+      // Blobs and all, is already this one
+      if (!settled.length && !unstored.has(incidentId)) return current
       const next = current.map((cur) => settled.find((x) => sameCapture(x.item, cur))?.next ?? cur)
       await storeQueue(incidentId, next, known)
       return next
     })
-    return { uploaded, remaining }
+    return { uploaded, remaining, ...(deferredUntil != null ? { deferredUntil } : {}) }
   })
 }
 
@@ -324,5 +372,6 @@ export function retireMediaReceipts(incidentId: string, done: readonly MediaRece
 /** Test-only: forget the in-memory holdings (the IDB double is replaced per test). */
 export function __resetMediaQueueForTests(): void {
   unstored.clear()
+  triedEarly.clear()
   lanes.clear()
 }

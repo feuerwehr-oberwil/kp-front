@@ -476,3 +476,183 @@ it('sends the same upload id on every attempt of one capture – the one its dir
   await flushMediaQueue(INC, upload)
   expect(upload.mock.calls.map((c) => c[4])).toEqual(['mq-direct-1', 'mq-direct-1'])
 })
+
+// «No answer at all» (a WLAN that routes nowhere, a cellar) must back off like the docs say,
+// without ever counting toward `failed` (perf sweep 26.11.2026).
+describe('mediaQueue · no answer at all', () => {
+  const noAnswer = () => vi.fn<MediaUploader>().mockRejectedValue(new ApiError(0, 'Netzwerkfehler'))
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.spyOn(Math, 'random').mockReturnValue(0.5) // no jitter
+  })
+
+  it('doubles the pause from 5 s to the 5 min cap and never ends failed', async () => {
+    await enqueueMedia(INC, 'cellar', 'photo', blob(), 'p', '')
+    const upload = noAnswer()
+    const pauses: number[] = []
+    for (let step = 1; step <= 10; step++) {
+      await flushMediaQueue(INC, upload)
+      await flushMediaQueue(INC, upload) // before the pause is over: no second attempt
+      expect(upload).toHaveBeenCalledTimes(step)
+      const [item] = await listMediaQueue(INC)
+      expect(item).toMatchObject({ status: 'pending', attempts: 0, misses: step })
+      pauses.push(item.retryAt! - Date.now())
+      vi.setSystemTime(item.retryAt!)
+    }
+    expect(pauses).toEqual([5, 10, 20, 40, 80, 160, 300, 300, 300, 300].map((s) => s * 1000))
+  })
+
+  it('rewrites the queue (Blobs included) at most 8 times in 10 minutes', async () => {
+    await enqueueMedia(INC, 'cellar', 'photo', blob(), 'p', '')
+    const writes = vi.spyOn(idb, 'idbSet')
+    const upload = noAnswer()
+    const end = Date.now() + 600_000
+    for (;;) {
+      await flushMediaQueue(INC, upload)
+      const [item] = await listMediaQueue(INC)
+      if (item.retryAt! > end) break
+      vi.setSystemTime(item.retryAt!)
+    }
+    expect(writes.mock.calls.length).toBeLessThanOrEqual(8)
+  })
+
+  it('resets the pause on any server answer, while the upload id stays the same', async () => {
+    await enqueueMedia(INC, 'cellar', 'photo', blob(), 'p', '', undefined, undefined, 'mq-1')
+    const upload = noAnswer()
+    for (let step = 0; step < 4; step++) {
+      await flushMediaQueue(INC, upload)
+      vi.setSystemTime((await listMediaQueue(INC))[0].retryAt!)
+    }
+    upload.mockRejectedValueOnce(new ApiError(503, 'down'))
+    await flushMediaQueue(INC, upload)
+    const [item] = await listMediaQueue(INC)
+    expect(item).toMatchObject({ status: 'pending', attempts: 1 })
+    expect(capture(item).misses).toBeUndefined()
+    expect(item.retryAt! - Date.now()).toBe(10_000) // one counted attempt, as before
+    expect(new Set(upload.mock.calls.map((c) => c[4]))).toEqual(new Set(['mq-1']))
+  })
+
+  it('treats an entry stored without the count (an older build) as count 0', async () => {
+    const old = { id: 'e1:audio', incidentId: INC, rowId: 'e1', kind: 'audio', filename: 'v', createdAt: '', attempts: 0, status: 'pending', blob: blob(), retryAt: Date.now() - 1 }
+    await idb.idbSet(`kp-front-mediaq-${INC}`, [old])
+    await flushMediaQueue(INC, noAnswer())
+    const [item] = await listMediaQueue(INC)
+    expect(item).toMatchObject({ status: 'pending', attempts: 0, misses: 1 })
+    expect(item.retryAt! - Date.now()).toBe(5_000)
+  })
+
+  it('a `due` flush tries waiting captures at once, but leaves failed ones for a tap', async () => {
+    const entry = { incidentId: INC, filename: 'f', createdAt: '', blob: blob() }
+    await idb.idbSet(`kp-front-mediaq-${INC}`, [
+      { ...entry, id: 'cellar:photo', rowId: 'cellar', kind: 'photo', status: 'pending', attempts: 0, misses: 7, retryAt: Date.now() + 299_000 },
+      { ...entry, id: 'bad:audio', rowId: 'bad', kind: 'audio', status: 'failed', attempts: 3, retryAt: Date.now() - 1 },
+    ])
+    const upload = vi.fn<MediaUploader>().mockResolvedValue({ url: '/api/media/m' })
+    expect((await flushMediaQueue(INC, upload)).uploaded).toEqual([])
+    const out = await flushMediaQueue(INC, upload, { due: 'reachable' })
+    expect(out.uploaded.map((u) => u.rowId)).toEqual(['cellar'])
+    expect(upload).toHaveBeenCalledTimes(1)
+  })
+
+  it('an upload that keeps failing gets one early try, however often the server answers others', async () => {
+    await enqueueMedia(INC, 'big', 'photo', blob(), 'p', '')
+    const upload = noAnswer()
+    await flushMediaQueue(INC, upload) // a miss: 5 s pause
+    for (let poll = 0; poll < 5; poll++) await flushMediaQueue(INC, upload, { due: 'reachable' }) // answered polls
+    expect(upload).toHaveBeenCalledTimes(2)
+    // a backend down for uploads re-arms onReachable as well: still no early re-send
+    vi.setSystemTime((await listMediaQueue(INC))[0].retryAt!)
+    upload.mockRejectedValueOnce(new ApiError(503, 'down'))
+    await flushMediaQueue(INC, upload)
+    for (let poll = 0; poll < 5; poll++) await flushMediaQueue(INC, upload, { due: 'reachable' })
+    expect(upload).toHaveBeenCalledTimes(3)
+    expect((await listMediaQueue(INC))[0]).toMatchObject({ status: 'pending', attempts: 1 })
+  })
+
+  it('the browser\'s `online` event still tries at once after an early try missed', async () => {
+    await enqueueMedia(INC, 'big', 'photo', blob(), 'p', '')
+    const upload = noAnswer()
+    await flushMediaQueue(INC, upload)
+    await flushMediaQueue(INC, upload, { due: 'reachable' }) // early try, misses again
+    await flushMediaQueue(INC, upload, { due: 'reachable' })
+    expect(upload).toHaveBeenCalledTimes(2)
+    upload.mockResolvedValue({ url: '/api/media/m' })
+    expect((await flushMediaQueue(INC, upload, { due: 'online' })).uploaded).toHaveLength(1)
+  })
+
+  it('an `online` try that misses does not use up the reachable try', async () => {
+    await enqueueMedia(INC, 'big', 'photo', blob(), 'p', '')
+    const upload = noAnswer()
+    await flushMediaQueue(INC, upload) // a miss: the pause runs
+    await flushMediaQueue(INC, upload, { due: 'online' }) // the browser says online, the upload still gets no answer
+    expect(upload).toHaveBeenCalledTimes(2)
+    upload.mockResolvedValue({ url: '/api/media/m' })
+    expect((await flushMediaQueue(INC, upload, { due: 'reachable' })).uploaded).toHaveLength(1)
+  })
+
+  it('a flush that tries nothing does not write the queue again', async () => {
+    await enqueueMedia(INC, 'big', 'photo', blob(), 'p', '')
+    const upload = noAnswer()
+    await flushMediaQueue(INC, upload) // a miss: the pause runs
+    await flushMediaQueue(INC, upload, { due: 'reachable' }) // the one early try
+    const write = vi.spyOn(idb, 'idbSet')
+    const before = await listMediaQueue(INC)
+    for (let poll = 0; poll < 5; poll++) expect((await flushMediaQueue(INC, upload, { due: 'reachable' })).remaining).toEqual(before)
+    await flushMediaQueue(INC, upload) // the timer, before the pause is over
+    expect(upload).toHaveBeenCalledTimes(2)
+    expect(write).not.toHaveBeenCalled()
+  })
+
+  it('a capture whose early try missed gets the next one 60 s later, not sooner', async () => {
+    await enqueueMedia(INC, 'big', 'photo', blob(), 'p', '')
+    const upload = noAnswer()
+    for (let step = 0; step < 6; step++) { // misses until the pause is long (here 5 min)
+      await flushMediaQueue(INC, upload)
+      vi.setSystemTime((await listMediaQueue(INC))[0].retryAt!)
+    }
+    await flushMediaQueue(INC, upload)
+    await flushMediaQueue(INC, upload, { due: 'reachable' }) // the early try, missed
+    expect(upload).toHaveBeenCalledTimes(8)
+    vi.setSystemTime(Date.now() + 59_000)
+    await flushMediaQueue(INC, upload, { due: 'reachable' })
+    expect(upload).toHaveBeenCalledTimes(8)
+    vi.setSystemTime(Date.now() + 1_000)
+    upload.mockResolvedValue({ url: '/api/media/m' })
+    expect((await flushMediaQueue(INC, upload, { due: 'reachable' })).uploaded).toHaveLength(1)
+  })
+
+  it('a reachable flush held back by the spacing says when the capture may try early again', async () => {
+    await enqueueMedia(INC, 'big', 'photo', blob(), 'p', '')
+    const upload = noAnswer()
+    for (let step = 0; step < 6; step++) {
+      await flushMediaQueue(INC, upload)
+      vi.setSystemTime((await listMediaQueue(INC))[0].retryAt!)
+    }
+    await flushMediaQueue(INC, upload)
+    const tried = Date.now()
+    await flushMediaQueue(INC, upload, { due: 'reachable' }) // the early try, missed: 5 min pause
+    vi.setSystemTime(tried + 20_000)
+    expect((await flushMediaQueue(INC, upload, { due: 'reachable' })).deferredUntil).toBe(tried + 60_000)
+    // a pause that ends before the spacing does needs no extra try
+    await clearIncidentMedia(INC)
+    await enqueueMedia(INC, 'small', 'photo', blob(), 'p', '')
+    await flushMediaQueue(INC, upload) // a miss: 5 s pause
+    await flushMediaQueue(INC, upload, { due: 'reachable' }) // the early try, missed: 10 s pause
+    expect((await flushMediaQueue(INC, upload, { due: 'reachable' })).deferredUntil).toBeUndefined()
+  })
+
+  // the worst case: a forced `reachable` flush every 5 s (real polls signal again only after a
+  // new failure); the count includes the normal retries at the end of each stored pause
+  it('a burst of reachable flushes sends an upload that never answers at most about once a minute', async () => {
+    await enqueueMedia(INC, 'big', 'photo', blob(), 'p', '')
+    const upload = noAnswer()
+    const end = Date.now() + 600_000
+    await flushMediaQueue(INC, upload)
+    while (Date.now() < end) {
+      vi.setSystemTime(Date.now() + 5_000)
+      await flushMediaQueue(INC, upload, { due: 'reachable' })
+    }
+    // unlimited early tries: 121 (every poll); one early try per capture: 7; one a minute: 14
+    expect(upload).toHaveBeenCalledTimes(14)
+  })
+})
