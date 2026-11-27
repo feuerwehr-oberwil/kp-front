@@ -105,12 +105,6 @@
 /* fixed tick slot so the labels do not shift sideways as the state changes */
 .ui-ctxmenu-tick { flex: none; width: 12px; color: var(--blue); font-weight: var(--fw-heavy); }
 
-/* the body of the «Alles bereit» note (the `<details class="report-fold">` it once sat in is
-   gone; its rules went with it, 29.09.2026) */
-.report-fold-body { padding: 2px var(--sp-3) var(--sp-3); }
-.report-fold-body p { margin: 0 0 var(--sp-2); display: flex; align-items: flex-start; gap: 8px;
-  font-size: var(--fs-1); line-height: 1.45; color: var(--ink-dim); }
-.report-fold-body p .i { flex: none; width: 15px; height: 15px; margin-top: 1px; }
 /* Sofortmassnahmen under the Einsatzplan row — a real list, since that is what they are, and
    they were arriving as pre-wrapped text with the generator's two-space indent baked in. */
 .report-meta-list { margin: 4px 0 0; padding-left: var(--sp-4); display: flex; flex-direction: column; gap: 2px; }

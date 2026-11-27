@@ -131,6 +131,6 @@
 @media (pointer: coarse) {
   input, textarea, select { font-size: var(--fs-3); }
   .ctx-note-input, .ctx-notes-input, .draw-editor .de-input, .wb-resource-input,
-  .ip-addlayer-row select, .jc-text, .jc-text-marks,
+  .jc-text, .jc-text-marks,
   .ap-add-row input, .ap-add-marks, .ap-draft-tx, .ap-row-input, .jr-transcript textarea { font-size: var(--fs-3); }
 }

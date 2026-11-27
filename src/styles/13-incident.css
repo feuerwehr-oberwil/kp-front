@@ -847,12 +847,12 @@
 .ip-kind > .useg { display: flex; }
 .ip-kind > .useg > .useg-btn { flex: 1 1 0; }
 
-.ip-actions, .ip-row-actions { display: flex; gap: 8px; justify-content: flex-end; align-items: center; }
+.ip-actions { display: flex; gap: 8px; justify-content: flex-end; align-items: center; }
 /* The footer row of a SHEET pays for its own breathing room. It used to have none, so every new
    sheet put its primary button hard into the frame's bottom-right corner — found once on the
    TimeBlockSheet and patched there locally, then found again on the two Schichten sheets. A trap
    that catches every author is a missing rule, not a missing patch. Scoped to a direct child of
-   .ip-sheet, so .ip-row-actions and any inline action row are untouched. */
+   .ip-sheet, so an inline action row is untouched. */
 .ip-sheet > .ip-actions { padding: 8px 24px 16px; }
 /* ONE footer for every edit sheet (UX sweep F5, 20.10.2026): [danger far left] · Abbrechen ·
    primary. The delete leads the row and the rest keeps to the right, so it never stands beside
@@ -862,7 +862,6 @@
 .ip-demo-block { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; padding: 8px 12px;
   border-radius: var(--r-sm); background: var(--fill-soft); color: var(--ink-dim); font: var(--fw-medium) var(--fs-1) var(--body); }
 .ip-demo-block svg { width: 15px; height: 15px; flex: none; color: var(--ink-faint); }
-.ip-row-actions { justify-content: flex-start; }
 /* ═══ THE button (08.10.2026, design-system stage 2) ═══════════════════════════════════════════
    ONE definition for the `.ip-btn` family AND <Button> (components/Button.tsx): the component
    renders exactly these classes (`ip-btn` + `primary` | `danger` | `quiet`, + `lg`, + `block`), so
@@ -1102,12 +1101,6 @@ button[data-folded]:not([data-fold-beside]):has(> :is(svg, .print-send-main):not
    under the headline. Height is untouched — it still has to be hit with a glove. */
 .empty-state.empty-fill .empty-state-act { align-self: center; }
 .empty-state.empty-fill .empty-state-act .ip-btn { flex: 0 0 auto; }
-.ip-ds {
-  display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: var(--r-ctl);
-  background: var(--surface-veil); box-shadow: var(--e3);
-}
-.ip-ds-main { flex: 1; min-width: 0; text-align: left; border: none; background: none; cursor: pointer; }
-.ip-ds-title { font: var(--fw-bold) var(--fs-3) var(--body); color: var(--ink); display: flex; align-items: center; gap: 8px; min-width: 0; }
 /* incident status badge in the Einsätze list (own class — must NOT collide with the
    fixed-size sync .ip-status above, which would clamp it to 16px and clip the label) */
 /* …and the ONE tag recipe (28.09.2026): the poster's «ÜBUNG» (.cv-badge-exercise) wears it too —
@@ -1172,7 +1165,6 @@ button[data-folded]:not([data-fold-beside]):has(> :is(svg, .print-send-main):not
    where a Nachalarm is merged – stands out with the accent's wash and a neutral tag that names it */
 .ip-badge-tag { background: var(--fill-soft); color: var(--ink-dim); }
 .sl-choose .link-original { background: var(--sel-wash); }
-.ip-ds-sub { font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-faint); margin-top: 2px; }
 /* offline line over the list: viewing works, the lifecycle buttons need the server */
 .ip-hist-offline { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; font: var(--fw-medium) var(--fs-1) var(--body); color: var(--amber-strong); }
 .ip-hist-offline svg { width: 15px; height: 15px; flex: none; }
@@ -1786,7 +1778,6 @@ button.rp-sign-row:disabled { cursor: default; }
   font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint);
 }
 .cv-mittel li.used .cv-mittel-label { font-weight: var(--fw-bold); }   /* used = the row's ink, bold; red is not «used» (sweep 09.11.2026, UI.5) */
-.cv-rueck { flex-wrap: wrap; }
 .cv-textarea { min-height: 64px; resize: vertical; width: 100%; box-sizing: border-box; }
 .cv-row.top { align-items: start; }
 .cv-row.top > span:first-child { padding-top: 12px; }
@@ -2174,13 +2165,11 @@ select.cv-input { appearance: none; -webkit-appearance: none;
 /* long personnel lists in the Einsatzstunden warning must wrap, not push the panel wider */
 .rp-control .form-warn { min-width: 0; overflow-wrap: anywhere; }
 /* «Noch offen» inside the Kontrolle popover (every width since 23.09.2026): a list of doors,
-   each a full-width 44px row. No margin of its own: the popover's `gap` spaces its blocks, and
-   the fold body's foot padding + last line's margin go too (28.10.2026, owner: «a large gap at
+   each a full-width 44px row. No margin of its own: the popover's `gap` spaces its blocks
+   (28.10.2026, owner: «a large gap at
    the bottom after the last bullet» – 32px stood between the «Stand» line and the panel's edge,
    on top of the panel's own 12px padding). */
 .rp-control-open { display: flex; flex-direction: column; }
-.rp-control .report-fold-body { padding: 2px 0 0; }   /* the 12px inset is the popover's (above), not twice */
-.rp-control .report-fold-body p:last-child { margin-bottom: 0; }
 .rp-control-open-head { padding: 8px 12px 4px; font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
 /* (the open points are THE ListRow in its rail density, LISTS.8 – `.rp-control-step` is gone) */
 /* ⚠️ The rows ABOVE the scrolling body – the head, the strip, the band – keep the body's
@@ -2442,38 +2431,6 @@ select.cv-input { appearance: none; -webkit-appearance: none;
 }
 .report-preflight > .ip-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; }
 
-.ip-ds-note { font: var(--fw-medium) var(--fs-micro) var(--mono); color: var(--ink-faint); margin-top: 4px; }
-/* Datenquellen: collapsible groups + search so the 150+ object list stays manageable */
-.ip-group { margin: 8px 0 2px; }
-.ip-group > :not(summary) { margin-top: 8px; }
-.ip-group-head, summary.ip-group-head {
-  display: flex; align-items: center; gap: 8px; cursor: pointer; list-style: none; padding: 8px 2px; user-select: none;
-  font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint);
-}
-/* a foldable head is a TARGET, so it carries the --tap floor and answers a press; the static
-   `.ip-objects-head` below is not one and keeps its text height. */
-summary.ip-group-head { min-height: var(--tap); border-radius: var(--r-ctl); margin: 0 -8px; padding-left: 8px; padding-right: 8px; }
-summary.ip-group-head:active { background-image: linear-gradient(var(--press), var(--press)); }
-@media (hover: hover) { summary.ip-group-head:hover { background: var(--blue-8); } }
-summary.ip-group-head::-webkit-details-marker { display: none; }
-/* the one fold grammar (29.09.2026): the global `.chev` at the row's end, turned by `details[open]`
-   (02-base) — it was a text «▸» turning sideways at the start */
-summary.ip-group-head > .chev { flex: none; width: 16px; height: 16px; margin-left: auto; }
-.ip-objects-head { cursor: default; margin-top: 12px; }
-.ip-group-count { font-weight: var(--fw-medium); color: var(--ink-faint); text-transform: none; letter-spacing: 0; }
-/* section subhead = the shared uppercase eyebrow (.ctx-section-label spec), not a blue sentence-case one-off */
-.ip-sub2 { margin: 8px 0 2px; font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
-/* the object search (Datenquellen) is THE search
-   (components/SearchField, 29.09.2026) — it was a bare native `type=search` box at 13px */
-.ip-ds-search { margin: 4px 0 8px; }
-/* "Neue Geo-Ebene" form: a small card under the global datasets list */
-.ip-addlayer { margin-top: 8px; padding: 12px; border: 1px solid var(--glass-edge); border-radius: var(--r-ctl);
-  background: color-mix(in srgb, var(--surface) 70%, transparent); display: flex; flex-direction: column; gap: 8px; }
-.ip-addlayer-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.ip-addlayer-row select { flex: 1 1 auto; min-height: 38px; padding: 8px 12px; border: 1px solid var(--glass-edge);
-  border-radius: var(--r-ctl); background: var(--surface); font: var(--fw-medium) var(--fs-2) var(--body); color: var(--ink); }
-.ip-addlayer-row input[type="color"] { width: 38px; height: 38px; padding: 2px; border: 1px solid var(--glass-edge);
-  border-radius: var(--r-ctl); background: var(--surface); cursor: pointer; }
 /* --- Einsatz eröffnen wizard --- */
 /* ONE flat list of fields – the three section eyebrows (`.ip-ix-head`: Standort, Stichwort &
    Kategorie, Alarmierung) went on 10.11.2026 (owner review: «only like 5 things to put in»). */
