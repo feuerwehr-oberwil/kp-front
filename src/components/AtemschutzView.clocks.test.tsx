@@ -8,7 +8,7 @@ import { act, render } from '@testing-library/react'
 import { AtemschutzView } from './AtemschutzView'
 import { useIsPhone } from '../lib/useIsPhone'
 import { plainWords } from './truppCardText'
-import { atemschutzDoctrine } from '../lib/deploymentConfig'
+import { adoptSessionConfig, atemschutzDoctrine } from '../lib/deploymentConfig'
 import { fmtClock } from '../lib/atemschutz'
 import { noteServerTime, resetServerClock, serverNow } from '../lib/serverClock'
 import { aktivTrupp, propsFor, registerAtemschutzViewHooks } from './AtemschutzView.setup'
@@ -202,4 +202,19 @@ describe('the board between its renders', () => {
       fresh.unmount()
     }
   }, 30_000)
+})
+
+describe('a doctrine that lands after the board mounted', () => {
+  afterEach(() => adoptSessionConfig({}))
+
+  it('turns the Alarmdruck red within a tick, on the card too', () => {
+    const line = atemschutzDoctrine().alarmBar
+    // 20 bar above the shipped line: no alarm yet
+    mountBoard([inside('a', 'Alpha', 30, { lastPressureBar: line + 20 })])
+    expect(cardOf('Alpha').classList.contains(s.trowCrit)).toBe(false)
+    // the station's config answer arrives late and raises the line above the reading
+    adoptSessionConfig({ doctrine: { alarmBar: line + 40 } } as never)
+    tick()
+    expect(cardOf('Alpha').classList.contains(s.trowCrit)).toBe(true)
+  })
 })

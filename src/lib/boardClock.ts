@@ -76,6 +76,9 @@ export interface BoardClockValue {
   clock: BoardClock
   intervalMin: number
   graceSec: number
+  /** the station's doctrine as the board last read it: a new one (a config answer that landed
+   *  late) is a new value, so every memoised card and leaf that reads this context draws again */
+  doctrine: string
 }
 
 /** Provided by AtemschutzView around its board; absent, a leaf reads the running clock. */

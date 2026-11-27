@@ -522,7 +522,11 @@ export function AtemschutzView({
    * what it read when the Einsatz ended, which is what the paper says too. The clock is a stopped
    * one (`stoppedClock`): there is nothing left to count. */
   const clock = useMemo(() => (frozenAt != null ? stoppedClock(frozenAt) : liveBoardClock), [frozenAt])
-  const boardClock = useMemo(() => ({ clock, intervalMin, graceSec }), [clock, intervalMin, graceSec])
+  // ⚠️ The doctrine can change under a mounted board: the config answer lands after the boot
+  // (a cached copy refreshed, a link page's session answer). Read afresh on every tick (below),
+  // and handed to the cards through the clock's context, which they all read.
+  const doctrine = JSON.stringify(atemschutzDoctrine())
+  const boardClock = useMemo(() => ({ clock, intervalMin, graceSec, doctrine }), [clock, intervalMin, graceSec, doctrine])
 
   // the station's Alarmdruck lines — read as scalars, because atemschutzDoctrine() builds a
   // fresh object on every call and a memo keyed on it would recompute on every render
@@ -533,9 +537,11 @@ export function AtemschutzView({
    * the sheet's first-reading hint); otherwise only when its tick key changes. No Trupp with a
    * running clock — nothing subscribed, no timer. */
   const everyTick = !!form || !!pressureAsk
-  const now = useClockNow(clock, (n) => (everyTick ? n
-    : boardTickKey(trupps, boardAt(trupps, n, intervalMin, graceSec, { alarmBar, alarmBarRueckzug }, frozenAt != null), n)),
-  frozenAt == null && trupps.some(truppClockRuns))
+  const now = useClockNow(clock, (n) => {
+    if (everyTick) return n
+    const d = atemschutzDoctrine()
+    return `${JSON.stringify(d)}|${boardTickKey(trupps, boardAt(trupps, n, intervalMin, graceSec, d, frozenAt != null), n)}`
+  }, frozenAt == null && trupps.some(truppClockRuns))
 
   /* …and its TIER, once, from the same fold the tone and the TopBar chip use (lib · truppAlarm).
    * ⚠️ The card, the row, the header badge and the sort all read THIS — not the contact clock.
