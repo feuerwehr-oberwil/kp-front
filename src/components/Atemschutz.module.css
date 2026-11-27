@@ -233,43 +233,39 @@
    centring — one gap, not two stacked ones — and takes 5px off the card while doing it.
    (8/0 since 08.10.2026, the 4/8 grid; on the card's foot line the padding is the line's, 0.) */
 /* ⚠️ The «·» stands IN the gap, not in the item after it: inside the item it travelled with it,
-   so a wrapped line (the portrait iPad's «22:01 min · Schätzung ≈ 135 bar») STARTED with the
+   so a wrapped line (a viewer's «drin 22:01 · 210 bar · ≈ 135 bar») STARTED with the
    dot. Placed in the gap, a line-leading dot falls left of the line's own box and
    `overflow-x: clip` drops it; a line break between two values shows no separator at all
    (UI sweep 07.10.2026). Where `clip` is unknown (iOS < 16) the dot simply stays visible.
    20px of gap (16 until hill climb r20): ~8px clear either side of the dot, well over the ~3px
-   between a figure and its unit (TruppCard · UnitVal), so «29:00 min · raus mit 175 bar» groups
-   as two items, not as «29:00 | min · raus». */
+   between a figure and its unit (TruppCard · UnitVal), so «29:00 · 175 bar» groups as two items,
+   not as «29:00 · 175 | bar». */
 .metaLine { --meta-gap: calc(var(--sp-4) + var(--sp-1));
   display: flex; flex-wrap: wrap; align-items: baseline; gap: 1px var(--meta-gap); overflow-x: clip;
   padding: var(--sp-2) var(--sp-3) 0; font: var(--fw-medium) var(--fs-1)/17px var(--body); color: var(--ink-dim); }
-/* An item is ONE unit, but an item wider than the whole line (the 375px phone with room kept for the
-   Eintrag button: «Schätzung ≈ 263 bar» needs 135px, has 126) breaks between its word and its
+/* An item is ONE unit, but an item wider than the whole line breaks between its word and its
    value – never inside either, so «263 bar» stays together (Sol review, PR #702; it was clipped). */
 .metaLine > span { display: inline-flex; flex-wrap: wrap; align-items: baseline; column-gap: var(--sp-1); min-width: 0; }
 .metaLine > span > * { white-space: nowrap; }
 .metaLine > span + span { position: relative; }
 .metaLine > span + span::before { content: '·'; position: absolute; right: 100%; width: var(--meta-gap); text-align: center;
   color: var(--ink-faint); opacity: .7; }
-/* a value's WORD («Schätzung ≈», «Draussen seit») in its value's ink and 700 (hill climb r11,
-   04.11.2026): at the line's 500/dim ink the word read lighter than the number it names, against
-   the owner's «full ink, full weight» Schätzung. Only the figures stay mono. */
+/* a WORD on the line in the values' ink and 700 (hill climb r11, 04.11.2026) – today only the
+   «Verlauf» of a line with no value. Only the figures stay mono. */
 .metaLine i { font-style: normal; font-weight: var(--fw-bold); color: var(--ink); }
-/* …but an OUT card's joining words, «drin» / «raus mit» (owner pick C18), step back to the line's
-   own dim ink, regular (hill climb r13 → r27, 05.11.2026): at the values' 700 ink the words read
-   first, and at 500 – beside the out card's figures, dim too (.trowOut below) – words and figures
-   ran together as one grey line; the 400 / 700 mono step is the split. Set per item
-   (TruppCard · sockelLine `quiet`), so the Schätzung's word can never wear it. */
+/* …but the joining word «drin» (owner pick C18) steps back to the line's own dim ink, regular
+   (hill climb r13 → r27, 05.11.2026): at the values' 700 ink the word read first, and at 500 –
+   beside the out card's figures, dim too (.trowOut below) – word and figures ran together as one
+   grey line; the 400 / 700 mono step is the split. Set per item (TruppCard · sockelAt `quiet`). */
 .metaLine i.metaWordQuiet { font-weight: var(--fw-regular); color: var(--ink-dim); }
-/* …and a crew inside says «drin» the same way (round 2b, 13.11.2026: M3's eyebrow «UNTER
-   ATEMSCHUTZ» wrapped the foot to two lines). Where the foot row is too narrow for «drin 1:11:51 h ·
-   Schätzung ≈ 263 bar» (a 3-column board, the phone), the line wraps between its items – two 17px
-   lines stand inside the touch foot's 36 / 44px – and the Schätzung KEEPS its word (owner pick 4C,
-   18.11.2026; it dropped below 320px until then, `.metaDrop`). Never a cut number. */
+/* …and a crew inside says «drin» the same way (round 2b, 13.11.2026). The line is ONE line on
+   every board (Üben feedback 27.11.2026: «drin 1:11:51 · ≈ 263 bar» – no units on the duration, no
+   word on the Schätzung). Where a foot row is still too narrow (a viewer's three values) it wraps
+   between its items – two 17px lines stand inside the touch foot's 36 / 44px. Never a cut number. */
 .metaLine b { font: var(--fw-bold) var(--fs-1) var(--mono); color: var(--ink); font-variant-numeric: tabular-nums; }
 /* (`.metaEst`, the Schätzung's dimmed + lighter value, went on 29.09.2026, T2: the owner wants the
-   Schätzung CLEARLY visible, so it keeps full ink and its WORD — «Schätzung ≈ 0 bar» — and the word
-   is what keeps it from being read as a logged Druck. TruppCard · sockelLine `labelled`.) */
+   Schätzung CLEARLY visible, so it keeps full ink — «≈ 0 bar» — and its «≈» is what keeps it from
+   being read as a logged Druck; its word «Schätzung» went 27.11.2026. TruppCard · sockelAt.) */
 /* (`.metaEstimate` / `.metaEstLabel` / `.metaEstSource` retired 09.09. with the stacked Sockel
    row they dressed. The Schätzung's number lives on `.metaLine`, its provenance is the value of
    a `.zonePanelRow` in the opened Verlauf — `.zoneNote` — where it sits against the label it
@@ -355,30 +351,25 @@
 .vfootRow { display: flex; align-items: center; }
 .vfootRow > .vrow { flex: 1 1 auto; min-width: 0; }
 .vfootRow[data-az-fab-foot] { padding-right: var(--fab-safe, 0px); }
-/* …and under that guard the row is 68px narrower, so «Schätzung ≈ 270 bar ⌄» (167px) broke between
-   its word and its value: three lines, the foot 44 → 51 (Sol review 2, PR #702; 360 / 375). The
-   guard already keeps the FAB's column, so the chip drops its own edge margin and closes up to
-   8px inside, and the line ends 4px before it: two lines, in the 44px row. */
+/* …and under that guard the row is 68px narrower (Sol review 2, PR #702; 360 / 375). The guard
+   already keeps the FAB's column, so «⋯ Mehr» closes up to 8px either side of its word, and the
+   line ends 4px before the rule. */
 .vfootRow[data-az-fab-foot] > .vrow { padding-right: var(--sp-1); }
-.vfootRow[data-az-fab-foot] > .footMore { margin-right: 0; padding: 0 var(--sp-2); }
-/* the card's «⋯ Mehr» — ONE framed chip at the foot line's end, the glyph BESIDE the word (owner
-   pick 4C, round 18.11.2026 evening; owner on the glyph-over-word tile of pick 24: «ugly»). 36px
-   on touch (the touch grid draws its foot 36 and owns 44 with the pad under the card, below), the
-   foot line's 28 on a mouse; it ends at the card's own inset, in line with the tiles above. */
-.footMore { flex: none; display: inline-flex; align-items: center; gap: var(--sp-1); height: 36px; padding: 0 var(--sp-3);
-  margin-right: var(--sp-3); border: 1px solid var(--glass-edge); border-radius: var(--r-sm); background: transparent;
+.vfootRow[data-az-fab-foot] > .footMore { padding: 0 var(--sp-2); }
+/* the card's «⋯ Mehr» at the foot line's end, the glyph BESIDE the word (pick 4C, 18.11.2026),
+   with NO frame: a thin vertical rule splits the foot into Verlauf | Mehr (Üben feedback
+   27.11.2026, pick B – the owner on the framed chip: «looks a bit ugly»). It stretches to its
+   row's full height, so its tap is the foot line's: 44 on the phone list and an opened Verlauf,
+   the touch grid's 36 + the pad under the card (below), a mouse's 28. The word ends at the card's
+   own inset, in line with the tiles above. */
+.footMore { flex: none; align-self: stretch; position: relative; display: inline-flex; align-items: center; gap: var(--sp-1);
+  padding: 0 var(--sp-3) 0 var(--sp-4); border: 0; background: transparent;
   color: var(--ink); font: var(--fw-bold) var(--fs-1)/1 var(--body); white-space: nowrap; cursor: pointer;
   -webkit-tap-highlight-color: transparent; }
-@media (hover: hover) { .footMore:hover { border-color: var(--ink-faint); } }
+/* the rule: 1px of the card's hairline ink, 8px clear of the row's top and bottom */
+.footMore::after { content: ''; position: absolute; left: 0; top: var(--sp-2); bottom: var(--sp-2); width: 1px; background: var(--glass-edge); }
 .footMore:active { background-image: linear-gradient(var(--press), var(--press)); }
 .footMore :global(.i) { width: 16px; height: 16px; flex: none; }
-/* the 36px face owns its 44px row's full height, in every state – the phone list, an opened Verlauf
-   on the grid (Sol review 2, PR #702: only the grid's collapsed foot had its pad, below). 5px over
-   and under the face's 34px padding box = the 44 tap. Touch only: a mouse foot is 28 (below). */
-@media (pointer: coarse) {
-  .footMore { position: relative; }
-  .footMore::before { content: ''; position: absolute; inset: calc((var(--tap) - 34px) / -2) -1px; }
-}
 /* the expanded per-Trupp contact/pressure log, inside the footer */
 /* ⚠️ The seam under the look-up panel is this border (09.09., ex-`.readHead`): without it the
    first reading butts straight against «Schätzung …» and the two read as one list. `:first-child`
@@ -1682,7 +1673,7 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .focusCard > .trow.trowCard > .vfoot { margin: var(--sp-3) calc(-1 * var(--sp-4)) 0 calc(-1 * var(--page-in)); background: transparent; }
 .focusCard > .trow.trowCard > .vfoot :is(.vrow, .zonePanel, .logList) { padding-left: var(--page-in); }
 .focusCard > .trow.trowCard > .vfoot :is(.zonePanel, .logList) { padding-right: var(--sp-4); }
-.focusCard > .trow.trowCard > .vfoot .footMore { margin-right: var(--sp-4); }
+.focusCard > .trow.trowCard > .vfoot .footMore { padding-right: var(--sp-4); }
 /* every page opens with its NAME big (the scale's 32px; the mock's 30), the Notfall Trupp's
    included (NotfallPageHead) */
 .focusCard .trowHead .trowNameTxt { font-size: var(--fs-6); line-height: 1.1; }
@@ -1791,8 +1782,8 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 /* the tier as WORDS, one line under the tiles (TruppCard · stateLine); amber for «fällig», red for
    overdue / Alarmdruck (`.kennCrit`), grey for a stopped clock or a work squad (`.kennQuiet`) */
 .stateLine { margin-top: 8px; font: var(--fw-heavy) var(--fs-1)/1.35 var(--body); color: var(--amber-strong); }
-/* the card's foot as ONE terse line: values with units (the Schätzung and «Draussen seit» with
-   their word), the Verlauf's chevron at the end, and the whole line is the tap (TruppCard · footZone) */
+/* the card's foot as ONE terse line: «drin» and the values, the Verlauf's chevron at the end, and
+   the whole line is the tap (TruppCard · footZone) */
 .vrowTerse { padding: 0 var(--sp-3); gap: var(--sp-2); }
 /* the ⌄ HUGS the times (owner pick 4C, 18.11.2026): it is the last value's last glyph
    (TruppCard · footChev), so a wrapped line ends in it; the button still spans the row up to
@@ -2056,7 +2047,6 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
 @media (hover: hover) and (pointer: fine) {
   .grid .trowCard :is(.trowPressBtn, .trowKontakt, .actBtn) { min-height: 36px; }
   .grid .trowCard .vrow { min-height: 28px; }
-  .grid .trowCard .footMore { height: 28px; }
   /* a wrapped foot (a 3-column board in a narrow window) keeps the 28: two 14px lines, no row gap */
   .grid .trowCard .vrowTerse .metaLine { row-gap: 0; line-height: 14px; }
   .grid .trowCard .vrowTerse .metaLine b { line-height: 14px; }
@@ -2077,9 +2067,7 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
   .grid .trowCard .vfoot { border-radius: 0 0 var(--r-ctl) var(--r-ctl); }
   .grid .trowCard .vfoot:has(> .vopen) { overflow: hidden; }
   .grid .trowCard .vfootRow:last-child > .vrow { position: relative; min-height: 36px; border-bottom-left-radius: var(--r-ctl); }
-  .grid .trowCard .vfootRow:last-child > .footMore { position: relative; height: 36px; }
-  /* the pad reaches 8px past the chip's BORDER edge: an absolute box starts inside the 1px border,
-     so the 44px target needs 8 + 1 (Sol review round 3, S2) */
+  /* the pad reaches 9px under the row: the card's 1px edge and the 8px of air under it (Sol review round 3, S2) */
   .grid .trowCard .vfootRow:last-child > :is(.vrow, .footMore)::before { content: ''; position: absolute; inset: 0 0 calc(-1 * var(--sp-2) - 1px); }
 }
 

@@ -81,17 +81,17 @@ describe('the contact times (the head of the Verlauf)', () => {
    * on a card that did not fit a 375×667 phone. It folds into the expander it was sitting on
    * top of, and exactly two numbers stay out on ONE line: the Einsatzzeit and the Schätzung.
    * ⚠️ The Schätzung staying visible is the safety half of this trade and is asserted first.
+   * Its words since Üben feedback 27.11.2026: «drin 30:00 · ≈ 263 bar» – no «min», no «Schätzung».
    */
   describe('the Sockel, folded into the same expander', () => {
     it('leaves the Einsatzzeit and the Schätzung standing on one line', () => {
       mount()
       const line = document.querySelector(`.${s.metaLine}`)!
-      // the Einsatzzeit as a duration that says so («30:00 min») — terse, no «Einsatzzeit» word
-      expect(line.textContent).toMatch(/\d+:\d{2} min/)
-      // the short form of «Geschätzter Druck» — see copy/de/atemschutz.ts · estimatedShort. ⚠️ It KEEPS its word
-      // on the terse line (owner 29.09.2026: «the schätzung clearly visible»)
-      expect(line.textContent).toContain(az.estimatedShort)
-      expect(line.textContent).toMatch(/≈ \d+ bar/)
+      // the Einsatzzeit as a duration its word «drin» names – no «min» after it, no «Einsatzzeit»
+      expect(line.textContent).toMatch(new RegExp(`^${az.footInside}\\d+:\\d{2}(?! min)`))
+      // the Schätzung by its «≈» alone – its word stays in the opened Verlauf (owner, 27.11.2026)
+      expect(line.textContent).toMatch(/≈ \d+ bar$/)
+      expect(line.textContent).not.toContain(az.estimatedShort)
     })
 
     it('puts the provenance and the tiefster Druck behind the tap, not on the card', () => {
@@ -147,11 +147,11 @@ describe('the contact times (the head of the Verlauf)', () => {
       mount()
       const row = screen.getByRole('button', { name: new RegExp(az.verlauf) })
       const text = () => document.querySelector(`.${s.metaLine}`)?.textContent ?? ''
-      expect(text()).toContain(az.estimatedShort)
+      expect(text()).toMatch(/≈ \d+ bar/)
       fireEvent.click(row)
-      expect(text()).toContain(az.estimatedShort)
+      expect(text()).toMatch(/≈ \d+ bar/)
       fireEvent.click(row)
-      expect(text()).toContain(az.estimatedShort)
+      expect(text()).toMatch(/≈ \d+ bar/)
     })
 
     /* The ONE value that is allowed to join the line, and only where nothing else shows it: a
@@ -165,20 +165,21 @@ describe('the contact times (the head of the Verlauf)', () => {
       mount({ canEdit: true })
       const line = document.querySelector(`.${s.metaLine}`)!.textContent!
       expect(line).not.toMatch(/(^|[^≈] )240 bar/)
-      expect(line).toContain(az.estimatedShort)
+      expect(line).toMatch(/≈ \d+ bar/)
     })
 
-    // owner pick C18 (05.11.2026): an OUT card words its finished values; round 2b (13.11.2026): a
-    // crew inside says the same «drin»; the Schätzung keeps its word on every width (pick 4C, 18.11.2026)
-    it('words an out card\'s foot «drin … · raus mit … bar», and an inside one «drin … · Schätzung ≈ …»', () => {
+    // owner pick C18 (05.11.2026) and round 2b (13.11.2026): «drin» on the out card and inside; one
+    // line since Üben feedback 27.11.2026 – «drin» is the only word, and an out card says only
+    // how long the crew was in (no «raus mit … bar»: the head says «Draussen seit»)
+    it('words an out card\'s foot «drin 25:00», and an inside one «drin … · ≈ … bar»', () => {
       mount({ trupps: [{ ...aktivTrupp(), status: 'raus', exitTime: iso(5 * 60_000) }] })
       const words = [...document.querySelectorAll(`.${s.metaLine} i`)].map((i) => i.textContent)
-      expect(words).toEqual([az.footInside, az.footOutAt])
-      expect(document.querySelector(`.${s.metaLine}`)!.textContent).toMatch(/\d+:\d{2} min.*\d+ bar/)
+      expect(words).toEqual([az.footInside])
+      expect(document.querySelector(`.${s.metaLine}`)!.textContent).toMatch(new RegExp(`^${az.footInside}\\d+:\\d{2}$`))
       cleanup()
       mount()
       const inside = [...document.querySelectorAll(`.${s.metaLine} i`)]
-      expect(inside.map((i) => i.textContent)).toEqual([az.footInside, az.estimatedShort])
+      expect(inside.map((i) => i.textContent)).toEqual([az.footInside])
     })
   })
 })
@@ -656,7 +657,7 @@ describe('a collapsed row tells the same time as the open card', () => {
     expect([...val.querySelectorAll(`.${s.clockUnit}`)].map((u) => u.textContent)).toEqual(['d ', 'h'])
   })
 
-  it('…and the card\'s foot spells a day-long duration the same way, mm:ss and «min» untouched', () => {
+  it('…and the card\'s foot spells a day-long duration the same way, mm:ss untouched', () => {
     // tablet grid: every card stands open, so the foot is drawn
     mount({ trupps: [{ ...aktivTrupp(), entryTime: iso((3 * 24 + 10) * 3600_000 + 60_000) }] })
     const foot = document.querySelector(`.${s.metaLine}`)!
@@ -670,8 +671,9 @@ describe('a collapsed row tells the same time as the open card', () => {
     mount({ trupps: [aktivTrupp()] })
     const units = (el: Element) => [...el.querySelectorAll(`.${s.valUnit}`)].map((u) => u.textContent)
     const foot = document.querySelector(`.${s.metaLine}`)!
-    expect(units(foot)).toEqual([' min', ' bar'])
-    expect(foot.textContent).toMatch(/\d+:\d\d min.*≈ \d+ bar$/)
+    // the foot's duration carries no unit since 27.11.2026 («drin 30:00»), its Schätzung does
+    expect(units(foot)).toEqual([' bar'])
+    expect(foot.textContent).toMatch(/\d+:\d\d≈ \d+ bar$/)
     const tile = document.querySelector(`.${s.pairBar}`)!
     expect(units(tile)).toEqual([' bar'])
     expect(tile.textContent).toMatch(/^\d+ bar$/)

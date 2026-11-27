@@ -345,17 +345,15 @@ export const atemschutzCopy = {
     // ⚠️ APP ONLY, same split as `actExitPlain` below – der ausgehändigte Link behält «Draussen
     // seit» für jeden Trupp, AS oder nicht.
     outForPlain: 'Ohne Auftrag seit',
-    // Die zwei Werte der Fusszeile einer DRAUSSEN-Karte (Owner-Pick C18, 05.11.2026): «drin 29:00 min ·
-    // raus mit 175 bar» – die abgeschlossene Einsatzzeit und der Druck beim Austritt. Im
-    // Wortstil der Zeile (wie «Schätzung»); die Karten drinnen behalten «… · Schätzung ≈ …».
+    // Das eine Wort der Fusszeile einer Trupp-Karte (Owner-Pick C18, 05.11.2026; eine Zeile seit
+    // Üben-Feedback 27.11.2026): drinnen «drin 30:44 · ≈ 69 bar», draussen «drin 12:10» – die
+    // Einsatzzeit ohne «min», das Wort sagt, dass es eine Dauer ist.
     footInside: 'drin',
-    footOutAt: 'raus mit',
     estimated: 'Geschätzter Druck',
-    /* ⚠️ Dieselbe Zahl, kurz – für die eine Zeile, die vom Sockel stehen bleibt (09.09.). Dort
-     * steht sie neben «Druck 240 bar», und «Geschätzter Druck» daneben liest sich als zweiter
-     * Druck statt als Schätzung desselben. Das «≈» vor dem Wert sagt den Rest, der volle Wortlaut
-     * samt Herkunft steht im aufgeklappten Verlauf. NICHT als Ersatz für `estimated` verwenden:
-     * wo Platz ist, gilt das ganze Wort. */
+    /* ⚠️ Dieselbe Zahl, kurz – die Zeile im aufgeklappten Verlauf, die ihre Herkunft nennt
+     * («Schätzung | aus 2 Druckwerten · Stand 18:03»). Die Fusszeile der Karte sagt seit
+     * 27.11.2026 nur noch «≈ 69 bar»: das «≈» sagt es dort. NICHT als Ersatz für `estimated`
+     * verwenden: wo Platz ist, gilt das ganze Wort. */
     estimatedShort: 'Schätzung',
     estimatedHint: 'Planungshilfe – bis genügend Druckverlauf vorliegt, geschätzt mit {liters} L Flasche und {rate} L/min Verbrauch. Ersetzt keine Druckmeldung.',
     estimatedHintHistory: 'Planungshilfe – aus dem bestätigten Druckverbrauch dieses Trupps hochgerechnet. Ersetzt keine Druckmeldung.',

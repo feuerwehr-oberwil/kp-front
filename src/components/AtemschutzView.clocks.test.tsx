@@ -275,7 +275,7 @@ describe('a threshold further out', () => {
     ...over,
   })
   const estimateText = () => [...cardOf('Alpha').querySelectorAll(`.${s.metaLine} > span`)]
-    .find((el) => el.textContent?.startsWith(az.estimatedShort))?.querySelector('b')?.textContent
+    .find((el) => el.textContent?.startsWith('≈'))?.querySelector('b')?.textContent
   const note = (line: number) => cardOf('Alpha').querySelector(`.${s.airNote}`)?.textContent === fillTemplate(az.alarmNoteEst, { bar: line })
 
   it.each([
