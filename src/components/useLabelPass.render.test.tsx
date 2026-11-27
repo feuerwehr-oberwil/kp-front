@@ -139,6 +139,15 @@ describe('useLabelPass – a chrome change decides again', () => {
     act(() => { ro.report[ro.report.length - 1]() })
     expect(runs()).toBe(2)
   })
+  it('the Meldeleiste comes (it moves the phone read-outs without resizing them)', () => {
+    document.body.innerHTML = '<div class="phone-wx"></div>'
+    const { hook, runs } = mount()
+    document.body.insertAdjacentHTML('beforeend', '<div class="ml"></div>')
+    hook.rerender({ scene: sceneOf() })
+    expect(ro.observed.some((el) => el.className === 'ml')).toBe(true)
+    act(() => { ro.report[ro.report.length - 1]() })
+    expect(runs()).toBe(2)
+  })
 })
 
 describe('useLabelPass – the plan twins hear of the hidden captions only when the set changes', () => {

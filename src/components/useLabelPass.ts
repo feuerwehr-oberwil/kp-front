@@ -298,7 +298,8 @@ function decideOnce(m: MlMap, scene: LabelPassScene, frame: number, decide: () =
  *   · the scene, by content (a new object, a selection, a caption edit, a drag's release);
  *   · `bumpLabelFrame` – MapView calls it on moveend: pan, zoom and rotate all end there;
  *   · a size change of the map container or the chrome (CHROME_SELECTOR) – a rail opening or
- *     taking its words, the phone's read-outs coming or going.
+ *     taking its words, the phone's read-outs coming or going – and the Meldeleiste coming, going
+ *     or growing, which moves the phone's read-outs.
  */
 export function useLabelPass(mapInst: RefObject<MlMap | null>, scene: LabelPassScene, onCaptionSuppressionChange?: (ids: ReadonlySet<string>) => void) {
   const [frame, bump] = useState(0)
@@ -312,7 +313,9 @@ export function useLabelPass(mapInst: RefObject<MlMap | null>, scene: LabelPassS
   useEffect(() => {
     onCaptionSuppressionChange?.(new Set(suppressedCaptionKey ? suppressedCaptionKey.split('\u0000') : []))
   }, [onCaptionSuppressionChange, suppressedCaptionKey])
-  // the chrome and the container moved: decide again (lib/useSizeWatch – a selector match per commit)
-  useSizeWatch(() => (m ? [m.getContainer(), ...document.querySelectorAll(CHROME_SELECTOR)] : []), () => bump((n) => n + 1))
+  // the chrome or the container changed: decide again (lib/useSizeWatch – a selector match per
+  // commit). The Meldeleiste is watched, not booked: on a phone its coming and going moves the
+  // read-outs under the top bar without resizing them (15-mobile · `:root:has(.ml)`).
+  useSizeWatch(() => (m ? [m.getContainer(), ...document.querySelectorAll(`${CHROME_SELECTOR}, .ml`)] : []), () => bump((n) => n + 1))
   return { suppressedLabels, bumpLabelFrame: () => bump((n) => n + 1) }
 }
