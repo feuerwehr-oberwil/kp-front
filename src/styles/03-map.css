@@ -43,6 +43,20 @@
    pad reaches over the map, never over another control) */
 @media (pointer: coarse) {
   .maplibregl-ctrl-attrib-button::after { content: ''; position: absolute; inset: calc((var(--tap) - 24px) / -2); }
+  /* MapLibre's stock zoom ± and compass (NavigationControl – only the /admin maps use it; the
+     field maps draw their own) are 29px squares stacked edge to edge, so no pad can grow without
+     lying over its neighbour: under a finger the buttons themselves are --tap. The glyph is the
+     icon span's centred background and keeps its size. They stand in ONE ROW, 4px in from the
+     corner: a short phone gives the plan editor's map pane 140px, and a column of three --tap
+     buttons ran into the attribution ⓘ in the bottom corner. (A pane shorter still steps its row
+     left: planAlignment.css · .adm-pairing-map.) */
+  .maplibregl-ctrl-group { display: flex; }
+  .maplibregl-ctrl-group button { width: var(--tap); height: var(--tap); }
+  .maplibregl-ctrl-group button + button { border-top: 0; border-left: 1px solid #ddd; }
+  .maplibregl-ctrl-top-right > .maplibregl-ctrl-group { margin: var(--sp-1) var(--sp-1) 0 0; }
+  /* …and the attribution ⓘ of a map that carries them stays in its corner: the phone's lift of
+     that corner over the field rail and FAB (15-mobile) put it 148px up, onto the zoom buttons. */
+  .maplibregl-map:has(.maplibregl-ctrl-group) .maplibregl-ctrl-bottom-right { margin-bottom: 0; }
 }
 /* …and on a tablet or laptop it steps LEFT of the view bar that holds that corner (07-toolrail ·
    .view-bar, staging review 06.11.2026 S2): the bar's own inset, its width (`--view-bar-w`,

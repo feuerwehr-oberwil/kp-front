@@ -233,7 +233,7 @@ export function PlanAlignmentReview({ compact = false, embedded = false, source 
       <div><h2>{C.title}</h2>{!compact && <p className="adm-hint">{C.intro}</p>}</div>
       {actions}
     </div>}
-    {error && <p className="adm-state adm-state-err" role="alert">{error}</p>}
+    {error && <p className="adm-save-err" role="alert">{error}</p>}
     {loadError && <p className="adm-state adm-state-err" role="alert">{loadError}</p>}
     {queue && !queue.capability.available && <p className="adm-align-notice" role="status">{C.unavailableHint}</p>}
     {embedded
@@ -570,7 +570,7 @@ function FloorPackDetail({ item, onChange, onConflict, onDirty, saveRef, onSaveS
     {/* a draft measured against a revision that has since moved cannot be saved – the way out of
         that one stays inline, where the notice is */}
     {stale && <p className="adm-align-notice" role="alert">{C.conflict} <button type="button" className="btn" onClick={() => setPairsDraft(null)}>{C.editor.discard}</button></p>}
-    {error && <p className="adm-state adm-state-err" role="alert">{error}</p>}
+    {error && <p className="adm-save-err" role="alert">{error}</p>}
     {notice && !dirty && <p className="adm-hint adm-align-reason" role="status">{notice}</p>}
   </section>
 }
@@ -658,6 +658,6 @@ function SheetDetail({ item, onChange, onConflict, onDirty }: DetailProps) {
         of that one stays inline, where the notice is; every other discard is the pairing bar's
         «Zurücksetzen», and the way back INTO the points is the «Karte ausrichten» tab */}
     {stale && <p className="adm-align-notice" role="alert">{C.conflict} <button type="button" className="btn" onClick={reset}>{C.editor.discard}</button></p>}
-    {error && <p className="adm-state adm-state-err" role="alert">{error}</p>}
+    {error && <p className="adm-save-err" role="alert">{error}</p>}
   </section>
 }
