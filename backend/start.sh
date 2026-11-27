@@ -33,11 +33,12 @@ abort_or_override() {
 }
 
 if [ -n "${DATABASE_URL:-}" ]; then
-  # Wait (up to 60 s) for a database that is still starting. On the public demo both the app and
-  # its Postgres sleep when unused (Railway Serverless), and the app's first connection is what
-  # wakes the database: without this wait, the `alembic current` below would meet a database
-  # that is not up yet and abort the boot. Anywhere else the first check passes at once.
-  if command -v pg_isready >/dev/null; then
+  # PUBLIC DEMO ONLY (a demo reset schedule is set – the same test as `is_public_demo`): wait up
+  # to 60 s for a database that is still starting. There both the app and its Postgres sleep when
+  # unused (Railway Serverless), and the app's first connection is what wakes the database:
+  # without this wait, the `alembic current` below would meet a database that is not up yet and
+  # abort the boot. A station keeps failing fast on an unreachable database.
+  if { [ -n "${DEMO_RESET_CRON:-}" ] || [ "${DEMO_RESET_SECONDS:-0}" != 0 ]; } && command -v pg_isready >/dev/null; then
     for _ in $(seq 1 30); do
       pg_isready -q -d "${DATABASE_URL/+asyncpg/}" && break
       echo "… waiting for the database to accept connections"
