@@ -34,6 +34,11 @@ sheets, overlays, the button spec and the touch vocabulary. Phone-only layout is
   the admin UI uses `src/admin/admin.css`. Form controls take the page's family from ONE reset
   in 02-base (`button, input, select, textarea { font-family: inherit }`, 07.10.2026): never add
   a per-control `font-family: inherit`. The reset is the family only; sizes stay per rule.
+- **A `:has()` above the subject needs a class on the subject.** `.a:has(.x) .b > :not(.c)` makes
+  Chromium restyle the whole page on every DOM change anywhere: on a phone each key typed into
+  the Meldung composer cost ~890 elements and ~30 ms at CPU ÷4 (perf sweep 27.11.2026). Name the
+  subject by a class (`.a:has(.x) .b > .hides`). `src/styles/selectorCost.test.ts` fails on the
+  shape.
 - **New CSS picks from the scales** (07.10.2026, UI sweep C1–C5; `01-tokens.css` · «THE SCALES»,
   «THE TINTS»): type `--fs-1…7` (12.5 · 14 · 16 · 19 · 24 · 32 · 40, each with its `--lh-*`) and
   `--fs-micro` (11, read-only captions, never a tappable label – except the word UNDER a tile's

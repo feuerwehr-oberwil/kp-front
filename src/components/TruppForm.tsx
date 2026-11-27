@@ -809,12 +809,15 @@ export function TruppForm({
              whole form stands in one scroll. ORDER: the Art first (owner 16.11.2026: its lit
              «Unter Atemschutz» right under «Person suchen» read as a Trupp already formed – «i
              almost forgot to add people»), then who goes in, then Auftrag / Ziel / Leitung
-             (the Art governs their vocabulary), the folded Standard row last. */
+             (the Art governs their vocabulary), the folded Standard row last.
+             `searchHides`: what goes while the person search has the keys (Atemschutz.module.css). */
           <div className={s.stack}>
-            {kindChooser && <div className={cx(s.field, s.kindField)}>{kindChooser}</div>}
+            {kindChooser && <div className={cx(s.field, s.kindField, s.searchHides)}>{kindChooser}</div>}
             {teamFields}
-            {auftragFields}
-            {luftFields}
+            <div className={cx(s.stackRest, s.searchHides)}>
+              {auftragFields}
+              {luftFields}
+            </div>
           </div>
         ) : (<>
           {/* ── ONE SCREEN (tablet, desktop): nothing has to be walked to, and the whole Trupp

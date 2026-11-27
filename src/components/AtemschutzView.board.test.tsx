@@ -530,6 +530,8 @@ describe('the Trupp form on the main board’s phone layout', () => {
     const stack = document.querySelector(`.${s.stack}`)!
     expect(stack.firstElementChild?.querySelector('[role="radiogroup"]')?.getAttribute('aria-label')).toBe(az.kindLabel)
     expect(stack.children[1].querySelector(`.${s.team}`)).toBeTruthy()
+    // the keyboard rule hides every row but the Mannschaft by this class (Atemschutz.module.css)
+    expect([...stack.children].map((c) => c.classList.contains(s.searchHides))).toEqual([true, false, true])
     // …and everything stands in one column, in reading order
     const txt = stack.textContent ?? ''
     const order = [az.kindAtemschutz, az.sectionTeam, az.auftragLabel, az.lineNoLabel, az.pressureLabel, az.funkkanalSection].map((t) => txt.indexOf(t))
