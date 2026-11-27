@@ -1,7 +1,7 @@
 {
   "_comment": "Warnings per type-aware eslint rule (eslint.typed.config.js), and (`silenced`) what eslint-disable directives silence per rule; `pnpm lint:typed` (scripts/lint-ratchet.mjs --typed) fails when a count goes up OR down. Lower with `pnpm lint:typed:update`; never raise one to pass.",
   "rules": {
-    "@typescript-eslint/no-floating-promises": 48
+    "@typescript-eslint/no-floating-promises": 46
   },
   "silenced": {}
 }
