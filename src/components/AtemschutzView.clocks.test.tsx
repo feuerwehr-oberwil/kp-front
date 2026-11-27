@@ -25,6 +25,25 @@ vi.mock('./truppCardText', async (original) => {
   return { ...m, plainWords: vi.fn(m.plainWords) }
 })
 
+// …and the board's two change subscriptions are counted while they are open
+const openSubs = vi.hoisted(() => ({ config: 0, copy: 0 }))
+vi.mock('../lib/deploymentConfig', async (original) => {
+  const m = await original<typeof import('../lib/deploymentConfig')>()
+  return { ...m, subscribeDeploymentConfig: (l: () => void) => {
+    openSubs.config++
+    const off = m.subscribeDeploymentConfig(l)
+    return () => { openSubs.config--; off() }
+  } }
+})
+vi.mock('../config/copy', async (original) => {
+  const m = await original<typeof import('../config/copy')>()
+  return { ...m, subscribeCopy: (l: () => void) => {
+    openSubs.copy++
+    const off = m.subscribeCopy(l)
+    return () => { openSubs.copy--; off() }
+  } }
+})
+
 registerAtemschutzViewHooks()
 
 const INTERVAL_MIN = 5
@@ -394,5 +413,55 @@ describe('a station config that lands after the board mounted', () => {
     adoptSessionConfig({ doctrine: { equipment: [{ id: 'wbk-neu', label: 'Wärmebildkamera neu' }] } } as never)
     tick()
     expect(gear()).toContain('Wärmebildkamera neu')
+  })
+})
+
+/* A board of «Bereit» crews runs no clock, so no tick draws it again: a late config answer or
+ * language catalogue reaches it through their own change signals (lib/deploymentConfig ·
+ * subscribeDeploymentConfig, config/copy · subscribeCopy). */
+describe('a clock-less board when the config or the language lands late', () => {
+  afterEach(async () => {
+    act(() => { adoptSessionConfig({}) })
+    await act(async () => { await applyLocale('de-CH') })
+  })
+
+  it('names the equipment by the late station list at once — the board once, the card once', () => {
+    mountBoard([{ ...ready('d', 'Delta'), equipment: ['wbk-neu'] }, ready('e', 'Echo')])
+    expect(vi.getTimerCount()).toBe(0)
+    const gear = () => cardOf('Delta').textContent ?? ''
+    expect(gear()).not.toContain('Wärmebildkamera neu')
+    resetCounts()
+    act(() => { adoptSessionConfig({ doctrine: { equipment: [{ id: 'wbk-neu', label: 'Wärmebildkamera neu' }] } } as never) })
+    expect(gear()).toContain('Wärmebildkamera neu')
+    // every card reads the board's settings, so each draws once (its body and its RowLine)
+    expect({ cards: cardRenders(), board: boardRenders() }).toEqual({ cards: 4, board: 1 })
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('renders no card for a config answer that changes nothing on the board', () => {
+    mountBoard([ready('d', 'Delta'), ready('e', 'Echo')])
+    resetCounts()
+    act(() => { adoptSessionConfig({ map: { offlineRadiusM: 900 } } as never) })
+    expect({ cards: cardRenders(), board: boardRenders() }).toEqual({ cards: 0, board: 1 })
+  })
+
+  it('closes its subscriptions when it unmounts — four boards, as the surface tour mounts them', () => {
+    const start = { ...openSubs }
+    for (const [phone, lite] of [[false, false], [true, false], [true, true], [false, false]] as const) {
+      vi.mocked(useIsPhone).mockReturnValue(phone)
+      const board = mountBoard([ready('d', 'Delta')], lite ? { lite: { subtitle: 'Brand Musterstrasse' } } : {})
+      expect(openSubs).toEqual({ config: start.config + 1, copy: start.copy + 1 })
+      board.unmount()
+    }
+    expect(openSubs).toEqual(start)
+  })
+
+  it('draws the cards in a language catalogue that lands late', async () => {
+    mountBoard([ready('d', 'Delta')])
+    const enter = () => cardOf('Delta').querySelector(`.${s.trowKontakt}, button`)!.textContent
+    const de = enter()
+    await act(async () => { await applyLocale('en') })
+    expect(enter()).not.toBe(de)
+    expect(vi.getTimerCount()).toBe(0)
   })
 })

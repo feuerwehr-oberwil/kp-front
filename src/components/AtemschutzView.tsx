@@ -6,11 +6,12 @@
 // alarm itself runs app-wide in `useAtemschutzAlarm`, so it fires while this page is not on screen.
 // Rules for this area: docs/atemschutz-board.md.
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent, type ReactElement } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type MouseEvent, type ReactElement } from 'react'
 import { BoardClockContext, BoardNow, liveBoardClock, stoppedClock, truppClockRuns, useClockNow } from '../lib/boardClock'
 import { Icon } from '../lib/icons'
 import { EmptyState } from './EmptyState'
 import { appConfig } from '../config/appConfig'
+import { getCopyGeneration, subscribeCopy } from '../config/copy'
 import { shownTeamColor } from '../lib/teamColors'
 import { fillTemplate, formatTime } from '../lib/format'
 import { confirmDialog } from '../lib/ui'
@@ -35,7 +36,7 @@ import { assignedPersonIds, doubleAssignments, rosterIdByName, truppCrewSlots } 
 import { truppLineNo, type LeitungOption } from '../lib/truppLines'
 import { markerHolderNote, type MarkerOption } from '../lib/placedTrupps'
 import { ensureNotifyPermission, notificationsSupported, unlockAlarm } from '../lib/alarm'
-import { atemschutzDoctrine, atemschutzEquipment, isDemoMode } from '../lib/deploymentConfig'
+import { atemschutzDoctrine, atemschutzEquipment, getDeploymentConfig, isDemoMode, subscribeDeploymentConfig } from '../lib/deploymentConfig'
 import type { SyncStatus } from '../lib/incidents'
 import { CLOCK_SKEW_WARN_MIN } from '../lib/syncAlert'
 import { truppOrderKey } from '../lib/useTruppActions'
@@ -129,18 +130,10 @@ function contactRules(intervalOverride: number | undefined, graceOverride: numbe
   return { intervalMin: intervalOverride ?? d.contactIntervalMin, graceSec: graceOverride ?? d.contactGraceSec, doctrine: d }
 }
 
-// the language catalogue last seen, and how many there have been (`appConfig.copy` keeps one
-// reference until a new catalogue is installed)
-let seenCopy: object | null = null
-let copyGeneration = 0
-
 /** The board's settings that can arrive after it mounted, as one string: the station's doctrine,
- *  its equipment list and the installed language catalogue. Part of the tick key and of the clock's context. */
-function settingsKey(): string {
-  if (appConfig.copy !== seenCopy) {
-    seenCopy = appConfig.copy
-    copyGeneration++
-  }
+ *  its equipment list and the installed language catalogue (`copyGeneration`). The clock's
+ *  context carries it, so the memoised cards draw again when it changes. */
+function settingsKey(copyGeneration: number): string {
   return `${copyGeneration}|${JSON.stringify(atemschutzDoctrine())}|${JSON.stringify(atemschutzEquipment())}`
 }
 
@@ -549,9 +542,10 @@ export function AtemschutzView({
   const { intervalMin, graceSec } = contactRules(intervalOverride, graceOverride)
   // ⚠️ The doctrine and the language can change under a mounted board: the config answer lands
   // after the boot (a cached copy refreshed, a link page's session answer), and so can a slow
-  // language catalogue. Read afresh on every tick (below), and handed to the cards through the
-  // clock's context, which they all read.
-  const doctrine = settingsKey()
+  // language catalogue. The board subscribes to both, so it draws again at once – also with no
+  // clock running – and hands them to the cards through the clock's context, which they all read.
+  useSyncExternalStore(subscribeDeploymentConfig, getDeploymentConfig)
+  const doctrine = settingsKey(useSyncExternalStore(subscribeCopy, getCopyGeneration))
   const boardClock = useMemo(() => ({ clock, intervalMin, graceSec, doctrine }), [clock, intervalMin, graceSec, doctrine])
 
   // the station's Alarmdruck lines — read as scalars, because atemschutzDoctrine() builds a
@@ -566,7 +560,7 @@ export function AtemschutzView({
   const now = useClockNow(clock, (n) => {
     if (everyTick) return n
     const rules = contactRules(intervalOverride, graceOverride)
-    return `${settingsKey()}|${boardTickKey(trupps, boardAt(trupps, n, rules.intervalMin, rules.graceSec, rules.doctrine, frozenAt != null), n)}`
+    return boardTickKey(trupps, boardAt(trupps, n, rules.intervalMin, rules.graceSec, rules.doctrine, frozenAt != null), n)
   }, frozenAt == null && (everyTick || trupps.some(truppClockRuns)))
 
   /* …and its TIER, once, from the same fold the tone and the TopBar chip use (lib · truppAlarm).

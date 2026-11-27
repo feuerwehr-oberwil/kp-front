@@ -123,8 +123,29 @@ export async function applyLocale(deploymentLocale?: string | null): Promise<voi
   }
   // The document language follows the catalogue actually displayed, including the fallback.
   if (activeId !== requested) return
+  const changed = catalogue !== active
   active = catalogue
   if (typeof document !== 'undefined') document.documentElement.lang = language
+  if (!changed) return
+  copyGeneration++
+  copyListeners.forEach((l) => l())
+}
+
+const copyListeners = new Set<() => void>()
+let copyGeneration = 0
+
+/** How many catalogues have been installed since the boot: a number that moves with each. */
+export function getCopyGeneration(): number {
+  return copyGeneration
+}
+
+/** Calls `listener` whenever a new catalogue is installed. Returns the unsubscribe. With
+ *  `getCopyGeneration` (or `getCopy`) as the snapshot it is a `useSyncExternalStore` source: a
+ *  component that must show a catalogue landing after it mounted, with nothing else rendering it,
+ *  subscribes. */
+export function subscribeCopy(listener: () => void): () => void {
+  copyListeners.add(listener)
+  return () => { copyListeners.delete(listener) }
 }
 
 /** The active locale's full string catalogue. `appConfig.copy` delegates here, so every

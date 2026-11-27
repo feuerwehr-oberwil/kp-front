@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto'
 import { IDBFactory } from 'fake-indexeddb'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { adoptSessionConfig, alarmProviderName, applyCaptureConfig, atemschutzDoctrine, incidentCategories, atemschutzEquipment, demoNote, ensureSessionConfig, getDeploymentConfig, hasStationConfig, loadDeploymentConfig, bootDeploymentConfig, mapReferenceLayers, mergePartial, moduleAlignment, moduleViewer, offlineRadiusM, personnelProviderName, reportLinks, stripLocality } from './deploymentConfig'
+import { adoptSessionConfig, alarmProviderName, applyCaptureConfig, atemschutzDoctrine, incidentCategories, atemschutzEquipment, demoNote, ensureSessionConfig, getDeploymentConfig, hasStationConfig, loadDeploymentConfig, bootDeploymentConfig, mapReferenceLayers, mergePartial, moduleAlignment, moduleViewer, offlineRadiusM, personnelProviderName, reportLinks, stripLocality, subscribeDeploymentConfig } from './deploymentConfig'
 import { idbGet, idbSet, __resetIdbForTests } from './idb'
 
 describe('mapReferenceLayers', () => {
@@ -408,6 +408,35 @@ describe('a partial answer is merged over the copy on the device, never stored i
   })
   // the poster's parts live for the page's life: take them off again for the next test
   afterEach(() => { vi.unstubAllGlobals(); applyCaptureConfig({}) })
+
+  it('tells its listeners of every answer, of the poster\'s parts, and of the same objects again not at all', async () => {
+    const heard = vi.fn()
+    const off = subscribeDeploymentConfig(heard)
+    try {
+      fetchMock.mockResolvedValueOnce(json(STATION))
+      await loadDeploymentConfig()
+      fetchMock.mockResolvedValueOnce(json(PUBLIC))
+      await loadDeploymentConfig()
+      const parts = { identity: { appName: 'Poster' } }
+      applyCaptureConfig(parts)
+      expect(heard).toHaveBeenCalledTimes(3)
+      // the same parts over the same document: nothing changed
+      applyCaptureConfig(parts)
+      expect(heard).toHaveBeenCalledTimes(3)
+    } finally { off() }
+    // unsubscribed: hears nothing more
+    applyCaptureConfig({})
+    expect(heard).toHaveBeenCalledTimes(3)
+  })
+
+  it('a listener that throws does not break the load', async () => {
+    const off = subscribeDeploymentConfig(() => { throw new Error('listener') })
+    try {
+      fetchMock.mockResolvedValueOnce(json({ ...STATION, version: 'v3' }))
+      await expect(loadDeploymentConfig()).resolves.toMatchObject({ version: 'v3' })
+      expect(getDeploymentConfig().version).toBe('v3')
+    } finally { off() }
+  })
 
   it('mergePartial updates the parts the answer holds and keeps the rest', () => {
     const out = mergePartial(STATION, PUBLIC)
