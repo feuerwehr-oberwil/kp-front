@@ -1142,11 +1142,15 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
   .modalStack:global(.is-kb) .modalBody { padding: 2px var(--sp-5) var(--sp-2); }
   .modalStack:global(.is-kb) .modalFoot { padding: var(--sp-2) var(--sp-5); }
   .modalStack:global(.is-kb) .formBlocked { margin: 0 var(--sp-5) var(--sp-2); }
-  /* Every `.stack` row but the Mannschaft block (the `.field` holding `.team`) goes: «Art des
-     Trupps» above it (16.11.2026 – it leads the column now), Auftrag/Ziel/Leitung and the folded
-     Standard row below. The `assignedConflict` warning and the `blocked` line deliberately stay:
-     both are about the very list on screen, and both already sit below it. */
-  .modalStack:global(.is-kb):has(.teamSearch input:focus) .stack > :not(:has(> .team)),
+  /* Every `.stack` row but the Mannschaft block goes: «Art des Trupps» above it (16.11.2026 – it
+     leads the column now), Auftrag/Ziel/Leitung and the folded Standard row below – each row that
+     goes wears `.searchHides` (TruppForm). The `assignedConflict` warning and the `blocked` line
+     deliberately stay: both are about the very list on screen, and both already sit below it.
+     ⚠️ The hidden rows are named by a CLASS, never as `> :not(…)`: a `:has()` on an ancestor over
+     a subject without a class of its own makes the phone restyle the whole page on every DOM
+     change – each key typed into the Meldung composer cost ~890 elements and ~30 ms at CPU ÷4
+     (perf sweep 27.11.2026; styles/selectorCost.test.ts counts the shape). */
+  .modalStack:global(.is-kb):has(.teamSearch input:focus) .stack > .searchHides,
   .modalStack:global(.is-kb):has(.teamSearch input:focus) .modalFoot,
   .modalStack:global(.is-kb) .formHintWaiting { display: none; }
   /* …and the amber «Auftrag fehlt» line goes with the keys in EVERY field (occlusion sweep O2,
@@ -1173,17 +1177,17 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
      ⚠️ The height transition is on the FRAME, and only here: `.modal` is a fixed box whose
      children are a pinned head, a `flex: none` foot and one scroller, so the animated frames
      re-measure a scrollport — the form inside it does not re-flow. */
-  .modalStack:global(.is-kb) .stack > :not(:has(> .team)),
+  .modalStack:global(.is-kb) .stack > .searchHides,
   .modalStack:global(.is-kb) .modalFoot { transition: opacity 160ms ease-out; }
   @starting-style {
-    .modalStack:global(.is-kb) .stack > :not(:has(> .team)),
+    .modalStack:global(.is-kb) .stack > .searchHides,
     .modalStack:global(.is-kb) .modalFoot { opacity: 0; }
   }
   .modal { transition: height 160ms ease, max-height 160ms ease; }
   /* the movement carries nothing the colour and the words do not already say */
   @media (prefers-reduced-motion: reduce) {
     .modal,
-    .modalStack:global(.is-kb) .stack > :not(:has(> .team)),
+    .modalStack:global(.is-kb) .stack > .searchHides,
     .modalStack:global(.is-kb) .modalFoot { transition: none; }
   }
 }
@@ -1713,8 +1717,10 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 /* ── The phone form is ONE flat column (08.09., field ask) ───────────────────────────────────
    The three collapsible sections (04.09.–08.09.) went with the space problem they were built
    for: the Mannschaft is the search + a populate-on-pick list, Druck/Kanal sit folded in the
-   Standard line, so the whole form stands in one scroll. This container is just the column. */
-.stack { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+   Standard line, so the whole form stands in one scroll. This container is just the column.
+   `.stackRest` holds the rows below the Mannschaft as one `.searchHides` block and is the same
+   column, so the rows stand exactly where they stood as children of `.stack`. */
+.stack, .stackRest { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 
 /* ⚠️ LAST in the file on purpose: the phone/landscape media queries above re-`inset` the
    floating `.surface`, and at equal specificity source order is the whole rule.
