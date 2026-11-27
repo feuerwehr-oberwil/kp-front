@@ -9,6 +9,7 @@ import { shapeAspect } from '../lib/shapes'
 import { endTagLabel } from '../lib/endTagSpots'
 import { isNamedPerson, readingPillText, symbolCaptionBoxText, symbolReading } from '../lib/symbols'
 import { softHyphenateText } from '../lib/symbolWrap'
+import { useSizeWatch } from '../lib/useSizeWatch'
 import { truppMarkerTone, type LineTone, type TeamLineBadge } from '../lib/truppLines'
 
 // ── label-pass geometry: the numbers the stylesheet and MapView's Markers use, said once ──────
@@ -261,18 +262,48 @@ function chromeBoxes(container: HTMLElement): LabelBox[] {
   })
 }
 
+/** Same plain data: arrays, plain objects, Maps and Sets by content, anything else (a function, a
+ *  class instance) by identity. MapView rebuilds its derived scene members (`lineDecor`,
+ *  `drawLabels`, `teamLines` …) on every render, so identity alone would never match. */
+function sameData(a: unknown, b: unknown): boolean {
+  if (Object.is(a, b)) return true
+  if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) return false
+  if (Array.isArray(a)) return Array.isArray(b) && a.length === b.length && a.every((x, i) => sameData(x, b[i]))
+  if (a instanceof Map) return b instanceof Map && a.size === b.size && [...a].every(([k, v]) => b.has(k) && sameData(v, b.get(k)))
+  if (a instanceof Set) return b instanceof Set && a.size === b.size && [...a].every((v) => b.has(v))
+  if (Object.getPrototypeOf(a) !== Object.prototype || Object.getPrototypeOf(b) !== Object.prototype) return false
+  const ka = Object.keys(a)
+  const ra = a as Record<string, unknown>, rb = b as Record<string, unknown>
+  return ka.length === Object.keys(b).length && ka.every((k) => k in rb && sameData(ra[k], rb[k]))
+}
+
+/** The last decision per map instance, with what it was taken for (see `useLabelPass`). */
+const lastDecision = new WeakMap<MlMap, { scene: LabelPassScene; frame: number; out: ReadonlySet<string> }>()
+
+/** Runs `decide` unless this map's last decision was taken for the same scene and frame. */
+function decideOnce(m: MlMap, scene: LabelPassScene, frame: number, decide: () => ReadonlySet<string>): ReadonlySet<string> {
+  const last = lastDecision.get(m)
+  if (last && last.frame === frame && sameData(last.scene, scene)) return last.out
+  const out = decide()
+  lastDecision.set(m, { scene, frame, out })
+  return out
+}
+
 /**
- * MapView's label pass: runs `mapLabelDecisions` on every render against the live map, and
- * reports which symbol captions it hid (`onCaptionSuppressionChange` — the plan twins hide the
- * same ones). `bumpLabelFrame` is the re-run trigger for a pure PAN, which changes no other
- * state here but moves every label on screen: MapView bumps it on moveend — pan, zoom and rotate
- * all end there. Deliberately NOT per frame: labels appearing and disappearing under a moving
- * finger read as flicker, so the decision is taken once the map comes to rest.
+ * MapView's label pass: runs `mapLabelDecisions` against the live map, and reports which symbol
+ * captions it hid (`onCaptionSuppressionChange` — the plan twins hide the same ones).
+ * Deliberately NOT per frame and not per render: labels appearing and disappearing under a moving
+ * finger read as flicker, and each run reads the chrome's layout and compares every label with
+ * every other. So the decision is kept until something it depends on changes:
+ *   · the scene, by content (a new object, a selection, a caption edit, a drag's release);
+ *   · `bumpLabelFrame` – MapView calls it on moveend: pan, zoom and rotate all end there;
+ *   · a size change of the map container or the chrome (CHROME_SELECTOR) – a rail opening or
+ *     taking its words, the phone's read-outs coming or going.
  */
 export function useLabelPass(mapInst: RefObject<MlMap | null>, scene: LabelPassScene, onCaptionSuppressionChange?: (ids: ReadonlySet<string>) => void) {
-  const [, bump] = useState(0)
+  const [frame, bump] = useState(0)
   const m = mapInst.current
-  const suppressedLabels = m ? mapLabelDecisions((c) => m.project(c as [number, number]), { ...scene, chrome: chromeBoxes(m.getContainer()) }) : NO_LABELS
+  const suppressedLabels = m ? decideOnce(m, scene, frame, () => mapLabelDecisions((c) => m.project(c as [number, number]), { ...scene, chrome: chromeBoxes(m.getContainer()) })) : NO_LABELS
   const suppressedCaptionKey = [...suppressedLabels]
     .filter((key) => key.startsWith('cap:'))
     .map((key) => key.slice(4))
@@ -281,5 +312,7 @@ export function useLabelPass(mapInst: RefObject<MlMap | null>, scene: LabelPassS
   useEffect(() => {
     onCaptionSuppressionChange?.(new Set(suppressedCaptionKey ? suppressedCaptionKey.split('\u0000') : []))
   }, [onCaptionSuppressionChange, suppressedCaptionKey])
+  // the chrome and the container moved: decide again (lib/useSizeWatch – a selector match per commit)
+  useSizeWatch(() => (m ? [m.getContainer(), ...document.querySelectorAll(CHROME_SELECTOR)] : []), () => bump((n) => n + 1))
   return { suppressedLabels, bumpLabelFrame: () => bump((n) => n + 1) }
 }
