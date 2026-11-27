@@ -96,6 +96,25 @@ describe('the bell\'s «Ton freigeben»', () => {
     expect(word()).toBe(az.alarmMutedWord)
   })
 
+  it('a press released off the bell is forgotten too – a later click with no press mutes', async () => {
+    render(<Board />)
+    fireEvent.pointerDown(bell(), { pointerType: 'mouse' })
+    await act(async () => {})
+    fireEvent.pointerUp(document.body, { pointerType: 'mouse' })
+    fireEvent.click(bell())
+    expect(word()).toBe(az.alarmMutedWord)
+  })
+
+  it('a held Space (its repeats come after the unlock) still unlocks and does not mute', async () => {
+    render(<Board />)
+    fireEvent.keyDown(bell(), { key: ' ' })
+    await act(async () => {})
+    fireEvent.keyDown(bell(), { key: ' ', repeat: true })
+    fireEvent.keyUp(bell(), { key: ' ' })
+    fireEvent.click(bell())
+    expect(word()).toBe(az.alarmWord)
+  })
+
   it('a later tap on «Alarmton» still mutes', async () => {
     render(<Board />)
     await tap(bell())

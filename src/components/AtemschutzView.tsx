@@ -201,10 +201,6 @@ const HEAD_FOLD = { saved: 1, tiles: 2, savedMark: 3 } as const
  *  as the workspace head, panels/IncidentSwitcher) */
 const PENDING_GRACE_MS = 10_000
 
-/** how long after its press a bell click still counts as that press's click (AtemschutzView ·
- *  bellClick) – a slow tap with gloves fits, a stale press does not */
-const BELL_PRESS_CLICK_MS = 2_000
-
 /** The room the sticky Notfall stack takes at the top of the board's port (+ the air under it). */
 const nfInset = (el: HTMLElement | null) => (el ? el.offsetHeight + 12 : 0)
 
@@ -1401,24 +1397,26 @@ export function AtemschutzView({
   // on «Ton freigeben» already unlocks the tone (lib/alarm · armOnAnyTap, and this board's own
   // first-tap prime), the bell re-renders as «Alarmton» before the finger lifts, and the same
   // tap's click then muted it. A press that found the bell blocked makes its click the unlock.
-  // The keys that click count as a press too: Space clicks on its keyup, after the keydown primed.
-  // Only the press's OWN click reads it: a cancelled press (pointercancel) forgets it, and a
-  // click later than BELL_PRESS_CLICK_MS (a press released off the bell, then a click with no
-  // press – VoiceOver) reads the bell as it is now (Sol review, PR fu-alarm).
-  const bellPress = useRef<{ blocked: boolean; at: number } | null>(null)
-  const notePress = (e: { timeStamp: number }) => { bellPress.current = { blocked: audioBlocked, at: e.timeStamp } }
-  const noteKeyPress = (e: KeyboardEvent) => { if (e.key === ' ' || e.key === 'Enter') notePress(e) }
-  const bellClick = (e: MouseEvent) => {
+  // The keys that click count as a press too (not their repeats): Space clicks on its keyup,
+  // after the keydown primed. Only a press that ENDED on the bell decides its click: a cancelled
+  // press (pointercancel) is forgotten, and a press released off the bell never ends, so a later
+  // click with no press (VoiceOver) reads the bell as it is now (Sol review, PR fu-alarm).
+  const bellPress = useRef<{ blocked: boolean; ended: boolean } | null>(null)
+  const notePress = () => { bellPress.current = { blocked: audioBlocked, ended: false } }
+  const notePressEnd = () => { if (bellPress.current) bellPress.current.ended = true }
+  const noteKeyPress = (e: KeyboardEvent) => {
+    if (!e.repeat && (e.key === ' ' || e.key === 'Enter')) bellPress.current = { blocked: audioBlocked, ended: true }
+  }
+  const bellClick = () => {
     const press = bellPress.current
     bellPress.current = null
-    const unlock = audioBlocked || (!!press?.blocked && e.timeStamp - press.at < BELL_PRESS_CLICK_MS)
-    if (unlock) onUnlockAudio?.(); else onToggleMuted()
+    if (audioBlocked || (press?.ended && press.blocked)) onUnlockAudio?.(); else onToggleMuted()
   }
   const bellButton = (
     <button
       className={cx(s.muteBtn, muted && s.muteOn, audioBlocked && s.muteBlocked)}
       data-fold={HEAD_FOLD.tiles}
-      onPointerDown={notePress} onPointerCancel={() => { bellPress.current = null }} onKeyDown={noteKeyPress}
+      onPointerDown={notePress} onPointerUp={notePressEnd} onPointerCancel={() => { bellPress.current = null }} onKeyDown={noteKeyPress}
       onClick={bellClick}
       aria-pressed={muted}
       aria-label={bellLabel} title={bellLabel}
