@@ -229,7 +229,9 @@ const FILL_OPACITIES = appConfig.drawing.fillOpacities
  *  the panel to «Verbindungen» (owner note, 25.11.). «Lösen» stands in the row when exactly ONE
  *  end is docked and not on GPS – on a short line it replaces the map's ✕ chip (MapView ·
  *  editShort); two docked ends are released under «Verbindungen», one button each. Shown only
- *  when an end holds something. */
+ *  when an end holds something. The label stands in the sheet's label column and the ends'
+ *  words in the control column, where every other row's control starts (owner, Üben feedback
+ *  27.11.2026); a long docked name ellipsizes before «Lösen», its full name in the title. */
 function EndsRow({ drawing, labels, hydrantM, onDetach, gpsEnds, onGo }: {
   drawing: DrawStyle
   labels?: Partial<Record<LineEndpoint, string>>
@@ -255,14 +257,16 @@ function EndsRow({ drawing, labels, hydrantM, onDetach, gpsEnds, onGo }: {
       <button type="button" className="de-ends-go" onClick={hasConnections ? onGo : undefined} disabled={!hasConnections}
         title={hasConnections ? C.endsGo : undefined}>
         <span className="de-ends-k">{C.ends}</span>
-        {ends.map((e, i) => (
-          <Fragment key={e.ep}>
-            {i > 0 && <span className="de-ends-to" aria-hidden>→</span>}
-            {e.kind === 'docked' ? <span className="de-end"><Icon id="link" className="de-end-ok" /><span>{e.name}</span></span>
-              : e.kind === 'hydrant' ? <span className="de-end"><Icon id="check" className="de-end-ok" /><span>{C.endHydrant}</span><span className="de-end-m">{fmtDistance(e.m)}</span></span>
-              : <span className="de-end de-end--none">{C.endNone}</span>}
-          </Fragment>
-        ))}
+        <span className="de-ends-v">
+          {ends.map((e, i) => (
+            <Fragment key={e.ep}>
+              {i > 0 && <span className="de-ends-to" aria-hidden>→</span>}
+              {e.kind === 'docked' ? <span className="de-end"><Icon id="link" className="de-end-ok" /><span title={e.name}>{e.name}</span></span>
+                : e.kind === 'hydrant' ? <span className="de-end"><Icon id="check" className="de-end-ok" /><span>{C.endHydrant}</span><span className="de-end-m">{fmtDistance(e.m)}</span></span>
+                : <span className="de-end de-end--none">{C.endNone}</span>}
+            </Fragment>
+          ))}
+        </span>
       </button>
       {releasable && releasable.kind === 'docked' && onDetach && (
         <Button className="de-ends-detach" onClick={() => onDetach(releasable.ep)} aria-label={fillTemplate(C.endsDetachLabel, { name: releasable.name })}>{C.endsDetach}</Button>

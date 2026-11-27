@@ -110,6 +110,23 @@ describe('the «Enden» row', () => {
     expect(onDetach).toHaveBeenCalledWith('end')
   })
 
+  // Üben feedback (owner 27.11.2026, «the enden content should also be on the right»): the words
+  // stood right after «Enden»; every other row starts its control at the label column's edge.
+  it('puts its words in the control column, and a long docked name gives way before «nichts»', () => {
+    const sheets = addStyles(...appStylesheets())
+    const { container } = render(<DrawEditor {...base}
+      drawing={{ kind: 'line', startAttachment: { target: { kind: 'object', id: 'h' }, routing: 'direct' } }}
+      attachmentLabels={{ start: 'Hydrant H-142 Schlossgasse Nord' }} onDetach={noop} onArrow={noop} />)
+    // the label column of every .de-row (Linienende below it), and the same gap to the value
+    // (jsdom keeps a var() declaration as written, so the rule text is what compares)
+    const css = (sel: string, prop: string) => getComputedStyle(container.querySelector(sel)!).getPropertyValue(prop)
+    expect(css('.de-ends-k', 'flex')).toBe(css('.de-row > :first-child', 'flex'))
+    expect(css('.de-ends-go', 'gap')).toBe(css('.de-row', 'gap'))
+    expect(screen.getByTitle('Hydrant H-142 Schlossgasse Nord')).toBeTruthy()
+    expect(getComputedStyle(screen.getByText('nichts')).flexShrink).toBe('0')
+    for (const s of sheets) s.ownerNode?.remove()
+  })
+
   it('stays away when neither end holds anything, and offers no «Lösen» read-only', () => {
     const { container } = render(<DrawEditor {...base} drawing={{ kind: 'line' }} />)
     expect(container.querySelector('.de-ends')).toBeNull()
