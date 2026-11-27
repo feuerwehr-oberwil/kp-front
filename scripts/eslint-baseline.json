@@ -2,7 +2,7 @@
   "_comment": "Warnings per eslint rule, and (`silenced`) what eslint-disable directives silence per rule; `pnpm lint` (scripts/lint-ratchet.mjs) fails when a count goes up OR down. Lower with `pnpm lint:update`; never raise one to pass.",
   "rules": {
     "@typescript-eslint/no-explicit-any": 3,
-    "@typescript-eslint/no-non-null-assertion": 325,
+    "@typescript-eslint/no-non-null-assertion": 324,
     "kp/disable-reason": 100,
     "kp/no-raw-effect": 562,
     "kp/no-raw-timer": 156,
