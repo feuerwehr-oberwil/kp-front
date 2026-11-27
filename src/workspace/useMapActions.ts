@@ -159,7 +159,7 @@ export interface UseMapActionsInputs {
   /** the store's objects as of NOW, advanced synchronously by every write (lib/useObjectStore) */
   liveObjects: () => TacticalObject[]
   objects: TacticalObject[]
-  setPlanFocus: Dispatch<SetStateAction<{ x: number; y: number; floor: number; annoId?: string; twinEntityId?: string; flash?: boolean; nonce: number } | null>>
+  setPlanFocus: Dispatch<SetStateAction<{ x: number; y: number; floor: number; annoId?: string; flash?: boolean; nonce: number } | null>>
   focusEntity: (id: string) => void
   editNoteId: string | null
   user: AuthUser | null

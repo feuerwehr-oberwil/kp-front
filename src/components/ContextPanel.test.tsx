@@ -238,19 +238,6 @@ describe('ContextPanel — basic wiring', () => {
   })
 })
 
-// 30.09.2026 (owner: «fix this» – a door's label ran out of its frame into «Zentrieren»): the
-// door to the original is cut at its end, never spilled, and the whole label is its name.
-describe('ContextPanel – the door to the original', () => {
-  it('cuts its label at the end, still one name', () => {
-    const onOriginal = vi.fn()
-    setup({ onOriginal, originalLabel: 'Zum Original' })
-    const btn = screen.getAllByRole('button', { name: 'Zum Original' })[0]
-    expect(btn.querySelector('.btn-t-cut')?.textContent).toBe('Zum Original')
-    fireEvent.click(btn)
-    expect(onOriginal).toHaveBeenCalled()
-  })
-})
-
 describe('ContextPanel — Geschoss (Untergeschosse are as reachable as Obergeschosse)', () => {
   const floorOnly = new Set<SymbolControl>(['floor'])
   // Von and Bis on screen ⇒ the FIRST − / + / clear is Von's

@@ -274,11 +274,7 @@ interface Props {
   /** `flash` shows the anno (a few-second outline) instead of selecting it — see the focus effect */
   /** `scale` (the Präsentationsmodus following a presenter) also sets the zoom, «eingepasst» = 1;
    *  `span` (its visible extent, board units) instead fits that whole extent into this screen */
-  focus: { x: number; y: number; floor: number; annoId?: string; twinEntityId?: string; flash?: boolean; scale?: number; span?: { w: number; h: number }; nonce: number } | null
-  /** report the current plan-view centre (tile-local) and zoom. The composer's «an der Planmitte
-   *  anheften» it was born for went away on 14.08.; the Präsentationsmodus reads it now (through
-   *  `presentation.onView`). */
-  onView?: (c: { x: number; y: number; floor: number }) => void
+  focus: { x: number; y: number; floor: number; annoId?: string; flash?: boolean; scale?: number; span?: { w: number; h: number }; nonce: number } | null
   /** the Präsentationsmodus on this sheet (workspace/usePresentation · BoardPresentation): the
    *  rings to draw, «Zeigen»'s tap catcher, and the follower's «panned by hand» signal */
   presentation?: BoardPresentation
@@ -440,7 +436,7 @@ export interface PlanLogExtra {
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
 
-export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange: onChangeAll, building, floorPack, sheetFloors, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterFields, personStatus, fieldHints, onRecent, log, authorName, onStepLabel, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = NO_TRUPPS, truppColors, placedTeamNames, teamNameTaken, onLinkTrupp, onShowTrupp, truppFinder, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, historyGroup, undoGroup, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, buildingInfo, readingsChip, incidentId, incidentAddress, incidentPos, onObjectSwitch, planScale = {}, onCalibrate, live = [], photos = [], liveFacts, onPlanLiveMove, onStepEnd, slimTools: slimToolsProp = false, linkViewer = false, railLabels, tafel, presentation, replay = false }: Props) {
+export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange: onChangeAll, building, floorPack, sheetFloors, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterFields, personStatus, fieldHints, onRecent, log, authorName, onStepLabel, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, trupps = NO_TRUPPS, truppColors, placedTeamNames, teamNameTaken, onLinkTrupp, onShowTrupp, truppFinder, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, historyGroup, undoGroup, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, buildingInfo, readingsChip, incidentId, incidentAddress, incidentPos, onObjectSwitch, planScale = {}, onCalibrate, live = [], photos = [], liveFacts, onPlanLiveMove, onStepEnd, slimTools: slimToolsProp = false, linkViewer = false, railLabels, tafel, presentation, replay = false }: Props) {
   // ⚠️ RIDERS: what lives on a sheet but is not drawn ON it — the Tafel's pages (kind `form`,
   // lib/boardForm) and any board object this build does not understand (lib/workspace ·
   // isPassengerAnno). Nothing positional may see them: every drawing path below reads `annos` —
@@ -1753,16 +1749,14 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   }, [selId, notePanelId])
 
 
-  // report the current view centre (tile-local x/y + floor) upward so the journal
-  // composer can pin an entry to "here" on the plan. Cheap — just a ref write.
+  // the Präsentationsmodus: report the current view centre (tile-local x/y + floor) upward
   useEffect(() => {
     if (!fit.w || !fit.h) return
+    if (!presentation) return
     const s = scaleRef.current, w = fit.w * s, h = fit.h * s
     const nx = clamp01((w / 2 - pos.x) / w), ny = clamp01((h / 2 - pos.y) / h)
     const floor = stack ? floorAt(ny) : 0
     const c = { x: nx, y: stack ? localY(ny, floor) : ny, floor }
-    onView?.(c)
-    if (!presentation) return
     // the Präsentationsmodus sends the centre of the FREE area (no rail, no open panel) and its
     // extent in board units, which a follower fits into its own (lib/presentation · fitScale)
     const canvas = canvasRef.current?.getBoundingClientRect()

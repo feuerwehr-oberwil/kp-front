@@ -41,7 +41,7 @@ export interface UseJournalWritersInputs {
   setMode: Dispatch<SetStateAction<WorkspaceMode>>
   setPanel: Dispatch<SetStateAction<'layers' | null>>
   setActivePlanId: Dispatch<SetStateAction<string>>
-  setPlanFocus: Dispatch<SetStateAction<{ x: number; y: number; floor: number; annoId?: string; twinEntityId?: string; flash?: boolean; nonce: number } | null>>
+  setPlanFocus: Dispatch<SetStateAction<{ x: number; y: number; floor: number; annoId?: string; flash?: boolean; nonce: number } | null>>
   flyToMapVisible: (center: LngLat, zoom: number) => void
   focusEntity: (id: string) => void
   incidentMeta: IncidentMeta

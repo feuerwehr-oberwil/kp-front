@@ -831,9 +831,7 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     phone `[role=dialog] .ui-sheet-foot > .ip-btn.primary` flexes).
   - *A label never leaves its button* (30.09.2026, owner: «fix this» – a door's label ran out of
     its tile over «Zentrieren»). A tile in a row whose share is fixed (`flex: 1 1 0`) cuts its
-    label with an ellipsis (ContextPanel · `LinkBtn`, `.btn-t` / `.btn-t-cut`), with the whole
-    label as the button's name. A door to the object's original («Zum Original») stands on a row
-    of its own above the symbol panel's foot. A rotation reads in whole degrees; ± from a hand-turned angle snaps to the next
+    label with an ellipsis, with the whole label as the button's name. A rotation reads in whole degrees; ± from a hand-turned angle snaps to the next
     15° mark (`Stepper · snap`).
   - *Text actions (28.09.2026, owner pick A):* no bare blue word as an action. A verb that ends a
     row makes the WHOLE row the button — `.row-go` (13-incident): ink text, the verb in
