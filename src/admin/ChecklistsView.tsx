@@ -124,7 +124,7 @@ export function ChecklistsView() {
   /** «Reste löschen»: one prune for every orphan, then the list is read again, so what was
    *  deleted is gone and the rest stays. A failure stays on the card under the button, as one
    *  sentence of this card's own: the reason (the server's, or the transport's) goes in brackets,
-   *  without `ApiError.hint` – that instruction is written for the field app. When the re-read
+   *  and the hint the Verwaltung keeps (apiErrors · describeApiError) follows it. When the re-read
    *  fails too (offline, both fail), the last list stands: the sentence says it is still there. */
   const cleanOrphans = async () => {
     setCleaning(true)
@@ -134,7 +134,8 @@ export function ChecklistsView() {
       setFlash(fillTemplate(C.deleted, { n: res.pruned.length }))
       await reload()
     } catch (e) {
-      setCleanError(fillTemplate(C.cleanFailed, { reason: describeApiError(e).message }))
+      const { message, hint } = describeApiError(e)
+      setCleanError([fillTemplate(C.cleanFailed, { reason: message }), hint].filter(Boolean).join(' '))
       try {
         setState({ kind: 'ok', data: await listReferenceDatasets() })
       } catch { /* the last list stands */ }

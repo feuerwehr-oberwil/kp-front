@@ -151,7 +151,8 @@ describe('Checklisten — cleaning up the leftovers', () => {
   // offline verfügbar.», and the failed re-read took the list away that it said was still there.
   it('offline: says what was not deleted and keeps the leftovers listed, without the field app\'s hint', async () => {
     const E = appConfig.copy.errors
-    const offline = Object.assign(new ApiError(0, E.serverUnreachable), { hint: E.serverUnreachableHint })
+    // as lib/api · networkError builds it
+    const offline = Object.assign(new ApiError(0, E.serverUnreachable), { hint: E.serverUnreachableHint, transportHint: true })
     const orphan = ds('checklists:alt:p1', { content_type: 'image/png' })
     apiGet.mockResolvedValueOnce([...REGISTRY, orphan]).mockRejectedValue(offline)
     render(<ChecklistsView />)

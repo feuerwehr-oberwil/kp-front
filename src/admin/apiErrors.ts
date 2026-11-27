@@ -3,9 +3,10 @@ import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 
 // What the Verwaltung shows for a request that failed: the server's German message, the
-// instruction that came with it (`ApiError.hint`), and for a 422 the refused fields by their
-// German name — never FastAPI's English Pydantic sentence, which is what `ApiError.detail` holds
-// for a validation answer (lib/api · ApiError.fields). Every admin view's save, delete, upload
+// instruction that came with it (`ApiError.hint`, but never the field app's line on a dead link –
+// see describeApiError), and for a 422 the refused fields by their German name — never FastAPI's
+// English Pydantic sentence, which is what `ApiError.detail` holds for a validation answer
+// (lib/api · ApiError.fields). Every admin view's save, delete, upload
 // and import path reads its error through `describeApiError` / `apiErrorText`; each view still
 // decides where and how the line is shown.
 
@@ -17,6 +18,7 @@ import { fillTemplate } from '../lib/format'
 export function rejectedFieldLabel(path: string): string {
   const A = appConfig.copy.admin
   const P = A.nav
+  const OV = A.objectVisits
   const known: Record<string, { field: string; page: string }> = {
     'identity.appName': { field: A.identity.appName, page: P.identitaet.title },
     'identity.shortName': { field: A.identity.shortName, page: P.identitaet.title },
@@ -37,6 +39,12 @@ export function rejectedFieldLabel(path: string): string {
     'alarms.groups': { field: A.alarms.groupGroups, page: P.alarme.title },
     'alarms.webhooks': { field: A.alarms.groupWebhooks, page: P.alarme.title },
     'doctrine': { field: P.doktrin.title, page: P.doktrin.title },
+    // the Objektbesuche page, by the words of its cards (ObjectVisitsView); a row's field
+    // resolves to the card that owns the row, as `report.links` does
+    'objectVisits.captureRoles': { field: OV.captureRoles, page: P.objektbesuche.title },
+    'objectVisits.lockAfterHours': { field: OV.lockHours, page: P.objektbesuche.title },
+    'objectVisits.proposalFields': { field: OV.fields, page: P.objektbesuche.title },
+    'objectVisits.destinations': { field: OV.destination, page: P.objektbesuche.title },
     // No Station page edits these — the Mittel-Katalog is exactly what Sicherung → Import
     // exists for, which makes them the paths MOST likely to be refused and the ones that had
     // no German name at all. Listed with no page, so they read as a plain name.
@@ -60,6 +68,10 @@ export function rejectedFieldLabel(path: string): string {
     'referenceLayers': { field: P.ebenen.title, page: P.ebenen.title },
     'modules': { field: P.objektplaene.title, page: P.objektplaene.title },
     'mittel': { field: appConfig.copy.mittel.title, page: appConfig.copy.mittel.title },
+    'objectVisits': { field: P.objektbesuche.title, page: P.objektbesuche.title },
+    // No form edits the Einsatz-Ablage (config-as-code, docs/incident-archive.md): it is named
+    // by the column that shows it, on the page that column is on.
+    'incidentArchive': { field: A.incidentHistory.archive.column, page: P.einsaetze.title },
   }
   // Longest matching prefix wins, so a row path (`report.links.0.title`) resolves to the
   // editor that owns the row instead of falling through to the raw path.
@@ -128,11 +140,11 @@ export function describeRejectedFields(e: ApiError): string[] {
   return [...new Set(lines)]
 }
 
-/** The 422 the config endpoint answers an invalid document with, as a sentence naming the
 /** A failed admin request, as the operator reads it. */
 export interface AdminError {
   message: string
-  /** what to do about it, where the server or the transport said (lib/api · ApiError.hint) */
+  /** what to do about it, where the refusal said (lib/api · ApiError.hint) – never the field
+   *  app's line on a dead link (`ApiError.transportHint`) */
   hint?: string
   /** the refused fields by name — set only for a 422 that named its fields */
   fields?: string[]
@@ -141,7 +153,10 @@ export interface AdminError {
 /**
  * Turn a failed request into what the admin shows. A 422 that names its fields reads
  * «Vom Server nicht angenommen: <Feld> · <Feld>»; any other `ApiError` keeps the server's own
- * (German) message and its hint. `fallback` is the view's own sentence for everything that is no
+ * (German) message and its hint. A failure of the link itself (no network, no answer, a proxy's
+ * 502–504) keeps its reason – «Server nicht erreichbar», «Keine Antwort» – and drops the hint:
+ * «Gespeicherte Einsätze bleiben offline verfügbar» is the field app's promise and means nothing
+ * on an admin page. `fallback` is the view's own sentence for everything that is no
  * `ApiError` (a bug, a parse error) and for a 422 that names no field; without one it is
  * «Unbekannter Fehler» (`common2.unknownError`). `labels` names the fields of a request body that
  * is not the config document (`display_name` → «Name»), by the words its form uses.
@@ -158,7 +173,7 @@ export function describeApiError(
     if (!fields.length) return { message: fallback }
     return { message: fillTemplate(appConfig.copy.admin.autosave.rejected, { fields: fields.join(' · ') }), fields }
   }
-  return { message: e.detail, hint: e.hint }
+  return { message: e.detail, hint: e.transportHint ? undefined : e.hint }
 }
 
 /** `describeApiError` as one line («message hint»), for the views that show a single text. */

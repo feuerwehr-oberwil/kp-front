@@ -8,6 +8,17 @@ import { apiErrorText, describeApiError } from './apiErrors'
 
 const E = appConfig.copy.errors
 
+/** The error a real `apiPut` throws when fetch answers so – the whole lib/api shaping included. */
+async function failing(answer: () => Promise<Response>): Promise<unknown> {
+  const real = globalThis.fetch
+  globalThis.fetch = answer
+  try {
+    return await apiPut('/api/config', {}).catch((x: unknown) => x)
+  } finally {
+    globalThis.fetch = real
+  }
+}
+
 describe('describeApiError', () => {
   it('names the refused fields of a 422 in German, never the Pydantic sentence', () => {
     const e = new ApiError(422, 'map.defaultView.center: Input should be a valid list')
@@ -29,22 +40,37 @@ describe('describeApiError', () => {
       .toBe(fillTemplate(A.autosave.rejected, { fields: A.roster.colName }))
   })
 
-  it('keeps the server\'s message and the hint that came with it', () => {
-    const e = new ApiError(503, E.httpGateway)
-    e.hint = E.httpGatewayHint
-    expect(describeApiError(e, 'Speichern fehlgeschlagen')).toEqual({ message: E.httpGateway, hint: E.httpGatewayHint })
-    expect(apiErrorText(e)).toBe(`${E.httpGateway} ${E.httpGatewayHint}`)
+  it('names an Objektbesuche row and the Einsatz-Ablage in German, not by their path', () => {
+    const A = appConfig.copy.admin
+    const e = new ApiError(422, 'String should have at most 120 characters')
+    e.fields = [
+      { path: 'objectVisits.proposalFields.0.label', msg: 'String should have at most 120 characters', kind: 'string_too_long' },
+      { path: 'incidentArchive.destinations.0.photoFolder', msg: 'String should have at most 300 characters', kind: 'string_too_long' },
+    ]
+    expect(describeApiError(e).message).toBe(fillTemplate(A.autosave.rejected, {
+      fields: `${A.objectVisits.fields} (${A.nav.objektbesuche.title}) · ${A.incidentHistory.archive.column} (${A.nav.einsaetze.title})`,
+    }))
   })
 
-  it('says «not reachable» with its instruction when the request never got an answer', async () => {
-    const real = globalThis.fetch
-    globalThis.fetch = () => Promise.reject(new TypeError('Failed to fetch'))
-    try {
-      const e = await apiPut('/api/members/1', {}).catch((x: unknown) => x)
-      expect(apiErrorText(e, 'Speichern fehlgeschlagen')).toBe(`${E.serverUnreachable} ${E.serverUnreachableHint}`)
-    } finally {
-      globalThis.fetch = real
-    }
+  it('keeps the hint that belongs to a refusal', async () => {
+    // a 428 with no words of its own: «Seite veraltet» and what to do about it
+    const e = await failing(() => Promise.resolve(new Response('', { status: 428 })))
+    expect(describeApiError(e, 'Speichern fehlgeschlagen')).toEqual({ message: E.httpStale, hint: E.httpStaleHint })
+    expect(apiErrorText(e)).toBe(`${E.httpStale} ${E.httpStaleHint}`)
+  })
+
+  // Sweep 25.11.2026: offline, every admin line ended in the field app's «Gespeicherte Einsätze
+  // bleiben offline verfügbar.»
+  it.each([
+    ['no network', () => Promise.reject(new TypeError('Failed to fetch')), E.serverUnreachable, E.serverUnreachableHint],
+    ['our timeout', () => Promise.reject(new DOMException('signal timed out', 'TimeoutError')), E.serverTimeout, E.serverTimeoutHint],
+    ['a proxy\'s 503', () => Promise.resolve(new Response('<html>', { status: 503 })), E.httpGateway, E.httpGatewayHint],
+  ])('%s: says why, without the field app\'s hint – which the field app still gets', async (_, answer, reason, fieldHint) => {
+    const e = await failing(answer)
+    expect(apiErrorText(e, 'Speichern fehlgeschlagen')).toBe(reason)
+    expect(describeApiError(e).hint).toBeUndefined()
+    expect(e).toBeInstanceOf(ApiError)
+    expect((e as ApiError).hint).toBe(fieldHint)
   })
 
   it('falls back to the view\'s own sentence for anything that is no ApiError', () => {

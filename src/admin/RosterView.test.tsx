@@ -368,10 +368,10 @@ describe('Grad und Status — erfassen und bearbeiten', () => {
 
     it('shows the server\'s message with its hint', async () => {
       const E = appConfig.copy.errors
-      const e = new ApiError(503, E.httpGateway)
-      e.hint = E.httpGatewayHint
+      const e = new ApiError(413, E.httpTooLarge)
+      e.hint = E.httpTooLargeHint
       await saveRefused(e)
-      expect(await screen.findByText(`${E.httpGateway} ${E.httpGatewayHint}`)).toBeTruthy()
+      expect(await screen.findByText(`${E.httpTooLarge} ${E.httpTooLargeHint}`)).toBeTruthy()
     })
   })
 })
