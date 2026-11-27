@@ -10,7 +10,7 @@
   width: min(520px, calc(100vw - 32px)); max-height: min(70vh, 640px);
   display: flex; flex-direction: column; overflow: hidden;
   /* THE sheet material, no edge (r35, 06.11.2026: the sheets draw none, --e4 is the outline) */
-  background: var(--glass); backdrop-filter: blur(16px);
+  background: var(--glass); backdrop-filter: var(--float-blur);
   border-radius: var(--r-hero); box-shadow: var(--e4);
 }
 

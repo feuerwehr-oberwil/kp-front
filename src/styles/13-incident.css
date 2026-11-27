@@ -595,7 +595,7 @@
      inside a sheet must never push the sheet past the viewport */
   min-width: 0; max-width: 100%;
   display: flex; flex-direction: column; overflow: hidden;
-  background: var(--glass); backdrop-filter: blur(16px); border-radius: var(--r-hero); box-shadow: var(--e4);
+  background: var(--glass); backdrop-filter: var(--float-blur); border-radius: var(--r-hero); box-shadow: var(--e4);
 }
 /* …with ONE documented exception. `.ip-wide` is the modifier the frame always named (Sheet ·
    `wide`) but had no desktop rule for, so it silently resolved to the standard 720px. The sheets
@@ -1734,10 +1734,10 @@ button.rp-sign-row:disabled { cursor: default; }
 .timefield-now:disabled { opacity: var(--disabled); cursor: default; }
 
 /* the wheel popover: snap-scrolling columns under a fixed center band. THE sheet material
-   (.ip-sheet: --glass + blur, no edge, --e4, the one corner – r35, 06.11.2026; it was opaque
+   (.ip-sheet: --glass + --float-blur, no edge, --e4, the one corner – r35, 06.11.2026; it was opaque
    --surface with a --glass-line ring, at night a #232c3a slab beside the #141a24 sheets). */
 .wheelpop { z-index: var(--z-picker); padding: 12px; border-radius: var(--r-ctl);
-  background: var(--glass); backdrop-filter: blur(16px);
+  background: var(--glass); backdrop-filter: var(--float-blur);
   box-shadow: var(--e4); }
 .wheelpop-cols { position: relative; display: flex; gap: 4px; }
 /* 5 rows of 44px (ITEM_H in WheelPicker.tsx — pads/band derive from it: pad = (height−44)/2) */

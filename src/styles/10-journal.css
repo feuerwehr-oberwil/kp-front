@@ -676,14 +676,14 @@
      one line beside ⏱ □ and the clip – at 460 it hyphenated */
   width: min(560px, 92vw); overflow: hidden;
   max-height: min(calc(88dvh - 11vh), calc(100dvh - 11vh - 12px - var(--jc-kb, 0px)));
-  /* THE sheet material (13-incident · .ip-sheet, hill climb r35, 06.11.2026): --glass + its blur,
+  /* THE sheet material (13-incident · .ip-sheet, hill climb r35, 06.11.2026): --glass + --float-blur,
      no edge, --e4. It was opaque --surface (#fff / #232c3a) with a --glass-line edge and NO blur –
      at night a lighter slate than every sheet beside it. (The blur was dropped once as half of a
      desktop open-animation jank; the other half was the `transform` keyframe, fixed by `pop`'s
-     bare `scale` – 07-toolrail – and every .ip-sheet opens with this same blur.)
+     bare `scale` – 07-toolrail – and every .ip-sheet opens with this same material.)
      16px all round, not the sheets' 24: this card's rows are dense (the Art track, ⏱ □, the
      clip) and on a phone 24 a side squeezes them – so its ✕ stands 16 from the edge too. */
-  background: var(--glass); backdrop-filter: blur(16px);
+  background: var(--glass); backdrop-filter: var(--float-blur);
   border-radius: var(--r-hero); box-shadow: var(--e4); padding: 16px 16px 0;
   /* ⚠️ ONE gap on this whole sheet, sideways and downwards alike: 8px. It was 12 between the
      banks and 8 inside them, which is why «Anheften» sat closer to the media row than that row

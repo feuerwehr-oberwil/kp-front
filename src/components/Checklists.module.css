@@ -215,7 +215,7 @@ ol.cl-items > .cl-item:first-child { border-top: 0; padding-top: var(--sp-1); }
   box-shadow: var(--e3); display: block; background: var(--surface); }
 .cl-ref-zoomhint { position: absolute; right: 8px; bottom: 8px; width: 30px; height: 30px;
   display: grid; place-items: center; border-radius: 50%; background: var(--glass);
-  border: 1px solid var(--glass-edge); backdrop-filter: blur(8px); color: var(--ink-dim); }
+  border: 1px solid var(--glass-edge); backdrop-filter: var(--float-blur); color: var(--ink-dim); }
 .cl-ref-zoomhint :global(.i) { width: 15px; height: 15px; }
 @media (hover: hover) { .cl-ref-figbtn:hover .cl-ref-zoomhint { color: var(--ink); } }
 /* the img fills the button, so the wash lands on the zoom hint too — the visible part */

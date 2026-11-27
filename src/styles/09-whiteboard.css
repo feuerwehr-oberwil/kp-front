@@ -813,12 +813,12 @@ span.wb-ghost-label { cursor: default; }
 .wb-trupp-pick.ui-dialog, .wb-cal-pop.ui-dialog {
   position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: var(--z-dialog); }
 /* "Welcher Trupp?" quick picker shown when placing a team chip on the plan. THE sheet material
-   (13-incident · .ip-sheet: --glass + blur, --e4, the one corner – r35, 06.11.2026; it was opaque
+   (13-incident · .ip-sheet: --glass + --float-blur, --e4, the one corner – r35, 06.11.2026; it was opaque
    --surface, at night a #232c3a slab beside the #141a24 sheets) and THE sheet head: the question is
    its title, 16/800 in ink, 16 from the top and 24 from the side (the card's 12 + the head's 4/12) –
    it was a 12.5/700 caption in --ink-dim, the one dialog without a title. */
 .wb-trupp-pick { width: min(300px, calc(100vw - 32px)); max-height: 70dvh; overflow-y: auto;
-  background: var(--glass); backdrop-filter: blur(16px);
+  background: var(--glass); backdrop-filter: var(--float-blur);
   border-radius: var(--r-surface); box-shadow: var(--e4); padding: var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-2); }
 /* …with THE head ✕ «Schliessen» at its end (duck sweep CONT.10, 17.11.2026): on a tablet it is a
    centred card, and its scrim had been the only way out */

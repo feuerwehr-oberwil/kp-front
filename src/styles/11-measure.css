@@ -29,7 +29,7 @@
    flips with the theme, so it is a dark hairline by day and a light one at night. */
 .draw-lock-chip { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%;
   background: var(--glass); border: 1px solid var(--ink-16); box-shadow: var(--e1);
-  color: var(--ink); cursor: pointer; padding: 0; backdrop-filter: blur(8px);
+  color: var(--ink); cursor: pointer; padding: 0; backdrop-filter: var(--float-blur);
   transition: color .12s var(--ease), border-color .12s var(--ease); }
 .draw-lock-chip { position: relative; touch-action: none; }
 /* 44px hit pad — the chip is the ONLY tap target on a locked shape */
