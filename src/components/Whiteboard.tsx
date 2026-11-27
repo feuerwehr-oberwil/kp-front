@@ -2181,7 +2181,10 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // places they stand: the rail's view bar (ToolRail · controls), and on a tablet a plan with NO
   // rail (the Wiedergabe, a viewer-only plan) puts them in the same ViewBar in the same bottom-right
   // corner (owner, Üben feedback 27.11.2026: «every UI has the core elements at the same place»).
-  const viewControls = (
+  // `railed`: the set stands in the rail's view bar, where + − are mouse-only like the Karte's;
+  // without a rail they stay on touch too (owner pick 25.11.2026: the Karte & Objekte plan reader
+  // keeps «Einpassen + −» – it has no other way to zoom but a pinch).
+  const viewControls = (railed: boolean) => (
     <>
       {/* ⚠️ NO Ebenen row here (15.09.2026). The map's view bar opens a panel with
           the deployment's layers in it; this one opened an empty room — the Plan's twin
@@ -2199,13 +2202,14 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
         <PlanCompass variant="rail" deg={northDeg ?? shownAngle} northUnknown={northDeg == null}
           controls={canOrient && !readOnly ? orientControls : undefined} onFit={() => applyView(1, { x: 0, y: 0 })} />
       )}
-      {/* zoom ±: mouse only (.vrail-zoom is hidden under 1024px and on a coarse pointer)
-          — the plan pinches on every touch form factor, and «Einpassen» above covers the
-          one state that matters. «+» first, like the Karte's (owner pick C9, 05.11.2026).
-          The pair is its own group behind the rails' one hairline (owner pick C12): the
-          view bar draws it before the first .vrail-zoom (07-toolrail), hidden with them. */}
-      <button className="vrail-nbtn vrail-zoom" title={appConfig.copy.nav.zoomIn} aria-label={appConfig.copy.nav.zoomIn} disabled={scale >= maxScale} onClick={() => zoom(1.3)}><span className="vrail-glyph"><Icon id="plus" /></span><span className="vrail-label">{appConfig.copy.nav.zoomIn}</span></button>
-      <button className="vrail-nbtn vrail-zoom" title={appConfig.copy.nav.zoomOut} aria-label={appConfig.copy.nav.zoomOut} disabled={scale <= MIN_SCALE} onClick={() => zoom(1 / 1.3)}><span className="vrail-glyph"><Icon id="minus" /></span><span className="vrail-label">{appConfig.copy.nav.zoomOut}</span></button>
+      {/* zoom ±: in a rail mouse only (.vrail-zoom is hidden under 1024px and on a coarse
+          pointer) — the plan pinches on every touch form factor, and «Einpassen» above covers
+          the one state that matters; without a rail always (see `railed`). «+» first, like the
+          Karte's (owner pick C9, 05.11.2026). In a rail the pair is its own group behind the
+          rails' one hairline (owner pick C12): the view bar draws it before the first
+          .vrail-zoom (07-toolrail), hidden with them. */}
+      <button className={cx('vrail-nbtn', railed && 'vrail-zoom')} title={appConfig.copy.nav.zoomIn} aria-label={appConfig.copy.nav.zoomIn} disabled={scale >= maxScale} onClick={() => zoom(1.3)}><span className="vrail-glyph"><Icon id="plus" /></span><span className="vrail-label">{appConfig.copy.nav.zoomIn}</span></button>
+      <button className={cx('vrail-nbtn', railed && 'vrail-zoom')} title={appConfig.copy.nav.zoomOut} aria-label={appConfig.copy.nav.zoomOut} disabled={scale <= MIN_SCALE} onClick={() => zoom(1 / 1.3)}><span className="vrail-glyph"><Icon id="minus" /></span><span className="vrail-label">{appConfig.copy.nav.zoomOut}</span></button>
 
     </>
   )
@@ -3246,7 +3250,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
             if (id === 'symbol') { setPending(null); setPendingShape(null); setTool('symbol'); setPaletteOpen(true); return }
             setTool(tool === id ? 'pan' : (id as BoardTool)); setPending(null)
           }}
-          controls={viewControls}
+          controls={viewControls(true)}
         />
       )}
       {/* a plan with NO rail (the Wiedergabe, a viewer-only document) on a tablet or laptop: its
@@ -3255,7 +3259,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
           the rail's, never inside `.wb-canvas`: there a press bubbled into the board's pan, which
           captured the pointer and took the click from «Einpassen». */}
       {readOnly && !slimRail && !isPhone && (
-        <ViewBar label={appConfig.copy.navRail.viewBar} labelled={railLabels === 'short'}>{viewControls}</ViewBar>
+        <ViewBar label={appConfig.copy.navRail.viewBar} labelled={railLabels === 'short'}>{viewControls(false)}</ViewBar>
       )}
 
       {/* the symbol's dock: [Unfall · Mehrere · Abbrechen] – the Lage map's twin (MapToolDocks). The

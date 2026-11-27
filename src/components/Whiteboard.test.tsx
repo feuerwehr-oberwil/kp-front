@@ -1556,6 +1556,11 @@ describe('the Gebäude north dial answers one tap, every time', () => {
     const bar = within(container.querySelector('.view-bar') as HTMLElement)
     expect(bar.getByRole('img', { name: appConfig.copy.whiteboard.northTitle })).toBeTruthy()
     expect(bar.getByRole('button', { name: appConfig.copy.nav.fit })).toBeTruthy()
+    // + − stay on touch here (no .vrail-zoom, which hides them on a coarse pointer): the Karte &
+    // Objekte plan reader keeps «Einpassen + −» (owner pick 25.11.2026)
+    for (const name of [appConfig.copy.nav.zoomIn, appConfig.copy.nav.zoomOut]) {
+      expect(bar.getByRole('button', { name }).classList.contains('vrail-zoom')).toBe(false)
+    }
     // …beside the rail's, never in the canvas: a press there bubbles into the board's pan, which
     // captures the pointer and takes the click from «Einpassen»
     expect(container.querySelector('.wb-canvas .view-bar')).toBeNull()
