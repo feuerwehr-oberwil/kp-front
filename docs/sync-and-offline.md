@@ -41,11 +41,10 @@ the module they concern (`lib/connectivity`, `lib/eventScope`, `lib/jsonEqual`,
   device's copy: silence too), it opens that copy at once (`WorkspaceSync` option `storedFirst`) and the launcher's line names its last sync
   («Offline – gespeicherte Daten von 14:05 werden angezeigt.»). Nothing is cut off: the list and
   the workspace request keep their 20 s bound. The late list reaches the watch (a newer alarm
-  Einsatz gets the «Neuer Einsatz» banner, never a switch); the late workspace answer is taken
-  by the cold-reopen rules (`takeLateAnswer`: a clean copy adopts it, a dirty one three-way
-  merges and arms no push of its own, an older revision or an answer during a push is left to the
-  push and the poll). A
-  refusal within the wait is the boot's as before; after it, it is handled as during use (a 401
+  Einsatz gets the «Neuer Einsatz» banner, never a switch). The open's own workspace request is
+  not applied: the server's state reaches the copy as after any reconnect – the live follow adopts
+  it for a clean copy, the push of a dirty one meets the 409 and three-way merges (one path, so no
+  late answer can race the poll or a save; `lib/bootWait.follow.test.ts`). A refusal within the wait is the boot's as before; after it, it is handled as during use (a 401
   closes the cached reads and signs the device out). ⚠️ `storedFirst` serves only what open()'s
   silence fallback would serve: a parked, unparkable, unread or denied slot waits for the server.
   A first start, a launch into `/karte` or `/besuche`, a link session and the demo wait as

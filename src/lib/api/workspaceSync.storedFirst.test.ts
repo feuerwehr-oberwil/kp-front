@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 // The boot that stopped waiting for the server (lib/bootWait, finding 27): `storedFirst` answers
-// init() from the stored copy at once – only from a copy every guard of open() lets through – and
-// the workspace request's answer lands later by the cold-reopen rules (takeLateAnswer).
+// init() from the stored copy at once – only from a copy every guard of open() lets through. How
+// the server's state then arrives: lib/bootWait.follow.test.ts.
 const getWorkspace = vi.fn()
 const putWorkspace = vi.fn()
 vi.mock('./workspace', () => ({
@@ -108,63 +108,7 @@ describe('storedFirst: the stored copy now', () => {
   })
 })
 
-describe('storedFirst: the server’s answer later', () => {
-  it('a clean copy takes the server’s state, handed to the view', async () => {
-    store.set('kp-front-ws-i1', slot())
-    const req = pending()
-    const handed: unknown[] = []
-    const sync = new WorkspaceSync('i1', { storedFirst: true, onServerWorkspace: (ws) => handed.push(ws) })
-    await sync.init()
-    req.answer({ workspace: { from: 'server' }, workspace_rev: 6 })
-    await settle()
-    expect(handed).toEqual([{ from: 'server' }])
-    expect(sync.rev).toBe(6)
-    expect(sync.syncStatus).toBe('synced')
-    sync.dispose()
-  })
-
-  it('a dirty copy – and an edit made meanwhile – is three-way merged with the server’s', async () => {
-    store.set('kp-front-ws-i1', slot({ dirty: true, workspace: { entities: [{ id: 'e1' }, { id: 'offline' }] } }))
-    const req = pending()
-    const sync = new WorkspaceSync('i1', { storedFirst: true, debounceMs: 60_000 })
-    const opened = await sync.init()
-    sync.save({ entities: [...(opened.workspace as typeof BASE).entities, { id: 'meanwhile' }] })
-    req.answer({ workspace: { entities: [{ id: 'e1' }, { id: 'colleague' }] }, workspace_rev: 6 })
-    await settle()
-    const ids = (sync.workspace as typeof BASE).entities.map((e) => e.id).sort()
-    expect(ids).toEqual(['colleague', 'e1', 'meanwhile', 'offline'])
-    expect(sync.rev).toBe(6)
-    expect(sync.hasUnsynced).toBe(true)
-    sync.dispose()
-  })
-
-  it('the merge arms no push of its own: that is pushOwed’s, in the tab with the edit lock', async () => {
-    store.set('kp-front-ws-i1', slot({ dirty: true, workspace: { entities: [{ id: 'e1' }, { id: 'offline' }] } }))
-    const req = pending()
-    const sync = new WorkspaceSync('i1', { storedFirst: true, debounceMs: 0 })
-    await sync.init()
-    req.answer({ workspace: { entities: [{ id: 'e1' }, { id: 'colleague' }] }, workspace_rev: 6 })
-    await settle()
-    await settle()
-    expect(sync.hasUnsynced).toBe(true)
-    expect(putWorkspace).not.toHaveBeenCalled()
-    sync.dispose()
-  })
-
-  it('an answer older than the copy is not applied over it', async () => {
-    store.set('kp-front-ws-i1', slot())
-    const req = pending()
-    const handed: unknown[] = []
-    const sync = new WorkspaceSync('i1', { storedFirst: true, onServerWorkspace: (ws) => handed.push(ws) })
-    await sync.init()
-    req.answer({ workspace: { from: 'older' }, workspace_rev: 3 })
-    await settle()
-    expect(handed).toEqual([])
-    expect(sync.workspace).toEqual(BASE)
-    expect(sync.rev).toBe(4)
-    sync.dispose()
-  })
-
+describe('storedFirst: the request goes on', () => {
   it('a 401 closes the cached reads; silence leaves the copy', async () => {
     store.set('kp-front-ws-i1', slot())
     const silent = pending()
@@ -182,18 +126,5 @@ describe('storedFirst: the server’s answer later', () => {
     await settle()
     expect(await storedCopy('i1')).toBeNull()
     b.dispose()
-  })
-
-  it('an answer that lands after the engine was let go is dropped', async () => {
-    store.set('kp-front-ws-i1', slot())
-    const req = pending()
-    const handed: unknown[] = []
-    const sync = new WorkspaceSync('i1', { storedFirst: true, onServerWorkspace: (ws) => handed.push(ws) })
-    await sync.init()
-    sync.dispose()
-    req.answer({ workspace: { from: 'server' }, workspace_rev: 6 })
-    await settle()
-    expect(handed).toEqual([])
-    expect((store.get('kp-front-ws-i1') as { workspace: unknown }).workspace).toEqual(BASE)
   })
 })

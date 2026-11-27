@@ -331,9 +331,10 @@ export interface WorkspaceSyncOptions {
   tabLock?: TabLockAnswers
   /**
    * The boot that stopped waiting for the server (lib/bootWait): init() answers from the stored
-   * copy at once when open() may serve it, and the workspace request goes on. Its answer lands
-   * later the way a cold reopen's does (see `takeLateAnswer`). Without a servable copy the open
-   * waits for the server as usual.
+   * copy at once when open() may serve it, and the workspace request goes on. Its body is not
+   * applied: the server's state reaches the open Einsatz the way it does after any reconnect – the
+   * live follow adopts it for a clean copy (useIncidentSync), the push of a dirty one meets the
+   * 409 and three-way merges. Without a servable copy the open waits for the server as usual.
    */
   storedFirst?: boolean
 }
@@ -1112,48 +1113,7 @@ export class WorkspaceSync {
     this.requireOpeningOwner()
     // what the caller hydrates the view from — every renumbering is said against it from now on
     this.viewState = opened.workspace ?? {}
-    const late = this.lateAnswer
-    this.lateAnswer = null
-    late?.then((answer) => this.takeLateAnswer(answer.workspace ?? {}, answer.workspace_rev), (e: unknown) => {
-      // ⚠️ A refusal does what it does to any request during use: a 401 closes the cached reads
-      // device-wide (as flush() does) and the session path signs the device out (api ·
-      // SESSION_EXPIRED_EVENT). Silence leaves the stored copy as it is.
-      if (this.ownsCache && e instanceof ApiError && e.status === 401) denyWorkspaceCache()
-    }).catch(() => {}) // a merge that threw keeps the stored copy, as open()'s fallback does
     return opened
-  }
-
-  /** The workspace request a `storedFirst` open answered without — see takeLateAnswer. */
-  private lateAnswer: ReturnType<typeof getWorkspace> | null = null
-
-  /**
-   * The server's answer to a `storedFirst` open, landing after the stored copy is on screen. The
-   * same rules as open()'s answer, against what the engine holds NOW: a clean copy takes the
-   * server's state (as a live-follow pull adopts it), a dirty one is three-way merged against its
-   * ancestor (open()'s cold-reopen merge), and at the same revision the edits stay verbatim.
-   * ⚠️ An answer older than what the engine holds is not applied (a save of ours, or the live
-   * poll, got there first); nor is one that lands while a push is in flight — that push's answer
-   * (a 409 merges against the server) settles it, as on any reconnect. The merge arms no push of
-   *  its own: an edit's save already did, and a restored dirty copy goes up through `pushOwed`,
-   *  which only the tab holding the edit lock calls.
-   */
-  private takeLateAnswer(server: Workspace, rev: number) {
-    if (!this.sessionActive || this.flushing || rev < this.entry.baseRev) return
-    if (!this.entry.dirty) {
-      const newer = rev > this.entry.baseRev
-      this.adoptServer(server, rev)
-      if (newer) this.handToView(server, rev)
-      return
-    }
-    if (rev === this.entry.baseRev) return
-    const merged = this.mergeReporting(this.entry.base ?? {}, this.entry.workspace, server)
-    this.reportRenumbered(this.viewState, merged)
-    this.saveSeq++
-    this.entry = { ...this.entry, workspace: merged, base: server, baseRev: rev, dirty: true, owner: this.entry.owner ?? cacheOwner ?? undefined, shape: this.shape }
-    this.writeCache()
-    this.opts.onRev?.(rev)
-    this.handToView(merged, rev)
-    this.setStatus('pending')
   }
 
   private async open(): Promise<{ workspace: Workspace | null; rev: number; fromCache: boolean }> {
@@ -1199,11 +1159,14 @@ export class WorkspaceSync {
     }
     const request = getWorkspace(this.incidentId)
     // The boot stopped waiting (storedFirst): serve what the silence fallback below would serve,
-    // now, and let init() hand the answer to takeLateAnswer. Only a copy every guard above let
-    // through: a parked or unparkable entry, an unread slot and a denial all wait as before.
+    // now; the request goes on for the editor latch and its refusal (WorkspaceSyncOptions ·
+    // storedFirst). Only a copy every guard above let through: a parked or unparkable entry, an
+    // unread slot and a denial all wait as before.
     if (this.opts.storedFirst && cached && !parkBlocked && mayRead(cached)) {
-      this.lateAnswer = request
-      request.catch(() => {}) // a selection cancelled before init() takes it must not leave it unhandled
+      // ⚠️ Its refusal does what a refusal does to any request during use: a 401 closes the
+      // cached reads device-wide (as flush() does), and the session path signs the device out
+      // (api · SESSION_EXPIRED_EVENT). Silence leaves the stored copy as it is.
+      request.catch((e: unknown) => { if (this.ownsCache && e instanceof ApiError && e.status === 401) denyWorkspaceCache() })
       return { workspace: cached.workspace, rev: cached.baseRev, fromCache: true }
     }
     try {

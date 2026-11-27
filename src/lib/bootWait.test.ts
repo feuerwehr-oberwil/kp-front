@@ -53,24 +53,22 @@ const meta = (id: string, over: Partial<IncidentMeta> = {}) =>
 
 const STORED = { from: 'cache' }
 
-/** App's boot, network steps only. `ms`: fake ms until the workspace is on screen; `serverAt`:
- *  until the server's state reached the view after that (null: never). */
+/** App's boot, network steps only. `ms`: fake ms until the workspace is on screen. What the
+ *  mounted view's follow does after that: bootWait.follow.test.ts. */
 async function boot(prefs: { incidentId?: string }, path = '/') {
   const start = Date.now()
   const selection = new IncidentSelection()
   selections.push(selection)
-  const out = { ms: 0, serverAt: null as number | null, opened: null as Awaited<ReturnType<InstanceType<typeof IncidentSelection>['open']>>, kind: '', selection }
-  const options = { onServerWorkspace: () => { out.serverAt = Date.now() - start } }
+  const out = { ms: 0, opened: null as Awaited<ReturnType<InstanceType<typeof IncidentSelection>['open']>>, kind: '', selection }
   const booted = await bootList(path, prefs, { now: Date.now() })
   out.kind = booted.kind
   if (booted.kind === 'stored') {
-    out.opened = await selection.open(booted.incident.id, booted.incident, { ...options, storedFirst: true })
+    out.opened = await selection.open(booted.incident.id, booted.incident, { storedFirst: true })
   } else {
     const plan = bootPlan(path, booted.list, prefs, { now: Date.now(), crash: null })
-    if (plan.kind === 'open') out.opened = await selection.open(plan.incident.id, plan.incident, options)
+    if (plan.kind === 'open') out.opened = await selection.open(plan.incident.id, plan.incident, {})
   }
   out.ms = Date.now() - start
-  if (out.kind === 'list' && out.opened) out.serverAt = out.ms
   return out
 }
 
@@ -138,17 +136,15 @@ describe('with a stored copy, the start waits 5 s for the server', () => {
     expect(unhandled).toEqual([])
   })
 
-  it('(b) slow link: the stored copy at 5 s, the server’s state merged in by 12 s', async () => {
+  // the server's state then follows within one round of the live follow (bootWait.follow.test.ts)
+  it('(b) slow link: the stored copy at 5 s, the open’s own request still sent once', async () => {
     net.link = 'slow'
     await seedCache('a')
     const out = await drive(boot({ incidentId: 'a' }), 10_000)
     expect(out.opened?.workspace).toEqual(STORED)
     expect(out.ms).toBeLessThan(BOOT_STORED_WAIT_MS + 100)
-    expect(out.serverAt).toBeGreaterThan(out.ms)
-    expect(out.serverAt).toBeLessThanOrEqual(12_100)
-    expect(out.selection.current?.workspace).toEqual(SERVER)
-    expect(out.selection.current?.rev).toBe(5)
     expect(net.requests).toEqual(ONE_LAUNCH)
+    expect(unhandled).toEqual([])
   })
 
   it('(c) normal link: the list in time, the server’s state at once, as before', async () => {
@@ -221,7 +217,6 @@ describe('a refusal is never answered with the stored copy', () => {
     const out = await drive(boot({ incidentId: 'a' }), 20_000)
     window.removeEventListener(SESSION_EXPIRED_EVENT, onExpired)
     expect(out.opened?.workspace).toEqual(STORED)
-    expect(out.serverAt).toBeNull()
     expect(expired).toBe(1)
     expect(await storedCopy('a')).toBeNull()
     expect(unhandled).toEqual([])

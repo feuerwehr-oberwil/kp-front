@@ -5,8 +5,8 @@
 // (WorkspaceSync · storedFirst) – as it does when the list came in time from the device's copy. Nothing is cut off: the list and the workspace request keep
 // their 20 s bound and their retries; only the boot stops waiting for them. Their answers land the
 // way they do during use – the list through the always-on watch (useIncidentWatch, which then
-// shows a newer alarm Einsatz with its banner), the workspace through the cold-reopen merge
-// (WorkspaceSync · takeLateAnswer). A refusal is never answered with the stored copy: one within
+// shows a newer alarm Einsatz with its banner), the server's workspace through the live follow
+// and the push's 409 merge (WorkspaceSyncOptions · storedFirst). A refusal is never answered with the stored copy: one within
 // the wait is the boot's as before, one after it is handled as during use.
 //
 // A first start, a new device, an Einsatz never opened here, a launch into /karte or /besuche, a

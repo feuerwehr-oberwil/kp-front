@@ -423,7 +423,9 @@ function IncidentApp() {
       const m = meta as IncidentMeta
       setIncidents((list) => {
         const arr = list ?? []
-        return arr.some((i) => i.id === id) ? arr.map((i) => (i.id === id ? m : i)) : [m, ...arr]
+        // (a stored-copy boot's meta is the device's: the watch may already hold the server's)
+        if (arr.some((i) => i.id === id)) return opts.storedFirst ? arr : arr.map((i) => (i.id === id ? m : i))
+        return [m, ...arr]
       })
     }
     // Demo: rebase the SCBA clocks to the visitor's ARRIVAL so a late visitor doesn't land on an
