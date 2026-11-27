@@ -468,7 +468,7 @@ describe('useIncidentSync – edit during a conflict merge', () => {
       const buildPayload = useCallback(() => ws, [ws])
       const status = useIncidentSync({
         sync, incidentId: 'i1', readOnly: false, buildPayload,
-        applyWorkspace: (w) => setWs(w as Saved), flushEvents, flushEventsBeacon,
+        applyWorkspace: (w) => { setWs(w as Saved); return true }, flushEvents, flushEventsBeacon,
       })
       return { ws, setWs, status }
     })

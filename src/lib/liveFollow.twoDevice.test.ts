@@ -108,7 +108,7 @@ async function openDevice() {
   const device = { sync, shown: (workspace ?? {}) as Ws, writer: sync.writerId }
   // stable identities: the saves are driven by `tap`, never by the hook's persistence effect
   const buildPayload = () => device.shown as never
-  const applyWorkspace = (ws: unknown) => { device.shown = ws as Ws }
+  const applyWorkspace = (ws: unknown) => { device.shown = ws as Ws; return true }
   const noop = () => {}
   renderHook(() => useIncidentSync({ sync, readOnly: false, incidentId: 'inc', buildPayload, applyWorkspace, flushEvents: noop, flushEventsBeacon: noop }))
   return device
