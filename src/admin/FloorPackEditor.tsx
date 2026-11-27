@@ -7,6 +7,7 @@ import { Chip } from '../components/Chip'
 import { Overlay } from '../lib/overlays'
 import { useMediaQuery } from '../lib/useIsPhone'
 import { joinShifts } from '../lib/floorPackBinding'
+import { frameBatch } from '../lib/frameBatch'
 import { ActionMenu } from './ui'
 import { hasMarkerWarnings } from './markerNotes'
 import { alignmentPagePreview, type AlignmentItem } from './planAlignmentApi'
@@ -166,8 +167,9 @@ export function FloorPackEditor({ item, onDraft, view, tabs, historyRef, onUndoS
   }
 
   /** the sheet with everything it changes – in the split's sheet column on a wide screen, in the
-   *  full-screen view on a phone, where the top bar says the mode's sentence (`bare`) */
-  const sheet = (bare: boolean) => <FloorSheet zoom={zoom} item={item} page={sheetPage} entries={stack.order} selected={selectedEntry?.key ?? null} mode={mode} labelOf={labelOf} indexOf={(k) => indexOf(stack, k)} zero={stack.zero}
+   *  full-screen view on a phone, where the top bar says the mode's sentence (`bare`) and the
+   *  zoom floats on the paper (`float`) */
+  const sheet = (bare: boolean, float?: ReactNode) => <FloorSheet zoom={zoom} item={item} page={sheetPage} entries={stack.order} selected={selectedEntry?.key ?? null} mode={mode} labelOf={labelOf} indexOf={(k) => indexOf(stack, k)} zero={stack.zero}
     onClip={(key, clip) => { setStack((s) => patchEntry(s, key, { clip })); setMode(regionsOn(sheetPage).some((e) => e.key !== key) ? { key, kind: 'join' } : null) }}
     onJoinAt={(key, at) => setMode({ key, kind: 'join', at })}
     onJoin={(key, at, toKey, there) => { setStack((s) => patchEntry(s, key, { join: { toKey, at, there } })); setMode(null) }}
@@ -180,7 +182,7 @@ export function FloorPackEditor({ item, onDraft, view, tabs, historyRef, onUndoS
         : e.join?.toKey === key ? { ...e, join: { ...e.join, there: [e.join.there[0] + dx, e.join.there[1] + dy] as Pt } } : e),
     }))}
     onMovePoint={(hit, at) => setStack((s) => moveJoinPoint(s, hit, [round(at[0]), round(at[1])]))}
-    onSelect={setSelected} bare={bare} />
+    onSelect={setSelected} bare={bare}>{float}</FloorSheet>
 
   return <section ref={section} className={`adm-floors${view === 'map' ? ' adm-floors-baronly' : ''}`} aria-label={C.title}
     onClickCapture={(e) => { if (phone && !fullOpen) opener.current = e.target instanceof Element ? e.target.closest('button') : null }}>
@@ -342,8 +344,7 @@ export function FloorPackEditor({ item, onDraft, view, tabs, historyRef, onUndoS
         </p>
       </div>
       <div className="adm-floors-full-sheet">
-        {sheet(true)}
-        <SheetZoom zoom={zoom} onZoom={setZoom} compact />
+        {sheet(true, <SheetZoom zoom={zoom} onZoom={setZoom} compact />)}
       </div>
       <div className="adm-floors-chips" role="group" aria-label={C.title}>
         {/* held while the sheet must show the mode's OWN floor – its rectangle, or a join's first
@@ -401,8 +402,10 @@ const CROP_BOX = { width: 64, height: 76 }
  *  `region` mode a drag draws the selected floor's rectangle; in `join` mode the first tap picks a
  *  point in the floor's own drawing, the second the same point in another drawing. Outside any
  *  mode a press GRABS: a join point if one is within reach, otherwise the rectangle under the
- *  finger. Coordinates are normalized to the page, exactly what the pack fit speaks. */
-function FloorSheet({ zoom, item, page, entries, selected, mode, labelOf, indexOf: indexOfKey, zero, onClip, onJoinAt, onJoin, onMove, onMovePoint, onSelect, bare }: {
+ *  finger. Coordinates are normalized to the page, exactly what the pack fit speaks.
+ *  TWO fingers move a zoomed sheet inside its viewport (`usePan`) and cancel what one finger
+ *  began, so every one-finger action – a join tap too – writes on release, never on the press. */
+function FloorSheet({ zoom, item, page, entries, selected, mode, labelOf, indexOf: indexOfKey, zero, onClip, onJoinAt, onJoin, onMove, onMovePoint, onSelect, bare, children }: {
   zoom: number; item: AlignmentItem; page: number; entries: FloorEntry[]; selected: string | null; mode: Mode
   labelOf: (e: FloorEntry) => string; indexOf: (key: string) => number; zero: string
   onClip: (key: string, clip: Clip) => void
@@ -415,6 +418,8 @@ function FloorSheet({ zoom, item, page, entries, selected, mode, labelOf, indexO
   onSelect: (key: string) => void
   /** no sentence on the paper – the phone's full-screen view says it in its top bar */
   bare: boolean
+  /** what floats on the paper (the phone's zoom) – inside it, so a finger there joins the pan */
+  children?: ReactNode
 }) {
   const C = appConfig.copy.admin.alignment.floors
   const source = `${item.id}:${page}`
@@ -422,12 +427,21 @@ function FloorSheet({ zoom, item, page, entries, selected, mode, labelOf, indexO
   const url = preview?.source === source ? preview.url : null
   const failed = preview?.source === source && preview.failed
   const [draft, setDraft] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null)
-  const moving = useRef<{ kind: 'clip'; key: string; from: Pt; clip: Clip } | { kind: 'point'; hit: JoinPointHit } | null>(null)
+  /** what one finger has taken hold of – and what was selected before the grab selected it */
+  const moving = useRef<({ kind: 'clip'; key: string; from: Pt; clip: Clip } | { kind: 'point'; hit: JoinPointHit }) & { before: string | null } | null>(null)
   const [shift, setShift] = useState<{ key: string; dx: number; dy: number } | null>(null)
   /** the join point under the finger while it is being dragged – drawn there, committed on release */
   const [held, setHeld] = useState<{ hit: JoinPointHit; at: Pt } | null>(null)
   const [aim, setAim] = useState<{ point: Pt; left: number; top: number } | null>(null)
-  const viewport = useRef<HTMLDivElement>(null)
+  /** a join tap's point, set on the press and written on the release – a second finger drops it */
+  const tap = useRef<Pt | null>(null)
+  /** drops whatever one finger had begun – nothing of it is written */
+  const cancel = () => {
+    // a grab selected what it took hold of; dropped, the selection goes back to what it was
+    if (moving.current?.before) onSelect(moving.current.before)
+    setAim(null); moving.current = null; tap.current = null; setShift(null); setHeld(null); setDraft(null)
+  }
+  const { viewport, handlers: pan } = usePan(cancel)
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 })
   const [pageAspect, setPageAspect] = useState(item.aspect ?? 1.414)
   const box = useRef<HTMLDivElement>(null)
@@ -446,7 +460,7 @@ function FloorSheet({ zoom, item, page, entries, selected, mode, labelOf, indexO
     })
     observer.observe(el)
     return () => observer.disconnect()
-  }, [])
+  }, [viewport])
   useEffect(() => {
     const el = box.current
     if (!el || typeof ResizeObserver === 'undefined') return
@@ -479,7 +493,7 @@ function FloorSheet({ zoom, item, page, entries, selected, mode, labelOf, indexO
   const down = (e: ReactPointerEvent) => {
     const p = norm(e); if (!p) return
     setAim({ point: p, left: e.clientX, top: e.clientY })
-    moving.current = null; setShift(null); setHeld(null)
+    moving.current = null; tap.current = null; setShift(null); setHeld(null)
     if (!mode) {
       // the points are the smallest marks and they sit INSIDE the rectangles, so they are asked
       // first: grabbing a staircase point must not drag the whole drawing away under it
@@ -491,7 +505,7 @@ function FloorSheet({ zoom, item, page, entries, selected, mode, labelOf, indexO
         // is the joined floor, or the sheet would turn to the other page under the finger
         const owner = entries.find((en) => en.key === point.key)
         onSelect(point.end === 'there' && owner?.join && owner.page !== page ? owner.join.toKey : point.key)
-        moving.current = { kind: 'point', hit: point }
+        moving.current = { kind: 'point', hit: point, before: selected }
         setHeld({ hit: point, at: clampToClip(p, joinPointClip(entries, point)) })
         return
       }
@@ -500,21 +514,24 @@ function FloorSheet({ zoom, item, page, entries, selected, mode, labelOf, indexO
       e.preventDefault(); e.stopPropagation()
       ;(e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId)
       onSelect(hit.key)
-      moving.current = { kind: 'clip', key: hit.key, from: p, clip: hit.clip }
+      moving.current = { kind: 'clip', key: hit.key, from: p, clip: hit.clip, before: selected }
       return
     }
     if (!modeEntry) return
     e.preventDefault(); e.stopPropagation()
-    if (mode.kind === 'join') {
-      if (!mode.at) { if (modeEntry.page === page && (!modeEntry.clip || inside(p, modeEntry.clip))) onJoinAt(mode.key, [round(p[0]), round(p[1])]); return }
-      const picked = visibleEntries.find((entry) => entry.key === selected && entry.key !== mode.key && (!entry.clip || inside(p, entry.clip)))
-      const other = picked ?? hitRegion(p, mode.key) ?? visibleEntries.find((entry) => entry.key !== mode.key && !entry.clip)
-      if (other) onJoin(mode.key, mode.at, other.key, [round(p[0]), round(p[1])])
-      return
-    }
+    if (mode.kind === 'join') { (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId); tap.current = p; return }
     if (modeEntry.page !== page) return
     ;(e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId)
     setDraft({ x0: p[0], y0: p[1], x1: p[0], y1: p[1] })
+  }
+  /** a join tap at `p`, the point pressed: the first point in the mode's own drawing, then the same
+   *  point in the selected (or tapped) other drawing */
+  const joinTap = (p: Pt) => {
+    if (mode?.kind !== 'join' || !modeEntry) return
+    if (!mode.at) { if (modeEntry.page === page && (!modeEntry.clip || inside(p, modeEntry.clip))) onJoinAt(mode.key, [round(p[0]), round(p[1])]); return }
+    const picked = visibleEntries.find((entry) => entry.key === selected && entry.key !== mode.key && (!entry.clip || inside(p, entry.clip)))
+    const other = picked ?? hitRegion(p, mode.key) ?? visibleEntries.find((entry) => entry.key !== mode.key && !entry.clip)
+    if (other) onJoin(mode.key, mode.at, other.key, [round(p[0]), round(p[1])])
   }
   const move = (e: ReactPointerEvent) => {
     const p = norm(e); if (!p) return
@@ -524,6 +541,7 @@ function FloorSheet({ zoom, item, page, entries, selected, mode, labelOf, indexO
     if (draft) setDraft({ ...draft, x1: p[0], y1: p[1] })
   }
   const up = () => {
+    if (tap.current) { const p = tap.current; tap.current = null; joinTap(p); return }
     if (moving.current?.kind === 'point') {
       const { hit } = moving.current; moving.current = null
       // one undo step per drag; a point put back where it was changes nothing and makes none
@@ -547,7 +565,7 @@ function FloorSheet({ zoom, item, page, entries, selected, mode, labelOf, indexO
   const pct = (v: number) => `${(v * 100).toFixed(2)}%`
   const hint = modeHint(mode, entries, labelOf)
   const shifted = (key: string, p: Pt): Pt => shift?.key === key ? [p[0] + shift.dx, p[1] + shift.dy] : p
-  return <div className="adm-floors-paper"><div ref={viewport} className="adm-floors-viewport"><div style={{ width: viewportSize.width ? Math.min(viewportSize.width, viewportSize.height * pageAspect) * zoom : `${zoom * 100}%` }} ref={box} className={`adm-floors-sheet${mode ? ' drawing' : ''}`} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerLeave={() => setAim(null)} onPointerCancel={() => { setAim(null); moving.current = null; setShift(null); setHeld(null); setDraft(null) }}>
+  return <div className="adm-floors-paper" {...pan}><div ref={viewport} className="adm-floors-viewport"><div style={{ width: viewportSize.width ? Math.min(viewportSize.width, viewportSize.height * pageAspect) * zoom : `${zoom * 100}%` }} ref={box} className={`adm-floors-sheet${mode ? ' drawing' : ''}`} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerLeave={() => setAim(null)} onPointerCancel={cancel}>
     {failed ? <div className="adm-floors-sheet-wait" role="alert">{appConfig.copy.admin.alignment.previewFailed}</div>
       : url ? <img src={url} alt={fillTemplate(C.page, { n: page + 1 })} draggable={false} onLoad={(e) => { if (e.currentTarget.naturalHeight) setPageAspect(e.currentTarget.naturalWidth / e.currentTarget.naturalHeight) }} />
       : <div className="adm-floors-sheet-wait"><LoadingStatus size="surface">{C.sheetLoading}</LoadingStatus></div>}
@@ -586,9 +604,85 @@ function FloorSheet({ zoom, item, page, entries, selected, mode, labelOf, indexO
       backgroundImage: `url("${url}")`, backgroundSize: `${size.width * 3}px ${size.height * 3}px`,
       backgroundPosition: `${80 - aim.point[0] * size.width * 3}px ${80 - aim.point[1] * size.height * 3}px`,
     }}><span /></div>}
+    {children}
   </div>
 }
 const round = (v: number) => Math.round(v * 10000) / 10000
+
+/** The sheet's two-finger pan. `viewport` is the element that scrolls; `handlers` go on the
+ *  paper around it, so a finger on the hint that floats over the sheet counts too. With two
+ *  touch pointers down the scroll position follows their midpoint 1:1, clamped to the sheet's
+ *  edges (a sheet that fits does not move; a reverse move at an edge pans at once); no zoom –
+ *  that stays the buttons. The second pointer calls `cancel`, and the sheet sees none of the
+ *  gesture's events until its last pointer has lifted. Capture phase, so the sheet's own
+ *  handlers never run for it. Only touch counts: a mouse or a pen scrolls as before, by wheel
+ *  and scrollbars. */
+function usePan(cancel: () => void) {
+  const viewport = useRef<HTMLDivElement>(null)
+  const pointers = useRef(new Map<number, Pt>())
+  /** set from the second pointer's press until the last pointer lifts */
+  const panning = useRef(false)
+  /** the two pointers' midpoint at the last step, and the scroll position set for it */
+  const from = useRef<{ mid: Pt; scroll: Pt } | null>(null)
+  const mid = (): Pt | null => {
+    const [a, b] = pointers.current.values()
+    return a && b ? [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2] : null
+  }
+  const anchor = () => {
+    const el = viewport.current, m = mid()
+    from.current = el && m ? { mid: m, scroll: [el.scrollLeft, el.scrollTop] } : null
+  }
+  /** moves the sheet by the midpoint's travel since the last step, clamped, and re-anchors there –
+   *  once per frame, so that the two pointers' moves of one touch sample count as one travel and
+   *  what an edge swallowed is not owed back */
+  const step = () => {
+    const el = viewport.current, m = mid(), last = from.current
+    if (!el || !m || !last) return
+    const scroll: Pt = [
+      Math.max(0, Math.min(el.scrollWidth - el.clientWidth, last.scroll[0] - (m[0] - last.mid[0]))),
+      Math.max(0, Math.min(el.scrollHeight - el.clientHeight, last.scroll[1] - (m[1] - last.mid[1]))),
+    ]
+    el.scrollLeft = scroll[0]; el.scrollTop = scroll[1]
+    from.current = { mid: m, scroll }
+  }
+  /** made on the first event and kept: its step reads only refs, so it never goes stale */
+  const frames = useRef<ReturnType<typeof frameBatch> | null>(null)
+  const batch = () => (frames.current ??= frameBatch(step))
+  /** a pointer comes or goes: the travel so far is applied before the pair changes */
+  const flush = () => batch().flush()
+  const lift = (e: ReactPointerEvent) => {
+    if (e.pointerType !== 'touch') return
+    if (panning.current) flush()
+    pointers.current.delete(e.pointerId)
+    if (!panning.current) return
+    e.stopPropagation()
+    anchor()
+    if (pointers.current.size === 0) panning.current = false
+  }
+  const handlers = {
+    onPointerDownCapture: (e: ReactPointerEvent) => {
+      if (e.pointerType !== 'touch') return
+      // a fresh touch: no pointer of an earlier gesture can still count
+      if (e.isPrimary) { pointers.current.clear(); panning.current = false }
+      if (panning.current) flush()
+      pointers.current.set(e.pointerId, [e.clientX, e.clientY])
+      if (pointers.current.size < 2 && !panning.current) return
+      e.stopPropagation()
+      if (!panning.current) { panning.current = true; cancel() }
+      anchor()
+    },
+    onPointerMoveCapture: (e: ReactPointerEvent) => {
+      if (e.pointerType !== 'touch' || !pointers.current.has(e.pointerId)) return
+      pointers.current.set(e.pointerId, [e.clientX, e.clientY])
+      if (!panning.current) return
+      e.stopPropagation()
+      batch().schedule()
+    },
+    onPointerUpCapture: lift,
+    onPointerCancelCapture: lift,
+  }
+  return { viewport, handlers }
+}
 /** how close a press has to be to a join point to grab it, in screen pixels – a 6px circle is a
  *  mark to read, not a target to hit, so the reach is a fingertip's */
 const POINT_GRAB = 22
