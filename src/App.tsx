@@ -284,8 +284,9 @@ function IncidentApp() {
   const [dismissedAlarms, setDismissedAlarms] = useState<Set<number>>(loadDismissedAlarms)
   // The boot that stopped waiting for the server (lib/bootWait): which Einsatz it opened from its
   // stored copy and that copy's last sync – the offline line names that time while the Einsatz is
-  // on screen – and the device's list it decided from, the watch's baseline for a newer alarm.
-  const bootStored = useRef<{ id: string; lastSyncedAt: number | null } | null>(null)
+  // on screen (`line` is the text as it was last shown) – and the device's list it decided from,
+  // the watch's baseline for a newer alarm.
+  const bootStored = useRef<{ id: string; lastSyncedAt: number | null; line: string } | null>(null)
   const bootDecidedFrom = useRef<IncidentMeta[] | null>(null)
   // always-on incident-list watch: with alarm auto-open an Einsatz can appear with no human
   // in the loop — keep the list fresh and announce mid-session arrivals (banner, never a
@@ -293,7 +294,9 @@ function IncidentApp() {
   const onWatchList = useCallback((list: IncidentMeta[], offline: boolean) => {
     setIncidents((prev) => (sameIncidentList(prev, list) ? prev : list))
     if (!offline) bootStored.current = null // the server answered: the stored copy's time is history
-    setListNote(offline ? offlineLine(bootStored.current?.lastSyncedAt ?? null) : null)
+    const line = offline ? offlineLine(bootStored.current?.lastSyncedAt ?? null) : null
+    if (bootStored.current && line != null) bootStored.current.line = line
+    setListNote(line)
   }, [])
   // (off for a link session: the list endpoint isn't on its allowlist — it would leak every
   // other Einsatz — so the watch would just 403 every 30 s)
@@ -439,9 +442,9 @@ function IncidentApp() {
     setActiveId(id)
     // the line's time is that Einsatz's copy only: with another one on screen it goes at once
     if (bootStored.current && bootStored.current.id !== id) {
-      const timed = bootStored.current.lastSyncedAt
+      const shown = bootStored.current.line
       bootStored.current = null
-      setListNote((note) => offlineLineUntimed(note, timed))
+      setListNote((note) => offlineLineUntimed(note, shown))
     }
     setCoverId(opening ? id : null)
     setRemount((n) => n + 1)
@@ -538,9 +541,10 @@ function IncidentApp() {
       // open that copy now, over the device's list. The requests go on; the watch and the engine
       // take their answers as during use.
       if (booted.kind === 'stored') {
-        bootStored.current = { id: booted.incident.id, lastSyncedAt: booted.lastSyncedAt }
+        const line = offlineLine(booted.lastSyncedAt)
+        bootStored.current = { id: booted.incident.id, lastSyncedAt: booted.lastSyncedAt, line }
         bootDecidedFrom.current = booted.list
-        setListNote(offlineLine(booted.lastSyncedAt))
+        setListNote(line)
         setIncidents(booted.list)
         await bootOpen(booted.incident, { storedFirst: true })
         return

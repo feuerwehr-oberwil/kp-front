@@ -68,7 +68,9 @@ export function offlineLine(lastSyncedAt: number | null): string {
 }
 
 /** The line once ANOTHER Einsatz is on screen than the one whose stored copy it timed: the same
- *  line without the time. Any other note (a failed list, none at all) stays as it is. */
-export function offlineLineUntimed(note: string | null, timed: number | null): string | null {
-  return timed != null && note === offlineLine(timed) ? offlineLine(null) : note
+ *  line without the time. `shown` is the timed line as it was last shown – not formatted again
+ *  here, because the same time reads differently after midnight («von 23:50» → «von 26.11.
+ *  23:50»). Any other note (a failed list, none at all) stays as it is. */
+export function offlineLineUntimed(note: string | null, shown: string): string | null {
+  return note === shown ? offlineLine(null) : note
 }

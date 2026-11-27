@@ -233,10 +233,18 @@ describe('offlineLine', () => {
 
   it('loses the time when another Einsatz is on screen, and leaves any other note alone', () => {
     vi.setSystemTime(new Date(2026, 10, 27, 15, 0))
-    const at = new Date(2026, 10, 27, 14, 5).getTime()
-    expect(offlineLineUntimed(offlineLine(at), at)).toBe('Offline – gespeicherte Daten werden angezeigt.')
-    expect(offlineLineUntimed('Liste konnte nicht geladen werden', at)).toBe('Liste konnte nicht geladen werden')
-    expect(offlineLineUntimed(null, at)).toBeNull()
-    expect(offlineLineUntimed(offlineLine(null), null)).toBe(offlineLine(null))
+    const shown = offlineLine(new Date(2026, 10, 27, 14, 5).getTime())
+    expect(offlineLineUntimed(shown, shown)).toBe('Offline – gespeicherte Daten werden angezeigt.')
+    expect(offlineLineUntimed('Liste konnte nicht geladen werden', shown)).toBe('Liste konnte nicht geladen werden')
+    expect(offlineLineUntimed(null, shown)).toBeNull()
+  })
+
+  it('loses the time across midnight too, when the same time would now read with its day', () => {
+    vi.setSystemTime(new Date(2026, 10, 26, 23, 55))
+    const at = new Date(2026, 10, 26, 23, 50).getTime()
+    const shown = offlineLine(at) // «… von 23:50 …»
+    vi.setSystemTime(new Date(2026, 10, 27, 0, 5))
+    expect(offlineLine(at)).not.toBe(shown) // formatted now, it carries the day
+    expect(offlineLineUntimed(shown, shown)).toBe('Offline – gespeicherte Daten werden angezeigt.')
   })
 })
