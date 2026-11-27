@@ -626,10 +626,12 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     the Atemschutz head detail and the Meteo details (30.09.2026:
     `.tb-weather-pop` wore `--surface`, a lighter slate than the bar at night).
     **The blur is `--float-blur`, never its value** (`styles/paintCost.test.ts`), and it is `none`
-    at night (perf sweep 26.11.2026: the night glass is 97 % opaque, and every map frame re-blurs
-    each bar). ⚠️ Without the blur a bar is no longer the containing block of its positioned
-    children: a bar that hangs an ABSOLUTE child must be positioned itself; a FIXED child then
-    counts from the viewport at night and from the bar by day, so it must not depend on either
+    in both themes: the night glass is 97 % opaque (perf sweep 26.11.2026, every map frame
+    re-blurred each bar), and the day glass is solid `--surface` (owner pick, 27.11.2026: at 90 %
+    without the blur map labels read through the top bar). The token stays for a re-themed
+    deployment with a see-through glass. ⚠️ Without the blur a bar is no longer the containing
+    block of its positioned children: a bar that hangs an ABSOLUTE child must be positioned
+    itself; a FIXED child counts from the viewport, so it must not depend on the bar
     (`.wb-join` drops its blur while its fixed Gebäude card stands).
     **Nothing is dark by day**: the last exception, the Trupp marker's action bar (`.wb-pill-acts`,
     `--ink-fill`), docks at the foot in the ✥ ⟳ bar's glass on every screen since 18.11.2026
