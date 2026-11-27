@@ -463,7 +463,10 @@ function FloorSheet({ zoom, item, page, entries, selected, mode, labelOf, indexO
       if (point) {
         e.preventDefault(); e.stopPropagation()
         ;(e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId)
-        onSelect(point.key)
+        // the point's OWN drawing is selected – for the far end of a join from another page that
+        // is the joined floor, or the sheet would turn to the other page under the finger
+        const owner = entries.find((en) => en.key === point.key)
+        onSelect(point.end === 'there' && owner?.join && owner.page !== page ? owner.join.toKey : point.key)
         moving.current = { kind: 'point', hit: point }
         setHeld({ hit: point, at: clampToClip(p, joinPointClip(entries, point)) })
         return

@@ -248,6 +248,21 @@ describe('cross-page joins', () => {
     expect(onDraft.mock.lastCall?.[0].dirty).toBe(false)
   })
 
+  it('dragging the far end of a cross-page join keeps the sheet on that end\'s page', () => {
+    const onDraft = vi.fn()
+    const joined = { ...item, page_count: 2, floors: [{ page: 0, index: 0, name: null, join: { to: 1, at: [0.2, 0.3] as [number, number], there: [0.65, 0.7] as [number, number] } }, { page: 1, index: 1, name: null }] }
+    const { container } = render(<FloorPackEditor item={joined} view="edit" onDraft={onDraft} />)
+    fireEvent.click(screen.getAllByRole('listitem')[0]) // +1, on page 2 – where the join lands
+    expect(screen.getByText('Seite 2 von 2')).toBeTruthy()
+    const sheet = container.querySelector<HTMLElement>('.adm-floors-sheet')!
+    sheet.getBoundingClientRect = () => ({ left: 0, top: 0, width: 1000, height: 500, right: 1000, bottom: 500, x: 0, y: 0, toJSON: () => ({}) })
+    fireEvent.pointerDown(sheet, { clientX: 650, clientY: 350, pointerId: 1 })
+    expect(screen.getByText('Seite 2 von 2')).toBeTruthy()
+    fireEvent.pointerMove(sheet, { clientX: 700, clientY: 400, pointerId: 1 })
+    fireEvent.pointerUp(sheet, { clientX: 700, clientY: 400, pointerId: 1 })
+    expect(onDraft.mock.lastCall?.[0].floors[1].join).toEqual({ to: 1, at: [0.2, 0.3], there: [0.7, 0.8] })
+  })
+
   it('cancels a crop move without a later pointer release committing it', () => {
     const onDraft = vi.fn()
     const clipped = { ...item, page_count: 1, floors: [{ page: 0, index: 0, name: null, clip: [0.1, 0.1, 0.5, 0.5] as [number, number, number, number] }] }
