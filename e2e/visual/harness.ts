@@ -186,15 +186,17 @@ export async function retireIncident(baseURL: string, id: string) {
 }
 
 /** Nothing left to arrive: fonts in, no shell-trail loader (components/ShellLoader — its viewBox
- *  is its only stable mark), no opening cover, no image still decoding, and — inside an Einsatz —
- *  every outbox acknowledged: the head's pill says `data-sync="synced"` (panels/IncidentSwitcher –
- *  it draws no ✓ since round 2b). The opening saves once; a shot taken while that save was in
- *  flight showed the «pending» mark instead of the ✓ (09.10.2026). */
+ *  is its only stable mark), no opening cover, no image still decoding, no toast, and — inside an
+ *  Einsatz — every outbox acknowledged: the head's pill says `data-sync="synced"`
+ *  (panels/IncidentSwitcher – it draws no ✓ since round 2b). The opening saves once; a shot taken
+ *  while that save was in flight showed the «pending» mark instead of the ✓ (09.10.2026). A toast
+ *  lives a few seconds of REAL time (lib/ui · toast), so a shot with one in it is a race: the first
+ *  tap of a state arms the alarm tone, and «Alarmton an» stood beside the symbol editor. */
 export async function settled(page: Page) {
   await page.evaluate(() => document.fonts.ready)
   await page.waitForFunction((faces) => faces.every((face) => document.fonts.check(face)), FACES, { polling: POLL_MS, timeout: 10_000 })
   await page.waitForFunction(() => {
-    if (document.querySelector('svg[viewBox="480 245 270 315"], .login.splash')) return false
+    if (document.querySelector('svg[viewBox="480 245 270 315"], .login.splash, .toaster .toast')) return false
     const sync = document.querySelector('[data-sync]')
     if (sync && sync.getAttribute('data-sync') !== 'synced') return false
     return [...document.images].every((img) => img.complete)

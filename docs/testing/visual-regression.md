@@ -69,6 +69,10 @@ pinned (`e2e/visual/harness.ts`):
   canvas does not wait for a web font. One early local run drew the Karte's labels 1–2 px off
   against its baseline; a label measured before Spline Sans Mono arrived is the likeliest cause
   (see «Found on the way»), and nothing like it has shown since the fonts are requested first.
+- **No toast.** A toast lives a few seconds of real time, so a shot with one in it is a race; the
+  shot waits until none stands (`harness · settled`). The first tap of a state arms the alarm tone,
+  and «Alarmton an» stood beside the symbol editor (27.11.2026). The two Karte home states seed a
+  device name too: without one, «Name dieses Geräts» opens over the home.
 - **A drawn Karte.** The map canvas must give two identical pictures 400 ms apart before the shot;
   `toHaveScreenshot` itself then waits for two identical pictures of the page.
 
