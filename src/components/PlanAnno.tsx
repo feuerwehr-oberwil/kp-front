@@ -3,6 +3,7 @@
 // the Whiteboard renders one per anno (and per storey it covers on the Gebäude stack) and owns
 // every state this reads. Lage ↔ Plan parity: the Karte's twin is MapMarkers (docs/tactical-objects.md).
 
+import { memo } from 'react'
 import type React from 'react'
 import type { BoardAnno, BoardTool, CaptionMode, Trupp } from '../types'
 import type { SymbolsApi } from '../lib/useSymbols'
@@ -91,6 +92,9 @@ export interface PlanAnnoBoard {
   trupps: Trupp[]
   /** per-Trupp alarm tier – a chip wears its Trupp's (lib/truppLines · truppMarkerTone) */
   truppSeverities?: Record<string, 1 | 2>
+  /** the hazard tables' version (lib/useHazardData): a Gefahrentafel resolves its Kemler number in
+   *  render, so the memo'd anno must render again when the ADR table lands */
+  hazardVersion: number
   /** a Trupp chip reports its rendered size (components/useWbChipSizes) */
   chipRef: (el: HTMLElement | null) => void
   chipDown: ReturnType<typeof useWbChipDrag>['chipDown']
@@ -136,8 +140,10 @@ interface Props {
   spoke?: { dx: number; dy: number }
 }
 
-/** One non-ink anno on the Plan, positioned in board px; see the file header. */
-export function PlanAnno({ a, selected, grouped, networked, editing, trailShown, board, spoke }: Props) {
+/** One non-ink anno on the Plan, positioned in board px; see the file header. Memo'd: the board
+ *  hands each the same `board` object while nothing in it changes (Whiteboard · annoBoard), so a
+ *  board render that touches none of an anno's props renders no anno. */
+export const PlanAnno = memo(function PlanAnno({ a, selected, grouped, networked, editing, trailShown, board, spoke }: Props) {
   const {
     sW, sH, scale, mapY, stack, symBase, txtBase, tool, readOnly, captionMode, sym, annos, trupps, truppSeverities,
     chipRef, chipDown, setEditId, setSelId, setNotePanelId, patchCommit, typeText, endTextEdit, textFieldEnded,
@@ -496,4 +502,4 @@ export function PlanAnno({ a, selected, grouped, networked, editing, trailShown,
       })()}
     </div>
   )
-}
+})
