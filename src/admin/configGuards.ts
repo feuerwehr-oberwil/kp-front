@@ -135,9 +135,10 @@ export function tooLongNote(
  * `writable` is the editor's own filter: the rows the server takes. A row it leaves out is held
  * back – a row being typed – unless the SERVER delivered it so: the server serves a stored row
  * past a bound as stored, and such a row stays in the save exactly as stored, also while the
- * admin's edit of it does not fit yet. Only an edit that fits or deleting the row takes it out.
- * An edit of another row therefore never drops it; the server refuses the save instead (the
- * autosave badge) until the admin fixes it.
+ * admin's edit of it does not fit yet. Only an edit that fits or deleting the row takes it out;
+ * once written fitting, the row is an ordinary one, so a later half-typed edit of it is held back
+ * and never brings the old value back. An edit of another row therefore never drops it; the
+ * server refuses the save instead (the autosave badge) until the admin fixes it.
  *
  * Stored = a row of `stored` (the list in the draft) when the first edit begins that `writable`
  * leaves out; the editor never writes such a row itself, so it came from the server. Pass every
@@ -145,7 +146,7 @@ export function tooLongNote(
  * and write `saved(rows)`.
  */
 export function useStoredRows<T extends object>(stored: readonly T[], writable: (rows: readonly T[]) => readonly T[]) {
-  const held = useRef<ReadonlySet<T> | null>(null)
+  const held = useRef<Set<T> | null>(null)
   const origin = useRef(new WeakMap<T, T>())
   const heldRows = () => {
     if (!held.current) {
@@ -164,7 +165,11 @@ export function useStoredRows<T extends object>(stored: readonly T[], writable: 
     saved: (rows: readonly T[]): T[] => {
       const ok = writable(rows)
       return rows.flatMap((r) => {
-        if (ok.includes(r)) return [r]
+        if (ok.includes(r)) {
+          heldRows().delete(r)
+          origin.current.delete(r)
+          return [r]
+        }
         const o = original(r)
         return o ? [o] : []
       })

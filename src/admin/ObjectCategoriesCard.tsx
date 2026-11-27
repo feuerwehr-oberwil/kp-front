@@ -19,9 +19,16 @@ const KINDS: ObjectKind[] = ['einsatzobjekt', 'objekt'] // «depot» is retired 
 const NEW_COLOR = '#64748b'
 /** what an `ink` category looks like here: the token the Karte draws it with */
 const INK_SWATCH = 'var(--obj-plans)'
-/** Each comma-separated glob held to the schema's length, the way `maxLength` holds a box – cut by
- *  code point, as pydantic counts, so «🚒» is never split into half a character the API refuses. */
-const capModule = (m: string) => [...m.trim()].slice(0, TEXT_MAX_LENGTH['map.objectCategories.0.match.modules.0']).join('')
+const MODULE_MAX = TEXT_MAX_LENGTH['map.objectCategories.0.match.modules.0']
+const chars = (s: string | undefined) => [...(s ?? '')].length
+/** The globs of the modules box. A new or grown glob is held to the schema's length, the way
+ *  `maxLength` holds a box – cut by code point, as pydantic counts, so «🚒» is never split into
+ *  half a character the API refuses. A stored glob already past it is never cut: it stays as it
+ *  is, or as the admin shortens it (compared with the glob at the same place `before`), and the
+ *  row's warning names it until it fits. */
+const parseModules = (text: string, before: readonly string[]) => text.split(',').map((m) => m.trim())
+  .map((m, k) => (before.includes(m) || chars(m) < chars(before[k]) ? m : [...m].slice(0, MODULE_MAX).join('')))
+  .filter(Boolean)
 
 export function ObjectCategoriesCard() {
   const { draft, set } = useConfig()
@@ -120,7 +127,7 @@ export function ObjectCategoriesCard() {
             </SettingRow>
             <SettingRow label={C.catModules} tip={C.catModulesTip}>
               <input className="adm-input adm-input-mono" type="text" value={modules.join(', ')} placeholder={C.catModulesPlaceholder}
-                onChange={(e) => patch(i, { match: { ...row.match, modules: e.target.value.split(',').map(capModule).filter(Boolean) } })} />
+                onChange={(e) => patch(i, { match: { ...row.match, modules: parseModules(e.target.value, modules) } })} />
             </SettingRow>
             {problem && <SettingsNote><span className="adm-state adm-state-err">{problem}</span></SettingsNote>}
           </RecordRows>

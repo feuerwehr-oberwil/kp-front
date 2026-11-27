@@ -234,6 +234,15 @@ describe('a stored row past its bound stays in the save', () => {
       expect(sent()?.report?.links).toEqual([ok])
     })
 
+    it('treats a link written short as an ordinary one: a half-typed edit of it is held back', async () => {
+      await act(async () => { render(<ConfigProvider><ReportSection /></ConfigProvider>) })
+      await type((await waitFor(titles))[0], 'Kurz')
+      await settle()
+      await type(screen.getAllByPlaceholderText(R.linkUrlPlaceholder)[0], '')
+      await settle()
+      expect(sent()?.report?.links).toEqual([ok])
+    })
+
     it('lets the admin shorten a stored URL past its bound', async () => {
       const url = `https://formulare.example/?q=${'x'.repeat(TEXT_MAX_LENGTH['report.links.0.url'])}`
       apiGet.mockResolvedValue({ ...structuredClone(STATION), report: { ...STATION.report, links: [{ ...ok, url }] } })
@@ -290,6 +299,21 @@ describe('a stored row past its bound stays in the save', () => {
       await remove(M.catRemove, 0)
       await settle()
       expect(sent()?.map?.objectCategories).toEqual([ok])
+    })
+
+    it('never cuts a stored glob: an edit of the box keeps it, shortening it is the admin\'s', async () => {
+      const stored = { ...long, match: { modules: ['modul5-pv*', 'm'.repeat(70)] } }
+      apiGet.mockResolvedValue({ ...structuredClone(STATION), map: { objectCategories: [stored, ok] } })
+      await act(async () => { render(<ConfigProvider><ObjectCategoriesCard /></ConfigProvider>) })
+      await waitFor(names)
+      const modules = () => screen.getAllByPlaceholderText(M.catModulesPlaceholder)[0] as HTMLInputElement
+      await type(modules(), `modul6-pv*, ${'m'.repeat(70)}`)
+      await type(names()[1], 'Andere')
+      await settle()
+      expect(modules().value).toBe(`modul6-pv*, ${'m'.repeat(70)}`)
+      expect(sent()?.map?.objectCategories?.[0]).toEqual(stored)
+      await type(modules(), `modul6-pv*, ${'m'.repeat(69)}`)
+      expect(modules().value).toBe(`modul6-pv*, ${'m'.repeat(69)}`)
     })
   })
 })
