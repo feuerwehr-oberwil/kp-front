@@ -41,7 +41,7 @@ from . import connector_state, station_index
 from .credentials import get as credential
 from .credentials import load as load_credentials
 from .models import ConnectorState, DeploymentConfig, Incident, Personnel, PersonnelExternalIdentity
-from .personnel import attach_external_identity, load_roster_ranks
+from .personnel import RosterUnreadableError, attach_external_identity, load_roster_ranks
 from .roster_snapshot_ingest import (
     DEFAULT_INTERVAL_MIN,
     DEFAULT_MAX_DEACTIVATE_PCT,
@@ -201,6 +201,8 @@ async def run(
     try:
         people, rows = await load_people(db)
         ranks = await load_roster_ranks(db)
+        if ranks is None:  # reported as a failed run below: nothing written, the card says why
+            raise RosterUnreadableError("roster.ranks")
         rec = reconcile(
             raw,
             people,

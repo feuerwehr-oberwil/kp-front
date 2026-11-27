@@ -250,7 +250,7 @@ async def import_csv_preview(
     The old import wrote first and explained afterwards, under a green «14 importiert» badge.
     """
     parsed = _parse(await _csv_text(file))
-    ranks, has_own = await personnel_svc.load_roster_ranks_info(db)
+    ranks, has_own = await _station_ranks(db)
     groups = personnel_svc.group_unknown_ranks(parsed.rows, ranks)
     plan = personnel_svc.plan_roster_rows(parsed.rows, await personnel_svc.load_roster_index(db))
     return RosterImportPreviewOut(
@@ -303,7 +303,7 @@ async def import_csv(
     """
     text = await _csv_text(file)
     parsed = _parse(text)
-    ranks, _has_own = await personnel_svc.load_roster_ranks_info(db)
+    ranks, _has_own = await _station_ranks(db)
     groups = personnel_svc.group_unknown_ranks(parsed.rows, ranks)
     decided = _decisions(decisions)
 
@@ -426,6 +426,15 @@ def _divera_unreachable(e: Exception) -> str:
     `audio.transcribe` reports an unreachable STT server.
     """
     return f"Divera nicht erreichbar: {e if isinstance(e, DiveraApiError) else type(e).__name__}"
+
+
+async def _station_ranks(db: AsyncSession) -> tuple[list[dict], bool]:
+    """The CSV import's rank list, or 409 when the stored roster cannot be read: the import maps
+    and adopts ranks, and must not do it against a list the station did not choose."""
+    info = await personnel_svc.load_roster_ranks_info(db)
+    if info is None:
+        raise HTTPException(status_code=409, detail=str(personnel_svc.RosterUnreadableError("roster.ranks")))
+    return info
 
 
 @router.post("/sync/preview", response_model=PersonnelSyncPreview)

@@ -308,3 +308,30 @@ async def test_list_follows_first_last_in_both_spelling_and_sort(client, editor,
     # The stored split is served untouched — only the joined name follows the setting.
     anna = next(p for p in (await client.get("/api/personnel")).json() if p["first_name"] == "Anna")
     assert (anna["first_name"], anna["last_name"]) == ("Anna", "Brunner")
+
+
+@pytest.mark.parametrize("ranks", [None, ["Wm"], [{"key": "wm"}]], ids=["null", "strings", "no-label"])
+async def test_a_rank_list_it_cannot_read_stops_the_writers(
+    client, editor, admin_login, db_session, monkeypatch, ranks
+):
+    """The Divera sync would derive ranks against the shipped list, the CSV import would map and
+    adopt against it: both refuse, and say why."""
+    import app.personnel as personnel
+    from app.models import DeploymentConfig
+
+    async def members(*_a, **_kw):
+        return [
+            {"divera_id": 1, "name": "Muster Max", "first_name": "Max", "last_name": "Muster", "qualifications": ["Wm"]}
+        ]
+
+    monkeypatch.setattr(personnel, "fetch_divera_members", members)
+    db_session.add(DeploymentConfig(id=1, config_json={"roster": {"ranks": ranks}}))
+    await db_session.commit()
+    assert await personnel.load_roster_ranks_info(db_session) is None
+    with pytest.raises(personnel.RosterUnreadableError, match=r"roster\.ranks"):
+        await personnel.build_sync_preview(db_session)
+
+    await _login(client, editor)
+    files = {"file": ("roster.csv", b"name,rank\nMuster Max,Wm\n", "text/csv")}
+    r = await client.post("/api/personnel/import-csv/preview", files=files)
+    assert r.status_code == 409 and "lassen sich nicht lesen" in r.json()["detail"]

@@ -67,13 +67,14 @@ _RESPONSE_KINDS: tuple[ResponseKind, ...] = ("coming", "not_coming", "other")
 
 class RosterUnreadableError(ValueError):
     """The stored ``roster`` part is not the shape it must be, so a WRITER that depends on it
-    writes nothing: the Divera sync and its preview, the nightly level. Raised by the writer when
-    a ``load_roster_*`` reader answered ``None``; the message is for a person."""
+    writes nothing: the Divera sync and its preview, the nightly level, the roster snapshot, the
+    CSV import and its rank adoption. Raised by the writer when a ``load_roster_*`` reader
+    answered ``None``; the message is for a person."""
 
     def __init__(self, part: str) -> None:
         super().__init__(
             f"Die Mannschafts-Einstellungen der Station lassen sich nicht lesen ({part}) – "
-            "der Abgleich schreibt nichts. Bitte die Konfiguration unter Sicherung prüfen."
+            "es wird nichts geschrieben. Bitte die Konfiguration unter Sicherung prüfen."
         )
 
 
@@ -282,8 +283,9 @@ async def _raw_roster(db: AsyncSession) -> dict | None:
     return roster if isinstance(roster, dict) else None
 
 
-async def load_roster_ranks_info(db: AsyncSession) -> tuple[list[dict], bool]:
-    """``(active rank list, station has one of its own)``.
+async def load_roster_ranks_info(db: AsyncSession) -> tuple[list[dict], bool] | None:
+    """``(active rank list, station has one of its own)``, or ``None`` when the roster or its
+    ``ranks`` cannot be read (see above: not a list of ``{key, label}`` objects).
 
     ⚠️ The second half is the part that is easy to get wrong. A station whose ``roster.ranks``
     is EMPTY is not a station without ranks — every reader falls back to the shipped Swiss list
@@ -291,17 +293,22 @@ async def load_roster_ranks_info(db: AsyncSession) -> tuple[list[dict], bool]:
     foreign value like «Sdt» is unknown. Anything that offers to WRITE the rank list has to know
     which of the two lists it is looking at: appending to the fallback without materialising it
     first would replace twelve working ranks with one (see :func:`adopt_ranks`)."""
-    row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
-    ranks = ((row.config_json or {}).get("roster", {}) or {}).get("ranks") if row else None
+    roster = await _raw_roster(db)
+    ranks = None if roster is None else roster.get("ranks", [])
+    if not isinstance(ranks, list) or not all(
+        isinstance(r, dict) and isinstance(r.get("key"), str) and isinstance(r.get("label"), str) for r in ranks
+    ):
+        return None
     if ranks:
         return list(ranks), True
     return [dict(r) for r in SWISS_DEFAULT_RANKS], False
 
 
-async def load_roster_ranks(db: AsyncSession) -> list[dict]:
-    """The active station rank list (stored config → in-code default), for import mapping."""
-    ranks, _own = await load_roster_ranks_info(db)
-    return ranks
+async def load_roster_ranks(db: AsyncSession) -> list[dict] | None:
+    """The active station rank list (stored config → in-code default), for import mapping, or
+    ``None`` when it cannot be read (:func:`load_roster_ranks_info`)."""
+    info = await load_roster_ranks_info(db)
+    return None if info is None else info[0]
 
 
 async def load_roster_name_order(db: AsyncSession) -> NameOrder | None:
@@ -537,7 +544,10 @@ async def adopt_ranks(db: AsyncSession, values: Sequence[str], actor_id: uuid.UU
     from .schemas import load_stored_config
 
     row = await config_row(db, lock=True)
-    ranks, has_own = await load_roster_ranks_info(db)
+    info = await load_roster_ranks_info(db)
+    if info is None:
+        raise RosterUnreadableError("roster.ranks")
+    ranks, has_own = info
     updated = append_ranks(ranks, values)
     await keep_previous(db, "roster", actor_id)
     raw = dict((row.config_json if row else None) or {})
@@ -827,6 +837,8 @@ async def _resolve_ranks(members: list[dict], db: AsyncSession) -> None:
     if not any(m.get("qualifications") for m in members):
         return
     ranks = await load_roster_ranks(db)
+    if ranks is None:  # the ranks would be derived against a list the station did not choose
+        raise RosterUnreadableError("roster.ranks")
     for m in members:
         m["rank"] = derive_rank_from_quals(m.get("qualifications") or [], ranks)
 
