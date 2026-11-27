@@ -604,7 +604,13 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
         : pendenzenBelow([...el.querySelectorAll('.jr-pinned-row')].map((r) => r.getBoundingClientRect().bottom), foot.getBoundingClientRect().top)
       setPinnedBelow(below)
     }
+    /** When a fit moves the cut, the box and (on a phone, where the drawer is content-sized) the
+     *  drawer resize because of it: their heights as the fit left them. A report of exactly that
+     *  height is the fit's own echo, not a change; any other height is. */
+    const echo = new Map<Element, number>()
     const fit = () => {
+      echo.clear()
+      const was = el.style.maxHeight
       el.style.maxHeight = ''
       const foot = el.querySelector<HTMLElement>('.jr-pinned-foot')
       if (foot && el.scrollHeight - el.clientHeight > 1) {
@@ -614,22 +620,44 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
         const cut = pendenzenCut(tops, el.offsetHeight, foot.offsetHeight + el.offsetHeight - el.clientHeight - el.clientTop)
         if (cut !== null) el.style.maxHeight = `${cut}px`
       }
+      // read after the write: the layout this forces is the one the frame needs anyway
+      if (el.style.maxHeight !== was) for (const node of [el, el.parentElement]) if (node) echo.set(node, node.offsetHeight)
       read()
     }
-    // a frame later, not inside the callback: the cut resizes an observed box, and a resize the
-    // observer has to deliver again in the same frame is its «loop completed» error
+    // ⚠️ ONE fit per frame, whatever asked for it, and none for a report that changed nothing: each
+    // fit drops the cut and reads the layout again, which re-lays the whole drawer. A frame later,
+    // not inside the observer's callback: the cut resizes an observed box, and a resize the
+    // observer has to deliver again in the same frame is its «loop completed» error.
     let frame = 0
-    const ro = typeof ResizeObserver === 'undefined' ? null
-      : new ResizeObserver(() => { cancelAnimationFrame(frame); frame = requestAnimationFrame(fit) })
+    const schedule = () => { if (!frame) frame = requestAnimationFrame(() => { frame = 0; fit() }) }
+    // the size each watched box last reported: a box's first report after `observe` (the mount,
+    // a re-watch) is what it already was
+    const sizes = new WeakMap<Element, string>()
+    const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver((entries) => {
+      let changed = false
+      for (const x of entries) {
+        const size = `${x.contentRect.width}×${x.contentRect.height}`
+        const before = sizes.get(x.target)
+        sizes.set(x.target, size)
+        const own = echo.get(x.target)
+        const block = x.borderBoxSize?.[0]?.blockSize
+        if (own !== undefined && block !== undefined && Math.abs(block - own) < 1) { echo.delete(x.target); continue }
+        if (before !== undefined && before !== size) changed = true
+      }
+      // the echo arrives in the delivery right after the fit, or not at all
+      echo.clear()
+      if (changed) schedule()
+    })
     const watch = () => {
       ro?.disconnect()
       for (const node of [el.parentElement, el, ...el.children]) if (node) ro?.observe(node)
-      fit()
     }
-    const mo = typeof MutationObserver === 'undefined' ? null : new MutationObserver(watch)
+    // rows come and go: watch the new set, and fit once
+    const mo = typeof MutationObserver === 'undefined' ? null : new MutationObserver(() => { watch(); schedule() })
     mo?.observe(el, { childList: true })
     el.addEventListener('scroll', read, { passive: true })
     watch()
+    schedule()
     return () => { el.removeEventListener('scroll', read); cancelAnimationFrame(frame); ro?.disconnect(); mo?.disconnect() }
   }, [])
 

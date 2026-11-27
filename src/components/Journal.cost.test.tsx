@@ -127,3 +127,137 @@ describe('Journal · a page boundary', () => {
     expect(marks()).toEqual(want)
   })
 })
+
+describe('Journal · the Pendenzen box fits once per change', () => {
+  // ── a layout for the box: a 30 px head, rows of 50 px, a CSS cap of half the drawer (600 px),
+  // a 24 px foot band. The box's height follows its inline cut, as a browser's does.
+  const HEAD = 30, FOOT = 24
+  let drawer = 600
+  const rowHeight = new Map<string, number>() // by the row's text
+  const rowsOf = (box: Element) => [...box.querySelectorAll<HTMLElement>('.jr-pinned-row')]
+  const heightOf = (row: Element) => rowHeight.get(row.querySelector('.jr-pinned-text')?.textContent ?? '') ?? 50
+  const content = (box: Element) => HEAD + rowsOf(box).reduce((sum, r) => sum + heightOf(r), 0)
+  const boxHeight = (box: HTMLElement) => {
+    const cut = parseFloat(box.style.maxHeight)
+    return Math.min(drawer / 2, Number.isFinite(cut) ? cut : Infinity, content(box))
+  }
+  const heightModel = (el: Element): number => {
+    if (el.classList.contains('jr-pinned')) return boxHeight(el as HTMLElement)
+    if (el.classList.contains('jr-pinned-row')) return heightOf(el)
+    if (el.classList.contains('jr-pinned-foot')) return FOOT
+    if (el.classList.contains('journal-drawer')) return drawer
+    return 0
+  }
+  /** layout passes of the fit: it is the one reader of the box's own rect */
+  let boxReads = 0
+
+  // ── ResizeObserver: each frame it reports the observed boxes whose size changed (and every box
+  // on its first frame), the way a browser does after layout
+  const ros = new Set<FakeRO>()
+  class FakeRO {
+    private seen = new Map<Element, number | undefined>()
+    constructor(private cb: ResizeObserverCallback) { ros.add(this) }
+    observe(el: Element) { if (!this.seen.has(el)) this.seen.set(el, undefined) }
+    unobserve(el: Element) { this.seen.delete(el) }
+    disconnect() { this.seen.clear() }
+    deliver() {
+      const entries: ResizeObserverEntry[] = []
+      for (const [target, was] of this.seen) {
+        const h = heightModel(target)
+        if (h === was) continue
+        this.seen.set(target, h)
+        entries.push({ target, contentRect: { height: h, width: 400 }, borderBoxSize: [{ blockSize: h, inlineSize: 400 }] } as unknown as ResizeObserverEntry)
+      }
+      if (entries.length) this.cb(entries, this as unknown as ResizeObserver)
+    }
+  }
+  /** one frame: the mutation reports (microtasks), the animation callbacks, then layout and the
+   *  resize reports */
+  const frame = async () => {
+    await act(async () => { vi.advanceTimersByTime(16) })
+    await act(async () => { for (const ro of [...ros]) ro.deliver() })
+  }
+  const settle = async () => { for (let i = 0; i < 12; i++) await frame() }
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['requestAnimationFrame', 'cancelAnimationFrame'] })
+    vi.stubGlobal('ResizeObserver', FakeRO)
+    boxReads = 0
+    drawer = 600
+    rowHeight.clear()
+    const real = Element.prototype.getBoundingClientRect
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+      const at = (top: number, height: number) => ({ top, bottom: top + height, height, left: 0, right: 400, width: 400, x: 0, y: top, toJSON: () => ({}) })
+      if (this.classList.contains('jr-pinned')) { boxReads++; return at(0, heightModel(this)) }
+      const box = this.closest<HTMLElement>('.jr-pinned')
+      if (box && this.classList.contains('jr-pinned-row')) {
+        const rows = rowsOf(box)
+        const top = HEAD + rows.slice(0, rows.indexOf(this as HTMLElement)).reduce((sum, r) => sum + heightOf(r), 0)
+        return at(top - box.scrollTop, heightOf(this))
+      }
+      if (box && this.classList.contains('jr-pinned-foot')) return at(boxHeight(box) - FOOT, FOOT)
+      return real.call(this)
+    })
+    vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function (this: HTMLElement) { return heightModel(this) })
+    vi.spyOn(Element.prototype, 'clientHeight', 'get').mockImplementation(function (this: Element) { return this.classList.contains('jr-pinned') ? heightModel(this) : 0 })
+    vi.spyOn(Element.prototype, 'scrollHeight', 'get').mockImplementation(function (this: Element) { return this.classList.contains('jr-pinned') ? content(this) : 0 })
+  })
+  afterEach(() => { ros.clear() })
+
+  const open = (n: number): OpenReminder[] => Array.from({ length: n }, (_, i) => ({
+    id: `p${i}`, rowId: `row-p${i}`, text: `Pendenz ${i}`, createdAt: new Date(1_000_000 + i * 60_000).toISOString(), notes: [],
+  }))
+  const box = () => document.querySelector<HTMLElement>('.jr-pinned')!
+
+  it('opening fits the box once, and cuts it at the last whole row', async () => {
+    render(<StrictMode><Journal {...props({ openReminders: open(10) })} /></StrictMode>)
+    await settle()
+    expect(boxReads).toBe(1)
+    // the band stands where the fifth row begins: 30 head + 4 × 50 rows + 24 band
+    expect(box().style.maxHeight).toBe(`${HEAD + 4 * 50 + FOOT}px`)
+    // the «n weitere» band counts what lies below the fold
+    expect(box().dataset.more).toBe('true')
+    expect(box().querySelector('.jr-pinned-foot')?.textContent).toBe('6 weitere')
+  })
+
+  it('a Pendenz added or ticked off elsewhere re-fits once; a row that re-wraps re-fits once', async () => {
+    const { rerender } = render(<StrictMode><Journal {...props({ openReminders: open(10) })} /></StrictMode>)
+    await settle()
+    boxReads = 0
+    rerender(<StrictMode><Journal {...props({ openReminders: open(11) })} /></StrictMode>)
+    await settle()
+    expect(boxReads).toBe(1)
+    boxReads = 0
+    rerender(<StrictMode><Journal {...props({ openReminders: open(9) })} /></StrictMode>)
+    await settle()
+    expect(boxReads).toBe(1)
+    // late fonts: the first row wraps onto a second line
+    boxReads = 0
+    rowHeight.set('Pendenz 0', 80)
+    await settle()
+    expect(boxReads).toBe(1)
+    expect(box().style.maxHeight).toBe(`${HEAD + 80 + 3 * 50 + FOOT}px`)
+  })
+
+  it('a drawer resize that lands in the frame of the cut\'s own echo still re-fits', async () => {
+    render(<StrictMode><Journal {...props({ openReminders: open(10) })} /></StrictMode>)
+    await settle()
+    // a row re-wraps: reported, and the fit of the next frame moves the cut…
+    rowHeight.set('Pendenz 0', 80)
+    await act(async () => { for (const ro of [...ros]) ro.deliver() })
+    await act(async () => { vi.advanceTimersByTime(16) })
+    expect(box().style.maxHeight).toBe(`${HEAD + 80 + 3 * 50 + FOOT}px`)
+    // …and in that same frame the drawer shrinks (a keyboard, a rotation): cap 250
+    drawer = 500
+    await settle()
+    expect(box().style.maxHeight).toBe(`${HEAD + 80 + 2 * 50 + FOOT}px`)
+  })
+
+  it('a frame where nothing changed size does not fit again', async () => {
+    render(<StrictMode><Journal {...props({ openReminders: open(10) })} /></StrictMode>)
+    await settle()
+    boxReads = 0
+    await settle()
+    expect(boxReads).toBe(0)
+  })
+})
