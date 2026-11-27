@@ -334,6 +334,35 @@ it('a PUT refused with 409 is not carried when the merge’s own fetch then gets
   expect((await idbGet<{ handed?: unknown }>(`kp-front-ws-${id}`))?.handed).toBeUndefined()
 })
 
+// Sol r5 (27.11.2026): …and the slot says so while the merge's fetch still hangs – a takeover in
+// that window must not carry the refused PUT.
+it('a PUT refused with 409 leaves the slot before the merge asks the server', async () => {
+  const id = `refused-slot-${n}`
+  put.mockRejectedValue(new ApiError(409, 'conflict'))
+  const a = await tab(id)
+  get.mockImplementation(() => new Promise(() => {})) // the merge's fetch hangs
+  edit(a, { reportMeta: { remarks: 'from A' } })
+  await vi.advanceTimersByTimeAsync(1_100)
+  await vi.waitFor(() => expect(get).toHaveBeenCalledTimes(2))
+  expect((await idbGet<{ sending?: unknown }>(`kp-front-ws-${id}`))?.sending).toBeUndefined()
+})
+
+// Sol r5 (27.11.2026): an attempt made while the browser is offline never left. Its record goes,
+// or the next holder would carry it and a real divergence would lose its conflict note.
+it('an attempt made offline leaves no record of a PUT on its way', async () => {
+  const id = `offline-attempt-${n}`
+  const a = await tab(id)
+  Object.defineProperty(globalThis.navigator, 'onLine', { value: false, configurable: true })
+  edit(a, { reportMeta: { remarks: 'from A' } })
+  await vi.advanceTimersByTimeAsync(1_100)
+  await vi.waitFor(() => expect(put).toHaveBeenCalledOnce())
+  await settle()
+  await vi.waitFor(async () => {
+    const stored = await idbGet<{ dirty: boolean; sending?: unknown; handed?: unknown }>(`kp-front-ws-${id}`)
+    expect([stored?.dirty, stored?.sending, stored?.handed]).toEqual([true, undefined, undefined])
+  })
+})
+
 it('a promotion overtaken by a steal back does not fence the thief out of its slot', async () => {
   const id = `claim-${n}`
   const a = await tab(id)

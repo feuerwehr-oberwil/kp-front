@@ -1400,7 +1400,8 @@ export class WorkspaceSync {
           // nor is this one: a newer build wrote the blob — never merged, never re-sent
           if (!(await this.parkOlderBuild())) return
         } else if (e instanceof ApiError && e.status === 409) {
-          this.entry = { ...this.entry, sending: undefined } // refused: that PUT can never land
+          const dropped = this.dropRefused()
+          if (dropped !== true && !(await dropped)) return
           if (!(await this.resolveConflict())) return
         } else {
           // A revoked session closes cached reads device-wide while preserving dirty work.
@@ -1602,7 +1603,11 @@ export class WorkspaceSync {
           showPendingMerge() // a failed park or a newer edit can still leave the merged draft owed
           return parked
         }
-        if (e instanceof ApiError && e.status === 409) { this.entry = { ...this.entry, sending: undefined }; continue } // someone else landed too — re-merge
+        if (e instanceof ApiError && e.status === 409) { // someone else landed too — re-merge
+          const dropped = this.dropRefused()
+          if (dropped !== true && !(await dropped)) return false
+          continue
+        }
         showPendingMerge()
         if (e instanceof ApiError && e.status === 401) denyWorkspaceCache() // revoked mid-merge — deny device-wide, like flush()
         this.setStatus(e instanceof ApiError && e.status === 0 ? 'offline' : 'error')
@@ -1972,13 +1977,30 @@ export class WorkspaceSync {
     return this.entry.lastSyncedAt
   }
 
+  /** A 409: that PUT can never land, so its record goes – committed before the merge asks the
+   *  server under the edit lock, or a takeover while that fetch hangs would carry the refused save
+   *  (Sol r5, 27.11.2026). False: this engine may no longer write. */
+  private dropRefused(): true | Promise<boolean> {
+    this.entry = { ...this.entry, sending: undefined }
+    this.writeCache()
+    const wrote = this.flushCache()
+    if (!this.opts.lock) return true
+    return wrote.then(() => this.sessionActive && !this.fencedOut)
+  }
+
   /** The PUT just sent got no answer (a timeout, a dead route, a 502–504): it may have landed. It
    *  is carried on as handed, so the next attempt's record does not erase it – a delete made since
    *  must not read as a server addition if it did land, in this engine's merge or the next
    *  holder's (Sol r3, 27.11.2026). Not when the browser was offline as the PUT left: it never did,
    *  and a carried save hides a divergence from the merge's conflict notes (mergeReporting). */
   private carryUnanswered() {
-    if (!this.entry.sending || !this.sentOnline) return
+    if (!this.entry.sending) return
+    if (!this.sentOnline) {
+      // it never left: its record goes, or the next holder would carry it all the same
+      this.entry = { ...this.entry, sending: undefined }
+      this.writeCache()
+      return
+    }
     this.entry = { ...this.entry, handed: carried(this.entry.handed, this.entry.sending), sending: undefined }
     this.writeCache()
   }
