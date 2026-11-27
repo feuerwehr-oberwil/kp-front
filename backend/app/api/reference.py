@@ -16,10 +16,18 @@ from ..auth.dependencies import CurrentAdmin, OptionalUser, UserOrAdmin
 from ..board_templates import board_template_problem
 from ..checklist_templates import template_problem
 from ..database import get_db
-from ..models import ObjectSite, PlanAlignment, PlanAlignmentEvent, PlanRevision, ReferenceDataset
+from ..models import ObjectSite, PlanAlignment, PlanAlignmentEvent, PlanRevision, ReferenceDataset, User
 from ..plan_floors import fit_publishable, load_floors
 from ..plan_revision_info import revision_page_count
-from ..plans import TooLargeError, plans_pull_enabled, pull_one_plan, store_plan
+from ..plans import (
+    TooLargeError,
+    brief_lock_wait,
+    lock_object_plans,
+    plan_target,
+    plans_pull_enabled,
+    pull_one_plan,
+    store_plan,
+)
 from ..schemas import ReferenceDatasetOut
 
 router = APIRouter(prefix="/reference", tags=["reference"])
@@ -392,7 +400,33 @@ async def replace_reference(
     source_note: str | None = Form(default=None),
     db: AsyncSession = Depends(get_db),
 ) -> ReferenceDataset:
-    ds = (await db.execute(select(ReferenceDataset).where(ReferenceDataset.id == dataset_id))).scalar_one_or_none()
+    """Replace one reference dataset's file. An Objektplan (``plan:…``) waits for its object at most
+    `plans.LOCK_WAIT_MS` – also on its first import, while a run's own insert of the row is not
+    visible yet and the generic path below would wait on its key."""
+    if dataset_id.startswith("plan:"):
+        async with brief_lock_wait(db):
+            return await _replace_reference(db, dataset_id, actor, file, title, source_note)
+    return await _replace_reference(db, dataset_id, actor, file, title, source_note)
+
+
+async def _replace_reference(
+    db: AsyncSession,
+    dataset_id: str,
+    actor: User | None,
+    file: UploadFile,
+    title: str | None,
+    source_note: str | None,
+) -> ReferenceDataset:
+    # The id `store_plan` writes for (object, module): lock 3 FIRST, then read – the object or its
+    # row may be a run's, not yet committed, and must not be taken for «no such plan».
+    canonical = plan_target(dataset_id)
+    if canonical is not None:
+        await lock_object_plans(db, canonical[0])
+    ds = (
+        await db.execute(
+            select(ReferenceDataset).where(ReferenceDataset.id == dataset_id).execution_options(populate_existing=True)
+        )
+    ).scalar_one_or_none()
     content_type = file.content_type or "application/octet-stream"
     cl_role = _checklist_role(dataset_id)
     # octet-stream is tolerated only for JSON-backed slots (geo:/symbols:/checklist templates),
@@ -418,10 +452,15 @@ async def replace_reference(
     if board:
         _validate_board_template(dataset_id, data)
     # An Objektplan replacement goes through the ONE plan write path (app/plans.py · store_plan):
-    # revision pinning, identical-bytes dedupe and the alignment job all live there, and this
-    # route must not fork a second, revision-less way of writing the same dataset.
-    if dataset_id.startswith("plan:") and ds is not None and ds.object_id is not None:
-        obj = await db.get(ObjectSite, ds.object_id)
+    # revision pinning, identical-bytes dedupe, the alignment job and lock 3 all live there, and
+    # this route must not fork a second, revision-less way of writing the same dataset – also not
+    # for a plan id whose row does not exist yet. A row that exists without an object (from before
+    # plans had one) stays what it was on main: a plain replace below, no revision, no job.
+    target = ((ds.object_id, ds.module) if ds.object_id else None) if ds is not None else canonical
+    if dataset_id.startswith("plan:") and target is not None:
+        obj = await db.get(ObjectSite, target[0], populate_existing=True)
+        if obj is None and ds is None:
+            raise HTTPException(status_code=404, detail="Objekt nicht gefunden")
         if obj is not None:
             if content_type not in ("application/pdf", "application/octet-stream"):
                 raise HTTPException(
@@ -430,7 +469,7 @@ async def replace_reference(
             return await store_plan(
                 db,
                 obj,
-                ds.module or dataset_id.split(":")[-1],
+                target[1] or dataset_id.split(":")[-1],
                 data,
                 title=title,
                 source_note=source_note,
@@ -458,7 +497,13 @@ async def replace_reference(
 
     key = storage.new_key("reference", f"-{dataset_id.replace(':', '_')}")
     storage.put_bytes(key, data)
-    storage.replaced_in_transaction(db, new_key=key, old_key=ds.storage_key if ds is not None else None)
+    old_key = ds.storage_key if ds is not None else None
+    if old_key and dataset_id.startswith("plan:"):
+        # a legacy plan row may still have revisions an Einsatz downloads by version: their bytes stay
+        pinned = select(PlanRevision.version).where(PlanRevision.storage_key == old_key).limit(1)
+        if (await db.execute(pinned)).first() is not None:
+            old_key = None
+    storage.replaced_in_transaction(db, new_key=key, old_key=old_key)
 
     if ds is None:
         ds = ReferenceDataset(id=dataset_id, kind=kind)
@@ -527,7 +572,8 @@ async def fetch_reference(dataset_id: str, _admin: CurrentAdmin, db: AsyncSessio
     """
     if dataset_id.startswith("plan:") and plans_pull_enabled():
         try:
-            result = await pull_one_plan(db, dataset_id)
+            async with brief_lock_wait(db):
+                result = await pull_one_plan(db, dataset_id)
         except ValueError as e:  # malformed index — refuse, exactly like the scheduled run
             raise HTTPException(status_code=502, detail=f"Objektplan-Index unbrauchbar: {e}") from e
         except (httpx.HTTPError, TooLargeError) as e:

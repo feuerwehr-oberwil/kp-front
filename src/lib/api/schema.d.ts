@@ -2519,7 +2519,12 @@ export interface paths {
         };
         /** Download Reference */
         get: operations["download_reference_api_reference__dataset_id__get"];
-        /** Replace Reference */
+        /**
+         * Replace Reference
+         * @description Replace one reference dataset's file. An Objektplan (``plan:…``) waits for its object at most
+         *     `plans.LOCK_WAIT_MS` – also on its first import, while a run's own insert of the row is not
+         *     visible yet and the generic path below would wait on its key.
+         */
         put: operations["replace_reference_api_reference__dataset_id__put"];
         post?: never;
         delete?: never;
@@ -3786,7 +3791,8 @@ export interface paths {
          *     The same mechanism the scheduler runs, not a shortcut around it — an operator pressing the
          *     button gets the mechanism (app/plans · pull_one_plan takes the same line). A full run is the
          *     answer to «the file is in SharePoint and the app still has the old one»: it re-imports
-         *     everything rather than trusting what we recorded.
+         *     everything rather than trusting what we recorded. While another run (or a merge) holds the
+         *     plans, nothing starts: 409 with RUN_BUSY, which the System card shows as it is.
          */
         post: operations["run_sync_api_sharepoint_sync_post"];
         delete?: never;

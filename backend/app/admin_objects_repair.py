@@ -53,6 +53,7 @@ from .models import (
     PlanRevision,
     ReferenceDataset,
 )
+from .plans import lock_object_plans, lock_object_rows, lock_plan_maintenance
 
 # --- maintenance: what a merge or re-key touches -----------------------------------------
 #
@@ -429,7 +430,8 @@ async def _drop_plan_rows(db: AsyncSession, dataset_id: str) -> None:
 
 
 async def _rekey_dataset(db: AsyncSession, old_id: str, new_id: str, object_id: uuid.UUID) -> None:
-    """Move a plan dataset — row, revisions, alignments, floors — onto a new dataset id.
+    """Move a plan dataset — row, revisions, alignments, floors — onto a new dataset id. A job the
+    alignment worker is running on it goes back to the queue, its attempt uncounted.
 
     ⚠️ Copied and dropped, never updated in place. `plan_revisions` is a CHILD of
     ``reference_datasets`` and the PARENT of ``plan_alignments`` / ``plan_page_floors``, and
@@ -449,6 +451,19 @@ async def _rekey_dataset(db: AsyncSession, old_id: str, new_id: str, object_id: 
             .values(dataset_id=new_id)
             .execution_options(synchronize_session=False)
         )
+    # A job the worker is running now can never be finished: its claim names the old dataset id
+    # (plan_alignment_worker · finish_job). Back to the queue, and the attempt is not its fault.
+    await db.execute(
+        update(PlanAlignment)
+        .where(PlanAlignment.dataset_id == new_id, PlanAlignment.status == "processing")
+        .values(
+            status="pending",
+            claimed_at=None,
+            attempts=PlanAlignment.attempts - 1,
+            edit_version=PlanAlignment.edit_version + 1,
+        )
+        .execution_options(synchronize_session=False)
+    )
     await db.execute(
         delete(PlanRevision).where(PlanRevision.dataset_id == old_id).execution_options(synchronize_session=False)
     )
@@ -647,6 +662,14 @@ async def _merge_into(loser_id: uuid.UUID, survivor_id: uuid.UUID, *, apply: boo
     if loser_id == survivor_id:
         fail("merge: the two ids are the same object")
     async with async_session_maker() as db:
+        if apply:
+            # lock 1 of `plans` › the lock order: a SharePoint run holds plan rows and waits for the
+            # config row, this holds the config row and needs plan rows – one waits for the other
+            await lock_plan_maintenance(db)
+            # locks 3 and 3b before the rows are read, so the fold copies what is there now; the
+            # loser's row FOR UPDATE because the fold deletes it
+            await lock_object_plans(db, loser_id, survivor_id)
+            await lock_object_rows(db, loser_id)
         loser = await db.get(ObjectSite, loser_id)
         survivor = await db.get(ObjectSite, survivor_id)
         if loser is None or survivor is None:

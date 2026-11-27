@@ -248,12 +248,31 @@ async def _object_footprints_tick() -> None:
             logger.exception("Houses tick failed")
 
 
+#: Consecutive runs skipped because another one held the plans (`plans.try_plan_maintenance`),
+#: per job. The third in a row logs one WARNING – once, until a run gets through again.
+SKIPS_BEFORE_WARNING = 3
+_busy_skips: dict[str, int] = {}
+
+
+def _note_skip(job: str, busy: bool) -> None:
+    """Count a run that was skipped while another held the plans, or reset the count."""
+    if not busy:
+        _busy_skips.pop(job, None)
+        return
+    skips = _busy_skips[job] = _busy_skips.get(job, 0) + 1
+    if skips == SKIPS_BEFORE_WARNING:
+        logger.warning("%s: skipped %d times in a row — another run keeps holding the plans", job, skips)
+    else:
+        logger.info("%s: another run holds the plans — skipped", job)
+
+
 async def _plan_pull() -> None:
     from .plans import pull_plans
 
     async with async_session_maker() as db:
         try:
             res = await pull_plans(db)
+            _note_skip("Objektplan-Pull", res.get("status") == "busy")
             await db.commit()
             if res.get("updated"):
                 logger.info("Objektplan-Pull: %s plan(s) updated", res["updated"])
@@ -333,8 +352,13 @@ async def _sharepoint_pull() -> None:
             now = datetime.now(UTC)
             if _sharepoint_last_run is not None and now - _sharepoint_last_run < due:
                 return
-            _sharepoint_last_run = now
+            previous, _sharepoint_last_run = _sharepoint_last_run, now
             res = await sync_sharepoint(db)
+            busy = res.get("status") == "busy"
+            _note_skip("SharePoint-Pull", busy)
+            if busy:
+                # not a run: the next tick tries again, and the status card keeps the last REAL run
+                _sharepoint_last_run = previous
             # ⚠️ ONE commit, and it persists the state rows as much as the imported data. An
             # area that failed does NOT reach here as an exception any more — it rolled back its
             # own writes inside a savepoint (sharepoint_sync · _sync_one) and reports `error`,

@@ -1,16 +1,17 @@
 """Revision identity, publication boundaries and conflict protection for prepared plans."""
 
+import asyncio
 from io import BytesIO
 from unittest.mock import AsyncMock
 from urllib.parse import quote
 
 import pytest
 from reportlab.pdfgen.canvas import Canvas
-from sqlalchemy import event, select
+from sqlalchemy import event, select, text
 
 from app import storage
 from app.api.report import resolve_report_assets
-from app.models import DeploymentConfig, ObjectSite, PlanAlignment, PlanAlignmentEvent, PlanRevision
+from app.models import DeploymentConfig, ObjectSite, PlanAlignment, PlanAlignmentEvent, PlanRevision, ReferenceDataset
 from app.plans import store_plan
 from app.report import ReportPayload
 
@@ -405,6 +406,107 @@ async def test_retry_refuses_a_replaced_revision(client, admin_login, db_session
     )
     await db_session.refresh(row)
     assert row.status == "failed"
+
+
+async def test_a_first_put_of_a_plan_id_takes_the_plan_write_path(client, admin_login, db_session):
+    """`PUT /api/reference/plan:<object>:<module>` for a sheet that has no row yet is a first upload,
+    not a generic dataset: a revision, an alignment job and the object link, under lock 3."""
+    obj = ObjectSite(name="Neubau")
+    db_session.add(obj)
+    await db_session.commit()
+    await admin_login(client)
+    response = await client.put(
+        f"/api/reference/plan:{obj.id}:modul1", files={"file": ("m1.pdf", PDF1, "application/pdf")}
+    )
+    assert response.status_code == 200, response.text
+    revision = (await db_session.execute(select(PlanRevision))).scalar_one()
+    job = (await db_session.execute(select(PlanAlignment))).scalar_one()
+    assert (revision.dataset_id, job.dataset_id) == (f"plan:{obj.id}:modul1",) * 2
+    assert response.json()["object_id"] == str(obj.id)
+
+
+async def test_a_legacy_plan_row_without_an_object_is_replaced_as_it_always_was(client, admin_login, db_session):
+    """A `plan:` row from before plans had an object (object_id and module empty) has no «plans of an
+    object» to lock. `PUT /api/reference/…` replaces it the way main did – a new file and version –
+    and hangs no revision and no alignment job off it; a version an Einsatz pinned still downloads."""
+    obj = ObjectSite(name="Altbestand")
+    db_session.add(obj)
+    await db_session.flush()
+    ds_id = f"plan:{obj.id}:modul1"
+    storage.put_bytes("reference/old.pdf", PDF2)
+    db_session.add(ReferenceDataset(id=ds_id, kind="pdf", storage_key="reference/old.pdf", current_version=1))
+    await db_session.flush()
+    db_session.add(PlanRevision(dataset_id=ds_id, version=1, storage_key="reference/old.pdf"))
+    await db_session.commit()
+    await admin_login(client)
+    url = f"/api/reference/{quote(ds_id, safe='')}"
+    response = await client.put(url, files={"file": ("m1.pdf", PDF1, "application/pdf")})
+    assert response.status_code == 200, response.text
+    assert response.json()["current_version"] == 2
+    assert (await db_session.execute(select(PlanAlignment))).scalars().all() == []
+    assert len((await db_session.execute(select(PlanRevision))).scalars().all()) == 1
+    assert (await client.get(url, params={"v": 1})).content == PDF2
+
+
+async def test_store_plan_links_a_legacy_row_to_its_object_before_it_queues_a_job(db_session):
+    """…while the object's own upload (`store_plan`) adopts such a row by its id: no alignment job
+    ever exists for a plan without an object."""
+    obj = ObjectSite(name="Altbestand")
+    db_session.add(obj)
+    await db_session.flush()
+    ds_id = f"plan:{obj.id}:modul1"
+    db_session.add(ReferenceDataset(id=ds_id, kind="pdf", storage_key="reference/old.pdf", current_version=1))
+    await db_session.commit()
+    ds = await store_plan(db_session, obj, "modul1", PDF1)
+    await db_session.commit()
+    assert (ds.object_id, ds.module) == (obj.id, "modul1")
+    assert len((await db_session.execute(select(PlanAlignment))).scalars().all()) == 1
+
+
+async def _until_waiting(observer, task) -> None:
+    """Until ``task`` waits on a lock in this database – or has already answered without one."""
+    waiting = "SELECT count(*) FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock'"
+    for _ in range(100):
+        if task.done() or (await observer.execute(text(waiting))).scalar_one():
+            return
+        await observer.rollback()  # pg_stat_activity is a snapshot per transaction
+        await asyncio.sleep(0.05)
+    pytest.fail("the request neither waited nor answered")
+
+
+@pytest.mark.parametrize("action", ["approve", "floors", "retry"])
+async def test_a_replacement_in_flight_refuses_the_alignment_write(
+    action, client, admin_login, db_session, session_factory
+):
+    """«Freigeben», the Geschosse and «Neu berechnen» check that their revision is current and then
+    write. A replacement that commits in between must win: the write waits for it, is refused, and
+    nothing is published or queued for the outgoing revision (plans › the lock order). SQLite has
+    no row lock, so this runs on PostgreSQL only."""
+    if db_session.bind.dialect.name != "postgresql":
+        pytest.skip("requires independent PostgreSQL transactions")
+    obj, _, row = await _seed(db_session)
+    await admin_login(client)
+    url = f"/api/admin/plan-alignments/{row.id}"
+    send = {
+        "approve": lambda: client.post(url + "/approve", json={"edit_version": 1}),
+        "floors": lambda: client.put(url + "/floors", json={"edit_version": 1, "floors": []}),
+        "retry": lambda: client.post(url + "/retry", json={"edit_version": 1}),
+    }[action]
+
+    async with session_factory() as replacement, session_factory() as observer:
+        await store_plan(replacement, await replacement.get(ObjectSite, obj.id), "modul1", PDF2)
+        write = asyncio.create_task(send())
+        await _until_waiting(observer, write)
+        await replacement.commit()
+
+    response = await write
+    assert (response.status_code, response.json().get("detail")) == (
+        409,
+        "Dieser Plan wurde ersetzt – aktuelle Version prüfen",
+    )
+    old = await db_session.get(PlanAlignment, row.id, populate_existing=True)
+    assert (old.status, old.edit_version) == ("ready", 1)
+    assert (await db_session.execute(select(PlanAlignmentEvent))).scalars().all() == []
 
 
 async def test_the_preview_thumbnail_is_a_small_jpeg_of_the_same_page(client, admin_login, db_session, monkeypatch):

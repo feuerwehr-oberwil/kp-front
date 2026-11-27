@@ -397,6 +397,36 @@ async def test_the_configured_cadence_decides_when_a_tick_actually_polls(run_job
     assert runs == [True, True], "…and an hour later it is"
 
 
+async def test_a_skipped_run_keeps_the_schedule_and_warns_once_skips_repeat(run_job, monkeypatch, caplog):
+    """A run that found another holding the plans (`busy`) is not a run: the next tick tries again,
+    and the third skip in a row logs one WARNING – not every tick – until a run gets through."""
+    import app.sharepoint_sync as sp
+    from app.schemas import SharePointConfig
+
+    answers = [{"status": "busy", "areas": {}}] * 4 + [{"status": "ok", "areas": {}}]
+    monkeypatch.setattr(sp, "sharepoint_credentials", lambda: ("t", "c", "s"))
+    monkeypatch.setattr(sp, "sync_sharepoint", lambda db, **kw: _returning(answers.pop(0)))
+    monkeypatch.setattr(
+        sp,
+        "sharepoint_settings",
+        lambda db: _returning(
+            SharePointConfig(intervalMinutes=60, sources=[{"area": "plans", "driveId": "b!x", "path": "p"}])
+        ),
+    )
+    monkeypatch.setattr(scheduler, "_sharepoint_last_run", None)
+    monkeypatch.setattr(scheduler, "_busy_skips", {})
+
+    warned: list[bool] = []  # per tick: did THIS tick log the skip warning
+    with caplog.at_level("INFO", logger=scheduler.logger.name):
+        for _ in range(5):
+            caplog.clear()
+            await run_job(scheduler._sharepoint_pull)
+            warned.append(any(r.levelname == "WARNING" and "skipped" in r.getMessage() for r in caplog.records))
+    assert answers == [], "every tick tried again while the runs were skipped"
+    assert warned == [False, False, True, False, False]  # the third skip in a row, and only it
+    assert scheduler._busy_skips == {}  # the run that got through reset the count
+
+
 # --- print-job sweep ------------------------------------------------------------------
 
 

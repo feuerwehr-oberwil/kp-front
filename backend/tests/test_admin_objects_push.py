@@ -27,9 +27,10 @@ PDF = b"%PDF-1.4\nsheet\n"
 class _Resp:
     """Just enough of httpx.Response for the CLI: a status, a body, and `.json()`."""
 
-    def __init__(self, status_code: int, payload: object = None):
+    def __init__(self, status_code: int, payload: object = None, headers: dict[str, str] | None = None):
         self.status_code = status_code
         self._payload = payload
+        self.headers = headers or {}
         self.text = json.dumps(payload) if payload is not None else ""
 
     def json(self) -> object:
@@ -210,3 +211,24 @@ def test_allow_create_pushes_the_manifest_anyway(tmp_path: Path, deployment, cap
     assert _push(_manifest(tmp_path), "--allow-create") == 0
     assert "1 object(s) created, 0 updated, 2 plan PDF(s) attached" in capsys.readouterr().out
     assert len(fake.object_bodies) == 1
+
+
+def test_a_busy_deployment_is_asked_again_and_a_real_conflict_is_not(tmp_path: Path, deployment, capsys, monkeypatch):
+    """While a run holds an object the deployment answers 409 with Retry-After (plans ·
+    brief_lock_wait): the push waits and asks again instead of stopping half way. A 409 without it
+    is a real refusal and ends the push at once."""
+    from app import admin_objects
+
+    waits: list[float] = []
+    monkeypatch.setattr(admin_objects.time, "sleep", waits.append)
+    fake = deployment()
+    busy = [_Resp(409, {"detail": "busy"}, {"Retry-After": "30"})] * 2
+    real_put = fake.put
+    fake.put = lambda url, **kw: busy.pop() if busy and "/plans/" not in url else real_put(url, **kw)
+    assert _push(_manifest(tmp_path)) == 0
+    assert waits == [30, 30]
+    assert len(fake.object_bodies) == 1 and len(fake.plan_puts) == 2
+
+    fake.put = lambda url, **kw: _Resp(409, {"detail": "source_key gehört schon zu Objekt …"})
+    with pytest.raises(SystemExit):
+        _push(_manifest(tmp_path))

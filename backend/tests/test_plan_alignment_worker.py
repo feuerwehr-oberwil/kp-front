@@ -224,6 +224,7 @@ async def test_explicit_retry_cannot_reuse_a_stale_completion_token(db_session, 
         update(PlanAlignment).values(
             status="pending",
             attempts=0,
+            claimed_at=None,  # as `POST …/retry` writes it
             edit_version=PlanAlignment.edit_version + 1,
         )
     )
@@ -232,6 +233,18 @@ async def test_explicit_retry_cannot_reuse_a_stale_completion_token(db_session, 
     assert current.edit_version != old.edit_version
     assert not await worker.finish_job(db_session, old, compute.AlignmentResult("ready"))
     assert await worker.finish_job(db_session, current, compute.AlignmentResult("no_match"))
+
+
+async def test_a_job_moved_onto_another_dataset_is_not_finished(db_session, pdf_store):
+    """A merge or re-key keeps the alignment's id and moves it onto another dataset (and object)
+    while the worker renders. The run locked the OLD object, so it must not write – nor approve –
+    the moved row; the next claim takes it under its new owner."""
+    await seed(db_session, pdf_store)
+    claim = await worker.claim_job(db_session)
+    assert claim
+    moved = replace(claim, dataset_id="plan:00000000-0000-4000-8000-000000000000:modul1")
+    assert not await worker.finish_job(db_session, moved, compute.AlignmentResult("ready"))
+    assert (await db_session.execute(select(PlanAlignment.status))).scalar_one() == "processing"
 
 
 async def test_tick_uses_revision_blob_and_persists_frontend_reference_contract(
@@ -396,3 +409,200 @@ async def test_compute_with_a_snapshot_never_asks_overpass(single_page_store, ma
     assert result.reference_at is not None and result.reference_at.isoformat().startswith("2026-09-13T10:00")
     without = await compute.compute_alignment(page, "modul2", 7.0, 47.0, None, "auto", None)
     assert without.reason == "reference_unreachable"
+
+
+async def test_a_job_whose_object_a_run_holds_goes_back_and_the_next_one_runs(
+    session_factory, db_session, pdf_store, monkeypatch
+):
+    """A SharePoint run or an S3 pull holds its objects to its commit (`plans` › the lock order). The
+    worker gives such a job back – queued, the attempt not counted – and takes the next one, so one
+    held object does not stall the queue. PostgreSQL only: SQLite has no row locks."""
+    if db_session.bind.dialect.name != "postgresql":
+        pytest.skip("requires independent PostgreSQL transactions")
+    from app import plans
+
+    monkeypatch.setattr(plans, "WORKER_LOCK_WAIT_MS", 200)
+
+    async def no_snapshot(db):  # a two-page sheet ends «unsupported» before it is compared to one
+        return None
+
+    monkeypatch.setattr(worker, "ensure_snapshot", no_snapshot)
+    held_job = await seed(db_session, pdf_store)
+    free_job = await seed(db_session, pdf_store)
+    held_object = (
+        await db_session.execute(
+            select(ReferenceDataset.object_id)
+            .join(PlanAlignment, PlanAlignment.dataset_id == ReferenceDataset.id)
+            .where(PlanAlignment.id == held_job)
+        )
+    ).scalar_one()
+
+    async with session_factory() as run:
+        await plans.lock_object_plans(run, held_object)
+        assert await worker.run_once(session_factory)  # the held job: given back
+        assert await worker.run_once(session_factory)  # the free one: done
+        assert not await worker.run_once(session_factory)  # the held one is not due yet
+        await run.commit()
+
+    held = await db_session.get(PlanAlignment, held_job, populate_existing=True)
+    assert (held.status, held.attempts, held.reason) == ("pending", 0, None)
+    assert (await db_session.get(PlanAlignment, free_job, populate_existing=True)).status == "unsupported"
+    # BUSY_RETRY_SECONDS later it is claimed again, as the first attempt
+    held.claimed_at -= timedelta(seconds=worker.BUSY_RETRY_SECONDS + 1)
+    await db_session.commit()
+    assert await worker.run_once(session_factory)
+    done = await db_session.get(PlanAlignment, held_job, populate_existing=True)
+    assert (done.status, done.attempts) == ("unsupported", 1)
+
+
+async def test_both_lock_timeouts_leave_no_attempt_charged(session_factory, db_session, single_page_store, monkeypatch):
+    """The reproduced case: a job ends on an unreadable station config while a re-key holds its row.
+    The completion times out, and so does the give-back. The give-back is owed and written on the
+    next tick, once the holder lets go – the attempt is never charged, and the job's next run ends
+    as `config_unreadable`, not as `worker_retry_limit`. PostgreSQL only."""
+    if db_session.bind.dialect.name != "postgresql":
+        pytest.skip("requires independent PostgreSQL transactions")
+    import asyncio
+
+    from app import plans
+
+    monkeypatch.setattr(plans, "WORKER_LOCK_WAIT_MS", 200)
+    monkeypatch.setattr(worker, "_owed", {})
+    monkeypatch.setattr(worker, "_owed_due", {})
+    monkeypatch.setattr(worker, "OWED_RETRY_SECONDS", 0)  # settle on the very next call
+    job_id = await seed(db_session, single_page_store)
+    await _store_config(session_factory, {"modules": "not a list"})
+    real_claim = worker.claim_job
+    rekey = session_factory()
+
+    async def claim_then_hold(db, now=None, **kw):
+        claim = await real_claim(db, now, **kw)
+        await db.commit()
+        if claim:  # the re-key takes the row once the claim is committed
+            await rekey.execute(select(PlanAlignment.id).where(PlanAlignment.id == claim.id).with_for_update())
+        return claim
+
+    monkeypatch.setattr(worker, "claim_job", claim_then_hold)
+    assert await asyncio.wait_for(worker.run_once(session_factory), 10)
+    assert job_id in worker._owed
+    await rekey.rollback()
+    await rekey.close()
+    monkeypatch.setattr(worker, "claim_job", real_claim)
+
+    assert not await worker.run_once(session_factory)  # settles the give-back; not due again yet
+    row = await db_session.get(PlanAlignment, job_id, populate_existing=True)
+    assert (row.status, row.attempts, row.reason) == ("pending", 0, None)
+    assert worker._owed == {}
+    row.claimed_at -= timedelta(seconds=worker.BUSY_RETRY_SECONDS + 1)
+    await db_session.commit()
+    assert await worker.run_once(session_factory)
+    row = await db_session.get(PlanAlignment, job_id, populate_existing=True)
+    assert (row.status, row.reason, row.attempts) == ("failed", "config_unreadable", 1)
+
+
+def test_a_job_given_back_for_long_warns_once(monkeypatch, caplog):
+    monkeypatch.setattr(worker, "_busy_since", {7: datetime.now(UTC) - timedelta(minutes=worker.BUSY_WARN_MINUTES + 1)})
+    monkeypatch.setattr(worker, "_busy_warned", set())
+    with caplog.at_level("INFO", logger=worker.logger.name):
+        worker._note_busy(7)
+        worker._note_busy(7)
+    assert [r.levelname for r in caplog.records] == ["WARNING", "INFO"]
+
+
+async def test_the_retry_limit_sweep_skips_a_row_a_run_holds(session_factory, db_session, pdf_store):
+    """A job at its last attempt whose lease ran out while a re-key holds its row: the sweep that
+    marks such jobs failed skips it (SKIP LOCKED) instead of waiting, and the free job is claimed."""
+    if db_session.bind.dialect.name != "postgresql":
+        pytest.skip("requires independent PostgreSQL transactions")
+    import asyncio
+
+    held_job = await seed(db_session, pdf_store)
+    free_job = await seed(db_session, pdf_store)
+    held = await db_session.get(PlanAlignment, held_job)
+    held.status, held.attempts = "processing", worker.MAX_ATTEMPTS
+    held.claimed_at = datetime.now(UTC) - timedelta(seconds=worker.LEASE_SECONDS + 1)
+    await db_session.commit()
+
+    async with session_factory() as rekey:
+        await rekey.execute(select(PlanAlignment.id).where(PlanAlignment.id == held_job).with_for_update())
+        async with session_factory() as db:
+            claim = await asyncio.wait_for(worker.claim_job(db), 5)
+            assert claim and claim.id == free_job
+            await db.commit()
+        await rekey.commit()
+    assert (await db_session.get(PlanAlignment, held_job, populate_existing=True)).status == "processing"
+
+
+async def test_an_owed_job_is_neither_claimed_nor_failed_by_the_sweep(db_session, pdf_store):
+    """A give-back still owed must reach the row before anything else does: past its lease the claim
+    would charge the attempt again, and at the last attempt the sweep would fail it."""
+    last = await seed(db_session, pdf_store)
+    early = await seed(db_session, pdf_store)
+    for job_id, attempts in ((last, worker.MAX_ATTEMPTS), (early, 1)):
+        row = await db_session.get(PlanAlignment, job_id)
+        row.status, row.attempts = "processing", attempts
+        row.claimed_at = datetime.now(UTC) - timedelta(seconds=worker.LEASE_SECONDS + 1)
+    await db_session.commit()
+    assert await worker.claim_job(db_session, owed={last, early}) is None
+    rows = (
+        await db_session.execute(select(PlanAlignment.status, PlanAlignment.attempts).order_by(PlanAlignment.id))
+    ).all()
+    assert [tuple(r) for r in rows] == [("processing", worker.MAX_ATTEMPTS), ("processing", 1)]
+
+
+async def test_an_owed_give_back_is_tried_once_per_window_not_before_every_claim(monkeypatch, session_factory):
+    """A tick claims up to 20 jobs; an owed give-back whose row stays held is tried once per
+    OWED_RETRY_SECONDS, not 20 times at WORKER_LOCK_WAIT_MS each – and stays owed meanwhile. The
+    window runs from the end of each try: two slow tries do not leave the next sweep due at once."""
+    now = [0.0]
+    tries: list[int] = []
+
+    async def still_held(db, claim):  # each try waits out its lock limit
+        tries.append(claim.id)
+        now[0] += 6
+        return False
+
+    owed = {n: worker.Claim(n, f"plan:x:modul{n}", 1, 0, 1, 2) for n in (7, 8)}
+    monkeypatch.setattr(worker, "_owed", dict(owed))
+    monkeypatch.setattr(worker, "_owed_due", {})
+    monkeypatch.setattr(worker, "_clock", lambda: now[0])
+    monkeypatch.setattr(worker, "_try_give_back", still_held)
+    await worker._settle_owed(session_factory)  # tries both: 0 → 12 s
+    await worker._settle_owed(session_factory)  # 7 is due at 16 s, 8 at 22 s
+    assert tries == [7, 8]
+    now[0] = 15.9
+    await worker._settle_owed(session_factory)
+    assert tries == [7, 8]
+    now[0] = 16.0  # 7 is due; its try takes the clock to 22 s, when 8 is due as well
+    await worker._settle_owed(session_factory)
+    assert tries == [7, 8, 7, 8]
+    assert worker._owed == owed
+
+
+async def test_a_legacy_plan_without_an_object_still_takes_its_lock_3(
+    session_factory, db_session, pdf_store, monkeypatch
+):
+    """A row from before plans had an object still names one in its id. The worker takes that
+    object's lock 3 before the alignment row, as the alignment writers do (plan_approval ·
+    lock_plans_of) – without it, its marker approval took lock 3 AFTER finish_job's row lock, the
+    reverse of a Geschosse save. Here a held lock 3 sends the job back. PostgreSQL only."""
+    if db_session.bind.dialect.name != "postgresql":
+        pytest.skip("requires independent PostgreSQL transactions")
+    from app import plans
+
+    monkeypatch.setattr(plans, "WORKER_LOCK_WAIT_MS", 200)
+    job_id = await seed(db_session, pdf_store)
+    job = await db_session.get(PlanAlignment, job_id)
+    owner = (await db_session.get(ReferenceDataset, job.dataset_id)).object_id
+    await db_session.execute(
+        update(ReferenceDataset).where(ReferenceDataset.id == job.dataset_id).values(object_id=None, module=None)
+    )
+    await db_session.commit()
+
+    async with session_factory() as holder:
+        await plans.lock_object_plans(holder, owner)
+        assert await worker.run_once(session_factory)
+        await holder.commit()
+
+    held = await db_session.get(PlanAlignment, job_id, populate_existing=True)
+    assert (held.status, held.attempts) == ("pending", 0)

@@ -29,7 +29,7 @@ from ..geo_util import haversine_m
 from ..incident_service import get_incident_or_404
 from ..models import Incident, ObjectPositionEvent, ObjectSite, ReferenceDataset
 from ..object_visits import attach_refs, is_integration_only, object_ids_with_plans
-from ..plans import plans_pull_enabled, store_plan
+from ..plans import brief_lock_wait, plans_pull_enabled, store_plan
 from ..schemas import (
     ObjectIn,
     ObjectOut,
@@ -433,30 +433,31 @@ async def upload_plan(
     ),
     db: AsyncSession = Depends(get_db),
 ) -> ReferenceDataset:
-    o = (await db.execute(select(ObjectSite).where(ObjectSite.id == object_id))).scalar_one_or_none()
-    if o is None:
-        raise HTTPException(status_code=404, detail="Objekt nicht gefunden")
+    async with brief_lock_wait(db):
+        o = (await db.execute(select(ObjectSite).where(ObjectSite.id == object_id))).scalar_one_or_none()
+        if o is None:
+            raise HTTPException(status_code=404, detail="Objekt nicht gefunden")
 
-    content_type = file.content_type or "application/octet-stream"
-    if content_type not in _ALLOWED_PLAN_TYPES:
-        raise HTTPException(status_code=415, detail=f"Plan muss ein PDF sein (erhalten: {content_type!r})")
+        content_type = file.content_type or "application/octet-stream"
+        if content_type not in _ALLOWED_PLAN_TYPES:
+            raise HTTPException(status_code=415, detail=f"Plan muss ein PDF sein (erhalten: {content_type!r})")
 
-    data = await file.read()
-    _check_plan_digest(object_id, module, data, sha256, machine=actor is None)
+        data = await file.read()
+        _check_plan_digest(object_id, module, data, sha256, machine=actor is None)
 
-    # The plan write itself lives in app/plans.py, because it is not only this endpoint's:
-    # the snapshot pull writes the same datasets, and the id rule, storage key and version
-    # bump have to be decided once for both doors (see that module's docstring).
-    return await store_plan(
-        db,
-        o,
-        module,
-        data,
-        content_type=content_type,
-        title=title,
-        source_note=source_note,
-        actor_id=actor.id if actor else None,
-    )
+        # The plan write itself lives in app/plans.py, because it is not only this endpoint's:
+        # the snapshot pull writes the same datasets, and the id rule, storage key and version
+        # bump have to be decided once for both doors (see that module's docstring).
+        return await store_plan(
+            db,
+            o,
+            module,
+            data,
+            content_type=content_type,
+            title=title,
+            source_note=source_note,
+            actor_id=actor.id if actor else None,
+        )
 
 
 # Auto-surface the nearest object's plans on an incident.

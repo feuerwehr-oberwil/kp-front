@@ -20,7 +20,7 @@ from app import credentials as creds
 from app import sharepoint_sync
 from app.admin_objects import object_id_for_key
 from app.config import settings
-from app.models import DeploymentConfig, ObjectSite, ReferenceDataset, SharePointSyncState
+from app.models import DeploymentConfig, ObjectRef, ObjectSite, ReferenceDataset, SharePointSyncState
 from app.schemas import SharePointConfig
 from app.services.station_workbook import build_workbook
 from app.sharepoint_sync import _module_for, _ModuleRule, sharepoint_status, sync_sharepoint
@@ -1219,3 +1219,317 @@ async def test_a_rename_with_an_edited_file_is_not_guessed_at(db_session, blank_
     await db_session.flush()
     assert await db_session.get(ObjectSite, object_id_for_key("Musterweg 1-14")) is not None
     assert await db_session.get(ObjectSite, object_id_for_key("Musterweg 2-14")) is not None
+
+
+# --- a merge during a run (`plans` › the lock order) ---------------------------------------
+#
+# These tests prove an ORDER of two transactions, so each one waits for its checkpoint – «this
+# session now waits on that lock» – and FAILS if the task finishes first or the time runs out:
+# a race test that passes without reaching its race proves nothing.
+
+
+def _recording_pids(session_factory):
+    """A session factory whose sessions append their backend pid to the returned list as their
+    transaction begins – so a test can name the session under test, even one product code opens."""
+    from sqlalchemy import event
+
+    pids: list[int] = []
+
+    def make(**kw):
+        session = session_factory(**kw)
+
+        @event.listens_for(session.sync_session, "after_begin")
+        def _record(_session, _transaction, connection):
+            pids.append(connection.exec_driver_sql("SELECT pg_backend_pid()").scalar())
+
+        return session
+
+    return make, pids
+
+
+async def _pid(db) -> int:
+    from sqlalchemy import text
+
+    return (await db.execute(text("SELECT pg_backend_pid()"))).scalar_one()
+
+
+def _plans_lock(object_id) -> str:
+    """The name `plans.lock_object_plans` hashes into lock 3 of an object."""
+    from app import plans
+
+    return f"{plans._OBJECT_PLANS}{object_id}"
+
+
+async def _until_blocked(session_factory, task, waiter, holder, *, advisory: str | None = None, within_s: float = 10):
+    """Return once the backend under test (`waiter`: its pid, or the list `_recording_pids` fills)
+    waits in this database for a lock that backend `holder` holds – and, with `advisory`, for exactly
+    the advisory lock that name hashes to (as `plans` takes it). Fail the test if `task` ends before
+    that, or if `within_s` seconds pass."""
+    import asyncio
+
+    from sqlalchemy import text
+
+    blocked = text("SELECT CAST(:holder AS int) = ANY(pg_blocking_pids(:waiter))")
+    on_key = text(
+        "SELECT EXISTS (SELECT 1 FROM pg_locks l WHERE l.pid = :waiter AND NOT l.granted"
+        " AND l.locktype = 'advisory'"
+        " AND l.database = (SELECT oid FROM pg_database WHERE datname = current_database())"
+        " AND ((l.classid::bigint << 32) | l.objid::bigint) = hashtextextended(:name, 0))"
+    )
+    deadline = asyncio.get_running_loop().time() + within_s
+    async with session_factory() as observer:
+        while asyncio.get_running_loop().time() < deadline:
+            if task.done():
+                pytest.fail(f"the task ended before it was blocked: {task.exception() or task.result()!r}")
+            pid = (waiter[-1] if waiter else None) if isinstance(waiter, list) else waiter  # not begun yet
+            if pid is not None:
+                by_holder = (await observer.execute(blocked, {"holder": holder, "waiter": pid})).scalar_one()
+                if by_holder and (
+                    advisory is None or (await observer.execute(on_key, {"waiter": pid, "name": advisory})).scalar_one()
+                ):
+                    return
+            await observer.rollback()  # the lock views are a snapshot per transaction
+            await asyncio.sleep(0.05)
+    pytest.fail(f"backend {waiter} was not blocked by {holder}{f' on {advisory}' if advisory else ''} in {within_s} s")
+
+
+async def _settle(*tasks) -> None:
+    """Cancel and join whatever is still running – a failed checkpoint must not leave a task (and
+    its open transaction) behind."""
+    import asyncio
+    import contextlib
+
+    for task in tasks:
+        if task is not None and not task.done():
+            task.cancel()
+    for task in tasks:
+        if task is not None:
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await task
+
+
+async def test_a_merge_waits_for_the_run_instead_of_deadlocking_with_it(
+    db_session, session_factory, blank_env, storage_root, monkeypatch
+):
+    """A run holds the plan rows it imported and later takes the config row (here: the geodata
+    area's layer write); `admin_objects_repair merge --apply` holds the config row and then needs
+    the loser's plan rows. Without the shared lock Postgres ended one of the two with a deadlock
+    error. Now the merge waits for the run – on lock 1, the checkpoint – and both finish.
+    PostgreSQL only: SQLite has no row locks."""
+    import asyncio
+
+    import httpx
+
+    from app import admin_objects_repair, plans
+
+    if db_session.bind.dialect.name != "postgresql":
+        pytest.skip("requires independent PostgreSQL transactions")
+    merging, merge_pids = _recording_pids(session_factory)
+    monkeypatch.setattr(admin_objects_repair, "async_session_maker", merging)
+    loser, survivor = object_id_for_key("musterweg"), object_id_for_key("Musterweg 1 (EH)")
+    await configure(db_session, [source("plans"), source("geodata")])
+    db_session.add(ObjectSite(id=survivor, name="Musterweg 1 (EH)"))
+    tenant = FakeTenant({"musterweg/modul1.pdf": PDF})
+    await sync_sharepoint(db_session, transport=tenant.transport)
+    await db_session.commit()
+
+    tenant.put("musterweg/modul1.pdf", b"%PDF-1.4 redrawn")
+    tenant.put("hydranten.geojson", geojson())
+    reached, release = asyncio.Event(), asyncio.Event()
+
+    async def paused(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/hydranten.geojson"):  # the plans area is done, the layer write is next
+            reached.set()
+            await release.wait()
+        return tenant._handle(request)
+
+    pulling, pull_pids = _recording_pids(session_factory)
+
+    async def pull():
+        async with pulling() as db:
+            out = await sync_sharepoint(db, transport=httpx.MockTransport(paused))
+            await db.commit()
+            return out
+
+    run = asyncio.create_task(pull())
+    merge = None
+    try:
+        await asyncio.wait_for(reached.wait(), timeout=30)
+        merge = asyncio.create_task(admin_objects_repair._merge_into(loser, survivor, apply=True))
+        # the merge waits for the pull on LOCK 1 – not on the loser's lock 3, which the pull holds too
+        await _until_blocked(session_factory, merge, merge_pids, pull_pids[-1], advisory=plans._PLAN_MAINTENANCE)
+        release.set()
+        result = await asyncio.wait_for(run, timeout=60)
+        assert await asyncio.wait_for(merge, timeout=60) == 0
+    finally:
+        release.set()
+        await _settle(run, merge)
+
+    assert {area: r["status"] for area, r in result["areas"].items()} == {"plans": "ok", "geodata": "ok"}
+    assert await db_session.get(ObjectSite, loser, populate_existing=True) is None
+    moved = await db_session.get(ReferenceDataset, f"plan:{survivor}:modul1", populate_existing=True)
+    assert moved is not None and moved.current_version == 2
+
+
+async def test_a_second_run_skips_while_one_holds_the_plans(db_session, session_factory, blank_env, storage_root):
+    """The button during a scheduled run (or a merge) does not queue behind it: «busy», nothing done,
+    and `POST /api/sharepoint/sync` turns that into 409 `plans.RUN_BUSY`. Bounded: a run that WAITED
+    for lock 1 again would fail here, not hang. PostgreSQL only."""
+    import asyncio
+
+    from app import plans
+
+    if db_session.bind.dialect.name != "postgresql":
+        pytest.skip("requires independent PostgreSQL transactions")
+    await configure(db_session, [source("plans")])
+    await db_session.commit()
+    tenant = FakeTenant({"dorfmatt/modul1.pdf": PDF})
+    async with session_factory() as other:
+        await plans.lock_plan_maintenance(other)
+        skipped = await asyncio.wait_for(sync_sharepoint(db_session, transport=tenant.transport), 10)
+        assert skipped == {"status": "busy", "areas": {}}
+        await other.commit()
+    assert tenant.seen == []
+    assert (await sync_sharepoint(db_session, transport=tenant.transport))["status"] == "ok"
+
+
+# --- an object deleted while the run imports it ----------------------------------------------
+
+
+async def _organizer_removes_its_ref(db):
+    """The organizer's `DELETE /api/integrations/objects/fwo/x`: the object goes along with its last
+    ref when nothing else stands on it (object_visits · delete_integration_object)."""
+    from app import object_visits as ov
+
+    out = await ov.delete_integration_object(db, "fwo", "x")
+    await db.commit()
+    return out
+
+
+async def _organizer_object(db, x_id, **fields) -> None:
+    db.add(ObjectSite(id=x_id, name="Musterweg 1", source_note="Integration: fwo", **fields))
+    await db.flush()
+    db.add(ObjectRef(object_id=x_id, source="fwo", external_id="x"))
+
+
+async def test_an_object_deleted_after_the_run_queued_its_folder_keeps_the_area_whole(
+    db_session, session_factory, blank_env, storage_root
+):
+    """The run refreshes X's filing folder, then – while the run downloads its first sheet – the
+    organizer deletes X. The refresh is an UPDATE the run holds X's row with, so the delete waits for
+    the run (the checkpoint); it used to be a pending ORM change, and its flush hit the deleted row
+    (StaleDataError) and rolled the area's other imports back. PostgreSQL only."""
+    import asyncio
+
+    import httpx
+
+    if db_session.bind.dialect.name != "postgresql":
+        pytest.skip("requires independent PostgreSQL transactions")
+    x_id, y_id = object_id_for_key("Musterweg 1"), object_id_for_key("Dorfmatt")
+    await _organizer_object(db_session, x_id)  # no folder yet
+    await configure(db_session, [source("plans")])
+    await db_session.commit()
+    tenant = FakeTenant({"Dorfmatt/Modul 1.pdf": PDF, "Musterweg 1/Modul 1.pdf": PDF})
+    reached, release = asyncio.Event(), asyncio.Event()
+
+    async def paused(request: httpx.Request) -> httpx.Response:
+        if "/download/" in request.url.path and not reached.is_set():  # after the folder refresh
+            reached.set()
+            await release.wait()
+        return tenant._handle(request)
+
+    pulling, pull_pids = _recording_pids(session_factory)
+
+    async def pull():
+        async with pulling() as db:
+            out = await sync_sharepoint(db, transport=httpx.MockTransport(paused))
+            await db.commit()
+            return out
+
+    run = asyncio.create_task(pull())
+    deleting = None
+    try:
+        async with session_factory() as deleter:
+            await asyncio.wait_for(reached.wait(), 10)
+            remover = await _pid(deleter)  # its transaction goes on in the removal below
+            deleting = asyncio.create_task(_organizer_removes_its_ref(deleter))
+            await _until_blocked(session_factory, deleting, remover, pull_pids[-1])  # by the run's row
+            release.set()
+            result = await asyncio.wait_for(run, 10)
+            removed = await asyncio.wait_for(deleting, 10)
+    finally:
+        release.set()
+        await _settle(run, deleting)
+
+    assert result["areas"]["plans"]["status"] == "ok"
+    assert await datasets(db_session, f"plan:{y_id}:") == [f"plan:{y_id}:modul1"]
+    # the removal waited for the run, then found a plan on X: only the ref went
+    assert removed == {"removed": "ref"}
+    assert await datasets(db_session, f"plan:{x_id}:") == [f"plan:{x_id}:modul1"]
+
+
+async def test_an_object_deleted_during_the_run_is_skipped_whole_and_imported_next_time(
+    db_session, session_factory, blank_env, storage_root
+):
+    """The organizer deletes X while the run waits for X's lock 3 at its first changed sheet (the
+    checkpoint). ALL of X's sheets are skipped – a later changed one must not recreate X – the area
+    says so, the other object's import stays, and the next run imports every sheet of X again, the
+    one remembered from before too. PostgreSQL only."""
+    import asyncio
+
+    from app import plans
+    from app.schemas import SharePointSource
+
+    if db_session.bind.dialect.name != "postgresql":
+        pytest.skip("requires independent PostgreSQL transactions")
+    x_id, y_id = object_id_for_key("Musterweg 1"), object_id_for_key("Dorfmatt")
+    await _organizer_object(db_session, x_id, filing_folder="Musterweg 1")
+    await configure(db_session, [source("plans")])
+    await db_session.commit()
+    sheets = ("Musterweg 1/Modul 1.pdf", "Musterweg 1/Modul 2.pdf", "Musterweg 1/Modul 3.pdf")
+    tenant = FakeTenant({**dict.fromkeys(sheets, PDF), "Dorfmatt/Modul 1.pdf": PDF})
+    # X's first sheet was imported once already – its eTag is in the memo, so this run calls it
+    # «unchanged»; only forgetting it again brings it back with the object. Modul 2 meets the
+    # deletion, Modul 3 comes after it.
+    db_session.add(
+        SharePointSyncState(
+            area="plans",
+            status="ok",
+            source_fingerprint=sharepoint_sync._fingerprint(SharePointSource.model_validate(source("plans"))),
+            files={sheets[0]: tenant._store[sheets[0]].etag},
+        )
+    )
+    await db_session.commit()
+
+    pulling, pull_pids = _recording_pids(session_factory)
+
+    async def pull():
+        async with pulling() as db:
+            out = await sync_sharepoint(db, transport=tenant.transport)
+            await db.commit()
+            return out
+
+    run = deleting = None
+    try:
+        async with session_factory() as holder, session_factory() as deleter:
+            await plans.lock_object_plans(holder, x_id)
+            run = asyncio.create_task(pull())
+            # at X's Modul 2: the pull waits for the holder on X's lock 3
+            await _until_blocked(session_factory, run, pull_pids, await _pid(holder), advisory=_plans_lock(x_id))
+            deleting = asyncio.create_task(_organizer_removes_its_ref(deleter))
+            assert await asyncio.wait_for(deleting, 10) == {"removed": "object"}
+            assert not run.done()  # still at X's lock 3 when X went
+            await holder.commit()
+            result = await asyncio.wait_for(run, 10)
+    finally:
+        await _settle(run, deleting)
+
+    assert result["areas"]["plans"]["status"] == "needs_review"
+    db_session.expire_all()
+    assert await db_session.get(ObjectSite, x_id) is None
+    assert await datasets(db_session, f"plan:{x_id}:") == []
+    assert await datasets(db_session, f"plan:{y_id}:") == [f"plan:{y_id}:modul1"]
+
+    again = await sync_sharepoint(db_session, transport=tenant.transport)
+    assert again["areas"]["plans"]["imported"] == 3
+    assert await datasets(db_session, f"plan:{x_id}:") == [f"plan:{x_id}:modul{n}" for n in (1, 2, 3)]

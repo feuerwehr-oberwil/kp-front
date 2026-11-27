@@ -8435,6 +8435,7 @@
           "reference"
         ],
         "summary": "Replace Reference",
+        "description": "Replace one reference dataset's file. An Objektplan (``plan:…``) waits for its object at most\n`plans.LOCK_WAIT_MS` – also on its first import, while a run's own insert of the row is not\nvisible yet and the generic path below would wait on its key.",
         "operationId": "replace_reference_api_reference__dataset_id__put",
         "parameters": [
           {
@@ -12830,7 +12831,7 @@
           "sharepoint"
         ],
         "summary": "Run Sync",
-        "description": "Run the pull now. `full=true` forgets the delta tokens and the eTag memo first.\n\nThe same mechanism the scheduler runs, not a shortcut around it — an operator pressing the\nbutton gets the mechanism (app/plans · pull_one_plan takes the same line). A full run is the\nanswer to «the file is in SharePoint and the app still has the old one»: it re-imports\neverything rather than trusting what we recorded.",
+        "description": "Run the pull now. `full=true` forgets the delta tokens and the eTag memo first.\n\nThe same mechanism the scheduler runs, not a shortcut around it — an operator pressing the\nbutton gets the mechanism (app/plans · pull_one_plan takes the same line). A full run is the\nanswer to «the file is in SharePoint and the app still has the old one»: it re-imports\neverything rather than trusting what we recorded. While another run (or a merge) holds the\nplans, nothing starts: 409 with RUN_BUSY, which the System card shows as it is.",
         "operationId": "run_sync_api_sharepoint_sync_post",
         "parameters": [
           {
