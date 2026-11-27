@@ -472,14 +472,17 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
   }
   /** Ends a live title edit that is still open. Only a Notiz's text stays open between
    *  keystrokes (a symbol's name commits with each pick), and its typing holds an open undo step
-   *  on the surface: the panel leaving without a blur – ✕, a swipe, another selection – closes it
-   *  here, so the edit is its own ↶ step and never folds into the next act. «Entfernen» closes it
-   *  BEFORE the removal, so the removal stays the later step – the order a blur would have given. */
+   *  on the surface: the field leaving without a blur – ✕, a swipe, another selection, the
+   *  tactical lock taking it (EndsWithField) – closes it here, so the edit is its own ↶ step and
+   *  never folds into the next act. «Entfernen» hands it to `onDelete` instead: the surface ends
+   *  it there without its Verlauf row (the removal's own row says the text), then removes. */
   const endLiveTitle = () => { if (liveEdited.current) { liveEdited.current = false; commit({ label: title }) } }
-  useCommitDraftOnUnmount(endLiveTitle)
   const blurTitle = () => {
     if (liveEdited.current) endLiveTitle()
-    else if (title !== (entity.label ?? '')) commit({ label: title })
+    // nothing typed here: nothing to write – a focus alone must not write this field's text back
+    // over another device's, which the label-follow above skips while the field has the focus.
+    // From now on the field shows that text.
+    else setTitle(entity.label ?? '')
   }
   // Committed against a ref, not `entity.notes`: the unmount commit below re-runs blurNotes
   // after a normal blur→close, when the entity prop may not have caught up yet — the ref keeps
@@ -735,7 +738,10 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
         // bin SQUARE of 27.09.2026 was the one remove you could not read without guessing); on a
         // symbol with a «Zustand» its HOLD says what it is for (`data-holdexplain`, audit A1).
         : (!readOnly || allowDelete) && !onStopSharing && (
-          <Button variant="danger" icon={<Icon id="trash" />} onClick={() => { endLiveTitle(); onDelete() }}
+          <Button variant="danger" icon={<Icon id="trash" />} onClick={() => { liveEdited.current = false; onDelete() }}
+            // a mouse press would blur the Notiz text first and end its typing as an act of its own
+            // (with its row) before the removal; a tap keeps the caret. Same on both: the focus stays.
+            onMouseDown={isNote ? (e) => e.preventDefault() : undefined}
             {...(onDone ? { 'data-holdexplain': true, 'aria-label': `${appConfig.copy.remove} – ${O.removeHint}` } : {})}>
             {appConfig.copy.remove}
           </Button>
@@ -820,6 +826,7 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
                 stays the fast path; this is for when you want room. */}
             <div className="ctx-note-text">
               <span className="ctx-section-label">{N.content}</span>
+              <EndsWithField end={endLiveTitle} />
               <textarea
                 ref={noteTextRef}
                 className="ctx-note-input"
@@ -1246,4 +1253,12 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
       {actions}
     </CtxShell>
   )
+}
+
+/** Runs `end` once, when it unmounts. Rendered beside the Notiz text field, so the field's typing
+ *  session ends with the FIELD: the panel closing takes it, and so does the tactical lock, which
+ *  swaps the field for its read-only text while the panel stays (`readOnly`). */
+function EndsWithField({ end }: { end: () => void }) {
+  useCommitDraftOnUnmount(end)
+  return null
 }

@@ -158,7 +158,7 @@ import { annotatedPlans, changedReportMetaLines, einsatzleiterFromScene, normali
 import { useAbschluss } from './lib/useAbschluss'
 import { useRowMediaUpload } from './lib/useRowMediaUpload'
 import { useGeorefFits } from './lib/useGeorefFits'
-import { createEditSettle, entityEditRow, noteTextRow, type EditSettle } from './lib/entityEdit'
+import { createEditSettle, entityEditChanges, entityLogName, noteTextRow, type EditSettle } from './lib/entityEdit'
 import type { PlanStepLink } from './lib/planStepLink'
 import { mittelLineCount } from './lib/mittel'
 import { autoNoteWPx } from './lib/notes'
@@ -830,8 +830,11 @@ export function IncidentWorkspace({
         || Date.now() - (entityTypedAt.current.get(id) ?? 0) < META_LOG_SETTLE_MS,
       onSettled: (id, base, latest) => {
         entityTypedAt.current.delete(id)
-        const row = entityEditRow(base, latest)
-        if (row) log('pen', row, 'symbol', undefined, id)
+        const changes = entityEditChanges(base, latest)
+        if (!changes.length) return
+        log('pen', fillTemplate(appConfig.copy.log.entityEdited, {
+          name: entityLogName(latest), changes: changes.join(', '),
+        }), 'symbol', undefined, id)
       },
     })
     entityLogSettle.current.push(before.id, before, after)
@@ -1308,7 +1311,7 @@ export function IncidentWorkspace({
   const titleLiveRef = useRef(false)
   // …and the Karte gesture a Notiz's typing opened (useUndoableDoc · beginDrag), so its end folds
   // THAT gesture and never one begun after it (a vehicle dragged while the Notiz has the caret) –
-  // with the Notiz's text when it began, for its audit row (noteTextEnd)
+  // with the Notiz's text when it began, for its Verlauf row (noteTextEnd)
   const noteTyping = useRef<{ token: number; from: string } | null>(null)
   // stream a note's raw text live (silent — snapshot once for undo), then fold the whole
   // edit into one undo step + a single audit event on blur. Mirrors the title editor.
@@ -1332,47 +1335,39 @@ export function IncidentWorkspace({
       : e)) }))
   }
   /** …and its end, from the editor on the map and from the Notiz panel alike: ONE ↶ step, one audit
-   *  row and one Verlauf row for the typing (the Verlauf's only for a text that changed from the
-   *  one it began with, lib/entityEdit · noteTextRow). None at all when the history moved under it
-   *  – a ↶ / ↷ while it was open (endDrag with the typing's token), or the Notiz gone (a ↶ took
-   *  back placing it, another device removed it): a step from the old snapshot would bring back
-   *  what the ↶ took and clear ↷, which already holds the typed text. A gesture begun while it was
-   *  typed (a vehicle drag) took the one slot and keeps its own step: the typing then lays none,
-   *  but its text still writes its rows while the Notiz holds it and it changed – a ↶ that took the
-   *  text back leaves an older one there, and no row. Nothing typed: a step only for a changed
-   *  text, so a ✓ on an unchanged Notiz leaves ↷ standing. */
-  const noteTextEnd = (id: string, v: string) => {
+   *  row and – for a text that changed from the one the typing began with – one Verlauf row
+   *  (lib/entityEdit · noteTextRow), all at this moment; a ↶ after it is after the session. None
+   *  at all when the history moved under it – a ↶ / ↷ while it was open (endDrag with the typing's
+   *  token), or the Notiz gone (a ↶ took back placing it, another device removed it, the Delete
+   *  key): a step from the old snapshot would bring back what the ↶ took and clear ↷, which
+   *  already holds the typed text. A gesture begun while it was typed (a vehicle drag) took the
+   *  one slot and keeps its own step: the typing then lays none, but still writes its rows while
+   *  the Notiz holds its text – a ↶ that took the text back leaves an older one there, and no row.
+   *  `row: false` is the end a removal gives it (the panel's «Entfernen», MapDetailPanels): step
+   *  and audit row as ever, no Verlauf row – the removal's own row says the text. Nothing typed:
+   *  nothing changed here, so nothing is written – a field that only held the focus must not write
+   *  its text back over another device's, and a ✓ on an unchanged Notiz leaves ↷ standing. */
+  const noteTextEnd = (id: string, v: string, { row = true }: { row?: boolean } = {}) => {
     const live = titleLiveRef.current
     const typing = noteTyping.current
     titleLiveRef.current = false
     noteTyping.current = null
+    if (!live) return
     const note = liveViews().doc.entities.find((e) => e.id === id)
-    if (live) {
-      if (!note) { if (typing) dropDrag(typing.token); return }
-      const laid = endDrag(typing?.token)
-      const kept = !laid && typing !== null && (note.label ?? '') === v && v !== typing.from
-      if (!laid && !kept) return
-      emit('entity.edit', { id, patch: { label: v } })
-      // a style edit's settle window (noteEntityEdit) holds the text from before or during the
-      // typing: the typing's row below says the new one, so the window must not say it again
-      entityLogSettle.current?.rebase(id, (e) => ({ ...e, label: v }))
-      // …and its one Verlauf row, against the text the typing began with – once the act is over:
-      // the panel's «Entfernen» ends the typing just BEFORE it removes the Notiz, whose removal
-      // row then says the text («Wasser ab 14:20 entfernt»), so a Notiz gone by then writes none
-      const row = typing && noteTextRow(typing.from, v)
-      if (row) {
-        queueMicrotask(() => {
-          if (liveViews().doc.entities.find((e) => e.id === id)?.label === v) log('pen', row, 'symbol', undefined, id)
-        })
-      }
-      return
-    }
-    if (note && (note.label ?? '') !== v) patchEntity(id, { label: v })
+    if (!note) { if (typing) dropDrag(typing.token); return }
+    const laid = endDrag(typing?.token)
+    const kept = !laid && typing !== null && (note.label ?? '') === v && v !== typing.from
+    if (!laid && !kept) return
+    emit('entity.edit', { id, patch: { label: v } })
+    const line = row && typing ? noteTextRow(typing.from, v) : null
+    if (line) log('pen', line, 'symbol', undefined, id)
   }
   /** The map editor's commit. It also runs when the editor goes because ANOTHER Notiz opened
-   *  (EntityMarker · NoteField), so it closes the editor only while it is still this one's. */
+   *  (EntityMarker · NoteField), so it closes the editor only while it is still this one's – and
+   *  when the tactical lock took the editor away: a typing begun before the lock ends as any other
+   *  (noteTextLive begins none while locked, so a viewer has nothing to end). */
   const noteTextCommit = (id: string, v: string) => {
-    if (!tacticalLocked) noteTextEnd(id, v)
+    noteTextEnd(id, v)
     setEditNoteId((open) => (open === id ? null : open))
   }
   // which note has its detail panel open. NOT derived from selectedId: unlike a symbol, selecting
@@ -1964,8 +1959,8 @@ export function IncidentWorkspace({
     opts?: { rowId?: string; subjectId?: string }) =>
     pushEvent({ icon, text, kind, audioUrl, entityId, subjectId: opts?.subjectId, surface: 'map' }, opts?.rowId)
   // plan events carry document + (optional) team / coordinate context for jump-back
-  const logPlan = (icon: string, text: string, extra?: { kind?: TimelineEvent['kind']; annoId?: string; x?: number; y?: number; floor?: number; subjectId?: string }) =>
-    pushEvent({ icon, text, kind: extra?.kind ?? 'symbol', surface: 'plan', planId: activePlanId, annoId: extra?.annoId, px: extra?.x, py: extra?.y, floor: extra?.floor, subjectId: extra?.subjectId })
+  const logPlan = (icon: string, text: string, extra?: { kind?: TimelineEvent['kind']; annoId?: string; x?: number; y?: number; floor?: number; subjectId?: string; planId?: string }) =>
+    pushEvent({ icon, text, kind: extra?.kind ?? 'symbol', surface: 'plan', planId: extra?.planId ?? activePlanId, annoId: extra?.annoId, px: extra?.x, py: extra?.y, floor: extra?.floor, subjectId: extra?.subjectId })
   // Rapport signatures (15.10.2026, lib/reportSignature). Appended through the functional setter
   // and NOT through undo: a step that takes a signature away again would be the one edit the lock
   // exists to prevent. Nothing voids one by hand any more: a signature holds, open or closed, while

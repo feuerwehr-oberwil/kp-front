@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach, type Mock } from 'vitest'
-import { render, screen, cleanup, fireEvent, within } from '@testing-library/react'
+import { render, screen, cleanup, createEvent, fireEvent, within } from '@testing-library/react'
 import { ContextPanel, type PatchPhase, type SymbolPatch, type SymbolView } from './ContextPanel'
 import type { SymbolControl } from '../types'
 import { appConfig } from '../config/appConfig'
@@ -647,6 +647,62 @@ describe('ContextPanel — live text editing on a note', () => {
     fireEvent.blur(input)
     expect(onTitle).toHaveBeenCalledTimes(1)
     expect(onTitle).toHaveBeenCalledWith('An')
+  })
+})
+
+// The note's typing session ends with its FIELD, and only a local edit writes (Notiz Verlauf
+// round, sweep 25.11.2026). `onDelete` gets an open typing to end itself (the surfaces end it
+// without its Verlauf row, then remove).
+describe('ContextPanel — the end of a note’s typing', () => {
+  const note = (label: string) => ({ id: 'n1', label })
+  const field = () => document.querySelector<HTMLTextAreaElement>('.ctx-note-input')!
+  /** «Entfernen» – the panel draws its actions twice (inline and as the footer, by layout) */
+  const removeButton = () => screen.getAllByRole('button', { name: appConfig.copy.remove })[0]
+  const props = (label: string, over: Partial<React.ComponentProps<typeof ContextPanel>> = {}) => {
+    const w = writes()
+    return { ...w, panel: { entity: note(label), subject: 'note' as const, onPatch: w.onPatch, onClose: vi.fn(), onDelete: vi.fn(), ...over } }
+  }
+
+  // another device wrote the text while this field only had the focus: the blur writes nothing,
+  // and the field shows that text from then on
+  it('a focus and a blur with no keystroke write nothing, also after another device’s text', () => {
+    const { panel, onTitle } = props('Alt')
+    const { rerender } = render(<ContextPanel {...panel} />)
+    field().focus()
+    rerender(<ContextPanel {...panel} entity={note('Neu von Tablet 2')} />)
+    fireEvent.blur(field())
+    expect(onTitle).not.toHaveBeenCalled()
+    expect(field().value).toBe('Neu von Tablet 2')
+  })
+
+  // the tactical lock swaps the field for its read-only text while the panel stays
+  it('typed, then the field goes (read-only): the typing ends once, with its text', () => {
+    const { panel, onTitle } = props('Alt')
+    const { rerender } = render(<ContextPanel {...panel} />)
+    fireEvent.change(field(), { target: { value: 'Wasser ab 14:20' } })
+    rerender(<ContextPanel {...panel} readOnly />)
+    expect(field()).toBeNull()
+    expect(onTitle.mock.calls).toEqual([['Wasser ab 14:20']])
+  })
+
+  it('«Entfernen» hands an open typing to onDelete: no commit before it, none after', () => {
+    const { panel, onTitle } = props('Alt')
+    const { unmount } = render(<ContextPanel {...panel} />)
+    fireEvent.change(field(), { target: { value: 'Wasser ab 14:20' } })
+    fireEvent.click(removeButton())
+    unmount()
+    expect(panel.onDelete).toHaveBeenCalledTimes(1)
+    expect(onTitle).not.toHaveBeenCalled()
+  })
+
+  // a mouse press moves the focus unless its default is prevented – and the blur would end the
+  // typing as an act of its own before the removal; a tap keeps the caret anyway
+  it('a mouse press on «Entfernen» keeps the focus in the text field', () => {
+    const { panel } = props('Alt')
+    render(<ContextPanel {...panel} />)
+    const press = createEvent.mouseDown(removeButton())
+    fireEvent(removeButton(), press)
+    expect(press.defaultPrevented).toBe(true)
   })
 })
 

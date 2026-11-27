@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createEditSettle, entityEditChanges, entityEditRow, entityLogName, noteTextRow, rosterFieldsToRefile } from './entityEdit'
+import { createEditSettle, entityEditChanges, entityLogName, noteTextRow, rosterFieldsToRefile } from './entityEdit'
 import type { Entity } from '../types'
 
 const sym = (over: Partial<Entity>): Entity => ({
@@ -63,12 +63,14 @@ describe('entityEditChanges (the Verlauf line for editing the Kroki)', () => {
     expect(entityEditChanges(sym({ notes: 'alt' }), sym({ notes: '  ' }))).toEqual(['Notiz entfernt'])
   })
 
-  // A Notiz box keeps its TEXT in `label`, so it must not be announced as a «Beschriftung».
-  it('calls a Notiz box’s text a Notiz, not a Beschriftung', () => {
+  // A Notiz box keeps its TEXT in `label`: never a «Beschriftung», and never this line at all –
+  // its typing session writes it (noteTextRow), so a settle window over the typing cannot say it
+  // a second time or backwards (Notiz Verlauf round, sweep 25.11.2026)
+  it('leaves a Notiz box’s text to its typing session', () => {
     const note = (over: Partial<Entity>): Entity =>
       ({ ...sym({}), kind: 'note', ...over })
-    expect(entityEditChanges(note({}), note({ label: 'Sammelplatz Ost' })))
-      .toEqual(['Notiz «Sammelplatz Ost»'])
+    expect(entityEditChanges(note({}), note({ label: 'Sammelplatz Ost' }))).toEqual([])
+    expect(entityEditChanges(note({ label: 'Alt' }), note({ label: 'Alt', floor: 2 }))).toEqual(['Geschoss 2. OG'])
   })
 
   it('stays silent on pure geometry — arranging the picture is not an event', () => {
@@ -112,20 +114,12 @@ describe('entityEditChanges (the Verlauf line for editing the Kroki)', () => {
   })
 })
 
-// A Notiz's name IS its text: «Neu: Notiz «Neu»» said it twice. Its row is bare on the Lage and the
-// Plan alike, typed or not (sweep 25.11.2026, owner pick).
-describe('entityEditRow (the whole row) and noteTextRow (a Notiz’s text)', () => {
-  const note = (over: Partial<Entity>): Entity => ({ ...sym({}), kind: 'note', ...over })
-
-  it('a Notiz whose text changed: the bare row, also when it was emptied', () => {
-    expect(entityEditRow(note({ label: 'Alt' }), note({ label: 'Neu' }))).toBe('Notiz «Neu»')
-    expect(entityEditRow(note({ label: 'Alt' }), note({ label: ' ' }))).toBe('Notiz entfernt')
-  })
-
-  it('a Notiz edited but not its text, or a symbol: named as before', () => {
-    expect(entityEditRow(note({ label: 'Sammelplatz' }), note({ label: 'Sammelplatz', floor: 2 }))).toBe('Sammelplatz: Geschoss 2. OG')
-    expect(entityEditRow(sym({}), sym({ floor: 2 }))).toBe('Einsatzleiter: Geschoss 2. OG')
-    expect(entityEditRow(sym({}), sym({ rotation: 90 }))).toBeNull()
+// A Notiz's name IS its text, so its row is bare – «Notiz «Neu»», never «Neu: Notiz «Neu»» – on
+// the Lage and the Plan alike (sweep 25.11.2026, owner pick).
+describe('noteTextRow (a Notiz’s text, once per typing session)', () => {
+  it('the bare row, the cleared one when emptied', () => {
+    expect(noteTextRow('Alt', 'Neu')).toBe('Notiz «Neu»')
+    expect(noteTextRow('Alt', ' ')).toBe('Notiz entfernt')
   })
 
   it('no row for a text that ended as it began, line breaks and spaces aside', () => {

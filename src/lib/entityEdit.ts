@@ -59,13 +59,12 @@ export function entityEditChanges(prev: Entity, next: Entity): string[] {
     else out.push(fillTemplate(a ? L.fieldChanged : L.fieldSet, { field, value: b }).trim())
   }
 
-  if ((prev.label ?? '').trim() !== (next.label ?? '').trim()) {
-    // ⚠️ A Notiz keeps its TEXT in `label` — «Beschriftung «Gasflaschen im Keller»» is the record
-    // calling the note's contents a caption. Same field, different thing, so a different word.
+  // ⚠️ A Notiz keeps its TEXT in `label`, and that text has its own row: the typing session's
+  // (noteTextRow), written once when the session ends by the surface it was typed on. A line here
+  // would say it a second time, or – from a window that spans the typing – say it backwards.
+  if (next.kind !== 'note' && (prev.label ?? '').trim() !== (next.label ?? '').trim()) {
     const v = oneLine(next.label)
-    const line = next.kind === 'note' ? noteTextRow(prev.label, next.label)
-      : v ? fillTemplate(L.labelSet, { value: v }) : L.labelCleared
-    if (line) out.push(line)
+    out.push(v ? fillTemplate(L.labelSet, { value: v }) : L.labelCleared)
   }
 
   // ── Stockwerk: a single storey, or the range a Treppe/Lift covers ──
@@ -105,9 +104,10 @@ export function entityEditChanges(prev: Entity, next: Entity): string[] {
   return out
 }
 
-/** The Verlauf line for a Notiz's text going from `from` to `to`, on the Lage and the Plan alike:
- *  «Notiz «…»», or «Notiz entfernt» when it was emptied; null when it ended as it began. Each
- *  surface writes it once per editing session, against the text the session began with. */
+/** The Verlauf row for a Notiz's text going from `from` to `to`, on the Lage and the Plan alike –
+ *  bare, because a Notiz's name IS its text: «Notiz «…»», or «Notiz entfernt» when it was emptied;
+ *  null when it ended as it began. Each surface writes it once per typing session, when the
+ *  session ends, against the text the session began with. */
 export function noteTextRow(from: string | undefined, to: string | undefined): string | null {
   const L = appConfig.copy.log
   const v = oneLine(to)
@@ -115,26 +115,10 @@ export function noteTextRow(from: string | undefined, to: string | undefined): s
   return v ? fillTemplate(L.noteWritten, { value: v }) : L.notesCleared
 }
 
-/** The whole Verlauf row for editing a symbol on the Kroki, or null when nothing it names moved:
- *  «{name}: {changes}». A Notiz's name IS its text, so once its text line is in the row the row
- *  is bare – «Notiz «Neu»», never «Neu: Notiz «Neu»» – and reads as the text typed on the map
- *  writes it (noteTextRow). */
-export function entityEditRow(prev: Entity, next: Entity): string | null {
-  const changes = entityEditChanges(prev, next)
-  if (!changes.length) return null
-  const text = changes.join(', ')
-  if (next.kind === 'note' && noteTextRow(prev.label, next.label)) return text
-  return fillTemplate(appConfig.copy.log.entityEdited, { name: entityLogName(next), changes: text })
-}
-
 /** One open edit window: the state it STARTED in, the freshest state seen, and its timer. */
 export interface EditSettle<T> {
   /** report one edit — opens a window, or keeps the open one's base and pushes its close out */
   push(id: string, before: T, after: T): void
-  /** apply a change another row already reported (a typed Notiz's own row, IncidentWorkspace ·
-   *  noteTextEnd) to BOTH ends of an open window, so it neither says it again nor reports it
-   *  backwards; nothing when no window is open */
-  rebase(id: string, change: (state: T) => T): void
 }
 
 /**
@@ -171,10 +155,6 @@ export function createEditSettle<T>({ ms, stillEditing, onSettled }: {
       const cur = open.get(id)
       if (cur) clearTimeout(cur.timer)
       open.set(id, { base: cur?.base ?? before, latest: after, timer: arm(id) })
-    },
-    rebase(id, change) {
-      const cur = open.get(id)
-      if (cur) { cur.base = change(cur.base); cur.latest = change(cur.latest) }
     },
   }
 }

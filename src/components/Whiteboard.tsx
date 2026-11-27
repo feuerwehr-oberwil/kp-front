@@ -427,6 +427,9 @@ export interface TafelPagesProps {
  */
 export interface PlanLogExtra {
   kind?: 'symbol' | 'team' | 'history'; annoId?: string; x?: number; y?: number; floor?: number
+  /** the sheet the row is about, when it is not the one shown now (a Notiz typed on a sheet that
+   *  was left before its session ended) */
+  planId?: string
   /** which object a row is ABOUT without making it a jump target — a removal (types ·
    *  TimelineEvent.subjectId), exactly what the Karte's removal row carries */
   subjectId?: string
@@ -1023,17 +1026,16 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // (ContextPanel · onPatch 'typing') so the note updates under the finger, exactly as it does on
   // the Lage. Checkpoint once when typing starts, emit once on blur — otherwise «Sicherung» is
   // nine undo steps and nine audit rows. (A symbol's name is a draft instead: `titleDraft`.)
-  // `from` is the Notiz's text when the typing began and `planId` the sheet it is typed on, for
-  // its Verlauf row (patchNote)
-  const titleLive = useRef<{ id: string; planId: string; from: string } | null>(null)
-  // the sheet as it now stands, for a row written once the act is over (patchNote): every board
-  // write leaves through writeBoard, another device's arrives as the prop (the commit effect below)
-  const boardNow = useRef({ planId: activeId, annos: annosAll })
+  // `from` is the Notiz's text when the typing began and `planId` the sheet it began on, for its
+  // Verlauf row; `steppedOver` once a ↶ / ↷ on the board ran while it was open (onRestore)
+  const titleLive = useRef<{ id: string; planId: string; from: string; steppedOver?: boolean } | null>(null)
   /** ↶ / ↷ on the Tafel lands where the step was: the page it changed, else the Skizze. Any ↶ / ↷
    *  also closes the Notiz editor on the sheet (useBoardDoc · undo) and takes its typing session
    *  with it, so the field's end (endTextEdit) writes no row with the text the step took back. */
   const onRestore = (from: BoardAnno[], to: BoardAnno[]) => {
     textEdit.current = null
+    // …and the panel's typing session writes no row with a text the step may have taken back
+    if (titleLive.current) titleLive.current = { ...titleLive.current, steppedOver: true }
     if (!onTafel) return
     const was = new Map(from.filter((a) => a.kind === 'form').map((a) => [a.id, JSON.stringify(a)]))
     const changed = to.find((a) => a.kind === 'form' && was.get(a.id) !== JSON.stringify(a))
@@ -1043,11 +1045,8 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   }
   // every board write leaves through here: a Durchgang rides along with the Wand that write moved,
   // and lets go of one it deleted (lib/grundriss · carryDoors) – ↶ / ↷ restores are left as they are
-  const writeBoard: typeof onChangeAll = (next, ...opts) => {
-    const carried = opts[0]?.gesture === false ? next : carryDoors(annosAll, next, tileAR)
-    boardNow.current = { planId: activeId, annos: carried }
-    onChangeAll(carried, ...opts)
-  }
+  const writeBoard: typeof onChangeAll = (next, ...opts) =>
+    onChangeAll(opts[0]?.gesture === false ? next : carryDoors(annosAll, next, tileAR), ...opts)
   const boardDoc = useBoardDoc({
     annos: annosAll, onChange: writeBoard, emit, activeId, selId, setSelId, editId, setEditId, historyRef, hist, setHist, onCheckpoint, onStepEnd, onRestore,
   })
@@ -1388,8 +1387,9 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     // …and the Verlauf gets what it SAYS, not that a note exists (the Lage's row, lib/entityEdit ·
     // noteTextRow). Once per editing session, on the way out, against the text the session began
     // with — a row per keystroke would be a wall.
+    // On the sheet it was typed on: the session can end after another sheet is shown (leaveTextEdit).
     const row = noteTextRow(open.from, value)
-    if (row) log('type', row)
+    if (row) log('type', row, { planId: open.planId })
   }
   /** The blur ends the session now. Once per session: a later end finds the marker cleared. */
   const endTextEdit = (a: BoardAnno, value: string) => {
@@ -1427,8 +1427,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // re-point the leave-document release every commit (see releaseRef above for why a ref), and
   // release on a TOOL change — below usePlanDraft, whose commit machinery the release is.
   // …and settle a Notiz field that went in this commit, against the sheet as it now stands
-  // (boardNow: that sheet, for patchNote's row)
-  useEffect(() => { boardNow.current = { planId: activeId, annos: annosAll }; releaseRef.current = releaseDraft; leaveTextRef.current = leaveTextEdit; settleTextEdit() })
+  useEffect(() => { releaseRef.current = releaseDraft; leaveTextRef.current = leaveTextEdit; settleTextEdit() })
   useEffect(() => {
     const from = prevTool.current
     prevTool.current = tool
@@ -1611,36 +1610,38 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
       if (Object.keys(edit).length) patchCommit(a.id, edit)
     } finally { end() }
   }
+  /** The panel's typing session ends (its blur, the panel or field going, «Entfernen»): its audit
+   *  row and, for a text that changed from the one it began with, its one Verlauf row
+   *  (lib/entityEdit · noteTextRow), on the sheet the typing began on – the panel of a Notiz the
+   *  Karte lends to two sheets stays open across a sheet switch. No row when a ↶ / ↷ stepped over
+   *  the session or the Notiz no longer holds the text (the Karte's ↶ of a Notiz it lends the
+   *  sheet), nor with `row: false` – the Notiz is being removed, and the removal's row says the
+   *  text. Answers whether a session was open. */
+  const endNoteTyping = (n: BoardAnno, label: string, { row = true }: { row?: boolean } = {}) => {
+    const live = titleLive.current?.id === n.id ? titleLive.current : null
+    if (!live) return false
+    titleLive.current = null
+    emit('board.edit', { id: n.id, patch: { text: label }, planId: activeId })
+    const line = row && !live.steppedOver && (n.text ?? '') === label ? noteTextRow(live.from, label) : null
+    if (line) log('type', line, { planId: live.planId })
+    return true
+  }
   /** …and a note's: its TEXT is the panel's title. One checkpoint when typing starts, one audit
    *  row on blur — the live `patch` writes without a checkpoint, so committing again on blur used
    *  to snapshot the ALREADY typed text and «Rückgängig» after renaming a note did nothing at all.
-   *  The blur also writes the typing session's one Verlauf row (lib/entityEdit · noteTextRow), once
-   *  the act is over and only while the Notiz still holds that text: the panel's «Entfernen» ends
-   *  the typing just BEFORE it removes the Notiz, whose removal row then says the text, and a ↶
-   *  during the session took the text back. A panel that went with its sheet (another sheet shown)
-   *  writes its row, as the sheet's editor does (leaveTextEdit).
+   *  The session's end (endNoteTyping) also writes its one Verlauf row.
    *  Each style edit is remembered as the NEXT note's default too («D pur», 09.09.: the Notiz dock
    *  carries no style controls any more — this is the stickiness). */
   const patchNote = (n: BoardAnno, p: SymbolPatch, phase: PatchPhase) => {
     if (phase === 'typing') {
-      if (titleLive.current?.id !== n.id) { titleLive.current = { id: n.id, planId: activeId, from: n.text ?? '' }; pushPast() }
+      // …a fresh session once a ↶ / ↷ stepped over the open one: what is typed next is its own edit
+      const open = titleLive.current
+      if (open?.id !== n.id || open.steppedOver) { titleLive.current = { id: n.id, planId: activeId, from: n.text ?? '' }; pushPast() }
       patch(n.id, { text: p.label })
       return
     }
     const { label, noteSize, ...rest } = p
-    if (label !== undefined) {
-      const live = titleLive.current?.id === n.id ? titleLive.current : null
-      titleLive.current = null
-      if (live) emit('board.edit', { id: n.id, patch: { text: label }, planId: activeId })
-      else patchCommit(n.id, { text: label })
-      const row = live && noteTextRow(live.from, label)
-      if (row) {
-        queueMicrotask(() => {
-          const now = boardNow.current
-          if (now.planId !== live.planId || now.annos.find((a) => a.id === n.id)?.text === label) log('type', row)
-        })
-      }
-    }
+    if (label !== undefined && !endNoteTyping(n, label)) patchCommit(n.id, { text: label })
     // a width set by hand ends the auto-fit; the size-slider step keeps it and re-measures
     if ('noteSize' in p) {
       patchCommit(n.id, n.noteAutoW
@@ -3388,7 +3389,8 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
           onClose={() => setNotePanelId(null)}
           subject="note"
           onPatch={(patch, phase) => patchNote(selNote, patch, phase)}
-          onDelete={() => { setNotePanelId(null); void removeWithConnections(selNote) }}
+          // «Entfernen» ends the open typing here, as its own ↶ step without a Verlauf row, then removes
+          onDelete={() => { setNotePanelId(null); endNoteTyping(selNote, selNote.text ?? '', { row: false }); void removeWithConnections(selNote) }}
         />
       )}
 

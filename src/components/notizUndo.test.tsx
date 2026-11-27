@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, createEvent, fireEvent, render, screen } from '@testing-library/react'
 import { createRef, useImperativeHandle, useRef, useState, type ComponentProps, type RefObject } from 'react'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
@@ -10,7 +10,7 @@ import type { Doc } from '../lib/workspace'
 import type { SymbolsApi } from '../lib/useSymbols'
 import type { BoardAnno, Entity, PlanDocument } from '../types'
 import { MapDetailPanels, type MapDetailPanelsProps } from '../workspace/MapDetailPanels'
-import { Whiteboard } from './Whiteboard'
+import { Whiteboard, type PlanLogExtra } from './Whiteboard'
 import type { BoardHistory } from './useBoardDoc'
 import type { ContextPanel as RealPanel } from './ContextPanel'
 
@@ -166,7 +166,7 @@ type PlanDrive = { setAnnos: (annos: BoardAnno[]) => void; show: (planId: string
  *  workspace/usePlanStacks records them. `seen` gets the sheet after every write; `seed` is the
  *  history the sheet starts with, stepped through `history`. Both sheets show the same annos – a
  *  Notiz the Karte lends to two sheets. */
-function PlanRig({ annos: start, timeline, seen, seed = {}, history, emit, log = () => {}, drive }: { annos: BoardAnno[]; timeline: UndoTimeline; seen: (annos: BoardAnno[]) => void; seed?: BoardHistory; history?: RefObject<PlanHistory | null>; emit?: (op: string, payload?: Record<string, unknown>) => void; log?: (icon: string, text: string) => void; drive?: RefObject<PlanDrive | null> }) {
+function PlanRig({ annos: start, timeline, seen, seed = {}, history, emit, log = () => {}, drive }: { annos: BoardAnno[]; timeline: UndoTimeline; seen: (annos: BoardAnno[]) => void; seed?: BoardHistory; history?: RefObject<PlanHistory | null>; emit?: (op: string, payload?: Record<string, unknown>) => void; log?: (icon: string, text: string, extra?: PlanLogExtra) => void; drive?: RefObject<PlanDrive | null> }) {
   const [annos, setAnnos] = useState(start)
   const [activeId, show] = useState('tafel')
   useImperativeHandle(drive, () => ({ setAnnos, show }))
@@ -218,16 +218,17 @@ describe('a Notiz typed in the editor on the plan, which goes without a blur', (
     const seed: BoardHistory = placed ? { tafel: { past: [{ id: 'placed', snap: annos.filter((a) => a.id !== placed) }], future: [] } } : {}
     if (placed) timeline.push({ domain: 'plan', label: 'Plan', undo: () => history.current!.undo('placed'), redo: () => history.current!.redo('placed') })
     const emit = vi.fn()
-    const log = vi.fn<(icon: string, text: string) => void>()
+    const log = vi.fn<(icon: string, text: string, extra?: PlanLogExtra) => void>()
     const drive = createRef<PlanDrive>()
     const utils = render(<PlanRig annos={annos} timeline={timeline} seen={(a) => { sheet = a }} seed={seed} history={history} emit={emit} log={log} drive={drive} />)
     const now = () => ({ vehicle: sheet.find((a) => a.id === 'v1')?.label, note: sheet.find((a) => a.id === 'n1')?.text })
     /** the audit's edit rows for the Notiz: the text each records, and the sheet */
     const noteEdits = () => emit.mock.calls.filter(([op, p]) => op === 'board.edit' && p?.id === 'n1').map(([, p]) => (p as { patch: { text?: string } }).patch.text)
     const noteEditSheets = () => emit.mock.calls.filter(([op, p]) => op === 'board.edit' && p?.id === 'n1').map(([, p]) => (p as { planId: string }).planId)
-    /** the Verlauf rows the board wrote */
+    /** the Verlauf rows the board wrote, and the sheet each names (none: the one shown) */
     const rows = () => log.mock.calls.map(([, text]) => text)
-    return { ...utils, timeline, now, noteEdits, noteEditSheets, rows, drive: () => drive.current!, sheet: () => sheet }
+    const rowSheets = () => log.mock.calls.map(([, , extra]) => extra?.planId)
+    return { ...utils, timeline, now, noteEdits, noteEditSheets, rows, rowSheets, drive: () => drive.current!, sheet: () => sheet }
   }
 
   // ✓ ends the editor with no blur; its typing marker stayed set, and the next typing in that
@@ -282,12 +283,13 @@ describe('a Notiz typed in the editor on the plan, which goes without a blur', (
   })
 
   it('a sheet switch while it is typed ends the edit on the sheet it was typed on', () => {
-    const { noteEditSheets, rows, drive } = mount([{ ...vehicle, ...at }, { id: 'n1', kind: 'text', x: 0.3, y: 0.3, floor: 0, text: 'Alt' }])
+    const { noteEditSheets, rows, rowSheets, drive } = mount([{ ...vehicle, ...at }, { id: 'n1', kind: 'text', x: 0.3, y: 0.3, floor: 0, text: 'Alt' }])
     fireEvent.doubleClick(screen.getByText('Alt'))
     typeOnSheet('Wasser ab 14:20')
     act(() => drive().show('modul2'))
     expect(noteEditSheets()).toEqual(['tafel'])
     expect(rows()).toEqual([written('Wasser ab 14:20')])
+    expect(rowSheets()).toEqual(['tafel'])
   })
 
   it('the board closing while it is typed ends the edit: its one row', () => {
@@ -391,95 +393,130 @@ describe('a Notiz typed on the plan writes its Verlauf row', () => {
 })
 
 /* …and one typed in its panel on the Plan: the panel's blur wrote only the audit row (sweep
-   25.11.2026, Notiz Verlauf round). The same row and rules as the sheet's editor above. */
+   25.11.2026, Notiz Verlauf round). The same row and rules as the sheet's editor above, written
+   when the session ends (Whiteboard · endNoteTyping). */
 describe('a Notiz typed in its panel on the plan writes its Verlauf row', () => {
   const at = { x: 0.5, y: 0.5, floor: 0 }
-  const blurNote = () => fireEvent.blur(document.querySelector('.ctx-note-input')!)
-  /** the row is written once the act is over (Whiteboard · patchNote) */
-  const settled = () => act(async () => {})
+  const field = () => document.querySelector<HTMLTextAreaElement>('.ctx-note-input')!
+  const blurNote = () => fireEvent.blur(field())
+  /** the panel's «Entfernen» – it draws its actions twice (inline and as the footer, by layout) */
+  const removeButton = () => screen.getAllByRole('button', { name: N.remove })[0]
   const mount = () => {
-    const log = vi.fn<(icon: string, text: string) => void>()
+    const log = vi.fn<(icon: string, text: string, extra?: PlanLogExtra) => void>()
     const timeline = createUndoTimeline()
     let sheet: BoardAnno[] = []
     const drive = createRef<PlanDrive>()
     render(<PlanRig annos={[{ ...vehicle, ...at }, { id: 'n1', kind: 'text', x: 0.3, y: 0.3, floor: 0, text: 'Alt' }]} timeline={timeline} seen={(a) => { sheet = a }} log={log} drive={drive} />)
     const open = () => fireEvent.pointerDown(document.querySelector('.wb-text-label')!, { pointerType: 'mouse', isPrimary: true })
-    return { timeline, open, drive: () => drive.current!, rows: () => log.mock.calls.map(([, t]) => t), note: () => sheet.find((a) => a.id === 'n1')?.text }
+    return {
+      timeline, open, drive: () => drive.current!, note: () => sheet.find((a) => a.id === 'n1')?.text,
+      rows: () => log.mock.calls.map(([, t]) => t),
+      /** each row with the sheet it names */
+      sheetRows: () => log.mock.calls.map(([, t, extra]) => [t, extra?.planId]),
+    }
   }
 
-  it('typed, the field blurred: one row with the text', async () => {
-    const { open, rows } = mount()
+  it('typed, the field blurred: one row with the text, on its sheet', () => {
+    const { open, sheetRows } = mount()
     open()
     typeNote('Wasser ab 14:20')
     blurNote()
-    await settled()
-    expect(rows()).toEqual([written('Wasser ab 14:20')])
+    expect(sheetRows()).toEqual([[written('Wasser ab 14:20'), 'tafel']])
   })
 
-  it('opened and closed with no change: no row', async () => {
+  it('opened and closed with no change: no row', () => {
     const { open, rows } = mount()
     open()
     closeNote()
-    await settled()
     expect(rows()).toEqual([])
   })
 
-  it('emptied: the cleared wording', async () => {
+  it('emptied: the cleared wording', () => {
     const { open, rows } = mount()
     open()
     typeNote('')
     closeNote()
-    await settled()
     expect(rows()).toEqual([N.log.notesCleared])
   })
 
-  it('many keys in one session: one row; a second session: a second row', async () => {
+  it('many keys in one session: one row; a second session: a second row', () => {
     const { open, rows } = mount()
     open()
     for (const t of ['W', 'Wa', 'Was', 'Wass', 'Wasser']) typeNote(t)
     blurNote()
-    await settled()
     typeNote('Wasser ab 14:20')
     closeNote()
-    await settled()
     expect(rows()).toEqual([written('Wasser'), written('Wasser ab 14:20')])
   })
 
+  // the Karte lends the Notiz to both sheets: its panel renders once more on the sheet shown next
+  // before the selection lets it go, so its end runs with THAT sheet's writers – the row still
+  // goes to the sheet the typing began on
+  it('another sheet shown that also shows the Notiz: the row names the sheet it was typed on', () => {
+    const { open, sheetRows, drive } = mount()
+    open()
+    typeNote('Wasser ab 14:20')
+    act(() => drive().show('modul2'))
+    expect(sheetRows()).toEqual([[written('Wasser ab 14:20'), 'tafel']])
+  })
+
   // the panel goes with its sheet and ends its typing as it goes; the sheet shown next has no Notiz
-  it('another sheet shown while it is typed: its one row', async () => {
-    const { open, rows, drive } = mount()
+  it('another sheet shown that has no Notiz: the panel goes, its row names the sheet it was typed on', () => {
+    const { open, sheetRows, drive } = mount()
     open()
     typeNote('Wasser ab 14:20')
     act(() => { drive().show('modul2'); drive().setAnnos([{ ...vehicle, ...at }]) })
-    await settled()
-    expect(rows()).toEqual([written('Wasser ab 14:20')])
+    expect(sheetRows()).toEqual([[written('Wasser ab 14:20'), 'tafel']])
   })
 
-  // «Entfernen» ends the typing just before the removal, whose own row names the text
-  it('typed, then «Entfernen»: no «written» row', async () => {
+  // a tap keeps the caret in the field: «Entfernen» ends the typing without its row, then removes
+  it('typed, then «Entfernen» by touch: no «written» row', async () => {
     const { open, rows, note } = mount()
     open()
     typeNote('Wasser ab 14:20')
-    await act(async () => { removeNote() })
+    await act(async () => { fireEvent.click(removeButton()) })
     expect(note()).toBeUndefined()
     expect(rows()).not.toContain(written('Wasser ab 14:20'))
   })
 
-  it('typed, then ↶ in the same session: no row; ↶ after the session keeps its row', async () => {
+  // a mouse press moves the focus unless its default is prevented – what the browser does then
+  // is done here (the blur), and the click comes as its own task
+  it('typed, then «Entfernen» by mouse: no «written» row', async () => {
+    const { open, rows, note } = mount()
+    open()
+    typeNote('Wasser ab 14:20')
+    const press = createEvent.mouseDown(removeButton())
+    fireEvent(removeButton(), press)
+    if (!press.defaultPrevented) act(() => { field().blur() })
+    await act(async () => {})
+    await act(async () => { fireEvent.click(removeButton()) })
+    expect(note()).toBeUndefined()
+    expect(rows()).not.toContain(written('Wasser ab 14:20'))
+  })
+
+  it('typed, then ↶ in the same session: no row; ↶ after the session keeps its row', () => {
     const { open, rows, timeline, note } = mount()
     open()
     typeNote('Wasser ab 14:20')
     // the ↶ takes the panel with it, and the panel ends its typing as it goes
     act(() => { timeline.undo() })
-    await settled()
     expect(note()).toBe('Alt')
     expect(rows()).toEqual([])
     open()
     typeNote('Wasser ab 14:30')
     closeNote()
-    await settled()
     act(() => { timeline.undo() })
     expect(note()).toBe('Alt')
     expect(rows()).toEqual([written('Wasser ab 14:30')])
+  })
+
+  // the session is over before the ↶ starts: the ↶ takes back the text, never the row
+  it('ended, then ↶ in the same moment: the row stays', () => {
+    const { open, rows, timeline, note } = mount()
+    open()
+    typeNote('Wasser ab 14:20')
+    act(() => { blurNote(); timeline.undo() })
+    expect(note()).toBe('Alt')
+    expect(rows()).toEqual([written('Wasser ab 14:20')])
   })
 })
