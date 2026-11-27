@@ -216,15 +216,50 @@ export function formatLocale(): string {
   return id.includes('-') ? id : `${id}-CH`
 }
 
-/** `Date#toLocaleDateString` in the deployment's locale (formatLocale) — the options stay the
- *  caller's, so each surface keeps its own shape («08.10.», «08.10.2026», «Mi 08.10.»). */
-export function localeDate(date: Date | string | number, opts?: Intl.DateTimeFormatOptions): string {
-  return new Date(date).toLocaleDateString(formatLocale(), opts)
+// One formatter per (locale, option set): `toLocale*String(locale, opts)` builds a new ICU
+// formatter on every call, ~50× the cost of `format()` on a cached one, and the Verlauf and the
+// Rapport format several stamps per row. A formatter keeps the zone it was built in, so the cached
+// ones are UTC formatters fed the date's LOCAL wall time (`getHours()` & co. always read the
+// current zone): a TZ switch in a test or a device that changes zone can never leave one stale.
+// Not for a zone name – zoneIfTwice builds its own.
+const formatters = new Map<string, Intl.DateTimeFormat>()
+
+function utcFormat(opts: Intl.DateTimeFormatOptions): Intl.DateTimeFormat {
+  const locale = formatLocale()
+  const key = `${locale} ${JSON.stringify(opts)}`
+  let f = formatters.get(key)
+  if (!f) {
+    f = new Intl.DateTimeFormat(locale, { ...opts, timeZone: 'UTC' })
+    formatters.set(key, f)
+  }
+  return f
 }
 
-/** `Date#toLocaleString` (date AND time) in the deployment's locale (formatLocale). */
-export function localeDateTime(date: Date | string | number, opts?: Intl.DateTimeFormatOptions): string {
-  return new Date(date).toLocaleString(formatLocale(), opts)
+/** `date` in the deployment's locale (formatLocale) and the local zone, through a cached
+ *  formatter for `opts` – for anything that formats per row or per tick; hoist `opts` to a
+ *  constant. An invalid date reads «Invalid Date», as `toLocale*String` says it. */
+export function formatDate(date: Date, opts: Intl.DateTimeFormatOptions): string {
+  if (Number.isNaN(date.getTime())) return String(date)
+  const wall = new Date(0)
+  wall.setUTCFullYear(date.getFullYear(), date.getMonth(), date.getDate())
+  wall.setUTCHours(date.getHours(), date.getMinutes(), date.getSeconds(), date.getMilliseconds())
+  return utcFormat(opts).format(wall)
+}
+
+const DATE_DEFAULT: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'numeric', day: 'numeric' }
+const DATE_TIME_DEFAULT: Intl.DateTimeFormatOptions = { ...DATE_DEFAULT, hour: 'numeric', minute: 'numeric', second: 'numeric' }
+
+/** A date in the deployment's locale (formatLocale) — the options stay the caller's, so each
+ *  surface keeps its own shape («08.10.», «08.10.2026», «Mi 08.10.»). Without options: numeric day,
+ *  month and year, as `toLocaleDateString` says it. Options must name a date field. */
+export function localeDate(date: Date | string | number, opts: Intl.DateTimeFormatOptions = DATE_DEFAULT): string {
+  return formatDate(new Date(date), opts)
+}
+
+/** Date AND time in the deployment's locale (formatLocale). Without options: the numeric date and
+ *  the time with seconds, as `toLocaleString` says it. */
+export function localeDateTime(date: Date | string | number, opts: Intl.DateTimeFormatOptions = DATE_TIME_DEFAULT): string {
+  return formatDate(new Date(date), opts)
 }
 
 /** Text order by the deployment's language (names, catalogue labels, Gerät groups). */
@@ -251,7 +286,8 @@ export function wallInstant(v: { y: number; mo: number; d: number; h: number; mi
 }
 
 /** « MEZ» / « MESZ» when the autumn change shows this wall time twice (the printed Verlauf tells
- *  the two 02:15 apart), else ''. */
+ *  the two 02:15 apart), else ''. Builds its formatter fresh: the zone name needs the live zone,
+ *  and only one hour a year asks for it. */
 export function zoneIfTwice(date: Date): string {
   const twice = [-HOUR_MS, HOUR_MS].some((dt) => sameWall(new Date(date.getTime() + dt), date))
   if (!twice) return ''
@@ -260,13 +296,13 @@ export function zoneIfTwice(date: Date): string {
   return zone ? ` ${zone}` : ''
 }
 
-/** HH:MM (24 h, two digits; with seconds on request) in the deployment's locale (formatLocale). */
+const HM: Intl.DateTimeFormatOptions = { hour: '2-digit', minute: '2-digit' }
+const HMS: Intl.DateTimeFormatOptions = { ...HM, second: '2-digit' }
+
+/** HH:MM (24 h, two digits; with seconds on request) in the deployment's locale (formatLocale).
+ *  An invalid date reads «Invalid Date». */
 export function formatTime(date: Date, withSeconds = false): string {
-  return date.toLocaleTimeString(formatLocale(), {
-    hour: '2-digit',
-    minute: '2-digit',
-    ...(withSeconds ? { second: '2-digit' as const } : {}),
-  })
+  return formatDate(date, withSeconds ? HMS : HM)
 }
 
 export function fillTemplate(template: string, values: Record<string, string | number>): string {
