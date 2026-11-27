@@ -25,6 +25,7 @@ describe('magnetLayerPoints — what a line end may hang on among the Ebenen', (
     expect(magnetLayerPoints([hyd], () => false, loads)).toEqual([])
     expect(magnetLayerPoints([hyd], () => true, new Map([['hydranten', { state: 'loading', loaded: 0, total: null } as const]]))).toEqual([])
     expect(magnetLayerPoints([{ ...hyd, symbol: undefined }], () => true, loads)).toEqual([])
+    expect(magnetLayerPoints([{ ...hyd, opacity: 0 }], () => true, loads)).toEqual([])
   })
 
   it('another symbol Ebene goes by its own name', () => {

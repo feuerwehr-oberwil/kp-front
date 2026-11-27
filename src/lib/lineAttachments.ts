@@ -433,11 +433,11 @@ export function relationshipNetwork<P extends Coordinate>(lines: AttachableLine<
   while (changed) {
     changed = false
     for (const line of lines) for (const ep of ['start', 'end'] as const) {
-      const a = attachmentAt(line, ep); if (!a) continue
+      // an Ebene's point (a Hydrant) is no object of the Einsatz: nothing to light up, no edge
+      const a = attachmentAt(line, ep); if (!a || a.target.kind === 'layer') continue
       const sourceKey = `line:${line.id}`, targetKey = `${a.target.kind}:${a.target.id}`
       const sd = depth.get(sourceKey), td = depth.get(targetKey)
-      // an Ebene's point (a Hydrant) is no object of the Einsatz: nothing to light up there
-      if (sd != null && td == null) { depth.set(targetKey, sd + 1); if (a.target.kind === 'line') lineIds.add(a.target.id); else if (a.target.kind === 'object') objectIds.add(a.target.id); changed = true }
+      if (sd != null && td == null) { depth.set(targetKey, sd + 1); a.target.kind === 'line' ? lineIds.add(a.target.id) : objectIds.add(a.target.id); changed = true }
       if (td != null && sd == null) { depth.set(sourceKey, td + 1); lineIds.add(line.id); changed = true }
     }
   }

@@ -124,6 +124,8 @@ describe('undoKeys — links between records', () => {
     expect(objectRefs({ id: 'p', entity: { id: 'p', dockedTo: 'h', truppId: 't1' } })).toEqual(['objects:h', 'trupps:t1'])
     expect(objectRefs({ id: 'l', drawing: { id: 'l', startAttachment: { target: { kind: 'object', id: 'fz' } }, endAttachment: { target: { kind: 'line', id: 'l2', endpoint: 'end' } } } }))
       .toEqual(['objects:fz', 'objects:l2'])
+    // a hydrant of the Hydranten Ebene is no record of the Einsatz
+    expect(objectRefs({ id: 'l', drawing: { id: 'l', startAttachment: { target: { kind: 'layer', layer: 'hydranten', id: '0', label: 'Hydrant', at: [7.5, 47.5] } } } })).toEqual([])
     // a Gebäude-stack body sits on a storey the building has to still have
     expect(objectRefs({ id: 'g', sheet: { planId: 'gebaeude', anno: { id: 'g', floor: 2 } } })).toEqual(['building:'])
     expect(annoRefs({ id: 'a', endAttachment: { target: { kind: 'object', id: 'x' } } })).toEqual(['objects:x'])

@@ -69,16 +69,19 @@ export function mapMagnetTargets(map: MapProjector, scene: MagnetScene, sourceId
   // A Hydranten file holds a district's thousands: only the ones inside the magnet's reach
   // around the finger are projected, found by a lng/lat box (the four corners, so a turned map
   // is covered too). The reach is the held target's, which is wider than a new one's.
-  const plate = pointPlateRadiusPx(zoom)
-  const reach = Math.max(MAGNET_RADIUS_PX, DETACH_RADIUS_PX) + plate + 5
-  const corners = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([sx, sy]) => map.unproject([pointer.x + sx * reach, pointer.y + sy * reach]))
-  const w = Math.min(...corners.map((c) => c.lng)), e = Math.max(...corners.map((c) => c.lng))
-  const s = Math.min(...corners.map((c) => c.lat)), n = Math.max(...corners.map((c) => c.lat))
-  const layerTargets: MagneticTarget[] = layerPoints.flatMap((points) => points.flatMap((p): MagneticTarget[] => {
-    if (p.at[0] < w || p.at[0] > e || p.at[1] < s || p.at[1] > n) return []
-    const c = map.project(p.at)
-    return [{ key: `layer:${p.layer}:${p.id}`, target: { kind: 'layer', ...p }, point: boundaryPoint({ shape: 'circle', center: [c.x, c.y], radius: plate }, [pointer.x, pointer.y]), defaultRouting: DEFAULT_OBJECT_ROUTING }]
-  }))
+  const layerTargets: MagneticTarget[] = []
+  if (layerPoints.length) {
+    const plate = pointPlateRadiusPx(zoom)
+    const reach = Math.max(MAGNET_RADIUS_PX, DETACH_RADIUS_PX) + plate + 5
+    const corners = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([sx, sy]) => map.unproject([pointer.x + sx * reach, pointer.y + sy * reach]))
+    const w = Math.min(...corners.map((c) => c.lng)), e = Math.max(...corners.map((c) => c.lng))
+    const s = Math.min(...corners.map((c) => c.lat)), n = Math.max(...corners.map((c) => c.lat))
+    for (const points of layerPoints) for (const p of points) {
+      if (p.at[0] < w || p.at[0] > e || p.at[1] < s || p.at[1] > n) continue
+      const c = map.project(p.at)
+      layerTargets.push({ key: `layer:${p.layer}:${p.id}`, target: { kind: 'layer', ...p }, point: boundaryPoint({ shape: 'circle', center: [c.x, c.y], radius: plate }, [pointer.x, pointer.y]), defaultRouting: DEFAULT_OBJECT_ROUTING })
+    }
+  }
   const px = (c: LngLat): [number, number] => { const p = map.project(c); return [p.x, p.y] }
   const lineTargets = lineEndTargets(drawings
     // a Wand is layout: no Leitung couples onto its end (the Plan's rule, Whiteboard · planCandidatesAt)
