@@ -96,6 +96,18 @@ describe('the bell\'s «Ton freigeben»', () => {
     expect(word()).toBe(az.alarmMutedWord)
   })
 
+  it('a right-click leaves no press behind – a later click with no press mutes', async () => {
+    render(<Board />)
+    // the right press finds the bell blocked (and, like any press, unlocks the tone)…
+    fireEvent.pointerDown(bell(), { pointerType: 'mouse', button: 2 })
+    await act(async () => {})
+    fireEvent.pointerUp(bell(), { pointerType: 'mouse', button: 2 })
+    expect(word()).toBe(az.alarmWord)
+    // …but fires no click; a later click with no press reads the bell as it is now: mute
+    fireEvent.click(bell())
+    expect(word()).toBe(az.alarmMutedWord)
+  })
+
   it('a press released off the bell is forgotten too – a later click with no press mutes', async () => {
     render(<Board />)
     fireEvent.pointerDown(bell(), { pointerType: 'mouse' })

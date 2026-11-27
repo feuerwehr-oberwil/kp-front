@@ -6,7 +6,7 @@
 // alarm itself runs app-wide in `useAtemschutzAlarm`, so it fires while this page is not on screen.
 // Rules for this area: docs/atemschutz-board.md.
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent, type MouseEvent, type ReactElement } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent, type MouseEvent, type PointerEvent, type ReactElement } from 'react'
 import { BoardClockContext, BoardNow, liveBoardClock, stoppedClock, truppClockRuns, useClockNow } from '../lib/boardClock'
 import { Icon } from '../lib/icons'
 import { EmptyState } from './EmptyState'
@@ -1402,7 +1402,9 @@ export function AtemschutzView({
   // press (pointercancel) is forgotten, and a press released off the bell never ends, so a later
   // click with no press (VoiceOver) reads the bell as it is now (Sol review, PR fu-alarm).
   const bellPress = useRef<{ blocked: boolean; ended: boolean } | null>(null)
-  const notePress = () => { bellPress.current = { blocked: audioBlocked, ended: false } }
+  // only the primary button presses: a right-click fires no click, so its record would decide a
+  // later click with no press (VoiceOver) – it clears any record instead
+  const notePress = (e: PointerEvent) => { bellPress.current = e.button === 0 ? { blocked: audioBlocked, ended: false } : null }
   const notePressEnd = () => { if (bellPress.current) bellPress.current.ended = true }
   const noteKeyPress = (e: KeyboardEvent) => {
     if (!e.repeat && (e.key === ' ' || e.key === 'Enter')) bellPress.current = { blocked: audioBlocked, ended: true }
