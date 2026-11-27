@@ -121,7 +121,7 @@ export function FloorPackEditor({ item, onDraft, view, tabs, historyRef, onUndoS
   useEffect(() => { onDraft?.({ floors: floorsFromStack(stack), fitPage: stack.fitPage, dirty, complete }) }, [stack, dirty, complete]) // eslint-disable-line react-hooks/exhaustive-deps
   const regionsOn = (page: number) => stack.order.filter((e) => e.page === page && e.clip)
   // the phone list's row crops draw from the page rasters; a wide screen has the sheet instead
-  const crops = usePageImages(item.id, phone && view === 'edit' ? [...pages] : [])
+  const crops = usePageImages(item.id, phone && view === 'edit' ? [...pages] : [], { measure: true })
   /** «Geschoss hinzufügen», the dashed row at the FOOT of the list: the next storey BELOW the
    *  lowest, on the same page as that one – or, on a fresh single-page pack, the one whole-page
    *  entry itself becomes the first drawing (= level 0). Then straight into region mode; the
@@ -650,10 +650,11 @@ function FloorCrop({ parts, images, frame, aspect, style, ...svg }: {
 }
 
 /** The rasters of a sheet's pages as object URLs by page number, fetched per distinct set of
- *  `pages` and revoked when the set changes or the caller unmounts, with each raster's own
- *  width / height in `aspects` (a pack may mix portrait and landscape pages). `failed` once any
- *  page did not arrive. An empty list fetches nothing. */
-function usePageImages(id: number, pages: readonly number[]) {
+ *  `pages` and revoked when the set changes or the caller unmounts. With `measure`, each
+ *  raster's own width / height lands in `aspects` (a pack may mix portrait and landscape pages);
+ *  only the phone's row crops ask, the Vorschau fits its common frame. `failed` once any page
+ *  did not arrive. An empty list fetches nothing. */
+function usePageImages(id: number, pages: readonly number[], { measure = false }: { measure?: boolean } = {}) {
   const key = [...new Set(pages)].sort((a, b) => a - b).join(',')
   const [images, setImages] = useState<Record<number, string>>({})
   const [aspects, setAspects] = useState<Record<number, number>>({})
@@ -666,13 +667,13 @@ function usePageImages(id: number, pages: readonly number[]) {
         if (abort.signal.aborted) return
         const url = URL.createObjectURL(blob); urls.push(url)
         setImages((current) => ({ ...current, [page]: url }))
-        if (typeof createImageBitmap === 'function') void createImageBitmap(blob).then((bitmap) => {
+        if (measure && typeof createImageBitmap === 'function') void createImageBitmap(blob).then((bitmap) => {
           if (!abort.signal.aborted && bitmap.height) setAspects((current) => ({ ...current, [page]: bitmap.width / bitmap.height }))
           bitmap.close()
         }).catch(() => { /* the pack's own aspect stands in */ })
       }).catch(() => { if (!abort.signal.aborted) setFailed(true) })
     }
     return () => { abort.abort(); urls.forEach(URL.revokeObjectURL) }
-  }, [id, key])
+  }, [id, key, measure])
   return { images, aspects, failed }
 }
