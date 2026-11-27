@@ -77,6 +77,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from . import address_ranges, geocode, mvt, storage
 from .config import settings
+from .geo_util import M_PER_DEG_EQUATOR, M_PER_DEG_LAT
 
 logger = logging.getLogger(__name__)
 
@@ -162,8 +163,8 @@ def ring_area_m2(r: Ring) -> float:
     if len(r) < 3:
         return 0.0
     lat0 = sum(p[1] for p in r) / len(r)
-    kx = 111_320.0 * math.cos(math.radians(lat0))
-    ky = 110_540.0
+    kx = M_PER_DEG_EQUATOR * math.cos(math.radians(lat0))
+    ky = M_PER_DEG_LAT
     s = 0.0
     for i in range(len(r)):
         x1, y1 = r[i - 1]
@@ -374,14 +375,14 @@ class Sources:
         )
         r.raise_for_status()
         best: tuple[float, dict] | None = None
-        kx = 111_320.0 * math.cos(math.radians(lat))
+        kx = M_PER_DEG_EQUATOR * math.cos(math.radians(lat))
         for res in r.json().get("results", []):
             attrs = res.get("properties") or res.get("attributes") or {}
             coords = (res.get("geometry") or {}).get("coordinates") or []
             street = str(attrs.get("strname_deinr") or "").strip()
             if len(coords) < 2 or not street:
                 continue
-            dist = math.hypot((float(coords[0]) - lng) * kx, (float(coords[1]) - lat) * 110_540.0)
+            dist = math.hypot((float(coords[0]) - lng) * kx, (float(coords[1]) - lat) * M_PER_DEG_LAT)
             if dist <= PLACE_MAX_M and (best is None or dist < best[0]):
                 best = (dist, attrs)
         if best is None:
@@ -549,15 +550,15 @@ def _geojson_polygons(g: dict) -> list[Polygon]:
 def _span_box(at: LngLat, polys: list[list[Polygon] | None]) -> tuple[float, float, float, float]:
     """The box to ask for buildings in: the area/parcel and ~40 m around the point, capped."""
     lng, lat = at
-    pad_lat = 40 / 110_540
-    pad_lng = 40 / (111_320 * math.cos(math.radians(lat)))
+    pad_lat = 40 / M_PER_DEG_LAT
+    pad_lng = 40 / (M_PER_DEG_EQUATOR * math.cos(math.radians(lat)))
     rings: list[Ring] = [[(lng - pad_lng, lat - pad_lat), (lng + pad_lng, lat + pad_lat)]]
     for p in polys:
         for q in p or []:
             rings.append(q[0])
     w, s, e, n = bbox_of(rings) or (lng, lat, lng, lat)
-    half_lat = MAX_SPAN_M / 2 / 110_540
-    half_lng = MAX_SPAN_M / 2 / (111_320 * math.cos(math.radians(lat)))
+    half_lat = MAX_SPAN_M / 2 / M_PER_DEG_LAT
+    half_lng = MAX_SPAN_M / 2 / (M_PER_DEG_EQUATOR * math.cos(math.radians(lat)))
     return (max(w, lng - half_lng), max(s, lat - half_lat), min(e, lng + half_lng), min(n, lat + half_lat))
 
 
@@ -577,8 +578,8 @@ async def ask(src: Sources, at: LngLat) -> Facts:
 
 def _box_around(at: LngLat, half_m: float) -> tuple[float, float, float, float]:
     lng, lat = at
-    dy = half_m / 110_540
-    dx = half_m / (111_320 * math.cos(math.radians(lat)))
+    dy = half_m / M_PER_DEG_LAT
+    dx = half_m / (M_PER_DEG_EQUATOR * math.cos(math.radians(lat)))
     return (lng - dx, lat - dy, lng + dx, lat + dy)
 
 
@@ -627,8 +628,8 @@ async def ask_range(src: Sources, at: LngLat, specs: list[address_ranges.Spec]) 
     found = [a for a in near if address_ranges.covers(specs, a["street"], a["number"])]
     if not found:
         return Named([], [])
-    kx = 111_320.0 * math.cos(math.radians(at[1]))
-    nearest = min(found, key=lambda a: math.hypot((a["at"][0] - at[0]) * kx, (a["at"][1] - at[1]) * 110_540.0))
+    kx = M_PER_DEG_EQUATOR * math.cos(math.radians(at[1]))
+    nearest = min(found, key=lambda a: math.hypot((a["at"][0] - at[0]) * kx, (a["at"][1] - at[1]) * M_PER_DEG_LAT))
     found = [a for a in found if a["town"] == nearest["town"]]
     egids = sorted({a["egid"] for a in found if a["egid"]})
     rings: list[Ring] = []
@@ -645,7 +646,7 @@ async def ask_range(src: Sources, at: LngLat, specs: list[address_ranges.Spec]) 
             have.add(egid)
     loose = [a["at"] for a in found if not a["egid"] or a["egid"] not in have]
     if loose:
-        pad = 5 / 110_540
+        pad = 5 / M_PER_DEG_LAT
         w = min(p[0] for p in loose) - pad * 1.5
         e = max(p[0] for p in loose) + pad * 1.5
         box = (w, min(p[1] for p in loose) - pad, e, max(p[1] for p in loose) + pad)

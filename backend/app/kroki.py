@@ -32,6 +32,7 @@ import httpx
 from PIL import Image, ImageChops, ImageDraw, ImageFont
 
 from . import carto
+from .geo_util import M_PER_DEG_EQUATOR, M_PER_DEG_LAT
 
 logger = logging.getLogger(__name__)
 
@@ -1365,8 +1366,8 @@ def _hose_hint(m: float, hose_len: float = 20.0, reserve: float = 0.10) -> str:
 def _geodesic_m(coords: list[tuple[float, float]]) -> float:
     total = 0.0
     for (lng1, lat1), (lng2, lat2) in itertools.pairwise(coords):
-        dx = (lng2 - lng1) * 111320 * math.cos(math.radians((lat1 + lat2) / 2))
-        dy = (lat2 - lat1) * 110540
+        dx = (lng2 - lng1) * M_PER_DEG_EQUATOR * math.cos(math.radians((lat1 + lat2) / 2))
+        dy = (lat2 - lat1) * M_PER_DEG_LAT
         total += math.hypot(dx, dy)
     return total
 
@@ -1384,8 +1385,8 @@ class KrokiScene:
             pts.extend(tuple(c) for c in d.get("coords", []))
             if d.get("kind") == "circle" and d.get("radiusM") and d.get("coords"):
                 lng, lat = d["coords"][0]
-                dlat = d["radiusM"] / 110540
-                dlng = d["radiusM"] / (111320 * math.cos(math.radians(lat)))
+                dlat = d["radiusM"] / M_PER_DEG_LAT
+                dlng = d["radiusM"] / (M_PER_DEG_EQUATOR * math.cos(math.radians(lat)))
                 pts += [(lng - dlng, lat - dlat), (lng + dlng, lat + dlat)]
         return pts
 
@@ -1396,8 +1397,8 @@ def _circle_points(lng: float, lat: float, radius_m: float, n: int = 72) -> list
         a = 2 * math.pi * i / n
         out.append(
             (
-                lng + (radius_m * math.cos(a)) / (111320 * math.cos(math.radians(lat))),
-                lat + (radius_m * math.sin(a)) / 110540,
+                lng + (radius_m * math.cos(a)) / (M_PER_DEG_EQUATOR * math.cos(math.radians(lat))),
+                lat + (radius_m * math.sin(a)) / M_PER_DEG_LAT,
             )
         )
     return out

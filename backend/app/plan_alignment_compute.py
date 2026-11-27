@@ -16,6 +16,7 @@ from typing import Literal, TypedDict
 import anyio
 
 from . import overpass, storage
+from .geo_util import M_PER_DEG_EQUATOR
 from .pdfium_lock import pdfium_lock
 from .reference_buildings import clip as clip_reference
 
@@ -64,8 +65,8 @@ async def _osm_around(lng: float, lat: float, radius_m: float) -> dict:
     hit = _osm_cache.get(key)
     if hit and now - hit[0] < _OSM_TTL_S:
         return hit[1]
-    dlat = radius_m / 111_320
-    dlng = radius_m / (111_320 * math.cos(math.radians(lat)))
+    dlat = radius_m / M_PER_DEG_EQUATOR
+    dlng = radius_m / (M_PER_DEG_EQUATOR * math.cos(math.radians(lat)))
     bbox = f"{lat - dlat},{lng - dlng},{lat + dlat},{lng + dlng}"
     try:
         data = await overpass.fetch_buildings(overpass.BUILDINGS_QUERY.format(bbox=bbox))

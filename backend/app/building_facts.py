@@ -41,7 +41,7 @@ from typing import Any
 import httpx
 
 from . import geocode
-from .geo_util import haversine_m
+from .geo_util import M_PER_DEG_EQUATOR, haversine_m
 
 logger = logging.getLogger(__name__)
 
@@ -458,7 +458,7 @@ _IDENTIFY_LIMIT = 200
 
 def identify_tolerance_px(lat: float) -> int:
     """Pixels that cover MAX_DISTANCE_M east–west at this latitude (+10 % margin)."""
-    m_per_px = (2 * _IDENTIFY_HALF_DEG / _IDENTIFY_PX) * 111_320.0 * math.cos(math.radians(lat))
+    m_per_px = (2 * _IDENTIFY_HALF_DEG / _IDENTIFY_PX) * M_PER_DEG_EQUATOR * math.cos(math.radians(lat))
     return math.ceil(MAX_DISTANCE_M * 1.1 / m_per_px)
 
 
