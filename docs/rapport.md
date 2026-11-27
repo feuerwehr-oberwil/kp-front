@@ -18,8 +18,8 @@ the queue has acknowledged its bytes. A queue entry without a target remains jou
 
 Owner pick UX journeys B3·13: the section said «keine» while a photo taken in the Verlauf printed
 inline in the Einsatzjournal, and both walkers took it a second time. It now lists the Verlauf's
-photos first, as their own read-only group (`ReportPreflight · journalPhotos`, off `lib/report ·
-journalRows`, so exactly what prints): thumbnail, the entry's text, «Verlauf 14:43 · druckt im
+photos first, as their own read-only group (`lib/report · journalPhotos`, on the one print rule
+it shares with `journalRows`, so exactly what prints – without building the print rows): thumbnail, the entry's text, «Verlauf 14:43 · druckt im
 Einsatzjournal» («Verlauf 14:43» while the Journal section is off). They count in «1 Foto». A tap
 opens the row in the Verlauf; closing it comes back to the Rapport. «Foto hinzufügen» stays for
 real Beilagen, and the PDF does not change. The glossary's word rule holds (17.11.2026): a

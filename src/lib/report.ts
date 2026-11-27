@@ -417,6 +417,42 @@ function withFileNames(text: string, files?: { name: string }[]): string {
   return text.trim() ? `${text} · ${label}` : label
 }
 
+/**
+ * Which Verlauf rows the Einsatzjournal prints – THE rule, shared by `journalRows` and
+ * `journalPhotos` so the Rapport's photo list can never drift from the paper. `repeats` are the
+ * events' `repeatRuns`: a line the app repeated while nothing changed prints ONCE, with its count
+ * — the same rule the Verlauf reads by, so paper and screen tell the same story (lib/verlauf).
+ * `includeBookkeeping` is the detailed print.
+ */
+function printsInJournal(
+  repeats: Pick<ReturnType<typeof repeatRuns>, 'hidden'>, opts?: { includeBookkeeping?: boolean },
+): (e: TimelineEvent) => boolean {
+  return (e) => {
+    if (repeats.hidden.has(e.id)) return false
+    // attendance/material bookkeeping rows («X anwesend», «Ölbinder: 3 Sack») duplicate
+    // the Anwesenheit/Mittel sections — hidden from the default print, shown only with
+    // the detailed audit option (then EVERY action counts). Decided 2026-07-14.
+    if (!opts?.includeBookkeeping && e.kind === 'team' && (e.icon === 'people' || e.icon === 'box')) return false
+    if (e.kind === 'audio' || e.kind === 'photo' || e.kind === 'journal' || e.kind === 'team') return true
+    if (e.kind === 'layer') return false
+    // a ↶ / ↷ row is the second half of an act that was taken back (or put back) — printed, or
+    // the journal describes a picture that is not the one on the paper beside it. ⚠️ …but only
+    // WITH its first half (D6, 26.09.2026): a move prints no row (below), so «KP Front
+    // verschoben rückgängig gemacht» stood alone on paper, countering nothing it had said.
+    if (e.kind === 'history') return historyCountersPrintedRow(e)
+    return printableTacticalText(e)
+  }
+}
+
+/** The Einsatzjournal's order: timed rows by their instant, then the untimed ones by their
+ *  label («HH:MM»). Stable, so rows of one instant keep the Verlauf's order. */
+function byPrintTime(a: { iso: string | null; timeLabel: string }, b: { iso: string | null; timeLabel: string }): number {
+  if (a.iso && b.iso) return new Date(a.iso).getTime() - new Date(b.iso).getTime()
+  if (a.iso) return -1
+  if (b.iso) return 1
+  return a.timeLabel.localeCompare(b.timeLabel)
+}
+
 export function journalRows(
   events: TimelineEvent[], plans: PlanDocument[], fallbackDate?: string, closedAt?: string | null,
   /** `truppIds`: which subjects are Trupps, so a row that enumerates a crew can print the
@@ -425,25 +461,9 @@ export function journalRows(
    *  existed simply keeps every suffix, which is what it printed yesterday. */
   opts?: { includeBookkeeping?: boolean; vocab?: JournalLink[]; truppIds?: ReadonlySet<string> },
 ): JournalPrintRow[] {
-  // …and a line the app repeated while nothing changed prints ONCE, with its count — the same
-  // rule the Verlauf reads by, so paper and screen tell the same story (lib/verlauf).
   const repeats = repeatRuns(events, closedAt)
   return events
-    .filter((e) => {
-      if (repeats.hidden.has(e.id)) return false
-      // attendance/material bookkeeping rows («X anwesend», «Ölbinder: 3 Sack») duplicate
-      // the Anwesenheit/Mittel sections — hidden from the default print, shown only with
-      // the detailed audit option (then EVERY action counts). Decided 2026-07-14.
-      if (!opts?.includeBookkeeping && e.kind === 'team' && (e.icon === 'people' || e.icon === 'box')) return false
-      if (e.kind === 'audio' || e.kind === 'photo' || e.kind === 'journal' || e.kind === 'team') return true
-      if (e.kind === 'layer') return false
-      // a ↶ / ↷ row is the second half of an act that was taken back (or put back) — printed, or
-      // the journal describes a picture that is not the one on the paper beside it. ⚠️ …but only
-      // WITH its first half (D6, 26.09.2026): a move prints no row (below), so «KP Front
-      // verschoben rückgängig gemacht» stood alone on paper, countering nothing it had said.
-      if (e.kind === 'history') return historyCountersPrintedRow(e)
-      return printableTacticalText(e)
-    })
+    .filter(printsInJournal(repeats, opts))
     .map((e) => {
       const iso = eventIso(e, fallbackDate)
       // …and through `rowText` first, so a picture on paper carries no «Foto» caption either —
@@ -488,13 +508,33 @@ export function journalRows(
         device: e.device,
       }
     })
-    .sort((a, b) => {
-      if (a.iso && b.iso) return new Date(a.iso).getTime() - new Date(b.iso).getTime()
-      if (a.iso) return -1
-      if (b.iso) return 1
-      return a.timeLabel.localeCompare(b.timeLabel)
-    })
+    .sort(byPrintTime)
     .map(deviceWhereItChanges())
+}
+
+/** One picture of the Verlauf as the Einsatzjournal prints it – «Beilagen › Fotos» lists these
+ *  (ReportPreflight · journalPhotos). `key` is the row's id and the picture's slot in it. */
+export interface JournalPhoto { key: string; rowId: string; url: string; text: string; iso: string | null }
+
+/**
+ * The Verlauf's photos in print order, one entry per picture, with the text and time their
+ * printed row carries (`journalRows` · `text`, `iso`) – the same rows, the same order, without
+ * building a print row (links, Bereich, date label) for each of the hundreds without a picture.
+ */
+export function journalPhotos(events: TimelineEvent[]): JournalPhoto[] {
+  return events
+    .filter(printsInJournal(repeatRuns(events)))
+    // every printed row is sorted, not just the photo rows: a malformed instant compares as NaN,
+    // and only the same input keeps the same order. The untimed row's label is its «HH:MM»,
+    // exactly what `journalRows` sorts it by.
+    .map((e) => ({ e, iso: eventIso(e), timeLabel: e.t }))
+    .sort(byPrintTime)
+    .flatMap(({ e, iso }) => {
+      const urls = rowPhotos(e)
+      if (!urls.length) return []
+      const text = withFileNames(withoutAreaPrefix(rowText(e)), e.files)
+      return urls.map((url, i) => ({ key: `${e.id}:${i}`, rowId: e.id, url, text, iso }))
+    })
 }
 
 /** Keeps a row's `device` only where it differs from the last device printed above it
