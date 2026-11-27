@@ -88,7 +88,7 @@
 /* the crop previews the SHEET: on paper the count badge is a white chip like the storey badge, so
    the numbered legend discs are the only dark marks (backend · kroki · _symbol_badges) */
 .kf-map .sym-count { background: var(--surface); color: var(--ink); }
-/* ⚠️ the phone rule «hide the live map on every non-map surface» (see @media max-width 600px)
+/* ⚠️ the phone rule «hide the live map on every non-map surface» (15-mobile.css, `@media (--phone)`)
    matches this one too — mode-rapport is not mode-map — and blanked the crop the one time it is
    opened on a phone. The exception is scoped to the crop, so the Lage map behind the surface
    stays hidden the way that rule intends. */
