@@ -6,10 +6,9 @@ import { fillTemplate } from '../lib/format'
 // instruction that came with it (`ApiError.hint`, but never the field app's line on a dead link –
 // see describeApiError), and for a 422 the refused fields by their German name — never FastAPI's
 // English Pydantic sentence, which is what `ApiError.detail` holds for a validation answer
-// (lib/api · ApiError.fields). Every admin view's save, delete, upload
-// and import path reads its error through `describeApiError` / `apiErrorText`; each view still
-// decides where and how the line is shown.
-
+// (lib/api · ApiError.fields). Every admin view's save, delete, upload and import path reads its
+// error through `describeApiError` / `apiErrorText`; each view still decides where and how the
+// line is shown.
 
 /** Config-document path → the field's own name and the Station page that edits it. Resolved
  *  at call time (never at module level), so a locale switch applies. Only the paths Verwaltung
