@@ -2519,7 +2519,12 @@ export interface paths {
         };
         /** Download Reference */
         get: operations["download_reference_api_reference__dataset_id__get"];
-        /** Replace Reference */
+        /**
+         * Replace Reference
+         * @description Replace one reference dataset's file. An Objektplan (``plan:…``) waits for its object at most
+         *     `plans.LOCK_WAIT_MS` – also on its first import, while a run's own insert of the row is not
+         *     visible yet and the generic path below would wait on its key.
+         */
         put: operations["replace_reference_api_reference__dataset_id__put"];
         post?: never;
         delete?: never;

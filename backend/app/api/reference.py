@@ -16,7 +16,7 @@ from ..auth.dependencies import CurrentAdmin, OptionalUser, UserOrAdmin
 from ..board_templates import board_template_problem
 from ..checklist_templates import template_problem
 from ..database import get_db
-from ..models import ObjectSite, PlanAlignment, PlanAlignmentEvent, PlanRevision, ReferenceDataset
+from ..models import ObjectSite, PlanAlignment, PlanAlignmentEvent, PlanRevision, ReferenceDataset, User
 from ..plan_floors import fit_publishable, load_floors
 from ..plan_revision_info import revision_page_count
 from ..plans import PLANS_BUSY, TooLargeError, brief_lock_wait, plans_pull_enabled, pull_one_plan, store_plan
@@ -392,6 +392,23 @@ async def replace_reference(
     source_note: str | None = Form(default=None),
     db: AsyncSession = Depends(get_db),
 ) -> ReferenceDataset:
+    """Replace one reference dataset's file. An Objektplan (``plan:…``) waits for its object at most
+    `plans.LOCK_WAIT_MS` – also on its first import, while a run's own insert of the row is not
+    visible yet and the generic path below would wait on its key."""
+    if dataset_id.startswith("plan:"):
+        async with brief_lock_wait(db, PLANS_BUSY):
+            return await _replace_reference(db, dataset_id, actor, file, title, source_note)
+    return await _replace_reference(db, dataset_id, actor, file, title, source_note)
+
+
+async def _replace_reference(
+    db: AsyncSession,
+    dataset_id: str,
+    actor: User | None,
+    file: UploadFile,
+    title: str | None,
+    source_note: str | None,
+) -> ReferenceDataset:
     ds = (await db.execute(select(ReferenceDataset).where(ReferenceDataset.id == dataset_id))).scalar_one_or_none()
     content_type = file.content_type or "application/octet-stream"
     cl_role = _checklist_role(dataset_id)
@@ -427,16 +444,15 @@ async def replace_reference(
                 raise HTTPException(
                     status_code=415, detail=f"Dateityp {content_type!r} nicht erlaubt (Objektplan erwartet ein PDF)"
                 )
-            async with brief_lock_wait(db, PLANS_BUSY):
-                return await store_plan(
-                    db,
-                    obj,
-                    ds.module or dataset_id.split(":")[-1],
-                    data,
-                    title=title,
-                    source_note=source_note,
-                    actor_id=actor.id if actor else None,
-                )
+            return await store_plan(
+                db,
+                obj,
+                ds.module or dataset_id.split(":")[-1],
+                data,
+                title=title,
+                source_note=source_note,
+                actor_id=actor.id if actor else None,
+            )
     kind = (
         "tafel"
         if board

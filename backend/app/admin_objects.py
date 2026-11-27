@@ -49,6 +49,7 @@ import asyncio
 import hashlib
 import json
 import sys
+import time
 import unicodedata
 import uuid
 from dataclasses import dataclass, field
@@ -444,6 +445,27 @@ class WriteResult:
         return 0
 
 
+#: how often a push asks again while the deployment answers «busy» (`_put_retrying_busy`)
+_BUSY_RETRIES = 20
+
+
+def _put_retrying_busy(c: Any, url: str, **kw: Any) -> Any:
+    """``c.put``, asked again while the deployment answers BUSY: a 409 that carries ``Retry-After``,
+    which only `plans.brief_lock_wait` sends – a SharePoint run or an S3 pull holds the object to its
+    commit, minutes away. Every other answer, a permanent 409 included, comes back at once."""
+    for _ in range(_BUSY_RETRIES):
+        r = c.put(url, **kw)
+        if r.status_code != 409 or "Retry-After" not in r.headers:
+            return r
+        try:
+            wait = max(1, min(int(r.headers["Retry-After"]), 120))
+        except ValueError:
+            wait = 30
+        print(f"  … {url}: a run holds this object on the deployment — asking again in {wait} s")
+        time.sleep(wait)
+    return c.put(url, **kw)
+
+
 async def _load(manifest_path: Path, objects: list[ObjectEntry]) -> WriteResult:
     """Upsert objects + copy their PDFs into the local store."""
     res = WriteResult()
@@ -560,7 +582,8 @@ def _push(
         for o in objects:
             oid = str(o.object_id)
             is_new = oid not in known
-            ro = c.put(
+            ro = _put_retrying_busy(
+                c,
                 f"/api/objects/{oid}",
                 json={
                     "name": o.name,
@@ -593,7 +616,8 @@ def _push(
                     form["title"] = p.title
                 if p.sourceNote:
                     form["source_note"] = p.sourceNote
-                rp = c.put(
+                rp = _put_retrying_busy(
+                    c,
                     f"/api/objects/{oid}/plans/{p.module}",
                     files={"file": (src.name, raw, "application/pdf")},
                     data=form,

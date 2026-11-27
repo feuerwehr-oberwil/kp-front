@@ -453,3 +453,51 @@ async def test_a_job_whose_object_a_run_holds_goes_back_and_the_next_one_runs(
     assert await worker.run_once(session_factory)
     done = await db_session.get(PlanAlignment, held_job, populate_existing=True)
     assert (done.status, done.attempts) == ("unsupported", 1)
+
+
+async def test_a_job_whose_row_a_run_holds_too_does_not_stall_the_queue(
+    session_factory, db_session, pdf_store, monkeypatch
+):
+    """A re-key holds the alignment row as well as the object. The worker, which claimed the job
+    before, times out on the object; its give-back cannot write the row either and gives up as
+    quickly, leaving the job to its lease – and the next job still runs."""
+    if db_session.bind.dialect.name != "postgresql":
+        pytest.skip("requires independent PostgreSQL transactions")
+    import asyncio
+
+    from sqlalchemy.exc import DBAPIError
+
+    from app import plans
+
+    async def no_snapshot(db):
+        return None
+
+    monkeypatch.setattr(worker, "ensure_snapshot", no_snapshot)
+    monkeypatch.setattr(plans, "WORKER_LOCK_WAIT_MS", 200)
+    held_job = await seed(db_session, pdf_store)
+    free_job = await seed(db_session, pdf_store)
+    held_object = (
+        await db_session.execute(
+            select(ReferenceDataset.object_id)
+            .join(PlanAlignment, PlanAlignment.dataset_id == ReferenceDataset.id)
+            .where(PlanAlignment.id == held_job)
+        )
+    ).scalar_one()
+    claim = await worker.claim_job(db_session)
+    assert claim and claim.id == held_job
+    await db_session.commit()
+
+    async with session_factory() as rekey:
+        await plans.lock_objects(rekey, held_object)
+        await rekey.execute(select(PlanAlignment.id).where(PlanAlignment.id == held_job).with_for_update())
+        async with session_factory() as db:
+            await plans.limit_lock_wait(db, plans.WORKER_LOCK_WAIT_MS)
+            with pytest.raises(DBAPIError) as waited:
+                await plans.lock_objects(db, held_object)
+            assert await asyncio.wait_for(worker._given_back(db, claim, waited.value), 5)
+        assert await worker.run_once(session_factory)  # the free job
+        await rekey.commit()
+
+    held = await db_session.get(PlanAlignment, held_job, populate_existing=True)
+    assert (held.status, held.attempts) == ("processing", 1)  # the lease brings it back
+    assert (await db_session.get(PlanAlignment, free_job, populate_existing=True)).status == "unsupported"

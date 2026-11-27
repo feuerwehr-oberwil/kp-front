@@ -248,10 +248,11 @@ async def reject_alignment(
 ):
     """The admin looked and said no: the proposal leaves the open queue without publishing
     anything. The sheet can still be aligned by hand (manual approve) or the decision undone."""
-    row = await _get(db, item_id)
-    if row.status not in {"ready", "needs_review", "no_match", "failed", "unavailable"}:
-        raise HTTPException(status_code=409, detail="Kein offener Vorschlag zum Ablehnen vorhanden")
-    return await _change(db, row, body.edit_version, "reject", {"status": "rejected", "approved_at": None})
+    async with brief_lock_wait(db, PLANS_BUSY):
+        row = await _get(db, item_id)
+        if row.status not in {"ready", "needs_review", "no_match", "failed", "unavailable"}:
+            raise HTTPException(status_code=409, detail="Kein offener Vorschlag zum Ablehnen vorhanden")
+        return await _change(db, row, body.edit_version, "reject", {"status": "rejected", "approved_at": None})
 
 
 @router.post("/{item_id}/undo")
@@ -259,10 +260,11 @@ async def undo_decision(
     item_id: int, body: AlignmentMutation, _admin: CurrentAdmin, db: AsyncSession = Depends(get_db)
 ):
     """Takes back an approval or a rejection; either way the sheet is back to «Bitte prüfen»."""
-    row = await _get(db, item_id)
-    if row.status not in {"approved", "rejected"}:
-        raise HTTPException(status_code=409, detail="Keine Entscheidung zum Zurücknehmen vorhanden")
-    return await _change(db, row, body.edit_version, "withdraw", {"status": "needs_review", "approved_at": None})
+    async with brief_lock_wait(db, PLANS_BUSY):
+        row = await _get(db, item_id)
+        if row.status not in {"approved", "rejected"}:
+            raise HTTPException(status_code=409, detail="Keine Entscheidung zum Zurücknehmen vorhanden")
+        return await _change(db, row, body.edit_version, "withdraw", {"status": "needs_review", "approved_at": None})
 
 
 @router.post("/{item_id}/retry")

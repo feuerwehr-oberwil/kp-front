@@ -8435,6 +8435,7 @@
           "reference"
         ],
         "summary": "Replace Reference",
+        "description": "Replace one reference dataset's file. An Objektplan (``plan:…``) waits for its object at most\n`plans.LOCK_WAIT_MS` – also on its first import, while a run's own insert of the row is not\nvisible yet and the generic path below would wait on its key.",
         "operationId": "replace_reference_api_reference__dataset_id__put",
         "parameters": [
           {

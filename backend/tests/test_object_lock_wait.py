@@ -85,6 +85,39 @@ async def test_the_object_mask_gives_up_while_a_run_holds_the_object(client, adm
     assert (await client.put(url, json={"name": "Musterhaus Nord"})).status_code == 200
 
 
+async def test_a_first_plan_upload_gives_up_while_a_run_imports_the_same_plan(
+    client, admin_login, db_session, session_factory
+):
+    """The run's INSERT of a new plan row is invisible to the request, which then takes the generic
+    path and would wait on the row's key – it is bounded the same way."""
+    obj = ObjectSite(name="Neubau")
+    db_session.add(obj)
+    await db_session.commit()
+    await admin_login(client)
+    url = f"/api/reference/plan:{obj.id}:modul1"
+
+    async with session_factory() as run:
+        await store_plan(run, await run.get(ObjectSite, obj.id), "modul1", _pdf())
+        refused = await client.put(url, files={"file": ("m1.pdf", _pdf(), "application/pdf")})
+        assert (refused.status_code, refused.json()["detail"]) == (409, plans.PLANS_BUSY)
+        assert refused.headers["Retry-After"] == str(plans.BUSY_RETRY_AFTER_S)
+        await run.rollback()
+
+
+async def test_a_rejection_gives_up_while_a_run_holds_the_alignment(client, admin_login, db_session, session_factory):
+    """A re-key moves the alignment rows; «Ablehnen» and «Zurücknehmen» wait for one at most as long."""
+    _, row = await _object_with_a_proposal(db_session)
+    await admin_login(client)
+
+    async with session_factory() as run:
+        await run.execute(select(PlanAlignment.id).where(PlanAlignment.id == row.id).with_for_update())
+        refused = await client.post(f"/api/admin/plan-alignments/{row.id}/reject", json={"edit_version": 1})
+        assert (refused.status_code, refused.json()["detail"]) == (409, plans.PLANS_BUSY)
+        await run.commit()
+
+    assert (await db_session.get(PlanAlignment, row.id, populate_existing=True)).status == "ready"
+
+
 async def test_the_wait_limit_ends_with_its_transaction(engine):
     """`SET LOCAL`: the next transaction on the SAME connection – a pooled one's next request – has
     the server default again, after a commit and after a rollback alike."""

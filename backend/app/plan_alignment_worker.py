@@ -146,10 +146,18 @@ async def _given_back(db: AsyncSession, claim: Claim, exc: DBAPIError) -> bool:
     """After a statement failed: True when it gave up waiting for a lock and the job went back."""
     if not lock_wait_exceeded(exc):
         return False
-    await db.rollback()
-    if await give_back(db, claim):
-        logger.info("Plan alignment job %s: its object is held by a run — back in the queue", claim.id)
-    await db.commit()
+    await db.rollback()  # …which ends the wait limit too, so the give-back sets its own
+    try:
+        await limit_lock_wait(db, plans.WORKER_LOCK_WAIT_MS)
+        if await give_back(db, claim):
+            logger.info("Plan alignment job %s: its object is held by a run — back in the queue", claim.id)
+        await db.commit()
+    except DBAPIError as again:
+        if not lock_wait_exceeded(again):
+            raise
+        # a re-key holds the row itself: the lease brings the job back (LEASE_SECONDS)
+        await db.rollback()
+        logger.info("Plan alignment job %s: its row is held by a run — left to the lease", claim.id)
     return True
 
 

@@ -132,6 +132,8 @@ async def try_plan_maintenance(db: AsyncSession) -> bool:
 LOCK_WAIT_MS = 5000
 #: …and the alignment worker's, before it gives its job back (plan_alignment_worker)
 WORKER_LOCK_WAIT_MS = 2000
+#: the Retry-After of a busy 409 – the one signal `admin_objects push` retries on
+BUSY_RETRY_AFTER_S = 30
 #: the refusal for a request about an object's PLANS or alignments
 PLANS_BUSY = "Die Pläne dieses Objekts werden gerade synchronisiert – in ein paar Minuten erneut versuchen."
 #: …and for one about the object itself (its mask, its position, an organizer's ref)
@@ -163,7 +165,9 @@ async def brief_lock_wait(db: AsyncSession, refusal: str) -> AsyncIterator[None]
 
     Every lock wait inside (and the flush at its end) gives up after LOCK_WAIT_MS; then the
     transaction is rolled back and the request answers 409 with ``refusal``, which the Verwaltung
-    shows as it is (admin/apiErrors). Enter it before the first statement that can wait.
+    shows as it is (admin/apiErrors), and a ``Retry-After`` that tells a machine client this 409
+    passes (`admin_objects push` waits and retries). Enter it before the first statement that can
+    wait.
     """
     await limit_lock_wait(db, LOCK_WAIT_MS)
     try:
@@ -173,7 +177,7 @@ async def brief_lock_wait(db: AsyncSession, refusal: str) -> AsyncIterator[None]
         if not lock_wait_exceeded(exc):
             raise
         await db.rollback()
-        raise HTTPException(status_code=409, detail=refusal) from exc
+        raise HTTPException(status_code=409, detail=refusal, headers={"Retry-After": str(BUSY_RETRY_AFTER_S)}) from exc
 
 
 async def lock_objects(db: AsyncSession, *object_ids: uuid.UUID, deleting: bool = False) -> None:
