@@ -9,7 +9,6 @@ import { shapeAspect } from '../lib/shapes'
 import { endTagLabel } from '../lib/endTagSpots'
 import { isNamedPerson, readingPillText, symbolCaptionBoxText, symbolReading } from '../lib/symbols'
 import { softHyphenateText } from '../lib/symbolWrap'
-import { useSizeWatch } from '../lib/useSizeWatch'
 import { truppMarkerTone, type LineTone, type TeamLineBadge } from '../lib/truppLines'
 
 // ── label-pass geometry: the numbers the stylesheet and MapView's Markers use, said once ──────
@@ -99,8 +98,17 @@ export interface LabelPassScene {
  * `cl:<circle>`, `crumb:<entity>:<index>` (a trail breadcrumb's time – its dot stays). Pure over `px` (screen px of a ground point at the current camera).
  */
 export function mapLabelDecisions(px: (c: LngLat) => { x: number; y: number }, scene: LabelPassScene): ReadonlySet<string> {
+  return wallOff(arbitrate(px, scene), scene.chrome ?? [])
+}
+
+/** The pass before the chrome: what arbitration hides, and the candidates the chrome may take off. */
+interface Arbitrated { suppressed: ReadonlySet<string>; cands: readonly LabelCandidate[] }
+
+/** `mapLabelDecisions` without the chrome walls – the O(n²) part, which `useLabelPass` keeps
+ *  while the scene and the camera stand still. */
+function arbitrate(px: (c: LngLat) => { x: number; y: number }, scene: LabelPassScene): Arbitrated {
   const { initialCenter, entities, isVisible, zoom, symMul, captionMode, selectedId, selectedEntityIds, teamLines, trupps, truppSeverities,
-    drawingsVisible, lineDecor, drawLabels, circleLabels, selectedDrawingId, storedDrawings, hiddenTrails, chrome = [] } = scene
+    drawingsVisible, lineDecor, drawLabels, circleLabels, selectedDrawingId, storedDrawings, hiddenTrails } = scene
   // ties inside a rank go to whatever is nearer the incident — never to placement order
   const hub = px(initialCenter)
   const near = (p: { x: number; y: number }) => Math.hypot(p.x - hub.x, p.y - hub.y)
@@ -237,6 +245,11 @@ export function mapLabelDecisions(px: (c: LngLat) => { x: number; y: number }, s
   // captions – MapView reports the hidden captions to the plan twins, and a symbol under the map's
   // top bar must not lose its caption on the Plan – nor to the selection or a pinned label.
   const suppressed = zoomedOut.length ? new Set([...placeLabels(cands, occupied), ...zoomedOut]) : placeLabels(cands, occupied)
+  return { suppressed, cands }
+}
+
+/** The chrome walls over an arbitrated pass (see «The chrome is a wall too» above). */
+function wallOff({ suppressed, cands }: Arbitrated, chrome: readonly LabelBox[]): ReadonlySet<string> {
   if (!chrome.length) return suppressed
   const walls = chrome.map((b) => ({ x: b.x - CHROME_PAD, y: b.y - CHROME_PAD, w: b.w + 2 * CHROME_PAD, h: b.h + 2 * CHROME_PAD }))
   const out = new Set(suppressed)
@@ -277,34 +290,32 @@ function sameData(a: unknown, b: unknown): boolean {
   return ka.length === Object.keys(b).length && ka.every((k) => k in rb && sameData(ra[k], rb[k]))
 }
 
-/** The last decision per map instance, with what it was taken for (see `useLabelPass`). */
-const lastDecision = new WeakMap<MlMap, { scene: LabelPassScene; frame: number; out: ReadonlySet<string> }>()
+/** The last arbitration per map instance, with what it was taken for (see `useLabelPass`). */
+const lastPass = new WeakMap<MlMap, { scene: LabelPassScene; frame: number; pass: Arbitrated }>()
 
-/** Runs `decide` unless this map's last decision was taken for the same scene and frame. */
-function decideOnce(m: MlMap, scene: LabelPassScene, frame: number, decide: () => ReadonlySet<string>): ReadonlySet<string> {
-  const last = lastDecision.get(m)
-  if (last && last.frame === frame && sameData(last.scene, scene)) return last.out
-  const out = decide()
-  lastDecision.set(m, { scene, frame, out })
-  return out
+/** `arbitrate`, unless this map's last pass was taken for the same scene and frame. */
+function arbitrateOnce(m: MlMap, scene: LabelPassScene, frame: number): Arbitrated {
+  const last = lastPass.get(m)
+  if (last && last.frame === frame && sameData(last.scene, scene)) return last.pass
+  const pass = arbitrate((c) => m.project(c as [number, number]), scene)
+  lastPass.set(m, { scene, frame, pass })
+  return pass
 }
 
 /**
- * MapView's label pass: runs `mapLabelDecisions` against the live map, and reports which symbol
- * captions it hid (`onCaptionSuppressionChange` — the plan twins hide the same ones).
- * Deliberately NOT per frame and not per render: labels appearing and disappearing under a moving
- * finger read as flicker, and each run reads the chrome's layout and compares every label with
- * every other. So the decision is kept until something it depends on changes:
- *   · the scene, by content (a new object, a selection, a caption edit, a drag's release);
- *   · `bumpLabelFrame` – MapView calls it on moveend: pan, zoom and rotate all end there;
- *   · a size change of the map container or the chrome (CHROME_SELECTOR) – a rail opening or
- *     taking its words, the phone's read-outs coming or going – and the Meldeleiste coming, going
- *     or growing, which moves the phone's read-outs.
+ * MapView's label pass: arbitrates the labels against the live map, walls them off from the
+ * chrome, and reports which symbol captions it hid (`onCaptionSuppressionChange` — the plan twins
+ * hide the same ones). Deliberately NOT per frame: labels appearing and disappearing under a
+ * moving finger read as flicker, and the arbitration compares every label with every other. So it
+ * is kept until the scene changes by content (a new object, a selection, a caption edit, a drag's
+ * release) or `bumpLabelFrame` – MapView calls it on moveend: pan, zoom and rotate all end there.
+ * The chrome walls are applied on every render, read fresh: the chrome moves without telling the
+ * map (a rail opening, the Meldeleiste pushing the phone's read-outs, the FAB lifted over a dock).
  */
 export function useLabelPass(mapInst: RefObject<MlMap | null>, scene: LabelPassScene, onCaptionSuppressionChange?: (ids: ReadonlySet<string>) => void) {
   const [frame, bump] = useState(0)
   const m = mapInst.current
-  const suppressedLabels = m ? decideOnce(m, scene, frame, () => mapLabelDecisions((c) => m.project(c as [number, number]), { ...scene, chrome: chromeBoxes(m.getContainer()) })) : NO_LABELS
+  const suppressedLabels = m ? wallOff(arbitrateOnce(m, scene, frame), chromeBoxes(m.getContainer())) : NO_LABELS
   const suppressedCaptionKey = [...suppressedLabels]
     .filter((key) => key.startsWith('cap:'))
     .map((key) => key.slice(4))
@@ -313,9 +324,5 @@ export function useLabelPass(mapInst: RefObject<MlMap | null>, scene: LabelPassS
   useEffect(() => {
     onCaptionSuppressionChange?.(new Set(suppressedCaptionKey ? suppressedCaptionKey.split('\u0000') : []))
   }, [onCaptionSuppressionChange, suppressedCaptionKey])
-  // the chrome or the container changed: decide again (lib/useSizeWatch – a selector match per
-  // commit). The Meldeleiste is watched, not booked: on a phone its coming and going moves the
-  // read-outs under the top bar without resizing them (15-mobile · `:root:has(.ml)`).
-  useSizeWatch(() => (m ? [m.getContainer(), ...document.querySelectorAll(`${CHROME_SELECTOR}, .ml`)] : []), () => bump((n) => n + 1))
   return { suppressedLabels, bumpLabelFrame: () => bump((n) => n + 1) }
 }

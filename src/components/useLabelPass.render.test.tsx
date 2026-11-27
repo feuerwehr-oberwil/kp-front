@@ -1,15 +1,14 @@
 // @vitest-environment jsdom
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
 import type { Map as MlMap } from 'maplibre-gl'
 import type { Drawing, Entity, LngLat, Trupp } from '../types'
 import { useLabelPass, type LabelPassScene } from './useLabelPass'
 
 /*
- * The label pass runs when something it depends on changed – never per render (perf sweep finding
- * 20). Each run reads the chrome's layout (the container's rect, then every chrome element's) and
- * compares every label with every other, so the counts here are the cost: `reads` = the container
- * rect a chrome read starts with, `runs` = the pass's first projection (the incident hub).
+ * The label arbitration (every label against every other) runs when the scene or the camera
+ * changed – never per render. `runs` counts it by its first projection (the incident hub). The
+ * chrome walls stay per render, read fresh (the chrome moves without telling the map).
  */
 
 const HUB: LngLat = [7.5, 47.4]
@@ -37,21 +36,12 @@ function fakeMap() {
   const project = vi.fn((c: [number, number]) => ({ x: c[0] * 1000, y: c[1] * 1000 }))
   const map = { project, getContainer: () => container } as unknown as MlMap
   return {
-    map, reads: () => reads.mock.calls.length,
+    map, reads: () => reads.mock.calls.length, projections: () => project.mock.calls.length,
     runs: () => project.mock.calls.filter(([c]) => c[0] === HUB[0] && c[1] === HUB[1]).length,
   }
 }
 
-/** ResizeObserver stand-in: what it watches, and a way to report a size change. It reports nothing
- *  on its own, so the counts below leave out the first report a real one makes on observe. */
-const ro = { observed: [] as Element[], report: [] as (() => void)[] }
-class FakeRO {
-  constructor(private cb: () => void) { ro.report.push(() => this.cb()) }
-  observe(el: Element) { ro.observed.push(el) }
-  disconnect() {}
-}
-beforeEach(() => { ro.observed.length = 0; ro.report.length = 0; vi.stubGlobal('ResizeObserver', FakeRO) })
-afterEach(() => { vi.unstubAllGlobals(); document.body.innerHTML = '' })
+afterEach(() => { document.body.innerHTML = '' })
 
 const mount = (onCaptions?: (ids: ReadonlySet<string>) => void) => {
   const f = fakeMap()
@@ -61,19 +51,19 @@ const mount = (onCaptions?: (ids: ReadonlySet<string>) => void) => {
 }
 
 describe('useLabelPass – decides only when something changed', () => {
-  it('20 renders with an unchanged scene: 0 chrome reads, 0 runs', () => {
-    const { hook, reads, runs } = mount()
-    expect([reads(), runs()]).toEqual([1, 1])
+  it('20 renders with an unchanged scene: 0 runs', () => {
+    const { hook, runs } = mount()
+    expect(runs()).toBe(1)
     for (let i = 0; i < 20; i++) hook.rerender({ scene: sceneOf() })
-    expect([reads(), runs()]).toEqual([1, 1])
+    expect(runs()).toBe(1)
   })
 
   it('moveend (bumpLabelFrame) decides once more – the label a pan or a drag hid comes back on release', () => {
-    const { hook, reads, runs } = mount()
+    const { hook, runs } = mount()
     act(() => { hook.result.current.bumpLabelFrame() })
-    expect([reads(), runs()]).toEqual([2, 2])
+    expect(runs()).toBe(2)
     hook.rerender({ scene: sceneOf() })
-    expect([reads(), runs()]).toEqual([2, 2])
+    expect(runs()).toBe(2)
   })
 
   // the other side of the memo: every scene input, changed alone, decides again at once
@@ -100,53 +90,36 @@ describe('useLabelPass – decides only when something changed', () => {
     ['hiddenTrails', { hiddenTrails: new Set(['A']) }],
   ]
   it.each(changes)('a changed %s decides again', (_name, over) => {
-    // counted by the chrome read each run starts with: a moved hub is not the hub `runs` looks for
-    const { hook, reads } = mount()
+    // counted by all projections: a moved hub is not the hub `runs` looks for
+    const { hook, projections } = mount()
+    const one = projections()
     hook.rerender({ scene: sceneOf(over) })
-    expect(reads()).toBe(2)
+    const two = projections()
+    expect(two).toBeGreaterThan(one)
     hook.rerender({ scene: sceneOf(over) })
-    expect(reads()).toBe(2)
+    expect(projections()).toBe(two)
   })
 })
 
-describe('useLabelPass – a chrome change decides again', () => {
-  it('the map container resizes', () => {
-    const { runs, map } = mount()
-    expect(ro.observed).toEqual([map.getContainer()])
-    act(() => { ro.report[ro.report.length - 1]() })
-    expect(runs()).toBe(2)
-  })
-
-  it('a rail opens (a chrome element changes size)', () => {
-    document.body.innerHTML = '<div class="topbar"></div><nav class="rail"></nav>'
-    const { hook, runs } = mount()
-    expect(ro.observed.map((el) => el.className)).toEqual(['', 'topbar', 'rail'])
-    act(() => { ro.report[ro.report.length - 1]() })
-    expect(runs()).toBe(2)
-    hook.rerender({ scene: sceneOf() })
-    expect(runs()).toBe(2)
-  })
-
-  it('a phone read-out appears: it is watched from the next commit, and its first report decides again', () => {
-    document.body.innerHTML = '<div class="topbar"></div>'
-    const { hook, runs } = mount()
-    const watchers = ro.report.length
-    hook.rerender({ scene: sceneOf() })
-    expect(ro.report).toHaveLength(watchers) // same chrome, no new watcher
-    document.body.insertAdjacentHTML('beforeend', '<div class="phone-wx"></div>')
-    hook.rerender({ scene: sceneOf() })
-    expect(ro.observed.some((el) => el.className === 'phone-wx')).toBe(true)
-    act(() => { ro.report[ro.report.length - 1]() })
-    expect(runs()).toBe(2)
-  })
-  it('the Meldeleiste comes (it moves the phone read-outs without resizing them)', () => {
-    document.body.innerHTML = '<div class="phone-wx"></div>'
-    const { hook, runs } = mount()
-    document.body.insertAdjacentHTML('beforeend', '<div class="ml"></div>')
-    hook.rerender({ scene: sceneOf() })
-    expect(ro.observed.some((el) => el.className === 'ml')).toBe(true)
-    act(() => { ro.report[ro.report.length - 1]() })
-    expect(runs()).toBe(2)
+describe('useLabelPass – the chrome is a wall on every render', () => {
+  it('a rail that comes over a readout takes it off on the next render, with no new run', () => {
+    // a readout on open ground, at x 7700, bottom edge y 47490 (1° = 1000 px)
+    const scene = () => sceneOf({ drawLabels: [{ id: 'L', coord: [7.7, 47.5], lines: [{ text: 'Abschnitt 1', words: true }] }] })
+    const { hook, runs, reads } = mount()
+    hook.rerender({ scene: scene() })
+    expect(hook.result.current.suppressedLabels.has('dl:L')).toBe(false)
+    const before = runs()
+    const rail = document.createElement('nav')
+    rail.className = 'rail'
+    rail.getBoundingClientRect = () => ({ left: 7600, top: 47400, width: 200, height: 200, right: 7800, bottom: 47600, x: 7600, y: 47400, toJSON: () => ({}) })
+    document.body.append(rail)
+    hook.rerender({ scene: scene() })
+    expect(hook.result.current.suppressedLabels.has('dl:L')).toBe(true)
+    expect(runs()).toBe(before)
+    expect(reads()).toBe(3)
+    rail.remove()
+    hook.rerender({ scene: scene() })
+    expect(hook.result.current.suppressedLabels.has('dl:L')).toBe(false)
   })
 })
 
