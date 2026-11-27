@@ -351,6 +351,7 @@ export function flushMediaQueue(incidentId: string, upload: MediaUploader, { ret
       // nothing was tried and nothing waits in memory for a write that lands: the stored queue,
       // Blobs and all, is already this one
       if (!settled.length && !unstored.has(incidentId)) return current
+      if (stop?.()) return current // another tab holds the queue now: its own pass records these
       const next = current.map((cur) => settled.find((x) => sameCapture(x.item, cur))?.next ?? cur)
       await storeQueue(incidentId, next, known)
       return next

@@ -681,6 +681,7 @@ export class WorkspaceSync {
     const writes = writingCache.get(this.incidentId) ?? new Set<Promise<boolean>>()
     writingCache.set(this.incidentId, writes)
     const write = withTileEviction(async () => {
+      if (this.followed) return false // the retry after an eviction, once another tab holds the lock
       const entry = { ...this.entry, cacheWriter: this.writerId }
       if (this.quotaRecovery) return this.writeQuotaRecovery(this.quotaRecovery, entry)
       if (this.ownsCache) return idbSet(key, entry)
@@ -706,7 +707,7 @@ export class WorkspaceSync {
       if (!writes.size) writingCache.delete(this.incidentId)
     }).then((ok) => {
       if (ok && this.ownsCache) this.inheritedDirty = undefined
-      if (this.ownsCache && this.cacheDurable !== ok) {
+      if (this.ownsCache && !this.followed && this.cacheDurable !== ok) {
         this.cacheDurable = ok
         this.publish()
       }

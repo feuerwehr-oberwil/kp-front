@@ -206,10 +206,12 @@ it('a tab that loses the edit lock mid-flush starts no further upload', async ()
     })
     await enqueueMedia(id, 'row1', 'photo', new Blob(['a']), 'a.jpg', new Date().toISOString(), 'blob:a')
     await enqueueMedia(id, 'row2', 'photo', new Blob(['b']), 'b.jpg', new Date().toISOString(), 'blob:b')
+    const queued = await listMediaQueue(id)
     renderHook(() => useMediaQueue({ incidentId: id, readOnly: false, onUploaded: () => true, onRestore: () => {} }))
     await waitFor(() => expect(upload).toHaveBeenCalledOnce())
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)) })
     expect(upload).toHaveBeenCalledOnce()
+    expect(await listMediaQueue(id)).toEqual(queued) // the new holder's own pass records the queue
   } finally {
     tabLockAnswers.set(incidentLockName(id), undefined)
     Reflect.deleteProperty(navigator, 'locks')

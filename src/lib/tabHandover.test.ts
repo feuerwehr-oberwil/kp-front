@@ -12,6 +12,8 @@ const get = vi.hoisted(() => vi.fn())
 const put = vi.hoisted(() => vi.fn())
 const putTrupps = vi.hoisted(() => vi.fn())
 const truppsBeacon = vi.hoisted(() => vi.fn())
+/** a full device: the next main-slot write fails, and the tile eviction before its retry waits for `release` */
+const quota = vi.hoisted(() => ({ failNext: false, eviction: null as Promise<void> | null }))
 vi.mock('./api/workspace', async (importOriginal) => ({
   ...await importOriginal<typeof import('./api/workspace')>(),
   getWorkspace: get, putWorkspace: put, putWorkspaceTrupps: putTrupps,
@@ -20,7 +22,11 @@ vi.mock('./api/workspace', async (importOriginal) => ({
 vi.mock('./idb', () => ({
   idbGet: async (key: string) => structuredClone(store.get(key) ?? null),
   idbRead: async (key: string) => ({ ok: true, value: structuredClone(store.get(key) ?? null) }),
-  idbSet: async (key: string, value: unknown) => { store.set(key, structuredClone(value)); return true },
+  idbSet: async (key: string, value: unknown) => {
+    if (quota.failNext && key === 'kp-front-ws-e1') { quota.failNext = false; return false }
+    store.set(key, structuredClone(value))
+    return true
+  },
   idbUpdate: async (key: string, update: (current: unknown) => unknown) => {
     const next = update(structuredClone(store.get(key) ?? null))
     if (next != null) store.set(key, structuredClone(next))
@@ -29,7 +35,13 @@ vi.mock('./idb', () => ({
   idbDel: async (key: string) => { store.delete(key) },
   idbKeys: async (prefix: string) => ({ ok: true, value: [...store.keys()].filter((k) => k.startsWith(prefix)) }),
 }))
-vi.mock('./tileEvict', () => ({ withTileEviction: (write: () => Promise<boolean>) => write() }))
+vi.mock('./tileEvict', () => ({
+  withTileEviction: async (write: () => Promise<boolean>) => {
+    if (await write()) return true
+    await quota.eviction
+    return write()
+  },
+}))
 import { ApiError } from './api'
 import type { IncidentMeta } from './api/incidents'
 import { CACHE_DEBOUNCE_MS, setWorkspaceCacheOwner, type WorkspaceSync, type WorkspaceSyncOptions } from './api/workspaceSync'
@@ -91,6 +103,8 @@ beforeEach(() => {
   put.mockReset().mockRejectedValue(offline)
   putTrupps.mockReset().mockRejectedValue(offline)
   truppsBeacon.mockReset()
+  quota.failNext = false
+  quota.eviction = null
 })
 afterEach(() => {
   for (const t of tabs.splice(0)) { t.lock?.stop(); t.selection.dispose() }
@@ -189,6 +203,23 @@ it('a tab that loses and regains the lock during a slow takeover ends up editing
   await vi.waitFor(() => expect([a.held, b.held]).toEqual([true, false]))
   b.lock!.takeOver()
   await editable(b)
+})
+
+it('a cache write retried after a tile eviction does not land once another tab took over', async () => {
+  const a = await tab()
+  const b = await tab()
+  let release!: () => void
+  quota.eviction = new Promise((resolve) => { release = resolve })
+  quota.failNext = true
+  edit(a, { remarks: 'from A, the store is full' })
+  await settle() // the write failed; the eviction runs
+  b.lock!.takeOver()
+  await vi.waitFor(() => expect(a.held).toBe(false))
+  release() // the eviction is over: A's retry would write now
+  await editable(b)
+  edit(b, { summary: 'from B' })
+  await vi.advanceTimersByTimeAsync(10_000)
+  expect(slot()?.workspace.reportMeta).toEqual({ summary: 'from B' })
 })
 
 it('a Trupp save refused with 422 after the lock was lost does not fall back to a full PUT', async () => {
