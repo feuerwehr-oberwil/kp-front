@@ -276,8 +276,10 @@ async def _raw_roster(db: AsyncSession) -> dict | None:
     doc = row.config_json if row else None
     if doc is None:
         return {}
-    roster = doc.get("roster", {}) if isinstance(doc, dict) else None
-    return {} if roster is None else roster if isinstance(roster, dict) else None
+    if not isinstance(doc, dict):
+        return None
+    roster = doc.get("roster", {})  # absent = nothing configured; present must be an object
+    return roster if isinstance(roster, dict) else None
 
 
 async def load_roster_ranks_info(db: AsyncSession) -> tuple[list[dict], bool]:

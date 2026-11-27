@@ -237,10 +237,12 @@ async def test_the_name_order_reads_a_malformed_document(client, editor, db_sess
         ),
         # …and a roster broken ITSELF is «cannot be read», never a silent «no overrides»
         ({"roster": "corrupt"}, None),
+        ({"roster": None}, None),  # present and not an object: not the same as absent
         ({"roster": {"diveraResponses": ["13"]}}, None),
+        ({"roster": {"diveraResponses": None}}, None),
         ({"roster": {"diveraResponses": {"13": "vielleicht"}}}, None),
     ],
-    ids=["unset", "set", "broken-elsewhere", "roster-string", "part-list", "unknown-kind"],
+    ids=["unset", "set", "broken-elsewhere", "roster-string", "roster-null", "part-list", "part-null", "unknown-kind"],
 )
 async def test_divera_response_overrides_say_when_the_roster_cannot_be_read(db_session, document, kinds):
     from app.models import DeploymentConfig
@@ -253,8 +255,8 @@ async def test_divera_response_overrides_say_when_the_roster_cannot_be_read(db_s
 
 @pytest.mark.parametrize(
     "roster",
-    ["corrupt", {"nameOrder": "vorname-zuerst"}, {"autoSync": "immer"}],
-    ids=["roster-string", "bad-order", "bad-level"],
+    ["corrupt", None, {"nameOrder": "vorname-zuerst"}, {"autoSync": "immer"}],
+    ids=["roster-string", "roster-null", "bad-order", "bad-level"],
 )
 async def test_the_divera_sync_writes_nothing_on_a_roster_it_cannot_read(db_session, monkeypatch, roster):
     """Refused before Divera is even asked: the names would be written in an order, at a level,
