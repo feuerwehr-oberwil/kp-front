@@ -282,19 +282,21 @@ describe('a Notiz typed in the editor on the plan, which goes without a blur', (
   })
 
   it('a sheet switch while it is typed ends the edit on the sheet it was typed on', () => {
-    const { noteEditSheets, drive } = mount([{ ...vehicle, ...at }, { id: 'n1', kind: 'text', x: 0.3, y: 0.3, floor: 0, text: 'Alt' }])
+    const { noteEditSheets, rows, drive } = mount([{ ...vehicle, ...at }, { id: 'n1', kind: 'text', x: 0.3, y: 0.3, floor: 0, text: 'Alt' }])
     fireEvent.doubleClick(screen.getByText('Alt'))
     typeOnSheet('Wasser ab 14:20')
     act(() => drive().show('modul2'))
     expect(noteEditSheets()).toEqual(['tafel'])
+    expect(rows()).toEqual([written('Wasser ab 14:20')])
   })
 
   it('the board closing while it is typed ends the edit: its one row', () => {
-    const { noteEdits, unmount } = mount([{ ...vehicle, ...at }, { id: 'n1', kind: 'text', x: 0.3, y: 0.3, floor: 0, text: 'Alt' }])
+    const { noteEdits, rows, unmount } = mount([{ ...vehicle, ...at }, { id: 'n1', kind: 'text', x: 0.3, y: 0.3, floor: 0, text: 'Alt' }])
     fireEvent.doubleClick(screen.getByText('Alt'))
     typeOnSheet('Wasser ab 14:20')
     unmount()
     expect(noteEdits()).toEqual(['Wasser ab 14:20'])
+    expect(rows()).toEqual([written('Wasser ab 14:20')])
   })
 })
 
