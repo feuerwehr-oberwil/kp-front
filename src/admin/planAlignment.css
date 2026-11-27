@@ -163,9 +163,8 @@
 .adm-floors-sheet.drawing { cursor: crosshair; }
 .adm-floors-sheet-wait { display: grid; place-items: center; aspect-ratio: 1.414; color: var(--ink-dim); font-size: var(--fs-1); }
 /* the sentence stands ON the paper, where the eye is while drawing – dark while a mode expects
-   something, quiet when it only says what the rectangles can do. A finger on it is part of the
-   sheet's two-finger move (FloorPackEditor · usePan), never a native pan. */
-.adm-floors-hint { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 1; touch-action: none;
+   something, quiet when it only says what the rectangles can do */
+.adm-floors-hint { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 1;
   display: inline-flex; align-items: center; gap: 9px; max-width: min(88%, 74ch); padding: 9px 16px;
   border-radius: var(--r-pill); background: var(--ink-fill); color: var(--on-accent-ink);
   font: 600 var(--fs-1)/1.4 var(--body); text-align: center; box-shadow: var(--e3); }
@@ -351,7 +350,7 @@ button.adm-floor-index { min-width: var(--tap); min-height: var(--tap); cursor: 
    zoom: the foot keeps the cluster's height free, so it never covers the drawing at 100 % */
 .adm-floors-full .adm-floors-viewport { display: flex; flex-direction: column; padding-bottom: var(--sp-8); }
 .adm-floors-full .adm-floors-sheet { flex: none; margin-block: auto; }
-.adm-floors-full .adm-floors-paper > .adm-floors-zoom { position: absolute; right: 10px; bottom: 10px; z-index: 2; background: var(--surface); box-shadow: var(--e3); }
+.adm-floors-full-sheet > .adm-floors-zoom { position: absolute; right: 10px; bottom: 10px; z-index: 2; background: var(--surface); box-shadow: var(--e3); }
 .adm-floors-zoom.compact button { height: var(--tap); min-width: var(--tap); padding: 0; justify-content: center; }
 .adm-floors-zoom.compact .adm-floors-zoom-value { min-width: 64px; }
 .adm-floors-chips { flex: none; display: flex; gap: 8px; overflow-x: auto; padding: var(--sp-2) var(--sp-3) calc(env(safe-area-inset-bottom) + var(--sp-2));

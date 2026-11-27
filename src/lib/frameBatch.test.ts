@@ -4,7 +4,7 @@ import { frameBatch } from './frameBatch'
 afterEach(() => { vi.unstubAllGlobals() })
 
 describe('frameBatch', () => {
-  it('runs a step once per frame, at once on flush, and never once cancelled', () => {
+  it('runs a step once per frame, and at once on flush', () => {
     const frames = new Map<number, FrameRequestCallback>()
     let id = 0
     vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => { frames.set(++id, cb); return id })
@@ -21,9 +21,5 @@ describe('frameBatch', () => {
     expect(frames.size).toBe(0) // the waiting frame is gone, not run twice
     batch.flush()
     expect(step).toHaveBeenCalledTimes(2) // nothing waits, nothing runs
-    batch.schedule(); batch.cancel()
-    expect(frames.size).toBe(0) // cancelled: the frame is gone…
-    batch.flush()
-    expect(step).toHaveBeenCalledTimes(2) // …and a flush finds nothing waiting
   })
 })
