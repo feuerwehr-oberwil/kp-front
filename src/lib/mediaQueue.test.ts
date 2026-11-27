@@ -553,4 +553,20 @@ describe('mediaQueue · no answer at all', () => {
     expect(out.uploaded.map((u) => u.rowId)).toEqual(['cellar'])
     expect(upload).toHaveBeenCalledTimes(1)
   })
+
+  it('an upload that keeps timing out gets one early try per run of misses, however often the server answers others', async () => {
+    await enqueueMedia(INC, 'big', 'photo', blob(), 'p', '')
+    const upload = noAnswer()
+    await flushMediaQueue(INC, upload) // a miss: 5 s pause
+    for (let poll = 0; poll < 5; poll++) await flushMediaQueue(INC, upload, { due: true }) // answered polls
+    expect(upload).toHaveBeenCalledTimes(2)
+    // any server answer starts a new run: the next recovery may try early again
+    vi.setSystemTime((await listMediaQueue(INC))[0].retryAt!)
+    upload.mockRejectedValueOnce(new ApiError(503, 'down'))
+    await flushMediaQueue(INC, upload)
+    await flushMediaQueue(INC, upload, { due: true })
+    await flushMediaQueue(INC, upload, { due: true })
+    expect(upload).toHaveBeenCalledTimes(4)
+    expect((await listMediaQueue(INC))[0]).toMatchObject({ status: 'pending', attempts: 1, misses: 1 })
+  })
 })
