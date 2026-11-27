@@ -98,6 +98,17 @@ export function FloorPackEditor({ item, onDraft, view, tabs, historyRef, onUndoS
   // floor may sit on a page the other one is not showing). The edits and their undo stay.
   const [layout, setLayout] = useState(phone)
   if (layout !== phone) { setLayout(phone); setMode(null); setBrowsing(false) }
+  /** the control that opened the full-screen sheet – focus goes back there when it closes, or,
+   *  when the sheet's work took it away (a join opens the other floor's row), to the open row's
+   *  crop, brought into view (the overlay returns focus without scrolling) */
+  const opener = useRef<HTMLElement | null>(null)
+  const section = useRef<HTMLElement>(null)
+  const focusBack = () => {
+    if (opener.current?.isConnected) return opener.current
+    const crop = section.current?.querySelector<HTMLElement>('.adm-floor.active .adm-floor-crop')
+    crop?.scrollIntoView?.({ block: 'nearest' })
+    return crop ?? true
+  }
   const chipsHeld = mode?.kind === 'region' || (mode?.kind === 'join' && !mode.at)
   const undo = () => { setHistory((h) => h.past.length ? { stack: h.past[h.past.length - 1], past: h.past.slice(0, -1) } : h); setMode(null) }
   useEffect(() => {
@@ -171,7 +182,8 @@ export function FloorPackEditor({ item, onDraft, view, tabs, historyRef, onUndoS
     onMovePoint={(hit, at) => setStack((s) => moveJoinPoint(s, hit, [round(at[0]), round(at[1])]))}
     onSelect={setSelected} bare={bare} />
 
-  return <section className={`adm-floors${view === 'map' ? ' adm-floors-baronly' : ''}`} aria-label={C.title}>
+  return <section ref={section} className={`adm-floors${view === 'map' ? ' adm-floors-baronly' : ''}`} aria-label={C.title}
+    onClickCapture={(e) => { if (phone && !fullOpen) opener.current = e.target instanceof Element ? e.target.closest('button') : null }}>
     {/* ONE row over both columns: the editor's tabs left, then – only where there is a sheet to
         look at – what belongs to the SHEET (which page, how close) right above it, and the floors
         column's own head above its column. The zoom is the Geschosse tab's business: the Karte
@@ -321,7 +333,7 @@ export function FloorPackEditor({ item, onDraft, view, tabs, historyRef, onUndoS
     {/* the phone's full-screen sheet: the way out and the mode's sentence on top, the sheet with
         its zoom floating on it, the floors as chips at the foot – a chip is the selected floor,
         which is how a join reaches the other drawing */}
-    {phone && <Overlay open={fullOpen} onClose={closeFull} className="adm-floors-full" backdropClassName="adm-floors-full-scrim" swipeToClose={false}
+    {phone && <Overlay open={fullOpen} onClose={closeFull} className="adm-floors-full" backdropClassName="adm-floors-full-scrim" swipeToClose={false} finalFocus={focusBack}
       ariaLabel={mode ? (mode.kind === 'region' ? C.region : C.join) : C.title}>
       <div className="adm-floors-full-top">
         <button type="button" className="btn" onClick={closeFull}>{mode ? appConfig.copy.cancel : appConfig.copy.done}</button>
