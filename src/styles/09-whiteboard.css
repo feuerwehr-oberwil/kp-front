@@ -125,12 +125,13 @@
    actions (a narrow tablet), the actions wrap under it as one group, at the right edge, instead of
    squeezing it to a word a line */
 .wb-nearby-text { flex: 1 1 min(320px, calc(100% - 28px)); min-width: 0; }   /* 28: the ⚠ glyph and its gap */
-.wb-nearby-acts { display: flex; align-items: center; gap: var(--sp-2); flex: none; margin-left: auto; }
+.wb-nearby-acts { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: var(--sp-2);
+  flex: 0 1 auto; min-width: 0; margin-left: auto; }
 .wb-nearby-text b { color: var(--amber-strong); }
 /* ⚠️ a framed compact button, like every message's own (08-toasts · .ml-btn) — it was a bare
    blue word (28.09.2026, owner pick A: no bare blue word as an action) */
-.wb-nearby-switch { flex: none; min-height: 44px; padding: 0 var(--sp-3); border: 1px solid var(--glass-edge); border-radius: var(--r-msg-in);
-  background: var(--surface); font: var(--fw-bold) var(--fs-1) var(--body); color: var(--ink); cursor: pointer; white-space: nowrap; }
+.wb-nearby-switch { flex: 0 1 auto; min-width: 0; min-height: 44px; padding: 0 var(--sp-3); border: 1px solid var(--glass-edge); border-radius: var(--r-msg-in);
+  background: var(--surface); font: var(--fw-bold) var(--fs-1) var(--body); color: var(--ink); cursor: pointer; }
 .wb-nearby-switch:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .wb-nearby-x { flex: none; width: 44px; height: 44px; border: none; border-radius: var(--r-msg-in); cursor: pointer;
   background: var(--ink-8); color: var(--ink-dim); display: grid; place-items: center; }
@@ -138,6 +139,13 @@
 /* …and one --float-gap under the Meldeleiste while one stands: the strip hangs in the same band
    (08-toasts · .ml) and publishes its height as `--ml-h` */
 :root:has(.ml) .wb-nearby-banner { top: calc(var(--rail-top) + var(--ml-h, 0px) + var(--float-gap)); }
+/* …and it steps aside while an object's detail panel stands beside the rail (`.ctx`, the tablet's
+   and the laptop's): the panel owns that band, and at 820px it lay over both actions. The amber
+   Objekt chip keeps the warning; the banner is back when the panel closes. A phone's panel is a
+   bottom sheet, nowhere near it. */
+@media (--not-phone) {
+  :root:has(.app .ctx) .wb-nearby-banner { display: none; }
+}
 @media (--phone) {
   /* the NavRail is a bottom bar here – the banner takes the full width and wraps its actions. ⚠️
      The phone's top bar floats over the sheet (15-mobile · .topbar), so the banner starts under
