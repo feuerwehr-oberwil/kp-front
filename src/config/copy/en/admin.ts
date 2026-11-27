@@ -1599,7 +1599,7 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
         parts: '{n} drawings',
         regionHint: '{floor}: drag a box around the drawing',
         joinHint1: '{floor}: tap a point in this drawing – staircase, lift or a grid crossing',
-        joinHint2: 'Choose another floor in the list, then tap the same staircase point – including on another page.',
+        joinHint2: 'Choose another floor, then tap the same staircase point – including on another page.',
         stateWhole: 'Whole page',
         stateJoined: 'Joined',
         stateUnjoined: 'Not joined',
