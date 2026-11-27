@@ -10,6 +10,7 @@ import { fillTemplate } from '../lib/format'
 import { HATCH_CHIP_VB, HatchDefs, LineStylePicker, hatchPatternId } from '../lib/draw'
 import { colorName, fillName, lineStrokeName } from '../lib/drawNames'
 import { endingName, endingOf } from '../lib/drawingEdit'
+import { softHyphenate } from '../lib/symbolWrap'
 import { DEFAULT_INK, markerGlyph } from '../lib/lineStyle'
 import { fmtDistance, fmtArea, hoseSplit } from '../lib/geo'
 import { CONTENT_LABELS } from '../lib/lineDecor'
@@ -459,7 +460,7 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
               // the label NAMES the pick under the row's word (button sweep audit A2, 17.11.2026):
               // four pictures, and the hold that names them is taught nowhere – a tap to find out is
               // safe, a pick undoes
-              <div className="de-row"><span>{appConfig.copy.drawingEditor.ending}<b className="de-pick">{endingName(endingOf(drawing))}</b></span>
+              <div className="de-row"><span>{appConfig.copy.drawingEditor.ending}<b className="de-pick">{softHyphenate(endingName(endingOf(drawing)))}</b></span>
                 <Segmented
                   ariaLabel={appConfig.copy.drawingEditor.ending}
                   value={endingOf(drawing)}
@@ -506,7 +507,7 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
         {!readOnly && <div className="de-group">
           {isLine && (
             // «Linienart», naming the picked stroke under it (audit A3 / B1)
-            <div className="de-row"><span>{appConfig.copy.drawingEditor.lineStyle}<b className="de-pick">{lineStrokeName(dashed, drawing.marker)}</b></span>
+            <div className="de-row"><span>{appConfig.copy.drawingEditor.lineStyle}<b className="de-pick">{softHyphenate(lineStrokeName(dashed, drawing.marker))}</b></span>
               {/* the chains belong to the STROKE, so they sit here with solid and dashed — the
                   letter field below stays the letter field (lib/draw · LineStylePicker) */}
               <LineStylePicker dashed={dashed} onChange={onDashed} marker={drawing.marker} onMarker={onMarker} />

@@ -30,6 +30,18 @@ describe('softHyphenate', () => {
       .filter((name) => name.length >= 14 && !name.includes(' ') && !softHyphenate(name).includes(SHY))
     expect(unseamed).toEqual([])
   })
+
+  // Üben feedback (owner 27.11.2026): the line sheet's label column (~118px) broke the Linienart
+  // «Wasserabwurfzone» as «Wasserabwurfzon / e». Every name that can stand under «Linienart» /
+  // «Linienende» (DrawEditor · `.de-pick`) with a word long enough to break mid-word has a seam.
+  it('gives every Linienart / Linienende name with a long word a seam', () => {
+    const c = getCopy().drawingEditor
+    const picks = [c.lineSolid, c.lineDashed, c.lineHalteliniUpShort, c.lineHalteliniDownShort, c.lineAbwurfzone,
+      c.endingNone, c.endingArrow, c.endingArrowStop, c.endingTeilstueck]
+    const unseamed = picks.filter((name) => name.split(' ').some((w) => w.length >= 14) && !softHyphenate(name).includes(SHY))
+    expect(unseamed).toEqual([])
+    expect(strip(softHyphenate(c.lineAbwurfzone))).toBe(c.lineAbwurfzone)
+  })
 })
 
 describe('softHyphenateText', () => {

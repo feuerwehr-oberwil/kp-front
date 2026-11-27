@@ -773,8 +773,12 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
    «ONE label column, ONE control edge», owner pick 27B, 31.10.2026); this sheet adds its ink. */
 .draw-editor .de-row { color: var(--ink-dim); font-weight: var(--fw-medium); }
 /* the row label NAMES a picture-only pick under its word – «Linienende» / «Pfeil mit Stopp»,
-   «Linienart» / «Gestrichelt» (DrawEditor · `.de-pick`, button sweep audit A2/A3, 17.11.2026) */
-.draw-editor .de-row .de-pick { display: block; color: var(--ink); font: var(--fw-bold) var(--fs-1)/var(--lh-1) var(--body); }
+   «Linienart» / «Gestrichelt» (DrawEditor · `.de-pick`, button sweep audit A2/A3, 17.11.2026).
+   ⚠️ A name never breaks inside a word (owner, Üben feedback 27.11.2026: «Wasserabwurfzon / e»):
+   one too long for the label column breaks at its compound seam, a soft hyphen put in at render
+   (lib/symbolWrap · softHyphenate) – `hyphens: manual`, never auto, which breaks by syllable. */
+.draw-editor .de-row .de-pick { display: block; color: var(--ink); font: var(--fw-bold) var(--fs-1)/var(--lh-1) var(--body);
+  hyphens: manual; -webkit-hyphens: manual; }
 /* a read-out (the Messung's numbers) starts at the edge too, but is data: it keeps its chip */
 .draw-editor .de-row > .de-measure-v { flex: none; }
 /* ── ONE control height (01.09., 27x 31.10.2026) ─────────────────────────────────────────────

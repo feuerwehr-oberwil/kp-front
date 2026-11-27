@@ -98,6 +98,11 @@ const SEAMS: Record<string, string> = {
   Einkaufszentrum: 'Einkaufs­zentrum',
   Mehrzweckhalle: 'Mehrzweck­halle',
   Tiefgarage: 'Tief­garage',
+  // ── the line sheet's picks (Üben feedback, owner 27.11.2026) ──
+  // The Linienart's name stands under «Linienart» in the sheet's ~118px label column (DrawEditor ·
+  // `.de-pick`); at 124px «Wasserabwurfzone» broke as «Wasserabwurfzon / e». Every other Linienart
+  // and Linienende name fits whole.
+  Wasserabwurfzone: 'Wasser­abwurfzone',
 }
 
 /** The label with soft hyphens at its compound seams — for display in a narrow cell only. */
