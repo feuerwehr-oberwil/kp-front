@@ -2465,7 +2465,7 @@ class ObjectVisitProposalField(BaseModel):
     @field_validator("id")
     @classmethod
     def _plain_id(cls, v: str) -> str:
-        if not _OV_FIELD_ID_RE.match(v):
+        if not _OV_FIELD_ID_RE.fullmatch(v):
             raise ValueError("objectVisits.proposalFields: 'id' must be letters, digits, '.', '_' or '-'")
         return v
 
@@ -2495,7 +2495,7 @@ class ObjectVisitDestination(BaseModel):
 
     @model_validator(mode="after")
     def _addressable(self) -> "ObjectVisitDestination":
-        if not _OV_DEST_ID_RE.match(self.id):
+        if not _OV_DEST_ID_RE.fullmatch(self.id):
             raise ValueError(
                 f"objectVisits destination {self.id!r}: 'id' must be lower-case letters, digits, '-' or '_'"
             )
@@ -2570,7 +2570,7 @@ class IncidentArchiveDestination(BaseModel):
     @model_validator(mode="after")
     def _addressable(self) -> "IncidentArchiveDestination":
         where = f"incidentArchive destination {self.id!r}"
-        if not _OV_DEST_ID_RE.match(self.id):
+        if not _OV_DEST_ID_RE.fullmatch(self.id):
             raise ValueError(f"{where}: 'id' must be lower-case letters, digits, '-' or '_'")
         site = self.siteUrl.strip()
         if not site.startswith("https://"):

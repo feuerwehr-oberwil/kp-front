@@ -269,3 +269,34 @@ async def test_a_geodata_push_against_such_a_document_fails_loudly_and_stores_no
         )
     assert "PUT /api/config failed (422)" in capsys.readouterr().err
     assert await _stored(session_factory) == document
+
+
+# --- what Objektbesuche do with it ----------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_a_long_proposal_label_reaches_both_catalogues_and_a_visit_can_use_it(client, editor, db_session):
+    """The catalogue hands the configured field out, the capture copies its label into a
+    proposal, and the visit saves with it – none of the three applies the input cap to it."""
+    from tests.ov_support import bearer, login, make_object, new_id, put, set_config, set_key, visit_doc
+
+    long = "Kontakt der Eigentümerschaft " + "x" * 100
+    await set_config(db_session, {"proposalFields": [{"id": "kontakt", "label": long}]})
+    await set_key(db_session)
+    obj = await make_object(db_session)
+
+    r = await client.get("/api/integrations/object-visits/catalogue", headers=bearer())
+    assert r.status_code == 200, r.text
+    assert r.json()["proposalFields"] == [{"id": "kontakt", "label": long}]
+    await login(client, editor)
+    r = await client.get("/api/object-visits/catalogue")
+    assert r.status_code == 200, r.text
+    assert r.json()["proposalFields"] == [{"id": "kontakt", "label": long}]
+
+    vid = new_id("ov")
+    proposal = {"id": "ovp1234567", "field": "kontakt", "label": long, "proposed": "Frau Muster"}
+    r = await put(client, vid, visit_doc(vid, obj, proposals=[proposal]), None)
+    assert r.status_code in (200, 201), r.text
+    free_text = {**proposal, "field": "andere", "label": "y" * 121}  # a label nobody configured keeps the cap
+    r = await put(client, vid, visit_doc(vid, obj, proposals=[free_text]), 1)
+    assert r.status_code == 422

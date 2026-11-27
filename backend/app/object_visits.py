@@ -498,6 +498,7 @@ async def validate_doc(db: AsyncSession, visit_id: str, doc: Any, current: Objec
     proposals = doc.get("proposals") or []
     if not isinstance(proposals, list) or len(proposals) > MAX_PROPOSALS:
         raise invalid(f"Höchstens {MAX_PROPOSALS} Korrekturvorschläge pro Besuch")
+    label_caps = {f.id: len(f.label) for f in (await ov_config(db)).proposalFields} if proposals else {}
     seen = set()
     for p in proposals:
         if not isinstance(p, dict) or not isinstance(p.get("id"), str) or not ID_RE.match(p["id"]):
@@ -506,7 +507,8 @@ async def validate_doc(db: AsyncSession, visit_id: str, doc: Any, current: Objec
             raise invalid(f"Korrekturvorschlag {p['id']} kommt doppelt vor")
         seen.add(p["id"])
         _text(p.get("field"), 64, "Korrekturvorschlag: Feld", required=True)
-        _text(p.get("label"), 120, "Korrekturvorschlag: Bezeichnung")
+        # the label is a copy of the configured field's, which a stored config may hold past 120
+        _text(p.get("label"), max(120, label_caps.get(p["field"], 0)), "Korrekturvorschlag: Bezeichnung")
         for key in ("current", "proposed", "reason"):
             _text(p.get(key), MAX_TEXT, f"Korrekturvorschlag: {key}")
         if p.get("base") is not None and not isinstance(p["base"], dict):
@@ -1292,7 +1294,9 @@ async def catalogue(db: AsyncSession, *, can_capture: bool) -> dict[str, Any]:
         ],
         "templates": await visit_templates(db),
         "lists": await visit_lists(db),
-        "proposalFields": [f.model_dump() for f in cfg.proposalFields],
+        # the validated fields themselves, not a dump: a stored label past its cap is served as it
+        # lies (schemas · LengthCap), and a dict would be checked against the cap again on the way out
+        "proposalFields": list(cfg.proposalFields),
     }
 
 
