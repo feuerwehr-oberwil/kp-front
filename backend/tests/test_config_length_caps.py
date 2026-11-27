@@ -481,12 +481,20 @@ async def test_a_rank_adoption_refuses_rather_than_rewrite_an_over_long_value(db
     assert await _stored(session_factory) == document
 
 
-def test_a_sharepoint_path_reads_back_as_itself():
-    """`/ Station /` was served as `Station` on base; a trim that took two passes made the read
-    refuse the whole document."""
+@pytest.mark.asyncio
+async def test_a_sharepoint_path_reads_as_on_main(client, admin_login, session_factory):
+    """«/ Station /»: main's read keeps « Station » (one trim), and its GET answer trims once more
+    («Station»). Neither is a reason for the defaults."""
     source = {"area": "plans", "siteUrl": "https://fw.sharepoint.com/sites/plaene", "path": "/ Station /"}
-    served = safe_config({"identity": {"appName": "Feuerwehr Talheim"}, "sharepoint": {"sources": [source]}})
-    assert (served.identity.appName, served.sharepoint.sources[0].path) == ("Feuerwehr Talheim", "Station")
+    document = {"identity": {"appName": "Feuerwehr Talheim"}, "sharepoint": {"sources": [source]}}
+    assert safe_config(document).sharepoint.sources[0].path == " Station "
+    await admin_login(client)
+    await _store(session_factory, document)
+    served = (await client.get("/api/config")).json()
+    assert (served["identity"]["appName"], served["sharepoint"]["sources"][0]["path"]) == (
+        "Feuerwehr Talheim",
+        "Station",
+    )
 
 
 @pytest.mark.asyncio
@@ -539,3 +547,35 @@ async def test_a_snapshot_with_a_value_past_its_cap_is_not_restored(client, admi
     r = await client.post(f"/api/config/history/{entry_id}/restore")
     assert r.status_code == 422 and "nicht wiederherstellen" in r.text
     assert await _stored(session_factory) == STATION
+
+
+# --- a document main serves reads exactly as on main ---------------------------------------------
+
+
+@pytest.mark.parametrize("root", ["x/ /", "a/.. /", "/ Station /"])
+def test_a_document_with_no_value_past_its_cap_reads_as_main_reads_it(root):
+    """The new rules – the fixed point, the trim until nothing changes – are for a document main
+    refused as a whole. Main trims a root ONCE («x/ /» → «x/ », «a/.. /» → «a/.. »): neither
+    reads back as itself, and both are still served exactly as main serves them."""
+    document = {
+        "identity": {"appName": "Feuerwehr Talheim"},
+        "objectVisits": {"enabled": True, "destinations": [{**DEST, "root": root}]},
+    }
+    once = root.replace("\\\\", "/").strip().strip("/")
+    served = safe_config(document)
+    assert (served.identity.appName, served.objectVisits.destinations[0].root) == ("Feuerwehr Talheim", once)
+    assert load_stored_config(document) == DeploymentConfigIn.model_validate(document, context={"stored": True})
+
+
+@pytest.mark.parametrize("name", ["defaults", "demo"])
+def test_the_shipped_and_the_demo_config_read_as_plain_stored_mode(name):
+    import json
+    from pathlib import Path
+
+    document = (
+        DeploymentConfigIn().model_dump(mode="json")
+        if name == "defaults"
+        else json.loads((Path(__file__).parents[2] / "examples" / "demo-data" / "config.json").read_text())
+    )
+    plain = DeploymentConfigIn.model_validate(document, context={"stored": True}).model_dump(mode="json")
+    assert load_stored_config(document).model_dump(mode="json") == plain

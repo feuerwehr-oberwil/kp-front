@@ -86,13 +86,13 @@ from ..i18n import set_locale
 from ..models import DeploymentConfig, DeploymentConfigHistory, User
 from ..providers import integrations
 from ..schemas import (
-    SERVE_CONTEXT,
     AlarmVocabularyStatus,
     ConfigHistoryEntry,
     ConfigValidationResult,
     DeploymentConfigIn,
     DeploymentConfigOut,
     load_stored_config,
+    serve_context,
     stored_config_for_write,
 )
 
@@ -301,7 +301,7 @@ def _projection(
             "version": version,
             "warnings": warnings or [],
         },
-        context=SERVE_CONTEXT,
+        context=serve_context(),
     )
 
 

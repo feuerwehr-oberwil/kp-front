@@ -29,9 +29,16 @@ from .alarm_validation import CONTACT_GRACE_SEC, CONTACT_INTERVAL_MIN, TruppStat
 
 logger = logging.getLogger(__name__)
 
-#: How a stored config document is read to be SERVED (`load_stored_config`): stored mode, plus
-#: `LengthCap` keeping a value past its cap as it lies.
-SERVE_CONTEXT = {"stored": True, "serve": True}
+#: Set in a serve context by `LengthCap` when it keeps a value past its cap: the document is one
+#: main refused as a whole, and only such a document gets the new read rules (`load_stored_config`).
+OVER_CAP = "over_cap"
+
+
+def serve_context() -> dict[str, bool]:
+    """A FRESH context for reading a stored config document to be SERVED: stored mode, plus
+    `LengthCap` keeping a value past its cap as it lies and marking ``OVER_CAP``. Fresh because
+    the mark is written into it."""
+    return {"stored": True, "serve": True, OVER_CAP: False}
 
 
 @dataclass(frozen=True)
@@ -41,7 +48,8 @@ class LengthCap:
 
     New input is held to it exactly as ``Field`` would — the same ``string_too_long`` error, the
     same ``maxLength`` in the OpenAPI schema (the /admin guards read both). A stored document READ
-    to be served (``SERVE_CONTEXT``, see `load_stored_config`) keeps the value as it lies:
+    to be served (`serve_context`, see `load_stored_config`) keeps the value as it lies, and marks
+    the context ``OVER_CAP``:
     a length cap is input hygiene, not integrity, so a label typed before a cap existed must not
     take the document down, and leaving it out or cutting it would change what the rest MEANS.
     ``min_length`` and ``pattern`` hold in both modes, and so does every list cap. A WRITER that
@@ -64,8 +72,11 @@ class LengthCap:
             try:
                 return validate(value)
             except ValidationError as exc:
-                if (info.context or {}).get("serve") and all(e["type"] == "string_too_long" for e in exc.errors()):
-                    return uncapped.validate_python(value)
+                context = info.context or {}
+                if context.get("serve") and all(e["type"] == "string_too_long" for e in exc.errors()):
+                    kept = uncapped.validate_python(value)
+                    context[OVER_CAP] = True
+                    return kept
                 raise
 
         capped = Field(max_length=self.max_length, min_length=self.min_length, pattern=self.pattern)
@@ -2389,7 +2400,7 @@ class SharePointSource(BaseModel):
         # A path is a folder inside the library, never a way out of it. `..` is refused rather
         # than resolved: this string is pasted into a Graph URL, and «resolve it politely» is
         # how a traversal becomes a feature.
-        path = _plain_path(self.path or "")
+        path = (self.path or "").replace("\\", "/").strip().strip("/")
         if len(path) > _SHAREPOINT_PATH_MAX:
             raise ValueError(f"sharepoint source {self.area!r}: 'path' is longer than {_SHAREPOINT_PATH_MAX}")
         if any(part in ("..", ".") for part in path.split("/") if part) or path.startswith(("http://", "https://")):
@@ -2458,10 +2469,15 @@ _OV_DEST_ID_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
 _OV_FIELD_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$")
 
 
-def _plain_path(value: str) -> str:
-    """A folder path with ``\\`` as ``/`` and no outer spaces or slashes – stripped until nothing
-    changes, so a stored path reads back as itself (``load_stored_config`` checks that)."""
+def _plain_path(value: str, info: ValidationInfo) -> str:
+    """A folder path with ``\\`` as ``/`` and no outer spaces or slashes.
+
+    One pass, exactly as main trims it – except in a document that has already kept a value past
+    its cap (``OVER_CAP``, a document main refused as a whole): there it is stripped until nothing
+    changes, because such a document is served only if it reads back as itself."""
     value = value.replace("\\", "/")
+    if not (info.context or {}).get(OVER_CAP):
+        return value.strip().strip("/")
     while value != (trimmed := value.strip().strip("/")):
         value = trimmed
     return value
@@ -2509,7 +2525,7 @@ class ObjectVisitDestination(BaseModel):
     locationFolder: Annotated[str, LengthCap(200, min_length=1)] = "Allgemeine Meldungen/{date} {checklist} ({short})"
 
     @model_validator(mode="after")
-    def _addressable(self) -> "ObjectVisitDestination":
+    def _addressable(self, info: ValidationInfo) -> "ObjectVisitDestination":
         if not _OV_DEST_ID_RE.match(self.id) or len(self.id) > 64:  # the delivery tables hold 64
             raise ValueError(
                 f"objectVisits destination {self.id!r}: 'id' must be lower-case letters, digits, '-' or '_'"
@@ -2518,13 +2534,13 @@ class ObjectVisitDestination(BaseModel):
         if not site.startswith("https://"):
             raise ValueError(f"objectVisits destination {self.id!r}: 'siteUrl' must start with https://")
         self.siteUrl = site
-        root = _plain_path(self.root or "")
+        root = _plain_path(self.root or "", info)
         if any(part in ("..", ".") for part in root.split("/") if part):
             raise ValueError(f"objectVisits destination {self.id!r}: 'root' must be a plain folder path")
         self.root = root
         self.library = (self.library or "").strip() or None
         for name in ("objectFolder", "visitFolder", "locationFolder"):
-            value = _plain_path(getattr(self, name))
+            value = _plain_path(getattr(self, name), info)
             if not value or any(part.strip() in ("..", ".") for part in value.split("/")):
                 raise ValueError(f"objectVisits destination {self.id!r}: '{name}' must be a plain folder pattern")
             setattr(self, name, value)
@@ -2583,7 +2599,7 @@ class IncidentArchiveDestination(BaseModel):
     reportFolder: Annotated[str, LengthCap(300, min_length=1)] = "Einsätze/{year}/{date} {stichwort}"
 
     @model_validator(mode="after")
-    def _addressable(self) -> "IncidentArchiveDestination":
+    def _addressable(self, info: ValidationInfo) -> "IncidentArchiveDestination":
         where = f"incidentArchive destination {self.id!r}"
         if not _OV_DEST_ID_RE.match(self.id) or len(self.id) > 64:  # the delivery tables hold 64
             raise ValueError(f"{where}: 'id' must be lower-case letters, digits, '-' or '_'")
@@ -2593,7 +2609,7 @@ class IncidentArchiveDestination(BaseModel):
         self.siteUrl = site
         self.library = (self.library or "").strip() or None
         for name in ("photoFolder", "reportFolder"):
-            value = _plain_path(getattr(self, name))
+            value = _plain_path(getattr(self, name), info)
             parts = value.split("/")
             if not value or any(part.strip() in ("", "..", ".") for part in parts):
                 raise ValueError(f"{where}: '{name}' must be a plain folder pattern")
@@ -2856,14 +2872,24 @@ def load_stored_config(raw: Any) -> DeploymentConfigIn:
     refusing it costs nothing but a corrected keystroke. A writer that merges ITS key into the
     stored document takes `stored_config_for_write`.
 
-    ⚠️ Accepted only as a FIXED POINT: the document's own dump must validate again, as stored, to
-    the same value. A validator that normalises after it checks (a folder root whose «.. »
-    segment is only trimmed to «..» on the second pass) would otherwise serve a document the
-    response then refuses — a 500 on every read instead of the defaults.
+    ⚠️ New behaviour only for a document that main refused as a whole. A document with no value
+    past its cap reads EXACTLY as on main: one validation, main's path trim, no further demand —
+    the cost of a second rule here would be a station's whole config as defaults on every device.
+    (`identity.shortName` is the one cap main cut on a read instead of refusing; it is served
+    whole now, under the rules below.)
+
+    A document that kept a value past its cap (``OVER_CAP``) is accepted only as a FIXED POINT: its
+    own dump must validate again, as stored, to the same value. A validator that normalises after
+    it checks (a folder root whose «.. » segment is only trimmed to «..» on the second pass) would
+    otherwise serve a document the response then refuses — a 500 on every read instead of the
+    defaults. Its folder paths are trimmed until nothing changes, so a kept «..» is refused.
     """
-    doc = DeploymentConfigIn.model_validate(raw, context=SERVE_CONTEXT)
+    context = serve_context()
+    doc = DeploymentConfigIn.model_validate(raw, context=context)
+    if not context[OVER_CAP]:
+        return doc
     dumped = doc.model_dump(mode="json")
-    if DeploymentConfigIn.model_validate(dumped, context=SERVE_CONTEXT).model_dump(mode="json") != dumped:
+    if DeploymentConfigIn.model_validate(dumped, context=serve_context()).model_dump(mode="json") != dumped:
         raise ValueError("the stored config document does not read back as itself")
     return doc
 
