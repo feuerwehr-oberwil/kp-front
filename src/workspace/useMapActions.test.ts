@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
-import { useMapActions, type UseMapActionsInputs } from './useMapActions'
+import { useMapActions, writesLive, type UseMapActionsInputs } from './useMapActions'
 import { replayEmits } from '../lib/replay.test-utils'
 import type { Doc } from '../lib/workspace'
 import type { Drawing, Entity, LineAttachment } from '../types'
@@ -9,6 +9,12 @@ import type { SetStateAction } from 'react'
 import type { VehicleOverrides } from '../lib/useVehicleLayer'
 import { createUndoTimeline, type UndoDomain } from '../lib/undoTimeline'
 import type { RecordKey } from '../lib/undoKeys'
+import type { TacticalObject } from '../lib/tacticalObjects'
+import { appConfig } from '../config/appConfig'
+// the ERG rows under a placard's rings, injected the way the boot prefetch would (lib/staticData)
+import ergData from '../../public/erg.json'
+import { __setErgData, type ErgData } from '../lib/erg'
+__setErgData(ergData as unknown as ErgData)
 
 vi.mock('../lib/ui', () => ({ toast: vi.fn(), confirmDialog: vi.fn(async () => true), undoToast: vi.fn() }))
 
@@ -265,5 +271,81 @@ describe('keepGpsTwin', () => {
     act(() => { result.current.keepGpsTwin('p', 'TLF') })
     expect(patchEntity).toHaveBeenCalledWith('p', { gpsTwinOk: true })
     expect(given.stepLabelRef.current).toBe('Hinweis «zwei TLF» ausgeblendet')
+  })
+})
+
+// perf sweep 26.11.2026: a held Karte marker is previewed by its own MapLibre Marker (MapMarkers),
+// so a plain one writes the store ONCE, on release; what the picture around it must follow
+// (writesLive) still writes per move
+describe('a Karte marker drag', () => {
+  /** the store's two drag writers over the live doc, counted */
+  const store = (entities: Entity[], drawings: Drawing[]) => {
+    const { deps, given, live } = makeDeps(entities, drawings)
+    let doc = live()
+    const writes: { movedIds?: readonly string[] }[] = []
+    const beginDrag = vi.fn(), endDrag = vi.fn()
+    // the store's live objects (lib/useObjectStore · liveObjects), what a remote edit mid-drag lands in
+    let objects: TacticalObject[] = []
+    const sync = () => { objects = [...doc.entities.map((entity) => ({ id: entity.id, entity })), ...doc.drawings.map((drawing) => ({ id: drawing.id, drawing }))] }
+    sync()
+    Object.assign(deps, {
+      beginDrag, endDrag, liveObjects: () => objects,
+      setDocRaw: (u: SetStateAction<Doc>, opts?: { movedIds?: readonly string[] }) => { doc = typeof u === 'function' ? u(doc) : u; sync(); writes.push(opts ?? {}) },
+    })
+    /** another device's edit arriving while the finger is down */
+    const remote = (next: Doc) => { doc = next; sync() }
+    return { deps, given, writes, beginDrag, endDrag, remote, doc: () => doc }
+  }
+  /** 40 moves from [0, 0] to [40, 0], then the release on the last one */
+  const drag = (moves: ReturnType<typeof useMapActions>, id: string) => {
+    moves.startEntityMove(id)
+    for (let i = 1; i <= 40; i++) moves.streamEntityMove(id, [i, 0])
+    moves.finishEntityMove(id, [40, 0])
+  }
+
+  it('a plain symbol: 40 moves, ONE store write and ONE step, on release, at the last sample', () => {
+    const s = store([ent('a', [0, 0])], [])
+    const { result } = renderHook(() => useMapActions(s.deps))
+    act(() => { drag(result.current, 'a') })
+    expect(s.writes).toEqual([{ movedIds: ['a'] }])
+    expect(s.beginDrag).toHaveBeenCalledTimes(1)
+    expect(s.endDrag).toHaveBeenCalledTimes(1)
+    expect(s.doc().entities[0].coord).toEqual([40, 0])
+  })
+
+  it('a symbol a Leitung hangs on writes every move – the hose end follows it live', () => {
+    const s = store([ent('a', [0, 0])], [leitung({ endAttachment: { target: { kind: 'object', id: 'a' }, routing: 'trace' } })])
+    const { result } = renderHook(() => useMapActions(s.deps))
+    act(() => { drag(result.current, 'a') })
+    expect(s.writes).toHaveLength(41)
+    expect(s.endDrag).toHaveBeenCalledTimes(1)
+    const hose = s.doc().drawings[0].coords
+    expect(hose[hose.length - 1]).toEqual([40, 0])
+  })
+
+  it('a Leitung another device attaches mid-drag makes the rest of the drag write live', () => {
+    const s = store([ent('a', [0, 0])], [])
+    const { result } = renderHook(() => useMapActions(s.deps))
+    act(() => {
+      result.current.startEntityMove('a')
+      for (let i = 1; i <= 10; i++) result.current.streamEntityMove('a', [i, 0])
+      s.remote({ ...s.doc(), drawings: [leitung({ endAttachment: onObject('a') })] })
+      for (let i = 11; i <= 20; i++) result.current.streamEntityMove('a', [i, 0])
+      result.current.finishEntityMove('a', [20, 0])
+    })
+    expect(s.writes).toHaveLength(11)
+  })
+
+  // both sides of the one rule: what is drawn from the stored coordinate follows live
+  it.each<[string, Entity[], Drawing[], boolean]>([
+    ['a plain symbol', [ent('a', [0, 0])], [], false],
+    ['a Leitung on ANOTHER symbol', [ent('a', [0, 0]), ent('b', [1, 1])], [leitung({ startAttachment: onObject('b') })], false],
+    ['a Leitung end on it, «Direkt»', [ent('a', [0, 0])], [leitung({ startAttachment: onObject('a') })], true],
+    ['a docked Gefahrentafel', [ent('a', [0, 0]), { ...ent('p', [0, 0]), dockedTo: 'a' }], [], true],
+    ['a Form (moved from the bar’s ✥, no preview)', [{ ...ent('a', [0, 0]), kind: 'shape' } as Entity], [], true],
+    ['a Gefahrentafel with its ERG rings', [{ ...ent('a', [0, 0]), symbol: appConfig.symbols.placardName, fields: { 'UN-Nr.': '1008' } }], [], true],
+    ['a Gefahrentafel with its rings off', [{ ...ent('a', [0, 0]), symbol: appConfig.symbols.placardName, fields: { 'UN-Nr.': '1008' }, ergRings: 'off' }], [], false],
+  ])('%s → writes live: %s', (_, entities, drawings, live) => {
+    expect(writesLive({ entities, drawings }, 'a')).toBe(live)
   })
 })

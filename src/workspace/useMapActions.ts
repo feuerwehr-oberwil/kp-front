@@ -11,6 +11,7 @@ import type { AuthUser } from '../lib/auth'
 import { isDemoMode } from '../lib/deploymentConfig'
 import { carryDocked, dockRadiusFor, isDockable, isPlacard, nearestDockHost } from '../lib/docking'
 import { entityRemovalName, removalRowText } from '../lib/drawingEdit'
+import { ergRingOverlays } from '../lib/ergRings'
 import { duplicateDrawing, duplicateEntity } from '../lib/duplicate'
 import { fillTemplate, formatSymbolName, formatTime } from '../lib/format'
 import { bearingDeg, circlePolygon, haversineM, midCoord } from '../lib/geo'
@@ -30,7 +31,7 @@ import { serverNow, serverNowIso } from '../lib/serverClock'
 import { READING_ICON, readingAct } from '../lib/readingLog'
 import { ROTATION_DEFAULT_RUN_M, ROTATION_W_M, SHAPE_DEFS, SHAPE_MIN_M, SHAPE_TWO_POINT, rotationBox } from '../lib/shapes'
 import { seedSymbolProps, VEHICLE_SYMBOLS } from '../lib/symbols'
-import type { TacticalObject } from '../lib/tacticalObjects'
+import { viewsOf, type TacticalObject } from '../lib/tacticalObjects'
 import { lineTakesTrupp } from '../lib/truppLines'
 import { askJoinedLines, removedText, withLinesText } from '../lib/removal'
 import { recordKey, type RecordKey } from '../lib/undoKeys'
@@ -155,6 +156,8 @@ export interface UseMapActionsInputs {
   linkTruppLine: (truppId: string, lineId: string) => boolean
   patchEntity: (id: string, patch: Partial<Entity>) => void
   objectsRef: RefObject<TacticalObject[]>
+  /** the store's objects as of NOW, advanced synchronously by every write (lib/useObjectStore) */
+  liveObjects: () => TacticalObject[]
   objects: TacticalObject[]
   setPlanFocus: Dispatch<SetStateAction<{ x: number; y: number; floor: number; annoId?: string; twinEntityId?: string; flash?: boolean; nonce: number } | null>>
   focusEntity: (id: string) => void
@@ -163,6 +166,24 @@ export interface UseMapActionsInputs {
   stepLabelRef: RefObject<string | null>
   /** ONE act on the undo timeline across domains (workspace/compoundStep · open) */
   historyGroup: () => () => void
+}
+
+/**
+ * A move of the Karte object `id` is written on every pointer move, not only on release: the
+ * picture around it is drawn from its STORED coordinate and must follow it live – a Leitung end
+ * on it (a «Direkt» end is drawn at the coordinate, a «trace» end re-routes), a follower docked
+ * to it (lib/docking · carryDocked: a Gefahrentafel, a Trupp marker in its slot), its ERG rings
+ * (lib/ergRings, overlays centred on the coordinate), or a Form, which moves from the bar's ✥ and
+ * has no preview of its own. Everything else is previewed by its held Marker alone (MapMarkers ·
+ * lib/useHeldMarker) and written once, on release (finishEntityMove).
+ * The Plan's twin: useWbChipDrag · `live`.
+ */
+export function writesLive(d: Pick<Doc, 'entities' | 'drawings'>, id: string): boolean {
+  const me = d.entities.find((e) => e.id === id)
+  return me?.kind === 'shape'
+    || d.entities.some((e) => e.dockedTo === id)
+    || linesOnObjects(d.drawings, [id]).length > 0
+    || (!!me && ergRingOverlays([me], new Date()).length > 0)
 }
 
 export function useMapActions({
@@ -178,7 +199,7 @@ export function useMapActions({
   shareLink, composerOpen, georefActive, georefMode, replayActive, readOnly, linkScoped, goToNav,
   planFit, stepHistory, planKeys, setJournalOpen, setComposerOpen, togglePanel, setSettingsOpen,
   setHelpOpen, coord, notePanelId, notePlacedId, mapWorkRect, drawings, drawTap, beginDrag, setDocRaw,
-  endDrag, flyToMapVisible, setVehicleOverrides, vehicleOverrides, trupps, linkTruppLine, patchEntity, objectsRef,
+  endDrag, flyToMapVisible, setVehicleOverrides, vehicleOverrides, trupps, linkTruppLine, patchEntity, objectsRef, liveObjects,
   objects, setPlanFocus, focusEntity, editNoteId, user, stepLabelRef, historyGroup,
 }: UseMapActionsInputs) {
   // Every path through here ends the "I am reading this object" state — reaching for a tool means
@@ -746,11 +767,17 @@ export function useMapActions({
   }
   /** One movement path for a real Lage marker and for that marker's projection on a Modul.
    *  The gesture still writes the ONE source entity, so undo, routed Leitungen, audit and Verlauf
-   *  cannot diverge depending on which picture the operator happened to drag. */
+   *  cannot diverge depending on which picture the operator happened to drag.
+   *  ⚠️ A move writes the store only where `writesLive` says so (and a live vehicle's override
+   *  always): a write per move re-rendered the whole workspace (perf sweep 26.11.2026: 41 store
+   *  writes for a 40-move drag of a plain symbol, now 1 – finishEntityMove's). */
   const startEntityMove = (id: string) => { if (!tacticalLocked && !liveIds.has(id)) beginDrag() }
   const streamEntityMove = (id: string, c: LngLat) => {
     if (tacticalLocked) return
     if (liveIds.has(id)) { placeVehicle(id, { coord: c }); return }
+    // …asked of the store as it is NOW: the gesture holds the press-time closure, and another
+    // device may attach a Leitung or dock a follower while the finger is down
+    if (!writesLive(viewsOf(liveObjects()), id)) return
     setDocRaw((d) => ({
       ...d,
       // an angedockte Gefahrentafel rides along mid-drag too (lib/docking), keeping the

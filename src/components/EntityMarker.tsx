@@ -7,6 +7,7 @@
 
 import { useEffect, useRef } from 'react'
 import { Marker } from 'react-map-gl/maplibre'
+import type { Marker as MlMarker } from 'maplibre-gl'
 import type { Entity, LngLat } from '../types'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
@@ -50,6 +51,8 @@ type EntityMarkerProps = Pick<MapMarkersProps,
   grabbedId: string | null
   /** the docking slots for the whole layer (lib/docking) */
   dockedSlots: ReturnType<typeof dockSlots>
+  /** the MapLibre Marker this entity hangs on – a held marker is moved through it (lib/useHeldMarker) */
+  markerRef: (m: MlMarker | null) => void
   /** a press on the marker body: tap selects, hold/drag moves (MapMarkers · pressMarker) */
   onPress: (ev: React.PointerEvent<HTMLDivElement>, e: Entity, dockDragStart: () => LngLat | null) => void
   rotDown: (clientX: number, clientY: number, el: HTMLElement, id: string) => void
@@ -144,7 +147,7 @@ function DockTether({ dx, dy, ringPx, color, raus, capPx }: { dx: number; dy: nu
 /** One entity's marker on the Lage map — see the file head. */
 export function EntityMarker({
   e, entities, byName, selectedId, groupSelectedIds, networkEntityIds, zoom, bearing, symMul, captionMode, suppressedLabels,
-  readOnly, draggable, editNoteId, project, unproject, spoke, draggingId, grabbedId, dockedSlots, onPress,
+  readOnly, draggable, editNoteId, project, unproject, spoke, draggingId, grabbedId, dockedSlots, markerRef, onPress,
   rotDown, rotMove, rotUp, shapeDown, shapeMove, shapeUp, focusNote, focusTeam, noteChange, noteBlur, noteKeyDown, noteDone,
   onSelect, onDeselect, onDelete, onRotate, onShapeTransform, onUnlockShape, onNoteEdit, trupps, onShowTrupp, onTeamTrupp, onTeamNewTrupp,
   onTeamMark, onTeamRename, onTeamClearTrail, onTeamRemoveWithTrail, hiddenTrails, onToggleTrail, teamLines, onTeamUnlink,
@@ -209,6 +212,7 @@ export function EntityMarker({
   }
   return (
   <Marker
+    ref={markerRef}
     longitude={at[0]}
     latitude={at[1]}
     anchor={teamStrip ? 'left' : 'center'}

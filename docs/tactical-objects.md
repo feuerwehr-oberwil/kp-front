@@ -46,7 +46,11 @@ One object, two surfaces: how a tactical object is stored, anchored, projected a
   (a Linie / Fläche / Kreis body has no drag there – the bar's ✥ moves it). Plan: every kind,
   Trupp chips, symbols, notes, Linien, Flächen, Kreise and a Linie's label (`useWbChipDrag`,
   `useWbBodyDrag`, the pan from `useBoardGestures · panFrom`). So a pan that starts on a Trupp
-  never moves it and never stamps it a new time. A pan never deselects either: only a stationary
+  never moves it and never stamps it a new time. A held object moves its own picture while the
+  finger is down (Lage `lib/useHeldMarker`, the MapLibre Marker; Plan the chip's node) and is
+  written ONCE, on release, as one undo step – except where the picture around it must follow
+  live: a Leitung end on it, a docked follower, its ERG rings (`useMapActions · writesLive`, `useWbChipDrag ·
+  live`; perf sweep 26.11.2026). A pan never deselects either: only a stationary
   tap on empty map / board does (`useMapActions` after `MapView`'s pan-click drop;
   `useBoardGestures · panUp`). The lasso is one-shot on both: after any box you are back in
   Auswahl (`useMapActions · onMarquee`, `useBoardGestures · marqueeUp`). A tap on a pile of compact

@@ -8,18 +8,34 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, renderHook, screen } from '@testing-library/react'
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { appConfig } from '../config/appConfig'
 import type { Entity, LngLat } from '../types'
 
 // the two numbers a Marker actually places a glyph with — the coordinate it hangs on and the
 // screen-px offset off it — surfaced as data attributes, because the docked Trupp slot is
 // expressed in exactly those (lib/docking · dockSlotOffset)
-vi.mock('react-map-gl/maplibre', () => ({
-  Marker: ({ children, longitude, latitude, offset }: { children: ReactNode; longitude?: number; latitude?: number; offset?: [number, number] }) => (
-    <div data-testid="marker" data-at={`${longitude},${latitude}`} data-offset={offset ? offset.join(',') : ''}>{children}</div>
-  ),
-}))
+// …and behind its ref a stand-in for the MapLibre Marker, re-seated on its props in render the way
+// react-map-gl does it (only when they differ from where it stands) – what a held drag moves
+class FakeMarker {
+  at: LngLat
+  /** every position it was moved to after its mount */
+  moves: LngLat[] = []
+  constructor(at: LngLat) { this.at = at; fakes.push(this) }
+  setLngLat(c: LngLat) { this.at = [c[0], c[1]]; this.moves.push(this.at); return this }
+}
+const fakes: FakeMarker[] = []
+vi.mock('react-map-gl/maplibre', async () => {
+  const { useImperativeHandle, useState } = await import('react')
+  return {
+    Marker: ({ children, longitude = 0, latitude = 0, offset, ref }: { children: ReactNode; longitude?: number; latitude?: number; offset?: [number, number]; ref?: React.Ref<FakeMarker> }) => {
+      const [mk] = useState(() => new FakeMarker([longitude, latitude]))
+      if (mk.at[0] !== longitude || mk.at[1] !== latitude) mk.setLngLat([longitude, latitude])
+      useImperativeHandle(ref, () => mk, [mk])
+      return <div data-testid="marker" data-at={`${longitude},${latitude}`} data-offset={offset ? offset.join(',') : ''}>{children}</div>
+    },
+  }
+})
 
 import { MapMarkers } from './MapMarkers'
 import { DOCK_SLOT_STEP_PX } from '../lib/docking'
@@ -27,7 +43,7 @@ import { TEAM_DOT_PX } from '../lib/mapView'
 import { useTeamMarkerActions } from '../lib/useTeamMarkerActions'
 import type { Doc } from '../lib/workspace'
 
-afterEach(cleanup)
+afterEach(() => { cleanup(); fakes.length = 0 })
 
 const at: LngLat = [7.6, 47.5]
 const shape = (id: string, extra: Partial<Entity>): Entity =>
@@ -377,5 +393,58 @@ describe('a Form zoomed far out', () => {
       expect(parseFloat(container.querySelector<HTMLElement>('.shape-glyph')!.style.width)).toBeCloseTo(45 * perM(z), 0)
       cleanup()
     }
+  })
+})
+
+// perf sweep 26.11.2026: the held marker moves through its own MapLibre Marker; the store is the
+// writer's business (workspace/useMapActions · writesLive), and the release hands over the spot
+describe('a held marker in the hand', () => {
+  /** the layer over a one-symbol store whose release writes the coordinate, as finishEntityMove
+   *  does; `label` / `remoteAt` stand in for another device's edit arriving mid-drag */
+  function Store({ label, remoteAt, onMarkerMove, onMarkerDragEnd }: { label: string; remoteAt?: LngLat; onMarkerMove: () => void; onMarkerDragEnd: (id: string, c: LngLat) => void }) {
+    const [stored, setCoord] = useState<LngLat>([0, 0])
+    const coord = remoteAt ?? stored
+    // map px = lng/lat 1:1, so the drag's travel IS the coordinate
+    return (
+      <MapMarkers entities={[{ id: 's1', kind: 'symbol', layer: 'lage', coord, symbol: 'Feuer', label } as Entity]} byName={{}} isVisible={() => true} selectedId="s1"
+        zoom={18} draggable project={(c) => ({ x: c[0], y: c[1] })} unproject={(p) => [p.x, p.y]} setDragPan={() => {}}
+        onSelect={() => {}} onMarkerDragStart={() => {}} onMarkerMove={onMarkerMove}
+        onMarkerDragEnd={(id, c) => { onMarkerDragEnd(id, c); setCoord(c) }} onDelete={() => {}} onShapeTransform={() => {}} />
+    )
+  }
+  const press = (container: HTMLElement, moves: number) => {
+    fireEvent.pointerDown(container.querySelector('.marker')!, { pointerId: 1, isPrimary: true, pointerType: 'mouse', clientX: 100, clientY: 100 })
+    for (let i = 1; i <= moves; i++) fireEvent.pointerMove(window, { pointerId: 1, clientX: 100 + 2 * i, clientY: 100 })
+  }
+
+  it('follows the finger through its Marker, keeps its spot over a render, and hands it to the release', () => {
+    const onMarkerMove = vi.fn(), onMarkerDragEnd = vi.fn()
+    const { container, rerender } = render(<Store label="Hydrant" onMarkerMove={onMarkerMove} onMarkerDragEnd={onMarkerDragEnd} />)
+    const [mk] = fakes
+    press(container, 40)
+    expect(mk.at).toEqual([80, 0])
+    // every move past the deadzone still reaches the writer – it decides whether the store follows
+    expect(onMarkerMove).toHaveBeenCalledTimes(36)
+    // another device renames and moves it mid-drag: the hand wins until the release
+    rerender(<Store label="Hydrant 2" remoteAt={[5, 5]} onMarkerMove={onMarkerMove} onMarkerDragEnd={onMarkerDragEnd} />)
+    expect(mk.at).toEqual([80, 0])
+    rerender(<Store label="Hydrant 2" onMarkerMove={onMarkerMove} onMarkerDragEnd={onMarkerDragEnd} />)
+    expect(mk.at).toEqual([80, 0])
+    const before = mk.moves.length
+    fireEvent.pointerUp(window, { pointerId: 1, clientX: 180, clientY: 100 })
+    expect(onMarkerDragEnd).toHaveBeenCalledExactlyOnceWith('s1', [80, 0])
+    // the release's write lands where the Marker stands: it is not moved again, not for a frame
+    expect(mk.moves.length).toBe(before)
+    expect(mk.at).toEqual([80, 0])
+    expect(container.querySelector('[data-testid="marker"]')!.getAttribute('data-at')).toBe('80,0')
+  })
+
+  it('a second finger ends the drag with its last sample', () => {
+    const onMarkerDragEnd = vi.fn()
+    const { container } = render(<Store label="Hydrant" onMarkerMove={() => {}} onMarkerDragEnd={onMarkerDragEnd} />)
+    press(container, 10)
+    fireEvent.pointerDown(window, { pointerId: 2, isPrimary: false, clientX: 300, clientY: 300 })
+    expect(onMarkerDragEnd).toHaveBeenCalledExactlyOnceWith('s1', [20, 0])
+    expect(fakes[0].at).toEqual([20, 0])
   })
 })
