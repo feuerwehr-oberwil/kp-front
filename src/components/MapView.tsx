@@ -788,8 +788,8 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
     const all = along.length
       ? along.map(({ seg, t, deg }, n) => ({ coord: lerpPoint(coords[seg], coords[seg + 1], t) as LngLat, at: lerpPoint(px[seg], px[seg + 1], t), deg, n }))
       : [{ coord: mid, at: px[Math.floor((px.length - 1) / 2)], deg: 0, n: 0 }]
-    const canvas = m.getCanvas(), ratio = m.getPixelRatio()
-    const w = canvas.width / ratio, h = canvas.height / ratio
+    // the container's CSS size: MapLibre caps the canvas's backing store on a large high-DPI screen
+    const box = m.getContainer(), w = box.clientWidth, h = box.clientHeight
     const mx = w + PAN_INERTIA_PX, my = h + PAN_INERTIA_PX
     return all
       .filter(({ at: [x, y] }) => x >= -mx && x <= w + mx && y >= -my && y <= h + my)

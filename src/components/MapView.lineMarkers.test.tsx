@@ -45,20 +45,25 @@ const mx = (lng: number) => ((lng + 180) / 360) * world()
 const my = (lat: number) => ((1 - Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI) / 360)) / Math.PI) / 2) * world()
 const project = ([lng, lat]: LngLat) => ({ x: mx(lng) - mx(view.center[0]) + W / 2, y: my(lat) - my(view.center[1]) + H / 2 })
 
-/** The map instance after `load`: Web Mercator around `view`, a 1024 × 768 canvas at ratio 1 */
+/** The map instance after `load`: Web Mercator around `view` in a 1024 × 768 container whose
+ *  canvas backing store is capped at half of that */
 function fakeMap() {
+  // MapLibre caps the backing store on a large high-DPI screen: the canvas is smaller than the
+  // container it fills, and only the container says how much of the map is on the glass
   const canvas = document.createElement('canvas')
-  canvas.width = W; canvas.height = H
+  canvas.width = W / 2; canvas.height = H / 2
+  const container = document.createElement('div')
+  Object.defineProperty(container, 'clientWidth', { value: W })
+  Object.defineProperty(container, 'clientHeight', { value: H })
   const m: Record<string, unknown> = {
     project: (c: LngLat | { lng: number; lat: number }) => project(Array.isArray(c) ? c : [c.lng, c.lat]),
     unproject: () => ({ lng: LNG0, lat: LAT0 }),
     getCenter: () => ({ lng: view.center[0], lat: view.center[1] }),
     getZoom: () => view.zoom,
     getBearing: () => 0,
-    getPixelRatio: () => 1,
     getCanvas: () => canvas,
     getCanvasContainer: () => document.createElement('div'),
-    getContainer: () => document.createElement('div'),
+    getContainer: () => container,
     isStyleLoaded: () => true,
     getStyle: () => ({ layers: [] }),
   }
