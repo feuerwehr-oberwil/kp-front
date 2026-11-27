@@ -50,6 +50,7 @@ async def _object_with_a_proposal(db) -> tuple[ObjectSite, PlanAlignment]:
     db.add(obj)
     await db.flush()
     db.add(ObjectRef(object_id=obj.id, source="fwo", external_id="haus-1"))
+    db.add(ObjectRef(object_id=obj.id, source="fwo", external_id="haus-2"))
     await store_plan(db, obj, "modul1", _pdf())
     row = (await db.execute(select(PlanAlignment))).scalar_one()
     row.status, row.pairs, row.aspect = "ready", PAIRS, 1.4
@@ -83,7 +84,9 @@ async def test_plain_object_writes_go_through_while_a_run_holds_the_plans(
         organizer = await at_once(
             client.put("/api/integrations/objects/fwo/haus-1", json={"name": "Musterhaus Nord"}, headers=bearer())
         )
+        removed = await at_once(client.delete("/api/integrations/objects/fwo/haus-2", headers=bearer()))
         assert (mask.status_code, position.status_code, organizer.status_code) == (200, 200, 200)
+        assert removed.json() == {"removed": "ref"}
         await run.commit()
 
     written = await db_session.get(ObjectSite, obj.id, populate_existing=True)
@@ -102,6 +105,9 @@ async def test_an_approval_gives_up_while_a_run_holds_the_plans(client, admin_lo
         assert time.monotonic() - started < 3
         assert (refused.status_code, refused.json()["detail"]) == (409, plans.PLANS_BUSY)
         assert refused.headers["Retry-After"] == str(plans.BUSY_RETRY_AFTER_S)
+        # «Ablehnen» too: a merge deletes the history it appends to
+        rejected = await client.post(f"/api/admin/plan-alignments/{row.id}/reject", json={"edit_version": 1})
+        assert (rejected.status_code, rejected.json()["detail"]) == (409, plans.PLANS_BUSY)
         await run.rollback()
 
     held = await db_session.get(PlanAlignment, row.id, populate_existing=True)

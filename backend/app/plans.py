@@ -71,14 +71,15 @@ logger = logging.getLogger(__name__)
 #
 #   1. lock_plan_maintenance   the writers that change MANY objects, or plans and the config row,
 #                              in one transaction: a SharePoint run, the S3 pull (`pull_plans`),
-#                              `admin_objects_repair merge --apply`, `admin_objects load`, the demo
-#                              reset. First, before any row; so they never overlap.
+#                              `admin_objects_repair merge --apply`, `admin_objects load`,
+#                              `admin_geodata load`, the demo reset. First, before any row; so they
+#                              never overlap.
 #   2. the config row          `deployment_config.config_row(lock=True)`
 #   3. lock_object_plans       «the plans of object X» – an advisory lock per object, NOT its row,
 #                              several in id order
 #   3b. lock_object_rows       the object ROW, FOR UPDATE – only a writer that may DELETE the
-#                              object (a merge's loser, a re-keyed object, the demo wipe, the
-#                              organizer's last ref), after its 3
+#                              object (a merge's loser, a re-keyed object, the organizer's last
+#                              ref), after its 3
 #   4. the plan rows           `plan:*` reference_datasets, plan_revisions, plan_alignments,
 #                              plan_page_floors
 #
@@ -88,10 +89,12 @@ logger = logging.getLogger(__name__)
 # never straddle a replacement: whoever comes second waits, re-reads, and an alignment write on
 # the replaced revision is refused with 409. Under 1, a holder may take 2 and 3 in either order
 # (a SharePoint run reaches the config row in several areas): no transaction without 1 holds 2
-# together with 3 or 4. The organizer's ref removal takes 3b without 3: it touches no plan row.
+# together with 3 or 4. The organizer's ref removal takes 3b without 3 (it touches no plan row):
+# first FOR NO KEY UPDATE, which a run's foreign-key share does not block, and FOR UPDATE only
+# once it knows the object goes along with its last ref.
 #
 # A PLAIN OBJECT WRITE – the object mask, «Lage korrigieren» and its undo, the organizer's object
-# PUT, the Modul-1 notes, a geocode – takes none of these. 3 is not its row, and a plan write
+# PUT and the ref-only DELETE, the Modul-1 notes, a geocode – takes none of these. 3 is not its row, and a plan write
 # holds only the foreign-key key-share lock on the object row, which its UPDATE does not wait
 # for. It waits where it always did: for a merge or a re-key of that very object (3b), and for a
 # run that is itself updating that row (its filing folder, an object it creates).
@@ -100,7 +103,8 @@ logger = logging.getLogger(__name__)
 # network downloads: they hold 1 and the 3 of every object they stored a plan for, for minutes.
 #
 #   • an admin's request at the desk that takes 3 (`brief_lock_wait`: approve, reject, withdraw,
-#     retry, Geschosse, a plan upload, `PUT /api/reference/plan:…`, a plan fetch) waits at most
+#     retry, Geschosse – reject and withdraw too, since a merge deletes the history they append to
+#     –, a plan upload, `PUT /api/reference/plan:…`, a plan fetch) waits at most
 #     LOCK_WAIT_MS, then answers 409 PLANS_BUSY with Retry-After and writes nothing – the browser
 #     would give up at 20 s anyway, while its connection stayed out of the pool;
 #   • the alignment worker waits at most WORKER_LOCK_WAIT_MS, gives the job back uncounted and
@@ -651,6 +655,15 @@ def _object_of(dataset_id: str) -> uuid.UUID | None:
 def _module_of(dataset_id: str) -> str:
     parts = dataset_id.split(":")
     return parts[2] if len(parts) == 3 else ""
+
+
+def plan_target(dataset_id: str) -> tuple[uuid.UUID, str] | None:
+    """(object id, module) when ``dataset_id`` is exactly the id `store_plan` writes for them – so a
+    write to it, even of a row that does not exist yet, belongs on the one plan write path."""
+    object_id, module = _object_of(dataset_id), _module_of(dataset_id)
+    if object_id is None or not _MODULE_RE.match(module) or f"plan:{object_id}:{module}" != dataset_id:
+        return None
+    return object_id, module
 
 
 async def pull_one_plan(db: AsyncSession, dataset_id: str) -> dict[str, str]:

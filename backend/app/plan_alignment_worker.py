@@ -8,6 +8,7 @@ that fit is the plan author's statement and not a matcher's guess.
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterable
 from dataclasses import asdict, dataclass, replace
 from datetime import UTC, datetime, timedelta
 from functools import partial
@@ -65,23 +66,29 @@ class Claim:
     edit_version: int
 
 
-async def claim_job(db: AsyncSession, now: datetime | None = None) -> Claim | None:
-    """Compare-and-swap claim with a bounded crash-recovery lease, committed by the caller."""
+async def claim_job(db: AsyncSession, now: datetime | None = None, *, owed: Iterable[int] = ()) -> Claim | None:
+    """Compare-and-swap claim with a bounded crash-recovery lease, committed by the caller.
+
+    ``owed`` – jobs whose give-back is still to be written (`_owed`): neither claimed nor failed by
+    the retry sweep until it is, or their lease would charge the attempt the give-back returns."""
     now = now or datetime.now(UTC)
-    eligible = or_(
-        and_(
-            PlanAlignment.status == "pending",
-            # a job given back for a held object carries the moment it was given back
-            or_(
-                PlanAlignment.claimed_at.is_(None),
-                PlanAlignment.claimed_at < now - timedelta(seconds=BUSY_RETRY_SECONDS),
+    eligible = and_(
+        PlanAlignment.id.not_in(list(owed)),
+        or_(
+            and_(
+                PlanAlignment.status == "pending",
+                # a job given back for a held object carries the moment it was given back
+                or_(
+                    PlanAlignment.claimed_at.is_(None),
+                    PlanAlignment.claimed_at < now - timedelta(seconds=BUSY_RETRY_SECONDS),
+                ),
             ),
-        ),
-        and_(
-            PlanAlignment.status == "processing",
-            or_(
-                PlanAlignment.claimed_at.is_(None),
-                PlanAlignment.claimed_at < now - timedelta(seconds=LEASE_SECONDS),
+            and_(
+                PlanAlignment.status == "processing",
+                or_(
+                    PlanAlignment.claimed_at.is_(None),
+                    PlanAlignment.claimed_at < now - timedelta(seconds=LEASE_SECONDS),
+                ),
             ),
         ),
     )
@@ -163,8 +170,7 @@ async def _try_give_back(db: AsyncSession, claim: Claim) -> bool:
     nothing was written; True = written, or the claim is gone (requeued or dropped by the re-key)."""
     try:
         await limit_lock_wait(db, plans.WORKER_LOCK_WAIT_MS)
-        if await give_back(db, claim):
-            _note_busy(claim.id)
+        await give_back(db, claim)
         await db.commit()
         return True
     except DBAPIError as exc:
@@ -175,17 +181,19 @@ async def _try_give_back(db: AsyncSession, claim: Claim) -> bool:
 
 
 def _note_busy(claim_id: int) -> None:
+    """A lock timeout on this job: the clock starts at the first, and past BUSY_WARN_MINUTES one
+    WARNING says that something holds its object's plans (or its row) that long."""
     now = datetime.now(UTC)
     since = _busy_since.setdefault(claim_id, now)
     if now - since > timedelta(minutes=BUSY_WARN_MINUTES) and claim_id not in _busy_warned:
         _busy_warned.add(claim_id)
         logger.warning(
-            "Plan alignment job %s: given back for %d min — something holds its object's plans that long",
+            "Plan alignment job %s: held for over %d min — something keeps its object's plans or its row",
             claim_id,
             BUSY_WARN_MINUTES,
         )
     else:
-        logger.info("Plan alignment job %s: its object is held by a run — back in the queue", claim_id)
+        logger.info("Plan alignment job %s: its object is held — back in the queue", claim_id)
 
 
 def _settled(claim_id: int) -> None:
@@ -199,6 +207,7 @@ async def _given_back(db: AsyncSession, claim: Claim, exc: DBAPIError) -> bool:
     if not lock_wait_exceeded(exc):
         return False
     await db.rollback()  # …which ends the wait limit too, so the give-back sets its own
+    _note_busy(claim.id)
     if not await _try_give_back(db, claim):
         _owed[claim.id] = claim
         logger.info("Plan alignment job %s: its row is held too — given back on a later tick", claim.id)
@@ -212,6 +221,8 @@ async def _settle_owed(factory: async_sessionmaker[AsyncSession]) -> None:
         async with factory() as db:
             if await _try_give_back(db, claim):
                 del _owed[claim_id]
+            else:
+                _note_busy(claim_id)
 
 
 async def finish_job(
@@ -410,7 +421,7 @@ async def run_once(factory: async_sessionmaker[AsyncSession] = async_session_mak
     """One timer tick, one PDF page; no session/row lock is held during rendering or HTTP."""
     await _settle_owed(factory)
     async with factory() as db:
-        claim = await claim_job(db)
+        claim = await claim_job(db, owed=_owed)
         await db.commit()
         if claim is None:
             return False

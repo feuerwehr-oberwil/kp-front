@@ -473,8 +473,8 @@ async def test_both_lock_timeouts_leave_no_attempt_charged(session_factory, db_s
     real_claim = worker.claim_job
     rekey = session_factory()
 
-    async def claim_then_hold(db, now=None):
-        claim = await real_claim(db, now)
+    async def claim_then_hold(db, now=None, **kw):
+        claim = await real_claim(db, now, **kw)
         await db.commit()
         if claim:  # the re-key takes the row once the claim is committed
             await rekey.execute(select(PlanAlignment.id).where(PlanAlignment.id == claim.id).with_for_update())
@@ -529,3 +529,20 @@ async def test_the_retry_limit_sweep_skips_a_row_a_run_holds(session_factory, db
             await db.commit()
         await rekey.commit()
     assert (await db_session.get(PlanAlignment, held_job, populate_existing=True)).status == "processing"
+
+
+async def test_an_owed_job_is_neither_claimed_nor_failed_by_the_sweep(db_session, pdf_store):
+    """A give-back still owed must reach the row before anything else does: past its lease the claim
+    would charge the attempt again, and at the last attempt the sweep would fail it."""
+    last = await seed(db_session, pdf_store)
+    early = await seed(db_session, pdf_store)
+    for job_id, attempts in ((last, worker.MAX_ATTEMPTS), (early, 1)):
+        row = await db_session.get(PlanAlignment, job_id)
+        row.status, row.attempts = "processing", attempts
+        row.claimed_at = datetime.now(UTC) - timedelta(seconds=worker.LEASE_SECONDS + 1)
+    await db_session.commit()
+    assert await worker.claim_job(db_session, owed={last, early}) is None
+    rows = (
+        await db_session.execute(select(PlanAlignment.status, PlanAlignment.attempts).order_by(PlanAlignment.id))
+    ).all()
+    assert [tuple(r) for r in rows] == [("processing", worker.MAX_ATTEMPTS), ("processing", 1)]

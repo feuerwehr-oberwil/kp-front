@@ -408,6 +408,23 @@ async def test_retry_refuses_a_replaced_revision(client, admin_login, db_session
     assert row.status == "failed"
 
 
+async def test_a_first_put_of_a_plan_id_takes_the_plan_write_path(client, admin_login, db_session):
+    """`PUT /api/reference/plan:<object>:<module>` for a sheet that has no row yet is a first upload,
+    not a generic dataset: a revision, an alignment job and the object link, under lock 3."""
+    obj = ObjectSite(name="Neubau")
+    db_session.add(obj)
+    await db_session.commit()
+    await admin_login(client)
+    response = await client.put(
+        f"/api/reference/plan:{obj.id}:modul1", files={"file": ("m1.pdf", PDF1, "application/pdf")}
+    )
+    assert response.status_code == 200, response.text
+    revision = (await db_session.execute(select(PlanRevision))).scalar_one()
+    job = (await db_session.execute(select(PlanAlignment))).scalar_one()
+    assert (revision.dataset_id, job.dataset_id) == (f"plan:{obj.id}:modul1",) * 2
+    assert response.json()["object_id"] == str(obj.id)
+
+
 async def _until_waiting(observer, task) -> None:
     """Until ``task`` waits on a lock in this database – or has already answered without one."""
     waiting = "SELECT count(*) FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock'"

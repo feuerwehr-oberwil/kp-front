@@ -11,7 +11,15 @@ from ..auth.dependencies import CurrentAdmin
 from ..database import get_db
 from ..models import ObjectSite, PlanAlignment, PlanPageFloor, PlanRevision, ReferenceDataset
 from ..plan_alignment_compute import alignment_capability, render_preview
-from ..plan_approval import ADMIN, ApprovalError, approve_fit, lock_current_revision, record_change, snapshot
+from ..plan_approval import (
+    ADMIN,
+    ApprovalError,
+    approve_fit,
+    lock_current_revision,
+    lock_plans_of,
+    record_change,
+    snapshot,
+)
 from ..plan_floors import (
     FloorError,
     PlanFloor,
@@ -250,6 +258,7 @@ async def reject_alignment(
     anything. The sheet can still be aligned by hand (manual approve) or the decision undone."""
     async with brief_lock_wait(db):
         row = await _get(db, item_id)
+        await lock_plans_of(db, row)
         if row.status not in {"ready", "needs_review", "no_match", "failed", "unavailable"}:
             raise HTTPException(status_code=409, detail="Kein offener Vorschlag zum Ablehnen vorhanden")
         return await _change(db, row, body.edit_version, "reject", {"status": "rejected", "approved_at": None})
@@ -262,6 +271,7 @@ async def undo_decision(
     """Takes back an approval or a rejection; either way the sheet is back to «Bitte prüfen»."""
     async with brief_lock_wait(db):
         row = await _get(db, item_id)
+        await lock_plans_of(db, row)
         if row.status not in {"approved", "rejected"}:
             raise HTTPException(status_code=409, detail="Keine Entscheidung zum Zurücknehmen vorhanden")
         return await _change(db, row, body.edit_version, "withdraw", {"status": "needs_review", "approved_at": None})

@@ -1667,10 +1667,12 @@ async def delete_integration_object(db: AsyncSession, source: str, external_id: 
     if not SOURCE_RE.match(source):
         raise invalid("source: Kleinbuchstaben, Ziffern, '.', '_' oder '-'")
 
-    # The object row first, then its ref (`plans` › the lock order): a merge holds the object while
-    # it moves the refs. Each owner is locked inside a savepoint and the ref re-read under it; if a
-    # merge or an upsert moved the ref meanwhile, the savepoint goes and takes that lock with it, so
-    # this never holds one object while it waits for the next.
+    # The object row first, then its ref (`plans` › the lock order): a merge holds the object row
+    # while it moves the refs. FOR NO KEY UPDATE – that excludes a merge or a re-key of the object
+    # (FOR UPDATE), not a run's foreign-key share, so removing a ref never waits for a pull. Each
+    # owner is locked inside a savepoint and the ref re-read under it; if a merge or an upsert moved
+    # the ref meanwhile, the savepoint goes and takes that lock with it, so this never holds one
+    # object while it waits for the next.
     def read_ref():
         return db.execute(
             select(ObjectRef)
@@ -1684,27 +1686,41 @@ async def delete_integration_object(db: AsyncSession, source: str, external_id: 
             return {"removed": "none"}
         owner = ref.object_id
         held = await db.begin_nested()
-        await lock_object_rows(db, owner)  # 3b: its last ref may take it along
+        await db.execute(select(ObjectSite.id).where(ObjectSite.id == owner).with_for_update(key_share=True))
         ref = (await read_ref()).scalar_one_or_none()
         if ref is not None and ref.object_id == owner:
             await held.commit()  # the lock now belongs to the transaction
             break
         await held.rollback()
-    object_id = ref.object_id
+    obj = await db.get(ObjectSite, owner, populate_existing=True)
+    if obj is not None and await _left_with_nothing(db, obj, ref):
+        # 3b: the object goes, so FOR UPDATE now – it waits for a run inserting the object's first
+        # plan, as the delete always did – and look again: that plan may have just committed
+        await lock_object_rows(db, owner)
+        if not await _left_with_nothing(db, obj, ref):
+            obj = None
+    else:
+        obj = None
     await db.delete(ref)
     await db.flush()
-    obj = await db.get(ObjectSite, object_id)
-    if obj is None or not (obj.source_note or "").startswith("Integration:"):
-        return {"removed": "ref"}
-    plans = (await db.execute(select(ReferenceDataset.id).where(ReferenceDataset.object_id == obj.id).limit(1))).first()
-    visits = (await db.execute(select(ObjectVisit.id).where(ObjectVisit.object_id == obj.id).limit(1))).first()
-    others = (await db.execute(select(ObjectRef.id).where(ObjectRef.object_id == obj.id).limit(1))).first()
-    if plans or visits or others:
+    if obj is None:
         return {"removed": "ref"}
     await db.delete(obj)
     await db.flush()
     logger.info("organizer %s removed object %s (%s) with its last ref", source, obj.id, obj.name)
     return {"removed": "object"}
+
+
+async def _left_with_nothing(db: AsyncSession, obj: ObjectSite, ref: ObjectRef) -> bool:
+    """The organizer made ``obj`` and nothing but ``ref`` stands on it: no plan, no visit, no other ref."""
+    if not (obj.source_note or "").startswith("Integration:"):
+        return False
+    plans = (await db.execute(select(ReferenceDataset.id).where(ReferenceDataset.object_id == obj.id).limit(1))).first()
+    visits = (await db.execute(select(ObjectVisit.id).where(ObjectVisit.object_id == obj.id).limit(1))).first()
+    others = (
+        await db.execute(select(ObjectRef.id).where(ObjectRef.object_id == obj.id, ObjectRef.id != ref.id).limit(1))
+    ).first()
+    return not (plans or visits or others)
 
 
 async def object_by_ref(db: AsyncSession, source: str, external_id: str) -> ObjectSite:

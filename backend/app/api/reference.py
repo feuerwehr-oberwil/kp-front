@@ -19,7 +19,7 @@ from ..database import get_db
 from ..models import ObjectSite, PlanAlignment, PlanAlignmentEvent, PlanRevision, ReferenceDataset, User
 from ..plan_floors import fit_publishable, load_floors
 from ..plan_revision_info import revision_page_count
-from ..plans import TooLargeError, brief_lock_wait, plans_pull_enabled, pull_one_plan, store_plan
+from ..plans import TooLargeError, brief_lock_wait, plan_target, plans_pull_enabled, pull_one_plan, store_plan
 from ..schemas import ReferenceDatasetOut
 
 router = APIRouter(prefix="/reference", tags=["reference"])
@@ -435,10 +435,12 @@ async def _replace_reference(
     if board:
         _validate_board_template(dataset_id, data)
     # An Objektplan replacement goes through the ONE plan write path (app/plans.py · store_plan):
-    # revision pinning, identical-bytes dedupe and the alignment job all live there, and this
-    # route must not fork a second, revision-less way of writing the same dataset.
-    if dataset_id.startswith("plan:") and ds is not None and ds.object_id is not None:
-        obj = await db.get(ObjectSite, ds.object_id)
+    # revision pinning, identical-bytes dedupe, the alignment job and lock 3 all live there, and
+    # this route must not fork a second, revision-less way of writing the same dataset – also not
+    # for a plan id whose row does not exist yet (or is a run's, not yet committed).
+    target = plan_target(dataset_id) if ds is None else (ds.object_id, ds.module) if ds.object_id else None
+    if dataset_id.startswith("plan:") and target is not None:
+        obj = await db.get(ObjectSite, target[0])
         if obj is not None:
             if content_type not in ("application/pdf", "application/octet-stream"):
                 raise HTTPException(
@@ -447,7 +449,7 @@ async def _replace_reference(
             return await store_plan(
                 db,
                 obj,
-                ds.module or dataset_id.split(":")[-1],
+                target[1] or dataset_id.split(":")[-1],
                 data,
                 title=title,
                 source_note=source_note,

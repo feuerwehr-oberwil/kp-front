@@ -67,6 +67,18 @@ def snapshot(row: PlanAlignment) -> dict:
     }
 
 
+async def lock_plans_of(db: AsyncSession, row: PlanAlignment) -> ReferenceDataset | None:
+    """Lock 3 for the object that owns ``row`` (``plans`` › the lock order) and return its dataset as
+    it is now. Every write of an alignment takes it – also «Ablehnen» and «Zurücknehmen», which may
+    act on an older revision: a merge or the demo reset deletes the alignment's history under it,
+    and a decision committed in between would abort that on the history's foreign key."""
+    ds = await db.get(ReferenceDataset, row.dataset_id)
+    if ds is not None and ds.object_id is not None:
+        await lock_object_plans(db, ds.object_id)
+        ds = await db.get(ReferenceDataset, row.dataset_id, populate_existing=True)
+    return ds
+
+
 async def lock_current_revision(db: AsyncSession, row: PlanAlignment) -> ReferenceDataset:
     """Lock «the plans of» its object (lock 3, ``plans`` › the lock order) and re-read its dataset, or raise
     ``ApprovalError`` 409 when ``row`` is no longer the current revision.
@@ -77,10 +89,7 @@ async def lock_current_revision(db: AsyncSession, row: PlanAlignment) -> Referen
     request gives up after `plans.LOCK_WAIT_MS` (`plans.brief_lock_wait`), the worker after
     `plans.WORKER_LOCK_WAIT_MS`.
     """
-    ds = await db.get(ReferenceDataset, row.dataset_id)
-    if ds is not None and ds.object_id is not None:
-        await lock_object_plans(db, ds.object_id)
-        ds = await db.get(ReferenceDataset, row.dataset_id, populate_existing=True)
+    ds = await lock_plans_of(db, row)
     if ds is None or ds.current_version != row.plan_version:
         raise ApprovalError(409, "Dieser Plan wurde ersetzt – aktuelle Version prüfen")
     return ds

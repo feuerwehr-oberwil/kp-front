@@ -54,6 +54,7 @@ from .config_history import keep_previous
 from .database import async_session_maker
 from .deployment_config import config_row
 from .models import DeploymentConfig, ReferenceDataset
+from .plans import lock_plan_maintenance
 from .schemas import ReferenceLayerConfig, stored_config_for_write
 
 
@@ -330,6 +331,9 @@ async def _load(
     """
     ref_layers = _to_reference_layers(entries)
     async with async_session_maker() as db:
+        # lock 1 of `plans` › the lock order: `geo:` rows, then the config row – a SharePoint run
+        # can take the two the other way round, so the two never run side by side
+        await lock_plan_maintenance(db)
         ds_written = 0
         for e in entries:
             if e.kind != "geojson" or not e.file:
