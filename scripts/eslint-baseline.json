@@ -3,15 +3,15 @@
   "rules": {
     "@typescript-eslint/no-explicit-any": 3,
     "@typescript-eslint/no-non-null-assertion": 320,
-    "kp/disable-reason": 100,
+    "kp/disable-reason": 99,
     "kp/no-raw-effect": 562,
     "kp/no-raw-timer": 155,
-    "react-hooks/exhaustive-deps": 19,
+    "react-hooks/exhaustive-deps": 18,
     "react-hooks/immutability": 20,
     "react-hooks/preserve-manual-memoization": 5,
     "react-hooks/purity": 11,
-    "react-hooks/refs": 104,
-    "react-hooks/set-state-in-effect": 68,
+    "react-hooks/refs": 102,
+    "react-hooks/set-state-in-effect": 67,
     "react-refresh/only-export-components": 102
   },
   "silenced": {
