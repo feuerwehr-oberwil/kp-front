@@ -6,6 +6,7 @@
 // Lage ↔ Plan parity: docs/tactical-objects.md.
 
 import { useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
 import type React from 'react'
 import type { BoardAnno, BoardPoint, BoardTool, NoteSize, ShapeKind, Trupp } from '../types'
 import type { SymbolsApi } from '../lib/useSymbols'
@@ -16,6 +17,7 @@ import { serverNow } from '../lib/serverClock'
 import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
 import { oneFingerZoom, type OneFingerZoom } from '../lib/tapDragZoom'
 import { rdpIndices, isTapStroke, FREEHAND_SIMPLIFY_PX } from '../lib/lineStyle'
+import { frameBatch } from '../lib/frameBatch'
 import { minPoints } from '../lib/vertexOps'
 import { nextTeamName } from '../lib/placedTrupps'
 import { seedSymbolProps } from '../lib/symbols'
@@ -129,6 +131,23 @@ export function usePlanCreate({
     return { dist: Math.hypot(a.x - b.x, a.y - b.y), mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 }
   }
 
+  // A freehand stroke's samples wait here and join `draft` once per animation frame: a pencil gives
+  // several per frame, and each `setDraft` renders the whole Whiteboard. `draft` stays the one
+  // owner of the stroke – the frame commits it at once (flushSync), so a release always reads a
+  // committed `draft` plus the samples no frame has drawn yet (`ink.take`).
+  // A draft dropped meanwhile (a tool change) stays dropped.
+  const inkQueue = useRef<BoardPoint[]>([])
+  const [inkFrame] = useState(() => frameBatch(() => {
+    const q = inkQueue.current; inkQueue.current = []
+    flushSync(() => { setDraft((d) => (d ? [...d, ...q] : d)) })
+  }))
+  const ink = {
+    push: (p: BoardPoint) => { inkQueue.current.push(p); inkFrame.schedule() },
+    /** the samples no frame has drawn yet; their frame is called off */
+    take: () => { const q = inkQueue.current; inkQueue.current = []; inkFrame.cancel(); return q },
+    drop: () => { inkQueue.current = []; inkFrame.cancel() },
+  }
+
   /** Where a Durchgang placed at (x, y) on `floor` lands: on the nearest Wand within ~30 screen px,
    *  turned along it (lib/grundriss), else free and unturned. Gebäude stack only – null elsewhere. */
   const doorSeat = (x: number, y: number, floor: number) =>
@@ -154,7 +173,7 @@ export function usePlanCreate({
       e.stopPropagation()
       // an aborted stroke leaves no line, so it may leave no attachment either — the start one
       // armed on pointerdown would otherwise ride along into the next line (see inkUp)
-      if (inking) { setDraft(null); if (tool === 'line') { finishPlanDraftMagnet(); draftAttachmentsRef.current = {} } }
+      if (inking) { ink.drop(); setDraft(null); if (tool === 'line') { finishPlanDraftMagnet(); draftAttachmentsRef.current = {} } }
       setCircleDraft(null) // two fingers navigate — no cordon is laid by a pinch
       inkTapRef.current = null // a second finger → pinch-zoom, not a node tap
       inkPinch.current = inkPinchPts()?.dist ?? null
@@ -190,6 +209,7 @@ export function usePlanCreate({
       ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
       draftFloorRef.current = floor
       setDraftRole(null) // a stroke is never a Grundriss piece
+      ink.drop()
       setDraft([[x, y, floor]])
       return
     }
@@ -410,7 +430,7 @@ export function usePlanCreate({
     const n = toNorm(e.clientX, e.clientY); if (n) {
       const floor = stack ? floorAt(n[1]) : draftFloorRef.current
       if (tool === 'line') updatePlanDraftMagnet([n[0], localY(n[1], floor), floor], 'move')
-      setDraft((d) => (d ? [...d, [n[0], localY(n[1], floor), floor]] : [[n[0], localY(n[1], floor), floor]]))
+      ink.push([n[0], localY(n[1], floor), floor])
     }
   }
   const inkUp = (e?: React.PointerEvent) => {
@@ -441,10 +461,11 @@ export function usePlanCreate({
     // A dragged Fläche: the same thinned stroke as a freehand Linie, closed into a ring. No
     // magnet and no attachments — those belong to a Leitung's ends, and an area has none.
     if (tool === 'area' && areaMode === 'freehand' && draft) {
-      const px = draft.map(([x, y, floor]): [number, number] => [x * sW, mapY(floor ?? draftFloorRef.current, y) * sH])
+      const stroke = [...draft, ...ink.take()]
+      const px = stroke.map(([x, y, floor]): [number, number] => [x * sW, mapY(floor ?? draftFloorRef.current, y) * sH])
       if (!isTapStroke(px)) {
         const idx = rdpIndices(px, FREEHAND_SIMPLIFY_PX)
-        if (idx.length >= minPoints('area')) addArea(idx.map((i) => draft[i]))
+        if (idx.length >= minPoints('area')) addArea(idx.map((i) => stroke[i]))
       }
       setDraft(null)
       return
@@ -457,10 +478,11 @@ export function usePlanCreate({
       finishPlanDraftMagnet()
       // thin the raw stroke into a clean, editable polyline (drops the point clusters a slow finger
       // dumps at the start/end). Node-mode lines keep their explicit taps (finishShape doesn't thin).
-      const px = draft.map(([x, y, floor]): [number, number] => [x * sW, mapY(floor ?? draftFloorRef.current, y) * sH])
+      const stroke = [...draft, ...ink.take()]
+      const px = stroke.map(([x, y, floor]): [number, number] => [x * sW, mapY(floor ?? draftFloorRef.current, y) * sH])
       if (!isTapStroke(px)) {
         const idx = rdpIndices(px, FREEHAND_SIMPLIFY_PX)
-        addLine(idx.map((i) => draft[i]))
+        addLine(idx.map((i) => stroke[i]))
       } else {
         // ── Abheben ist der Rückzieher ──────────────────────────────────────────────────────
         // The stroke went nowhere, so nothing may be left behind — least of all the start

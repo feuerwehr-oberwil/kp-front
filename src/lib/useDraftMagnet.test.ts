@@ -105,6 +105,42 @@ describe('useDraftMagnet', () => {
   })
 })
 
+// a stroke is many samples per frame with a pencil: `move` renders only what changes on the screen
+describe('useDraftMagnet — renders per sample', () => {
+  const counted = (candidates: (at: Point) => MagneticTarget[]) => {
+    const n = { renders: 0 }
+    const hook = renderHook(() => {
+      n.renders++
+      return useDraftMagnet<Point>({ project: (p) => p, candidates, attachmentFor: (c) => ({ target: c.target, routing: 'direct' }) })
+    })
+    return { ...hook, n }
+  }
+
+  it('40 samples with no target near render once, and current() still has the last one', () => {
+    const { result, n } = counted(() => [symbol, lineEnd])
+    act(() => { result.current.start([300, 300], true) })
+    n.renders = 0
+    for (let i = 1; i <= 40; i++) act(() => { result.current.move([300 + i * 5, 300]) })
+    expect(n.renders).toBe(1) // leaving the start radius ends the start's claim – the one change
+    expect(result.current.current()?.point).toEqual([500, 300])
+  })
+
+  it('…and the ring still follows a target point that moves with the finger', () => {
+    // a symbol's target point is the nearest point of its box: here a wall along y = 0
+    const wall = (at: Point): MagneticTarget[] => [{ ...symbol, point: [at[0], 0] }]
+    const { result, n } = counted(wall)
+    act(() => { result.current.start([0, 100], true) })
+    act(() => { result.current.move([20, 10]) })
+    n.renders = 0
+    act(() => { result.current.move([24, 10]) })
+    expect(n.renders).toBe(1)
+    expect(result.current.state?.candidate?.point).toEqual([24, 0])
+    // the ring's dwell timer still closes it, from the state the last sample left
+    act(() => { vi.advanceTimersByTime(MAGNET_DWELL_MS) })
+    expect(result.current.state?.dwell.armed).toBe(true)
+  })
+})
+
 describe('joinTargets', () => {
   const armed = { key: lineEnd.key, since: 0, armed: true }
   it('rings an armed line target once, whether the draft or a dragged end is on it', () => {
