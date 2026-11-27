@@ -234,6 +234,15 @@ describe('a row held for its length names the limit', () => {
       expect(storedLine(T.fieldLabel, 120)).not.toBeNull()
     })
 
+    it('keeps that line beside another reason the edit gives the row', async () => {
+      apiGet.mockResolvedValue({ ...structuredClone(STATION), objectVisits: { proposalFields: fields } })
+      await act(async () => { render(<ConfigProvider><ProposalFieldsEditor /></ConfigProvider>) })
+      await waitFor(() => expect(storedLine(T.fieldLabel, 120)).not.toBeNull())
+      await type(screen.getAllByPlaceholderText(T.fieldIdPlaceholder)[0], '')
+      expect(screen.getByText(T.fieldIncomplete)).toBeTruthy()
+      expect(storedLine(T.fieldLabel, 120)).not.toBeNull()
+    })
+
     it('says «not saved like this» again once the repair was saved', async () => {
       apiGet.mockResolvedValue({ ...structuredClone(STATION), objectVisits: { proposalFields: fields } })
       await act(async () => { render(<ConfigProvider><ProposalFieldsEditor /></ConfigProvider>) })
@@ -254,6 +263,10 @@ describe('a row held for its length names the limit', () => {
       await act(async () => { render(<ConfigProvider><ObjectCategoriesCard /></ConfigProvider>) })
       await waitFor(() => expect(storedLine(M.catModules, 60)).not.toBeNull())
       expect(line(M.catModules, 60)).toBeNull()
+      // …also beside another reason the edit gives the rule
+      await type(screen.getByLabelText(M.catColorHex), 'rot')
+      expect(screen.getByText(M.catBadColor)).toBeTruthy()
+      expect(storedLine(M.catModules, 60)).not.toBeNull()
     })
   })
 })

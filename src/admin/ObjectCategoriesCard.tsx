@@ -87,12 +87,15 @@ export function ObjectCategoriesCard() {
         const modules = row.match?.modules ?? []
         const ink = row.color === INK
         // …and the bounds `writableRules` holds a rule to: the name derives a short id and the box
-        // cuts each glob, so only a stored rule (the CLI, an import) can be past one
-        const problem = !name.trim() ? C.catNoName : !isCategoryColor(row.color) ? C.catBadColor
-          : tooLongNote([
-            ['map.objectCategories.0.id', C.catId, row.id],
-            ...modules.map((m) => ['map.objectCategories.0.match.modules.0', C.catModules, m] as const),
-          ], isStored(row))
+        // cuts each glob, so only a stored rule (the CLI, an import) can be past one. Its line
+        // comes along with any other reason: the stored rule blocks every save until it is fixed.
+        const other = !name.trim() ? C.catNoName : !isCategoryColor(row.color) ? C.catBadColor : null
+        const fromServer = isStored(row)
+        const length = tooLongNote([
+          ['map.objectCategories.0.id', C.catId, row.id],
+          ...modules.map((m) => ['map.objectCategories.0.match.modules.0', C.catModules, m] as const),
+        ], fromServer)
+        const problems = other ? (fromServer && length ? [other, length] : [other]) : length ? [length] : []
         return (
           <RecordRows
             key={`${layout}:${i}`}
@@ -144,7 +147,7 @@ export function ObjectCategoriesCard() {
               <input className="adm-input adm-input-mono" type="text" value={modules.join(', ')} placeholder={C.catModulesPlaceholder}
                 onChange={(e) => patch(i, { match: { ...row.match, modules: parseModules(e.target.value, modules) } })} />
             </SettingRow>
-            {problem && <SettingsNote><span className="adm-state adm-state-err">{problem}</span></SettingsNote>}
+            {problems.map((p) => <SettingsNote key={p}><span className="adm-state adm-state-err">{p}</span></SettingsNote>)}
           </RecordRows>
         )
       })}
