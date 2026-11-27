@@ -377,22 +377,99 @@ describe('two fingers on the sheet', () => {
     expect(onDraft.mock.lastCall?.[0].floors[1].clip).toEqual(clip(0.55, 0.95))
   })
 
-  it('leave a sheet that fits its viewport where it is', () => {
-    const { sheet, viewport, at } = setup({ width: 500, height: 400 })
+  // ONE owner per edit (lead's final check, 27.11.2026): only the pointer that pressed moves or
+  // finishes it, and only while what it was started against still stands
+  it('let only the pointer that pressed move or finish its edit', () => {
+    const { container, sheet, onDraft, at } = setup({ width: 1000, height: 700 })
+    const mouse = (x: number, y: number) => ({ pointerId: 9, pointerType: 'mouse', clientX: x, clientY: y })
+    fireEvent.click(screen.getByRole('button', { name: 'Bereich zeichnen' }))
+    fireEvent.pointerDown(sheet, at(1, 100, 70)); fireEvent.pointerMove(sheet, at(1, 300, 210))
+    const drawn = () => container.querySelector<HTMLElement>('.adm-floors-box.draft')?.style.width
+    expect(drawn()).toBe('20%')
+    fireEvent.pointerDown(sheet, mouse(800, 600)); fireEvent.pointerMove(sheet, mouse(900, 690))
+    expect(drawn()).toBe('20%') // the mouse neither took nor moved the finger's rectangle
+    fireEvent.pointerUp(sheet, mouse(900, 690))
+    expect(drawn()).toBe('20%') // …nor finished it
+    fireEvent.pointerUp(sheet, at(1, 300, 210))
+    expect(onDraft.mock.lastCall?.[0].floors[0].clip).toEqual([0.1, 0.1, 0.3, 0.3])
+  })
+
+  it('let touches neither cancel a mouse grab nor move the sheet under it', () => {
+    const clip = (x0: number, x1: number): [number, number, number, number] => [x0, 0.05, x1, 0.95]
+    const twoFloors = { ...a0, floors: [{ page: 0, index: 0, name: null, clip: clip(0.05, 0.45) }, { page: 0, index: -1, name: null, clip: clip(0.55, 0.95) }] }
+    const { sheet, viewport, onDraft, at } = setup({ width: 1000, height: 700 }, twoFloors)
+    const mouse = (x: number, y: number) => ({ pointerId: 9, pointerType: 'mouse', clientX: x, clientY: y })
+    fireEvent.pointerDown(sheet, mouse(700, 300)); fireEvent.pointerMove(sheet, mouse(750, 300))
     fireEvent.pointerDown(sheet, at(1, 100, 100)); fireEvent.pointerDown(sheet, at(2, 300, 100))
     fireEvent.pointerMove(sheet, at(1, 0, 0)); fireEvent.pointerMove(sheet, at(2, 200, 0))
     frame()
     expect([viewport.scrollLeft, viewport.scrollTop]).toEqual([0, 0])
+    fireEvent.pointerUp(sheet, at(1, 0, 0)); fireEvent.pointerUp(sheet, at(2, 200, 0))
+    fireEvent.pointerUp(sheet, mouse(750, 300))
+    expect(onDraft.mock.lastCall?.[0].floors[1].clip).toEqual(clip(0.6, 1))
   })
 
-  it('count both fingers of one touch sample as one step, so the sheet keeps still at an edge', () => {
-    const { sheet, viewport, at } = setup({ width: 1000, height: 700 })
+  it('keep the selection a mouse grab made when the browser cancels it', () => {
+    const clip = (x0: number, x1: number): [number, number, number, number] => [x0, 0.05, x1, 0.95]
+    const twoFloors = { ...a0, floors: [{ page: 0, index: 0, name: null, clip: clip(0.05, 0.45) }, { page: 0, index: -1, name: null, clip: clip(0.55, 0.95) }] }
+    const { container, sheet, onDraft } = setup({ width: 1000, height: 700 }, twoFloors)
+    const mouse = (x: number, y: number) => ({ pointerId: 9, pointerType: 'mouse', clientX: x, clientY: y })
+    const open = () => screen.getAllByRole('listitem').findIndex((row) => row.classList.contains('active'))
+    fireEvent.click(screen.getAllByRole('listitem')[0])
+    fireEvent.pointerDown(sheet, mouse(700, 300)); fireEvent.pointerMove(sheet, mouse(750, 300))
+    fireEvent.pointerCancel(sheet, mouse(750, 300))
+    expect(open()).toBe(1) // as on main: the press selected it, and that stays
+    expect(container.querySelector('.adm-floors-box.moving')).toBeNull()
+    expect(onDraft.mock.lastCall?.[0].floors[1].clip).toEqual(clip(0.55, 0.95))
+  })
+
+  it('drop a rectangle whose floor changed under it before the release', () => {
+    const clip = (x0: number, x1: number): [number, number, number, number] => [x0, 0.05, x1, 0.95]
+    const twoFloors = { ...a0, floors: [{ page: 0, index: 0, name: null, clip: clip(0.05, 0.45) }, { page: 0, index: -1, name: null, clip: clip(0.55, 0.95) }] }
+    const { sheet, onDraft, at } = setup({ width: 1000, height: 700 }, twoFloors)
+    fireEvent.click(screen.getAllByRole('listitem')[0])
+    fireEvent.click(screen.getByRole('button', { name: 'Bereich zeichnen' }))
+    fireEvent.pointerDown(sheet, at(1, 100, 70)); fireEvent.pointerMove(sheet, at(1, 300, 210))
+    // another floor's «Bereich zeichnen» while the finger is still down
+    fireEvent.click(screen.getAllByRole('listitem')[1])
+    fireEvent.click(screen.getByRole('button', { name: 'Bereich zeichnen' }))
+    fireEvent.pointerUp(sheet, at(1, 300, 210))
+    expect(onDraft.mock.lastCall?.[0].floors.map((f: { clip: unknown }) => f.clip)).toEqual([clip(0.05, 0.45), clip(0.55, 0.95)])
+  })
+
+  it('drop an edit whose pointer the browser took away, and forget every touch when the window loses focus', () => {
+    const { container, sheet, onDraft, at } = setup({ width: 1000, height: 700 })
+    fireEvent.click(screen.getByRole('button', { name: 'Bereich zeichnen' }))
+    fireEvent.pointerDown(sheet, at(1, 100, 70)); fireEvent.pointerMove(sheet, at(1, 300, 210))
+    fireEvent.lostPointerCapture(sheet, at(1, 300, 210))
+    expect(container.querySelector('.adm-floors-box.draft')).toBeNull()
+    // two fingers, then an app switch: their releases never arrive
+    fireEvent.pointerDown(sheet, at(2, 100, 100)); fireEvent.pointerDown(sheet, at(3, 300, 100))
+    act(() => { window.dispatchEvent(new Event('blur')) })
+    // the next single finger draws as always
+    fireEvent.pointerDown(sheet, at(4, 100, 70)); fireEvent.pointerMove(sheet, at(4, 500, 350)); fireEvent.pointerUp(sheet, at(4, 500, 350))
+    expect(onDraft.mock.lastCall?.[0].floors[0].clip).toEqual([0.1, 0.1, 0.5, 0.5])
+  })
+
+  it('leave a sheet that fits its viewport where it is', () => {
+    const { sheet, viewport, at } = setup({ width: 500, height: 400 })
     fireEvent.pointerDown(sheet, at(1, 100, 100)); fireEvent.pointerDown(sheet, at(2, 300, 100))
-    // the fingers spread by 80 in one sample: the midpoint stays, and so does the sheet
-    fireEvent.pointerMove(sheet, at(1, 140, 100)); fireEvent.pointerMove(sheet, at(2, 260, 100))
+    fireEvent.pointerMove(sheet, at(1, 0, 0)); fireEvent.pointerMove(sheet, at(2, 200, 0))
+    expect(frames.size).toBe(1) // the pan took the move – and its step moves nothing
     frame()
     expect([viewport.scrollLeft, viewport.scrollTop]).toEqual([0, 0])
   })
+
+  it('count both fingers of one touch sample as one step, also at an edge', () => {
+    const { sheet, viewport, at } = setup({ width: 1000, height: 700 })
+    fireEvent.pointerDown(sheet, at(1, 100, 100)); fireEvent.pointerDown(sheet, at(2, 300, 100))
+    // one sample: +40 and −60 – the midpoint goes left by 10, so the sheet goes right by 10.
+    // Taken one by one, the first half (right by 20) would be lost at the left edge.
+    fireEvent.pointerMove(sheet, at(1, 140, 100)); fireEvent.pointerMove(sheet, at(2, 240, 100))
+    frame()
+    expect([viewport.scrollLeft, viewport.scrollTop]).toEqual([10, 0])
+  })
+
 })
 
 // A Geschoss out of several drawings (16.09.2026): ONE storey row, its drawings as small rows
@@ -473,6 +550,25 @@ describe('on a phone', () => {
     expect(view.querySelector('.adm-floors-box.draft')).not.toBeNull()
     fireEvent.pointerDown(within(view).getByRole('button', { name: 'Vergrössern' }), touch(2, 360, 780))
     expect(view.querySelector('.adm-floors-box.draft')).toBeNull()
+  })
+
+  it('a held join point is dropped when a chip turns the sheet before the release', () => {
+    const onDraft = vi.fn()
+    const threePages = { ...item, page_count: 3, floors: [{ page: 0, index: 1, name: null }, { page: 1, index: 0, name: null }, { page: 2, index: -1, name: null }] }
+    render(<FloorPackEditor item={threePages} view="edit" onDraft={onDraft} />)
+    fireEvent.click(screen.getAllByRole('listitem')[1]) // the EG, on page 2
+    fireEvent.click(screen.getByRole('button', { name: 'Verbinden' }))
+    const view = within(fullView()!)
+    const sheet = fullView()!.querySelector<HTMLElement>('.adm-floors-sheet')!
+    sheet.getBoundingClientRect = () => ({ left: 0, top: 0, width: 1000, height: 500, right: 1000, bottom: 500, x: 0, y: 0, toJSON: () => ({}) })
+    const touch = (pointerId: number, x: number, y: number) => ({ pointerId, pointerType: 'touch', clientX: x, clientY: y })
+    fireEvent.pointerDown(sheet, touch(1, 200, 150)); fireEvent.pointerUp(sheet, touch(1, 200, 150)) // the EG's point
+    fireEvent.click(view.getByRole('button', { name: '+1 · 1. OG' })) // page 1
+    fireEvent.pointerDown(sheet, touch(2, 650, 350)) // held on page 1…
+    fireEvent.click(view.getByRole('button', { name: '−1 · 1. UG' })) // …while another finger turns to page 3
+    fireEvent.pointerUp(sheet, touch(2, 650, 350))
+    expect(onDraft.mock.lastCall?.[0].floors.every((f: { join: unknown }) => f.join == null)).toBe(true)
+    expect(view.getByText('Verbinden · Seite 3 von 3')).toBeTruthy() // the join still waits for its point
   })
 
   it('a join reaches a floor on another page by its chip', async () => {
