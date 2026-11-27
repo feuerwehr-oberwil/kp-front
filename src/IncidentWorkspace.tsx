@@ -158,7 +158,7 @@ import { annotatedPlans, changedReportMetaLines, einsatzleiterFromScene, normali
 import { useAbschluss } from './lib/useAbschluss'
 import { useRowMediaUpload } from './lib/useRowMediaUpload'
 import { useGeorefFits } from './lib/useGeorefFits'
-import { createEditSettle, entityEditChanges, entityLogName, type EditSettle } from './lib/entityEdit'
+import { createEditSettle, entityEditRow, type EditSettle } from './lib/entityEdit'
 import type { PlanStepLink } from './lib/planStepLink'
 import { mittelLineCount } from './lib/mittel'
 import { autoNoteWPx } from './lib/notes'
@@ -830,11 +830,8 @@ export function IncidentWorkspace({
         || Date.now() - (entityTypedAt.current.get(id) ?? 0) < META_LOG_SETTLE_MS,
       onSettled: (id, base, latest) => {
         entityTypedAt.current.delete(id)
-        const changes = entityEditChanges(base, latest)
-        if (!changes.length) return
-        log('pen', fillTemplate(appConfig.copy.log.entityEdited, {
-          name: entityLogName(latest), changes: changes.join(', '),
-        }), 'symbol', undefined, id)
+        const row = entityEditRow(base, latest)
+        if (row) log('pen', row, 'symbol', undefined, id)
       },
     })
     entityLogSettle.current.push(before.id, before, after)

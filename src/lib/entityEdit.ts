@@ -60,12 +60,12 @@ export function entityEditChanges(prev: Entity, next: Entity): string[] {
   }
 
   if ((prev.label ?? '').trim() !== (next.label ?? '').trim()) {
-    const v = oneLine(next.label)
     // ⚠️ A Notiz keeps its TEXT in `label` — «Beschriftung «Gasflaschen im Keller»» is the record
     // calling the note's contents a caption. Same field, different thing, so a different word.
-    const set = next.kind === 'note' ? L.noteWritten : L.labelSet
-    const cleared = next.kind === 'note' ? L.notesCleared : L.labelCleared
-    out.push(v ? fillTemplate(set, { value: v }) : cleared)
+    const v = oneLine(next.label)
+    const line = next.kind === 'note' ? noteTextRow(prev.label, next.label)
+      : v ? fillTemplate(L.labelSet, { value: v }) : L.labelCleared
+    if (line) out.push(line)
   }
 
   // ── Stockwerk: a single storey, or the range a Treppe/Lift covers ──
@@ -103,6 +103,28 @@ export function entityEditChanges(prev: Entity, next: Entity): string[] {
   }
 
   return out
+}
+
+/** The Verlauf line for a Notiz's text going from `from` to `to`, on the Lage and the Plan alike:
+ *  «Notiz «…»», or «Notiz entfernt» when it was emptied; null when it ended as it began. Each
+ *  surface writes it once per editing session, against the text the session began with. */
+export function noteTextRow(from: string | undefined, to: string | undefined): string | null {
+  const L = appConfig.copy.log
+  const v = oneLine(to)
+  if (v === oneLine(from)) return null
+  return v ? fillTemplate(L.noteWritten, { value: v }) : L.notesCleared
+}
+
+/** The whole Verlauf row for editing a symbol on the Kroki, or null when nothing it names moved:
+ *  «{name}: {changes}». A Notiz's name IS its text, so once its text line is in the row the row
+ *  is bare – «Notiz «Neu»», never «Neu: Notiz «Neu»» – and reads as the text typed on the map
+ *  writes it (noteTextRow). */
+export function entityEditRow(prev: Entity, next: Entity): string | null {
+  const changes = entityEditChanges(prev, next)
+  if (!changes.length) return null
+  const text = changes.join(', ')
+  if (next.kind === 'note' && noteTextRow(prev.label, next.label)) return text
+  return fillTemplate(appConfig.copy.log.entityEdited, { name: entityLogName(next), changes: text })
 }
 
 /** One open edit window: the state it STARTED in, the freshest state seen, and its timer. */

@@ -54,6 +54,7 @@ import { useNotePanelClosing } from '../lib/useNotePanelClosing'
 import { usePlacement } from '../lib/useTacticalSelection'
 import { useOnResume } from '../lib/useOnResume'
 import { endingWireFlags, personChange, wirePerson, type LineEnding } from '../lib/drawingEdit'
+import { noteTextRow } from '../lib/entityEdit'
 import { fillTemplate, formatSymbolName, formatTime } from '../lib/format'
 import { connectedLineLabel } from '../lib/connectedLines'
 import { OpenPill } from './OpenPill'
@@ -1376,16 +1377,11 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
    *  (a placed note must persist, mirroring the Lage map). */
   const writeTextEdit = (open: { id: string; planId: string; from: string }, value: string) => {
     emit('board.edit', { id: open.id, patch: { text: value }, planId: open.planId })
-    // …and the Verlauf gets what it SAYS, not that a note exists (parity with the Lage's map
-    // notes, lib/entityEdit). Once per editing session, on the way out, against the text the
-    // session began with — a row per keystroke would be a wall.
-    const v = value.replace(/\s+/g, ' ').trim()
-    const w = open.from.replace(/\s+/g, ' ').trim()
-    if (v !== w) {
-      log('type', v
-        ? fillTemplate(appConfig.copy.log.noteWritten, { value: v })
-        : appConfig.copy.log.notesCleared)
-    }
+    // …and the Verlauf gets what it SAYS, not that a note exists (the Lage's row, lib/entityEdit ·
+    // noteTextRow). Once per editing session, on the way out, against the text the session began
+    // with — a row per keystroke would be a wall.
+    const row = noteTextRow(open.from, value)
+    if (row) log('type', row)
   }
   /** The blur ends the session now. Once per session: a later end finds the marker cleared. */
   const endTextEdit = (a: BoardAnno, value: string) => {

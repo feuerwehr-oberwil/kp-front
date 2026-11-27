@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createEditSettle, entityEditChanges, entityLogName, rosterFieldsToRefile } from './entityEdit'
+import { createEditSettle, entityEditChanges, entityEditRow, entityLogName, noteTextRow, rosterFieldsToRefile } from './entityEdit'
 import type { Entity } from '../types'
 
 const sym = (over: Partial<Entity>): Entity => ({
@@ -109,6 +109,29 @@ describe('entityEditChanges (the Verlauf line for editing the Kroki)', () => {
   it('calls the symbol by its label, falling back to the symbol name', () => {
     expect(entityLogName(sym({ label: 'EL Widmer' }))).toBe('EL Widmer')
     expect(entityLogName(sym({ label: '  ' }))).toBe('Einsatzleiter')
+  })
+})
+
+// A Notiz's name IS its text: «Neu: Notiz «Neu»» said it twice. Its row is bare on the Lage and the
+// Plan alike, typed or not (sweep 25.11.2026, owner pick).
+describe('entityEditRow (the whole row) and noteTextRow (a Notiz’s text)', () => {
+  const note = (over: Partial<Entity>): Entity => ({ ...sym({}), kind: 'note', ...over })
+
+  it('a Notiz whose text changed: the bare row, also when it was emptied', () => {
+    expect(entityEditRow(note({ label: 'Alt' }), note({ label: 'Neu' }))).toBe('Notiz «Neu»')
+    expect(entityEditRow(note({ label: 'Alt' }), note({ label: ' ' }))).toBe('Notiz entfernt')
+  })
+
+  it('a Notiz edited but not its text, or a symbol: named as before', () => {
+    expect(entityEditRow(note({ label: 'Sammelplatz' }), note({ label: 'Sammelplatz', floor: 2 }))).toBe('Sammelplatz: Geschoss 2. OG')
+    expect(entityEditRow(sym({}), sym({ floor: 2 }))).toBe('Einsatzleiter: Geschoss 2. OG')
+    expect(entityEditRow(sym({}), sym({ rotation: 90 }))).toBeNull()
+  })
+
+  it('no row for a text that ended as it began, line breaks and spaces aside', () => {
+    expect(noteTextRow('Wasser ab 14:20', ' Wasser\n ab  14:20 ')).toBeNull()
+    expect(noteTextRow(undefined, '')).toBeNull()
+    expect(noteTextRow('', 'Wasser\nab 14:20')).toBe('Notiz «Wasser ab 14:20»')
   })
 })
 
