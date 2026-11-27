@@ -1605,7 +1605,7 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
         parts: '{n} disegni',
         regionHint: '{floor}: tracciare un rettangolo attorno al disegno',
         joinHint1: '{floor}: toccare un punto in questo disegno – vano scale, ascensore o un incrocio della griglia',
-        joinHint2: 'Scegliere un altro piano nell’elenco, poi toccare lo stesso punto del vano scale – anche su un’altra pagina.',
+        joinHint2: 'Scegliere un altro piano, poi toccare lo stesso punto del vano scale – anche su un’altra pagina.',
         stateWhole: 'Pagina intera',
         stateJoined: 'Collegato',
         stateUnjoined: 'Non collegato',

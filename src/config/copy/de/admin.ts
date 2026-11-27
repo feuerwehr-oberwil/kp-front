@@ -1946,7 +1946,7 @@ export const adminCopy = {
         parts: '{n} Zeichnungen',
         regionHint: '{floor}: Rechteck um die Zeichnung ziehen',
         joinHint1: '{floor}: einen Punkt in dieser Zeichnung antippen – Treppenhaus, Lift oder ein Achsenkreuz',
-        joinHint2: 'Anderes Geschoss in der Liste wählen, dann dieselbe Treppenstelle antippen – auch auf einer anderen Seite.',
+        joinHint2: 'Anderes Geschoss wählen, dann dieselbe Treppenstelle antippen – auch auf einer anderen Seite.',
         stateWhole: 'Ganze Seite',
         stateJoined: 'Verbunden',
         stateUnjoined: 'Nicht verbunden',
