@@ -69,12 +69,14 @@ from datetime import UTC, datetime
 from typing import Any
 
 import httpx
-from sqlalchemy import or_, select, update
+from sqlalchemy import Text, cast, func, or_, select, text, update
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 # `_upsert` is the ONE checklist write path (dataset id, storage key, version bump). Private by
 # name because admin_checklists is a CLI; this connector is its second legitimate caller, not a
 # copy of it.
+from . import plans
 from . import sync_progress as progress
 from .admin_checklists import _upsert as store_checklist_dataset
 from .admin_geodata import GeodataManifestEntry, _first_coord, _to_reference_layers, store_geojson
@@ -85,7 +87,7 @@ from .credentials import get as credential
 from .credentials import load as load_credentials
 from .deployment_config import config_row, read_config
 from .geocode import locate_coordinates
-from .models import ObjectSite, SharePointSyncState
+from .models import Incident, ObjectSite, SharePointSyncState
 from .plans import (
     ObjectGoneError,
     lock_object_plans,
@@ -227,6 +229,10 @@ class AreaOutcome:
     #: silent failure this connector is capable of («path one level too high»: 336 skips, status
     #: ok) is invisible until one of these reaches the card — see `_grade`.
     reasons: Counter[str] = field(default_factory=Counter)
+    #: (old object id, new object id) of every renamed folder this area re-keyed – the Einsätze
+    #: that name the old id are re-pointed at the end of the run (`_repoint_einsaetze`). A failed
+    #: area's outcome is a fresh one, so a re-key its savepoint rolled back is not re-pointed.
+    rekeyed: list[tuple[uuid.UUID, uuid.UUID]] = field(default_factory=list)
 
     def skip(self, reason: str, count: int = 1) -> None:
         """Count files this run did not import, and WHY.
@@ -294,6 +300,10 @@ async def sync_sharepoint(
     `transport` is httpx's own injection point and is how the tests stand a whole tenant up
     without a network. It is the ONLY seam this module offers: nothing here is monkeypatched in
     the suite, so what the tests exercise is the code the station runs.
+
+    Raises `EinsaetzeBusyError` when the Einsätze on a renamed object cannot be re-pointed in
+    time (`_repoint_einsaetze`): the caller rolls the whole run back, and the next run renames
+    again.
     """
     creds = sharepoint_credentials()
     config = await sharepoint_settings(db)
@@ -307,6 +317,7 @@ async def sync_sharepoint(
     if not await try_plan_maintenance(db):
         return {"status": "busy", "areas": {}}
     results: dict[str, Any] = {}
+    rekeyed: list[tuple[uuid.UUID, uuid.UUID]] = []
     # What the System card polls while this runs (app/sync_progress) — memory only, and cleared
     # in `finally` whatever ends the run, so a crashed sync cannot leave a bar standing forever.
     progress.begin([source.area for source in config.sources])
@@ -322,6 +333,7 @@ async def sync_sharepoint(
                     state.files = {}
                 outcome = await _sync_one(db, graph, source, state)
                 _record(state, outcome)
+                rekeyed += outcome.rekeyed
                 results[source.area] = {
                     "status": outcome.status,
                     "imported": outcome.imported,
@@ -329,9 +341,60 @@ async def sync_sharepoint(
                     "missing": len(outcome.missing),
                     "detail": outcome.detail,
                 }
+        # LAST, right before the caller's commit: an Einsatz row is held only from here to it
+        await _repoint_einsaetze(db, rekeyed)
     finally:
         progress.finish()
     return {"status": "ok", "areas": results}
+
+
+class EinsaetzeBusyError(RuntimeError):
+    """The Einsätze on a renamed object were held by other writers past the run's budget."""
+
+
+async def _repoint_einsaetze(db: AsyncSession, rekeyed: list[tuple[uuid.UUID, uuid.UUID]]) -> None:
+    """Point every Einsatz that names a re-keyed object's OLD id at its new id – the run's last
+    write, so no Einsatz row waits for the run's downloads.
+
+    Until the run commits, other sessions see neither the re-key nor this: the old object and the
+    Einsätze that name it, consistent. Found now, not when the re-key ran, so an Einsatz that began
+    to name the old id during the downloads is caught too. The rows are then locked in id order
+    under ONE deadline for the whole batch – `statement_timeout` around a single locking SELECT
+    by id, since `lock_timeout` bounds each row's wait and several held rows would add up. The
+    scan that finds them stays outside the deadline: it reads every Einsatz blob, which takes
+    time on a big table but waits for no lock. Past the deadline the run raises
+    `EinsaetzeBusyError`, because a re-key must not commit without its Einsätze. Then each is
+    re-pointed with the ``workspace_rev`` rule (admin_objects_repair · _retarget_incident).
+    """
+    from .admin_objects_repair import _retarget_incident
+
+    if not rekeyed:
+        return
+    naming = or_(*(cast(Incident.map_workspace_json, Text).contains(str(old)) for old, _ in rekeyed))
+    found = list((await db.execute(select(Incident.id).where(naming))).scalars())
+    if not found:
+        return
+    on_postgres = db.bind.dialect.name == "postgresql"
+    if on_postgres:
+        before = (await db.execute(select(func.current_setting("statement_timeout")))).scalar_one()
+        await db.execute(text(f"SET LOCAL statement_timeout = {int(plans.LOCK_WAIT_MS)}"))
+    try:
+        locked = (
+            await db.execute(select(Incident.id).where(Incident.id.in_(found)).order_by(Incident.id).with_for_update())
+        ).scalars()
+        incidents = list(locked)
+    except DBAPIError as exc:
+        if getattr(exc.orig, "sqlstate", None) == "57014":  # query_canceled: the deadline
+            raise EinsaetzeBusyError(
+                f"{len(found)} Einsatz/Einsätze on a renamed object stayed busy for {plans.LOCK_WAIT_MS} ms"
+                " — the run is rolled back, the next run renames again"
+            ) from exc
+        raise
+    if on_postgres:
+        await db.execute(select(func.set_config("statement_timeout", before, True)))
+    for incident in incidents:
+        for old, new in rekeyed:
+            await _retarget_incident(db, incident, old, new)
 
 
 async def _sync_one(
@@ -696,9 +759,10 @@ async def _sync_plans(
 
     # A folder RENAMED in SharePoint is the same object under a new key — re-key it rather than
     # minting a twin (review round 3, 17.10.2026). Before the import loop, so the moved files read
-    # as unchanged and nothing is downloaded again.
-    for old_folder, new_folder in await _follow_renames(db, state, usable):
+    # as unchanged and nothing is downloaded again. Its Einsätze follow at the end of the run.
+    for old_folder, new_folder, old_id, new_id in await _follow_renames(db, state, usable):
         logger.info("SharePoint plans: «%s» was renamed to «%s» — its object follows", old_folder, new_folder)
+        out.rekeyed.append((old_id, new_id))
 
     # Where each object's plans LIVE (`filing_folder`, the Objektbesuche delivery files visits
     # next to them) — refreshed for every folder this listing holds, not only for changed files:
@@ -838,8 +902,9 @@ def _renames(previous: dict[str, str], usable: list[tuple[RemoteFile, FolderIden
 
 async def _follow_renames(
     db: AsyncSession, state: SharePointSyncState, usable: list[tuple[RemoteFile, FolderIdentity, str]]
-) -> list[tuple[str, str]]:
-    """Re-key the object of every renamed plans folder onto its new key (``_renames``).
+) -> list[tuple[str, str, uuid.UUID, uuid.UUID]]:
+    """Re-key the object of every renamed plans folder onto its new key (``_renames``); returns
+    ``(old folder, new folder, old object id, new object id)`` for each one it followed.
 
     The object keeps everything — plans (re-keyed with it), Objektbesuche, outside ids, the
     station's position correction and outline choice, its calibration — through
@@ -848,7 +913,8 @@ async def _follow_renames(
     the old name and folder stay on it as aliases (``object_visits.ALIAS_SOURCE``), so the search
     and an organizer push under the old folder still find it. The eTag memo moves to the new
     paths, so the files are not downloaded again. A re-key that is blocked (something already
-    sits on the new key) is logged and left to the ordinary path.
+    sits on the new key) is logged and left to the ordinary path. The Einsätze that name the old
+    object are left as they are here: the run re-points them at its end (`_repoint_einsaetze`).
     """
     from .admin_objects_repair import _apply_rekey, _plan_rekey, _retarget_scales
     from .models import ObjectRef
@@ -862,7 +928,7 @@ async def _follow_renames(
     # this run walked the listing must not be overwritten by the copy the session already held.
     station = await config_row(db, lock=True)
     scales: dict[str, object] = dict(station.plan_scales_json or {})
-    done: list[tuple[str, str]] = []
+    done: list[tuple[str, str, uuid.UUID, uuid.UUID]] = []
     memo = dict(state.files or {})
     for old_folder, new_folder in renames.items():
         old_id = folder_identity(old_folder)
@@ -900,7 +966,7 @@ async def _follow_renames(
                 taken.object_id = new_id.object_id
         for path in [p for p in memo if p.startswith(f"{old_folder}/")]:
             memo[f"{new_folder}/{path.split('/', 1)[1]}"] = memo.pop(path)
-        done.append((old_folder, new_folder))
+        done.append((old_folder, new_folder, old_id.object_id, new_id.object_id))
     if scales != (station.plan_scales_json or {}):
         station.plan_scales_json = scales
     state.files = memo

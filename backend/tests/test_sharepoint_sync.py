@@ -11,6 +11,7 @@ still matter if the module were rewritten.
 
 import re
 import unicodedata
+import uuid
 
 import pytest
 from sharepoint_fake import CLIENT_ID, CLIENT_SECRET, TENANT_ID, FakeTenant, geojson, source
@@ -1533,3 +1534,251 @@ async def test_an_object_deleted_during_the_run_is_skipped_whole_and_imported_ne
     again = await sync_sharepoint(db_session, transport=tenant.transport)
     assert again["areas"]["plans"]["imported"] == 3
     assert await datasets(db_session, f"plan:{x_id}:") == [f"plan:{x_id}:modul{n}" for n in (1, 2, 3)]
+
+
+# --- a renamed folder while an Einsatz is open on its object ---------------------------------
+#
+# The re-key leaves the Einsätze that name the object alone; the run re-points them at its END,
+# right before its commit (sharepoint_sync · _repoint_einsaetze), so an Einsatz row is not held
+# while the run downloads.
+
+
+async def _einsatz_on(db, object_id) -> uuid.UUID:
+    from app.models import Incident
+
+    row = Incident(
+        title="Brand Musterweg",
+        source="manual",
+        status="offen",
+        map_workspace_json={"pickedObjectId": str(object_id), "entities": []},
+    )
+    db.add(row)
+    await db.flush()
+    return row.id
+
+
+async def _einsaetze(db, *ids) -> set[tuple[int, str]]:
+    """(workspace_rev, pickedObjectId) of these Einsätze, as committed."""
+    from app.models import Incident
+
+    rows = (
+        await db.execute(select(Incident).where(Incident.id.in_(ids)).execution_options(populate_existing=True))
+    ).scalars()
+    return {(r.workspace_rev, r.map_workspace_json["pickedObjectId"]) for r in rows}
+
+
+async def _renamed_with_a_redrawn_sheet(db):
+    """A run over «Musterweg 1-14» and «Dorfmatt», an Einsatz on Musterweg, committed; then the
+    folder is renamed and Dorfmatt's sheet redrawn – the next run re-keys, then downloads."""
+    old, new = "Musterweg 1-14", "Musterweg 2-14"
+    await configure(db, [source("plans")])
+    tenant = FakeTenant({f"{old}/Modul 1.pdf": PDF, "Dorfmatt/Modul 1.pdf": PDF})
+    await sync_sharepoint(db, transport=tenant.transport)
+    incident = await _einsatz_on(db, object_id_for_key(old))
+    await db.commit()
+    tenant.rename_folder(old, new)
+    tenant.put("Dorfmatt/Modul 1.pdf", b"%PDF-1.4 redrawn")
+    return tenant, object_id_for_key(old), object_id_for_key(new), incident
+
+
+def _held_at_first_download(tenant, reached, release):
+    """A transport that stops at the run's first download until `release` is set."""
+    import httpx
+
+    async def paused(request: httpx.Request) -> httpx.Response:
+        if "/download/" in request.url.path and not reached.is_set():
+            reached.set()
+            await release.wait()
+        return tenant._handle(request)
+
+    return httpx.MockTransport(paused)
+
+
+async def test_an_einsatz_save_goes_through_while_the_run_downloads_after_a_rename(
+    db_session, session_factory, blank_env, storage_root
+):
+    """The run is held at its first download, after the re-key (the checkpoint). A workspace save
+    to the Einsatz on the renamed object answers within 1 s. It used to wait for the whole run:
+    the re-key re-pointed the Einsatz first and held its row to the run's end. The run re-points
+    it at its end, on top of the save. PostgreSQL only."""
+    import asyncio
+
+    from app.incident_service import apply_workspace_put
+    from app.models import Incident
+    from app.schemas import WorkspacePut
+
+    if db_session.bind.dialect.name != "postgresql":
+        pytest.skip("requires independent PostgreSQL transactions")
+    tenant, old_id, new_id, incident = await _renamed_with_a_redrawn_sheet(db_session)
+    reached, release = asyncio.Event(), asyncio.Event()
+
+    async def pull():
+        async with session_factory() as db:
+            out = await sync_sharepoint(db, transport=_held_at_first_download(tenant, reached, release))
+            await db.commit()
+            return out
+
+    async def save():
+        async with session_factory() as db:
+            row = (await db.execute(select(Incident).where(Incident.id == incident))).scalar_one()
+            body = WorkspacePut(base_rev=row.workspace_rev, workspace={**row.map_workspace_json, "note": "Lage"})
+            await apply_workspace_put(db, incident, body, user_id=None, inc=row)
+            await db.commit()
+
+    run = asyncio.create_task(pull())
+    try:
+        await asyncio.wait_for(reached.wait(), 10)
+        assert not run.done()
+        await asyncio.wait_for(save(), 1)
+        assert await _einsaetze(db_session, incident) == {(1, str(old_id))}  # the run's re-key is not visible
+        release.set()
+        result = await asyncio.wait_for(run, 10)
+    finally:
+        release.set()
+        await _settle(run)
+
+    assert result["areas"]["plans"]["status"] == "ok"
+    row = (
+        await db_session.execute(
+            select(Incident).where(Incident.id == incident).execution_options(populate_existing=True)
+        )
+    ).scalar_one()
+    # the save's revision, then the run's re-point on top of it – the save's content kept
+    assert (row.workspace_rev, row.map_workspace_json["pickedObjectId"], row.map_workspace_json["note"]) == (
+        2,
+        str(new_id),
+        "Lage",
+    )
+
+
+async def test_an_einsatz_that_picks_the_old_object_during_the_downloads_is_re_pointed(
+    db_session, session_factory, blank_env, storage_root
+):
+    """A device with the old object list opens an Einsatz on the old object while the run downloads
+    (the checkpoint). The run finds the Einsätze to re-point at its end, so that one follows too.
+    PostgreSQL only."""
+    import asyncio
+
+    if db_session.bind.dialect.name != "postgresql":
+        pytest.skip("requires independent PostgreSQL transactions")
+    tenant, old_id, new_id, first = await _renamed_with_a_redrawn_sheet(db_session)
+    reached, release = asyncio.Event(), asyncio.Event()
+
+    async def pull():
+        async with session_factory() as db:
+            out = await sync_sharepoint(db, transport=_held_at_first_download(tenant, reached, release))
+            await db.commit()
+            return out
+
+    run = asyncio.create_task(pull())
+    try:
+        await asyncio.wait_for(reached.wait(), 10)
+        async with session_factory() as device:
+            late = await _einsatz_on(device, old_id)
+            await device.commit()
+        assert not run.done()
+        release.set()
+        result = await asyncio.wait_for(run, 10)
+    finally:
+        release.set()
+        await _settle(run)
+
+    assert result["areas"]["plans"]["status"] == "ok"
+    assert await _einsaetze(db_session, first, late) == {(1, str(new_id))}
+
+
+async def test_a_failed_plans_area_re_points_no_einsatz(db_session, blank_env, storage_root):
+    """The storage host dies at the first download: the plans area rolls back to its savepoint,
+    the re-key with it – so its Einsätze are not re-pointed onto an object that is not there. The
+    next run renames and re-points."""
+    import httpx
+
+    tenant, old_id, new_id, incident = await _renamed_with_a_redrawn_sheet(db_session)
+
+    def dying(request: httpx.Request) -> httpx.Response:
+        if "/download/" in request.url.path:
+            raise RuntimeError("the storage host went away")
+        return tenant._handle(request)
+
+    result = await sync_sharepoint(db_session, transport=httpx.MockTransport(dying))
+    await db_session.commit()
+
+    assert result["areas"]["plans"]["status"] == "error"
+    assert await db_session.get(ObjectSite, old_id, populate_existing=True) is not None
+    assert await _einsaetze(db_session, incident) == {(0, str(old_id))}
+
+    again = await sync_sharepoint(db_session, transport=tenant.transport)
+    await db_session.commit()
+    assert again["areas"]["plans"]["status"] == "ok"
+    assert await db_session.get(ObjectSite, new_id, populate_existing=True) is not None
+    assert await _einsaetze(db_session, incident) == {(1, str(new_id))}
+
+
+async def test_einsaetze_held_in_turn_make_the_run_give_up_within_one_budget(
+    db_session, session_factory, blank_env, storage_root, monkeypatch
+):
+    """Two Einsätze on the renamed object. One writer holds the first row; the run's re-point
+    waits for it (the first checkpoint). The writer lets go after 1.4 s, and another writer holds
+    the second row (the second checkpoint). The run gives up within ONE budget for the whole batch
+    (`plans.LOCK_WAIT_MS`, here 2 s) – a budget per row would add up to 3.4 s. It raises
+    `EinsaetzeBusyError`, nothing of the re-key is stored, no Einsatz row stays held, and the next
+    run renames and re-points. On main the run waited for the holder without a bound.
+    PostgreSQL only."""
+    import asyncio
+
+    from sqlalchemy import text
+
+    from app import plans
+    from app.sharepoint_sync import EinsaetzeBusyError
+
+    if db_session.bind.dialect.name != "postgresql":
+        pytest.skip("requires independent PostgreSQL transactions")
+    monkeypatch.setattr(plans, "LOCK_WAIT_MS", 2000)
+    tenant, old_id, new_id, first = await _renamed_with_a_redrawn_sheet(db_session)
+    second = await _einsatz_on(db_session, old_id)
+    await db_session.commit()
+    first, second = sorted((first, second))  # the run locks in id order
+    pulling, pull_pids = _recording_pids(session_factory)
+    lock_row = text("SELECT id FROM incidents WHERE id = :id FOR UPDATE")
+
+    async def pull():
+        async with pulling() as db:
+            try:
+                return await sync_sharepoint(db, transport=tenant.transport)
+            finally:
+                await db.rollback()  # what both callers do with a raised run
+
+    run = None
+    try:
+        async with session_factory() as one, session_factory() as two:
+            await one.execute(lock_row, {"id": first})
+            await two.execute(lock_row, {"id": second})
+            run = asyncio.create_task(pull())
+            await _until_blocked(session_factory, run, pull_pids, await _pid(one))
+            loop = asyncio.get_running_loop()
+            started = loop.time()
+            await asyncio.sleep(1.4)
+            await one.rollback()
+            await _until_blocked(session_factory, run, pull_pids, await _pid(two))
+            with pytest.raises(EinsaetzeBusyError):
+                await asyncio.wait_for(run, 5)
+            waited = loop.time() - started
+            await two.rollback()
+    finally:
+        await _settle(run)
+
+    assert waited < 2.9, f"the run waited {waited:.1f} s – more than one budget"
+    async with session_factory() as probe:  # no Einsatz row is held by the run any more
+        free = await probe.execute(
+            text("SELECT id FROM incidents WHERE id IN (:a, :b) FOR UPDATE NOWAIT"), {"a": first, "b": second}
+        )
+        assert len(free.all()) == 2
+        await probe.rollback()
+    assert await db_session.get(ObjectSite, old_id, populate_existing=True) is not None
+    assert await db_session.get(ObjectSite, new_id, populate_existing=True) is None
+    assert await _einsaetze(db_session, first, second) == {(0, str(old_id))}
+
+    again = await sync_sharepoint(db_session, transport=tenant.transport)
+    await db_session.commit()
+    assert again["areas"]["plans"]["status"] == "ok"
+    assert await _einsaetze(db_session, first, second) == {(1, str(new_id))}
