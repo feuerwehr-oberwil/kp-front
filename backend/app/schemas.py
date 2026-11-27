@@ -43,8 +43,7 @@ class LengthCap:
     ``min_length`` and ``pattern`` hold in both modes, and so does every list cap.
 
     Every capped string of the document goes through this type; `test_config_length_caps` fails
-    on a ``Field(max_length=…)`` that does not (``identity.shortName`` excepted, which its own
-    validator already cuts on a stored read)."""
+    on a ``Field(max_length=…)`` that does not."""
 
     max_length: int
     min_length: int | None = None
@@ -1457,7 +1456,7 @@ class IdentityConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
     appName: str | None = None
     #: the menu button's label at the top left of «Karte & Objekte»; unset → a neutral menu symbol
-    shortName: str | None = Field(default=None, max_length=SHORT_NAME_MAX)
+    shortName: Annotated[str, LengthCap(SHORT_NAME_MAX)] | None = None
     locale: str | None = None
 
     @field_validator("shortName", mode="before")
@@ -1465,8 +1464,8 @@ class IdentityConfig(BaseModel):
     def _short_name_fits(cls, v: Any, info: ValidationInfo) -> str | None:
         """Trim, «» → unset, and refuse a label longer than the button holds — in German, with
         the rule in the message (it reaches the Verwaltung and `admin_config load`). A STORED
-        value longer than the cap (a row written by hand, or before a lower cap) is cut, never
-        refused: refusing would empty the whole document on read (see `_accent_is_a_colour`)."""
+        value longer than the cap (a row written by hand, or before a lower cap) is served as it
+        lies, like every capped string of the document (`LengthCap`)."""
         if v is None:
             return None
         if not isinstance(v, str):
@@ -1474,10 +1473,7 @@ class IdentityConfig(BaseModel):
         text = " ".join(v.split())
         if not text:
             return None
-        if len(text) > SHORT_NAME_MAX:
-            if (info.context or {}).get("stored"):
-                logger.warning("identity.shortName %r is longer than %d — serving it cut", text, SHORT_NAME_MAX)
-                return text[:SHORT_NAME_MAX].rstrip()
+        if len(text) > SHORT_NAME_MAX and not (info.context or {}).get("stored"):
             raise ValueError(_SHORT_NAME_ERROR)
         return text
 
@@ -2465,7 +2461,9 @@ class ObjectVisitProposalField(BaseModel):
     @field_validator("id")
     @classmethod
     def _plain_id(cls, v: str) -> str:
-        if not _OV_FIELD_ID_RE.fullmatch(v):
+        # `match`, not `fullmatch`: a stored «kontakt\n» has always passed. The length rule is a
+        # validator, not the cap: a visit proposal holds the field id in 64 characters
+        if not _OV_FIELD_ID_RE.match(v) or len(v) > 64:
             raise ValueError("objectVisits.proposalFields: 'id' must be letters, digits, '.', '_' or '-'")
         return v
 
@@ -2495,7 +2493,7 @@ class ObjectVisitDestination(BaseModel):
 
     @model_validator(mode="after")
     def _addressable(self) -> "ObjectVisitDestination":
-        if not _OV_DEST_ID_RE.fullmatch(self.id):
+        if not _OV_DEST_ID_RE.match(self.id) or len(self.id) > 64:  # the delivery tables hold 64
             raise ValueError(
                 f"objectVisits destination {self.id!r}: 'id' must be lower-case letters, digits, '-' or '_'"
             )
@@ -2570,7 +2568,7 @@ class IncidentArchiveDestination(BaseModel):
     @model_validator(mode="after")
     def _addressable(self) -> "IncidentArchiveDestination":
         where = f"incidentArchive destination {self.id!r}"
-        if not _OV_DEST_ID_RE.fullmatch(self.id):
+        if not _OV_DEST_ID_RE.match(self.id) or len(self.id) > 64:  # the delivery tables hold 64
             raise ValueError(f"{where}: 'id' must be lower-case letters, digits, '-' or '_'")
         site = self.siteUrl.strip()
         if not site.startswith("https://"):

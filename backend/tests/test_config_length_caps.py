@@ -60,10 +60,10 @@ def _string_caps(node: object, path: tuple = (), wrapped: bool = False, out: lis
 
 def test_every_capped_string_of_the_document_is_a_length_cap():
     """A `Field(max_length=…)` added to the document later would take it down on a stored read
-    again – this names it. `identity.shortName` cuts itself on a stored read (its own validator)."""
+    again – this names it."""
     caps = _string_caps(DeploymentConfigIn.__pydantic_core_schema__)
-    assert len([p for p, wrapped in caps if wrapped]) >= 22
-    assert [p for p, wrapped in caps if not wrapped and "shortName" not in p] == []
+    assert len([p for p, wrapped in caps if wrapped]) >= 23
+    assert [p for p, wrapped in caps if not wrapped] == []
 
 
 def test_new_input_keeps_the_cap_and_a_stored_document_keeps_its_value():
@@ -74,6 +74,18 @@ def test_new_input_keeps_the_cap_and_a_stored_document_keeps_its_value():
         ("string_too_long", ("report", "links", 0, "title"), {"max_length": 120})
     ]
     assert load_stored_config(doc).report.links[0].title == "t" * 121
+
+
+def test_an_id_keeps_what_it_accepted_before_and_the_64_its_tables_hold():
+    """`match`, as before the caps were relaxed on a read: a stored «kontakt\n» still passes. The
+    64 characters are a rule of the delivery tables, not a length cap, so they hold on a read."""
+    field = {"id": "kontakt\n", "label": "Kontakt"}
+    assert (
+        load_stored_config({"objectVisits": {"proposalFields": [field]}}).objectVisits.proposalFields[0].id
+        == "kontakt\n"
+    )
+    with pytest.raises(ValidationError, match="lower-case"):
+        load_stored_config({"objectVisits": {"destinations": [{**DEST, "id": "a" * 64 + "\n"}]}})
 
 
 def test_a_stored_document_still_keeps_every_other_rule():
@@ -300,3 +312,22 @@ async def test_a_long_proposal_label_reaches_both_catalogues_and_a_visit_can_use
     free_text = {**proposal, "field": "andere", "label": "y" * 121}  # a label nobody configured keeps the cap
     r = await put(client, vid, visit_doc(vid, obj, proposals=[free_text]), 1)
     assert r.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_a_saved_long_proposal_label_survives_a_shorter_field(client, editor, db_session):
+    """The station shortens the configured label after a visit stored the long one: editing that
+    visit again must not be refused over a label it already holds."""
+    from tests.ov_support import login, make_object, new_id, put, set_config, visit_doc
+
+    long = "Kontakt der Eigentümerschaft " + "x" * 100
+    await set_config(db_session, {"proposalFields": [{"id": "kontakt", "label": long}]})
+    obj = await make_object(db_session)
+    await login(client, editor)
+    vid = new_id("ov")
+    proposal = {"id": "ovp1234567", "field": "kontakt", "label": long, "proposed": "Frau Muster"}
+    assert (await put(client, vid, visit_doc(vid, obj, proposals=[proposal]), None)).status_code in (200, 201)
+
+    await set_config(db_session, {"proposalFields": [{"id": "kontakt", "label": "Kontakt"}]})
+    r = await put(client, vid, visit_doc(vid, obj, proposals=[proposal], notes="nachgetragen"), 1)
+    assert r.status_code == 200, r.text
