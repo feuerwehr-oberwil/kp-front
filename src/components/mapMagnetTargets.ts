@@ -1,7 +1,9 @@
 import type { Drawing, Entity, LineAttachment, LngLat, Trupp } from '../types'
-import { boundaryPoint, DEFAULT_OBJECT_ROUTING, isMagnetEntity, lineEndTargets, type AttachableLine, type MagneticTarget } from '../lib/lineAttachments'
+import { boundaryPoint, DEFAULT_OBJECT_ROUTING, DETACH_RADIUS_PX, isMagnetEntity, lineEndTargets, MAGNET_RADIUS_PX, type AttachableLine, type MagneticTarget } from '../lib/lineAttachments'
 import { markerTakesLineEnd, truppIdForAttachment, type LinkableLine } from '../lib/truppLines'
 import { symPx, teamStripPx, TEAM_DOT_PX } from '../lib/mapView'
+import { pointPlateRadiusPx } from '../lib/mapImages'
+import type { LayerPoint } from '../lib/layerPoints'
 
 /** The slice of a MapLibre map the target walk needs — the live map passes as it is. */
 export interface MapProjector {
@@ -16,6 +18,10 @@ export interface MagnetScene {
   drawings: Drawing[]
   attachmentLines: AttachableLine<LngLat>[]
   trupps: Trupp[]
+  /** the points of every symbol point Ebene that is ON, one list per Ebene (lib/layerPoints) */
+  layerPoints: readonly (readonly LayerPoint[])[]
+  /** is this object drawn (its layer on)? Only a drawn one covers an Ebene's point. Default: yes */
+  entityShown?: (e: Entity) => boolean
   zoom: number
   bearing: number
   symMul: number
@@ -28,11 +34,12 @@ export const DRAFT_SOURCE = '__draft__'
  * Every magnetic target a line end of `sourceId` can couple to at `at` — the Lage's half of the
  * one magnet (lib/useDraftMagnet, MapView · candidatesAt; the Plan's twin is Whiteboard ·
  * planCandidatesAt). Symbols offer the nearest point of their glyph box, a Trupp marker the
- * nearest point of its [dot][name] strip, and line ends their free ports. `draftStart` is the
+ * nearest point of its [dot][name] strip, an Ebene's point (a Hydrant) the nearest point of its
+ * white plate, and line ends their free ports. `draftStart` is the
  * claim a draft's first end has already made, so one stroke cannot put a Trupp on both ends.
  */
 export function mapMagnetTargets(map: MapProjector, scene: MagnetScene, sourceId: string, at: LngLat, draftStart?: LineAttachment): MagneticTarget[] {
-  const { entities, drawings, attachmentLines, trupps, zoom, bearing, symMul } = scene
+  const { entities, drawings, attachmentLines, trupps, layerPoints, entityShown = () => true, zoom, bearing, symMul } = scene
   const pointer = map.project(at)
   // ── EINE Leitung, EIN Trupp, schon am Magneten (lib/truppLines · markerTakesLineEnd) ──
   // A hose that already has a crew does not SEE another Trupp's marker: no ring, no dwell, no
@@ -60,6 +67,28 @@ export function mapMagnetTargets(map: MapProjector, scene: MagnetScene, sourceId
       const edge = boundaryPoint({ shape: 'rect', center: [c.x, c.y], width: size, height: e.kind === 'vehicle' ? size * 0.7 : size, rotation: (e.rotation ?? 0) - bearing }, [pointer.x, pointer.y])
       return { key: `object:${e.id}`, target: { kind: 'object', id: e.id, live: !!e.live }, point: edge, defaultRouting: DEFAULT_OBJECT_ROUTING }
     })
+  // ── an Ebene's points, exactly like a placed symbol (owner, Üben feedback 27.11.2026) ──
+  // A Hydranten file holds a district's thousands: only the ones inside the magnet's reach
+  // around the finger are projected, found by a lng/lat box (the four corners, so a turned map
+  // is covered too). The reach is the held target's, which is wider than a new one's.
+  const layerTargets: MagneticTarget[] = []
+  if (layerPoints.length) {
+    const plate = pointPlateRadiusPx(zoom)
+    const reach = Math.max(MAGNET_RADIUS_PX, DETACH_RADIUS_PX) + plate + 5
+    const corners = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([sx, sy]) => map.unproject([pointer.x + sx * reach, pointer.y + sy * reach]))
+    const w = Math.min(...corners.map((c) => c.lng)), e = Math.max(...corners.map((c) => c.lng))
+    const s = Math.min(...corners.map((c) => c.lat)), n = Math.max(...corners.map((c) => c.lat))
+    // a point under a PLACED symbol or vehicle on screen is that object's: the operator's own
+    // Hydrant set on the layer one must win the snap, not the smaller plate beneath it
+    const covers = entities.flatMap((x) => (x.kind === 'symbol' || x.kind === 'vehicle') && Array.isArray(x.coord) && entityShown(x)
+      ? [{ c: map.project(x.coord), r: symPx(x.kind, x.coord[1], zoom, symMul) / 2 }] : [])
+    for (const points of layerPoints) for (const p of points) {
+      if (p.at[0] < w || p.at[0] > e || p.at[1] < s || p.at[1] > n) continue
+      const c = map.project(p.at)
+      if (covers.some((o) => Math.hypot(o.c.x - c.x, o.c.y - c.y) < o.r)) continue
+      layerTargets.push({ key: `layer:${p.layer}:${p.id}`, target: { kind: 'layer', ...p }, point: boundaryPoint({ shape: 'circle', center: [c.x, c.y], radius: plate }, [pointer.x, pointer.y]), defaultRouting: DEFAULT_OBJECT_ROUTING })
+    }
+  }
   const px = (c: LngLat): [number, number] => { const p = map.project(c); return [p.x, p.y] }
   const lineTargets = lineEndTargets(drawings
     // a Wand is layout: no Leitung couples onto its end (the Plan's rule, Whiteboard · planCandidatesAt)
@@ -68,5 +97,5 @@ export function mapMagnetTargets(map: MapProjector, scene: MagnetScene, sourceId
       id: d.id, teilstueck: d.teilstueck, width: d.width,
       start: [px(d.coords[0]), px(d.coords[1])], end: [px(d.coords[d.coords.length - 1]), px(d.coords[d.coords.length - 2])],
     })), attachmentLines, sourceId, (p) => { const ll = map.unproject(p); return [ll.lng, ll.lat] })
-  return [...objectTargets, ...lineTargets]
+  return [...objectTargets, ...layerTargets, ...lineTargets]
 }

@@ -5,7 +5,7 @@ import {
   DETACH_SHOW_PROGRESS, dwellFor, EMPTY_DWELL, endpointCapacity, flipLine, MAGNET_DWELL_MS, TRUPP_AIM_DWELL_MS,
   forkDims, forkPortPoint, gpsGuard, incomingAttachments, isMagnetAnno, isMagnetEntity,
   lineEndTargets, moveLineBody,
-  nearestFreeEndpoint, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget,
+  nearestFreeEndpoint, nearestMagneticTarget, nextFreePort, relationshipNetwork, releasePoint, resolveLinePoints, resolveMapDrawings, stickyMagneticTarget,
   MAGNET_RADIUS_PX, TEAM_JOIN_RADIUS_PX,
   wouldCreateCycle, type AttachableLine, type LineEnds, type MagneticTarget,
 } from './lineAttachments'
@@ -195,6 +195,29 @@ describe('resolution, movement, detach, and networks', () => {
     const net = relationshipNetwork([a, b], [], ['pump'])
     expect([...net.lineIds].sort()).toEqual(['a', 'b']); expect([...net.objectIds].sort()).toEqual(['pump', 'team'])
     expect(net.depth.get('object:team')).toBe(3)
+  })
+
+  // an end on a hydrant of the Hydranten Ebene (types · LayerPointTarget, 27.11.2026)
+  const onHydrant: LineAttachment = { target: { kind: 'layer', layer: 'hydranten', id: '0', label: 'Hydrant 1234', at: [7.5, 47.5] }, routing: 'direct' }
+
+  it('an end on an Ebene\'s point lands where the surface puts it, else on its stored point', () => {
+    const l = line('h', { startAttachment: onHydrant })
+    expect(resolveLinePoints(l, { lines: [l], objectPoint: () => null, layerPoint: () => [3, 4] })[0]).toEqual([3, 4])
+    // the Plan draws no Ebenen: the stored point stays
+    expect(resolveLinePoints(l, { lines: [l], objectPoint: () => null })[0]).toEqual([0, 0])
+    // off screen (print, fit) it lands on the point itself – no Ebene, no file needed
+    const [d] = resolveMapDrawings([{ id: 'h', kind: 'line', coords: [[7.6, 47.6], [7.7, 47.7]], startAttachment: onHydrant }], [])
+    expect(d.coords[0]).toEqual([7.5, 47.5])
+    // and it is no object of the Einsatz: nothing to light up
+    expect([...relationshipNetwork([l], ['h']).objectIds]).toEqual([])
+  })
+
+  it('«Lösen» leaves an end where its target stands', () => {
+    const own: [number, number] = [1, 1]
+    expect(releasePoint(onHydrant, own, () => undefined, () => undefined)).toEqual([7.5, 47.5])
+    expect(releasePoint(objectAttachment('o'), own, (id) => (id === 'o' ? [2, 2] : undefined), () => undefined)).toEqual([2, 2])
+    expect(releasePoint(toLine('L', 'start'), own, () => undefined, (id, ep) => (id === 'L' && ep === 'start' ? [3, 3] : undefined))).toEqual([3, 3])
+    expect(releasePoint(objectAttachment('gone'), own, () => undefined, () => undefined)).toEqual(own)
   })
 
 })

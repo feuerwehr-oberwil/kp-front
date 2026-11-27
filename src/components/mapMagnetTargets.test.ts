@@ -14,7 +14,7 @@ const marker = (id: string, truppId: string, coord: LngLat): Entity => ({ id, ki
 const hydrant: Entity = { id: 'h', kind: 'symbol', layer: 'taktisch', coord: [0.2, 0.2], symbol: 'Hydrant' }
 const line = (id: string, coords: LngLat[], over: Partial<Drawing> = {}): Drawing => ({ id, kind: 'line', coords, ...over } as Drawing)
 const scene = (over: Partial<MagnetScene>): MagnetScene => ({
-  entities: [], drawings: [], attachmentLines: [], trupps: [trupp('tA'), trupp('tB')], zoom: 18, bearing: 0, symMul: 1, ...over,
+  entities: [], drawings: [], attachmentLines: [], trupps: [trupp('tA'), trupp('tB')], layerPoints: [], zoom: 18, bearing: 0, symMul: 1, ...over,
 })
 const keys = (s: MagnetScene, sourceId: string, draftStart?: LineAttachment) =>
   mapMagnetTargets(flat, s, sourceId, [0, 0], draftStart).map((t) => t.key)
@@ -50,5 +50,33 @@ describe('mapMagnetTargets — where each target is aimed at', () => {
     const targets = mapMagnetTargets(flat, s, 'L1', [0, 0])
     expect(targets.map((t) => t.key)).toEqual(['line:L2:start:0', 'line:L2:end:0'])
     expect(targets[1].at).toEqual([0.2, 0.1])
+  })
+})
+
+describe('mapMagnetTargets — the points of a symbol Ebene (Hydranten)', () => {
+  const near = { layer: 'hydranten', id: '0', label: 'Hydrant 1234', at: [0.03, 0] as LngLat } // 30 px off
+  const far = { layer: 'hydranten', id: '1', label: 'Hydrant', at: [5, 5] as LngLat }
+
+  it('offers a hydrant in reach at its white plate\'s edge, as a symbol offers its glyph box', () => {
+    const [t, ...rest] = mapMagnetTargets(flat, scene({ layerPoints: [[near, far]] }), DRAFT_SOURCE, [0, 0])
+    expect(rest).toEqual([])
+    expect(t).toMatchObject({ key: 'layer:hydranten:0', target: { kind: 'layer', ...near }, defaultRouting: 'direct' })
+    // z18: the plate is ≈ 11.8 px in radius; the point stands 5 px outside it, toward the finger
+    expect(t.point[0]).toBeCloseTo(30 - 11.8 - 5, 0)
+    expect(t.point[1]).toBeCloseTo(0)
+  })
+
+  it('a hydrant under a placed symbol is that symbol\'s: only the symbol is offered', () => {
+    const placed: Entity = { ...hydrant, coord: near.at }
+    expect(keys(scene({ entities: [placed], layerPoints: [[near]] }), DRAFT_SOURCE)).toEqual(['object:h'])
+    // …only while that symbol is drawn: on a switched-off layer it covers nothing
+    expect(keys(scene({ entities: [placed], layerPoints: [[near]], entityShown: () => false }), DRAFT_SOURCE)).toContain('layer:hydranten:0')
+  })
+
+  it('projects only the points inside the magnet\'s reach — a district\'s hydrants are not walked', () => {
+    let projected = 0
+    const counting: MapProjector = { ...flat, project: (c) => { projected += 1; return flat.project(c) } }
+    mapMagnetTargets(counting, scene({ layerPoints: [[near, ...Array.from({ length: 500 }, (_, i) => ({ ...far, id: String(i + 1) }))]] }), DRAFT_SOURCE, [0, 0])
+    expect(projected).toBe(2) // the pointer and the one hydrant in reach
   })
 })

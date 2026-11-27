@@ -162,6 +162,9 @@ describe('places', () => {
       { geometry: { type: 'LineString', coordinates: [[7, 47], [7.1, 47.1]] }, properties: {} },
     ] }, 'h')
     expect(pts.map((p) => p.label)).toEqual(['H-101', '7'])
+    // a MultiPoint is one point per member, as the map draws it
+    const multi = pointsFromGeoJson({ features: [{ geometry: { type: 'MultiPoint', coordinates: [[7.57, 47.52], [7.571, 47.52]] }, properties: { nr: 9 } }] }, 'h')
+    expect(multi.map((p) => [p.id, p.label, p.coord])).toEqual([['h0.0', '9', [7.57, 47.52]], ['h0.1', '9', [7.571, 47.52]]])
     expect(pointsFromGeoJson(null)).toEqual([])
   })
 

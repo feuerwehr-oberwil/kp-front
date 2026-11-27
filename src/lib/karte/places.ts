@@ -159,7 +159,9 @@ export function objectAtAddress(
 export const NEARBY_RADIUS_M = 160
 export const NEARBY_MAX = 5
 
-export interface NamedPoint { id: string; label: string; coord: LngLat }
+/** `name`: what the feature calls itself (`name`, `nr` …), absent when it says nothing and
+ *  `label` fell back to its number in the file. */
+export interface NamedPoint { id: string; label: string; coord: LngLat; name?: string }
 
 /** One row of «In der Nähe»: a station object, or a hydrant with the compass direction it lies in
  *  from the place (`dir`, 0 = north … 7 = north-west — `compass8`). */
@@ -210,8 +212,8 @@ export function isHydrantLayer(l: Pick<LayerDef, 'geojson' | 'vectorKind' | 'id'
   return !!l.geojson && l.vectorKind === 'point' && /hydrant/i.test(`${l.id} ${l.label} ${l.symbol ?? ''}`)
 }
 
-/** A line's end counts as AT a hydrant this close to one (the drawn end, not a docking – line
- *  ends do not dock onto the Hydranten Ebene). */
+/** A FREE line end counts as AT a hydrant this close to one (drawn there, not docked; an end
+ *  docked onto a layer hydrant is an attachment of its own – lib/layerPoints). */
 export const LINE_END_HYDRANT_M = 10
 
 /** The metres from `at` to the nearest of `hydrants` when it is within `maxM`, else null — the
@@ -226,20 +228,26 @@ export function hydrantAt(hydrants: readonly NamedPoint[], at: LngLat, maxM = LI
 }
 
 /** Point features of a GeoJSON FeatureCollection as named points (a hydrant layer). The label is
- *  whatever the feature calls itself (`name`, `nr`, `id`, …), else its index. */
+ *  whatever the feature calls itself (`name`, `nr`, `id`, …), else its index. A MultiPoint is
+ *  one point per member (`<prefix><i>.<j>`), as the map draws it – an import takes it as a
+ *  point layer (api/reference · firstGeometryKind). */
 export function pointsFromGeoJson(fc: unknown, prefix = 'p'): NamedPoint[] {
   const feats = (fc as { features?: unknown[] } | null)?.features
   if (!Array.isArray(feats)) return []
   const out: NamedPoint[] = []
   feats.forEach((f, i) => {
     const g = (f as { geometry?: { type?: string; coordinates?: unknown } })?.geometry
-    if (g?.type !== 'Point' || !Array.isArray(g.coordinates)) return
-    const [lng, lat] = g.coordinates as number[]
-    if (typeof lng !== 'number' || typeof lat !== 'number') return
+    if (!Array.isArray(g?.coordinates) || (g.type !== 'Point' && g.type !== 'MultiPoint')) return
+    const members = (g.type === 'Point' ? [g.coordinates] : g.coordinates) as unknown[]
     const props = ((f as { properties?: Record<string, unknown> }).properties ?? {}) as Record<string, unknown>
     const raw = ['name', 'Name', 'nr', 'Nr', 'nummer', 'Nummer', 'bezeichnung', 'Bezeichnung', 'id', 'ID']
       .map((k) => props[k]).find((v) => typeof v === 'string' || typeof v === 'number')
-    out.push({ id: `${prefix}${i}`, label: raw != null ? String(raw) : String(i + 1), coord: [lng, lat] })
+    members.forEach((c, j) => {
+      const [lng, lat] = Array.isArray(c) ? c as unknown[] : []
+      if (typeof lng !== 'number' || typeof lat !== 'number') return
+      const id = g.type === 'Point' ? `${prefix}${i}` : `${prefix}${i}.${j}`
+      out.push({ id, label: raw != null ? String(raw) : String(i + 1), coord: [lng, lat], ...(raw != null ? { name: String(raw) } : {}) })
+    })
   })
   return out
 }

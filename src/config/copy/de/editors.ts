@@ -422,7 +422,8 @@ export const editorsCopy = {
     // ── «Enden»: was die zwei Enden einer Linie halten, in Worten (Owner-Pick UX-Journeys,
     // 25.11.2026 · B2·49). Die oberste Zeile des Linien-Editors: «Enden ✓ Hydrant 2 m → 🔗 TLF
     // [Lösen]». Ein Tipp auf die Zeile springt zu «Verbindungen». «Hydrant» ist der nächste
-    // Hydrant der Hydranten-Ebene (angedockt wird dort nicht), gelesen wie «In der Nähe».
+    // Hydrant der Hydranten-Ebene bei einem FREIEN Ende, gelesen wie «In der Nähe»; ein dort
+    // angedocktes Ende heisst nach dem Hydranten selbst («Hydrant 1234», lib/layerPoints).
     ends: 'Enden',
     endHydrant: 'Hydrant',
     endNone: 'nichts',

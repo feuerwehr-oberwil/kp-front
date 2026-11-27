@@ -224,8 +224,8 @@ const FILL_OPACITIES = appConfig.drawing.fillOpacities
 /** «Enden ✓ Hydrant 2 m → 🔗 TLF [Lösen]» – what the line's two ends hold, in words, at the head
  *  of the line editor (owner pick UX journeys, 25.11.2026 · B2·49: on a fresh short Zubringleitung
  *  the grips hid both ends, and nothing said whether the TLF end had docked). An end holds a
- *  docked object or line (🔗 its name), sits at a layer hydrant (✓ «Hydrant 2 m» – drawn there, not
- *  docked: line ends do not dock onto the Hydranten Ebene), or nothing. A tap on the row scrolls
+ *  docked object, line or Ebene point (🔗 its name – «Hydrant 1234», lib/layerPoints), a free end
+ *  that sits at a layer hydrant (✓ «Hydrant 2 m» – drawn there, not docked), or nothing. A tap on the row scrolls
  *  the panel to «Verbindungen» (owner note, 25.11.). «Lösen» stands in the row when exactly ONE
  *  end is docked and not on GPS – on a short line it replaces the map's ✕ chip (MapView ·
  *  editShort); two docked ends are released under «Verbindungen», one button each. Shown only

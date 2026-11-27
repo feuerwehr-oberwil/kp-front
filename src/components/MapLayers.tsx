@@ -6,6 +6,7 @@ import { circlePolygon } from '../lib/geo'
 import { vis, lineFeat } from '../lib/mapView'
 import { useNightTheme } from '../lib/useNightTheme'
 import { hatchImageId } from '../lib/draw'
+import { POINT_ICON_SIZE_STOPS } from '../lib/mapImages'
 import { prefersReducedMotion } from '../lib/reducedMotion'
 import { loadLayerData, useLayerData } from '../lib/layerData'
 import { LABEL_ATTRIBUTION, LABEL_MAXZOOM, LABEL_TILES, labelLayers } from '../lib/basemapLabels'
@@ -211,7 +212,7 @@ export function MapLayers({ layers, preparedOverlays, isVisible, mapReady }: Pro
                 // of an Einsatz – and shrinks to ≈ 13 px zoomed out to z14, where a district's
                 // hydrants would otherwise cover the streets (owner pick UX journeys, 25.11.2026 ·
                 // B2·52; it was the bare symbol at 0.22–0.8, ≈ 10 px at the Einsatz zoom)
-                'icon-size': ['interpolate', ['linear'], ['zoom'], 14, 0.5, 16, 0.9],
+                'icon-size': ['interpolate', ['linear'], ['zoom'], ...POINT_ICON_SIZE_STOPS],
               }}
               paint={{ 'icon-opacity': (o.opacity ?? 100) / 100 }}
             />

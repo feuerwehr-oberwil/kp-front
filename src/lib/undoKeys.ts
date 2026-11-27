@@ -219,7 +219,8 @@ export function objectRefs(value: unknown): RecordKey[] {
     if (!isPlain(body)) continue
     if (typeof body.dockedTo === 'string') out.push(recordKey('objects', body.dockedTo))
     for (const att of [body.startAttachment, body.endAttachment]) {
-      if (isPlain(att) && isPlain(att.target) && typeof att.target.id === 'string') out.push(recordKey('objects', att.target.id))
+      // an Ebene's point (types · LayerPointTarget) is no record of the Einsatz
+      if (isPlain(att) && isPlain(att.target) && att.target.kind !== 'layer' && typeof att.target.id === 'string') out.push(recordKey('objects', att.target.id))
     }
     if (typeof body.truppId === 'string') out.push(recordKey('trupps', body.truppId))
   }

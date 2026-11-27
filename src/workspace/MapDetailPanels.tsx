@@ -17,6 +17,7 @@ import { type GpsEnd, hasTraced, freshBefore, gpsLineName, fmtAway, onSiteAnchor
 import { wandBlock, wandBlockHint } from '../lib/grundriss'
 import { lineLabel } from '../lib/lineDecor'
 import { hydrantAt } from '../lib/karte/places'
+import { releasePoint } from '../lib/lineAttachments'
 import { autoNoteWPx } from '../lib/notes'
 import { canBeDone, offersDone, doneOf } from '../lib/objectDone'
 import { withResolvedPhotos } from '../lib/photoGeo'
@@ -539,7 +540,9 @@ export function MapDetailPanels({
             const a = endpoint === 'start' ? selectedDrawing.startAttachment : selectedDrawing.endAttachment
             if (!a) return []
             const targetLine = drawings.find((x) => x.id === a.target.id)
-            const label = a.target.kind === 'object' ? entities.find((e) => e.id === a.target.id)?.label ?? a.target.id : targetLine ? lineLabel(targetLine) : appConfig.copy.drawingEditor.line
+            // an Ebene's point carries its own name («Hydrant 1234», lib/layerPoints)
+            const label = a.target.kind === 'layer' ? a.target.label
+              : a.target.kind === 'object' ? entities.find((e) => e.id === a.target.id)?.label ?? a.target.id : targetLine ? lineLabel(targetLine) : appConfig.copy.drawingEditor.line
             return [[endpoint, label]]
           }))}
           onRouting={tacticalLocked ? undefined : (endpoint, routing) => setGpsRouting(selectedDrawing, endpoint, routing)}
@@ -578,23 +581,27 @@ export function MapDetailPanels({
               else releaseHere(selectedDrawing, endpoint)
               return
             }
-            const fallback: LngLat = a.target.kind === 'object'
-              ? entities.find((e) => e.id === a.target.id)?.coord ?? (endpoint === 'start' ? selectedDrawing.coords[0] : selectedDrawing.coords[selectedDrawing.coords.length - 1])
-              : (() => { const target = drawings.find((d) => d.id === a.target.id); return target ? (a.target.endpoint === 'start' ? target.coords[0] : target.coords[target.coords.length - 1]) : (endpoint === 'start' ? selectedDrawing.coords[0] : selectedDrawing.coords[selectedDrawing.coords.length - 1]) })()
+            const fallback = releasePoint(a, endpoint === 'start' ? selectedDrawing.coords[0] : selectedDrawing.coords[selectedDrawing.coords.length - 1],
+              (id) => entities.find((e) => e.id === id)?.coord,
+              (id, ep) => { const target = drawings.find((d) => d.id === id); return target && (ep === 'start' ? target.coords[0] : target.coords[target.coords.length - 1]) })
             setDrawingAttachment(selectedDrawing.id, endpoint, undefined, fallback)
           }}
           onFocusAttachment={(endpoint) => {
             const a = endpoint === 'start' ? selectedDrawing.startAttachment : selectedDrawing.endAttachment
             if (!a) return
-            if (a.target.kind === 'object') focusEntity(a.target.id); else focusDrawing(a.target.id)
+            if (a.target.kind === 'object') focusEntity(a.target.id)
+            else if (a.target.kind === 'layer') flyToMapVisible(a.target.at, 18.4)
+            else focusDrawing(a.target.id)
           }}
           attachmentHidden={Object.fromEntries((['start', 'end'] as const).map((endpoint) => {
             const a = endpoint === 'start' ? selectedDrawing.startAttachment : selectedDrawing.endAttachment
+            if (a?.target.kind === 'layer') return [endpoint, !isVisible(a.target.layer)]
             const target = a?.target.kind === 'object' ? entities.find((e) => e.id === a.target.id) : null
             return [endpoint, !!target && !isVisible(target.layer)]
           }))}
           onRevealAttachment={(endpoint) => {
             const a = endpoint === 'start' ? selectedDrawing.startAttachment : selectedDrawing.endAttachment
+            if (a?.target.kind === 'layer') { if (!isVisible(a.target.layer)) toggleLayer(a.target.layer); return }
             const target = a?.target.kind === 'object' ? entities.find((e) => e.id === a.target.id) : null
             if (target && !isVisible(target.layer)) toggleLayer(target.layer)
           }}

@@ -34,6 +34,19 @@ export const ARROW_IDS = ['draw-arrow', 'draw-arrow-stop'] as const
 
 /** The point icons are rasterised at this size, pixelRatio 2 (MapLayers' layout scales them). */
 export const POINT_ICON_PX = 64
+/** the white plate's radius, as a share of the icon's box (the rest is the shadow's room) */
+const PLATE_R = 0.41
+/** MapLayers' `icon-size` of a point symbol, as [zoom, scale] stops: the plate reads ≈ 24 px from
+ *  z16 on and ≈ 13 px at z14 (owner pick UX journeys, 25.11.2026 · B2·52). */
+export const POINT_ICON_SIZE_STOPS = [14, 0.5, 16, 0.9] as const
+/** The plate's radius on screen (CSS px) at `zoom` – where a line end on an Ebene's point stops
+ *  and how far the magnet reaches for it (components/mapMagnetTargets, MapView · layerPoint).
+ *  Linear between the stops and clamped outside them, as MapLibre interpolates. */
+export function pointPlateRadiusPx(zoom: number): number {
+  const [z0, s0, z1, s1] = POINT_ICON_SIZE_STOPS
+  const scale = s0 + (s1 - s0) * Math.min(1, Math.max(0, (zoom - z0) / (z1 - z0)))
+  return (POINT_ICON_PX / 2) * PLATE_R * scale
+}
 
 /** One registered variant of a Leitungskataster point symbol. */
 export interface PointIconVariant { id: string; svg: string }
@@ -48,7 +61,7 @@ export interface PointIconVariant { id: string; svg: string }
  */
 function onPlate(tinted: string): string {
   const S = POINT_ICON_PX
-  const r = S * 0.41           // the plate: ~82 % of the box, the rest is the shadow's room
+  const r = S * PLATE_R        // the plate: ~82 % of the box, the rest is the shadow's room
   const inner = S * 0.62       // the symbol's own box inside it (its ring fills ~2/3 of that)
   const at = (S - inner) / 2
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${S}" height="${S}" viewBox="0 0 ${S} ${S}">`
