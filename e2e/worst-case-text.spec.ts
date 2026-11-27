@@ -219,6 +219,9 @@ for (const device of [
       if (!await card.isVisible()) await page.getByText(WORST.leader, { exact: true }).filter({ visible: true }).first().click()
       const line = card.locator('[class*="metaLine"]')
       await expect(line).toBeVisible()
+      // a viewer's card for sure, not the editor's drawn from the cached role while the patched
+      // `/api/auth/me` is on its way (Sol review): it has no «Raus melden»
+      if (viewer) await expect(card.getByRole('button', { name: 'Raus melden' })).toHaveCount(0)
       await settled(card)
       const items = line.locator(':scope > span')
       // no value cut at its right edge (the ⌄'s 28px box overhangs its line by design, so not the height)
@@ -235,8 +238,11 @@ for (const device of [
       // ONE line beside «⋯ Mehr» (Üben feedback 27.11.2026: «two rows of text … feels like an afterthought»)
       const tops = await line.evaluate((l) => new Set([...l.querySelectorAll(':is(i, b)')].map((e) => Math.round(e.getBoundingClientRect().top))).size)
       expect(tops, 'the foot is one line').toBe(1)
-      // the measured Druck stays in the Verlauf: «≈ 263 bar» alone, never «270 bar» beside it
-      if (viewer) await expect(line).not.toContainText(/(^|[^≈] )270 bar/)
+      // the measured Druck stays in the Verlauf: «drin 8:00 · ≈ 263 bar», no «270 bar» item between
+      if (viewer) {
+        await expect(items).toHaveCount(2)
+        await expect(items.last()).toHaveText(/^≈ \d+ bar$/)
+      }
     })
 
     // Sol review 2, PR #702: with the room kept for «Eintrag» (the FAB guard, `data-az-fab-foot`) a
