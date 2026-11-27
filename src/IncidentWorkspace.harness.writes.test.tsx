@@ -377,7 +377,9 @@ describe('(f) a signature or a Beilage queued before a pull stays', () => {
     const emitted = vi.spyOn(AuditEventStore.prototype, 'append')
     await act(async () => {
       report().onAddAttachments([new File(['x'], 'b.jpg', { type: 'image/jpeg' })])
-      while (!emitted.mock.calls.some(([e]) => e.op_type === 'report.attachment.add')) await Promise.resolve()
+      const queued = () => emitted.mock.calls.some(([e]) => e.op_type === 'report.attachment.add')
+      for (let i = 0; i < 50 && !queued(); i++) await Promise.resolve()
+      expect(queued()).toBe(true)
       sync.onApplyMerged!(blob, 1)
     })
     emitted.mockRestore()
