@@ -6,6 +6,7 @@ import { onReachable } from './connectivity'
 import { QUICK_EMPTY_ANSWER_MS } from './pollBackoff'
 import { attendanceConflictRows, conflictRows } from './attendanceConflict'
 import { fillTemplate } from './format'
+import { jsonEqual } from './jsonEqual'
 import type { RecordConflict } from './mergeWorkspace'
 import { createClockSkewAlert, createSyncAlertTracker } from './syncAlert'
 import { recordTrouble } from './trouble'
@@ -204,8 +205,11 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
     if (firstSave.current) { firstSave.current = false; lastPushed.current = JSON.stringify(payload); return }
     // an echo of a pull is not pushed back (`adoptedBlob`) — but it is what the server holds now,
     // and so is the blob the pull adopted, which any other build after it is compared with
+    // (compared as the merge compares: the server hands its JSONB back with its keys re-sorted),
+    // before the mid-gesture shortcut, because a conflict merge may land while a push is owed
     const adopted = adoptedBlob(payload)
     if (adopted === payload) { lastPushed.current = JSON.stringify(payload); return }
+    if (adopted && jsonEqual(payload, adopted)) { lastPushed.current = payload; return }
     if (adopted) lastPushed.current = adopted
     // ⚠️ Mid-gesture, with a push already owed, the compare is skipped (perf sweep 23.09.2026).
     // A Karte drag writes the document per pointer move, a plan chip drag per sample, the Rapport

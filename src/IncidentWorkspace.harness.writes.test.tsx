@@ -348,6 +348,33 @@ describe('(f) a pull moves only what it changed', () => {
     expect(save).not.toHaveBeenCalled()
   })
 
+  it('a local delete the pull already holds, rendered with it, is not saved back', async () => {
+    const { sync, save, held } = await device()
+    act(() => { lastMap().onSelect(lastMap().entities.find((e) => e.id === 'p1')!) })
+    act(() => {
+      key('Delete') // in the live store, its save not yet rendered…
+      sync.onApplyMerged!({ ...held, objects: held.objects!.filter((o) => o.id !== 'p1') } as unknown as Blob, 1) // …and the server has it
+    })
+    await settle(60)
+    expect(lastMap().entities.map((e) => e.id)).toEqual(['p2'])
+    expect(save).not.toHaveBeenCalled()
+  })
+
+  // a build after the pull is compared with what the pull adopted as the merge compares: the
+  // server's JSONB hands the record back with its keys re-sorted, and the Ebenen never ride
+  it('a calibration equal to the pulled one, in other key order, rendered with the pull, is not saved', async () => {
+    const { sync, save, held } = await device()
+    await openPlan('tafel') // the board is up: its calibration door is open (for any sheet)
+    save.mockClear()
+    const calibrate = lastBoard()!.onCalibrate as (planId: string, sc: { mPerU: number; refM: number; ar: number }) => unknown
+    act(() => {
+      sync.onApplyMerged!({ ...held, planScale: { modul1: { ar: 1.4, mPerU: 120, refM: 30 } } } as unknown as Blob, 1)
+      calibrate('modul1', { mPerU: 120, refM: 30, ar: 1.4 })
+    })
+    await settle(60)
+    expect(save).not.toHaveBeenCalled()
+  })
+
   it('a plan binding that lands in the pull\'s render is saved, the pulled Trupp with it', async () => {
     const { sync, save, held } = await device()
     act(() => {

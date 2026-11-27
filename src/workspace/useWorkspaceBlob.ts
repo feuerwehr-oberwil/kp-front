@@ -210,10 +210,10 @@ export function useWorkspaceBlob({
    *  (folded into a store that already held it), an async write landing in that render, or a
    *  re-pick back to the old value makes it a local edit, and it is compared with what the pull
    *  adopted, not with the last push (`adoptedBlob`). Spent by that build. Replaces «skip the next
-   *  save», which such a tap spent on itself. Only a pull that moved an input is remembered: one
-   *  that moved nothing left the inputs as the last build had them. */
+   *  save», which such a tap spent on itself. */
   const pulled = useRef<{ slices: typeof slices; objects: TacticalObject[]; timeline: TimelineEvent[]; tick: number } | null>(null)
-  /** ⚠️ …and that pull forces the one build after it, stamped with this tick: a local write
+  /** ⚠️ …and a pull that moved an input forces the one build after it, stamped with this tick (a
+   *  pull that moved nothing keeps the tick, and schedules no build): a local write
    *  rendered with the pull may put every input back where the last build had it — a re-pick of
    *  the object the pull just replaced — and React then commits no change, so no save would look. */
   const [pullTick, setPullTick] = useState(0)
@@ -296,12 +296,13 @@ export function useWorkspaceBlob({
     setSelectedDrawingId((id) => (id && next.doc.drawings.some((d) => d.id === id) ? id : null))
     setSelectedDrawIds((ids) => ids.filter((id) => next.doc.drawings.some((d) => d.id === id)))
     handed.current = { slices: held, timeline: next.timeline }
-    if (next.objects !== live || !sameRowIds(next.timeline, before.timeline)
-      || (Object.keys(before.slices) as (keyof typeof before.slices)[]).some((k) => held[k] !== before.slices[k])) {
-      const tick = ++ticks.current
-      pulled.current = { slices: held, objects: next.objects, timeline: next.timeline, tick }
-      setPullTick(tick)
-    }
+    // the blob's slices only: `held` also carries this device's Ebenen and the objects
+    const { layers: _layers, objects: _objects, ...blobSlices } = held
+    const moved = next.objects !== live || !sameRowIds(next.timeline, before.timeline)
+      || (Object.keys(before.slices) as (keyof typeof before.slices)[]).some((k) => held[k] !== before.slices[k])
+    const tick = moved ? ++ticks.current : ticks.current
+    pulled.current = { slices: blobSlices, objects: next.objects, timeline: next.timeline, tick }
+    if (moved) setPullTick(tick)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [incidentMeta.id, incidentMeta.type])
 
