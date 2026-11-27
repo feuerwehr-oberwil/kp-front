@@ -27,6 +27,7 @@ import { loadHouses, outlineRings } from '../api/stationReference'
 import { ringContains } from '../footprintPick'
 import { idbGet, idbSet } from '../idb'
 import { ringAt, ringsFromOverpass } from './places'
+import { M_PER_DEG_LAT, mPerDegLng } from '../metresPerDegree'
 
 /** A cell is ~330 × 300 m at Swiss latitudes — a few cells cover a tablet screen at z16. */
 export const CELL_LAT = 0.003
@@ -161,8 +162,8 @@ function tracesAHouse(houses: HouseIndex, ring: LngLat[]): boolean {
     }
   }
   if (!near.size) return false
-  const sy = SAMPLE_M / 110_540
-  const sx = SAMPLE_M / (111_320 * Math.cos((((b.s + b.n) / 2) * Math.PI) / 180))
+  const sy = SAMPLE_M / M_PER_DEG_LAT
+  const sx = SAMPLE_M / mPerDegLng((b.s + b.n) / 2)
   const osmArea = areaDeg(ring)
   let covered = 0
   for (const h of near) {

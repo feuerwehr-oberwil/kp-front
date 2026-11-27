@@ -6,7 +6,8 @@ import { cx } from '../lib/cx'
 import { principalAngleDeg } from '../lib/footprint'
 import { idbDel, idbGet, idbSet } from '../lib/idb'
 import { apiPost, OVERPASS_TIMEOUT_MS } from '../lib/api'
-import { georefFromPick, M_PER_LAT, matchStoredRings, mPerLon } from '../lib/buildingTransfer'
+import { georefFromPick, matchStoredRings } from '../lib/buildingTransfer'
+import { M_PER_DEG_LAT, mPerDegLng } from '../lib/metresPerDegree'
 import { pickAtPin } from '../lib/footprintPick'
 import type { LngLat, SrcGeoref } from '../types'
 import { Icon } from '../lib/icons'
@@ -30,8 +31,8 @@ const resolved = new Map<string, Ring[]>()
 // The persistent-cache key (rounded bbox) + its bounds — pulled out so the component can compute
 // the key up front and check `resolved` before its first paint.
 function bboxKey(center: LngLat, radiusM: number) {
-  const dLat = radiusM / M_PER_LAT
-  const dLon = radiusM / mPerLon(center[1])
+  const dLat = radiusM / M_PER_DEG_LAT
+  const dLon = radiusM / mPerDegLng(center[1])
   const south = center[1] - dLat, north = center[1] + dLat
   const west = center[0] - dLon, east = center[0] + dLon
   return { key: `${south.toFixed(6)},${west.toFixed(6)},${north.toFixed(6)},${east.toFixed(6)}`, south, west, north, east }

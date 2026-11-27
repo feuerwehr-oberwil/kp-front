@@ -79,6 +79,7 @@ import { attachInsetPx, lineJoints, boundaryPoint, DETACH_SHOW_PROGRESS, dwellFo
 import { toast } from '../lib/ui'
 import { locateFailedText } from '../lib/permissionPath'
 import { trailingClickGuard } from '../lib/trailingClick'
+import { M_PER_DEG_LAT, mPerDegLng } from '../lib/metresPerDegree'
 
 /** The ink a ghost «Spur» is drawn in — neutral grey, not the Trupp's colour: colour means
  *  IDENTITY on this map (lib/teamColors), and a trail whose marker is gone must not claim that a
@@ -694,8 +695,8 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
   // and ended up at the side/bottom once the operator turned the map.)
   const circleEdgeAtScreen = (center: LngLat, radiusM: number, screenDeg: number): LngLat => {
     const dir = ((bearing + screenDeg) * Math.PI) / 180
-    const mPerLon = 111320 * Math.cos((center[1] * Math.PI) / 180)
-    return [center[0] + (radiusM * Math.sin(dir)) / mPerLon, center[1] + (radiusM * Math.cos(dir)) / 110540]
+    const mPerLon = mPerDegLng(center[1])
+    return [center[0] + (radiusM * Math.sin(dir)) / mPerLon, center[1] + (radiusM * Math.cos(dir)) / M_PER_DEG_LAT]
   }
 
   const drawFC = useMemo(() => fc(drawings.filter((d) => Array.isArray(d.coords) && d.coords.length > 0).map((d) => {

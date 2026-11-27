@@ -49,6 +49,7 @@ import type { OneShotRows, WorkspaceMode } from './types'
 import { useEffect, useMemo, useRef, type Dispatch, type RefObject, type SetStateAction } from 'react'
 import type { MapRef } from 'react-map-gl/maplibre'
 import { isMapTool } from '../lib/readOnlyTools'
+import { M_PER_DEG_LAT, mPerDegLng } from '../lib/metresPerDegree'
 
 
 export interface UseMapActionsInputs {
@@ -339,8 +340,8 @@ export function useMapActions({
       if (!Array.isArray(d.coords)) continue
       if (d.kind === 'circle' && d.coords[0] && d.radiusM) {
         const [lng, lat] = d.coords[0]
-        const dLat = d.radiusM / 110540
-        const dLng = d.radiusM / ((111320 * Math.cos((lat * Math.PI) / 180)) || 1)
+        const dLat = d.radiusM / M_PER_DEG_LAT
+        const dLng = d.radiusM / (mPerDegLng(lat) || 1)
         pts.push([lng - dLng, lat - dLat], [lng + dLng, lat + dLat])
       } else {
         for (const c of d.coords) if (Array.isArray(c)) pts.push(c as LngLat)

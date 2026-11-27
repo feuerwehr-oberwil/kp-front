@@ -20,6 +20,7 @@ import { isNachtrag, repeatRuns, rowPhotos, rowText } from './verlauf'
 import { linkMarkup, type JournalLink } from './journalLinks'
 import { jsonEqual } from './jsonEqual'
 import { isReadingRow } from './readingLog'
+import { M_PER_DEG_EQUATOR, M_PER_DEG_LAT } from './metresPerDegree'
 
 export interface KrokiView {
   center: LngLat
@@ -1028,8 +1029,8 @@ export function krokiFitMaxZoom(points: LngLat[]): number {
   const lngs = points.map((p) => p[0]), lats = points.map((p) => p[1])
   const lat = (Math.min(...lats) + Math.max(...lats)) / 2
   const spanM = Math.max(
-    (Math.max(...lngs) - Math.min(...lngs)) * 111320 * Math.cos((lat * Math.PI) / 180),
-    (Math.max(...lats) - Math.min(...lats)) * 110540,
+    (Math.max(...lngs) - Math.min(...lngs)) * M_PER_DEG_EQUATOR * Math.cos((lat * Math.PI) / 180),
+    (Math.max(...lats) - Math.min(...lats)) * M_PER_DEG_LAT,
   )
   return spanM < KROKI_COMPACT_SPAN_M ? 21 : 20
 }
