@@ -641,7 +641,7 @@ interface DocksProps {
 
 /**
  * Right-edge tool option docks (the armed tool's readout tile, its input mode, ✓, ⓘ and ✕), each
- * top-aligned to its rail button. Built from the SHARED `ToolDock`
+ * level with the rail's top like the Karte's (ToolDock · useRailLevel). Built from the SHARED `ToolDock`
  * renderer — same control vocabulary (and look) as the Lage map; the Linie tool carries the same
  * Freihand↔Punkte input toggle, and the line style (Freihand/Messpfeil/Rettungsachse) is chosen in
  * the post-draw editor, not here.

@@ -1,12 +1,13 @@
-// The Karte's floating controls on top of the map — the map-utility cluster, the views and
-// Ebenen buttons, the replay/locked variants — plus the phone backdrop and the Ebenen dock.
+// The Karte's floating controls on top of the map — the Wiedergabe's view bar (Ebenen · Ansichten
+// · + −, MapViewControls), the replay/locked variants — plus the phone backdrop and the Ebenen dock.
 // Split out of IncidentWorkspace (E1, 09.10.2026) verbatim; `mapUI` and `panel` gate them as before.
 
 import { Suspense, type RefObject, type Dispatch, type SetStateAction } from 'react'
 import type { MapRef } from 'react-map-gl/maplibre'
 import { BuildingFloat } from '../components/BuildingFloat'
 import { LayerPanel } from '../components/LayerPanel'
-import { MapUtility } from '../components/MapUtility'
+import { MapViewControls } from '../components/MapViewControls'
+import { ViewBar } from '../components/ToolRail'
 import type { ViewsApi } from '../components/MapViewsMenu'
 import { WeatherBadge } from '../components/TopBar'
 import { WeatherRadarControls } from '../components/weatherLazy'
@@ -95,29 +96,24 @@ export function MapControls({
     <>
       {mapUI && (
         <>
-          {/* zoom + locate — normally folded into the right ToolRail footer; floats
-              top-right only on desktop where the rail is gone (replay, whose scrubber the rail's
-              Messen readout would collide with). On a phone the tool bar's footer carries
-              Ebenen + the compass, so this cluster isn't rendered there. */}
+          {/* the Karte's view controls where the rail is gone – the Wiedergabe on a tablet or
+              laptop (its scrubber owns the bottom band the rail's Messen readout would land in):
+              the SAME set in the SAME bottom-right view bar as the editable Lage's
+              (MapViewControls; owner, Üben feedback 27.11.2026 – they floated top right, in
+              another order). On a phone the tool bar's footer carries them. */}
           {mapUtility && (
-            <MapUtility
-              onZoomIn={() => mapRef.current?.zoomIn()}
-              onZoomOut={() => mapRef.current?.zoomOut()}
-              bearing={view.bearing}
-              views={viewsApi}
-              // `|| isEl`: saved camera views live in the shared blob (cameraViews), which the
-              // el record slice never pushes — offering «Speichern» would fake a shared save
-              readOnly={readOnly || isEl}
-              viewsOpen={viewsOpen}
-              onViewsOpenChange={toggleViews}
-              coordsOn={coord.mode !== 'off'}
-              onToggleCoords={coord.cycle}
-              layersOn={panel === 'layers'}
-              layersPreset={layersPreset}
-              layersHidden={layersHidden}
-              onToggleLayers={() => togglePanel('layers')}
-              worded={railLabels === 'short'}
-            />
+            <ViewBar label={appConfig.copy.navRail.viewBar} labelled={railLabels === 'short'}>
+              <MapViewControls
+                onZoomIn={() => mapRef.current?.zoomIn()} onZoomOut={() => mapRef.current?.zoomOut()}
+                // `|| isEl`: saved camera views live in the shared blob (cameraViews), which the
+                // el record slice never pushes — offering «Speichern» would fake a shared save
+                bearing={view.bearing} views={viewsApi} readOnly={readOnly || isEl}
+                viewsOpen={viewsOpen} onViewsOpenChange={toggleViews}
+                coordsOn={coord.mode !== 'off'} onToggleCoords={coord.cycle}
+                layersOn={panel === 'layers'} onToggleLayers={() => togglePanel('layers')}
+                layersPreset={layersPreset} layersHidden={layersHidden}
+              />
+            </ViewBar>
           )}
 
           {/* phone: the wind read-out floats top-right under the bar — the top bar clipped it at

@@ -75,4 +75,19 @@ describe('ToolDock', () => {
       cleanup()
     }
   })
+
+  // Üben feedback 27.11.2026 (owner: «on modules it seems to be somewhat centered and in the map
+  // it's at the top»): the column stands level with the rail's top on the Karte AND on every Plan –
+  // it looked for the Karte's `.tool-rail` alone and fell back to the centring on `.wb-tools`
+  it('stands level with the rail beside it, whichever surface owns the rail', () => {
+    vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} })
+    // jsdom lays nothing out, so the rail gets its box by hand: its top 90px, under the top bar
+    const placed = (el: HTMLElement | null) => { if (el) vi.spyOn(el, 'getBoundingClientRect').mockReturnValue(new DOMRect(1072, 90, 92, 494)) }
+    for (const hook of ['tool-rail', 'wb-tools']) {
+      const { container } = render(<><aside className={`vrail rail ${hook}`} ref={placed} /><ToolDock groups={lineDock()} /></>)
+      expect(container.querySelector<HTMLElement>('.wb-dock')!.style.top).toBe('90px')
+      cleanup()
+    }
+    vi.unstubAllGlobals()
+  })
 })

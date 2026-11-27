@@ -105,32 +105,58 @@
 .wb-object.wb-object-nearby > .i, .wb-object.wb-object-nearby:disabled > .i { color: var(--amber-strong); }
 /* …and the banner half of that warning (Whiteboard · nearbyBanner): once per Einsatz and object,
    over the sheet's top edge, right of the rail. Amber like the chip, never red – nothing is on
-   fire on the Plan; something may merely be the neighbour's. */
-.wb-nearby-banner { position: absolute; left: calc(var(--rail-w) + 16px); right: 16px; top: 12px; z-index: var(--z-dock);
+   fire on the Plan; something may merely be the neighbour's.
+   ⚠️ It stands in THE message lane, under the top bar: hung from `--rail-top`, where both rails
+   start, with the Meldeleiste's inset (08-toasts · .ml: 24px off each rail, 860px at most) – off
+   EACH rail by its own width (`--rail-w` left, the tool rail's `--vrail-w` right): an expanded tool
+   rail is wider than the nav rail, and the banner's actions lay over its first tool. At
+   `top: 12px; right: 16px` it lay under the top bar, which floats over the full-bleed stage:
+   «Anderes Objekt wählen» and its ✕ peeked out beside the bar with the bar's shadow on them
+   (owner, Üben feedback 27.11.2026, «what is going on here»). */
+.wb-nearby-banner { position: absolute; z-index: var(--z-dock); top: var(--rail-top);
+  left: calc(max(16px, env(safe-area-inset-left)) + var(--rail-w) + 24px);
+  right: calc(max(16px, env(safe-area-inset-right)) + var(--vrail-w, 60px) + 24px); max-width: 860px; margin-inline: auto;
   /* the message surface; the tone is its amber glyph (08-toasts.css · «ONE message surface», 25.09.2026) */
-  display: flex; align-items: center; gap: var(--sp-2); padding: var(--msg-pad) var(--msg-pad) var(--msg-pad) var(--float-pad-x); border-radius: var(--r-sm);
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); padding: var(--msg-pad) var(--msg-pad) var(--msg-pad) var(--float-pad-x); border-radius: var(--r-sm);
   background: var(--float-bg); backdrop-filter: var(--float-blur); border: none; box-shadow: var(--float-edge);
   font: var(--fw-medium) var(--fs-2)/1.35 var(--body); color: var(--ink); }
 .wb-nearby-banner > .i { flex: none; width: 18px; height: 18px; color: var(--amber-strong); }
-.wb-nearby-text { flex: 1 1 auto; min-width: 0; }
+/* the sentence keeps a readable measure: where the lane leaves it less than 320px beside the two
+   actions (a narrow tablet), the actions wrap under it as one group, at the right edge, instead of
+   squeezing it to a word a line */
+.wb-nearby-text { flex: 1 1 min(320px, calc(100% - 28px)); min-width: 0; }   /* 28: the ⚠ glyph and its gap */
+.wb-nearby-acts { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: var(--sp-2);
+  flex: 0 1 auto; min-width: 0; margin-left: auto; }
 .wb-nearby-text b { color: var(--amber-strong); }
 /* ⚠️ a framed compact button, like every message's own (08-toasts · .ml-btn) — it was a bare
    blue word (28.09.2026, owner pick A: no bare blue word as an action) */
-.wb-nearby-switch { flex: none; min-height: 44px; padding: 0 var(--sp-3); border: 1px solid var(--glass-edge); border-radius: var(--r-msg-in);
-  background: var(--surface); font: var(--fw-bold) var(--fs-1) var(--body); color: var(--ink); cursor: pointer; white-space: nowrap; }
+.wb-nearby-switch { flex: 0 1 auto; min-width: 0; min-height: 44px; padding: 0 var(--sp-3); border: 1px solid var(--glass-edge); border-radius: var(--r-msg-in);
+  background: var(--surface); font: var(--fw-bold) var(--fs-1) var(--body); color: var(--ink); cursor: pointer; }
 .wb-nearby-switch:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .wb-nearby-x { flex: none; width: 44px; height: 44px; border: none; border-radius: var(--r-msg-in); cursor: pointer;
   background: var(--ink-8); color: var(--ink-dim); display: grid; place-items: center; }
 .wb-nearby-x .i { width: 16px; height: 16px; }
+/* …and one --float-gap under the Meldeleiste while one stands: the strip hangs in the same band
+   (08-toasts · .ml) and publishes its height as `--ml-h` */
+:root:has(.ml) .wb-nearby-banner { top: calc(var(--rail-top) + var(--ml-h, 0px) + var(--float-gap)); }
+/* …and it steps aside while an object's detail panel stands beside the rail (`.ctx`, the tablet's
+   and the laptop's): the panel owns that band, and at 820px it lay over both actions. The amber
+   Objekt chip keeps the warning; the banner is back when the panel closes. A phone's panel is a
+   bottom sheet, nowhere near it. */
+@media (--not-phone) {
+  :root:has(.app .ctx) .wb-nearby-banner { display: none; }
+}
 @media (--phone) {
   /* the NavRail is a bottom bar here – the banner takes the full width and wraps its actions. ⚠️
      The phone's top bar floats over the sheet (15-mobile · .topbar), so the banner starts under
      it, where the weather chip does – at 12px its first lines were hidden (owner, 22.10.2026) */
-  .wb-nearby-banner { top: var(--under-bar, calc(76px + env(safe-area-inset-top))); left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right)); flex-wrap: wrap; }
+  .wb-nearby-banner { top: var(--under-bar, calc(76px + env(safe-area-inset-top))); left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right)); max-width: none; flex-wrap: wrap; }
   /* …and under the Meldeleiste while one stands (15-mobile · --under-alert, owner 26.11.2026):
      at --under-bar it lay on the alert's first row */
   :root:has(.ml) .wb-nearby-banner { top: var(--under-alert); }
   .wb-nearby-text { flex-basis: calc(100% - 28px); }
+  /* …its actions at the line's start, under the glyph, as they stood before the group */
+  .wb-nearby-acts { margin-left: 0; }
 }
 /* the door between the two faces of the ONE «Gebäude» tile (Whiteboard · buildingChip). On the
    PICKER face it is a verb («Zurück zum Gebäude») and never truncates: half a verb is not an
@@ -299,26 +325,6 @@
    plan can pan up behind the translucent top bar. The default "fit" view is sized
    + centred into the region BELOW the bar (see TOP_INSET in Whiteboard). */
 .wb-stage { position: absolute; inset: 0; display: flex; flex-direction: column; }
-/* floating zoom — top-right of the canvas, matching the map's MapUtility cluster. Only where the
-   plan has no rail (a viewer-only Modul, a replay, the Gebäude pick surface) – and since the button
-   sweep (CHROME.12, 17.11.2026) it wears the view bar's tiles (07-toolrail · .view-bar): Einpassen
-   ⌖ over its word with «Beschriftung» on (`.labelled`), a 46px glyph square off; + − always bare.
-   (It was − + glyph squares beside a word-only «Einpassen», 40px – a third anatomy for one act.) */
-.wb-zoom-float { position: absolute; right: 16px; top: calc(16px + env(safe-area-inset-top)); z-index: var(--z-map-util);
-  display: flex; align-items: center; gap: 4px; background: var(--glass);
-  backdrop-filter: var(--float-blur); border: 1px solid var(--glass-line); box-shadow: var(--e4); border-radius: var(--r-bar); padding: var(--bar-pad); }
-/* Below 860px the top bar runs the full width, so the cluster drops under it — what the Karte's
-   own cluster does at the same width (MapUtility · .toputil). At 820 its «–» sat under the bar
-   and a tap on it hit the bar (3am test r4, 26.09.2026). */
-@media (max-width: 860px) {
-  .wb-zoom-float { top: calc(80px + env(safe-area-inset-top)); }
-}
-.wb-zoom-float .vrail-nbtn { position: relative; justify-content: center; width: 46px; min-width: 46px; padding: 0; }
-.wb-zoom-float.labelled .wb-zoom-fit { flex-direction: column; gap: 0; height: var(--vrail-tile); width: auto; min-width: 76px; padding: 0 8px; }
-.wb-zoom-float.labelled .wb-zoom-fit .vrail-glyph { width: auto; min-width: 0; height: 26px; }
-.wb-zoom-float.labelled .wb-zoom-fit .vrail-label { display: block; white-space: nowrap; text-align: center;
-  font-size: var(--fs-micro); font-weight: var(--fw-bold); line-height: 1.1; }
-
 .wb-canvas { flex: 1; min-height: 0; position: relative; overflow: hidden;
   background: var(--canvas-bg); display: grid; place-items: center; touch-action: none; }
 .wb-canvas.tool-pan { cursor: grab; }
@@ -984,7 +990,8 @@ span.wb-ghost-label { cursor: default; }
 
 /* vertical tool-option dock — anchored to the right edge beside the rail, so a
    tool's options appear right where you picked it instead of bottom-centre */
-/* top is set inline to the active tool's rail-button level; falls back to 14px
+/* top is set inline to the rail's top on EVERY surface (ToolDock · useRailLevel: Karte, Moduls,
+   Gebäude, Tafel – owner, Üben feedback 27.11.2026); .wb-dock-map's centring is the fallback
    ⚠️ ONE material on every surface (Karte, Einsatz, Plan/Skizze; phone and tablet), and it is the
    floating family's glass: light by day, dark by night (owner 20.10.2026: «why do we have a dark
    sidebar in lightmode?»). The dock wore --ink-fill — dark in BOTH themes, the «armed mode»
@@ -1101,9 +1108,9 @@ span.wb-ghost-label { cursor: default; }
   .wb-dock-tog.on:hover:not(:disabled) { filter: brightness(1.08); }
 }
 .wb-dock-tog:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-/* Lage map: the tool rail is vertically centred at right:16px (width 88px), so the
-   draw dock sits just left of it and is centred to match — same right-edge, top-down,
-   ×-led dock as the Plan whiteboard (which instead pins `top` to its rail button) */
+/* every surface's dock (the class is ToolDock's, Karte and Plan alike): just left of the tool
+   rail, its `top` set inline level with the rail's (ToolDock · useRailLevel); the centring here
+   is only the fallback until measured */
 /* sits just left of the right tool rail and tracks its width, so expanding the rail pushes
    the dock left instead of letting the rail overlap it. --vrail-w is published by ToolRail;
    16px rail inset + width + 26px gap. */

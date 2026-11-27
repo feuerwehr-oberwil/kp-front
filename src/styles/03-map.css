@@ -38,7 +38,8 @@
    column – or the labelled one's 92px (a per-device setting). The bottom stays the chip's 16px. */
 .app:has(.tool-rail) > .maplibregl-map .maplibregl-ctrl-bottom-right { right: calc(max(16px, env(safe-area-inset-right)) + (60px - 24px) / 2); }
 .app:has(.tool-rail.labelled:not(.expanded)) > .maplibregl-map .maplibregl-ctrl-bottom-right { right: calc(max(16px, env(safe-area-inset-right)) + (var(--vrail-w-labelled, 92px) - 24px) / 2); }
-.app:has(.tool-rail) > .maplibregl-map .maplibregl-ctrl-bottom-right > .maplibregl-ctrl-attrib.maplibregl-compact { margin-right: 0; }
+/* (…and the Wiedergabe's, whose ⓘ the view-bar rule below places by `right` alone, too) */
+.app:is(:has(.tool-rail), .map-util) > .maplibregl-map .maplibregl-ctrl-bottom-right > .maplibregl-ctrl-attrib.maplibregl-compact { margin-right: 0; }
 /* the ⓘ is 24px: a finger gets a pad out to --tap around it (it sits in the corner, so the
    pad reaches over the map, never over another control) */
 @media (pointer: coarse) {
@@ -66,9 +67,10 @@
    and with them on it the ⓘ stood 8px INSIDE the bar's left edge (owner, 07.11.2026). ⚠️ And
    this rule must OUT-RANK the rail-axis ones – the labelled rail's is six classes deep, and with
    «Beschriftung» on it won and parked the ⓘ under the bar. `:has(.tool-rail + .view-bar)` makes
-   it seven and says what it is for: the map rail's own bar. */
+   it seven and says what it is for: the map rail's own bar – or the Wiedergabe's (`.map-util`),
+   which stands in the same corner with no rail (MapControls · ViewBar, 27.11.2026). */
 @media (--not-phone) {
-  :root:has(.view-bar) .app:has(.tool-rail + .view-bar) > .maplibregl-map .maplibregl-ctrl-bottom-right {
+  :root:has(.view-bar) .app:is(:has(.tool-rail + .view-bar), .map-util) > .maplibregl-map .maplibregl-ctrl-bottom-right {
     right: calc(max(16px, env(safe-area-inset-right)) + var(--view-bar-w, 0px) + var(--float-gap));
     bottom: calc((var(--view-bar-h) - 24px) / 2); }
 }

@@ -130,7 +130,7 @@ import { ToolDock } from './ToolDock'
 import { armedReadout } from '../lib/armedTool'
 import { PlanCompass } from './PlanCompass'
 import { OrientSlider } from './OrientSlider'
-import { RailKey, ToolRail } from './ToolRail'
+import { RailKey, ToolRail, ViewBar } from './ToolRail'
 import { FIT_KEY, keyOwnedElsewhere, type ToolCmd } from '../lib/hotkeys'
 import { routeEscape } from '../lib/hotkeyRoute'
 import { TafelPageStrip } from './TafelPageStrip'
@@ -2177,6 +2177,42 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
       </div>
     </div>
   )
+  // The plan's VIEW controls – Einpassen · the Gebäude's north dial · + − – ONE set for both
+  // places they stand: the rail's view bar (ToolRail · controls), and on a tablet a plan with NO
+  // rail (the Wiedergabe, a viewer-only plan) puts them in the same ViewBar in the same bottom-right
+  // corner (owner, Üben feedback 27.11.2026: «every UI has the core elements at the same place»).
+  // `railed`: the set stands in the rail's view bar, where + − are mouse-only like the Karte's;
+  // without a rail they stay on touch too (owner pick 25.11.2026: the Karte & Objekte plan reader
+  // keeps «Einpassen + −» – it has no other way to zoom but a pinch).
+  const viewControls = (railed: boolean) => (
+    <>
+      {/* ⚠️ NO Ebenen row here (15.09.2026). The map's view bar opens a panel with
+          the deployment's layers in it; this one opened an empty room — the Plan's twin
+          rows went with the unified object model, and the sheet is lent nothing that can
+          be switched. A word that answers a press with nothing is worse than no word. */}
+      {/* «Einpassen» — where the map's view bar carries its compass / views button: the
+          one control that puts the whole surface back in front of you. */}
+      <button className="vrail-nbtn vrail-fit" title={appConfig.copy.nav.fit} aria-label={appConfig.copy.nav.fit} disabled={scale === 1 && pos.x === 0 && pos.y === 0} onClick={() => applyView(1, { x: 0, y: 0 })}><span className="vrail-glyph"><Icon id="cross" /></span><span className="vrail-label">{appConfig.copy.nav.fit}</span><RailKey k={FIT_KEY} /></button>
+      {/* the Gebäude's north dial (PlanCompass) – where the Karte's view bar carries its
+          compass, and on a phone in the bottom bar beside «Einpassen» (20.10.2026, UX sweep
+          M7; it floated top-right until then). It turns with the view, and where the building
+          can be turned it is THE door to «Gebäude drehen» on every device – one door, so the
+          rail's old separate compass tile (gone 29.09.2026, sweep K6) does not come back. */}
+      {stack && fpView && (
+        <PlanCompass variant="rail" deg={northDeg ?? shownAngle} northUnknown={northDeg == null}
+          controls={canOrient && !readOnly ? orientControls : undefined} onFit={() => applyView(1, { x: 0, y: 0 })} />
+      )}
+      {/* zoom ±: in a rail mouse only (.vrail-zoom is hidden under 1024px and on a coarse
+          pointer) — the plan pinches on every touch form factor, and «Einpassen» above covers
+          the one state that matters; without a rail always (see `railed`). «+» first, like the
+          Karte's (owner pick C9, 05.11.2026). In a rail the pair is its own group behind the
+          rails' one hairline (owner pick C12): the view bar draws it before the first
+          .vrail-zoom (07-toolrail), hidden with them. */}
+      <button className={cx('vrail-nbtn', railed && 'vrail-zoom')} title={appConfig.copy.nav.zoomIn} aria-label={appConfig.copy.nav.zoomIn} disabled={scale >= maxScale} onClick={() => zoom(1.3)}><span className="vrail-glyph"><Icon id="plus" /></span><span className="vrail-label">{appConfig.copy.nav.zoomIn}</span></button>
+      <button className={cx('vrail-nbtn', railed && 'vrail-zoom')} title={appConfig.copy.nav.zoomOut} aria-label={appConfig.copy.nav.zoomOut} disabled={scale <= MIN_SCALE} onClick={() => zoom(1 / 1.3)}><span className="vrail-glyph"><Icon id="minus" /></span><span className="vrail-label">{appConfig.copy.nav.zoomOut}</span></button>
+
+    </>
+  )
 
   // WHICH object's plans these are, on the surface the plans are used — the one thing about a
   // plan set that cannot be read off any of its pages. It sits at the top-left of the stage,
@@ -2303,13 +2339,16 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
         <b>{appConfig.copy.whiteboard.nearbyBannerTitle}</b>{' '}
         {fillTemplate(appConfig.copy.whiteboard.nearbyBannerBody, { incident: incidentAddress || appConfig.copy.whiteboard.nearbyBannerNoAddress, object: objectChipName, distance: nearbyDist })}
       </span>
-      {onObjectSwitch && (
-        <button type="button" className="wb-nearby-switch" onClick={onObjectSwitch}>{appConfig.copy.whiteboard.objectSwitchShort}</button>
-      )}
-      <button
-        type="button" className="wb-nearby-x" aria-label={appConfig.copy.closeDialog} title={appConfig.copy.closeDialog}
-        onClick={() => { dismissNearbyBanner(bannerKey); setBannerGone(bannerKey) }}
-      ><Icon id="close" /></button>
+      {/* the two actions wrap TOGETHER under the sentence where the lane is narrow (09-whiteboard) */}
+      <span className="wb-nearby-acts">
+        {onObjectSwitch && (
+          <button type="button" className="wb-nearby-switch" onClick={onObjectSwitch}>{appConfig.copy.whiteboard.objectSwitchShort}</button>
+        )}
+        <button
+          type="button" className="wb-nearby-x" aria-label={appConfig.copy.closeDialog} title={appConfig.copy.closeDialog}
+          onClick={() => { dismissNearbyBanner(bannerKey); setBannerGone(bannerKey) }}
+        ><Icon id="close" /></button>
+      </span>
     </div>
   ) : null
 
@@ -3108,10 +3147,6 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
             )}
           </div>
 
-          {/* floating zoom — only when the tool rail is hidden (viewer-only documents, replay);
-              with the rail present, zoom/fit live in its view bar (mirrors the map's
-              ToolRail). The phone keeps it either way: there the rail is a bottom bar whose
-              zoom buttons are CSS-hidden, so this is the plan's only zoom control. */}
           {/* the tool's number while a measure node is in the hand — fixed top-centre, where
               nothing moves while it changes; the label under the finger is suppressed above.
               Same class and reasoning as the Lage's readout (11-measure.css). */}
@@ -3120,21 +3155,9 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
               {measMode === 'line' ? fmtDistance(measLenM) : fmtArea(measAreaM2)}
             </div>
           )}
-          {readOnly && (!slimRail || isPhone) && (
-            // the view bar's tiles (button sweep CHROME.12, 17.11.2026): Einpassen ⌖ over its word by
-            // «Beschriftung», + − bare glyph squares – the act looks the same with and without a rail
-            <div className={`wb-zoom-float${railLabels === 'short' ? ' labelled' : ''}`} onPointerDown={(e) => e.stopPropagation()}>
-              <button className="vrail-nbtn wb-zoom-fit" onClick={() => applyView(1, { x: 0, y: 0 })} disabled={scale === 1 && pos.x === 0 && pos.y === 0} title={appConfig.copy.nav.fit} aria-label={appConfig.copy.nav.fit}><span className="vrail-glyph"><Icon id="cross" /></span><span className="vrail-label">{appConfig.copy.nav.fit}</span></button>
-              <button className="vrail-nbtn" onClick={() => zoom(1.3)} disabled={scale >= maxScale} title={appConfig.copy.nav.zoomIn} aria-label={appConfig.copy.nav.zoomIn}><span className="vrail-glyph"><Icon id="plus" /></span></button>
-              <button className="vrail-nbtn" onClick={() => zoom(1 / 1.3)} disabled={scale <= MIN_SCALE} title={appConfig.copy.nav.zoomOut} aria-label={appConfig.copy.nav.zoomOut}><span className="vrail-glyph"><Icon id="minus" /></span></button>
-            </div>
-          )}
-
-          {/* the Gebäude's north dial lives in the rail's view bar (below). A plan with NO rail – a
-              replay, a viewer-only document – keeps it as a read-out in the viewport's top-right
-              corner, NOT on the paper. Rendered AFTER the floating zoom so the chip can step
-              below it (PlanCompass.module.css). */}
-          {stack && fpView && readOnly && !slimRail && (
+          {/* the Gebäude's north dial lives in the view bar (`viewControls`). A PHONE's plan with NO
+              rail keeps it as a read-out in the viewport's top-right corner, NOT on the paper. */}
+          {stack && fpView && readOnly && !slimRail && isPhone && (
             <PlanCompass variant="float" deg={northDeg ?? shownAngle} northUnknown={northDeg == null} onFit={() => applyView(1, { x: 0, y: 0 })} />
           )}
 
@@ -3227,35 +3250,16 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
             if (id === 'symbol') { setPending(null); setPendingShape(null); setTool('symbol'); setPaletteOpen(true); return }
             setTool(tool === id ? 'pan' : (id as BoardTool)); setPending(null)
           }}
-          controls={
-            <>
-              {/* ⚠️ NO Ebenen row here (15.09.2026). The map's view bar opens a panel with
-                  the deployment's layers in it; this one opened an empty room — the Plan's twin
-                  rows went with the unified object model, and the sheet is lent nothing that can
-                  be switched. A word that answers a press with nothing is worse than no word. */}
-              {/* «Einpassen» — where the map's view bar carries its compass / views button: the
-                  one control that puts the whole surface back in front of you. */}
-              <button className="vrail-nbtn vrail-fit" title={appConfig.copy.nav.fit} aria-label={appConfig.copy.nav.fit} disabled={scale === 1 && pos.x === 0 && pos.y === 0} onClick={() => applyView(1, { x: 0, y: 0 })}><span className="vrail-glyph"><Icon id="cross" /></span><span className="vrail-label">{appConfig.copy.nav.fit}</span><RailKey k={FIT_KEY} /></button>
-              {/* the Gebäude's north dial (PlanCompass) – where the Karte's view bar carries its
-                  compass, and on a phone in the bottom bar beside «Einpassen» (20.10.2026, UX sweep
-                  M7; it floated top-right until then). It turns with the view, and where the building
-                  can be turned it is THE door to «Gebäude drehen» on every device – one door, so the
-                  rail's old separate compass tile (gone 29.09.2026, sweep K6) does not come back. */}
-              {stack && fpView && (
-                <PlanCompass variant="rail" deg={northDeg ?? shownAngle} northUnknown={northDeg == null}
-                  controls={canOrient && !readOnly ? orientControls : undefined} onFit={() => applyView(1, { x: 0, y: 0 })} />
-              )}
-              {/* zoom ±: mouse only (.vrail-zoom is hidden under 1024px and on a coarse pointer)
-                  — the plan pinches on every touch form factor, and «Einpassen» above covers the
-                  one state that matters. «+» first, like the Karte's (owner pick C9, 05.11.2026).
-                  The pair is its own group behind the rails' one hairline (owner pick C12): the
-                  view bar draws it before the first .vrail-zoom (07-toolrail), hidden with them. */}
-              <button className="vrail-nbtn vrail-zoom" title={appConfig.copy.nav.zoomIn} aria-label={appConfig.copy.nav.zoomIn} disabled={scale >= maxScale} onClick={() => zoom(1.3)}><span className="vrail-glyph"><Icon id="plus" /></span><span className="vrail-label">{appConfig.copy.nav.zoomIn}</span></button>
-              <button className="vrail-nbtn vrail-zoom" title={appConfig.copy.nav.zoomOut} aria-label={appConfig.copy.nav.zoomOut} disabled={scale <= MIN_SCALE} onClick={() => zoom(1 / 1.3)}><span className="vrail-glyph"><Icon id="minus" /></span><span className="vrail-label">{appConfig.copy.nav.zoomOut}</span></button>
-
-            </>
-          }
+          controls={viewControls(true)}
         />
+      )}
+      {/* a plan with NO rail (the Wiedergabe, a viewer-only document) on a tablet or laptop: its
+          view controls in the rail's own ViewBar, bottom right like on every surface (Üben feedback
+          27.11.2026 – they floated top right, the north dial a chip under them). ⚠️ Out here beside
+          the rail's, never inside `.wb-canvas`: there a press bubbled into the board's pan, which
+          captured the pointer and took the click from «Einpassen». */}
+      {readOnly && !slimRail && !isPhone && (
+        <ViewBar label={appConfig.copy.navRail.viewBar} labelled={railLabels === 'short'}>{viewControls(false)}</ViewBar>
       )}
 
       {/* the symbol's dock: [Unfall · Mehrere · Abbrechen] – the Lage map's twin (MapToolDocks). The

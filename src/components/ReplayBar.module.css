@@ -2,11 +2,23 @@
    A bottom-anchored read-only past view in the light "Karte Minimal" style: a clear
    VERLAUF/WIEDERGABE banner, a draggable track, the Verlauf as a lane of ticks under it,
    and the line the playhead stands in running along underneath. */
+/* ⚠️ The bar stands in the band BETWEEN the nav rail and the view bar, which holds the
+   bottom-right corner in the Wiedergabe like on every surface (MapControls · ViewBar, Whiteboard ·
+   viewControls; owner, Üben feedback 27.11.2026) – and the map's ⓘ, which steps left of that bar
+   (03-map), 24px plus a --float-gap more. Centred in the band, never wider than 760px. On a tablet
+   (601–1024px) the band is too narrow beside the bar, so the bar stands ABOVE the view bar
+   (`--view-bar-reserve`, below) and takes the band to the screen's edge. It was centred on the
+   screen and ran over the nav rail at 820px. */
 .replay {
-  position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%);
+  position: absolute; bottom: 18px;
+  left: calc(max(16px, env(safe-area-inset-left)) + var(--rail-w) + var(--float-gap));
+  right: calc(max(16px, env(safe-area-inset-right)) + var(--view-bar-w, 0px) + var(--float-gap) + 24px + var(--float-gap));
+  max-width: 760px; margin-inline: auto;
+  /* the query container of the controls row's wrap (below) */
+  container-type: inline-size;
   /* must clear the Plan whiteboard (.whiteboard z-index 20, inset:0) so the scrubber
      stays visible when replaying over the Plan surface, not just the Lagekarte */
-  width: min(760px, calc(100vw - 32px)); z-index: var(--z-replay);
+  z-index: var(--z-replay);
   display: flex; flex-direction: column; gap: 0;
   background: var(--glass); backdrop-filter: var(--float-blur);
   border-radius: var(--r-surface); box-shadow: var(--e4); overflow: hidden;
@@ -136,13 +148,23 @@
   position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap;
   font-family: var(--mono); font-size: var(--fs-micro); font-weight: var(--fw-bold); color: var(--ink-faint); }
 
+@media (--tablet) {
+  .replay { right: max(16px, env(safe-area-inset-right)); bottom: var(--view-bar-reserve); }
+}
+/* a bar narrower than its one row (a narrow tablet's band): the scrub track drops to its own
+   full-width row under transport + speed, as on a phone (below) */
+@container (max-width: 699px) {
+  .replay-controls { flex-wrap: wrap; row-gap: 4px; }
+  .replay-scrub { flex-basis: 100%; order: 3; }
+}
+
 @media (--phone) {
   /* replay scrubber → full-width, lifted above the NavRail bottom bar (still lets you
      toggle Lage/Plan during replay). It stands where the
      floating row does – one --float-gap over the highest bar, 8px from the edges (--float-floor;
      it was 10px up and 10px in, ui-conventions · ONE floating row) */
   .replay { left: max(var(--float-gap), env(safe-area-inset-left)); right: max(var(--float-gap), env(safe-area-inset-right));
-    bottom: var(--float-floor); width: auto; transform: none; }
+    bottom: var(--float-floor); max-width: none; margin-inline: 0; }
   /* the sentence «Schreibgeschützte Ansicht der Vergangenheit» stays, as the banner's second line
      (rare-user round, 17.11.2026: dropped here, a phone that just tapped ▶ saw «VERLAUF ·
      WIEDERGABE» and no word that nothing can be changed) – one line more, wrapped, never cut */

@@ -239,19 +239,17 @@ html.rail-dragging .layers-card { transition: none; }
     max-height: calc(100dvh - var(--rail-top) - var(--view-bar-reserve)); }
 }
 
-/* REPLAY (and any other view without the tool rail): both docks are positioned against
-   `--vrail-w` — a rail that is not on screen there. They were opening centred beside a phantom,
-   while the button that opened them floats top-right in .toputil. Anchor them under that
-   instead: same corner, same 10px channel, so the panel still belongs to its own button. */
-.map-util :is(.layers-card, .mv-dock) {
-  top: calc(16px + 42px + 10px); right: 16px; bottom: auto; transform: none;
-  max-height: calc(100dvh - 96px);
-}
+/* REPLAY (the one map without the tool rail): both docks are positioned against `--vrail-w` — a
+   rail that is not on screen there. Its view controls stand in the same view bar in the same
+   corner (MapControls · ViewBar, Üben feedback 27.11.2026), so the docks stand on that bar like
+   everywhere (above) and only lose the phantom rail's inset: the screen's 16px edge, over the
+   button that opened them. ⚠️ Keyed on the root, not `.map-util`'s descendants: the Ansichten
+   menu is portalled to <body> (MapViewsMenu), outside `.app`. */
+:root:has(.map-util) :is(.layers-card, .mv-dock) { right: 16px; }
 /* …and the detail panel with them: a tap on a replayed symbol opens `.ctx` read-only (the map
    surface is live during replay), and it was still inset for the rail that is not there. Only
    `right` moves — it keeps its own `top: 88px` and height budget on purpose, so entering replay
-   shifts the panel sideways and never vertically, and 88px also clears the utility cluster at
-   601–860px, where the cluster itself drops to top:80 (MapUtility.module.css). */
+   shifts the panel sideways and never vertically. */
 .map-util .ctx { right: 16px; }
 /* the title row STANDS while the list scrolls: it carries the ✕, and a long layer list (or a
    short phone viewport) scrolled the only way out of the sheet off the top. It was a sticky band

@@ -27,6 +27,7 @@ import { MeasuredField, ReadingAgain, ReadingHistory, ReadingInfo, ReadingOverHe
 import { sanitizeSvg } from '../lib/sanitizeSvg'
 import { bearing360 } from '../lib/planProjection'
 import { doneStatusText, isFireFamily } from '../lib/objectDone'
+import { smartHyphens } from '../lib/smartHyphens'
 
 // note ink colours = the drawing palette, so a red warning note matches a red line
 const NOTE_COLORS = appConfig.drawing.colors
@@ -879,7 +880,7 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
               made the mirrored object's sidebar a different, mostly empty object. */}
           {driver && !driver.onChange && (
             // the locked session's read-out: the same row, the value as every read-only field shows it
-            <div className="field"><span className="kv-key-ro">{C.driverLabel}</span><b className="kv-val-ro">{driver.value || '–'}</b></div>
+            <div className="field"><span className="kv-key-ro" ref={smartHyphens}>{C.driverLabel}</span><b className="kv-val-ro">{driver.value || '–'}</b></div>
           )}
           {driver?.onChange && (
             // The SAME row as the placed vehicle's preset «Fahrer» (label left, picker right —
@@ -887,7 +888,7 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
             // offers looked like a different kind of thing than the identical field next door.
             // A <label>, so tapping the word opens the picker.
             <label className="field">
-              <span className="kv-key-ro">{C.driverLabel}</span>
+              <span className="kv-key-ro" ref={smartHyphens}>{C.driverLabel}</span>
               {/* ⚠️ The SAME picker as every other roster field (sweep, 10.08.). This one had no
                   Dienstgrad, no «unter AS / Magazin / nicht anwesend» and no rank ordering — on
                   the one field where naming somebody who is already under Atemschutz is the
@@ -905,12 +906,12 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
             </label>
           )}
           {origin && !origin.onChange && (
-            <div className="field"><span className="kv-key-ro">{ORIGIN_FIELD}</span><b className="kv-val-ro">{origin.value || '–'}</b></div>
+            <div className="field"><span className="kv-key-ro" ref={smartHyphens}>{ORIGIN_FIELD}</span><b className="kv-val-ro">{origin.value || '–'}</b></div>
           )}
           {origin?.onChange && (
             // the SAME control as a placed vehicle's preset «Herkunft» row below (FieldControl)
             <label className="field">
-              <span className="kv-key-ro">{ORIGIN_FIELD}</span>
+              <span className="kv-key-ro" ref={smartHyphens}>{ORIGIN_FIELD}</span>
               <FieldControl fieldKey={ORIGIN_FIELD} value={originDraft} options={origin.options}
                 placeholder={valuePlaceholder(ORIGIN_FIELD)}
                 onInput={setOriginDraft} onCommit={(v) => { setOriginDraft(v); if (v !== origin.value) origin.onChange?.(v) }} />
@@ -1115,7 +1116,7 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
                   <Fragment key={i}>
                     {overHead}
                     <div className="field">
-                      <span className="kv-key-ro">{rowLabel(r.k)}</span>
+                      <span className="kv-key-ro" ref={smartHyphens}>{rowLabel(r.k)}</span>
                       {readOnly ? <b className="kv-val-ro">{r.v || '–'}</b> : field}
                     </div>
                   </Fragment>
@@ -1154,7 +1155,7 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
               note, 25.11.2026; it opened the sheet before: «is it vor Ort?» is the radio's
               question, but the inputs come first). */}
           {vehicleTimes.map((t) => (
-            <div key={t.label} className="field"><span className="kv-key-ro">{t.label}</span><b className="kv-val-ro">{t.value}</b></div>
+            <div key={t.label} className="field"><span className="kv-key-ro" ref={smartHyphens}>{t.label}</span><b className="kv-val-ro">{t.value}</b></div>
           ))}
 
           {/* a Messpunkt's «Gleich gemessen», its limits behind an ⓘ, then its readings, one row per

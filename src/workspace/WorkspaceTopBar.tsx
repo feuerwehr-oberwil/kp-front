@@ -220,8 +220,8 @@ export function WorkspaceTopBar({
         // duplicate it AND crowd the narrow bar off its right edge (clipping the Atemschutz
         // alarm chip). A Plan's bottom bar carries «Einpassen» as its own tile too (20.09.2026:
         // the top-bar twin went) – so this is left ONLY for the sheets that have no bar at all:
-        // a viewer-only Modul, the Gebäude pick surface, a replay. There the floating zoom is
-        // dropped on a phone (15-mobile.css · .wb-zoom-float) and this is the one way back.
+        // a viewer-only Modul, the Gebäude pick surface, a replay. A phone's plan has no other
+        // zoom control there, so this is the one way back.
         mapNav={isPhone && mode === 'plans' && !phoneTools
           ? { action: { icon: 'cross', label: appConfig.copy.nav.fit, onClick: () => planFit.current?.() } }
           : null}

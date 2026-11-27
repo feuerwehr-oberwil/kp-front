@@ -496,7 +496,7 @@ body.sel-transforming .wb-grow { display: none; }
   border: 1px solid var(--glass-line); border-radius: var(--r-cluster); box-shadow: var(--e4);
   padding: 12px 16px; font: var(--fw-bold) var(--fs-3)/1 var(--mono); color: var(--ink); font-variant-numeric: tabular-nums;
   word-spacing: -.3ch; pointer-events: none; white-space: nowrap; }
-/* below 860px the TopBar spans the full width (see MapUtility · .toputil) — drop under it.
+/* below 860px the TopBar spans the full width — drop under it.
    ⚠️ 76px, not the 66px it sat at until 05.09.: the bar is ~58px under a 10px offset, so 66
    parked the pill flush against its underside with no gap at all, while everything else that
    hangs under the bar — the Meteo read-out and the Standort pille (15-mobile.css · .phone-wx /

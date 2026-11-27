@@ -245,7 +245,11 @@
 /* Preset / read-only detail fields render as plain .field rows (label left, control right) — the
    SAME row as the Darstellung steppers above, so a «Typ» sits identically to a «Luftrichtung». Their
    label reuses .kv-key-ro, styled to match .field span. Only USER-added custom fields keep the
-   editable key box + delete (.kv-row). */
+   editable key box + delete (.kv-row).
+   A key one word wider than the label column («Geschwindigkeit» of a GPS vehicle) is hyphenated,
+   never broken mid-letter by the column's `overflow-wrap` («Geschwindigkei / t», Üben feedback
+   27.11.2026): ContextPanel puts lib/smartHyphens on every .kv-key-ro, which sets `hyphens: auto`
+   only where a word cannot fit or hyphenating saves a line. */
 .kv-key-ro { font-size: var(--fs-2); font-weight: var(--fw-medium); color: var(--ink-dim); }
 .field b.kv-val-ro { font-family: var(--mono); font-weight: var(--fw-medium); }
 /* editable custom key/value rows */

@@ -236,8 +236,8 @@ function ViewsPopover({ api, readOnly, coordsOn, onToggleCoords, onClose, dockRe
  *  owner: «live-update the compass while rotating similar to the wind direction») — the same
  *  per-frame store the wind arrow reads (lib/liveBearing), so only this span re-renders per
  *  frame, never the button, its menu or IncidentWorkspace. `bearing` is the settled one, used
- *  while no Karte is mounted. NO transition on it (MapUtility.module.css · .compass,
- *  07-toolrail · .vrail-compass): per frame it would only trail the finger, and at the ±180°
+ *  while no Karte is mounted. NO transition on it (07-toolrail · .vrail-compass,
+ *  KarteApp · utilGlyph): per frame it would only trail the finger, and at the ±180°
  *  seam MapLibre's bearing flips sign, which a transition spins the long way round. */
 function CompassGlyph({ bearing, className }: { bearing: number; className: string }) {
   const live = useLiveBearing(bearing)

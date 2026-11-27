@@ -2,8 +2,8 @@
    · the RAIL tile – the plan rail's view bar on a tablet, the bottom tool bar on a phone. It is a
      `.vrail-nbtn .vrail-views` tile, so 07-toolrail and 15-mobile size and place it exactly like
      the Karte's compass; this file only turns its glyph and quiets the read-out;
-   · the FLOAT chip below – the viewport's top-right corner, only on a plan with no rail at all.
-     Glass on a round 44px target, the map's floating utilities' recipe (MapUtility · .phone-wx). */
+   · the FLOAT chip below – the viewport's top-right corner, only on a phone's plan with no rail.
+     Glass on a round 44px target, the map's floating utilities' recipe (15-mobile · .phone-wx). */
 
 /* no transition: the glyph follows the slider's live preview, like the Karte's needle
    (07-toolrail · .vrail-compass) */
@@ -38,38 +38,9 @@
 }
 .chip.btn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 
-/* A read-only plan floats its zoom cluster in exactly this corner (09-whiteboard · .wb-zoom-float,
-   rendered just before this chip) — the compass then takes the next line down instead of landing
-   on it. */
-/* The cluster's height, from its parts (09-whiteboard): the view bar's tiles (46px bare, the
-   `--vrail-tile` with «Beschriftung» – `.labelled`) + 2 × --bar-pad + 2 × 1px border, and the one
-   --float-gap under it (button sweep CHROME.12, 17.11.2026; it was 40px buttons in a 3px group). */
-:global(.wb-zoom-float) ~ .chip { top: calc(16px + 46px + 2 * var(--bar-pad) + 2px + var(--float-gap) + env(safe-area-inset-top)); }
-:global(.wb-zoom-float.labelled) ~ .chip { top: calc(16px + var(--vrail-tile) + 2 * var(--bar-pad) + 2px + var(--float-gap) + env(safe-area-inset-top)); }
-
-/* Below 860px the top bar runs the full width (15-mobile · «TopBar ⇄ top-right utilities»), so the
-   chip drops under the bar — what the map's cluster does at the same width. The second half of the
-   query is the landscape phone: wider than 860px, and its bar is full width too.
-   ⚠️ It also steps LEFT of the vertical tool rail here. That rail is `top: 88px` whenever its
-   buttons fill the column (09-whiteboard · .wb-tools), which on a short narrow window — a Split
-   View, a small desktop window — reaches straight into the line the chip just moved to. Same
-   inset the tool dock uses to sit beside it, so an expanded rail pushes the chip along. */
-@media (max-width: 860px), (--phone-landscape) {
-  .chip { top: calc(80px + env(safe-area-inset-top)); right: calc(var(--vrail-w, 60px) + 26px); }
-  /* …the zoom cluster dropped to that same line (09-whiteboard), so the dial takes the next */
-  :global(.wb-zoom-float) ~ .chip { top: calc(80px + 46px + 2 * var(--bar-pad) + 2px + var(--float-gap) + env(safe-area-inset-top)); }
-  :global(.wb-zoom-float.labelled) ~ .chip { top: calc(80px + var(--vrail-tile) + 2 * var(--bar-pad) + 2px + var(--float-gap) + env(safe-area-inset-top)); }
-}
-/* …but that line is ALSO where an object's editor (`.ctx`: right = the same rail inset, top 88px)
-   opens, so at 820px the dial sat on the editor's corner and its ✕ — a press meant to close the
-   sheet could open «Gebäude drehen» (3am test, 25.09.2026). While an editor is open the dial steps
-   left of it, same line, 10px of air; the editor's width is the tablet's `--plan-ctx-w`
-   (06-contextpanel / 15-mobile). A phone's editor is a bottom sheet, hence the lower bound. */
-@media (min-width: 601px) and (max-width: 860px) and (min-height: 521px) {
-  :global(.app:has(.ctx)) .chip { right: calc(var(--vrail-w, 60px) + 26px + var(--plan-ctx-w, 360px) + 10px); }
-}
-/* …and on a phone the tool rail IS the bottom bar, so the corner is free again — and the floating
-   zoom cluster is not shown there at all (15-mobile), so its dodge goes back to the first line. */
+/* The chip stands on a PHONE's plan only (Whiteboard): a tablet's plan with no rail puts the dial
+   in its view bar, bottom right (Üben feedback 27.11.2026). Under the full-width top bar, at the
+   screen's edge – the tool rail IS the bottom bar there, so the corner is free. */
 @media (--phone) {
-  .chip, :global(.wb-zoom-float) ~ .chip, :global(.wb-zoom-float.labelled) ~ .chip { top: calc(80px + env(safe-area-inset-top)); right: max(10px, env(safe-area-inset-right)); }
+  .chip { top: calc(80px + env(safe-area-inset-top)); right: max(10px, env(safe-area-inset-right)); }
 }

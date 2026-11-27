@@ -1542,8 +1542,10 @@ describe('the Gebäude north dial answers one tap, every time', () => {
     expect(within(canvas as HTMLElement).queryByRole('img', { name: appConfig.copy.whiteboard.northTitle })).toBeNull()
   })
 
-  // …and a plan with no rail at all (a replay) has nowhere else to show north
-  it('without a rail (a replay) it stays a read-out in the viewport corner', () => {
+  // …and a plan with no rail at all (a replay) keeps the SAME view bar in the same corner, the dial
+  // a read-out in it beside «Einpassen» (owner, Üben feedback 27.11.2026: «every UI has the core
+  // elements at the same place» – they floated top right, the dial a chip under them)
+  it('without a rail (a replay) it stays a read-out, in the same view bar', () => {
     const { container } = render(<Whiteboard
       plans={[umrisse, gebaeudeDoc, tafel]} activeId="gebaeude" annos={[]} onChange={() => {}}
       building={footprint} onSelectBuilding={() => {}} onBuildingFace={() => {}} onReorient={() => {}}
@@ -1551,7 +1553,17 @@ describe('the Gebäude north dial answers one tap, every time', () => {
       hist={{}} setHist={() => {}} focus={null}
     />)
     expect(container.querySelector('.wb-tools')).toBeNull()
-    expect(screen.getByRole('img', { name: appConfig.copy.whiteboard.northTitle })).toBeTruthy()
+    const bar = within(container.querySelector('.view-bar') as HTMLElement)
+    expect(bar.getByRole('img', { name: appConfig.copy.whiteboard.northTitle })).toBeTruthy()
+    expect(bar.getByRole('button', { name: appConfig.copy.nav.fit })).toBeTruthy()
+    // + − stay on touch here (no .vrail-zoom, which hides them on a coarse pointer): the Karte &
+    // Objekte plan reader keeps «Einpassen + −» (owner pick 25.11.2026)
+    for (const name of [appConfig.copy.nav.zoomIn, appConfig.copy.nav.zoomOut]) {
+      expect(bar.getByRole('button', { name }).classList.contains('vrail-zoom')).toBe(false)
+    }
+    // …beside the rail's, never in the canvas: a press there bubbles into the board's pan, which
+    // captures the pointer and takes the click from «Einpassen»
+    expect(container.querySelector('.wb-canvas .view-bar')).toBeNull()
     expect(screen.queryByRole('button', { name: TURN })).toBeNull()
   })
 
