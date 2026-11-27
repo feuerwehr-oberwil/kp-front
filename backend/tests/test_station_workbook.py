@@ -764,5 +764,21 @@ async def test_a_workbook_does_not_write_back_an_over_long_value_it_never_touche
     assert body["ok"] is False
     assert any("report.links.0.title" in e and "120" in e for e in body["errors"])
     r = await client.post("/api/station-workbook/import", files=upload(make_xlsx(data)))
-    assert r.status_code == 400
+    assert r.status_code == 422  # the autosave's refusal, field and all
+    assert [(e["type"], e["loc"]) for e in r.json()["detail"]] == [
+        ("string_too_long", ["body", "report", "links", "0", "title"])
+    ]
     assert await stored(station) == before
+
+
+@pytest.mark.parametrize("document", [[1], []], ids=["list", "empty-list"])
+async def test_a_stored_document_that_is_not_one_refuses_the_workbook(client, station, document):
+    """Only a missing row is «no document»: a list (empty or not) is refused, never a 500 and
+    never an empty config an import could fill."""
+    row = (await station.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one()
+    row.config_json = document
+    await station.commit()
+    r = await client.post(
+        "/api/station-workbook/preview", files=upload(make_xlsx({SHEET_FAHRZEUGE: [["adl-41", "ADL 41"]]}))
+    )
+    assert r.status_code == 400 and "lässt sich nicht lesen" in r.json()["detail"]

@@ -520,3 +520,22 @@ async def test_a_refused_logo_upload_stores_no_file(client, admin_login, session
     assert r.status_code == 422
     assert stored_files == []
     assert await _stored(session_factory) == document
+
+
+@pytest.mark.asyncio
+async def test_a_snapshot_with_a_value_past_its_cap_is_not_restored(client, admin_login, session_factory):
+    """A restore STORES a whole document, so the caps hold: such a snapshot is refused (as on
+    base), and the row stays as it was."""
+    from app.models import DeploymentConfigHistory
+
+    await admin_login(client)
+    await _store(session_factory, STATION)
+    async with session_factory() as db:
+        snapshot = {"report": {"links": [{**LINK, "title": "t" * 121}]}}
+        entry = DeploymentConfigHistory(config_json=snapshot, source="api")
+        db.add(entry)
+        await db.commit()
+        entry_id = entry.id
+    r = await client.post(f"/api/config/history/{entry_id}/restore")
+    assert r.status_code == 422 and "nicht wiederherstellen" in r.text
+    assert await _stored(session_factory) == STATION

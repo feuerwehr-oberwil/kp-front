@@ -93,6 +93,7 @@ from ..schemas import (
     DeploymentConfigIn,
     DeploymentConfigOut,
     load_stored_config,
+    stored_config_for_write,
 )
 
 logger = logging.getLogger(__name__)
@@ -672,7 +673,9 @@ async def restore_config(
     # snapshot that cannot be served (it does not read back as itself) must not be committed and
     # then fail as the response – that left the row on a document every later read refused.
     try:
-        doc = load_stored_config(entry.config_json)
+        # a whole document to STORE, so the caps hold (`stored_config_for_write`): a snapshot with
+        # a value past its cap is refused, as before this read let such values pass
+        doc = stored_config_for_write(entry.config_json)
         # ⚠️ The brandmark is carried from the LIVE document, not taken from the restored one —
         # the same rule a PUT follows. Restoring a config from before a logo upload must not
         # delete the logo: the asset URLs are written by the upload endpoints and point at blobs

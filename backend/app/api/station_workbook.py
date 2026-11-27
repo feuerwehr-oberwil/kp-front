@@ -58,6 +58,7 @@ from ..services.station_workbook import (
     parse_workbook,
     plan_import,
 )
+from .config import refused_as_input
 
 router = APIRouter(prefix="/station-workbook", tags=["station-workbook"])
 
@@ -76,7 +77,9 @@ async def _stored_config(db: AsyncSession, *, lock: bool = False) -> tuple[Deplo
         if lock
         else (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
     )
-    return row, dict((row.config_json if row else None) or {})
+    # as it lies – only a missing row or SQL NULL is «no document»; anything else (a list, an
+    # empty list) goes to the planner's read, which refuses what it cannot read
+    return row, row.config_json if row is not None and row.config_json is not None else {}
 
 
 async def _identity_pairs(db: AsyncSession) -> dict[uuid.UUID, tuple[str, str]]:
@@ -227,6 +230,8 @@ async def import_workbook(
             detail="Die Datei hat sich seit der Vorschau geändert. Bitte die Vorschau neu erstellen.",
         )
     plan = await plan_workbook(db, data, lock=True)
+    if plan.refused is not None:  # the merged document may not be stored: the autosave's 422
+        raise refused_as_input(plan.refused)
     if not plan.preview.ok:
         raise HTTPException(
             status_code=400,

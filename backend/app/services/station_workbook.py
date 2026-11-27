@@ -966,11 +966,14 @@ class ImportPlan:
     """
 
     preview: WorkbookPreview
-    #: the projected config document, already normalized through `load_stored_config`
+    #: the projected config document, normalized through `stored_config_for_write`
     config: dict[str, Any]
     #: whether the config document changed at all (an unchanged one is not written)
     config_changed: bool
     roster: RosterPlan | None
+    #: why the merged document may not be stored (a value past its cap the workbook never
+    #: touched) – the import answers it as the autosave's 422; the preview lists it as an error
+    refused: ValidationError | None = None
     #: the Personal rows the plan was built from, index-aligned with ``roster.targets`` —
     #: the write needs the ``Aktiv`` flag, which a RosterCsvRow has no room for
     personal_rows: list[PersonRow] = field(default_factory=list)
@@ -1249,9 +1252,11 @@ def plan_import(
     # never touched.
     # …and as a document to STORE (`stored_config_for_write`): a value past its length cap in a
     # section the workbook never touched is refused, never written back.
+    refused: ValidationError | None = None
     try:
         normalized = stored_config_for_write(_changed_onto(raw, base, projected)).model_dump(mode="json")
     except ValidationError as exc:
+        refused = exc
         errors.append(
             "Die Daten aus der Arbeitsmappe ergeben keine gültige Stations-Konfiguration: "
             + " · ".join(format_validation_errors(exc))
@@ -1277,6 +1282,7 @@ def plan_import(
         config=normalized,
         config_changed=normalized != base,
         roster=roster_plan,
+        refused=refused,
         personal_rows=list(parsed.personal.rows),
         roster_index=index,
         name_order=order,
