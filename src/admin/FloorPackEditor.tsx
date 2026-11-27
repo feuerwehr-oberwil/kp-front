@@ -436,19 +436,20 @@ function FloorSheet({ zoom, item, page, entries, selected, mode, labelOf, indexO
   /** the join point under the finger while it is being dragged – drawn there, committed on release */
   const [held, setHeld] = useState<{ hit: JoinPointHit; at: Pt } | null>(null)
   const [aim, setAim] = useState<{ point: Pt; left: number; top: number } | null>(null)
+  /** what the edit was started against still stands: its mode (floor, join phase), page, selection */
+  const standing = (r: Edit) => r.mode === mode && r.page === page && r.selected === selected
   /** drops the edit in progress – dropping it IS the cancellation, nothing of it is written.
    *  `giveBack` when a second touch took the sheet over: a grab selected what it took hold of,
-   *  and the selection goes back to what it was before the press. */
+   *  and the selection goes back to what it was before the press – unless something newer has
+   *  changed it since (then the grab no longer owns the selection). */
   const drop = (giveBack = false) => {
     const was = edit.current
     edit.current = null
-    if (giveBack && was?.before && was.before !== was.selected) onSelect(was.before)
+    if (giveBack && was?.before && was.before !== was.selected && standing(was)) onSelect(was.before)
     setAim(null); setShift(null); setHeld(null); setDraft(null)
   }
-  /** what the edit was started against still stands: its mode (floor, join phase), page, selection */
-  const standing = (r: Edit) => r.mode === mode && r.page === page && r.selected === selected
   // a mouse or pen edit keeps the sheet: touches neither cancel it nor start a pan under it
-  const { viewport, handlers: pan, reset: resetPan } = usePan(() => {
+  const { viewport, handlers: pan, reset: resetPan, panning } = usePan(() => {
     if (edit.current && edit.current.pointerType !== 'touch') return false
     drop(true)
     return true
@@ -504,8 +505,8 @@ function FloorSheet({ zoom, item, page, entries, selected, mode, labelOf, indexO
   const modeEntry = mode ? entries.find((e) => e.key === mode.key) : undefined
   const clampShift = (c: Clip, dx: number, dy: number): Pt => [Math.min(1 - c[2], Math.max(-c[0], dx)), Math.min(1 - c[3], Math.max(-c[1], dy))]
   const down = (e: ReactPointerEvent) => {
-    // the sheet belongs to the pointer holding an edit; another press waits (a second touch is the pan's)
-    if (edit.current && edit.current.pointerId !== e.pointerId) return
+    // the sheet belongs to the pointer holding an edit, or to the pan; another press waits
+    if (panning() || (edit.current && edit.current.pointerId !== e.pointerId)) return
     const p = norm(e); if (!p) return
     drop()
     setAim({ point: p, left: e.clientX, top: e.clientY })
@@ -524,21 +525,22 @@ function FloorSheet({ zoom, item, page, entries, selected, mode, labelOf, indexO
         // is the joined floor, or the sheet would turn to the other page under the finger
         const owner = entries.find((en) => en.key === point.key)
         const key = point.end === 'there' && owner?.join && owner.page !== page ? owner.join.toKey : point.key
-        hold({ kind: 'point', hit: point }, key)
+        const at = clampToClip(p, joinPointClip(entries, point))
+        hold({ kind: 'point', hit: point, at }, key)
         onSelect(key)
-        setHeld({ hit: point, at: clampToClip(p, joinPointClip(entries, point)) })
+        setHeld({ hit: point, at })
         return
       }
       const hit = hitRegion(p)
       if (!hit?.clip) return
-      hold({ kind: 'box', key: hit.key, from: p, clip: hit.clip }, hit.key)
+      hold({ kind: 'box', key: hit.key, from: p, clip: hit.clip, shift: [0, 0] }, hit.key)
       onSelect(hit.key)
       return
     }
     if (!modeEntry) return
     if (mode.kind === 'join') { hold({ kind: 'tap', at: p }); return }
     if (modeEntry.page !== page) { e.preventDefault(); e.stopPropagation(); return }
-    hold({ kind: 'rect' })
+    hold({ kind: 'rect', from: p, to: p })
     setDraft({ x0: p[0], y0: p[1], x1: p[0], y1: p[1] })
   }
   /** a join tap at `p`, the point pressed: the first point in the mode's own drawing, then the same
@@ -556,9 +558,15 @@ function FloorSheet({ zoom, item, page, entries, selected, mode, labelOf, indexO
     if (r && !standing(r)) { drop(); return }
     const p = norm(e); if (!p) return
     setAim({ point: p, left: e.clientX, top: e.clientY })
-    if (r?.kind === 'point') setHeld({ hit: r.hit, at: clampToClip(p, joinPointClip(entries, r.hit)) })
-    else if (r?.kind === 'box') { const [dx, dy] = clampShift(r.clip, p[0] - r.from[0], p[1] - r.from[1]); setShift({ key: r.key, dx, dy }) }
-    else if (r?.kind === 'rect' && draft) setDraft({ ...draft, x1: p[0], y1: p[1] })
+    if (r?.kind === 'point') {
+      const at = clampToClip(p, joinPointClip(entries, r.hit))
+      edit.current = { ...r, at }; setHeld({ hit: r.hit, at })
+    } else if (r?.kind === 'box') {
+      const [dx, dy] = clampShift(r.clip, p[0] - r.from[0], p[1] - r.from[1])
+      edit.current = { ...r, shift: [dx, dy] }; setShift({ key: r.key, dx, dy })
+    } else if (r?.kind === 'rect') {
+      edit.current = { ...r, to: p }; setDraft({ x0: r.from[0], y0: r.from[1], x1: p[0], y1: p[1] })
+    }
   }
   /** the owner's release writes its edit – if what it was started against still stands */
   const up = (e: ReactPointerEvent) => {
@@ -569,19 +577,19 @@ function FloorSheet({ zoom, item, page, entries, selected, mode, labelOf, indexO
     if (r.kind === 'tap') { joinTap(r.at); return }
     if (r.kind === 'point') {
       // one undo step per drag; a point put back where it was changes nothing and makes none
-      if (held) onMovePoint(r.hit, held.at)
+      onMovePoint(r.hit, r.at)
       setHeld(null); return
     }
     if (r.kind === 'box') {
-      if (shift && (Math.abs(shift.dx) > 0.002 || Math.abs(shift.dy) > 0.002)) {
-        const dx = round(shift.dx), dy = round(shift.dy)
+      if (Math.abs(r.shift[0]) > 0.002 || Math.abs(r.shift[1]) > 0.002) {
+        const dx = round(r.shift[0]), dy = round(r.shift[1])
         onMove(r.key, [round(r.clip[0] + dx), round(r.clip[1] + dy), round(r.clip[2] + dx), round(r.clip[3] + dy)], dx, dy)
       }
       setShift(null); return
     }
     setDraft(null)
-    if (!draft || mode?.kind !== 'region') return
-    const x0 = Math.min(draft.x0, draft.x1), x1 = Math.max(draft.x0, draft.x1), y0 = Math.min(draft.y0, draft.y1), y1 = Math.max(draft.y0, draft.y1)
+    if (mode?.kind !== 'region') return
+    const x0 = Math.min(r.from[0], r.to[0]), x1 = Math.max(r.from[0], r.to[0]), y0 = Math.min(r.from[1], r.to[1]), y1 = Math.max(r.from[1], r.to[1])
     if (x1 - x0 < 0.02 || y1 - y0 < 0.02) return // a tap, not a rectangle
     onClip(mode.key, [round(x0), round(y0), round(x1), round(y1)])
   }
@@ -636,8 +644,10 @@ function FloorSheet({ zoom, item, page, entries, selected, mode, labelOf, indexO
 const round = (v: number) => Math.round(v * 10000) / 10000
 
 /** what an edit on the sheet is: a join tap (written on release at the point pressed), a
- *  rectangle being drawn, a join point dragged, a placed rectangle moved */
-type EditKind = { kind: 'tap'; at: Pt } | { kind: 'rect' } | { kind: 'point'; hit: JoinPointHit } | { kind: 'box'; key: string; from: Pt; clip: Clip }
+ *  rectangle being drawn, a join point dragged, a placed rectangle moved – each with its live
+ *  geometry, which the release writes (the drawn preview is React state and may lag a frame) */
+type EditKind = { kind: 'tap'; at: Pt } | { kind: 'rect'; from: Pt; to: Pt } | { kind: 'point'; hit: JoinPointHit; at: Pt }
+  | { kind: 'box'; key: string; from: Pt; clip: Clip; shift: Pt }
 /** The edit in progress on the sheet, bound to the pointer that pressed (its id and type) and to
  *  what it was started against: the mode (floor and join phase), the page and the selection it
  *  stands on – a grab's own selection for a grab. `before` is the selection before the press. */
@@ -684,10 +694,12 @@ function usePan(takeOver: () => boolean) {
   const frames = useRef<ReturnType<typeof frameBatch> | null>(null)
   const batch = () => (frames.current ??= frameBatch(step))
   const reset = () => { batch().cancel(); pointers.current.clear(); panning.current = false; from.current = null }
-  /** a touch lifts (`abnormal`: cancelled or its capture lost – its waiting travel is dropped) */
+  /** a touch lifts (`abnormal`: cancelled or its capture lost – if that breaks the pair, the
+   *  waiting travel is dropped) */
   const end = (e: ReactPointerEvent, abnormal: boolean) => {
     if (e.pointerType !== 'touch' || !pointers.current.has(e.pointerId)) return
-    if (panning.current) { if (abnormal) batch().cancel(); else batch().flush() }
+    // the travel so far, before the pair changes – dropped only when the pan itself breaks off
+    if (panning.current) { if (abnormal && pointers.current.size <= 2) batch().cancel(); else batch().flush() }
     pointers.current.delete(e.pointerId)
     if (!panning.current) return
     e.stopPropagation()
@@ -720,7 +732,9 @@ function usePan(takeOver: () => boolean) {
     onPointerCancelCapture: (e: ReactPointerEvent) => end(e, true),
     onLostPointerCaptureCapture: (e: ReactPointerEvent) => end(e, true),
   }
-  return { viewport, handlers, reset }
+  /** the pan holds the sheet – from its second touch until its last one lifts */
+  const isPanning = () => panning.current
+  return { viewport, handlers, reset, panning: isPanning }
 }
 /** how close a press has to be to a join point to grab it, in screen pixels – a 6px circle is a
  *  mark to read, not a target to hit, so the reach is a fingertip's */

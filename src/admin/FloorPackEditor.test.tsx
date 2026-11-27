@@ -451,6 +451,48 @@ describe('two fingers on the sheet', () => {
     expect(onDraft.mock.lastCall?.[0].floors[0].clip).toEqual([0.1, 0.1, 0.5, 0.5])
   })
 
+  it('start no pen or mouse edit while two fingers move the sheet', () => {
+    const { container, sheet, onDraft, at } = setup({ width: 1000, height: 700 })
+    const pen = (x: number, y: number) => ({ pointerId: 8, pointerType: 'pen', clientX: x, clientY: y })
+    fireEvent.click(screen.getByRole('button', { name: 'Bereich zeichnen' }))
+    fireEvent.pointerDown(sheet, at(1, 100, 100)); fireEvent.pointerDown(sheet, at(2, 300, 100))
+    fireEvent.pointerDown(sheet, pen(100, 70)); fireEvent.pointerMove(sheet, pen(500, 350))
+    expect(container.querySelector('.adm-floors-box.draft')).toBeNull()
+    fireEvent.pointerUp(sheet, pen(500, 350))
+    fireEvent.pointerUp(sheet, at(1, 100, 100)); fireEvent.pointerUp(sheet, at(2, 300, 100))
+    expect(onDraft.mock.lastCall?.[0].floors[0].clip).toBeNull()
+  })
+
+  it('leave a selection made after the grab when a second finger takes over', () => {
+    const clip = (x0: number, x1: number): [number, number, number, number] => [x0, 0.05, x1, 0.95]
+    const three = { ...a0, floors: [{ page: 0, index: 1, name: null, clip: clip(0.02, 0.3) }, { page: 0, index: 0, name: null, clip: clip(0.35, 0.65) }, { page: 0, index: -1, name: null, clip: clip(0.7, 0.98) }] }
+    const { sheet, at } = setup({ width: 1000, height: 700 }, three)
+    const open = () => screen.getAllByRole('listitem').findIndex((row) => row.classList.contains('active'))
+    fireEvent.click(screen.getAllByRole('listitem')[0])
+    fireEvent.pointerDown(sheet, at(1, 500, 300)) // grabs the EG's box, which selects it
+    expect(open()).toBe(1)
+    fireEvent.click(screen.getAllByRole('listitem')[2]) // something newer selects −1
+    fireEvent.pointerDown(sheet, at(2, 900, 300)) // the pan takes over
+    expect(open()).toBe(2) // the newer selection stays
+  })
+
+  it('keep the pair\'s waiting travel when a third finger is cancelled', () => {
+    const { sheet, viewport, at } = setup({ width: 1000, height: 700 })
+    fireEvent.pointerDown(sheet, at(1, 300, 100)); fireEvent.pointerDown(sheet, at(2, 400, 100)); fireEvent.pointerDown(sheet, at(3, 100, 300))
+    fireEvent.pointerMove(sheet, at(1, 250, 100)); fireEvent.pointerMove(sheet, at(2, 350, 100))
+    fireEvent.pointerCancel(sheet, at(3, 100, 300))
+    frame()
+    expect([viewport.scrollLeft, viewport.scrollTop]).toEqual([50, 0])
+  })
+
+  it('write the rectangle where the finger was released, also within one render', () => {
+    const { sheet, onDraft, at } = setup({ width: 1000, height: 700 })
+    fireEvent.click(screen.getByRole('button', { name: 'Bereich zeichnen' }))
+    fireEvent.pointerDown(sheet, at(1, 100, 70))
+    act(() => { fireEvent.pointerMove(sheet, at(1, 500, 350)); fireEvent.pointerUp(sheet, at(1, 500, 350)) })
+    expect(onDraft.mock.lastCall?.[0].floors[0].clip).toEqual([0.1, 0.1, 0.5, 0.5])
+  })
+
   it('leave a sheet that fits its viewport where it is', () => {
     const { sheet, viewport, at } = setup({ width: 500, height: 400 })
     fireEvent.pointerDown(sheet, at(1, 100, 100)); fireEvent.pointerDown(sheet, at(2, 300, 100))
