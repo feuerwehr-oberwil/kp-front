@@ -85,7 +85,14 @@ from .credentials import load as load_credentials
 from .deployment_config import config_row, read_config
 from .geocode import locate_coordinates
 from .models import ObjectSite, SharePointSyncState
-from .plans import lock_object_plans, lock_object_rows, plan_max_bytes, store_plan, try_plan_maintenance
+from .plans import (
+    ObjectGoneError,
+    lock_object_plans,
+    lock_object_rows,
+    plan_max_bytes,
+    store_plan,
+    try_plan_maintenance,
+)
 from .schemas import SharePointArea, SharePointConfig, SharePointSource
 from .sharepoint_graph import GraphAuthError, GraphClient, GraphDeltaExpiredError, GraphError, RemoteFile
 
@@ -736,15 +743,20 @@ async def _sync_plans(
             logger.warning("SharePoint plans: %s is not a PDF — skipped", file.path)
             continue
         obj = await _object_for(db, identity, file.path.split("/")[0])
-        await store_plan(
-            db,
-            obj,
-            module,
-            data,
-            title=None,  # keep whatever the object/admin already calls it
-            source_type="sharepoint",
-            fetch_url=f"sharepoint:{file.path}",
-        )
+        try:
+            await store_plan(
+                db,
+                obj,
+                module,
+                data,
+                title=None,  # keep whatever the object/admin already calls it
+                source_type="sharepoint",
+                fetch_url=f"sharepoint:{file.path}",
+            )
+        except ObjectGoneError:
+            out.skip("its Einsatzobjekt was deleted meanwhile")
+            logger.warning("SharePoint plans: the object of %s was deleted meanwhile — skipped", file.path)
+            continue
         out.imported += 1
         stored.append(file)
 

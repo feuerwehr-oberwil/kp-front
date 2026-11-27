@@ -220,6 +220,14 @@ async def brief_lock_wait(db: AsyncSession) -> AsyncIterator[None]:
 # ---------------------------------------------------------------------------------------
 
 
+class ObjectGoneError(HTTPException):
+    """`store_plan`'s object was deleted while it waited for it: a 404 to an HTTP caller, an object
+    a run skips."""
+
+    def __init__(self) -> None:
+        super().__init__(status_code=404, detail="Objekt nicht gefunden")
+
+
 async def store_plan(
     db: AsyncSession,
     obj: ObjectSite,
@@ -249,10 +257,13 @@ async def store_plan(
     # lock 3 BEFORE the dataset is read: an alignment decision on the outgoing revision either
     # commits first or waits for this replacement and is refused (the lock order above)
     await lock_object_plans(db, obj.id)
-    # …and the object may have gone while this waited (a merge folded it away): say so, not a 500.
-    # Asked by id, not by reloading `obj` – that would drop the caller's unflushed changes to it.
-    if (await db.execute(select(ObjectSite.id).where(ObjectSite.id == obj.id))).scalar_one_or_none() is None:
-        raise HTTPException(status_code=404, detail="Objekt nicht gefunden")
+    # …and the object may have gone while this waited (a merge folded it away, the organizer's last
+    # ref took it along): FOR KEY SHARE waits for a delete in flight and then finds no row – say so,
+    # not a foreign-key 500. Asked by id, not by reloading `obj`, which would drop the caller's
+    # unflushed changes to it.
+    there = select(ObjectSite.id).where(ObjectSite.id == obj.id).with_for_update(read=True, key_share=True)
+    if (await db.execute(there)).scalar_one_or_none() is None:
+        raise ObjectGoneError()
     # populate_existing: a caller may have loaded the row before the lock (api/reference does)
     ds = (
         await db.execute(
@@ -582,16 +593,20 @@ async def _ingest(db: AsyncSession, client: httpx.AsyncClient, entry: PlanEntry,
         logger.warning("Objektplan-Pull: %s is not a PDF — skipped", dataset_id)
         return "skipped"
 
-    await store_plan(
-        db,
-        obj,
-        entry.module,
-        data,
-        title=None,  # keep whatever the object/admin already calls it
-        source_type="snapshot",
-        source_digest=entry.sha256,
-        fetch_url=f"{settings.plans_s3_bucket}/{entry.path}",
-    )
+    try:
+        await store_plan(
+            db,
+            obj,
+            entry.module,
+            data,
+            title=None,  # keep whatever the object/admin already calls it
+            source_type="snapshot",
+            source_digest=entry.sha256,
+            fetch_url=f"{settings.plans_s3_bucket}/{entry.path}",
+        )
+    except ObjectGoneError:
+        logger.warning("Objektplan-Pull: the object of %s was deleted meanwhile — skipped", dataset_id)
+        return "skipped"
     return "updated"
 
 

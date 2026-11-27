@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app import plans, storage
 from app.i18n import DETAIL_TRANSLATIONS
 from app.models import ObjectPositionEvent, ObjectRef, ObjectSite, PlanAlignment, ReferenceDataset
-from app.plans import limit_lock_wait, lock_object_plans, store_plan
+from app.plans import limit_lock_wait, lock_object_plans, lock_object_rows, store_plan
 from tests.ov_support import bearer, set_config, set_key
 
 PAIRS = [
@@ -255,6 +255,31 @@ async def test_an_upload_to_an_object_a_merge_deleted_meanwhile_is_a_404(
         await merge.commit()
 
     assert (await asyncio.wait_for(upload, 5)).status_code == 404
+
+
+async def test_an_upload_to_an_object_its_last_ref_takes_along_is_a_404(
+    client, admin_login, db_session, session_factory, monkeypatch
+):
+    """The organizer's last-ref removal takes the row FOR UPDATE without lock 3 (it writes no plan).
+    An upload meanwhile passes lock 3 and still sees the row; it must wait for the delete and then
+    answer 404 rather than insert a plan the foreign key refuses."""
+    monkeypatch.setattr(plans, "LOCK_WAIT_MS", 5000)  # it answers once the holder commits
+    obj = ObjectSite(name="Box", source_note="Integration: fwo")
+    db_session.add(obj)
+    await db_session.commit()
+    await admin_login(client)
+
+    async with session_factory() as removal, session_factory() as observer:
+        await lock_object_rows(removal, obj.id)
+        upload = asyncio.create_task(
+            client.put(f"/api/objects/{obj.id}/plans/modul1", files={"file": ("m1.pdf", _pdf(), "application/pdf")})
+        )
+        await _until_waiting(observer, upload)
+        await removal.delete(await removal.get(ObjectSite, obj.id))
+        await removal.commit()
+
+    assert (await asyncio.wait_for(upload, 5)).status_code == 404
+    assert (await db_session.execute(select(ReferenceDataset))).scalars().all() == []
 
 
 async def test_the_wait_limit_ends_with_its_transaction(engine):
