@@ -7,6 +7,7 @@
 // Rules for this area: docs/atemschutz-board.md.
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent, type ReactElement } from 'react'
+import { BoardClockContext, BoardNow, liveBoardClock, stoppedClock, truppClockRuns, useClockNow } from '../lib/boardClock'
 import { Icon } from '../lib/icons'
 import { EmptyState } from './EmptyState'
 import { appConfig } from '../config/appConfig'
@@ -34,13 +35,13 @@ import { assignedPersonIds, doubleAssignments, rosterIdByName, truppCrewSlots } 
 import { truppLineNo, type LeitungOption } from '../lib/truppLines'
 import { markerHolderNote, type MarkerOption } from '../lib/placedTrupps'
 import { ensureNotifyPermission, notificationsSupported, unlockAlarm } from '../lib/alarm'
-import { atemschutzDoctrine, isDemoMode } from '../lib/deploymentConfig'
+import { atemschutzDoctrine, atemschutzEquipment, isDemoMode } from '../lib/deploymentConfig'
 import type { SyncStatus } from '../lib/incidents'
 import { CLOCK_SKEW_WARN_MIN } from '../lib/syncAlert'
 import { truppOrderKey } from '../lib/useTruppActions'
 import s from './Atemschutz.module.css'
 import { AuftragSheet, KanalSheet, PressureSheet, TruppSheet } from './TruppSheets'
-import { ClockVal, RowEnter, TruppCard, TruppRow } from './TruppCard'
+import { ClockVal, RowEnter, TruppCard, TruppRow, TruppTicking } from './TruppCard'
 import { tabState, tierMark } from './truppCardText'
 import { notfallStrips } from '../lib/notfall'
 import { TruppForm, type FormMode, type TruppSubmitExtra } from './TruppForm'
@@ -80,6 +81,118 @@ export type TruppOrder = 'dringlichkeit' | 'manuell' | 'auftrag' | 'name'
 /** the tier every Trupp has on a CLOSED Einsatz — silent (R3) */
 const FROZEN_ALARM: TruppAlarm = { sev: 0, reason: null, line: null }
 
+/** Every Trupp's live numbers and its TIER at `now` — the board's one derivation, for its render
+ *  and for its tick key alike (`boardTickKey`). Frozen (a closed Einsatz), every tier is silent. */
+function boardAt(
+  trupps: Trupp[], now: number, intervalMin: number, graceSec: number,
+  doctrine: Parameters<typeof truppAlarm>[4], frozen: boolean,
+): { live: Map<string, TruppLive>; alarms: Map<string, TruppAlarm> } {
+  const live = new Map<string, TruppLive>()
+  const alarms = new Map<string, TruppAlarm>()
+  for (const t of trupps) {
+    const l = deriveTruppLive(t, now, intervalMin, graceSec)
+    live.set(t.id, l)
+    alarms.set(t.id, frozen ? FROZEN_ALARM : truppAlarm(t, l, intervalMin, graceSec, doctrine))
+  }
+  return { live, alarms }
+}
+
+/* How far past its own line a Trupp is, as one comparable number — the ranking
+ * `peakAtemschutzAlarm` uses for the TopBar chip, mirrored here so the header badge jumps to
+ * the card the chip points at. Pressure ranks by bar below the line (×60, so it sorts against
+ * the seconds of a contact clock); contact ranks by seconds. */
+function urgencyOf(t: Trupp, a: TruppAlarm | undefined, l: TruppLive | undefined, now: number): number {
+  if (!a || !l) return -1
+  // a Notfall stands above every clock (F1) — and the longest-running one first
+  if (a.reason === 'notfall') return 1e12 + (t.notfallAt ? now - Date.parse(t.notfallAt) : 0)
+  return a.reason === 'pressure' ? ((a.line ?? 0) - l.currentBar) * 60 : l.sinceContactSec ?? 0
+}
+
+/**
+ * How long this crew has been out there, as the tiebreak both derived sorts need — 0 for
+ * anybody who is not (04.09., Manuel: «den länger andauernden Einsatz zuerst»).
+ *
+ * ⚠️ `truppStillDeployed`, not the raw `elapsedSec`. That number is FROZEN at the Austritt and
+ * keeps its total, so a crew that worked for an hour and came out would outrank every Trupp
+ * actually inside — an urgency sort putting the finished ones on top. Only a running
+ * deployment has a length that means anything here.
+ */
+function runningSecOf(t: Trupp, l: TruppLive | undefined): number {
+  return truppStillDeployed(t) ? l?.elapsedSec ?? 0 : 0
+}
+
+/** The Funkkontakt-Intervall and Nachfrist the board folds with: the incident's own, else the
+ *  station's CURRENT doctrine. The board's render and its tick key both read it here, so a config
+ *  answer that lands after the board mounted moves both at once. */
+function contactRules(intervalOverride: number | undefined, graceOverride: number | undefined) {
+  const d = atemschutzDoctrine()
+  return { intervalMin: intervalOverride ?? d.contactIntervalMin, graceSec: graceOverride ?? d.contactGraceSec, doctrine: d }
+}
+
+// the language catalogue last seen, and how many there have been (`appConfig.copy` keeps one
+// reference until a new catalogue is installed)
+let seenCopy: object | null = null
+let copyGeneration = 0
+
+/** The board's settings that can arrive after it mounted, as one string: the station's doctrine,
+ *  its equipment list and the installed language catalogue. Part of the tick key and of the clock's context. */
+function settingsKey(): string {
+  if (appConfig.copy !== seenCopy) {
+    seenCopy = appConfig.copy
+    copyGeneration++
+  }
+  return `${copyGeneration}|${JSON.stringify(atemschutzDoctrine())}|${JSON.stringify(atemschutzEquipment())}`
+}
+
+/** Stable stand-ins for this render's handlers, for the memoised cards (TruppCard · TruppRow):
+ *  each calls the handler of the latest render, so a card's props stay the same from one board
+ *  render to the next. The keys must be the same on every render. */
+function useLatestHandlers<H extends Record<string, (...args: never[]) => unknown>>(handlers: H): H {
+  const latest = useRef(handlers)
+  useLayoutEffect(() => { latest.current = handlers })
+  const [stable] = useState(() => {
+    const out: Partial<H> = {}
+    for (const k of Object.keys(handlers) as (keyof H)[]) {
+      out[k] = ((...args: never[]) => latest.current[k](...args)) as H[keyof H]
+    }
+    return out as H
+  })
+  return stable
+}
+
+/** `ids` in `cmp`'s order as one string, a tie written «=» and a step «>» — two equal strings are
+ *  two identical outcomes of every stable sort by `cmp` (or by a prefix of its keys). */
+function rankKey(ids: string[], cmp: (a: string, b: string) => number): string {
+  const sorted = [...ids].sort(cmp)
+  return sorted.map((id, i) => (i === 0 ? id : `${cmp(sorted[i - 1], id) === 0 ? '=' : '>'}${id}`)).join('')
+}
+
+/**
+ * Everything the board's own drawing reads of the clock at `now`, as one string: each Trupp's
+ * state and tier, and the two time-ordered rankings its sorts, its «Drin» and its header badge
+ * read — tier · urgency · running time, and urgency alone among the Trupps in alarm. The clocks
+ * are leaves (lib/boardClock); the board renders on a tick only when this string changes, which
+ * is the tick a threshold is crossed or an order flips — the same tick the old 1 Hz board did.
+ */
+function boardTickKey(trupps: Trupp[], state: ReturnType<typeof boardAt>, now: number): string {
+  const sev = (id: string) => state.alarms.get(id)?.sev ?? 0
+  const urgency = new Map(trupps.map((t) => [t.id, urgencyOf(t, state.alarms.get(t.id), state.live.get(t.id), now)]))
+  const running = new Map(trupps.map((t) => [t.id, runningSecOf(t, state.live.get(t.id))]))
+  const u = (id: string) => urgency.get(id) ?? -1
+  const r = (id: string) => running.get(id) ?? 0
+  const ids = trupps.map((t) => t.id)
+  const states = trupps.map((t) => {
+    const l = state.live.get(t.id)
+    const a = state.alarms.get(t.id)
+    return `${t.id}:${l?.status}:${l?.overdue}:${a?.sev}:${a?.reason}:${a?.line}`
+  })
+  return [
+    states.join(','),
+    rankKey(ids, (a, b) => (sev(b) - sev(a)) || (u(b) - u(a)) || (r(b) - r(a))),
+    rankKey(ids.filter((id) => sev(id) >= 2), (a, b) => u(b) - u(a)),
+  ].join('|')
+}
+
 /** The Trupps head's ladder (lib/pageHeadFit, 28.09.2026): what gives first when the one row runs
  *  out — the quiet line's time, then the tiles fold TOGETHER, each to its glyph OVER its word
  *  (owner pick 24a, 17.11.2026 – they folded one at a time to bare glyphs on a tablet, the bell
@@ -100,7 +213,7 @@ const nfInset = (el: HTMLElement | null) => (el ? el.offsetHeight + 12 : 0)
 
 export function AtemschutzView({
   trupps: allTrupps, truppColors, canEdit, personnel, attendance, muted, onToggleMuted, audioBlocked = false, onUnlockAudio, onAddGuest, order = 'manuell', onOrder, onMove, createTrupp, placeTrupp, placeTargets, markerOptions, adoptMarker, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, transferOutOfTrupp, keepInOneTrupp, designateSafety, reactivateTrupp, deleteTrupp, restoreTrupp, removedTrupps: allRemovedTrupps = [], leitungOptions, showTruppLine, truppsWithLine, lineNoOf, unlinkTruppLine, dockedAt,
-  intervalMin = atemschutzDoctrine().contactIntervalMin, graceSec = atemschutzDoctrine().contactGraceSec,
+  intervalMin: intervalOverride, graceSec: graceOverride,
   defaultFunkkanal = atemschutzDoctrine().defaultFunkkanal,
   focus, createRequest, onShareLink, shareLinkActive = false, lite, frozenAt, triggerNotfall, endNotfall, placeOf,
   zielPickOn, onPickZiel,
@@ -112,7 +225,8 @@ export function AtemschutzView({
    *  Trupp has an entry: placed colour, then decided colour, then its automatic palette slot. */
   truppColors: Record<string, string>
   canEdit: boolean
-  /** per-incident Funkkontakt-Intervall (min) + Nachfrist (sec); default = appConfig doctrine */
+  /** per-incident Funkkontakt-Intervall (min) + Nachfrist (sec); absent = the station's doctrine,
+   *  read afresh on every render and tick (`contactRules`) */
   intervalMin?: number
   graceSec?: number
   /** synced default Funkkanal new Trupps are seeded with (FKS-Standard: 11) */
@@ -381,7 +495,7 @@ export function AtemschutzView({
   // exactly as before.
   // `shownNonce` — per MOUNT — is the other half of that: the instant the effect below records the
   // nonce, the bare `!== lastShownFocusNonce` test would turn the pointer stale under its own ring.
-  // The per-second tick re-renders inside the 1.9s flash window, so the mark would be yanked back
+  // A board render inside the 1.9s flash window (a tier change, a sync) would yank the mark back
   // mid-gesture. A nonce THIS mount has already accepted therefore stays accepted until it leaves.
   const shownNonce = useRef<number | null>(null)
   const externalFocus = focus && (focus.nonce === shownNonce.current || focus.nonce !== lastShownFocusNonce)
@@ -417,8 +531,9 @@ export function AtemschutzView({
     else adoptMarker(id, markers[0].key)
   }
 
-  // per-second tick so the contact clock re-renders (pattern from TopBar's clock). This drives
-  // the VISUAL board only; the audible alarm + OS notification run app-wide (useAtemschutzAlarm).
+  // The board's clock (lib/boardClock). It drives the VISUAL board only; the audible alarm + OS
+  // notification run app-wide (useAtemschutzAlarm). The clocks on the cards are leaves on it; the
+  // board itself renders on a tick only when its tick key changes (`boardTickKey`).
   //
   // ⚠️ `serverNow()`, not `Date.now()` (02.09.): the contact clock is read off the deployment's
   // clock so a phone and a PC watching the same Trupp show the SAME number. They did not — a
@@ -428,25 +543,31 @@ export function AtemschutzView({
    * A closed Einsatz is a record, not a situation: a Trupp that was never reported out kept
    * accumulating Einsatzzeit through the night, so opening the Akte the next morning showed a
    * crew «seit 14:12 im Einsatz» — a number about nothing. Frozen, every clock on the board reads
-   * what it read when the Einsatz ended, which is what the paper says too. The tick is not merely
-   * ignored but never started: there is nothing left to count. */
-  const [tick, setTick] = useState(() => serverNow())
-  useEffect(() => {
-    if (frozenAt != null) return
-    const t = setInterval(() => setTick(serverNow()), 1000)
-    return () => clearInterval(t)
-  }, [frozenAt])
-  const now = frozenAt ?? tick
+   * what it read when the Einsatz ended, which is what the paper says too. The clock is a stopped
+   * one (`stoppedClock`): there is nothing left to count. */
+  const clock = useMemo(() => (frozenAt != null ? stoppedClock(frozenAt) : liveBoardClock), [frozenAt])
+  const { intervalMin, graceSec } = contactRules(intervalOverride, graceOverride)
+  // ⚠️ The doctrine and the language can change under a mounted board: the config answer lands
+  // after the boot (a cached copy refreshed, a link page's session answer), and so can a slow
+  // language catalogue. Read afresh on every tick (below), and handed to the cards through the
+  // clock's context, which they all read.
+  const doctrine = settingsKey()
+  const boardClock = useMemo(() => ({ clock, intervalMin, graceSec, doctrine }), [clock, intervalMin, graceSec, doctrine])
 
   // the station's Alarmdruck lines — read as scalars, because atemschutzDoctrine() builds a
   // fresh object on every call and a memo keyed on it would recompute on every render
   const { alarmBar, alarmBarRueckzug } = atemschutzDoctrine()
 
-  // derive every Trupp's live numbers once per tick
-  const live = useMemo(
-    () => new Map(trupps.map((t) => [t.id, deriveTruppLive(t, now, intervalMin, graceSec)] as const)),
-    [trupps, now, intervalMin, graceSec],
-  )
+  /* The board's now. While the Trupp form or the pressure sheet is open the board renders every
+   * tick, as both read the clock in their own render (TruppForm · the «Gleiche Flasche» window,
+   * the sheet's first-reading hint); otherwise only when its tick key changes. No Trupp with a
+   * running clock — nothing subscribed, no timer. */
+  const everyTick = !!form || !!pressureAsk
+  const now = useClockNow(clock, (n) => {
+    if (everyTick) return n
+    const rules = contactRules(intervalOverride, graceOverride)
+    return `${settingsKey()}|${boardTickKey(trupps, boardAt(trupps, n, rules.intervalMin, rules.graceSec, rules.doctrine, frozenAt != null), n)}`
+  }, frozenAt == null && (everyTick || trupps.some(truppClockRuns)))
 
   /* …and its TIER, once, from the same fold the tone and the TopBar chip use (lib · truppAlarm).
    * ⚠️ The card, the row, the header badge and the sort all read THIS — not the contact clock.
@@ -456,24 +577,13 @@ export function AtemschutzView({
    * and a crew that was overdue then read as a red «1 Alarm» and a red clock on every phone —
    * at 3am, an alarm still running. Frozen, every tier is silent: no badge, no red card, and the
    * band says what the clock shows (the state at the close), in the neutral tone. */
-  const alarms = useMemo(
-    () => new Map(trupps.map((t) => [t.id, frozenAt != null ? FROZEN_ALARM : truppAlarm(t, live.get(t.id)!, intervalMin, graceSec, { alarmBar, alarmBarRueckzug })] as const)),
-    [trupps, live, intervalMin, graceSec, alarmBar, alarmBarRueckzug, frozenAt],
+  const { live, alarms } = useMemo(
+    () => boardAt(trupps, now, intervalMin, graceSec, { alarmBar, alarmBarRueckzug }, frozenAt != null),
+    [trupps, now, intervalMin, graceSec, alarmBar, alarmBarRueckzug, frozenAt],
   )
   const sevOf = (id: string): 0 | 1 | 2 => alarms.get(id)?.sev ?? 0
-
-  /* How far past its own line a Trupp is, as one comparable number — the ranking
-   * `peakAtemschutzAlarm` uses for the TopBar chip, mirrored here so the header badge jumps to
-   * the card the chip points at. Pressure ranks by bar below the line (×60, so it sorts against
-   * the seconds of a contact clock); contact ranks by seconds. */
-  const urgency = (t: Trupp) => {
-    const a = alarms.get(t.id)
-    const l = live.get(t.id)
-    if (!a || !l) return -1
-    // a Notfall stands above every clock (F1) — and the longest-running one first
-    if (a.reason === 'notfall') return 1e12 + (t.notfallAt ? now - Date.parse(t.notfallAt) : 0)
-    return a.reason === 'pressure' ? ((a.line ?? 0) - l.currentBar) * 60 : l.sinceContactSec ?? 0
-  }
+  // see `urgencyOf`
+  const urgency = (t: Trupp) => urgencyOf(t, alarms.get(t.id), live.get(t.id), now)
 
   // Trupps in alarm float to the top of the board so one can't hide off-screen, and the header
   // carries a count badge (the alarm may be muted — the visual must not be).
@@ -530,16 +640,8 @@ export function AtemschutzView({
   // mid-board. Also the stable tiebreak for the derived sorts, so two Trupps that compare equal
   // by name/Auftrag keep the slots the hand gave them.
   const orderKey = (t: Trupp) => truppOrderKey(t, trupps.findIndex((x) => x.id === t.id))
-  /**
-   * How long this crew has been out there, as the tiebreak both derived sorts need — 0 for
-   * anybody who is not (04.09., Manuel: «den länger andauernden Einsatz zuerst»).
-   *
-   * ⚠️ `truppStillDeployed`, not the raw `elapsedSec`. That number is FROZEN at the Austritt and
-   * keeps its total, so a crew that worked for an hour and came out would outrank every Trupp
-   * actually inside — an urgency sort putting the finished ones on top. Only a running
-   * deployment has a length that means anything here.
-   */
-  const runningSec = (t: Trupp) => (truppStillDeployed(t) ? live.get(t.id)?.elapsedSec ?? 0 : 0)
+  // see `runningSecOf`
+  const runningSec = (t: Trupp) => runningSecOf(t, live.get(t.id))
   /**
    * Where a Trupp stands in the work, as a rank: 0 out there · 1 waiting to go · 2 finished.
    *
@@ -1112,22 +1214,50 @@ export function AtemschutzView({
 
   // the cards the double-assignment band names (DoubleAssignmentBanner) wear its amber ring
   const conflicted = useMemo(() => new Set(doubleAssignments(trupps).flatMap((c) => c.truppIds)), [trupps])
+  // ⚠️ The cards are memoised (TruppCard · sameCardProps): every handler they get is one of these
+  // stable stand-ins, taking the Trupp's id instead of closing over the Trupp
+  const h = useLatestHandlers({
+    contact: (id: string) => { void contactTap(id) },
+    pressure: (id: string) => setPressureAsk({ id, kind: 'pressure' }),
+    exit: (id: string) => setPressureAsk({ id, kind: 'exit' }),
+    enter: (id: string) => { freezeOrder(); setTruppStatus(id, 'aktiv') },
+    status: (id: string, st: Trupp['status']) => { freezeOrder(); setTruppStatus(id, st) },
+    standDown: (id: string) => { freezeOrder(); setTruppStatus(id, 'raus') },
+    open: (id: string) => setOpenRow(id),
+    collapse: () => setOpenRow(null),
+    edit: (id: string, focus?: 'auftrag') => {
+      const t = trupps.find((x) => x.id === id)
+      if (t) openForm('edit', t, focus)
+    },
+    reenter: (id: string) => {
+      const t = trupps.find((x) => x.id === id)
+      if (t) openForm('redeploy', t)
+    },
+    quick: (id: string, kind: 'kanal' | 'auftrag' | 'trupp') => setQuick({ id, kind }),
+    remove: (id: string) => deleteTrupp(id),
+    place: (id: string) => handlePlace(id),
+    showPlan: (id: string) => focusTruppOnPlan(id),
+    showLine: (id: string) => showTruppLine(id),
+    move: (id: string, dir: -1 | 1) => onMove?.(id, dir),
+    notfall: (id: string) => { freezeOrder(); triggerNotfall?.(id) },
+    notfallEnd: (id: string) => { freezeOrder(); endNotfall?.(id) },
+    flashSeen: (id: string, nonce: number) => flashSeen.current.get(id) === nonce,
+    flashed: (id: string, nonce: number) => { flashSeen.current.set(id, nonce) },
+  })
   const cards = (list: Trupp[]) => list.map((t) => {
     const nonce = focusNonceOf(t.id)
-    const seen = nonce == null ? undefined : () => flashSeen.current.get(t.id) === nonce
-    const flashed = nonce == null ? undefined : () => flashSeen.current.set(t.id, nonce)
     // the link board's page of a Trupp in a running Notfall (NotfallPageHead · NotfallPageSafety)
     const nfPage = focusMode && frozenAt == null && truppInNotfall(t)
     return (
     compact && !focusMode && openRow !== t.id ? (
       <TruppRow
-        key={t.id} t={t} live={live.get(t.id)!} alarm={alarms.get(t.id)!} now={now} color={truppColors[t.id]} canEdit={canEdit} conflict={conflicted.has(t.id)}
-        focusNonce={nonce} focusScroll={activeFocus?.id === t.id} flashSeen={seen} onFlashed={flashed}
-        onContact={(id) => { void contactTap(id) }}
-        onPressure={(id) => setPressureAsk({ id, kind: 'pressure' })}
+        key={t.id} t={t} live={live.get(t.id)!} alarm={alarms.get(t.id)!} color={truppColors[t.id]} canEdit={canEdit} conflict={conflicted.has(t.id)}
+        focusNonce={nonce} focusScroll={activeFocus?.id === t.id} flashSeen={h.flashSeen} onFlashed={h.flashed}
+        onContact={h.contact}
+        onPressure={h.pressure}
         // the same ordinary Eintritt the card's «Im Einsatz» tile and the SafetyRow make
-        onEnter={(id) => { freezeOrder(); setTruppStatus(id, 'aktiv') }}
-        onOpen={() => setOpenRow(t.id)}
+        onEnter={h.enter}
+        onOpen={h.open}
         lite={!!lite}
       />
     ) : (
@@ -1139,47 +1269,50 @@ export function AtemschutzView({
     // The ‹ › pair is the right one to drop: in row mode the card is a detail view, not a board
     // slot (and those arrows are separately known to move the wrong card).
     <TruppCard
-      key={t.id} t={t} live={live.get(t.id)!} alarm={alarms.get(t.id)!} now={now} color={truppColors[t.id]} canEdit={canEdit} conflict={conflicted.has(t.id)}
+      key={t.id} t={t} live={live.get(t.id)!} alarm={alarms.get(t.id)!} color={truppColors[t.id]} canEdit={canEdit} conflict={conflicted.has(t.id)}
       intervalMin={intervalMin} frozen={frozenAt != null}
       // the phone's opened row is PARKED by the board (the effect around `--az-open-pad`), below
       // the Notfall banners — a centring scroll of its own fought that and won (10.10.2026)
-      focusNonce={nonce} focusScroll={activeFocus?.id === t.id && !(compact && !focusMode)} flashSeen={seen} onFlashed={flashed}
-      onContact={(id) => { void contactTap(id) }}
-      onStatus={(id, s) => { freezeOrder(); setTruppStatus(id, s) }}
-      onStandDown={(id) => { freezeOrder(); setTruppStatus(id, 'raus') }}
+      focusNonce={nonce} focusScroll={activeFocus?.id === t.id && !(compact && !focusMode)} flashSeen={h.flashSeen} onFlashed={h.flashed}
+      onContact={h.contact}
+      onStatus={h.status}
+      onStandDown={h.standDown}
       // the Restdruck question at «Raus melden» — every width (24.09.2026, see PressureSheet)
-      onAskExit={(id) => setPressureAsk({ id, kind: 'exit' })}
+      onAskExit={h.exit}
       // …and the card's Druck is the same picker, on EVERY board since 29.09.2026 (the tablet's
       // ± stepper went with the tablet card — see TruppCard)
-      onAskPressure={(id) => setPressureAsk({ id, kind: 'pressure' })}
+      onAskPressure={h.pressure}
       // the section heads say Drin / Bereit / Draussen (phone board, grouped grid); elsewhere the card does
       headed={phoneMode || gridGrouped}
-      onEdit={(focus) => openForm('edit', t, focus)} onReenter={() => openForm('redeploy', t)}
-      onQuick={canEdit ? (kind) => setQuick({ id: t.id, kind }) : undefined}
-      onDelete={deleteTrupp} onPlace={handlePlace} onShowPlan={focusTruppOnPlan}
+      onEdit={h.edit} onReenter={h.reenter}
+      onQuick={canEdit ? h.quick : undefined}
+      onDelete={h.remove} onPlace={h.place} onShowPlan={h.showPlan}
       // ⚠️ never on a work squad. The arrows move one GLOBAL order while the board renders two
       // filtered sections, so a step can swap a Trupp past the section boundary and look like it
       // did nothing — and these Trupps never had them (they lived on `PlainTruppRow`, which had
       // no such control at all). See the note on `.cardActs`' old ‹ › pair above.
-      onMove={order === 'manuell' && !compact && isAtemschutzTrupp(t) ? onMove : undefined}
-      onShowLine={showTruppLine} hasLine={truppsWithLine.has(t.id)} drawnLineNo={lineNoOf?.get(t.id)} dockedAt={dockedAt?.get(t.id)}
+      onMove={order === 'manuell' && !compact && isAtemschutzTrupp(t) && onMove ? h.move : undefined}
+      onShowLine={h.showLine} hasLine={truppsWithLine.has(t.id)} drawnLineNo={lineNoOf?.get(t.id)} dockedAt={dockedAt?.get(t.id)}
       // «Tafel pur»: everything that points at the Karte or a drawn Leitung is unreachable from
       // this session, and a control that will fail is worse than no control (see `lite` above).
       lite={!!lite}
-      onCollapse={compact && !focusMode ? () => setOpenRow(null) : undefined}
+      onCollapse={compact && !focusMode ? h.collapse : undefined}
       // the handed-over phone board: the card IS the page, and the Notfall Trupp's page opens on
       // the Notfall itself (Atemschutz-Link redesign R1, 30.10.2026 — AtemschutzNotfall): the
       // information on top, its Sicherungstrupp act down with the tiles (owner pick E3, 06.11.2026)
       page={focusMode}
       pageHead={nfPage ? (crew) => (
-        <NotfallPageHead t={t} now={now} sinceContactSec={live.get(t.id)?.sinceContactSec ?? null} crew={crew} />
+        // a leaf on the ticker: both of its clocks run
+        <BoardNow>{(n) => (
+          <NotfallPageHead t={t} now={n} sinceContactSec={deriveTruppLive(t, n, intervalMin, graceSec).sinceContactSec} crew={crew} />
+        )}</BoardNow>
       ) : undefined}
       pageSafety={nfPage ? (
         <NotfallPageSafety {...safetyFor(t)} otherSafety={noCandidates ? undefined : (trigger) => candidateMenu(t.id, trigger)} />
       ) : undefined}
       // the Atemschutznotfall's two held doors (F1) — a closed Einsatz raises and ends nothing
-      onNotfall={canEdit && triggerNotfall && frozenAt == null ? () => { freezeOrder(); triggerNotfall(t.id) } : undefined}
-      onNotfallEnd={canEdit && endNotfall && frozenAt == null ? () => { freezeOrder(); endNotfall(t.id) } : undefined}
+      onNotfall={canEdit && triggerNotfall && frozenAt == null ? h.notfall : undefined}
+      onNotfallEnd={canEdit && endNotfall && frozenAt == null ? h.notfallEnd : undefined}
     />
     )
   )})
@@ -1206,7 +1339,7 @@ export function AtemschutzView({
   const pinnedRows = pinnedDue.length > 0 ? (
     <div className={s.formPinned} role="region" aria-label={az.pinnedLabel} data-swipe-ignore="">
       {pinnedDue.map((t) => (
-        <PinnedRow key={t.id} t={t} live={live.get(t.id)!} alarm={alarms.get(t.id)!} color={truppColors[t.id]}
+        <PinnedRow key={t.id} t={t} alarm={alarms.get(t.id)!} color={truppColors[t.id]}
           confirmed={!!pinHeld?.done.includes(t.id)}
           onContact={(id) => {
             // marked at once (a double tap lands in the same frame), taken back if the double-contact
@@ -1485,8 +1618,10 @@ export function AtemschutzView({
   const focusInNotfall = focusMode && notfallTrupps.some((t) => t.id === focusId)
 
   return (
-    // `az-tafel`: the global hook the Meldeleiste folds itself to one row for, and moves the
-    // Tafel below itself on (08-toasts · staging r3)
+    // the clock every leaf on this board reads (lib/boardClock) — stopped on a closed Einsatz
+    <BoardClockContext value={boardClock}>
+    {/* `az-tafel`: the global hook the Meldeleiste folds itself to one row for, and moves the
+        Tafel below itself on (08-toasts · staging r3) */}
     <div className={cx(s.surface, lite && s.surfaceLite, frozenAt != null && s.surfaceFrozen, 'az-tafel')} onPointerDownCapture={primeOnFirstTap}>
       <header ref={headRef} className={cx(s.head, focusMode && s.headCompact)}>
         <div className={cx(s.headTitles, focusMode && s.headTitlesCompact)}>
@@ -1751,17 +1886,20 @@ export function AtemschutzView({
         {/* …except on the handed-over phone board (focusMode): there the Notfall Trupp's own page
             IS the Notfall (NotfallPageHead, in `cards`), and every other tab stands under a red
             strip that leads to it (Atemschutz-Link redesign R1, 30.10.2026) */}
+        {/* the Notfall's banners and strips draw its running clock: leaves on the ticker */}
         {!focusMode && notfallTrupps.length > 0 && <div className={s.nfStack} ref={nfStackRef}>{notfallTrupps.map((t) => (
-          <NotfallBanner key={t.id} t={t} now={now} place={placeOf?.(t)} dense={notfallTrupps.length > 1} wide={!compact}
-            {...safetyFor(t)}
-            onGo={(id) => {
-              if (compact && !focusMode) setOpenRow(id)
-              setPicked(id)
-              setSelfFocus({ id, nonce: Date.now() })
-            }} />
+          <BoardNow key={t.id}>{(n) => (
+            <NotfallBanner t={t} now={n} place={placeOf?.(t)} dense={notfallTrupps.length > 1} wide={!compact}
+              {...safetyFor(t)}
+              onGo={(id) => {
+                if (compact && !focusMode) setOpenRow(id)
+                setPicked(id)
+                setSelfFocus({ id, nonce: Date.now() })
+              }} />
+          )}</BoardNow>
         ))}</div>}
         {focusMode && nfStrips.map((st) => (
-          <NotfallStrip key={st.kind === 'one' ? st.t.id : 'many'} strip={st} now={now} onGo={setPicked} />
+          <BoardNow key={st.kind === 'one' ? st.t.id : 'many'}>{(n) => <NotfallStrip strip={st} now={n} onGo={setPicked} />}</BoardNow>
         ))}
         {/* one person in two active Trupps after a sync (audit F05) — under the Notfall, above the
             sections, on every board; the choice only where this session may write */}
@@ -1941,7 +2079,8 @@ export function AtemschutzView({
               // the tier is the chip's tint and clock colour; its word («Überfällig» / «Alarmdruck» /
               // «Fällig», tierMark) is for the screen reader only – no glyph since 30.10.2026
               const tier = tierMark(alarm, sev)
-              // the line under the name (truppCardText · tabState): «Bereit», «Rückzug 0:49», or the clock
+              // the line under the name (truppCardText · tabState): «Bereit», «Rückzug 0:49», or the
+              // clock — its word and tone are steady, its clock a leaf (`TruppTicking`)
               const st = tabState(t, lv)
               return (
                 <button
@@ -1966,7 +2105,9 @@ export function AtemschutzView({
                   <span className={cx(s.tabClock, st.tone === 'ready' && s.tabReady, st.tone === 'rueckzug' && s.tabRueckzug)}>
                     {tier && <span className="sr-only">{tier}</span>}
                     {st.word && <span className={s.tabWord}>{st.word}</span>}
-                    {st.clock && <ClockVal val={st.clock} />}
+                    {st.clock && (
+                      <TruppTicking t={t} keyOf={(l) => tabState(t, l).clock}>{(l) => <ClockVal val={tabState(t, l).clock} />}</TruppTicking>
+                    )}
                   </span>
                 </button>
               )
@@ -2130,6 +2271,7 @@ export function AtemschutzView({
         )
       })()}
     </div>
+    </BoardClockContext>
   )
 }
 
@@ -2174,8 +2316,8 @@ function fieldNow(t: Trupp, g: TruppFieldGroup): string {
  *  the live clock, and a worded «Kontakt» that confirms without leaving the form. ONE line, not
  *  the board row's two: the form needs the height, and these rows carry exactly one action. Not a
  *  button as a whole — opening a card from here would close the form over a half-typed Trupp. */
-function PinnedRow({ t, live, alarm, color, confirmed, onContact }: {
-  t: Trupp; live: TruppLive; alarm: TruppAlarm; color?: string
+function PinnedRow({ t, alarm, color, confirmed, onContact }: {
+  t: Trupp; alarm: TruppAlarm; color?: string
   /** confirmed a moment ago on this form — the button says so and takes no second tap */
   confirmed: boolean
   onContact: (id: string) => void
@@ -2198,7 +2340,7 @@ function PinnedRow({ t, live, alarm, color, confirmed, onContact }: {
         <span className={s.pinNameTxt}>{t.name}</span>
       </span>
       <span className={s.pinTime}>
-        <span className={s.pinClock}>{fmtClock(live.sinceContactSec)}</span>
+        <span className={s.pinClock}><TruppTicking t={t} keyOf={(l) => fmtClock(l.sinceContactSec)}>{(l) => fmtClock(l.sinceContactSec)}</TruppTicking></span>
         <span className={tierOnly ? 'sr-only' : s.pinState}>{word}</span>
       </span>
       {confirmed ? (

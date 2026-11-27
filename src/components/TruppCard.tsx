@@ -2,8 +2,11 @@
 // (`TruppCard`), drawn from the same pieces (`RowLine` + `TruppPair`) on every board. Rendered by
 // AtemschutzView, which owns the data and the mutations (all via props).
 // Rules for this area: docs/atemschutz-board.md.
+// ⚠️ Both are memoised and hold only a Trupp's STEADY numbers (`TruppSteady`): every time that
+// counts — the clock, the Einsatzzeit, the Schätzung, the contact times — is a leaf on the
+// board's ticker (`TruppTicking`, lib/boardClock), so a tick renders the leaves, never the card.
 
-import { Fragment, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent, type ReactNode } from 'react'
+import { Fragment, memo, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent, type ReactNode } from 'react'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, timeOfDay } from '../lib/format'
@@ -12,13 +15,57 @@ import { cx } from '../lib/cx'
 import { Button } from './Button'
 import { Menu } from '../lib/overlays'
 import { NotfallHold } from './AtemschutzNotfall'
-import { alarmBarFor, contactViaLink, currentRunStart, notfallOffered, truppInNotfall, isStandDownExit, estimatePressure, fmtDuration, isAtemschutzTrupp, pressureAlarm, truppHeadName, truppNeverDeployed, type TruppAlarm, type TruppLive } from '../lib/atemschutz'
+import { alarmBarFor, contactViaLink, currentRunStart, deriveTruppLive, notfallOffered, truppInField, truppInNotfall, isStandDownExit, estimatePressure, fmtDuration, isAtemschutzTrupp, pressureAlarm, truppHeadName, truppNeverDeployed, type TruppAlarm, type TruppLive } from '../lib/atemschutz'
 import { readingBarShown, truppAuftragLabel, truppEquipmentLabels, truppStatusLabel } from '../lib/report'
 import type { Trupp, TruppReading } from '../types'
 import { atemschutzDoctrine } from '../lib/deploymentConfig'
 import s from './Atemschutz.module.css'
 import { collapsedClock, fmtTime, plainWords, tierMark } from './truppCardText'
 import { refuse } from '../lib/meldungenRefusal'
+import { truppClockRuns, useBoardClock, useBoardNow, type TickKey } from '../lib/boardClock'
+
+/** What a card holds of a Trupp's live numbers: the ones that change only with the Trupp or at a
+ *  threshold. The ticking seconds are not in it — only a `TruppTicking` leaf reads those, so a
+ *  card that reads one cannot compile. */
+export type TruppSteady = Pick<TruppLive, 'status' | 'currentBar' | 'lowestBar'>
+
+/** This Trupp's live numbers at the board's now. The caller renders again on a tick only when
+ *  `key` of them changes; returns the numbers and the now they were read at. */
+function useTruppLive(t: Trupp, key: (live: TruppLive, now: number) => TickKey): [TruppLive, number] {
+  const board = useBoardClock()
+  const intervalMin = board?.intervalMin ?? atemschutzDoctrine().contactIntervalMin
+  const graceSec = board?.graceSec ?? atemschutzDoctrine().contactGraceSec
+  const at = (now: number) => deriveTruppLive(t, now, intervalMin, graceSec)
+  const now = useBoardNow((n) => key(at(n), n), truppClockRuns(t))
+  return [at(now), now]
+}
+
+/** A part of a Trupp's row or card that reads the clock: `children` of the live numbers, drawn
+ *  again on a tick only when `keyOf` of them changes. Usage:
+ *  `<TruppTicking t={t} keyOf={(l) => fmtClock(l.sinceContactSec)}>{(l) => …}</TruppTicking>` */
+export function TruppTicking({ t, keyOf, children }: {
+  t: Trupp
+  keyOf: (live: TruppLive, now: number) => TickKey
+  children: (live: TruppLive, now: number) => ReactNode
+}) {
+  const [live, now] = useTruppLive(t, keyOf)
+  return children(live, now)
+}
+
+const sameSteady = (a: TruppSteady, b: TruppSteady) =>
+  a.status === b.status && a.currentBar === b.currentBar && a.lowestBar === b.lowestBar
+const sameAlarm = (a: TruppAlarm, b: TruppAlarm) => a.sev === b.sev && a.reason === b.reason && a.line === b.line
+
+/** The memo test of `TruppRow` and `TruppCard`: every prop by identity, except `live` and `alarm`,
+ *  which the board derives afresh on each of its renders — compared by what the card reads. */
+function sameCardProps<P extends { live: TruppSteady; alarm: TruppAlarm }>(a: Readonly<P>, b: Readonly<P>): boolean {
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)] as (keyof P)[])
+  for (const k of keys) {
+    const same = k === 'live' ? sameSteady(a.live, b.live) : k === 'alarm' ? sameAlarm(a.alarm, b.alarm) : Object.is(a[k], b[k])
+    if (!same) return false
+  }
+  return true
+}
 
 // (`PressureInline`, the tablet card's ± Druck stepper with its own «Bestätigen», went on
 // 29.09.2026 with the tablet card: every board's Druck is the pressure tile → PressureSheet.)
@@ -50,10 +97,10 @@ export function UnitVal({ val }: { val: string }) {
   return <>{m[1]}<span className={s.valUnit}> {m[2]}</span></>
 }
 
-export function TruppRow({
+export const TruppRow = memo(function TruppRow({
   t, live, alarm, color, canEdit, onContact, onPressure, onEnter, onOpen, focusNonce, focusScroll = true, flashSeen, onFlashed, lite, conflict = false,
 }: {
-  t: Trupp; live: TruppLive; now: number; color?: string; canEdit: boolean
+  t: Trupp; live: TruppSteady; color?: string; canEdit: boolean
   /** «Im Einsatz» on a Trupp still at the door — stands where its empty clock would (RowLine) */
   onEnter?: (id: string) => void
   /** named by the double-assignment band (DoubleAssignmentBanner) — a steady amber ring */
@@ -63,20 +110,22 @@ export function TruppRow({
   onContact: (id: string) => void
   /** open the PressureSheet for this Trupp — the row's second action since 24.09.2026 */
   onPressure: (id: string) => void
-  onOpen: () => void
+  onOpen: (id: string) => void
   focusNonce?: number
   /** ring, but do NOT scroll — the badge marks every alarmed Trupp and only ONE of them may own
    *  the scroll port (see `focusNonceOf`); two smooth scrolls at once land nowhere in particular */
   focusScroll?: boolean
   /** the ring has run its full 1.9s — the board writes the nonce down so a later expand/collapse
    *  REMOUNT of this Trupp does not replay a gesture that already landed (see `focusNonceOf`) */
-  onFlashed?: () => void
+  onFlashed?: (id: string, nonce: number) => void
   /** …and this is where the remount reads it back: true = this nonce already rang here */
-  flashSeen?: () => boolean
+  flashSeen?: (id: string, nonce: number) => boolean
   /** the handed-over «Tafel pur» (see TruppCard) — only gates plain-Trupp WORDING here
    *  (plainWords); the row itself carries no lite-only controls. */
   lite: boolean
 }) {
+  // the board's context: a late doctrine or language draws the memoised row again, as its clock leaf
+  useBoardClock()
   const az = appConfig.copy.atemschutz
   const status = live.status
   const words = plainWords(t, lite)
@@ -116,20 +165,20 @@ export function TruppRow({
   useEffect(() => { onFlashedRef.current = onFlashed; flashSeenRef.current = flashSeen }, [onFlashed, flashSeen])
   useEffect(() => {
     const el = rowRef.current
-    if (focusNonce == null || !el || flashSeenRef.current?.()) return
+    if (focusNonce == null || !el || flashSeenRef.current?.(t.id, focusNonce)) return
     if (focusScroll) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
     el.classList.remove(s.cardFlash)
     void el.offsetWidth
     el.classList.add(s.cardFlash)
-    const timer = window.setTimeout(() => { el.classList.remove(s.cardFlash); onFlashedRef.current?.() }, 1900)
+    const timer = window.setTimeout(() => { el.classList.remove(s.cardFlash); onFlashedRef.current?.(t.id, focusNonce) }, 1900)
     // ⚠️ the cleanup UNDOES the mark, it does not merely cancel its removal: an interrupted flash
     // (focusNonce changing — or going away — inside the 1.9s window) would otherwise drop the timer
     // and leave the class on. Under prefers-reduced-motion `.cardFlash` is a STATIC ring with no
     // animation to end, so that stuck class is a permanent one.
     return () => { window.clearTimeout(timer); el.classList.remove(s.cardFlash) }
-  }, [focusNonce, focusScroll])
+  }, [focusNonce, focusScroll, t.id])
   return (
-    <button ref={rowRef} type="button" className={cx(s.trow, acts ? s.trowTwo : s.trowOne, tone, conflict && s.cardConflict)} onClick={onOpen}
+    <button ref={rowRef} type="button" className={cx(s.trow, acts ? s.trowTwo : s.trowOne, tone, conflict && s.cardConflict)} onClick={() => onOpen(t.id)}
       aria-label={[t.name, tier, words.status(status === 'raus' ? truppStatusLabel(t) : (az.status[status] ?? status)),
         t.status === 'rueckzug' ? az.status.rueckzug : '']
         .filter((w, i, all) => w && all.indexOf(w) === i).join(' — ')}>
@@ -147,7 +196,7 @@ export function TruppRow({
       <span className={s.trowChevron}><Icon id="chevron-down" /></span>
     </button>
   )
-}
+}, sameCardProps)
 
 /** The phone row's tone (left edge + wash) — the collapsed row's and, since 26.09.2026, the opened
  *  card's too, so a Trupp keeps its colour when it is opened. See TruppRow for why each is what it is.
@@ -164,7 +213,7 @@ function rowTone(t: Trupp, status: TruppLive['status'], sev: number): string {
  *  opened card's head (26.09.2026, owner: «keep the same UI whether the card is collapsed or
  *  not»). One drawing, so opening a Trupp never moves, resizes or recolours the line the thumb
  *  just pressed; the chevron beside it is the caller's, because it points the other way. */
-function RowLine({ t, live, color, lite, act, headed = false }: { t: Trupp; live: TruppLive; color?: string; lite: boolean
+function RowLine({ t, live, color, lite, act, headed = false }: { t: Trupp; live: TruppSteady; color?: string; lite: boolean
   /** what stands in the clock's place while the Trupp is still at the door (see `waiting`) */
   act?: ReactNode
   /** the card stands under a «Draussen» head (TruppCard · `headed`): its break clock's caption
@@ -173,18 +222,6 @@ function RowLine({ t, live, color, lite, act, headed = false }: { t: Trupp; live
 }) {
   const az = appConfig.copy.atemschutz
   const words = plainWords(t, lite)
-  const clock = collapsedClock(t, live)
-  // ⚠️ Defence in depth: `collapsedClock`'s own `!isAtemschutzTrupp` branch already returns an
-  // empty sub for a plain Trupp that is out (it has no break clock to show — see the function's
-  // doc comment), so this swap is a no-op today. It stays here so a future edit to that branch
-  // cannot silently leak «Draussen seit» onto a work squad's row without also failing the app-only
-  // wording test below.
-  // The caption — what the clock counts — shows ABOVE the clock on every board (hill climb r2,
-  // 04.11.2026: an out card's break clock and an inside card's contact clock stood in one place with
-  // nothing saying which is which; above since 05.11.2026, owner pick A1/C7 — German reads «Draussen
-  // seit 4:25:20»): the grid's card, the link board's page, the phone row (M3, 13.11.2026) and,
-  // since 16.11.2026, the row's opened card («unlike collapsed» — owner), which draws this line.
-  const clockSub = clock.sub === az.outFor ? (headed ? '' : words.outFor) : clock.sub
   const inNotfall = truppInNotfall(t)
   /* ⚠️ A Trupp still at the door has no clock — «–:––» was an empty time where the next act
    * belongs (owner, 30.10.2026: «for all trupps already show the next action (i.e. im einsatz)
@@ -227,17 +264,38 @@ function RowLine({ t, live, color, lite, act, headed = false }: { t: Trupp; live
             row's aria-label and the card's status line, for a screen reader */}
         {/* the caption FIRST, so it is read (and drawn) before the time it names */}
         {waiting ? act : (
-          <>
-            <span className={s.trowSub}>{clockSub}</span>
-            <span className={s.trowClockLine}>
-              <span className={s.trowClockVal}><ClockVal val={clock.val} /></span>
-            </span>
-          </>
+          <TruppTicking t={t} keyOf={(l) => clockKey(collapsedClock(t, l))}>
+            {(l) => {
+              const clock = collapsedClock(t, l)
+              // ⚠️ Defence in depth: `collapsedClock`'s own `!isAtemschutzTrupp` branch already returns an
+              // empty sub for a plain Trupp that is out (it has no break clock to show — see the function's
+              // doc comment), so this swap is a no-op today. It stays here so a future edit to that branch
+              // cannot silently leak «Draussen seit» onto a work squad's row without also failing the app-only
+              // wording test below.
+              // The caption — what the clock counts — shows ABOVE the clock on every board (hill climb r2,
+              // 04.11.2026: an out card's break clock and an inside card's contact clock stood in one place with
+              // nothing saying which is which; above since 05.11.2026, owner pick A1/C7 — German reads «Draussen
+              // seit 4:25:20»): the grid's card, the link board's page, the phone row (M3, 13.11.2026) and,
+              // since 16.11.2026, the row's opened card («unlike collapsed» — owner), which draws this line.
+              const clockSub = clock.sub === az.outFor ? (headed ? '' : words.outFor) : clock.sub
+              return (
+                <>
+                  <span className={s.trowSub}>{clockSub}</span>
+                  <span className={s.trowClockLine}>
+                    <span className={s.trowClockVal}><ClockVal val={clock.val} /></span>
+                  </span>
+                </>
+              )
+            }}
+          </TruppTicking>
         )}
       </span>
     </>
   )
 }
+
+/** The tick key of a clock as `collapsedClock` says it: its caption and its time. */
+const clockKey = (c: { val: string; sub: string }) => `${c.sub}\n${c.val}`
 
 /** «Im Einsatz» on a ROW — the Bereit rows (RowLine · `waiting`) and the Sicherungstrupp's
  *  (AtemschutzView · SafetyRow): one filled button in the clock's place. Inside the row's own
@@ -264,7 +322,7 @@ export function RowEnter({ onEnter }: { onEnter: () => void }) {
  *  `nested`: inside the row's own button a <button> may not stand, so there they are spans with
  *  the button role, and a tap on them does not also open the card. */
 function TruppPair({ t, live, sev, nested = false, onPressure, onContact }: {
-  t: Trupp; live: TruppLive
+  t: Trupp; live: TruppSteady
   /** the shared tier — the Kontakt colour, identical on the row and on the card */
   sev: number
   nested?: boolean
@@ -357,8 +415,8 @@ function TruppPair({ t, live, sev, nested = false, onPressure, onContact }: {
  * wählen», «Nach oben holen». That a footprint means «platzieren» and a droplet means
  * «Leitung» is exactly the knowledge that is gone after six months without practice.
  */
-export function TruppCard({
-  t, live, alarm, now, color, canEdit, intervalMin, frozen = false, focusNonce, focusScroll = true, flashSeen, onFlashed, onContact, onStatus, onStandDown, onAskExit, onAskPressure, onEdit, onQuick, onReenter, onDelete, onPlace, onShowPlan, onMove, onShowLine, hasLine, drawnLineNo, dockedAt, onCollapse, headed = false, lite = false, page = false, pageHead, pageSafety, onNotfall, onNotfallEnd, conflict = false,
+export const TruppCard = memo(function TruppCard({
+  t, live, alarm, color, canEdit, intervalMin, frozen = false, focusNonce, focusScroll = true, flashSeen, onFlashed, onContact, onStatus, onStandDown, onAskExit, onAskPressure, onEdit, onQuick, onReenter, onDelete, onPlace, onShowPlan, onMove, onShowLine, hasLine, drawnLineNo, dockedAt, onCollapse, headed = false, lite = false, page = false, pageHead, pageSafety, onNotfall, onNotfallEnd, conflict = false,
 }: {
   /** the card IS the page (the handed-over phone board, AtemschutzView · focusMode): drawn flat by
    *  the board, and a crew at the door says «Bereit» where its clock would stand (Atemschutz-Link
@@ -375,13 +433,13 @@ export function TruppCard({
   conflict?: boolean
   /** the held «Notfall» on a crew inside, and the held «Notfall beendet» on a crew in one (F1,
    *  AtemschutzNotfall · NotfallHold). Absent for a viewer and on a closed Einsatz. */
-  onNotfall?: () => void
-  onNotfallEnd?: () => void
+  onNotfall?: (id: string) => void
+  onNotfallEnd?: (id: string) => void
   /** the mini sheets (26.09.2026 — components/TruppSheets): a tap on the Kanal opens the Kanal
    *  sheet, a tap on the Auftrag / Ziel / a missing Auftrag the Auftrag sheet, a tap on the crew or
    *  the Ausrüstung the Trupp sheet. Absent for a viewer. */
-  onQuick?: (kind: 'kanal' | 'auftrag' | 'trupp') => void
-  t: Trupp; live: TruppLive; now: number; canEdit: boolean
+  onQuick?: (id: string, kind: 'kanal' | 'auftrag' | 'trupp') => void
+  t: Trupp; live: TruppSteady; canEdit: boolean
   /** the shared tier (lib · truppAlarm) — the SAME number the tone, the chip and the row use */
   alarm: TruppAlarm
   /** the Funkkontakt-Intervall (min) — the Verlauf's timing head names the next due time */
@@ -410,10 +468,10 @@ export function TruppCard({
    *  may own the scroll port (see `focusNonceOf`) */
   focusScroll?: boolean
   /** see TruppRow — the completed ring reports back so a remount does not replay it */
-  onFlashed?: () => void
-  flashSeen?: () => boolean
-  onEdit: (focus?: 'auftrag') => void
-  onReenter: () => void
+  onFlashed?: (id: string, nonce: number) => void
+  flashSeen?: (id: string, nonce: number) => boolean
+  onEdit: (id: string, focus?: 'auftrag') => void
+  onReenter: (id: string) => void
   onDelete: (id: string) => void
   /** present only while the hand-set order is the one on screen (see AtemschutzView) */
   onMove?: (id: string, dir: -1 | 1) => void
@@ -463,28 +521,32 @@ export function TruppCard({
   useEffect(() => { onFlashedRef.current = onFlashed; flashSeenRef.current = flashSeen }, [onFlashed, flashSeen])
   useEffect(() => {
     const el = cardRef.current
-    if (focusNonce == null || !el || flashSeenRef.current?.()) return
+    if (focusNonce == null || !el || flashSeenRef.current?.(t.id, focusNonce)) return
     if (focusScroll) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
     el.classList.remove(s.cardFlash)
     void el.offsetWidth
     el.classList.add(s.cardFlash)
-    const timer = window.setTimeout(() => { el.classList.remove(s.cardFlash); onFlashedRef.current?.() }, 1900)
+    const timer = window.setTimeout(() => { el.classList.remove(s.cardFlash); onFlashedRef.current?.(t.id, focusNonce) }, 1900)
     // ⚠️ same as TruppRow: the cleanup must REMOVE the class, not just clear the timer. A flash cut
     // short (focusNonce changing or clearing inside the 1.9s window) otherwise leaves the mark on
     // the card for good — visibly so under prefers-reduced-motion, where `.cardFlash` is a static
     // ring rather than an animation that ends by itself.
     return () => { window.clearTimeout(timer); el.classList.remove(s.cardFlash) }
-  }, [focusNonce, focusScroll])
+  }, [focusNonce, focusScroll, t.id])
   const inField = t.status === 'aktiv' || t.status === 'rueckzug'
   const auftrag = truppAuftragLabel(t.auftrag)
   // ⚠️ forced to 0 off the Atemschutz section rather than trusted from `alarm`: every tint, every
   // border and every button colour on this card keys off `sev`, and a work squad must never be
   // able to wear one of them, whatever a future alarm rule decides to compute for it.
   const sev = monitored ? alarm.sev : 0
+  // the board's context: a late doctrine or language draws the memoised card again (as TruppRow)
+  useBoardClock()
   const dz = atemschutzDoctrine()
   // Planungshilfe: measured consumption history wins; the configured assumption is used only
   // until enough confirmed Druck values exist. It never replaces a reading or drives an alarm.
-  const estimate = monitored && inField ? estimatePressure(t, now, dz.cylinderLiters, dz.estConsumptionLPerMin) : null
+  // ⚠️ It runs down with the clock, and whether there is one at all can change with it (a timed
+  // reading that becomes due), so only the leaves that draw it read it (`estimateAt`)
+  const estimateAt = (now: number) => (monitored && inField ? estimatePressure(t, now, dz.cylinderLiters, dz.estConsumptionLPerMin) : null)
   const readings = t.readings ?? []
   // Alarmdruck – EITHER the logged Druck or the expected-pressure Schätzung is enough. Air burns
   // down between radio checks, so a reading that still looked fine at the last Kontakt is exactly
@@ -493,14 +555,13 @@ export function TruppCard({
   // …against THIS Trupp's line: in Rückzug it is the lower one (lib/atemschutz · alarmBarFor)
   const line = alarmBarFor(t, dz)
   const pressureLow = monitored && pressureAlarm(live.currentBar, line)
-  const estimateLow = pressureAlarm(estimate?.bar ?? null, line)
   /* The MEASURED crossing is the alarm and it lives in the band above, where the card's loudest
    * element is. This strip is what is left: the case where only the PROJECTION has crossed — a
    * Planungshilfe, which must never look like a logged reading and must never raise the tier
    * (lib/atemschutz · truppAlarm). */
-  const airNote = monitored && inField && estimateLow && !pressureLow
+  const airNoteAt = (now: number) => (monitored && inField && !pressureLow && pressureAlarm(estimateAt(now)?.bar ?? null, line)
     ? fillTemplate(az.alarmNoteEst, { bar: line })
-    : null
+    : null)
 
 
   /* The state words (29.09.2026: there is no band any more, on any board — see the zone list
@@ -631,7 +692,7 @@ export function TruppCard({
    * the Art and the Eingangsdruck-Korrektur. It stands after the jumps,
    * above the rule that separates the closing actions — on the tablet too since 29.09.2026, which
    * wears the same chips (it kept «Bearbeiten» first while its Kennzeile was a sentence). */
-  const editItem = canEdit ? [{ label: az.edit, onClick: () => onEdit() }] : []
+  const editItem = canEdit ? [{ label: az.edit, onClick: () => onEdit(t.id) }] : []
   const menuItems = [
     ...(lite ? [] : (t.annoId || t.entityId)
       ? [{ label: t.entityId ? az.showOnMap : az.showOnPlan, onClick: () => onShowPlan(t.id) }]
@@ -682,32 +743,35 @@ export function TruppCard({
    * touch height; the Schätzung's word never drops (owner pick 4C, 18.11.2026 – with «⋯ Mehr» as a
    * worded chip on the line it dropped on every 3-column board and on the phone). */
   const outWords = out && !neverDeployed
-  const sockelLine: { key: string; label: string; value: string; alarm?: boolean; labelled?: boolean; quiet?: boolean; title?: string }[] = [
-    ...(monitored && t.entryTime
-      // a DURATION that says so — «23:39» read at 23:58 was taken for a clock time (staging r4)
-      ? [{ key: 'elapsed', label: az.footInside, value: fmtDuration(live.elapsedSec), labelled: true, quiet: true }] : []),
-    ...(live.outSec != null && !out
-      ? [{ key: 'out', label: words.outFor, value: fmtDuration(live.outSec), labelled: true }] : []),
-    ...(monitored && !(canEdit && inField)
-      ? [{ key: 'bar', label: outWords ? az.footOutAt : az.currentPressure, value: `${live.currentBar} bar`, alarm: pressureLow, labelled: outWords, quiet: outWords }] : []),
-    ...(estimate
-      ? [{
-        key: 'est',
-        label: az.estimatedShort,
-        value: `≈ ${estimate.bar} bar`,
-        // ⚠️ never red (owner, 24.10.2026, sweep M3): a crossed Schätzung is said once, by the
-        // Alarmdruck note with its limit — the red «≈ 0 bar» at the foot said it a second time.
-        // A MEASURED Druck on this line (`bar` above) keeps its red.
-        // …and it keeps its WORD on the terse line (29.09.2026): on a line that can also carry a
-        // MEASURED «240 bar», an unnamed «≈ 0 bar» is exactly the mix-up this guards against — the
-        // word does it now, not a dimmed grey that also made the number easy to read past
-        labelled: true,
-        // the Planungshilfe caveat travels with the number, exactly as it did on the old row
-        title: estimate.source === 'history'
-          ? az.estimatedHintHistory
-          : fillTemplate(az.estimatedHint, { liters: dz.cylinderLiters, rate: dz.estConsumptionLPerMin }),
-      }] : []),
-  ]
+  // the line at the board's now — drawn by a leaf on the ticker, as its Einsatzzeit and Schätzung run
+  type SockelItem = { key: string; label: string; value: string; alarm?: boolean; labelled?: boolean; quiet?: boolean; title?: string }
+  const sockelAt = (tl: TruppLive, now: number): SockelItem[] => {
+    const estimate = estimateAt(now)
+    return [
+      ...(monitored && t.entryTime
+        // a DURATION that says so — «23:39» read at 23:58 was taken for a clock time (staging r4)
+        ? [{ key: 'elapsed', label: az.footInside, value: fmtDuration(tl.elapsedSec), labelled: true, quiet: true }] : []),
+      ...(monitored && !(canEdit && inField)
+        ? [{ key: 'bar', label: outWords ? az.footOutAt : az.currentPressure, value: `${live.currentBar} bar`, alarm: pressureLow, labelled: outWords, quiet: outWords }] : []),
+      ...(estimate
+        ? [{
+          key: 'est',
+          label: az.estimatedShort,
+          value: `≈ ${estimate.bar} bar`,
+          // ⚠️ never red (owner, 24.10.2026, sweep M3): a crossed Schätzung is said once, by the
+          // Alarmdruck note with its limit — the red «≈ 0 bar» at the foot said it a second time.
+          // A MEASURED Druck on this line (`bar` above) keeps its red.
+          // …and it keeps its WORD on the terse line (29.09.2026): on a line that can also carry a
+          // MEASURED «240 bar», an unnamed «≈ 0 bar» is exactly the mix-up this guards against — the
+          // word does it now, not a dimmed grey that also made the number easy to read past
+          labelled: true,
+          // the Planungshilfe caveat travels with the number, exactly as it did on the old row
+          title: estimate.source === 'history'
+            ? az.estimatedHintHistory
+            : fillTemplate(az.estimatedHint, { liters: dz.cylinderLiters, rate: dz.estConsumptionLPerMin }),
+        }] : []),
+    ]
+  }
   /* ⚠️ A Trupp WITHOUT Atemschutz has no cylinder, so every row of its log carries a bar of 0 —
    * the `entryPressureBar` a work squad was never asked for (useTruppActions · createTrupp). The
    * Verlauf printed «Eingerückt 0 bar» on a card that otherwise says nothing about pressure at
@@ -740,10 +804,15 @@ export function TruppCard({
   // the folded timing rows: they were a tap ZONE on the clock itself, findable only by knowing
   // that five grey characters at the band's edge meant «tap me». They are now the head of the
   // Verlauf, behind a word — and the band went back to being a display, not a button.
-  const timesShown = monitored && live.sinceContactSec != null
-  const lastContactAt = live.sinceContactSec != null ? now - live.sinceContactSec * 1000 : null
+  // `truppInField` is exactly when the live numbers carry a contact clock (lib/atemschutz)
+  const timesShown = monitored && truppInField(t)
   // a time of day says «Uhr», a duration never (owner pick UX journeys B2·43, 25.11.2026)
   const hm = (ms: number) => timeOfDay(fmtTime(new Date(ms).toISOString()))
+  // the last Kontakt and the next one due, as the clock reads them (a leaf: the panel's two rows)
+  const contactTimesAt = (tl: TruppLive, now: number) => {
+    const at = tl.sinceContactSec != null ? now - tl.sinceContactSec * 1000 : null
+    return at == null ? null : { last: hm(at), next: hm(at + intervalMin * 60_000) }
+  }
   /* The two conditional groups of the opened Verlauf's look-up panel, named here so the markup
    * below can ask ONE question per row and the panel itself can ask «is there anything at all».
    * ⚠️ `lowestShown` is deliberately narrow: the tiefster Druck is only a fact of its own once
@@ -751,7 +820,7 @@ export function TruppCard({
    * descending, `lowestBar === currentBar` and the row would restate the number the card already
    * shows in 19px mono. */
   const lowestShown = monitored && live.lowestBar < live.currentBar
-  const timingShown = timesShown && lastContactAt != null && !lite
+  const timingShown = timesShown && !lite
 
   const menu = menuItems.length > 0 && (
     <Menu
@@ -796,24 +865,24 @@ export function TruppCard({
   // ONE chip for the whole Ausrüstung, the box glyph in front (M11 B, 17.11.2026)
   const gearWords = equipmentWords.join(' · ')
   const gear = equipmentWords.length > 0 && chip('eq',
-    <><Icon id="box" /><span className={s.factTxt}>{gearWords}</span></>, onQuick && (() => onQuick('trupp')), { title: gearWords })
+    <><Icon id="box" /><span className={s.factTxt}>{gearWords}</span></>, onQuick && (() => onQuick(t.id, 'trupp')), { title: gearWords })
   const auftragZiel = auftrag && t.ziel ? `${auftrag} · ${t.ziel}` : auftrag
   const dockedWords = dockedAt ? fillTemplate(az.dockedAt, { host: dockedAt }) : ''
   const facts = (
     <div className={s.facts}>
       {auftrag
-        ? chip('auftrag', <span className={s.factTxt}>{auftragZiel}</span>, onQuick && (() => onQuick('auftrag')), { title: auftragZiel })
+        ? chip('auftrag', <span className={s.factTxt}>{auftragZiel}</span>, onQuick && (() => onQuick(t.id, 'auftrag')), { title: auftragZiel })
         : <>
-            {chip('auftrag', az.auftragAdd, onQuick && (() => onQuick('auftrag')), { cls: s.factDash })}
-            {t.ziel && chip('ziel', <span className={s.factTxt}>{t.ziel}</span>, onQuick && (() => onQuick('auftrag')), { title: t.ziel })}
+            {chip('auftrag', az.auftragAdd, onQuick && (() => onQuick(t.id, 'auftrag')), { cls: s.factDash })}
+            {t.ziel && chip('ziel', <span className={s.factTxt}>{t.ziel}</span>, onQuick && (() => onQuick(t.id, 'auftrag')), { title: t.ziel })}
           </>}
       {dockedAt && chip('docked', <><span className={s.factTxt}>{dockedWords}</span>{!lite && <Icon id="chevron" />}</>,
         lite ? undefined : () => onShowPlan(t.id), { cls: s.factGo, title: dockedWords })}
       {lineTag && chip('line', <>{fillTemplate(az.lineChip, { n: lineTag })}{hasLine && !lite && <Icon id="chevron" />}</>,
-        hasLine && !lite ? () => onShowLine(t.id) : onQuick && (() => onQuick('auftrag')), { cls: hasLine && !lite ? s.factGo : undefined })}
+        hasLine && !lite ? () => onShowLine(t.id) : onQuick && (() => onQuick(t.id, 'auftrag')), { cls: hasLine && !lite ? s.factGo : undefined })}
       {t.funkkanal == null ? gear : (
         <div className={s.factsEnd}>
-          {chip('kanal', `${az.funkkanalUnit} ${t.funkkanal}`, onQuick && (() => onQuick('kanal')))}
+          {chip('kanal', `${az.funkkanalUnit} ${t.funkkanal}`, onQuick && (() => onQuick(t.id, 'kanal')))}
           {gear}
         </div>
       )}
@@ -834,7 +903,7 @@ export function TruppCard({
     <Fragment key={i}>{i > 0 && ' '}<span className={s.crewName}>{n}{i < crewNames.length - 1 && ' ·'}</span></Fragment>
   ))
   const crewLine = crewNames.length > 0 && (onQuick
-    ? <button type="button" className={s.crewLine} onClick={() => onQuick('trupp')}>{crewTxt}</button>
+    ? <button type="button" className={s.crewLine} onClick={() => onQuick(t.id, 'trupp')}>{crewTxt}</button>
     : <span className={s.crewLine}>{crewTxt}</span>)
   /* the card says in WORDS what its line and its Kontakt say in colour — one line under the tile
    * grid, red or amber with the tier (26.09.2026 — see `rowWord`) */
@@ -848,11 +917,16 @@ export function TruppCard({
       <div className={s.noteZone}>
         {/* «… drücken» names a button only a writer has (actZone below) */}
         {canEdit && monitored && preEntry && <div className={s.preHint}>{az.preEntryHint}</div>}
-        {airNote && (
-          <div className={s.airNote} role="status" aria-live="polite">
-            <span>{airNote}</span>
-          </div>
-        )}
+        <TruppTicking t={t} keyOf={(_, now) => airNoteAt(now)}>
+          {(_, now) => {
+            const airNote = airNoteAt(now)
+            return airNote && (
+              <div className={s.airNote} role="status" aria-live="polite">
+                <span>{airNote}</span>
+              </div>
+            )
+          }}
+        </TruppTicking>
       </div>
     </>
   )
@@ -864,7 +938,7 @@ export function TruppCard({
      foot, Druck | Kontakt lowest) it leads the group, two rows above the thumb's resting spot. */
   const nfRow = (onNotfall && monitored && notfallOffered(t)) || (onNotfallEnd && truppInNotfall(t)) ? (
     <div className={cx(s.actions, s.nfRow)}>
-      {truppInNotfall(t) ? <NotfallHold end onFire={onNotfallEnd!} /> : <NotfallHold onFire={onNotfall!} />}
+      {truppInNotfall(t) ? <NotfallHold end onFire={() => onNotfallEnd!(t.id)} /> : <NotfallHold onFire={() => onNotfall!(t.id)} />}
     </div>
   ) : null
   const actZone = (
@@ -934,7 +1008,7 @@ export function TruppCard({
             Rapport, and what the Überwacher needs NOW is the running break clock in the band. */}
         {status === 'raus' && canEdit && (
           <div className={s.actions}>
-            <button className={cx(s.actBtn, s.actReenter)} onClick={onReenter}>
+            <button className={cx(s.actBtn, s.actReenter)} onClick={() => onReenter(t.id)}>
               {/* a crew that was never in goes «In den Einsatz», not «wieder» (N8) */}
               <Icon id="flag" /><span>{neverDeployed ? az.actEnterFirst : az.actReenter}</span>
             </button>
@@ -990,13 +1064,18 @@ export function TruppCard({
           {/* the ⌄ rides INSIDE the last value, so a wrapped line ends in it – not the flex box,
               which left it between the two lines (Sol review, PR #702) */}
           <span className={s.metaLine}>
-            {sockelLine.length > 0 ? sockelLine.map((it, i) => (
-              <span key={it.key} title={it.title}>
-                {it.labelled && <i className={it.quiet ? s.metaWordQuiet : undefined}>{it.label}</i>}
-                {/* the Einsatzzeit / «Draussen seit» past a day in the head's compact «3d 10h» — one card, one spelling */}
-                <b className={cx(it.alarm && s.metaAlarm)}><ClockVal val={it.value} />{i === sockelLine.length - 1 && footChev}</b>
-              </span>
-            )) : <span><i>{az.verlauf}{footChev}</i></span>}
+            <TruppTicking t={t} keyOf={(tl, now) => JSON.stringify(sockelAt(tl, now))}>
+              {(tl, now) => {
+                const sockelLine = sockelAt(tl, now)
+                return sockelLine.length > 0 ? sockelLine.map((it, i) => (
+                  <span key={it.key} title={it.title}>
+                    {it.labelled && <i className={it.quiet ? s.metaWordQuiet : undefined}>{it.label}</i>}
+                    {/* the Einsatzzeit / «Draussen seit» past a day in the head's compact «3d 10h» — one card, one spelling */}
+                    <b className={cx(it.alarm && s.metaAlarm)}><ClockVal val={it.value} />{i === sockelLine.length - 1 && footChev}</b>
+                  </span>
+                )) : <span><i>{az.verlauf}{footChev}</i></span>
+              }}
+            </TruppTicking>
           </span>
         </button>
         {menu}
@@ -1019,34 +1098,46 @@ export function TruppCard({
                     row restating it would be the very duplication this rework removes.
                     ⚠️ The timing rows keep their `!lite` gate (08.09., field ask): the phone at
                     the Eingang works off the ticking clock on the card. */}
-                {(estimate || lowestShown || timingShown) && (
-                  <div className={s.zonePanel}>
-                    {estimate && (
-                      <div className={s.zonePanelRow}>
-                        <span>{az.estimatedShort}</span>
-                        <em className={s.zoneNote} title={estimate.source === 'history'
-                          ? az.estimatedHintHistory
-                          : fillTemplate(az.estimatedHint, { liters: dz.cylinderLiters, rate: dz.estConsumptionLPerMin })}>
-                          {estimate.source === 'history'
-                            ? fillTemplate(az.estimatedSourceHistory, { count: estimate.sampleCount, time: fmtTime(estimate.basedAt) })
-                            : fillTemplate(az.estimatedSourceFallback, { rate: dz.estConsumptionLPerMin, time: fmtTime(estimate.basedAt) })}
-                        </em>
+                {/* one leaf for the whole panel: whether a Schätzung exists runs with the clock too
+                    (a timed reading that becomes due), so its visibility is the leaf's */}
+                <TruppTicking t={t} keyOf={(tl, now) => JSON.stringify([estimateAt(now), contactTimesAt(tl, now)])}>
+                  {(tl, now) => {
+                    const estimate = estimateAt(now)
+                    const times = timingShown ? contactTimesAt(tl, now) : null
+                    return (estimate || lowestShown || timingShown) && (
+                      <div className={s.zonePanel}>
+                        {estimate && (
+                          <div className={s.zonePanelRow}>
+                            <span>{az.estimatedShort}</span>
+                            <em className={s.zoneNote} title={estimate.source === 'history'
+                              ? az.estimatedHintHistory
+                              : fillTemplate(az.estimatedHint, { liters: dz.cylinderLiters, rate: dz.estConsumptionLPerMin })}>
+                              {estimate.source === 'history'
+                                ? fillTemplate(az.estimatedSourceHistory, { count: estimate.sampleCount, time: fmtTime(estimate.basedAt) })
+                                : fillTemplate(az.estimatedSourceFallback, { rate: dz.estConsumptionLPerMin, time: fmtTime(estimate.basedAt) })}
+                            </em>
+                          </div>
+                        )}
+                        {lowestShown && (
+                          <div className={s.zonePanelRow}>
+                            <span>{az.lowestPressure}</span><b><UnitVal val={`${live.lowestBar} bar`} /></b>
+                          </div>
+                        )}
+                        {timingShown && (
+                          <>
+                            {times && (
+                              <>
+                                <div className={s.zonePanelRow}><span>{az.lastContactAt}</span><b>{times.last}</b></div>
+                                <div className={s.zonePanelRow}><span>{az.nextContactDue}</span><b>{times.next}</b></div>
+                              </>
+                            )}
+                            <div className={s.zonePanelRow}><span>{az.contactIntervalLabel}</span><b><UnitVal val={fillTemplate(az.contactIntervalValue, { min: intervalMin })} /></b></div>
+                          </>
+                        )}
                       </div>
-                    )}
-                    {lowestShown && (
-                      <div className={s.zonePanelRow}>
-                        <span>{az.lowestPressure}</span><b><UnitVal val={`${live.lowestBar} bar`} /></b>
-                      </div>
-                    )}
-                    {timingShown && (
-                      <>
-                        <div className={s.zonePanelRow}><span>{az.lastContactAt}</span><b>{hm(lastContactAt!)}</b></div>
-                        <div className={s.zonePanelRow}><span>{az.nextContactDue}</span><b>{hm(lastContactAt! + intervalMin * 60_000)}</b></div>
-                        <div className={s.zonePanelRow}><span>{az.contactIntervalLabel}</span><b><UnitVal val={fillTemplate(az.contactIntervalValue, { min: intervalMin })} /></b></div>
-                      </>
-                    )}
-                  </div>
-                )}
+                    )
+                  }}
+                </TruppTicking>
                 {readings.length > 0 && (() => {
                   // ⚠️ The log spans EVERY deployment since 18.08. («Wieder einrücken» appends
                   // rather than starting a new one, so the first bottle still prints on the
@@ -1157,4 +1248,4 @@ export function TruppCard({
       )}
     </div>
   )
-}
+}, sameCardProps)
