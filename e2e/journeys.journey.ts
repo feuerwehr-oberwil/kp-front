@@ -123,10 +123,11 @@ test('cold start: kiosk login → the Einsatz on the Karte', async ({ page, base
     .then(() => performance.now() - t0)
   await shown(page, { css: '.roster-tile' })
   j.r.set('login_screen_ms', performance.now() - t0, 'ms')
-  j.r.set('login_cover_off_ms', await coverOff, 'ms')
-  // the PIN typed, the ✓ pressed: from here on it is the app's time, not the test's
-  await page.locator('.roster-tile').first().click()
-  await page.locator('.pinpad').waitFor({ state: 'visible' })
+  // the PIN typed, the ✓ pressed: from here on it is the app's time, not the test's. Raw input
+  // and polled ends, because total_ms runs on: a locator click or wait would add its retry steps
+  const tile = await centre(page, '.roster-tile')
+  await page.mouse.click(tile.x, tile.y)
+  await shown(page, { css: '.pinpad' })
   for (const digit of PIN) await page.keyboard.press(digit)
   const loginInPage = await page.evaluate(() => performance.now())
   const loginAt = performance.now()
@@ -138,6 +139,7 @@ test('cold start: kiosk login → the Einsatz on the Karte', async ({ page, base
   await waitForWorkspace(page)
   j.r.set('pin_to_ready_ms', performance.now() - loginAt, 'ms')
   j.r.set('total_ms', performance.now() - t0, 'ms')
+  j.r.set('login_cover_off_ms', await coverOff, 'ms')
   // …and which of its waits came last, after the PIN like pin_to_ready_ms (ungated)
   for (const [name, ms] of Object.entries(await coverMarks(page, loginInPage))) j.r.set(name, ms, 'ms')
   const { long } = await drain(page)
@@ -409,7 +411,6 @@ test('trupps: three rounds of Funkkontakt for every Trupp inside', async ({ page
     for (const name of j.seeded.trupps) {
       const at = await centre(page, card(name).getByRole('button', { name: 'Kontakt', exact: true }))
       const within = await card(name).elementHandle()
-      if (!within) throw new Error(`no card for Trupp «${name}»`)
       // confirmed = the card's contact clock starts again from 0:00
       taps.push(await timeTo(page, () => page.mouse.click(at.x, at.y), () => shown(page, { text: /^0:0[01]$/ }, { within })))
       await within.dispose()

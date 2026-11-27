@@ -65,8 +65,9 @@ journey called. When a request count moves, the report shows which routes change
   unrelated PRs. Every timed wait now ends on `harness · shown` (polled every 16 ms, Playwright's
   meaning of «visible»): `cold-start.login_screen_ms`, `pin_to_workspace_ms`, `pin_to_ready_ms`,
   `total_ms`, `warm-reload.reload_to_workspace_ms`, `reload_to_ready_ms`, `verlauf.submit_ms`,
-  `open_verlauf_ms`, `remote_entry_visible_ms` and `trupps.contact_ms`. Their baseline was
-  re-recorded from CI runs.
+  `open_verlauf_ms`, `remote_entry_visible_ms` and `trupps.contact_ms`; the kiosk tile tap and the
+  PIN pad inside `cold-start.total_ms` are raw input and a poll as well. Their baseline is
+  re-accepted from CI runs of that change.
 - **Time budgets follow the machine, upwards only.** `env.calibration` times a fixed workload. The
   report scales every `ms` budget by today's calibration over the baseline's, clamped to ×1–1.5
   (`scripts/perf-gate.mjs · speedFactor`). A runner faster than the baseline's keeps the baseline's

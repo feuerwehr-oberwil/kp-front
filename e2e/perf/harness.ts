@@ -284,10 +284,12 @@ export async function shown(page: Page, target: Target, { state = 'visible', wit
     const root: Element = within ?? document.body
     const skip = (e: Element) => ['SCRIPT', 'NOSCRIPT', 'STYLE', 'HEAD', 'TEMPLATE'].includes(e.nodeName)
     const { text } = target
-    const needle = typeof text === 'string' ? text.replace(/\s+/g, ' ').trim().toLowerCase() : ''
+    // Playwright's normalizeWhiteSpace: no zero-width spaces or soft hyphens, runs of space as one
+    const norm = (s: string) => s.replace(/[\u200b\u00ad]/g, '').replace(/\s+/g, ' ')
+    const needle = typeof text === 'string' ? norm(text).trim().toLowerCase() : ''
     const holds = (e: Element) => !skip(e) && (text instanceof RegExp
       ? (text.lastIndex = 0, text.test(e.textContent ?? ''))
-      : (e.textContent ?? '').replace(/\s+/g, ' ').toLowerCase().includes(needle))
+      : norm(e.textContent ?? '').toLowerCase().includes(needle))
     const innermost = (e: Element) => holds(e) && ![...e.children].some(holds)
     const first = (): Element | null => {
       if (target.css !== undefined) return root.querySelector(target.css)
