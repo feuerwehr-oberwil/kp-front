@@ -98,8 +98,17 @@ export interface LabelPassScene {
  * `cl:<circle>`, `crumb:<entity>:<index>` (a trail breadcrumb's time – its dot stays). Pure over `px` (screen px of a ground point at the current camera).
  */
 export function mapLabelDecisions(px: (c: LngLat) => { x: number; y: number }, scene: LabelPassScene): ReadonlySet<string> {
+  return wallOff(arbitrate(px, scene), scene.chrome ?? [])
+}
+
+/** The pass before the chrome: what arbitration hides, and the candidates the chrome may take off. */
+interface Arbitrated { suppressed: ReadonlySet<string>; cands: readonly LabelCandidate[] }
+
+/** `mapLabelDecisions` without the chrome walls – the O(n²) part, which `useLabelPass` keeps
+ *  while the scene and the camera stand still. */
+function arbitrate(px: (c: LngLat) => { x: number; y: number }, scene: LabelPassScene): Arbitrated {
   const { initialCenter, entities, isVisible, zoom, symMul, captionMode, selectedId, selectedEntityIds, teamLines, trupps, truppSeverities,
-    drawingsVisible, lineDecor, drawLabels, circleLabels, selectedDrawingId, storedDrawings, hiddenTrails, chrome = [] } = scene
+    drawingsVisible, lineDecor, drawLabels, circleLabels, selectedDrawingId, storedDrawings, hiddenTrails } = scene
   // ties inside a rank go to whatever is nearer the incident — never to placement order
   const hub = px(initialCenter)
   const near = (p: { x: number; y: number }) => Math.hypot(p.x - hub.x, p.y - hub.y)
@@ -236,6 +245,11 @@ export function mapLabelDecisions(px: (c: LngLat) => { x: number; y: number }, s
   // captions – MapView reports the hidden captions to the plan twins, and a symbol under the map's
   // top bar must not lose its caption on the Plan – nor to the selection or a pinned label.
   const suppressed = zoomedOut.length ? new Set([...placeLabels(cands, occupied), ...zoomedOut]) : placeLabels(cands, occupied)
+  return { suppressed, cands }
+}
+
+/** The chrome walls over an arbitrated pass (see «The chrome is a wall too» above). */
+function wallOff({ suppressed, cands }: Arbitrated, chrome: readonly LabelBox[]): ReadonlySet<string> {
   if (!chrome.length) return suppressed
   const walls = chrome.map((b) => ({ x: b.x - CHROME_PAD, y: b.y - CHROME_PAD, w: b.w + 2 * CHROME_PAD, h: b.h + 2 * CHROME_PAD }))
   const out = new Set(suppressed)
@@ -261,18 +275,47 @@ function chromeBoxes(container: HTMLElement): LabelBox[] {
   })
 }
 
+/** Same plain data: arrays, plain objects, Maps and Sets by content, anything else (a function, a
+ *  class instance) by identity. MapView rebuilds its derived scene members (`lineDecor`,
+ *  `drawLabels`, `teamLines` …) on every render, so identity alone would never match. */
+function sameData(a: unknown, b: unknown): boolean {
+  if (Object.is(a, b)) return true
+  if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) return false
+  if (Array.isArray(a)) return Array.isArray(b) && a.length === b.length && a.every((x, i) => sameData(x, b[i]))
+  if (a instanceof Map) return b instanceof Map && a.size === b.size && [...a].every(([k, v]) => b.has(k) && sameData(v, b.get(k)))
+  if (a instanceof Set) return b instanceof Set && a.size === b.size && [...a].every((v) => b.has(v))
+  if (Object.getPrototypeOf(a) !== Object.prototype || Object.getPrototypeOf(b) !== Object.prototype) return false
+  const ka = Object.keys(a)
+  const ra = a as Record<string, unknown>, rb = b as Record<string, unknown>
+  return ka.length === Object.keys(b).length && ka.every((k) => k in rb && sameData(ra[k], rb[k]))
+}
+
+/** The last arbitration per map instance, with what it was taken for (see `useLabelPass`). */
+const lastPass = new WeakMap<MlMap, { scene: LabelPassScene; frame: number; pass: Arbitrated }>()
+
+/** `arbitrate`, unless this map's last pass was taken for the same scene and frame. */
+function arbitrateOnce(m: MlMap, scene: LabelPassScene, frame: number): Arbitrated {
+  const last = lastPass.get(m)
+  if (last && last.frame === frame && sameData(last.scene, scene)) return last.pass
+  const pass = arbitrate((c) => m.project(c as [number, number]), scene)
+  lastPass.set(m, { scene, frame, pass })
+  return pass
+}
+
 /**
- * MapView's label pass: runs `mapLabelDecisions` on every render against the live map, and
- * reports which symbol captions it hid (`onCaptionSuppressionChange` — the plan twins hide the
- * same ones). `bumpLabelFrame` is the re-run trigger for a pure PAN, which changes no other
- * state here but moves every label on screen: MapView bumps it on moveend — pan, zoom and rotate
- * all end there. Deliberately NOT per frame: labels appearing and disappearing under a moving
- * finger read as flicker, so the decision is taken once the map comes to rest.
+ * MapView's label pass: arbitrates the labels against the live map, walls them off from the
+ * chrome, and reports which symbol captions it hid (`onCaptionSuppressionChange` — the plan twins
+ * hide the same ones). Deliberately NOT per frame: labels appearing and disappearing under a
+ * moving finger read as flicker, and the arbitration compares every label with every other. So it
+ * is kept until the scene changes by content (a new object, a selection, a caption edit, a drag's
+ * release) or `bumpLabelFrame` – MapView calls it on moveend: pan, zoom and rotate all end there.
+ * The chrome walls are applied on every render, read fresh: the chrome moves without telling the
+ * map (a rail opening, the Meldeleiste pushing the phone's read-outs, the FAB lifted over a dock).
  */
 export function useLabelPass(mapInst: RefObject<MlMap | null>, scene: LabelPassScene, onCaptionSuppressionChange?: (ids: ReadonlySet<string>) => void) {
-  const [, bump] = useState(0)
+  const [frame, bump] = useState(0)
   const m = mapInst.current
-  const suppressedLabels = m ? mapLabelDecisions((c) => m.project(c as [number, number]), { ...scene, chrome: chromeBoxes(m.getContainer()) }) : NO_LABELS
+  const suppressedLabels = m ? wallOff(arbitrateOnce(m, scene, frame), chromeBoxes(m.getContainer())) : NO_LABELS
   const suppressedCaptionKey = [...suppressedLabels]
     .filter((key) => key.startsWith('cap:'))
     .map((key) => key.slice(4))

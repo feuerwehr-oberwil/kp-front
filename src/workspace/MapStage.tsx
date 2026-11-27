@@ -4,16 +4,19 @@
 // 09.10.2026); every writer it calls is the workspace's. The workspace's hooks come in as their
 // own result objects (the selection, the store, the drawing surface, the map actions, the Trupp
 // and team-marker actions), so a new action is one edit in the hook and one here.
+// The Karte stays mounted under every surface (its MapLibre instance, sources and camera survive a
+// switch) but renders only while it can be seen – see `FreezableMapView`.
 
 import type { KarteWeather } from './useKarteWeather'
 import type { useMapActions } from './useMapActions'
-import type { ReactNode, RefObject, Dispatch, SetStateAction } from 'react'
+import { memo, type ComponentProps, type ReactNode, type RefObject, type Dispatch, type SetStateAction } from 'react'
 import type { MapRef } from 'react-map-gl/maplibre'
 import type { JSX } from 'react/jsx-runtime'
 import { MapView } from '../components/MapView'
 import { Splash } from '../components/Splash'
 import { appConfig } from '../config/appConfig'
 import type { AtemschutzAlarmState } from '../lib/atemschutz'
+import { useGeorefMode } from '../lib/georefMode'
 import type { SymbolSurface } from '../lib/prefs'
 import { SHAPE_TWO_POINT } from '../lib/shapes'
 import { type TruppTrail, mapGhostTrails } from '../lib/truppTrails'
@@ -30,6 +33,24 @@ import type { useTeamMarkerActions } from '../lib/useTeamMarkerActions'
 import type { useTruppActions } from '../lib/useTruppActions'
 import type { VehiclePosition } from '../lib/useVehicleLayer'
 import type { Entity, LayerDef, Incident, LngLat, Trupp, PreparedMapOverlay, LayerId, Drawing, CaptionMode } from '../types'
+import type { WorkspaceMode } from './types'
+
+/**
+ * The MapView, sitting out its parent's renders while `frozen`. Off the Karte the map is covered
+ * (the Atemschutz, Anwesenheit and Checkliste veil, the Mittel and Rapport backdrops, the Plan's
+ * `visibility: hidden`, the phone's rule for every surface), so a workspace commit there skips its
+ * render – label pass, markers, projections. The first render with `frozen` false takes the latest
+ * props in the SAME commit that shows the map, so a jump paints the current scene. Its own state,
+ * its effects on it (first fit, the settle for the opening cover, the coarse GPS fix) and the
+ * `mapRef` instance stay live while frozen. It is not frozen where its output is used: behind a
+ * plan with twins of its objects, whose captions follow its label pass.
+ */
+const FreezableMapView = memo(
+  function FreezableMapView({ frozen: _frozen, ...props }: ComponentProps<typeof MapView> & { frozen: boolean }) {
+    return <MapView {...props} />
+  },
+  (_prev, next) => next.frozen,
+)
 
 export interface MapStageProps {
   sym: ReturnType<typeof useSymbols>
@@ -84,6 +105,11 @@ export interface MapStageProps {
   setDrawTap: Dispatch<SetStateAction<{ id: string; x: number; y: number } | null>>
   /** a hand places a live vehicle (useMapActions · placeVehicle) */
   placeVehicle: (id: string, pos: VehiclePosition) => void
+  /** the surface on screen – off the Karte the map is frozen (FreezableMapView) */
+  mode: WorkspaceMode
+  /** the plan on screen shows the Karte's objects as twins, whose captions the map's label pass
+   *  decides (`setMapSuppressedCaptions`) – the map stays live behind it */
+  planTwins: boolean
 }
 
 export function MapStage({
@@ -92,7 +118,7 @@ export function MapStage({
   initialFitPoints, locateReq, setView, onBasemapUnavailable, onMapSettled, selection, store, mapDrawing,
   mapActions, truppActions, teamMarkers, patchEntity, editNoteId, setEditNoteId, noteTextLive,
   noteTextCommit, setNotePanelId, effTrupps, azAlarm, showTrupp, newTruppFromMarker, removeTeamWithTrail,
-  trails, deleteGhostTrail, measure, coord, rotStart, flashDrawingId, setDrawTap, placeVehicle,
+  trails, deleteGhostTrail, measure, coord, rotStart, flashDrawingId, setDrawTap, placeVehicle, mode, planTwins,
 }: MapStageProps) {
   const {
     tool, pendingShape, selectedId, setSelectedId, selectedDrawingId, setSelectedDrawingId,
@@ -101,6 +127,11 @@ export function MapStage({
   const { doc, commit, setDocRaw, beginDrag, endDrag } = store
   // the Trupp form's Ziel is being picked here (lib/zielPick): a symbol tap answers, nothing moves
   const zielPick = useZielPick() === 'picking'
+  // seen on its own surface, and over the Plan while «Karte verknüpfen» splits the screen or
+  // «Deckung prüfen» lays the plan on it (09-whiteboard.css) – both run with a georef plan set;
+  // and needed behind a plan whose twins hide the captions the map hides
+  const georefPlan = useGeorefMode().planId
+  const live = mode === 'map' || !!georefPlan || planTwins
   const {
     draft, setDraft, areaMode, lineNodes, setDraftPointAttachment, draftStartAttachment, freehandKind, onFreehand, createCircle,
     drawColor, drawWidth, drawDashed, selectedDrawing, patchDrawingById, editDrawingCoords,
@@ -117,7 +148,8 @@ export function MapStage({
       {/* the map mounts once the pack has loaded OR failed for good — with an empty glyph table a
           symbol renders as its empty chip, which beats a splash that never ends (02.09.) */}
       {(sym.ready || sym.error) ? guarded('map', (
-        <MapView
+        <FreezableMapView
+          frozen={!live}
           ref={mapRef}
           entities={mapEntities}
           readOnly={tacticalLocked}
