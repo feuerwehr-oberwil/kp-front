@@ -164,9 +164,9 @@ describe('JournalStore – killed between «Gespeichert» and the acknowledgemen
     } finally { restarted.dispose() }
   })
 
-  // ⚠️ The replay's answer holds only the rows the server NEWLY took – the replayed row is not in
-  // it – and the flush drops the row from the outbox. Until a pull answers, the Verlauf shows it
-  // nowhere. The same holds for any retry after a lost response; the gap makes it a restart.
+  // The replay's answer holds only the rows the server NEWLY took – the replayed row is not in
+  // it – and the flush drops the row from the outbox. The store keeps it on display, as sent,
+  // until a pull holds it (journalStore · SentRow); before 27.11.2026 the Verlauf showed it nowhere.
   describe('restarted offline, back online for the POST but not the pull', () => {
     /** Restart offline, then replay the stored row with the POST answering and the pull failing.
      *  Asserts the scenario itself; returns the restarted store after the replay. */
@@ -196,11 +196,29 @@ describe('JournalStore – killed between «Gespeichert» and the acknowledgemen
       restarted.dispose()
     })
 
-    it.fails('the row stays in the Verlauf', async () => {
+    it('the row stays in the Verlauf, as sent', async () => {
       const restarted = await replayWithoutPull()
       try {
         expect(restarted.display().map((r) => r.id)).toEqual(['m1'])
+        expect(restarted.unsentRowIds().size).toBe(0)
+        expect(restarted.syncStatus).toBe('synced')
       } finally { restarted.dispose() }
+    })
+
+    it('restarted again before the pull: still shown, nothing re-sent; the pull shows it once', async () => {
+      const restarted = await replayWithoutPull()
+      await vi.waitFor(async () => expect((await stored())?.outbox).toEqual([]))
+      restarted.dispose()
+      apiPost.mockClear()
+      const again = new JournalStore(INC, false)
+      try {
+        await again.init([])
+        expect(again.display().map((r) => r.id)).toEqual(['m1'])
+        expect(apiPost).not.toHaveBeenCalled()
+        apiGet.mockImplementation(journalServer([row('m1')]).get)
+        expect(await again.pull()).toBe('new')
+        expect(again.display().map((r) => r.id)).toEqual(['m1'])
+      } finally { again.dispose() }
     })
   })
 

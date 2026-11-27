@@ -49,6 +49,15 @@ the module they concern (`lib/connectivity`, `lib/eventScope`, `lib/jsonEqual`,
   a miss: every hydrate that writes back reads through `idbRead` and never writes over a slot it
   could not read. Client audit events carry a stable `client_id` through retries; a beacon does
   not acknowledge delivery.
+- **A sent Verlauf row stays on display until a pull holds it** (27.11.2026). The server answers
+  a POST with the rows it NEWLY took, so a retry after a lost answer (or the replay after a
+  restart inside the acknowledgement gap) is answered «nothing new» and the row leaves the
+  outbox without a pulled copy. The journal store keeps such a row in `sent` and shows it like
+  any other row: it counts as sent – not pending, not «nur auf diesem Gerät», never sent again –
+  and «Gespeichert» is unchanged. Each kept row stores `upTo`: the seq below the first row that
+  answer newly took, else the answer's `latest_seq`. It folds before every server row above
+  `upTo` (a later correction still wins). A pull that delivers it replaces it (the pulled copy
+  wins); a cursor past `upTo` without it drops it (the server holds none). `lib/syncAckGap.test.ts` pins the restart cases.
 - **A save that changed only the Trupps travels as the trupp slice** (18.10.2026). An editor's
   push whose blob differs from the server copy it is based on (`entry.base` at `baseRev`) in
   `trupps` and nothing else goes `PUT …/workspace/trupps`, the Atemschutz-Link's route, instead
