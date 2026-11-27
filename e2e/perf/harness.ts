@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { crc32, deflateSync } from 'node:zlib'
-import type { APIRequestContext, BrowserContext, CDPSession, Page, Request } from '@playwright/test'
+import type { APIRequestContext, BrowserContext, CDPSession, ElementHandle, Page, Request } from '@playwright/test'
 import { FAT_PRESETS, fatIncident } from '../../src/lib/fatIncident'
 import { PIN, EINSATZ_RAIL } from '../helpers'
 
@@ -265,6 +265,46 @@ export async function timeTo(page: Page, input: () => Promise<unknown>, ready: (
   return performance.now() - t0
 }
 
+/** What a timed wait looks for: the FIRST element in document order that matches a CSS selector,
+ *  or Playwright's `getByText` – the innermost element whose text holds a string (whitespace
+ *  normalised, any case) or matches a RegExp. */
+export type Target = { css: string; text?: never } | { text: string | RegExp; css?: never }
+
+/**
+ * Resolve once `target` is visible (or, `hidden`, gone or not visible), checked in the page every
+ * POLL_MS: the end of a timed number. Never `locator.waitFor` there – Playwright re-checks after 0,
+ * 20, 50, 100, 100 ms and then only every 500 ms, so a state that came 300 ms in read as 770 ms
+ * (cold-start.login_screen_ms in two modes, 27.11.2026). «Visible» is Playwright's: a box wider and
+ * taller than 0, `checkVisibility()` with `visibility: visible`. `within` narrows the search to one
+ * element, resolved before the clock starts. A RegExp scans every element of its root on every
+ * poll – give it a small `within`; a string or a selector does not.
+ */
+export async function shown(page: Page, target: Target, { state = 'visible', within, timeout = 30_000 }: { state?: 'visible' | 'hidden'; within?: ElementHandle<Element>; timeout?: number } = {}) {
+  await page.waitForFunction(({ target, state, within }) => {
+    const root: Element = within ?? document.body
+    const skip = (e: Element) => ['SCRIPT', 'NOSCRIPT', 'STYLE', 'HEAD', 'TEMPLATE'].includes(e.nodeName)
+    const { text } = target
+    const needle = typeof text === 'string' ? text.replace(/\s+/g, ' ').trim().toLowerCase() : ''
+    const holds = (e: Element) => !skip(e) && (text instanceof RegExp
+      ? (text.lastIndex = 0, text.test(e.textContent ?? ''))
+      : (e.textContent ?? '').replace(/\s+/g, ' ').toLowerCase().includes(needle))
+    const innermost = (e: Element) => holds(e) && ![...e.children].some(holds)
+    const first = (): Element | null => {
+      if (target.css !== undefined) return root.querySelector(target.css)
+      if (text instanceof RegExp) return [root, ...root.querySelectorAll('*')].find(innermost) ?? null
+      // a string held by an element is held by every ancestor: walk down the first holder
+      if (!holds(root)) return null
+      let at = root
+      for (let next = [...at.children].find(holds); next; next = [...at.children].find(holds)) at = next
+      return at
+    }
+    const el = first()
+    const b = el?.getBoundingClientRect()
+    const visible = !!el && !!b && b.width > 0 && b.height > 0 && el.checkVisibility({ visibilityProperty: true })
+    return state === 'visible' ? visible : !visible
+  }, { target, state, within }, { polling: POLL_MS, timeout })
+}
+
 /** Centre of a locator — computed BEFORE the clock starts, once nothing lies on top of it. A
  *  raw tap hits whatever is there: a toast of the previous act sat over the composer's
  *  «Erfassen» once (05.10.2026), and the tap dismissed the toast instead. A crew waits for a
@@ -418,7 +458,6 @@ export async function buildingAlreadyRead(context: BrowserContext, seeded: Pick<
     [`kp-idb-fb:kp-front-building-read:${seeded.id}`, JSON.stringify([key])] as const)
 }
 
-/** The Einsatz is on screen and its opening cover (lib/bootCover) has lifted. */
 /** The opening cover's waits (lib/bootCover · useBootCover), as the page's `boot:<name>` marks
  *  recorded them, as `ready_<wait>_ms` after `from` (the page's performance.now()): one per wait
  *  that held, `ready_cap_ms` when the 8 s cap lifted the cover, `ready_cover_ms` once it was off.
@@ -433,7 +472,8 @@ export async function coverMarks(page: Page, from = 0): Promise<Record<string, n
 }
 const COVER_MARKS = ['sym', 'map', 'plans', 'wx', 'cap', 'cover']
 
+/** The Einsatz is on screen and its opening cover (lib/bootCover) has lifted. */
 export async function waitForWorkspace(page: Page, timeout = 60_000) {
-  await page.locator(EINSATZ_RAIL).waitFor({ state: 'visible', timeout })
+  await shown(page, { css: EINSATZ_RAIL }, { timeout })
   await page.waitForFunction(() => !document.querySelector('.login.splash'), undefined, { timeout, polling: POLL_MS })
 }

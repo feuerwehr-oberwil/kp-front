@@ -2,7 +2,7 @@ import { request as apiRequest, type Page } from '@playwright/test'
 import { expect, PIN, test, EINSATZ_RAIL } from './helpers'
 import {
   Results, blocking, buildingAlreadyRead, calibrate, cdpFor, centre, counters, coverMarks, drain, instrument, isAppApi, isolateFromOutside, median,
-  painted, recordNetwork, remember, retained, retire, routeTally, seedIncident, signIn, timeTo,
+  painted, recordNetwork, remember, retained, retire, routeTally, seedIncident, shown, signIn, timeTo,
   waitForWorkspace, watchNetwork, CPU_THROTTLE, POLL_MS, type Seeded,
 } from './perf/harness'
 
@@ -118,8 +118,12 @@ test('cold start: kiosk login → the Einsatz on the Karte', async ({ page, base
   const from = Date.now()
   const t0 = performance.now()
   await page.goto('/')
-  await page.locator('.roster-tile').first().waitFor({ state: 'visible' })
+  // what a kiosk user waits for: the boot cover gone over the roster (ungated until baselined)
+  const coverOff = page.waitForFunction(() => !document.querySelector('.boot-splash'), undefined, { polling: POLL_MS, timeout: 30_000 })
+    .then(() => performance.now() - t0)
+  await shown(page, { css: '.roster-tile' })
   j.r.set('login_screen_ms', performance.now() - t0, 'ms')
+  j.r.set('login_cover_off_ms', await coverOff, 'ms')
   // the PIN typed, the ✓ pressed: from here on it is the app's time, not the test's
   await page.locator('.roster-tile').first().click()
   await page.locator('.pinpad').waitFor({ state: 'visible' })
@@ -127,7 +131,7 @@ test('cold start: kiosk login → the Einsatz on the Karte', async ({ page, base
   const loginInPage = await page.evaluate(() => performance.now())
   const loginAt = performance.now()
   await page.keyboard.press('Enter')
-  await page.locator(EINSATZ_RAIL).waitFor({ state: 'visible', timeout: 60_000 })
+  await shown(page, { css: EINSATZ_RAIL }, { timeout: 60_000 })
   j.r.set('pin_to_workspace_ms', performance.now() - loginAt, 'ms')
   // the opening cover lifts once the first screen is whole — or at its 8 s cap (lib/bootCover):
   // a number near 8 000 here means something it waits for never arrived
@@ -170,7 +174,7 @@ test('warm reload: the installed app opens the Einsatz again', async ({ page, ba
     const from = Date.now()
     const t0 = performance.now()
     await page.reload()
-    await page.locator(EINSATZ_RAIL).waitFor({ state: 'visible', timeout: 60_000 })
+    await shown(page, { css: EINSATZ_RAIL }, { timeout: 60_000 })
     shell.push(performance.now() - t0)
     await waitForWorkspace(page)
     ready.push(performance.now() - t0)
@@ -323,7 +327,8 @@ test('verlauf: ten Meldungen, the full Verlauf, another device\'s entry', async 
   await page.waitForEvent('requestfinished', { predicate: (r) => /\/positions$/.test(new URL(r.url()).pathname), timeout: 20_000 }).catch(() => null)
   await drain(page)
   const from = Date.now()
-  const field = page.getByPlaceholder('Was ist passiert? Meldung, Beobachtung, Entscheid …')
+  const placeholder = 'Was ist passiert? Meldung, Beobachtung, Entscheid …'
+  const field = page.getByPlaceholder(placeholder)
   const submits: number[] = []
   for (let i = 0; i < 10; i++) {
     await page.getByRole('button', { name: 'Eintrag', exact: true }).click()
@@ -331,7 +336,7 @@ test('verlauf: ten Meldungen, the full Verlauf, another device\'s entry', async 
     const at = await centre(page, page.getByRole('button', { name: 'Erfassen', exact: true }))
     // the long poll this Meldung wakes, asked again — the first held request issued after the tap
     const rearmed = page.waitForRequest((r) => /\/journal\?.*\bwait=1\b/.test(r.url()), { timeout: 15_000 })
-    submits.push(await timeTo(page, () => page.mouse.click(at.x, at.y), () => field.waitFor({ state: 'hidden' })))
+    submits.push(await timeTo(page, () => page.mouse.click(at.x, at.y), () => shown(page, { css: `[placeholder*="${placeholder}" i]` }, { state: 'hidden' })))
     // ⚠️ Untimed: let the Meldung land before the next one — its POST, the pull after it, and the
     // long poll it woke, asked again. Typed back to back, a POST fell into the long poll's 250 ms
     // re-arm gap (pollBackoff · LONG_POLL_SPACING_MS) on some runs and woke nothing, or two
@@ -347,14 +352,15 @@ test('verlauf: ten Meldungen, the full Verlauf, another device\'s entry', async 
   // the whole Verlauf: 316 seeded rows and the ten new ones — opened three times, the median
   // (one opening swung 224 → 374 ms between two runs of the same build)
   const toggle = page.getByRole('button').filter({ has: page.getByText('Verlauf', { exact: true }) }).first()
-  const newest = page.getByText('Perf Meldung 10', { exact: false }).first()
+  const newestText = 'Perf Meldung 10'
+  const newest = page.getByText(newestText, { exact: false }).first()
   const opens: number[] = []
   const blocked: number[] = []
   for (let i = 0; i < 3; i++) {
     // by its visible word: with open Pendenzen the button is NAMED by the count («6 offen»)
     const at = await centre(page, toggle)
     await drain(page)
-    opens.push(await timeTo(page, () => page.mouse.click(at.x, at.y), () => newest.waitFor({ state: 'visible' })))
+    opens.push(await timeTo(page, () => page.mouse.click(at.x, at.y), () => shown(page, { text: newestText })))
     blocked.push(blocking((await drain(page)).long))
     if (i < 2) {
       await page.keyboard.press('Escape') // the open drawer covers its own button
@@ -372,7 +378,7 @@ test('verlauf: ten Meldungen, the full Verlauf, another device\'s entry', async 
     data: { entries: [{ id: `perf-remote-${Date.now()}`, t: new Date().toTimeString().slice(0, 5), at: new Date().toISOString(), icon: 'note', kind: 'journal', text: remote }] },
   })
   expect(res.ok(), `remote journal POST: HTTP ${res.status()} ${await res.text()}`).toBeTruthy()
-  await page.getByText(remote).first().waitFor({ state: 'visible', timeout: 30_000 })
+  await shown(page, { text: remote })
   j.r.set('remote_entry_visible_ms', performance.now() - t0, 'ms')
 
   // ⚠️ Settle for 2 s AND until the audit outbox has gone out: it flushes 4 s after the last act
@@ -402,9 +408,11 @@ test('trupps: three rounds of Funkkontakt for every Trupp inside', async ({ page
   for (let round = 0; round < 3; round++) {
     for (const name of j.seeded.trupps) {
       const at = await centre(page, card(name).getByRole('button', { name: 'Kontakt', exact: true }))
+      const within = await card(name).elementHandle()
+      if (!within) throw new Error(`no card for Trupp «${name}»`)
       // confirmed = the card's contact clock starts again from 0:00
-      taps.push(await timeTo(page, () => page.mouse.click(at.x, at.y),
-        () => card(name).getByText(/^0:0[01]$/).first().waitFor({ state: 'visible', timeout: 30_000 })))
+      taps.push(await timeTo(page, () => page.mouse.click(at.x, at.y), () => shown(page, { text: /^0:0[01]$/ }, { within })))
+      await within.dispose()
       await page.waitForTimeout(2_500) // the radio exchange with the next Trupp
     }
   }

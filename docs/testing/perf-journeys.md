@@ -28,6 +28,7 @@ Trupps inside. The journeys never measure an empty app.
 | `env` | — | `calibration`: how fast the runner is today (not gated, see below) |
 
 `cold-start` and `warm-reload` also record `ready_<wait>_ms` (`sym`, `map`, `plans`, `wx`, and `cap` when the 8 s cap lifted it, `cover` when it was off): when each wait of the opening cover held (`lib/bootCover`, `harness · coverMarks`), so the last one names what kept the snail up. Not in the baseline (26.11.2026): they show as 🆕 and gate nothing until a baseline is accepted.
+`cold-start.login_cover_off_ms` (27.11.2026, not in the baseline either) is when the boot cover is gone over the kiosk roster – what a kiosk user waits for, later than `login_screen_ms` by the snail's entrance.
 
 Every number is **lower-is-better**. `perf-results/<journey>.json` also records the API routes the
 journey called. When a request count moves, the report shows which routes changed.
@@ -58,6 +59,14 @@ journey called. When a request count moves, the report shows which routes change
   software WebGL (CPU profile 2026-10-05), with 0.5–2 s swings between Linien.
 - **Readiness is polled at 16 ms, never per animation frame.** After a few Linien the page's frames
   stalled, and a raf-polled check sat for minutes over a surface that had switched in 266 ms.
+- **A timed end is polled in the page, never by a locator** (27.11.2026). `locator.waitFor`
+  re-checks after 0, 20, 50, 100, 100 ms and then only every 500 ms, so a state that came 300 ms
+  in was read at 770 ms: `cold-start.login_screen_ms` sat in two modes (~500 / ~1,100 ms) on
+  unrelated PRs. Every timed wait now ends on `harness · shown` (polled every 16 ms, Playwright's
+  meaning of «visible»): `cold-start.login_screen_ms`, `pin_to_workspace_ms`, `pin_to_ready_ms`,
+  `total_ms`, `warm-reload.reload_to_workspace_ms`, `reload_to_ready_ms`, `verlauf.submit_ms`,
+  `open_verlauf_ms`, `remote_entry_visible_ms` and `trupps.contact_ms`. Their baseline was
+  re-recorded from CI runs.
 - **Time budgets follow the machine, upwards only.** `env.calibration` times a fixed workload. The
   report scales every `ms` budget by today's calibration over the baseline's, clamped to ×1–1.5
   (`scripts/perf-gate.mjs · speedFactor`). A runner faster than the baseline's keeps the baseline's
