@@ -96,8 +96,10 @@ export interface MapDetailPanelsProps {
   notePlacedId: string | null
   setNotePanelId: Dispatch<SetStateAction<string | null>>
   noteTextLive: (id: string, v: string) => void
-  /** a Notiz's typed text is done: one ↶ step, none for a Notiz a ↶ took away (IncidentWorkspace) */
-  noteTextEnd: (id: string, v: string) => void
+  /** a Notiz's typed text is done: one ↶ step and its rows, none for a Notiz a ↶ took away;
+   *  `row: false` – the Notiz is being removed, and the removal's row says the text
+   *  (IncidentWorkspace) */
+  noteTextEnd: (id: string, v: string, opts?: { row?: boolean }) => void
   setNoteDefaults: Dispatch<SetStateAction<{ size: NoteSize; plain: boolean; color: string }>>
   selectedDrawing: Drawing | null
   patchDrawing: (patch: Partial<Drawing>) => void
@@ -446,7 +448,12 @@ export function MapDetailPanels({
           onClose={() => setNotePanelId(null)}
           subject="note"
           onPatch={(patch, phase) => patchNote(noteEntity, patch, phase)}
-          onDelete={() => { setNotePanelId(null); deleteEntity(noteEntity.id) }}
+          // «Entfernen» ends the open typing here, as its own ↶ step without a Verlauf row, then removes
+          onDelete={() => {
+            setNotePanelId(null)
+            noteTextEnd(noteEntity.id, noteEntity.label ?? '', { row: false })
+            void deleteEntity(noteEntity.id)
+          }}
         />
       )}
 

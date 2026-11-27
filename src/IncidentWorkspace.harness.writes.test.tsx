@@ -1,14 +1,16 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest'
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, createEvent, fireEvent, render, screen, within } from '@testing-library/react'
 import { useState } from 'react'
 import type { Entity, MittelEntry } from './types'
 import type { MittelDraft } from './components/MittelView'
-import { AUTH, SYM, rec, registerHarnessHooks, lastMap, lastBoard, meta, truck, workspaceTree, settle, mount, lastBtn, key, openPlan, type BoardProps } from './IncidentWorkspace.harness.setup'
+import { AUTH, SYM, rec, registerHarnessHooks, lastMap, lastBoard, meta, truck, workspaceTree, settle, mount, lastBtn, key, openPlan, type BoardProps, type WsProps } from './IncidentWorkspace.harness.setup'
 import { Meldeleiste } from './components/Meldeleiste'
 import { WorkspaceSync } from './lib/api/workspaceSync'
 import { AuditEventStore } from './lib/auditEventStore'
+import { JournalStore } from './lib/journalStore'
 import type { Saved } from './lib/workspace'
+import type { IncidentMeta } from './lib/api/incidents'
 import { appConfig } from './config/appConfig'
 import { loadPrefs, savePrefs } from './lib/prefs'
 import { fillTemplate } from './lib/format'
@@ -580,6 +582,290 @@ describe('(n) ↶ takes back a Notiz while it is being typed', () => {
     await settle()
     await press(appConfig.copy.redo)
     expect(notes()).toEqual(['Alt', ''])
+  })
+})
+
+/* A Notiz TYPED on the Lage – in the editor on the map or in its panel – wrote only its audit row,
+   never the Verlauf (sweep 25.11.2026, Notiz Verlauf round): one row per typing session, the bare
+   «Notiz «…»» the Plan writes, at the moment the session ends (IncidentWorkspace · noteTextEnd). */
+describe('(n) a Notiz typed on the Lage writes its Verlauf row', () => {
+  const N = appConfig.copy
+  const written = (value: string) => fillTemplate(N.log.noteWritten, { value })
+  const alt = { id: 'a', kind: 'note', coord: [7.6, 47.5], label: 'Alt' } as Entity
+  type NoteMap = { onNoteEdit: (id: string) => void; onNoteText: (id: string, v: string) => void; onNoteCommit: (id: string, v: string) => void; onNotePanel: (id: string) => void }
+  const map = () => lastMap() as unknown as NoteMap
+  const labelOfA = () => lastMap().entities.find((e) => e.id === 'a')?.label
+  /** every Verlauf row written since `start`, and whether its journal was already disposed */
+  const realAppend = JournalStore.prototype.append
+  const journalRows = () => {
+    const seen: { text: string; disposed: boolean }[] = []
+    vi.spyOn(JournalStore.prototype, 'append').mockImplementation(function (this: JournalStore, row) {
+      seen.push({ text: row.text, disposed: this.isDisposed })
+      return realAppend.call(this, row)
+    })
+    return seen
+  }
+  /** the Lage with Notiz «Alt»; `rows` is every Verlauf row written since, `noteRows` the Notiz text rows */
+  const start = async (over: Partial<WsProps> = {}) => {
+    const seen = journalRows()
+    const m = meta()
+    const sync = new WorkspaceSync(m.id)
+    const tree = (im: IncidentMeta, more: Partial<WsProps> = {}) => workspaceTree(im, { sync, workspace: { entities: [truck, alt] } as unknown as Saved, ...over, ...more }).tree
+    const utils = render(tree(m))
+    await settle()
+    seen.length = 0
+    const rows = () => seen.map((r) => r.text)
+    const noteRows = () => rows().filter((t) => t === N.log.notesCleared || t.startsWith(fillTemplate(N.log.noteWritten, { value: '' }).slice(0, -1)))
+    /** the Einsatz closed on another device: the Karte locks, in the same mount */
+    const lock = async () => {
+      const at = new Date()
+      utils.rerender(tree({ ...m, is_archived: true, closed_at: at.toISOString() }, { lifecycleElsewhere: { event: 'closed', at: at.getTime() } }))
+      await settle(60)
+    }
+    /** another device's text for Notiz A arrives (the three-way merge) */
+    const remote = async (label: string) => {
+      act(() => sync.onApplyMerged!({ entities: [truck, { ...alt, label }] } as unknown as Parameters<NonNullable<typeof sync.onApplyMerged>>[0], 1))
+      await settle(60)
+    }
+    return { ...utils, seen, rows, noteRows, lock, remote }
+  }
+  const field = () => document.querySelector<HTMLTextAreaElement>('.ctx-note-input')!
+  const typeInPanel = (v: string) => { act(() => { field().focus() }); fireEvent.change(field(), { target: { value: v } }) }
+  /** the panel's «Entfernen» – it draws its actions twice (inline and as the footer, by layout) */
+  const removeButton = () => screen.getAllByRole('button', { name: N.remove })[0]
+  /** ⌘Z, as the keyboard gives it – no render needed between it and what came before */
+  const undoKey = () => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', metaKey: true, bubbles: true, cancelable: true }))
+
+  describe('in the editor on the map', () => {
+    const type = (v: string) => act(() => map().onNoteText('a', v))
+    const end = async (v: string) => { act(() => map().onNoteCommit('a', v)); await settle() }
+
+    it('typed, the editor ends: one bare row', async () => {
+      const { rows } = await start()
+      act(() => map().onNoteEdit('a'))
+      type('Wasser')
+      type('Wasser ab 14:20')
+      await end('Wasser ab 14:20')
+      expect(rows()).toEqual([written('Wasser ab 14:20')])
+    })
+
+    it('opened and closed with no change, or typed back to its text: no row', async () => {
+      const { rows } = await start()
+      act(() => map().onNoteEdit('a'))
+      await end('Alt')
+      act(() => map().onNoteEdit('a'))
+      type('Altx')
+      type('Alt')
+      await end('Alt')
+      expect(rows()).toEqual([])
+    })
+
+    it('emptied: the bare cleared wording', async () => {
+      const { rows } = await start()
+      act(() => map().onNoteEdit('a'))
+      type('')
+      await end('')
+      expect(rows()).toEqual([N.log.notesCleared])
+    })
+
+    it('two sessions: two rows', async () => {
+      const { rows } = await start()
+      act(() => map().onNoteEdit('a'))
+      type('Wasser')
+      await end('Wasser')
+      act(() => map().onNoteEdit('a'))
+      type('Wasser ab 14:20')
+      await end('Wasser ab 14:20')
+      expect(rows()).toEqual([written('Wasser'), written('Wasser ab 14:20')])
+    })
+
+    // the session is over before the ↶ starts: the ↶ takes back the text, never the row
+    it('ended, then ↶ in the same moment: the row stays', async () => {
+      const { noteRows } = await start()
+      act(() => map().onNoteEdit('a'))
+      type('Wasser ab 14:20')
+      act(() => { map().onNoteCommit('a', 'Wasser ab 14:20'); undoKey() })
+      await settle()
+      expect(labelOfA()).toBe('Alt')
+      expect(noteRows()).toEqual([written('Wasser ab 14:20')])
+    })
+
+    // the editor goes with the Notiz and ends its edit as it goes (EntityMarker · NoteField)
+    it('typed, then removed in the same session: no «written» row', async () => {
+      const { rows } = await start()
+      act(() => map().onNoteEdit('a'))
+      type('Wasser ab 14:20')
+      act(() => { lastMap().onSelect(lastMap().entities.find((e) => e.id === 'a')!) })
+      key('Delete')
+      await end('Wasser ab 14:20')
+      expect(lastMap().entities.some((e) => e.id === 'a')).toBe(false)
+      expect(rows()).not.toContain(written('Wasser ab 14:20'))
+    })
+
+    // the editor only had the caret; its end hands back the text it was opened with
+    it('opened, another device writes the text, the editor ends unchanged: that text stays, no row', async () => {
+      const { rows, remote } = await start()
+      act(() => map().onNoteEdit('a'))
+      await remote('Neu von Tablet 2')
+      await end('Alt')
+      expect(labelOfA()).toBe('Neu von Tablet 2')
+      expect(rows()).toEqual([])
+    })
+
+    // the lock takes the editor under every tool («Auswahl» too); its field ends the typing as it
+    // goes (NoteField · useCommitDraftOnUnmount → MapMarkers · noteEnd, MapMarkers.test), with its row
+    it('typed, then the Einsatz is closed on another device: the editor goes, the typing ends with its row', async () => {
+      const { noteRows, lock } = await start()
+      act(() => map().onNoteEdit('a'))
+      type('Wasser ab 14:20')
+      await lock()
+      expect((lastMap() as unknown as { editNoteId: string | null }).editNoteId).toBeNull()
+      await end('Wasser ab 14:20')
+      expect(noteRows()).toEqual([written('Wasser ab 14:20')])
+    })
+  })
+
+  // A's editor keeps the caret while B's panel is open (a tap, or a press on «Entfernen», moves no focus)
+  describe('two Notizen', () => {
+    const b = { id: 'b', kind: 'note', coord: [7.601, 47.501], label: 'Beta' } as Entity
+    const both = () => start({ workspace: { entities: [truck, alt, b] } as unknown as Saved })
+    const openB = async () => {
+      act(() => { lastMap().onSelect(lastMap().entities.find((e) => e.id === 'b')!); map().onNotePanel('b') })
+      await settle()
+    }
+    const audit = () => vi.spyOn(AuditEventStore.prototype, 'append')
+
+    it('B removed by its panel while A is typed: A keeps its session and its row, B gets no edit', async () => {
+      const edits = audit()
+      const { noteRows } = await both()
+      act(() => map().onNoteEdit('a'))
+      act(() => map().onNoteText('a', 'Wasser ab 14:20'))
+      await openB()
+      fireEvent.click(removeButton())
+      await settle()
+      expect(lastMap().entities.some((e) => e.id === 'b')).toBe(false)
+      act(() => map().onNoteCommit('a', 'Wasser ab 14:20'))
+      await settle()
+      expect(noteRows()).toEqual([written('Wasser ab 14:20')])
+      const editIds = edits.mock.calls.map(([e]) => e).filter((e) => e.op_type === 'entity.edit').map((e) => (e.payload as { id?: string }).id)
+      expect(editIds).toEqual(['a'])
+    })
+  })
+
+  describe('in its panel', () => {
+    /** a size in the open panel – a style edit, written through patchEntity */
+    const size = (name: string) => fireEvent.click(within(within(field().closest<HTMLElement>('.ctx-note')!).getByText(N.notes.size).closest<HTMLElement>('.field')!).getByRole('button', { name }))
+    /** the tap that selects the Notiz opens its panel (MapMarkers · onNotePanel) */
+    const open = async () => {
+      act(() => { lastMap().onSelect(lastMap().entities.find((e) => e.id === 'a')!); map().onNotePanel('a') })
+      await settle()
+    }
+
+    it('typed, the field blurred: one bare row', async () => {
+      const { rows } = await start()
+      await open()
+      typeInPanel('Wasser')
+      typeInPanel('Wasser ab 14:20')
+      fireEvent.blur(field())
+      await settle()
+      expect(rows()).toEqual([written('Wasser ab 14:20')])
+    })
+
+    it('opened and closed with no change: no row', async () => {
+      const { rows } = await start()
+      await open()
+      fireEvent.click(screen.getByRole('button', { name: N.closeDialog }))
+      await settle()
+      expect(rows()).toEqual([])
+    })
+
+    it('two sessions: two rows', async () => {
+      const { rows } = await start()
+      await open()
+      typeInPanel('Wasser')
+      fireEvent.blur(field())
+      await settle()
+      typeInPanel('Wasser ab 14:20')
+      fireEvent.click(screen.getByRole('button', { name: N.closeDialog }))
+      await settle()
+      expect(rows()).toEqual([written('Wasser'), written('Wasser ab 14:20')])
+    })
+
+    // the edit row's settle window (patchEntity) spans the typing: it must not say the text again
+    it('a style edit before and after the typing: one row', { timeout: 15_000 }, async () => {
+      const { rows } = await start()
+      await open()
+      size(N.notes.sizeL)
+      typeInPanel('Wasser ab 14:20')
+      // a real blur: the caret leaves the field, so the settle window may close
+      act(() => { field().blur() })
+      await settle()
+      size(N.notes.sizeS)
+      await settle(4_500)
+      expect(rows()).toEqual([written('Wasser ab 14:20')])
+    })
+
+    // …nor say a text back that a ↶ restored after the typing's own row
+    it('a style edit, typed, ↶, a style edit: no row for the text the ↶ gave back', { timeout: 15_000 }, async () => {
+      const { noteRows } = await start()
+      await open()
+      size(N.notes.sizeL)
+      typeInPanel('Neu')
+      act(() => { field().blur() })
+      await settle()
+      act(() => { undoKey() })
+      await settle()
+      expect(labelOfA()).toBe('Alt')
+      size(N.notes.sizeS)
+      await settle(4_500)
+      expect(noteRows()).toEqual([written('Neu')])
+    })
+
+    it('typed, then the Einsatz is closed on another device: the typing ends with its row', async () => {
+      const { noteRows, lock } = await start()
+      await open()
+      typeInPanel('Wasser ab 14:20')
+      await lock()
+      expect(field()).toBeNull()
+      expect(noteRows()).toEqual([written('Wasser ab 14:20')])
+    })
+
+    // the field's end runs in the teardown's layout phase, before the workspace disposes its journal
+    // (lib/useCommitDraftOnUnmount)
+    it('typed, then the workspace goes: the row reaches its journal before it closes', async () => {
+      const { seen, unmount } = await start()
+      await open()
+      typeInPanel('Wasser ab 14:20')
+      unmount()
+      expect(seen.filter((r) => r.text === written('Wasser ab 14:20'))).toEqual([{ text: written('Wasser ab 14:20'), disposed: false }])
+    })
+
+    // a tap keeps the caret in the field: «Entfernen» ends the typing without its row, then removes
+    it('typed, then «Entfernen» by touch: no «written» row', async () => {
+      const { rows } = await start()
+      await open()
+      typeInPanel('Wasser ab 14:20')
+      fireEvent.click(removeButton())
+      await settle()
+      expect(lastMap().entities.some((e) => e.id === 'a')).toBe(false)
+      expect(rows()).not.toContain(written('Wasser ab 14:20'))
+    })
+
+    // a mouse press moves the focus unless its default is prevented – what the browser does then
+    // is done here (the blur), and the click comes as its own task
+    it('typed, then «Entfernen» by mouse: no «written» row', async () => {
+      const { rows } = await start()
+      await open()
+      typeInPanel('Wasser ab 14:20')
+      const press = createEvent.mouseDown(removeButton())
+      fireEvent(removeButton(), press)
+      if (!press.defaultPrevented) act(() => { field().blur() })
+      await settle()
+      fireEvent.click(removeButton())
+      await settle()
+      expect(lastMap().entities.some((e) => e.id === 'a')).toBe(false)
+      expect(rows()).not.toContain(written('Wasser ab 14:20'))
+    })
   })
 })
 

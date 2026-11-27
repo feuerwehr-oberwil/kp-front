@@ -59,13 +59,12 @@ export function entityEditChanges(prev: Entity, next: Entity): string[] {
     else out.push(fillTemplate(a ? L.fieldChanged : L.fieldSet, { field, value: b }).trim())
   }
 
-  if ((prev.label ?? '').trim() !== (next.label ?? '').trim()) {
+  // ⚠️ A Notiz keeps its TEXT in `label`, and that text has its own row: the typing session's
+  // (noteTextRow), written once when the session ends by the surface it was typed on. A line here
+  // would say it a second time, or – from a window that spans the typing – say it backwards.
+  if (next.kind !== 'note' && (prev.label ?? '').trim() !== (next.label ?? '').trim()) {
     const v = oneLine(next.label)
-    // ⚠️ A Notiz keeps its TEXT in `label` — «Beschriftung «Gasflaschen im Keller»» is the record
-    // calling the note's contents a caption. Same field, different thing, so a different word.
-    const set = next.kind === 'note' ? L.noteWritten : L.labelSet
-    const cleared = next.kind === 'note' ? L.notesCleared : L.labelCleared
-    out.push(v ? fillTemplate(set, { value: v }) : cleared)
+    out.push(v ? fillTemplate(L.labelSet, { value: v }) : L.labelCleared)
   }
 
   // ── Stockwerk: a single storey, or the range a Treppe/Lift covers ──
@@ -103,6 +102,17 @@ export function entityEditChanges(prev: Entity, next: Entity): string[] {
   }
 
   return out
+}
+
+/** The Verlauf row for a Notiz's text going from `from` to `to`, on the Lage and the Plan alike –
+ *  bare, because a Notiz's name IS its text: «Notiz «…»», or «Notiz entfernt» when it was emptied;
+ *  null when it ended as it began. Each surface writes it once per typing session, when the
+ *  session ends, against the text the session began with. */
+export function noteTextRow(from: string | undefined, to: string | undefined): string | null {
+  const L = appConfig.copy.log
+  const v = oneLine(to)
+  if (v === oneLine(from)) return null
+  return v ? fillTemplate(L.noteWritten, { value: v }) : L.notesCleared
 }
 
 /** One open edit window: the state it STARTED in, the freshest state seen, and its timer. */
