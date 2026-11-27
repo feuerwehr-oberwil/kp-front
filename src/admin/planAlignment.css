@@ -343,8 +343,9 @@ button.adm-floor-index { min-width: var(--tap); min-height: var(--tap); cursor: 
 .adm-floors-full-top p { flex: 1; min-width: 0; margin: 0; font: var(--fw-bold) var(--fs-1)/1.35 var(--body); color: var(--ink); }
 .adm-floors-full-top small { display: block; margin-top: 2px; font-weight: var(--fw-medium); color: var(--ink-dim); }
 .adm-floors-full-sheet { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; }
-/* a sheet smaller than the view stands in its middle, not at its top */
-.adm-floors-full .adm-floors-viewport { display: flex; flex-direction: column; }
+/* a sheet smaller than the view stands in its middle, not at its top – and above the floating
+   zoom: the foot keeps the cluster's height free, so it never covers the drawing at 100 % */
+.adm-floors-full .adm-floors-viewport { display: flex; flex-direction: column; padding-bottom: var(--sp-8); }
 .adm-floors-full .adm-floors-sheet { flex: none; margin-block: auto; }
 .adm-floors-full-sheet > .adm-floors-zoom { position: absolute; right: 10px; bottom: 10px; z-index: 2; background: var(--surface); box-shadow: var(--e3); }
 .adm-floors-zoom.compact button { height: var(--tap); min-width: var(--tap); padding: 0; justify-content: center; }

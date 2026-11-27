@@ -420,7 +420,11 @@ function FloorSheet({ zoom, item, page, entries, selected, mode, labelOf, indexO
     const el = viewport.current
     if (!el || typeof ResizeObserver === 'undefined') return
     const observer = new ResizeObserver(() => {
-      const { width, height } = el.getBoundingClientRect()
+      // the room the sheet may fill: the phone's full-screen view keeps its foot free for the
+      // floating zoom (planAlignment.css · .adm-floors-full), the split has no padding
+      const { width, height: outer } = el.getBoundingClientRect()
+      const style = getComputedStyle(el)
+      const height = outer - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom)
       if (width > 0 && height > 0) setViewportSize({ width, height })
     })
     observer.observe(el)
