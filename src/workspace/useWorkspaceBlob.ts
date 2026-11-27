@@ -173,7 +173,7 @@ export function useWorkspaceBlob({
   const built = useRef({ slices, objects, timeline: journal.blobTimeline })
   /** …and what the last merge handed out on top of it, until the save builds again — the state a
    *  second merge before that render is written over */
-  const handed = useRef({ slices, objects, timeline: journal.blobTimeline })
+  const handed = useRef({ slices, timeline: journal.blobTimeline })
   /** the Ebenen as this device last remembered them (below) */
   const rememberedLayers = useRef(layers)
   /** Write `ws` into the slices. Returns whether the blob will be built from anything other than
@@ -251,7 +251,7 @@ export function useWorkspaceBlob({
     setSelectedDrawIds((ids) => ids.filter((id) => next.doc.drawings.some((d) => d.id === id)))
     const echo = handed.current.timeline
     const timeline = next.timeline.length !== echo.length || next.timeline.some((r, i) => r.id !== echo[i]?.id) ? next.timeline : echo
-    handed.current = { slices: held, objects: next.objects, timeline }
+    handed.current = { slices: held, timeline }
     const b = built.current
     return next.objects !== b.objects || timeline !== b.timeline
       || (Object.keys(b.slices) as (keyof typeof b.slices)[]).some((k) => held[k] !== b.slices[k])
@@ -270,7 +270,8 @@ export function useWorkspaceBlob({
      * every device can resolve, and is part of the record like any placed object. */
     const persisted = objects.filter((o) => o.entity?.kind !== 'photo' || !!o.entity.photoOf)
     const views = viewsOf(persisted)
-    built.current = handed.current = { slices, objects, timeline: journal.blobTimeline }
+    built.current = { slices, objects, timeline: journal.blobTimeline }
+    handed.current = { slices, timeline: journal.blobTimeline }
     // Every `Saved` key is named (EverySavedKey), so a new one that is not written here fails
     // tsc instead of being deleted by this save. Left out: `activeModule` (device-local, this build
     // never writes it) and `weather` (the replay fold's alone).
