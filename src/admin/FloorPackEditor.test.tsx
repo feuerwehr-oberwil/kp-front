@@ -257,8 +257,10 @@ describe('cross-page joins', () => {
     const sheet = container.querySelector<HTMLElement>('.adm-floors-sheet')!
     sheet.getBoundingClientRect = () => ({ left: 0, top: 0, width: 1000, height: 500, right: 1000, bottom: 500, x: 0, y: 0, toJSON: () => ({}) })
     fireEvent.pointerDown(sheet, { clientX: 650, clientY: 350, pointerId: 1 })
-    expect(screen.getByText('Seite 2 von 2')).toBeTruthy()
     fireEvent.pointerMove(sheet, { clientX: 700, clientY: 400, pointerId: 1 })
+    // mid-drag the handle is still under the finger, on the page it belongs to
+    expect(screen.getByText('Seite 2 von 2')).toBeTruthy()
+    expect(container.querySelector('.adm-floors-joins circle.held')).not.toBeNull()
     fireEvent.pointerUp(sheet, { clientX: 700, clientY: 400, pointerId: 1 })
     expect(onDraft.mock.lastCall?.[0].floors[1].join).toEqual({ to: 1, at: [0.2, 0.3], there: [0.7, 0.8] })
   })
