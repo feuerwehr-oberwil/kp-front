@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Entity, VehiclePosition } from '../types'
 import { appConfig } from '../config/appConfig'
-import { formatTime } from './format'
+import { fillTemplate, formatTime } from './format'
 import { xmlEscape } from './svg'
 import { useFeedPoll } from './useFeedPoll'
 import { visibleInterval } from './visibleInterval'
@@ -88,13 +88,14 @@ export function isMoving(speed: number | null | undefined, course: number | null
  *  course to orient by: the live course while moving, else the last direction it moved in (so a
  *  parked vehicle keeps its heading). null only for a vehicle that has never moved → neutral body. */
 function toEntity(p: VehiclePosition, heading: number | null): Entity {
-  const status = appConfig.copy.map.live.vehicleStatus[p.status] ?? p.status
-  const fields: Record<string, string> = { 'Status': status }
-  if (p.speed != null) fields['Geschwindigkeit'] = `${Math.round(p.speed)} km/h`
-  if (p.course != null) fields['Kurs'] = `${Math.round(p.course)}°`
-  if (p.address) fields['Standort'] = p.address
+  const L = appConfig.copy.map.live
+  const status = L.vehicleStatus[p.status] ?? p.status
+  const fields: Record<string, string> = { [L.fieldStatus]: status }
+  if (p.speed != null) fields[L.fieldSpeed] = `${Math.round(p.speed)} km/h`
+  if (p.course != null) fields[L.fieldCourse] = `${Math.round(p.course)}°`
+  if (p.address) fields[L.fieldPlace] = p.address
   const last = new Date(p.last_update)
-  if (!Number.isNaN(last.getTime())) fields['Letzte GPS-Pos.'] = formatTime(last, true)
+  if (!Number.isNaN(last.getTime())) fields[L.fieldLastGps] = formatTime(last, true)
 
   // orient by the heading (live while moving, else last-known) so a parked vehicle keeps pointing
   // the way it last drove; only a never-moved vehicle shows a neutral body. App overrides on top.
@@ -109,7 +110,7 @@ function toEntity(p: VehiclePosition, heading: number | null): Entity {
     rotation,
     directed,
     label: p.device_name,
-    subtitle: `GPS · ${status}`,
+    subtitle: fillTemplate(L.vehicleSubtitle, { status }),
     live: true,
     fields,
   }
@@ -232,7 +233,7 @@ export function useVehiclePositions(enabled = true): VehiclePositionsApi {
       setError(null)
       lastOkRef.current = Date.now()
     },
-    onError: (e) => setError(e instanceof Error ? e.message : 'GPS nicht erreichbar'),
+    onError: (e) => setError(e instanceof Error ? e.message : appConfig.copy.map.live.feedUnreachable),
   })
 
   // Re-evaluate staleness on the poll cadence. A dead feed produces NO state changes on its
@@ -265,11 +266,12 @@ export function useVehiclePositions(enabled = true): VehiclePositionsApi {
     // flipping it would quietly make frozen vehicles draggable, which is a worse bug than
     // the one being fixed. Only what the operator READS changes.
     const mins = Math.floor((ageMs ?? 0) / 60_000)
+    const L = appConfig.copy.map.live
     const shown = stale
       ? vehicles.map((v) => ({
           ...v,
-          subtitle: `GPS · veraltet (${mins} min)`,
-          fields: { ...v.fields, 'GPS-Feed': `seit ${mins} min keine Daten` },
+          subtitle: fillTemplate(L.vehicleSubtitleStale, { n: mins }),
+          fields: { ...v.fields, [L.fieldFeed]: fillTemplate(L.feedSilent, { n: mins }) },
         }))
       : vehicles
 
