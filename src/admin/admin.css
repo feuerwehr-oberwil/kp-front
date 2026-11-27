@@ -13,6 +13,11 @@
  * The /admin sidebar is the drawer up to 1024px; header links move into it at ≤720px.
  */
 
+/* The shell keeps the status bar clear where the browser reports one (`viewport-fit=cover`): the
+   inset is the shell's own padding, so the header and everything under it start below it. The
+   drawer is `position: fixed` and starts there too (the ≤1024px block). The full-screen plan
+   editor is fixed to the viewport, not to this padding, and keeps the inset itself
+   (planAlignment.css · .adm-plan-editor). */
 .adm {
   position: fixed;
   inset: 0;
@@ -20,6 +25,7 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  padding-top: env(safe-area-inset-top);
   background: var(--app-bg);
   color: var(--ink);
   font-family: var(--body);
@@ -215,7 +221,7 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
   .adm-navtoggle { display: grid; }
   /* sidebar leaves the flow and slides in as a drawer; main fills the width + scrolls */
   .adm-side {
-    position: fixed; top: 0; left: 0; bottom: 0;
+    position: fixed; top: env(safe-area-inset-top); left: 0; bottom: 0;
     z-index: var(--z-dock); flex-basis: auto; width: min(280px, 82vw);
     padding-top: 70px;
     transform: translateX(-100%);
