@@ -4,14 +4,15 @@
 // (lib/boardClock); the board and its cards render only when a Trupp's tier, state or sort
 // position changes — and then in the same second the old per-second board did.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, fireEvent, render } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import { AtemschutzView } from './AtemschutzView'
 import { useIsPhone } from '../lib/useIsPhone'
 import { plainWords } from './truppCardText'
 import { adoptSessionConfig, atemschutzDoctrine } from '../lib/deploymentConfig'
 import { fmtClock } from '../lib/atemschutz'
+import { fillTemplate } from '../lib/format'
 import { noteServerTime, resetServerClock, serverNow } from '../lib/serverClock'
-import { aktivTrupp, az, firstBtn, propsFor, registerAtemschutzViewHooks } from './AtemschutzView.setup'
+import { aktivTrupp, az, druckName, firstBtn, propsFor, registerAtemschutzViewHooks } from './AtemschutzView.setup'
 import { applyLocale, getCopy } from '../config/copy'
 import s from './Atemschutz.module.css'
 import type { Trupp } from '../types'
@@ -242,5 +243,156 @@ describe('the board keeps ticking for what reads the clock itself', () => {
     expect(en.actContact).not.toBe(az.actContact)
     tick()
     expect({ kontakt: kontakt(), caption: caption() }).toEqual({ kontakt: en.actContact, caption: en.sinceContact })
+  })
+})
+
+/* Thresholds the minute-long equivalence walk does not reach. Each test ticks to the second a
+ * value changes and checks it on both sides; each fails if its value leaves its leaf or the
+ * board's tick key. */
+describe('a threshold further out', () => {
+  // the shipped fallback: 50 l/min from a 7 l cylinder, about 7 bar a minute
+  const nearLine = (line: number, over: Partial<Trupp> = {}) => inside('a', 'Alpha', 5, {
+    entryPressureBar: line + 3, entryTime: ago(10), lastPressureBar: undefined, lastPressureTime: undefined, lowestBar: undefined, readings: [],
+    ...over,
+  })
+  const estimateText = () => [...cardOf('Alpha').querySelectorAll(`.${s.metaLine} > span`)]
+    .find((el) => el.textContent?.startsWith(az.estimatedShort))?.querySelector('b')?.textContent
+  const note = (line: number) => cardOf('Alpha').querySelector(`.${s.airNote}`)?.textContent === fillTemplate(az.alarmNoteEst, { bar: line })
+
+  it.each([
+    ['the Alarmdruck', 'aktiv', () => atemschutzDoctrine().alarmBar],
+    ['the lower Rückzug line', 'rueckzug', () => atemschutzDoctrine().alarmBarRueckzug],
+  ] as const)('raises the Schätzung note in the second the projection crosses %s', (_, status, lineOf) => {
+    const line = lineOf()
+    mountBoard([nearLine(line, { status })])
+    let before = estimateText()
+    expect(note(line)).toBe(false)
+    for (let sec = 1; sec <= 60 && !note(line); sec++) {
+      before = estimateText()
+      tick()
+    }
+    // the tick before: above the line, no note; this tick: at the line, the note
+    expect(Number(before?.replace(/\D/g, ''))).toBeGreaterThan(line)
+    expect(Number(estimateText()?.replace(/\D/g, ''))).toBeLessThanOrEqual(line)
+    expect(note(line)).toBe(true)
+  })
+
+  it('shows the Schätzung on the Tafel\'s Verlauf the second a timed reading makes one possible', () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    // no assumed consumption: only two readings give a Schätzung, and the second is 2.4 s ahead
+    adoptSessionConfig({ doctrine: { estConsumptionLPerMin: 0 } } as never)
+    try {
+      const at = new Date(serverNow() + 2400).toISOString()
+      mountBoard([inside('a', 'Alpha', 30, {
+        entryPressureBar: 300, entryTime: ago(120), lastPressureBar: 280, lastPressureTime: at, lowestBar: 280,
+        readings: [{ t: ago(120), bar: 300, kind: 'entry' }, { t: at, bar: 280, kind: 'pressure' }],
+      })], { lite: { subtitle: 'Brand Musterstrasse' } })
+      fireEvent.click(screen.getByRole('button', { name: az.verlauf }))
+      const panelRow = () => document.querySelector(`.${s.zonePanel}`)?.textContent?.includes(az.estimatedShort) ?? false
+      tick(2)
+      expect(panelRow()).toBe(false)
+      tick()
+      expect(panelRow()).toBe(true)
+    } finally { adoptSessionConfig({}) }
+  })
+
+  it('turns a Tafel tab amber in the second its Trupp is due', () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    mountBoard([inside('a', 'Alpha', INTERVAL_MIN * 60 - 3.4), inside('b', 'Bravo', 30)], { lite: { subtitle: 'Brand Musterstrasse' } })
+    const tab = () => [...document.querySelectorAll(`.${s.tab}`)].find((el) => el.querySelector(`.${s.tabName}`)?.textContent === 'Alpha')!
+    tick(2)
+    expect(tab().classList.contains(s.tabWarn)).toBe(false)
+    tick()
+    expect(tab().classList.contains(s.tabWarn)).toBe(true)
+    expect(tab().querySelector(`.${s.tabClock}`)!.textContent).toContain(fmtClock(INTERVAL_MIN * 60))
+    // …and the next, quiet second only its clock moves
+    tick()
+    expect(tab().querySelector(`.${s.tabClock}`)!.textContent).toContain(fmtClock(INTERVAL_MIN * 60 + 1))
+  })
+
+  it('pins a Trupp over the open form in the second it is due, its clock running', () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    mountBoard([inside('a', 'Alpha', INTERVAL_MIN * 60 - 3.4), ready('d', 'Delta')])
+    fireEvent.click(firstBtn(az.newTrupp))
+    tick(2)
+    expect(document.querySelector(`.${s.pinRow}`)).toBeNull()
+    tick()
+    expect(document.querySelector(`.${s.pinRow} .${s.pinClock}`)!.textContent).toBe(fmtClock(INTERVAL_MIN * 60))
+    tick()
+    expect(document.querySelector(`.${s.pinRow} .${s.pinClock}`)!.textContent).toBe(fmtClock(INTERVAL_MIN * 60 + 1))
+  })
+
+  it('rolls a Notfall banner\'s pressure age over at the minute, as a fresh drawing does', () => {
+    const notfall = inside('a', 'Alpha', 30, { notfallAt: ago(20), lastPressureTime: ago(57.4) })
+    const board = mountBoard([notfall])
+    const banner = (root: ParentNode) => root.querySelector(`.${s.nfStack}`)!.textContent
+    const fresh = () => {
+      const f = render(<AtemschutzView {...board.props} />)
+      const text = banner(f.container)
+      f.unmount()
+      return text
+    }
+    tick(2)
+    const at59 = banner(board.container)
+    expect(at59).toBe(fresh())
+    tick()
+    expect(banner(board.container)).not.toBe(at59)
+    expect(banner(board.container)).toBe(fresh())
+  })
+
+  it('drops the pressure sheet\'s first-reading hint at the 3-minute cutoff, the sheet held open', () => {
+    mountBoard([inside('a', 'Alpha', 30, {
+      entryTime: ago(3 * 60 - 2.5), lastPressureBar: undefined, lastPressureTime: undefined, lowestBar: undefined, readings: [],
+    })])
+    fireEvent.click(screen.getByRole('button', { name: druckName }))
+    const first = fillTemplate(az.pressureSheetFirst, { bar: aktivTrupp().entryPressureBar })
+    tick(2)
+    expect(screen.queryByText(first)).not.toBeNull()
+    tick()
+    expect(screen.queryByText(first)).toBeNull()
+    expect(screen.queryByText(az.pressureSheetHint)).not.toBeNull()
+  })
+
+  it('drops «Welche Flasche?» and its submit gate at the 10-minute cutoff, the form held open', () => {
+    const exitAt = ago(10 * 60 - 2.5)
+    mountBoard([{
+      ...inside('a', 'Alpha', 30), status: 'raus', exitTime: exitAt, lastPressureBar: 120,
+      readings: [{ t: ago(30 * 60), bar: 300, kind: 'entry' }, { t: exitAt, bar: 120, kind: 'exit' }],
+    }])
+    fireEvent.click(screen.getByRole('button', { name: az.actReenter }))
+    const ask = () => screen.queryByText(fillTemplate(az.bottleAsk, { min: '9', bar: '120' }))
+    // the form's own submit wears `aria-disabled` (TruppForm: a reason stays explainable)
+    const blocked = () => document.querySelector('.ip-btn.primary[aria-disabled]')?.getAttribute('aria-disabled')
+    tick(2)
+    expect(ask()).not.toBeNull()
+    expect(blocked()).toBe('true')
+    tick()
+    expect(ask()).toBeNull()
+    expect(blocked()).toBe('false')
+  })
+})
+
+describe('a station config that lands after the board mounted', () => {
+  afterEach(() => adoptSessionConfig({}))
+
+  it('folds a late contact interval into the tier, the clock caption and the card', () => {
+    const d = atemschutzDoctrine()
+    // no per-incident interval: the board resolves the station's own on every tick
+    const props = propsFor({ trupps: [inside('a', 'Alpha', d.contactIntervalMin * 60 - 30)], truppColors: {} })
+    render(<AtemschutzView {...props} />)
+    act(() => { vi.advanceTimersByTime(0) })
+    expect(cardOf('Alpha').classList.contains(s.trowWarn)).toBe(false)
+    adoptSessionConfig({ doctrine: { contactIntervalMin: d.contactIntervalMin - 1 } } as never)
+    tick()
+    expect(cardOf('Alpha').classList.contains(s.trowWarn)).toBe(true)
+  })
+
+  it('names a Trupp\'s equipment by a station list that lands late', () => {
+    mountBoard([inside('a', 'Alpha', 30, { equipment: ['wbk-neu'] })])
+    const gear = () => cardOf('Alpha').textContent ?? ''
+    expect(gear()).not.toContain('Wärmebildkamera neu')
+    adoptSessionConfig({ doctrine: { equipment: [{ id: 'wbk-neu', label: 'Wärmebildkamera neu' }] } } as never)
+    tick()
+    expect(gear()).toContain('Wärmebildkamera neu')
   })
 })

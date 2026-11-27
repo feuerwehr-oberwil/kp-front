@@ -35,7 +35,7 @@ import { assignedPersonIds, doubleAssignments, rosterIdByName, truppCrewSlots } 
 import { truppLineNo, type LeitungOption } from '../lib/truppLines'
 import { markerHolderNote, type MarkerOption } from '../lib/placedTrupps'
 import { ensureNotifyPermission, notificationsSupported, unlockAlarm } from '../lib/alarm'
-import { atemschutzDoctrine, isDemoMode } from '../lib/deploymentConfig'
+import { atemschutzDoctrine, atemschutzEquipment, isDemoMode } from '../lib/deploymentConfig'
 import type { SyncStatus } from '../lib/incidents'
 import { CLOCK_SKEW_WARN_MIN } from '../lib/syncAlert'
 import { truppOrderKey } from '../lib/useTruppActions'
@@ -121,19 +121,27 @@ function runningSecOf(t: Trupp, l: TruppLive | undefined): number {
   return truppStillDeployed(t) ? l?.elapsedSec ?? 0 : 0
 }
 
+/** The Funkkontakt-Intervall and Nachfrist the board folds with: the incident's own, else the
+ *  station's CURRENT doctrine. The board's render and its tick key both read it here, so a config
+ *  answer that lands after the board mounted moves both at once. */
+function contactRules(intervalOverride: number | undefined, graceOverride: number | undefined) {
+  const d = atemschutzDoctrine()
+  return { intervalMin: intervalOverride ?? d.contactIntervalMin, graceSec: graceOverride ?? d.contactGraceSec, doctrine: d }
+}
+
 // the language catalogue last seen, and how many there have been (`appConfig.copy` keeps one
 // reference until a new catalogue is installed)
 let seenCopy: object | null = null
 let copyGeneration = 0
 
-/** The board's settings that can arrive after it mounted, as one string: the station's doctrine
- *  and the installed language catalogue. Part of the tick key and of the clock's context. */
+/** The board's settings that can arrive after it mounted, as one string: the station's doctrine,
+ *  its equipment list and the installed language catalogue. Part of the tick key and of the clock's context. */
 function settingsKey(): string {
   if (appConfig.copy !== seenCopy) {
     seenCopy = appConfig.copy
     copyGeneration++
   }
-  return `${copyGeneration}|${JSON.stringify(atemschutzDoctrine())}`
+  return `${copyGeneration}|${JSON.stringify(atemschutzDoctrine())}|${JSON.stringify(atemschutzEquipment())}`
 }
 
 /** Stable stand-ins for this render's handlers, for the memoised cards (TruppCard · TruppRow):
@@ -205,7 +213,7 @@ const nfInset = (el: HTMLElement | null) => (el ? el.offsetHeight + 12 : 0)
 
 export function AtemschutzView({
   trupps: allTrupps, truppColors, canEdit, personnel, attendance, muted, onToggleMuted, audioBlocked = false, onUnlockAudio, onAddGuest, order = 'manuell', onOrder, onMove, createTrupp, placeTrupp, placeTargets, markerOptions, adoptMarker, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, transferOutOfTrupp, keepInOneTrupp, designateSafety, reactivateTrupp, deleteTrupp, restoreTrupp, removedTrupps: allRemovedTrupps = [], leitungOptions, showTruppLine, truppsWithLine, lineNoOf, unlinkTruppLine, dockedAt,
-  intervalMin = atemschutzDoctrine().contactIntervalMin, graceSec = atemschutzDoctrine().contactGraceSec,
+  intervalMin: intervalOverride, graceSec: graceOverride,
   defaultFunkkanal = atemschutzDoctrine().defaultFunkkanal,
   focus, createRequest, onShareLink, shareLinkActive = false, lite, frozenAt, triggerNotfall, endNotfall, placeOf,
   zielPickOn, onPickZiel,
@@ -217,7 +225,8 @@ export function AtemschutzView({
    *  Trupp has an entry: placed colour, then decided colour, then its automatic palette slot. */
   truppColors: Record<string, string>
   canEdit: boolean
-  /** per-incident Funkkontakt-Intervall (min) + Nachfrist (sec); default = appConfig doctrine */
+  /** per-incident Funkkontakt-Intervall (min) + Nachfrist (sec); absent = the station's doctrine,
+   *  read afresh on every render and tick (`contactRules`) */
   intervalMin?: number
   graceSec?: number
   /** synced default Funkkanal new Trupps are seeded with (FKS-Standard: 11) */
@@ -537,6 +546,7 @@ export function AtemschutzView({
    * what it read when the Einsatz ended, which is what the paper says too. The clock is a stopped
    * one (`stoppedClock`): there is nothing left to count. */
   const clock = useMemo(() => (frozenAt != null ? stoppedClock(frozenAt) : liveBoardClock), [frozenAt])
+  const { intervalMin, graceSec } = contactRules(intervalOverride, graceOverride)
   // ⚠️ The doctrine and the language can change under a mounted board: the config answer lands
   // after the boot (a cached copy refreshed, a link page's session answer), and so can a slow
   // language catalogue. Read afresh on every tick (below), and handed to the cards through the
@@ -555,7 +565,8 @@ export function AtemschutzView({
   const everyTick = !!form || !!pressureAsk
   const now = useClockNow(clock, (n) => {
     if (everyTick) return n
-    return `${settingsKey()}|${boardTickKey(trupps, boardAt(trupps, n, intervalMin, graceSec, atemschutzDoctrine(), frozenAt != null), n)}`
+    const rules = contactRules(intervalOverride, graceOverride)
+    return `${settingsKey()}|${boardTickKey(trupps, boardAt(trupps, n, rules.intervalMin, rules.graceSec, rules.doctrine, frozenAt != null), n)}`
   }, frozenAt == null && (everyTick || trupps.some(truppClockRuns)))
 
   /* …and its TIER, once, from the same fold the tone and the TopBar chip use (lib · truppAlarm).

@@ -1010,7 +1010,8 @@ export function IncidentWorkspace({
   const [locateReq, setLocateReq] = useState(0)
   // Atemschutz doctrine resolves in two tiers here: per-incident synced settings →
   // atemschutzDoctrine() (deployment /api/config override → static appConfig fallback).
-  // These already merged values flow to AtemschutzView via props.
+  // These merged values feed the alarm host; AtemschutzView gets the per-incident ones only and
+  // resolves the station default itself (AtemschutzView · contactRules).
   const doctrine = atemschutzDoctrine()
   const azIntervalMin = incidentSettings.contactIntervalMin ?? doctrine.contactIntervalMin
   const azGraceSec = incidentSettings.contactGraceSec ?? doctrine.contactGraceSec
@@ -3043,8 +3044,9 @@ export function IncidentWorkspace({
       order={atemschutzOrder}
       onOrder={setAtemschutzOrder}
       onMove={canEditIncident && !readOnly ? moveTrupp : undefined}
-      intervalMin={azIntervalMin}
-      graceSec={azGraceSec}
+      // the incident's own only: the board resolves the station default itself, on every tick
+      intervalMin={incidentSettings.contactIntervalMin}
+      graceSec={incidentSettings.contactGraceSec}
       defaultFunkkanal={azFunkkanal}
       focus={truppFocus}
       createRequest={truppCreate}

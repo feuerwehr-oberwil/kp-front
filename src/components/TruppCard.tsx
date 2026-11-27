@@ -539,13 +539,14 @@ export const TruppCard = memo(function TruppCard({
   // border and every button colour on this card keys off `sev`, and a work squad must never be
   // able to wear one of them, whatever a future alarm rule decides to compute for it.
   const sev = monitored ? alarm.sev : 0
+  // the board's context: a late doctrine or language draws the memoised card again (as TruppRow)
+  useBoardClock()
   const dz = atemschutzDoctrine()
   // Planungshilfe: measured consumption history wins; the configured assumption is used only
   // until enough confirmed Druck values exist. It never replaces a reading or drives an alarm.
-  // ⚠️ It runs down with the clock, so it is read in the leaves that draw it (`estimateAt`); the
-  // card itself only asks whether there is one, which the clock never changes
+  // ⚠️ It runs down with the clock, and whether there is one at all can change with it (a timed
+  // reading that becomes due), so only the leaves that draw it read it (`estimateAt`)
   const estimateAt = (now: number) => (monitored && inField ? estimatePressure(t, now, dz.cylinderLiters, dz.estConsumptionLPerMin) : null)
-  const hasEstimate = estimateAt(useBoardNow(undefined, false)) != null
   const readings = t.readings ?? []
   // Alarmdruck – EITHER the logged Druck or the expected-pressure Schätzung is enough. Air burns
   // down between radio checks, so a reading that still looked fine at the last Kontakt is exactly
@@ -1097,12 +1098,15 @@ export const TruppCard = memo(function TruppCard({
                     row restating it would be the very duplication this rework removes.
                     ⚠️ The timing rows keep their `!lite` gate (08.09., field ask): the phone at
                     the Eingang works off the ticking clock on the card. */}
-                {(hasEstimate || lowestShown || timingShown) && (
-                  <div className={s.zonePanel}>
-                    <TruppTicking t={t} keyOf={(_, now) => JSON.stringify(estimateAt(now))}>
-                      {(_, now) => {
-                        const estimate = estimateAt(now)
-                        return estimate && (
+                {/* one leaf for the whole panel: whether a Schätzung exists runs with the clock too
+                    (a timed reading that becomes due), so its visibility is the leaf's */}
+                <TruppTicking t={t} keyOf={(tl, now) => JSON.stringify([estimateAt(now), contactTimesAt(tl, now)])}>
+                  {(tl, now) => {
+                    const estimate = estimateAt(now)
+                    const times = timingShown ? contactTimesAt(tl, now) : null
+                    return (estimate || lowestShown || timingShown) && (
+                      <div className={s.zonePanel}>
+                        {estimate && (
                           <div className={s.zonePanelRow}>
                             <span>{az.estimatedShort}</span>
                             <em className={s.zoneNote} title={estimate.source === 'history'
@@ -1113,32 +1117,27 @@ export const TruppCard = memo(function TruppCard({
                                 : fillTemplate(az.estimatedSourceFallback, { rate: dz.estConsumptionLPerMin, time: fmtTime(estimate.basedAt) })}
                             </em>
                           </div>
-                        )
-                      }}
-                    </TruppTicking>
-                    {lowestShown && (
-                      <div className={s.zonePanelRow}>
-                        <span>{az.lowestPressure}</span><b><UnitVal val={`${live.lowestBar} bar`} /></b>
-                      </div>
-                    )}
-                    {timingShown && (
-                      <>
-                        <TruppTicking t={t} keyOf={(tl, now) => JSON.stringify(contactTimesAt(tl, now))}>
-                          {(tl, now) => {
-                            const times = contactTimesAt(tl, now)
-                            return times && (
+                        )}
+                        {lowestShown && (
+                          <div className={s.zonePanelRow}>
+                            <span>{az.lowestPressure}</span><b><UnitVal val={`${live.lowestBar} bar`} /></b>
+                          </div>
+                        )}
+                        {timingShown && (
+                          <>
+                            {times && (
                               <>
                                 <div className={s.zonePanelRow}><span>{az.lastContactAt}</span><b>{times.last}</b></div>
                                 <div className={s.zonePanelRow}><span>{az.nextContactDue}</span><b>{times.next}</b></div>
                               </>
-                            )
-                          }}
-                        </TruppTicking>
-                        <div className={s.zonePanelRow}><span>{az.contactIntervalLabel}</span><b><UnitVal val={fillTemplate(az.contactIntervalValue, { min: intervalMin })} /></b></div>
-                      </>
-                    )}
-                  </div>
-                )}
+                            )}
+                            <div className={s.zonePanelRow}><span>{az.contactIntervalLabel}</span><b><UnitVal val={fillTemplate(az.contactIntervalValue, { min: intervalMin })} /></b></div>
+                          </>
+                        )}
+                      </div>
+                    )
+                  }}
+                </TruppTicking>
                 {readings.length > 0 && (() => {
                   // ⚠️ The log spans EVERY deployment since 18.08. («Wieder einrücken» appends
                   // rather than starting a new one, so the first bottle still prints on the
