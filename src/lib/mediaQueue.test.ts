@@ -602,4 +602,57 @@ describe('mediaQueue · no answer at all', () => {
     expect(upload).toHaveBeenCalledTimes(2)
     expect(write).not.toHaveBeenCalled()
   })
+
+  it('a capture whose early try missed gets the next one 60 s later, not sooner', async () => {
+    await enqueueMedia(INC, 'big', 'photo', blob(), 'p', '')
+    const upload = noAnswer()
+    for (let step = 0; step < 6; step++) { // misses until the pause is long (here 5 min)
+      await flushMediaQueue(INC, upload)
+      vi.setSystemTime((await listMediaQueue(INC))[0].retryAt!)
+    }
+    await flushMediaQueue(INC, upload)
+    await flushMediaQueue(INC, upload, { due: 'reachable' }) // the early try, missed
+    expect(upload).toHaveBeenCalledTimes(8)
+    vi.setSystemTime(Date.now() + 59_000)
+    await flushMediaQueue(INC, upload, { due: 'reachable' })
+    expect(upload).toHaveBeenCalledTimes(8)
+    vi.setSystemTime(Date.now() + 1_000)
+    upload.mockResolvedValue({ url: '/api/media/m' })
+    expect((await flushMediaQueue(INC, upload, { due: 'reachable' })).uploaded).toHaveLength(1)
+  })
+
+  it('a reachable flush held back by the spacing says when the capture may try early again', async () => {
+    await enqueueMedia(INC, 'big', 'photo', blob(), 'p', '')
+    const upload = noAnswer()
+    for (let step = 0; step < 6; step++) {
+      await flushMediaQueue(INC, upload)
+      vi.setSystemTime((await listMediaQueue(INC))[0].retryAt!)
+    }
+    await flushMediaQueue(INC, upload)
+    const tried = Date.now()
+    await flushMediaQueue(INC, upload, { due: 'reachable' }) // the early try, missed: 5 min pause
+    vi.setSystemTime(tried + 20_000)
+    expect((await flushMediaQueue(INC, upload, { due: 'reachable' })).deferredUntil).toBe(tried + 60_000)
+    // a pause that ends before the spacing does needs no extra try
+    await clearIncidentMedia(INC)
+    await enqueueMedia(INC, 'small', 'photo', blob(), 'p', '')
+    await flushMediaQueue(INC, upload) // a miss: 5 s pause
+    await flushMediaQueue(INC, upload, { due: 'reachable' }) // the early try, missed: 10 s pause
+    expect((await flushMediaQueue(INC, upload, { due: 'reachable' })).deferredUntil).toBeUndefined()
+  })
+
+  // the worst case: a forced `reachable` flush every 5 s (real polls signal again only after a
+  // new failure); the count includes the normal retries at the end of each stored pause
+  it('a burst of reachable flushes sends an upload that never answers at most about once a minute', async () => {
+    await enqueueMedia(INC, 'big', 'photo', blob(), 'p', '')
+    const upload = noAnswer()
+    const end = Date.now() + 600_000
+    await flushMediaQueue(INC, upload)
+    while (Date.now() < end) {
+      vi.setSystemTime(Date.now() + 5_000)
+      await flushMediaQueue(INC, upload, { due: 'reachable' })
+    }
+    // unlimited early tries: 121 (every poll); one early try per capture: 7; one a minute: 14
+    expect(upload).toHaveBeenCalledTimes(14)
+  })
 })

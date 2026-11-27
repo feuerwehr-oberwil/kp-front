@@ -107,3 +107,30 @@ it('uploads at once on the `online` event, not after the remaining pause', async
   expect(upload).toHaveBeenCalledTimes(7)
   expect(result.current.pendingCount).toBe(0)
 })
+
+// one recovery signal while the capture's last early try is under a minute old is held, not lost
+it('a recovery signal during the early-try spacing gets its try when the spacing ends', async () => {
+  vi.useFakeTimers()
+  vi.spyOn(Math, 'random').mockReturnValue(0.5)
+  vi.stubGlobal('URL', { createObjectURL: () => 'blob:restored', revokeObjectURL: vi.fn() })
+  upload.mockReset().mockRejectedValue(new ApiError(0, 'Netzwerkfehler'))
+  await enqueueMedia('spacing-hook', 'row', 'audio', new Blob(['audio']), 'voice.webm', new Date().toISOString())
+  const { result } = renderHook(() => useMediaQueue({ incidentId: 'spacing-hook', readOnly: false, onUploaded: () => true, onRestore: () => {} }))
+  for (let s = 0; s < 32; s++) await act(async () => { await vi.advanceTimersByTimeAsync(5_000) })
+  expect(upload).toHaveBeenCalledTimes(6)
+  noteUnreached()
+  act(() => { noteAnswered() }) // the early try, missed: the next pause is 5 min
+  await act(async () => { await vi.advanceTimersByTimeAsync(1) })
+  expect(upload).toHaveBeenCalledTimes(7)
+  await act(async () => { await vi.advanceTimersByTimeAsync(20_000) })
+  upload.mockResolvedValue({ url: '/uploaded' })
+  noteUnreached()
+  act(() => { noteAnswered() }) // the link is back – but the last early try is 20 s old
+  await act(async () => { await vi.advanceTimersByTimeAsync(1) })
+  expect(upload).toHaveBeenCalledTimes(7)
+  await act(async () => { await vi.advanceTimersByTimeAsync(38_000) })
+  expect(upload).toHaveBeenCalledTimes(7)
+  await act(async () => { await vi.advanceTimersByTimeAsync(2_000) }) // 60 s after the early try
+  expect(upload).toHaveBeenCalledTimes(8)
+  expect(result.current.pendingCount).toBe(0)
+})

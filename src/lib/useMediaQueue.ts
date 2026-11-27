@@ -101,6 +101,8 @@ export function useMediaQueue({ incidentId, readOnly, onUploaded, onRestore }: O
   const [items, setItems] = useState<MediaQueueItem[]>([])
   const [durable, setDurable] = useState(true)
   const [reconnected, setReconnected] = useState(0)
+  /** when a recovery signal held back by the early-try spacing gets its try (FlushOutcome · deferredUntil) */
+  const [earlyAt, setEarlyAt] = useState<number>()
   const status = useRef<SyncStatus>('synced')
   // keep callbacks in refs so the window/online listeners always call the fresh versions
   const cb = useRef({ onUploaded, onRestore })
@@ -154,7 +156,8 @@ export function useMediaQueue({ incidentId, readOnly, onUploaded, onRestore }: O
 
   const flush = useCallback(async (options?: { retry?: boolean; due?: 'online' | 'reachable' }) => {
     if (readOnly) return
-    await flushMediaQueue(incidentId, uploadMedia, options)
+    const { deferredUntil } = await flushMediaQueue(incidentId, uploadMedia, options)
+    if (deferredUntil != null) setEarlyAt(deferredUntil)
     await replay()
     await refresh()
   }, [incidentId, readOnly, refresh, replay])
@@ -212,6 +215,14 @@ export function useMediaQueue({ incidentId, readOnly, onUploaded, onRestore }: O
     const offReachable = onReachable(() => { void flush({ due: 'reachable' }) })
     return () => { window.removeEventListener('online', onOnline); offReachable() }
   }, [flush])
+
+  // A recovery signal that came while a capture's last early try was too recent: try it once
+  // the spacing is over (its stored pause, if shorter, has its own timer below).
+  useEffect(() => {
+    if (earlyAt == null) return
+    const timer = setTimeout(() => { setEarlyAt(undefined); void flush({ due: 'reachable' }) }, Math.max(0, earlyAt - Date.now()))
+    return () => clearTimeout(timer)
+  }, [earlyAt, flush])
 
   // Retry only pending captures, at their persisted deadline. Updating attempts must never
   // cause an immediate render → upload → render loop; permanently failed items need a tap.

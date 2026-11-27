@@ -137,12 +137,18 @@ function laneFor(incidentId: string) {
 const sameCapture = (a: MediaQueueItem, b: MediaQueueItem) =>
   a.id === b.id && a.rev === b.rev && a.createdAt === b.createdAt
 
-/** Captures that already used their early try on `due: 'reachable'`. A capture whose upload
- *  keeps failing re-arms connectivity · onReachable with every no-answer or 502/503/504, and the
- *  next answered poll would send its Blob again – one such early try, then its pause holds. Only
- *  the upload landing forgets it. The browser's `online` event (`due: 'online'`) is not limited.
- *  In memory only: a reload starts from the stored pause. */
-const triedEarly = new Set<string>()
+/** Shortest gap between two early tries of one capture on `due: 'reachable'`. The owner's
+ *  decision (27.11.2026): a photo waiting out 5 min on a link that is back is too long at an
+ *  Einsatz, and one try a minute cannot flood anything. */
+const EARLY_TRY_SPACING_MS = 60_000
+
+/** When each capture last had its early try on `due: 'reachable'`. A capture whose upload keeps
+ *  failing re-arms connectivity · onReachable with every no-answer or 502/503/504, and the next
+ *  answered poll would send its Blob again – so it gets an early try at most once per
+ *  EARLY_TRY_SPACING_MS; its stored pause still runs as before. Only the upload landing forgets
+ *  it. The browser's `online` event (`due: 'online'`) is not limited. In memory only: a reload
+ *  starts from the stored pause. */
+const triedEarly = new Map<string, number>()
 const captureKey = (item: MediaQueueItem) => `${item.incidentId}|${item.id}|${item.rev ?? item.createdAt}`
 
 const navigatorOnline = () => (typeof navigator !== 'undefined' ? navigator.onLine : true)
@@ -263,6 +269,11 @@ export type MediaUploader = (
 export interface FlushOutcome {
   uploaded: { id: string; rowId: string; kind: 'photo' | 'audio'; url: string; localUrl?: string; target?: MediaTarget }[]
   remaining: MediaQueueItem[]
+  /** A `due: 'reachable'` flush skipped a capture whose early try was too recent (triedEarly):
+   *  the earliest time one of them may try early again, when that comes before its stored pause
+   *  ends. The caller flushes `due: 'reachable'` again then, so a recovery signal that came
+   *  during the spacing is not lost. */
+  deferredUntil?: number
 }
 
 /** Attempt every queued capture of an incident. A successful upload becomes a RECEIPT (its server
@@ -273,7 +284,7 @@ export interface FlushOutcome {
  *  attempts reach MAX_ATTEMPTS – so one after a long outage fails at once. One attempt per item
  *  per flush, and none before its `retryAt` – unless `due`: connectivity is back, so a pause
  *  still running from a dead link is over (`'online'`: the browser's event; `'reachable'`: the
- *  server answered another request – one early try per capture until it uploads, see
+ *  server answered another request – an early try per capture at most once a minute, see
  *  triedEarly). Failed items still wait for `retry`. No answer at all counts a miss instead (`misses`): the pause doubles while the link stays dead. Receipts
  *  are never uploaded again, `retry` or not. Never throws — a bad flush just leaves work queued
  *  for the next one. */
@@ -284,13 +295,20 @@ export function flushMediaQueue(incidentId: string, upload: MediaUploader, { ret
     const uploaded: FlushOutcome['uploaded'] = []
     /** per attempted entry: its updated state (a receipt once it is on the server) */
     const settled: { item: MediaQueueItem; next: MediaQueueItem }[] = []
+    let deferredUntil: number | undefined
     for (const item of items) {
       if (isReceipt(item)) continue
       const key = captureKey(item)
       const early = (item.retryAt ?? 0) > Date.now()
-      if (!retry && (item.status === 'failed' || (early && (!due || (due === 'reachable' && triedEarly.has(key)))))) continue
+      const spacedAt = (triedEarly.get(key) ?? -Infinity) + EARLY_TRY_SPACING_MS
+      if (!retry && item.status !== 'failed' && early && due === 'reachable' && spacedAt > Date.now()) {
+        // the stored pause wins when it ends first: the normal retry comes then anyway
+        if (spacedAt < (item.retryAt ?? 0)) deferredUntil = Math.min(deferredUntil ?? Infinity, spacedAt)
+        continue
+      }
+      if (!retry && (item.status === 'failed' || (early && !due))) continue
       // only the reachable try is rationed: an `online` try that misses leaves it unused
-      if (early && !retry && due === 'reachable') triedEarly.add(key)
+      if (early && !retry && due === 'reachable') triedEarly.set(key, Date.now())
       // Older JSON fallbacks may already hold {} instead of a Blob. Keep the record visible
       // as failed, but never crash the restore/upload path or pretend the bytes are present.
       if (!(item.blob instanceof Blob)) {
@@ -332,7 +350,7 @@ export function flushMediaQueue(incidentId: string, upload: MediaUploader, { ret
       await storeQueue(incidentId, next, known)
       return next
     })
-    return { uploaded, remaining }
+    return { uploaded, remaining, ...(deferredUntil != null ? { deferredUntil } : {}) }
   })
 }
 
