@@ -40,9 +40,11 @@ the module they concern (`lib/connectivity`, `lib/eventScope`, `lib/jsonEqual`,
   same way, and every merge applies them to both sides, so one that lands late or unseen
   brings back nothing deleted since. The guarantee is at COMMITTED persistence: an edit still inside
   the 300 ms cache debounce when another tab takes over (or when the tab dies) can be lost. Known
-  limits: a third save still on its way after three hand-overs is not carried, and an object a
-  handed save added that ANOTHER device deleted after it landed comes back once (telling «landed»
-  from «refused» would need the PUT's outcome). The
+  limits: only the newest two carried saves stay (a third unresolved PUT – across hand-overs or
+  unanswered retries – is not carried; each is a whole workspace in the slot); a PUT whose record
+  the store refuses for space still leaves (a full device must still sync); and an object a carried
+  save added that ANOTHER device deleted after it landed comes back once (telling «landed» from
+  «refused» would need the PUT's outcome). The
   media queue's read-modify-writes and flushes take a cross-tab Web Lock per Einsatz too, and a
   receipt is linked and retired only while the tab still holds the edit lock
   (`lib/incidentSelection` header).
