@@ -112,10 +112,13 @@
    rail is wider than the nav rail, and the banner's actions lay over its first tool. At
    `top: 12px; right: 16px` it lay under the top bar, which floats over the full-bleed stage:
    «Anderes Objekt wählen» and its ✕ peeked out beside the bar with the bar's shadow on them
-   (owner, Üben feedback 27.11.2026, «what is going on here»). */
+   (owner, Üben feedback 27.11.2026, «what is going on here»). Its edges are named like the
+   strip's (`--lane-l`/`--lane-r`), so an armed tool's column clears both by one rule (08-toasts ·
+   «an armed tool's column»). */
 .wb-nearby-banner { position: absolute; z-index: var(--z-dock); top: var(--rail-top);
-  left: calc(max(16px, env(safe-area-inset-left)) + var(--rail-w) + 24px);
-  right: calc(max(16px, env(safe-area-inset-right)) + var(--vrail-w, 60px) + 24px); max-width: 860px; margin-inline: auto;
+  --lane-l: calc(max(16px, env(safe-area-inset-left)) + var(--rail-w) + 24px);
+  --lane-r: calc(max(16px, env(safe-area-inset-right)) + var(--vrail-w, 60px) + 24px);
+  left: var(--lane-l); right: var(--lane-r); max-width: 860px; margin-inline: auto;
   /* the message surface; the tone is its amber glyph (08-toasts.css · «ONE message surface», 25.09.2026) */
   display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); padding: var(--msg-pad) var(--msg-pad) var(--msg-pad) var(--float-pad-x); border-radius: var(--r-sm);
   background: var(--float-bg); backdrop-filter: var(--float-blur); border: none; box-shadow: var(--float-edge);

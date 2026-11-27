@@ -18,6 +18,10 @@ import { EINSATZ_RAIL, dismissFirstViewGebaeude, expect, login, openApp, test } 
 // at rest and lifted over the open Messen panel (UX journeys, follow-up round 26.11.2026: the row's
 // box spans the phone's width up to the FAB, and it swallowed every tap there).
 //
+// On the iPads an armed tool's column stands level with the rail's top, in the strip's band: the
+// strip ends left of it and lies on none of its tiles, on the Karte and on the Tafel (owner, Üben
+// feedback 27.11.2026: the strip lay on «Freihand»).
+//
 // It opens an Übung of its own and archives it again afterwards.
 // ⚠️ OPT-IN (E2E_WORKFLOWS=1), chromium only: it writes an Einsatz – never against a station in use.
 
@@ -145,6 +149,25 @@ async function rowGapTaps(page: Page): Promise<{ onMap: number; taken: string[] 
   })
 }
 
+/** The armed tool's column tiles that something else lies on (the strip, a toast …): a tile's
+ *  corners and centre must be the tile's own – or the column's, under the readout tile, which
+ *  takes no pointer. Named by the tile and what lies on it, once each. */
+async function dockTilesCovered(page: Page): Promise<string[]> {
+  return page.evaluate(() => {
+    const dock = document.querySelector('.wb-dock')
+    if (!dock) return ['no tool dock']
+    const out: string[] = []
+    for (const tile of dock.children) {
+      const r = tile.getBoundingClientRect()
+      if (!r.width || !r.height) continue
+      const points = [[r.left + 4, r.top + 4], [r.right - 4, r.top + 4], [r.left + r.width / 2, r.top + r.height / 2], [r.left + 4, r.bottom - 4], [r.right - 4, r.bottom - 4]]
+      const top = points.map(([x, y]) => document.elementFromPoint(x, y)).find((el) => !el || !(tile.contains(el) || el === dock))
+      if (top !== undefined) out.push(`${tile.getAttribute('aria-label') ?? tile.getAttribute('class')} under ${top?.getAttribute('class') ?? 'nothing'}`)
+    }
+    return out
+  })
+}
+
 for (const device of [
   { name: 'phone 320', viewport: { width: 320, height: 640 }, isMobile: true, hasTouch: true },
   { name: 'phone 390', viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true },
@@ -219,6 +242,22 @@ for (const device of [
       const gaps = await rowGapTaps(page)
       expect(gaps.taken, 'the row takes no tap beside its tiles').toEqual([])
       expect(gaps.onMap, 'a tap beside the tiles reaches the map').toBeGreaterThan(0)
+    })
+
+    if (!device.isMobile) test(`an armed tool's column stays clear of the alert (${device.name})`, async ({ page }) => {
+      await openApp(page, '/')
+      await expect(page.locator(EINSATZ_RAIL)).toBeVisible()
+      await dismissFirstViewGebaeude(page)
+      await expect(page.locator('.ml').getByText(/^Atemschutz überfällig – Schönenberger/)).toBeVisible()
+      await page.locator('aside.vrail button[aria-label="Linie"]').click()
+      await expect(page.locator('.wb-dock')).toBeVisible()
+      await expect.poll(() => dockTilesCovered(page), 'the strip lies on no tile of the column (Karte)').toEqual([])
+      // …and on a Plan: the Tafel, which every Einsatz has
+      // a DOM click: a pointer click lands in the nav tile's hold handler
+      await page.locator(`${EINSATZ_RAIL} .nav-item[aria-label^="Tafel"]`).first().evaluate((b: HTMLElement) => b.click())
+      await page.locator('aside.vrail button[aria-label="Linie"]').click()
+      await expect(page.locator('.wb-dock')).toBeVisible()
+      await expect.poll(() => dockTilesCovered(page), 'the strip lies on no tile of the column (Plan)').toEqual([])
     })
 
     // the panels: phones only – the tablet docks Messen at the foot and stands the banner right of
