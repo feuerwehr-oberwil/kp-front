@@ -3151,13 +3151,6 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
               {measMode === 'line' ? fmtDistance(measLenM) : fmtArea(measAreaM2)}
             </div>
           )}
-          {/* a plan with NO rail (the Wiedergabe, a viewer-only document) on a tablet or laptop: its
-              view controls in the rail's own ViewBar, bottom right like on every surface (Üben
-              feedback 27.11.2026 – they floated top right, the north dial a chip under them) */}
-          {readOnly && !slimRail && !isPhone && (
-            <ViewBar label={appConfig.copy.navRail.viewBar} labelled={railLabels === 'short'}>{viewControls}</ViewBar>
-          )}
-
           {/* the Gebäude's north dial lives in the view bar (`viewControls`). A PHONE's plan with NO
               rail keeps it as a read-out in the viewport's top-right corner, NOT on the paper. */}
           {stack && fpView && readOnly && !slimRail && isPhone && (
@@ -3255,6 +3248,14 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
           }}
           controls={viewControls}
         />
+      )}
+      {/* a plan with NO rail (the Wiedergabe, a viewer-only document) on a tablet or laptop: its
+          view controls in the rail's own ViewBar, bottom right like on every surface (Üben feedback
+          27.11.2026 – they floated top right, the north dial a chip under them). ⚠️ Out here beside
+          the rail's, never inside `.wb-canvas`: there a press bubbled into the board's pan, which
+          captured the pointer and took the click from «Einpassen». */}
+      {readOnly && !slimRail && !isPhone && (
+        <ViewBar label={appConfig.copy.navRail.viewBar} labelled={railLabels === 'short'}>{viewControls}</ViewBar>
       )}
 
       {/* the symbol's dock: [Unfall · Mehrere · Abbrechen] – the Lage map's twin (MapToolDocks). The
