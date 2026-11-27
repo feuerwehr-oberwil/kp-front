@@ -289,7 +289,8 @@ export function flushMediaQueue(incidentId: string, upload: MediaUploader, { ret
       const key = captureKey(item)
       const early = (item.retryAt ?? 0) > Date.now()
       if (!retry && (item.status === 'failed' || (early && (!due || (due === 'reachable' && triedEarly.has(key)))))) continue
-      if (early && !retry) triedEarly.add(key)
+      // only the reachable try is rationed: an `online` try that misses leaves it unused
+      if (early && !retry && due === 'reachable') triedEarly.add(key)
       // Older JSON fallbacks may already hold {} instead of a Blob. Keep the record visible
       // as failed, but never crash the restore/upload path or pretend the bytes are present.
       if (!(item.blob instanceof Blob)) {
@@ -324,6 +325,9 @@ export function flushMediaQueue(incidentId: string, upload: MediaUploader, { ret
     // re-sent from a stale stored copy while this page lives.
     const remaining = await lane.edit(async () => {
       const { items: current, known } = await readQueue(incidentId)
+      // nothing was tried and nothing waits in memory for a write that lands: the stored queue,
+      // Blobs and all, is already this one
+      if (!settled.length && !unstored.has(incidentId)) return current
       const next = current.map((cur) => settled.find((x) => sameCapture(x.item, cur))?.next ?? cur)
       await storeQueue(incidentId, next, known)
       return next

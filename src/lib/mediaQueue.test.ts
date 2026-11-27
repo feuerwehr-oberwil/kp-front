@@ -579,4 +579,27 @@ describe('mediaQueue · no answer at all', () => {
     upload.mockResolvedValue({ url: '/api/media/m' })
     expect((await flushMediaQueue(INC, upload, { due: 'online' })).uploaded).toHaveLength(1)
   })
+
+  it('an `online` try that misses does not use up the reachable try', async () => {
+    await enqueueMedia(INC, 'big', 'photo', blob(), 'p', '')
+    const upload = noAnswer()
+    await flushMediaQueue(INC, upload) // a miss: the pause runs
+    await flushMediaQueue(INC, upload, { due: 'online' }) // the browser says online, the upload still gets no answer
+    expect(upload).toHaveBeenCalledTimes(2)
+    upload.mockResolvedValue({ url: '/api/media/m' })
+    expect((await flushMediaQueue(INC, upload, { due: 'reachable' })).uploaded).toHaveLength(1)
+  })
+
+  it('a flush that tries nothing does not write the queue again', async () => {
+    await enqueueMedia(INC, 'big', 'photo', blob(), 'p', '')
+    const upload = noAnswer()
+    await flushMediaQueue(INC, upload) // a miss: the pause runs
+    await flushMediaQueue(INC, upload, { due: 'reachable' }) // the one early try
+    const write = vi.spyOn(idb, 'idbSet')
+    const before = await listMediaQueue(INC)
+    for (let poll = 0; poll < 5; poll++) expect((await flushMediaQueue(INC, upload, { due: 'reachable' })).remaining).toEqual(before)
+    await flushMediaQueue(INC, upload) // the timer, before the pause is over
+    expect(upload).toHaveBeenCalledTimes(2)
+    expect(write).not.toHaveBeenCalled()
+  })
 })
