@@ -73,6 +73,12 @@ pinned (`e2e/visual/harness.ts`):
   shot waits until none stands (`harness · settled`). The first tap of a state arms the alarm tone,
   and «Alarmton an» stood beside the symbol editor (27.11.2026). The two Karte home states seed a
   device name too: without one, «Name dieses Geräts» opens over the home.
+- **Layers drawn again.** Chromium keeps the first drawing of a `will-change: transform` layer
+  while the page does not change, and that first drawing differs from run to run although the DOM is
+  the same: the Plan board came out in one of two pictures, the caption «erledigt Sanität
+  eingetroffen» 1 px apart (9 of 264 local runs, 27.11.2026). So once the page stands, every such
+  layer is dropped for two frames and made again (`harness · freshLayers`). A new drawing is the same
+  every time: 100 of 100 runs.
 - **A drawn Karte.** The map canvas must give two identical pictures 400 ms apart before the shot;
   `toHaveScreenshot` itself then waits for two identical pictures of the page.
 
