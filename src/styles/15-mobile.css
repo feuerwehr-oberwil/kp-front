@@ -896,8 +896,8 @@
      the framed «Abbrechen» beside it stays at its word's width — one row, one height */
   [role='dialog'] .ui-sheet-foot > .ip-btn.primary { flex: 1 1 auto; justify-content: center; }
   .ip-sheet:has(> .ui-sheet-foot) .ip-body { padding-bottom: 12px; }
-  /* Base UI Dialog popup has no .ip-ovl grid parent, so bottom-anchor it here (the old
-     .ip-ovl{place-items:end center} did this) — same full-width bottom sheet + the rise above. */
+  /* Base UI Dialog popup has no .ip-ovl grid parent, so the `.ip-ovl { place-items: end center }`
+     above does not reach it: bottom-anchor it here — same full-width bottom sheet + the rise above. */
   .ip-sheet.ui-dialog { top: auto; bottom: 0; left: 0; transform: none; }
   /* …and now it can be pushed back down (lib/overlays · swipeDismiss). The bar is the SAME
      40×5px pill as the `.ctx` editors' grip below, hung in the same 24px band clear of the
