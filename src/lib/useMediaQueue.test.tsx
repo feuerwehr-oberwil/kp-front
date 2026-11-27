@@ -12,7 +12,8 @@ vi.mock('./idb', () => ({
 vi.mock('./mediaUrl', () => ({ forgetLocalThumb: vi.fn(), mintLocalThumb: async () => {} }))
 import { ApiError } from './api'
 import { noteAnswered, noteUnreached } from './connectivity'
-import { enqueueMedia, __resetMediaQueueForTests } from './mediaQueue'
+import { enqueueMedia, listMediaQueue, __resetMediaQueueForTests } from './mediaQueue'
+import { incidentLockName, tabLockAnswers } from './tabLock'
 import { useMediaQueue } from './useMediaQueue'
 
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); state.store.clear(); __resetMediaQueueForTests() })
@@ -164,4 +165,44 @@ it('two waiting captures do not hand each other an early try a minute after one 
   // Handing each other a try, each would go about once a minute: ten times.
   expect(since('a')).toBeLessThanOrEqual(3)
   expect(since('b')).toBeLessThanOrEqual(4)
+})
+
+// docs/sync-and-offline.md › Two tabs: the tab that holds the Einsatz's edit lock owns its queue
+it('a tab behind the holder uploads nothing and leaves the queue as it is', async () => {
+  vi.stubGlobal('URL', { createObjectURL: () => 'blob:restored', revokeObjectURL: vi.fn() })
+  const id = 'tab-behind'
+  tabLockAnswers.set(incidentLockName(id), false)
+  try {
+    upload.mockReset().mockResolvedValue({ url: '/media/1' })
+    await enqueueMedia(id, 'row', 'photo', new Blob(['jpg']), 'photo-row', new Date().toISOString(), 'blob:cap')
+    const queued = await listMediaQueue(id)
+    const { result } = renderHook(() => useMediaQueue({ incidentId: id, readOnly: false, onUploaded: () => true, onRestore: () => {} }))
+    await act(async () => { await result.current.flush({ retry: true }); await new Promise((resolve) => setTimeout(resolve, 20)) })
+    expect(upload).not.toHaveBeenCalled()
+    expect(await listMediaQueue(id)).toEqual(queued)
+  } finally {
+    tabLockAnswers.set(incidentLockName(id), undefined)
+  }
+})
+
+it('a tab that loses the edit lock mid-flush starts no further upload', async () => {
+  vi.stubGlobal('URL', { createObjectURL: () => 'blob:restored', revokeObjectURL: vi.fn() })
+  const id = 'tab-lost'
+  tabLockAnswers.set(incidentLockName(id), true)
+  try {
+    upload.mockReset().mockImplementation(async () => {
+      tabLockAnswers.set(incidentLockName(id), false) // another tab took over during this upload
+      return { url: '/media/1' }
+    })
+    await enqueueMedia(id, 'row1', 'photo', new Blob(['a']), 'a.jpg', new Date().toISOString(), 'blob:a')
+    await enqueueMedia(id, 'row2', 'photo', new Blob(['b']), 'b.jpg', new Date().toISOString(), 'blob:b')
+    const queued = await listMediaQueue(id)
+    renderHook(() => useMediaQueue({ incidentId: id, readOnly: false, onUploaded: () => true, onRestore: () => {} }))
+    await waitFor(() => expect(upload).toHaveBeenCalledOnce())
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)) })
+    expect(upload).toHaveBeenCalledOnce()
+    expect(await listMediaQueue(id)).toEqual(queued) // the new holder's own pass records the queue
+  } finally {
+    tabLockAnswers.set(incidentLockName(id), undefined)
+  }
 })

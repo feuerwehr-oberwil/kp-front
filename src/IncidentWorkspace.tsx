@@ -245,7 +245,9 @@ interface WorkspaceProps {
   workspace: Workspace | null
   sync: WorkspaceSync
   forceReadOnly: boolean
-  /** another tab of THIS browser is editing the incident → read-only here + take-over banner */
+  /** another tab of THIS browser is editing the incident → read-only here + take-over banner.
+   *  An engine that followed another tab keeps it so until a takeover replaced the engine
+   *  (WorkspaceSync · lockLost). */
   tabLockLost: boolean
   /** this tab got the edit lock at once when it opened the incident (lib/tabLock · heldAtOpen) */
   tabLockHeldAtOpen?: boolean
@@ -303,10 +305,11 @@ interface WorkspaceProps {
 
 
 export function IncidentWorkspace({
-  incidentMeta, incidents, workspace, sync, forceReadOnly, tabLockLost, tabLockHeldAtOpen = false, onTakeOverTab, onCompleteRapport, abschlussRef,
+  incidentMeta, incidents, workspace, sync, forceReadOnly, tabLockLost: tabLockAnswerLost, tabLockHeldAtOpen = false, onTakeOverTab, onCompleteRapport, abschlussRef,
   onSwitchIncident, onOpenHistory, onOpenObjectVisits, onOpenKarte, onOpenDivera, menuAlarms, menuFolded, onReactivateActive, onBackFromArchive,
   covered = false, onUncover, needsReview, onReviewDone, reviewedLocallyAt, onEditMeta, lifecycleElsewhere, openCover, onOpenCoverDone,
 }: WorkspaceProps) {
+  const tabLockLost = tabLockAnswerLost || sync.lockLost
   const { user, logout, asLink, isEl, linkRefused, roleReadOnly, isEditor, linkScoped } = useSessionRole(incidentMeta)
   // Phones are a live viewer + field-capture device: lock all TACTICAL editing (tools,
   // map drawing/placing, plan annotation) even for a editor — but keep journal capture

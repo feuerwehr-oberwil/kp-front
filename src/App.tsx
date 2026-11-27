@@ -163,9 +163,6 @@ function IncidentApp() {
   // Demo instances greet a first-time visitor once per device with the can/can't intro.
   const [showWelcome, setShowWelcome] = useState(() => isDemoMode() && !hasSeenDemoWelcome())
   const [forceReadOnly, setForceReadOnly] = useState(false)
-  // single-editor-per-browser: only one tab may edit an incident (they'd race the shared
-  // IDB sync cache); a second tab is read-only with a one-tap take-over.
-  const tabLock = useIncidentTabLock(activeId)
   const [overlay, setOverlay] = useState<null | 'create' | 'history'>(null)
   // closed Einsätze whose captures are still queued on this device (completeRapport) — a Meldung
   // each while true; re-read whenever the list refreshes, gone once the queue is empty
@@ -448,6 +445,18 @@ function IncidentApp() {
       ? { ...prev, incidentId: id }
       : { ...prev, incidentId: id, incidentChosenAt: Date.now(), landedAt: undefined })
   }, [markOpened, syncRef, isSessionCurrent])
+
+  // A tab that took the edit lock over (the holder closed, or «Hier bearbeiten») starts from the
+  // cache as the holder left it: the engine that followed writes nothing again (WorkspaceSync ·
+  // lockLost), so the Einsatz opens afresh – docs/sync-and-offline.md › Two tabs. An open of
+  // another Einsatz already in flight goes first; «Hier bearbeiten» asks again.
+  const reopenTakenOver = useCallback((id: string) => {
+    if ((syncRef.opening ?? id) !== id || syncRef.current?.incidentId !== id || !syncRef.current.lockLost) return
+    selectIncident(id, { meta: activeMeta ?? undefined, readOnly: forceReadOnlyRef.current, boot: true }).catch(() => {})
+  }, [activeMeta, syncRef, selectIncident])
+  // single-editor-per-browser: only one tab may edit an incident (they'd race the shared
+  // IDB sync cache); a second tab is read-only with a one-tap take-over.
+  const tabLock = useIncidentTabLock(activeId, reopenTakenOver)
 
   // `selectIncident` for a HUMAN tap: the same open, but a failure is SAID. Every interactive
   // caller used to swallow the rejection — offline with no cached workspace, a 404 for an Einsatz
