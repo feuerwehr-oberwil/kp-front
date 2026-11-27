@@ -276,6 +276,12 @@ describe('Messpunkt — the reading its mark wears (27.10.2026)', () => {
     expect(readingRows(p).map((r) => r.v)).toEqual([{ CO: '45', Ex: '0' }, { CO: '20' }])
   })
 
+  it('a row holding only a gas the station no longer measures does not fold the measured row before it', () => {
+    // NH₃ was a configured gas when it was typed, 30 s after the CO report; it is not one now
+    const p = mp({ CO: '180' }, [{ t: 0, v: { CO: '180' } }, { t: 30_000, v: { 'NH₃': '5' } }])
+    expect(readingRows(p).map((r) => r.v)).toEqual([{ CO: '180' }])
+  })
+
   it('a stored row without values is skipped by every reader, and stays in the history', () => {
     // the merge unions the rows off the server's raw blob, which no gate has checked
     const bad = [{ t: 0, v: null }, { t: 10 * MIN, v: { CO: '20' } }, null, { t: 20 * MIN, v: null },
