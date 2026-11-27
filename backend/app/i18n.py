@@ -69,10 +69,25 @@ DETAIL_TRANSLATIONS: dict[str, dict[str, str]] = {
         "fr": "Le dernier éditeur actif ne peut pas être désactivé ni rétrogradé.",
         "it": "L'ultimo editor attivo non può essere disattivato né declassato.",
     },
+    "Die Pläne dieses Objekts werden gerade synchronisiert – in ein paar Minuten erneut versuchen.": {
+        "en": "This object's plans are being synchronised right now – try again in a few minutes.",
+        "fr": "Les plans de cet objet sont en cours de synchronisation – réessayez dans quelques minutes.",
+        "it": "I piani di questo oggetto sono in fase di sincronizzazione – riprovare tra qualche minuto.",
+    },
+    "Dieses Objekt wird gerade aktualisiert – in ein paar Minuten erneut versuchen.": {
+        "en": "This object is being updated right now – try again in a few minutes.",
+        "fr": "Cet objet est en cours de mise à jour – réessayez dans quelques minutes.",
+        "it": "Questo oggetto è in fase di aggiornamento – riprovare tra qualche minuto.",
+    },
     "Divera nicht konfiguriert (kein Access Key)": {
         "en": "Divera not configured (no access key)",
         "fr": "Divera non configuré (aucune clé d'accès)",
         "it": "Divera non configurato (nessuna chiave di accesso)",
+    },
+    "Ein Abgleich der Pläne läuft bereits – in ein paar Minuten erneut versuchen.": {
+        "en": "A plan synchronisation is already running – try again in a few minutes.",
+        "fr": "Une synchronisation des plans est déjà en cours – réessayez dans quelques minutes.",
+        "it": "Una sincronizzazione dei piani è già in corso – riprovare tra qualche minuto.",
     },
     "Einsatz nicht gefunden": {
         "en": "Incident not found",

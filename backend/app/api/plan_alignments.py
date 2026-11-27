@@ -22,6 +22,7 @@ from ..plan_floors import (
     validate_floors,
 )
 from ..plan_revision_info import revision_page_count
+from ..plans import PLANS_BUSY, brief_lock_wait
 from .plan_scales import GeorefPair
 
 router = APIRouter(prefix="/admin/plan-alignments", tags=["admin-plan-alignments"])
@@ -232,12 +233,13 @@ async def approve_alignment(
 ):
     """«Freigeben»: publish this fit to incidents – the same gate the marker worker passes
     through when a plan states its own fit (app/plan_approval.py)."""
-    row = await _get(db, item_id)
-    try:
-        await approve_fit(db, row, body.pairs, actor=ADMIN, edit_version=body.edit_version)
-    except ApprovalError as refused:
-        raise HTTPException(status_code=refused.status_code, detail=refused.detail) from refused
-    return await _item(db, row)
+    async with brief_lock_wait(db, PLANS_BUSY):
+        row = await _get(db, item_id)
+        try:
+            await approve_fit(db, row, body.pairs, actor=ADMIN, edit_version=body.edit_version)
+        except ApprovalError as refused:
+            raise HTTPException(status_code=refused.status_code, detail=refused.detail) from refused
+        return await _item(db, row)
 
 
 @router.post("/{item_id}/reject")
@@ -270,15 +272,20 @@ async def retry_alignment(
     """«Neu berechnen»: requeues the job – status, reason, lease and attempts reset; the stored
     fit stays until the worker writes a new one. A replaced revision, an approved fit and one
     the worker already holds are refused, each saying which it is."""
-    row = await _get(db, item_id)
-    await _lock_current(db, row)
-    if row.status == "approved":
-        raise HTTPException(status_code=409, detail="Ausrichtung ist bereits freigegeben.")
-    if row.status in {"processing", "pending"}:
-        raise HTTPException(status_code=409, detail="Ausrichtung wird bereits berechnet – Ergebnis abwarten")
-    return await _change(
-        db, row, body.edit_version, "retry", {"status": "pending", "reason": None, "claimed_at": None, "attempts": 0}
-    )
+    async with brief_lock_wait(db, PLANS_BUSY):
+        row = await _get(db, item_id)
+        await _lock_current(db, row)
+        if row.status == "approved":
+            raise HTTPException(status_code=409, detail="Ausrichtung ist bereits freigegeben.")
+        if row.status in {"processing", "pending"}:
+            raise HTTPException(status_code=409, detail="Ausrichtung wird bereits berechnet – Ergebnis abwarten")
+        return await _change(
+            db,
+            row,
+            body.edit_version,
+            "retry",
+            {"status": "pending", "reason": None, "claimed_at": None, "attempts": 0},
+        )
 
 
 @router.put("/{item_id}/floors")
@@ -291,58 +298,66 @@ async def assign_floors(item_id: int, body: FloorPack, _admin: CurrentAdmin, db:
     the worker renders the right page. An approved fit is never moved silently: withdraw it
     first (409), then change the fit page.
     """
-    row = await _get(db, item_id)
-    await _lock_current(db, row)
-    revision = await db.get(PlanRevision, (row.dataset_id, row.plan_version))
-    page_count = await revision_page_count(revision.storage_key, fresh=True) if revision else None
-    if page_count is None:
-        raise HTTPException(status_code=422, detail="PDF nicht lesbar")
-    # Whatever the PDF's own §-markers proposed for a storey stays pinned to it across this
-    # save: it is the baseline that tells the admin's correction from the export's say-so, and
-    # the next re-export re-applies the first on top of the second (app/plan_markers.py).
-    proposed = {f.key: f.marker for f in await load_floors(db, row.dataset_id, row.plan_version)}
-    floors = [
-        PlanFloor(
-            f.page,
-            f.index,
-            (f.name or "").strip() or None,
-            f.clip,
-            # part 0 is left unsaid, so a join the admin re-saves unchanged stays byte-identical
-            # to the one the markers proposed (app/plan_markers · admin_overrides)
-            {"to": f.join.to, **({"part": f.join.part} if f.join.part else {}), "at": f.join.at, "there": f.join.there}
-            if f.join
-            else None,
-            proposed.get((f.index, f.part)),
-            f.part,
-        )
-        for f in body.floors
-    ]
-    pages = [f.page for f in floors]
-    try:
-        validate_floors(floors, page_count)  # the same rules the marker worker is held to
-    except FloorError as e:
-        raise HTTPException(status_code=422, detail=str(e)) from e
-    fit_page = body.fit_page if body.fit_page is not None else default_fit_page(floors)
-    if fit_page is None:
-        fit_page = 0
-    elif fit_page not in pages:
-        raise HTTPException(status_code=422, detail="Die Ausrichtungsseite muss ein Geschoss sein")
-    if row.page != fit_page and row.status == "approved":
-        raise HTTPException(status_code=409, detail="Freigabe zuerst zurücknehmen, dann die Ausrichtungsseite wechseln")
-    await replace_floors(db, row.dataset_id, row.plan_version, floors)
-    values: dict = {}
-    if row.page != fit_page:
-        # a fit measured on another page is meaningless here – start the worker over on this one
-        values = {
-            "page": fit_page,
-            "status": "pending",
-            "pairs": [],
-            "aspect": None,
-            "scale_m_per_u": None,
-            "score": None,
-            "coverage": None,
-            "reason": None,
-            "claimed_at": None,
-            "attempts": 0,
-        }
-    return await _change(db, row, body.edit_version, "floors", values)
+    async with brief_lock_wait(db, PLANS_BUSY):
+        row = await _get(db, item_id)
+        await _lock_current(db, row)
+        revision = await db.get(PlanRevision, (row.dataset_id, row.plan_version))
+        page_count = await revision_page_count(revision.storage_key, fresh=True) if revision else None
+        if page_count is None:
+            raise HTTPException(status_code=422, detail="PDF nicht lesbar")
+        # Whatever the PDF's own §-markers proposed for a storey stays pinned to it across this
+        # save: it is the baseline that tells the admin's correction from the export's say-so, and
+        # the next re-export re-applies the first on top of the second (app/plan_markers.py).
+        proposed = {f.key: f.marker for f in await load_floors(db, row.dataset_id, row.plan_version)}
+        floors = [
+            PlanFloor(
+                f.page,
+                f.index,
+                (f.name or "").strip() or None,
+                f.clip,
+                # part 0 is left unsaid, so a join the admin re-saves unchanged stays byte-identical
+                # to the one the markers proposed (app/plan_markers · admin_overrides)
+                {
+                    "to": f.join.to,
+                    **({"part": f.join.part} if f.join.part else {}),
+                    "at": f.join.at,
+                    "there": f.join.there,
+                }
+                if f.join
+                else None,
+                proposed.get((f.index, f.part)),
+                f.part,
+            )
+            for f in body.floors
+        ]
+        pages = [f.page for f in floors]
+        try:
+            validate_floors(floors, page_count)  # the same rules the marker worker is held to
+        except FloorError as e:
+            raise HTTPException(status_code=422, detail=str(e)) from e
+        fit_page = body.fit_page if body.fit_page is not None else default_fit_page(floors)
+        if fit_page is None:
+            fit_page = 0
+        elif fit_page not in pages:
+            raise HTTPException(status_code=422, detail="Die Ausrichtungsseite muss ein Geschoss sein")
+        if row.page != fit_page and row.status == "approved":
+            raise HTTPException(
+                status_code=409, detail="Freigabe zuerst zurücknehmen, dann die Ausrichtungsseite wechseln"
+            )
+        await replace_floors(db, row.dataset_id, row.plan_version, floors)
+        values: dict = {}
+        if row.page != fit_page:
+            # a fit measured on another page is meaningless here – start the worker over on this one
+            values = {
+                "page": fit_page,
+                "status": "pending",
+                "pairs": [],
+                "aspect": None,
+                "scale_m_per_u": None,
+                "score": None,
+                "coverage": None,
+                "reason": None,
+                "claimed_at": None,
+                "attempts": 0,
+            }
+        return await _change(db, row, body.edit_version, "floors", values)

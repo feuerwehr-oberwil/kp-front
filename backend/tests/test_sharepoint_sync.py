@@ -1283,3 +1283,21 @@ async def test_a_merge_waits_for_the_run_instead_of_deadlocking_with_it(
     assert await db_session.get(ObjectSite, loser, populate_existing=True) is None
     moved = await db_session.get(ReferenceDataset, f"plan:{survivor}:modul1", populate_existing=True)
     assert moved is not None and moved.current_version == 2
+
+
+async def test_a_second_run_skips_while_one_holds_the_plans(db_session, session_factory, blank_env, storage_root):
+    """The button during a scheduled run (or a merge) does not queue behind it: «busy», nothing done,
+    and `POST /api/sharepoint/sync` turns that into 409 `plans.RUN_BUSY`. PostgreSQL only."""
+    from app import plans
+
+    if db_session.bind.dialect.name != "postgresql":
+        pytest.skip("requires independent PostgreSQL transactions")
+    await configure(db_session, [source("plans")])
+    await db_session.commit()
+    tenant = FakeTenant({"dorfmatt/modul1.pdf": PDF})
+    async with session_factory() as other:
+        await plans.lock_plan_maintenance(other)
+        assert await sync_sharepoint(db_session, transport=tenant.transport) == {"status": "busy", "areas": {}}
+        await other.commit()
+    assert tenant.seen == []
+    assert (await sync_sharepoint(db_session, transport=tenant.transport))["status"] == "ok"

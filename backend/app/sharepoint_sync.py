@@ -85,7 +85,7 @@ from .credentials import load as load_credentials
 from .deployment_config import config_row, read_config
 from .geocode import locate_coordinates
 from .models import ObjectSite, SharePointSyncState
-from .plans import lock_objects, lock_plan_maintenance, plan_max_bytes, store_plan
+from .plans import lock_objects, plan_max_bytes, store_plan, try_plan_maintenance
 from .schemas import SharePointArea, SharePointConfig, SharePointSource
 from .sharepoint_graph import GraphAuthError, GraphClient, GraphDeltaExpiredError, GraphError, RemoteFile
 
@@ -294,9 +294,10 @@ async def sync_sharepoint(
 
     tenant, client_id, client_secret = creds
     # Lock 1 of `plans` › the lock order, before the first row and outside every area's savepoint:
-    # a run holds plan rows and the config row in either order, and so does a merge (and a second
-    # run) – they wait for each other instead of deadlocking.
-    await lock_plan_maintenance(db)
+    # a run holds plan rows and the config row in either order, and so does a merge. Tried, not
+    # waited for: a second run (the button during a scheduled one) skips instead of queueing.
+    if not await try_plan_maintenance(db):
+        return {"status": "busy", "areas": {}}
     results: dict[str, Any] = {}
     # What the System card polls while this runs (app/sync_progress) — memory only, and cleared
     # in `finally` whatever ends the run, so a crashed sync cannot leave a bar standing forever.

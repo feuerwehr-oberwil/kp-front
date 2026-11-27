@@ -335,6 +335,8 @@ async def _sharepoint_pull() -> None:
                 return
             _sharepoint_last_run = now
             res = await sync_sharepoint(db)
+            if res.get("status") == "busy":
+                logger.info("SharePoint-Pull: another run holds the plans — skipped")
             # ⚠️ ONE commit, and it persists the state rows as much as the imported data. An
             # area that failed does NOT reach here as an exception any more — it rolled back its
             # own writes inside a savepoint (sharepoint_sync · _sync_one) and reports `error`,

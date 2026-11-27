@@ -73,7 +73,9 @@ async def lock_current_revision(db: AsyncSession, row: PlanAlignment) -> Referen
 
     Call it before the first check that the write depends on. A replacement in flight holds the
     same row, so this waits for it to commit and then refuses; a replacement that starts after
-    this waits until the caller's transaction ends.
+    this waits until the caller's transaction ends. How long it waits is the caller's: an HTTP
+    request gives up after `plans.LOCK_WAIT_MS` (`plans.brief_lock_wait`), the worker after
+    `plans.WORKER_LOCK_WAIT_MS`.
     """
     ds = await db.get(ReferenceDataset, row.dataset_id)
     if ds is not None and ds.object_id is not None:

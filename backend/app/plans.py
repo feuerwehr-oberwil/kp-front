@@ -42,12 +42,16 @@ import json
 import logging
 import re
 import uuid
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from urllib.parse import quote, urlparse
 
 import httpx
-from sqlalchemy import func, select
+from fastapi import HTTPException
+from sqlalchemy import func, select, text
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from . import storage
@@ -82,6 +86,24 @@ logger = logging.getLogger(__name__)
 #
 # Under 1, a holder may take 2 and 3 in either order (a SharePoint run reaches the config row in
 # several areas). That is safe because no transaction without 1 holds 2 together with 3 or 4.
+#
+# WHO WAITS, AND HOW LONG. A SharePoint run and an S3 pull are one transaction around network
+# downloads: they hold 1 and every object they stored a plan for (3) for minutes, to their one
+# commit. So the waits are bounded by who is waiting:
+#
+#   • an admin's HTTP request that takes 3 or updates an objects row (`brief_lock_wait`: approve,
+#     Geschosse, retry, a plan upload or fetch, the object mask, «Lage korrigieren» and its undo,
+#     the organizer's object PUT and DELETE) waits at most LOCK_WAIT_MS, then answers 409 with
+#     PLANS_BUSY or OBJECT_BUSY and writes nothing – the browser would give up at 20 s anyway,
+#     while its connection stayed out of the pool;
+#   • the alignment worker waits at most WORKER_LOCK_WAIT_MS, gives the job back uncounted and
+#     takes the next one (plan_alignment_worker · give_back), so one held object does not stall
+#     the queue;
+#   • a second scheduled run, the SharePoint button and the S3 pull do not wait for 1 at all
+#     (`try_plan_maintenance`): they skip and say «läuft bereits»;
+#   • the maintenance writers themselves (the run, the pull, the CLI tools, the demo reset) wait
+#     without a bound – they are the reason the others give up, and nothing waits behind them on
+#     a request.
 
 #: the key of lock 1 – any 64-bit number that no other `pg_advisory_*` caller uses
 _PLAN_MAINTENANCE = "kp-front:plan-maintenance"
@@ -93,6 +115,65 @@ async def lock_plan_maintenance(db: AsyncSession) -> None:
     suite) has no advisory locks and runs one writer at a time."""
     if db.bind.dialect.name == "postgresql":
         await db.execute(select(func.pg_advisory_xact_lock(func.hashtextextended(_PLAN_MAINTENANCE, 0))))
+
+
+async def try_plan_maintenance(db: AsyncSession) -> bool:
+    """Lock 1 without waiting: False while another transaction holds it. For the scheduled runs and
+    the admin's button, which skip a run rather than queue behind one. True on SQLite."""
+    if db.bind.dialect.name != "postgresql":
+        return True
+    got = await db.execute(select(func.pg_try_advisory_xact_lock(func.hashtextextended(_PLAN_MAINTENANCE, 0))))
+    return bool(got.scalar_one())
+
+
+#: How long an admin's request waits for a lock before it gives up (`brief_lock_wait`). Long enough
+#: for another admin's ordinary save, short against a run that holds the object for minutes. Read
+#: at call time, so a test can shorten it.
+LOCK_WAIT_MS = 5000
+#: …and the alignment worker's, before it gives its job back (plan_alignment_worker)
+WORKER_LOCK_WAIT_MS = 2000
+#: the refusal for a request about an object's PLANS or alignments
+PLANS_BUSY = "Die Pläne dieses Objekts werden gerade synchronisiert – in ein paar Minuten erneut versuchen."
+#: …and for one about the object itself (its mask, its position, an organizer's ref)
+OBJECT_BUSY = "Dieses Objekt wird gerade aktualisiert – in ein paar Minuten erneut versuchen."
+#: the SharePoint button while another run (or a merge, a load) holds lock 1
+RUN_BUSY = "Ein Abgleich der Pläne läuft bereits – in ein paar Minuten erneut versuchen."
+
+
+async def limit_lock_wait(db: AsyncSession, ms: int) -> None:
+    """This transaction gives up any lock wait after ``ms`` (SQLSTATE 55P03, `lock_wait_exceeded`).
+
+    ``SET LOCAL``: it ends with the transaction – commit or rollback – so a pooled connection
+    hands none of it to the next request. PostgreSQL only."""
+    if db.bind.dialect.name == "postgresql":
+        await db.execute(text(f"SET LOCAL lock_timeout = {int(ms)}"))
+
+
+def lock_wait_exceeded(exc: BaseException) -> bool:
+    """The statement gave up waiting for a lock under `limit_lock_wait`."""
+    return isinstance(exc, DBAPIError) and getattr(exc.orig, "sqlstate", None) == "55P03"
+
+
+@asynccontextmanager
+async def brief_lock_wait(db: AsyncSession, refusal: str) -> AsyncIterator[None]:
+    """Wrap the whole body of an HTTP request that takes lock 3 or updates an objects row:
+
+        async with brief_lock_wait(db, PLANS_BUSY):
+            ...
+
+    Every lock wait inside (and the flush at its end) gives up after LOCK_WAIT_MS; then the
+    transaction is rolled back and the request answers 409 with ``refusal``, which the Verwaltung
+    shows as it is (admin/apiErrors). Enter it before the first statement that can wait.
+    """
+    await limit_lock_wait(db, LOCK_WAIT_MS)
+    try:
+        yield
+        await db.flush()
+    except DBAPIError as exc:
+        if not lock_wait_exceeded(exc):
+            raise
+        await db.rollback()
+        raise HTTPException(status_code=409, detail=refusal) from exc
 
 
 async def lock_objects(db: AsyncSession, *object_ids: uuid.UUID, deleting: bool = False) -> None:
@@ -508,7 +589,10 @@ async def pull_plans(db: AsyncSession) -> dict[str, int | str]:
             logger.error("Objektplan-Pull: refusing the whole run — %s. Nothing changed.", e)
             return {"status": "refused"}
 
-        await lock_plan_maintenance(db)  # one transaction over many objects (the lock order above)
+        # one transaction over many objects (the lock order above); a run already going is enough
+        if not await try_plan_maintenance(db):
+            logger.info("Objektplan-Pull: another run holds the plans — skipped")
+            return {"status": "busy"}
         objs = {
             o.source_key: o
             for o in (

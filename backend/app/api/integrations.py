@@ -46,6 +46,7 @@ from ..organizer_schemas import (
     OrganizerVisitListPutOut,
     VisitProgrammeOut,
 )
+from ..plans import OBJECT_BUSY, brief_lock_wait
 from .object_visits import attachment_response, report_response
 
 router = APIRouter(prefix="/integrations", tags=["integrations"])
@@ -207,8 +208,9 @@ async def organizer_delete_object(
     source: str, external_id: str, _org: Organizer, db: AsyncSession = Depends(get_db)
 ) -> dict[str, str]:
     """Remove the organizer's ref: ``{removed: "ref" | "object" | "none"}`` (idempotent)."""
-    await programmes.require_unused_ref(db, source, external_id)
-    return await ov.delete_integration_object(db, source, external_id)
+    async with brief_lock_wait(db, OBJECT_BUSY):
+        await programmes.require_unused_ref(db, source, external_id)
+        return await ov.delete_integration_object(db, source, external_id)
 
 
 @router.put(
@@ -222,7 +224,8 @@ async def organizer_put_object(
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     """Resolve-or-create an object by the organizer's id: ``{objectId, created}``."""
-    return await ov.upsert_integration_object(db, source, external_id, body)
+    async with brief_lock_wait(db, OBJECT_BUSY):
+        return await ov.upsert_integration_object(db, source, external_id, body)
 
 
 @router.put("/visit-lists/{ref:path}", response_model=OrganizerVisitListPutOut, response_model_exclude_unset=True)

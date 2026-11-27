@@ -19,7 +19,7 @@ from ..database import get_db
 from ..models import ObjectSite, PlanAlignment, PlanAlignmentEvent, PlanRevision, ReferenceDataset
 from ..plan_floors import fit_publishable, load_floors
 from ..plan_revision_info import revision_page_count
-from ..plans import TooLargeError, plans_pull_enabled, pull_one_plan, store_plan
+from ..plans import PLANS_BUSY, TooLargeError, brief_lock_wait, plans_pull_enabled, pull_one_plan, store_plan
 from ..schemas import ReferenceDatasetOut
 
 router = APIRouter(prefix="/reference", tags=["reference"])
@@ -427,15 +427,16 @@ async def replace_reference(
                 raise HTTPException(
                     status_code=415, detail=f"Dateityp {content_type!r} nicht erlaubt (Objektplan erwartet ein PDF)"
                 )
-            return await store_plan(
-                db,
-                obj,
-                ds.module or dataset_id.split(":")[-1],
-                data,
-                title=title,
-                source_note=source_note,
-                actor_id=actor.id if actor else None,
-            )
+            async with brief_lock_wait(db, PLANS_BUSY):
+                return await store_plan(
+                    db,
+                    obj,
+                    ds.module or dataset_id.split(":")[-1],
+                    data,
+                    title=title,
+                    source_note=source_note,
+                    actor_id=actor.id if actor else None,
+                )
     kind = (
         "tafel"
         if board
@@ -527,7 +528,8 @@ async def fetch_reference(dataset_id: str, _admin: CurrentAdmin, db: AsyncSessio
     """
     if dataset_id.startswith("plan:") and plans_pull_enabled():
         try:
-            result = await pull_one_plan(db, dataset_id)
+            async with brief_lock_wait(db, PLANS_BUSY):
+                result = await pull_one_plan(db, dataset_id)
         except ValueError as e:  # malformed index — refuse, exactly like the scheduled run
             raise HTTPException(status_code=502, detail=f"Objektplan-Index unbrauchbar: {e}") from e
         except (httpx.HTTPError, TooLargeError) as e:

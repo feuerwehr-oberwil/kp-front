@@ -15,8 +15,10 @@ from functools import partial
 import anyio
 from pydantic import ValidationError
 from sqlalchemy import and_, or_, select, update
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from . import plans
 from .database import async_session_maker
 from .models import DeploymentConfig, ObjectSite, PlanAlignment, PlanRevision, ReferenceDataset
 from .plan_alignment_compute import (
@@ -31,13 +33,15 @@ from .plan_approval import MARKERS, ApprovalError, approve_fit
 from .plan_floors import FloorError, PlanFloor, load_floors, replace_floors, validate_floors
 from .plan_markers import MarkerPlan, admin_overrides, apply_overrides, marker_snapshot, read_plan
 from .plan_markers import text as marker_text
-from .plans import lock_objects
+from .plans import limit_lock_wait, lock_objects, lock_wait_exceeded
 from .reference_buildings import ensure_snapshot
 from .schemas import load_stored_config
 
 logger = logging.getLogger(__name__)
 LEASE_SECONDS = 600
 MAX_ATTEMPTS = 3
+#: how long a job given back for a held object stays out of the queue (`give_back`)
+BUSY_RETRY_SECONDS = 60
 _render_limiter = anyio.CapacityLimiter(1)
 
 
@@ -55,7 +59,14 @@ async def claim_job(db: AsyncSession, now: datetime | None = None) -> Claim | No
     """Compare-and-swap claim with a bounded crash-recovery lease, committed by the caller."""
     now = now or datetime.now(UTC)
     eligible = or_(
-        PlanAlignment.status == "pending",
+        and_(
+            PlanAlignment.status == "pending",
+            # a job given back for a held object carries the moment it was given back
+            or_(
+                PlanAlignment.claimed_at.is_(None),
+                PlanAlignment.claimed_at < now - timedelta(seconds=BUSY_RETRY_SECONDS),
+            ),
+        ),
         and_(
             PlanAlignment.status == "processing",
             or_(
@@ -104,6 +115,42 @@ async def claim_job(db: AsyncSession, now: datetime | None = None) -> Claim | No
         )
     ).one_or_none()
     return Claim(row.id, row.dataset_id, row.plan_version, row.page, row.attempts, row.edit_version) if row else None
+
+
+async def give_back(db: AsyncSession, claim: Claim, now: datetime | None = None) -> bool:
+    """Put a claimed job back because its object is held – a SharePoint run or an S3 pull holds it to
+    its one commit, minutes away (`plans` › the lock order). ``pending`` again, the attempt NOT
+    counted, no reason on the row, and not claimed before BUSY_RETRY_SECONDS have passed, so the
+    worker goes on with the next job. False = the claim was lost meanwhile and nothing changed."""
+    now = now or datetime.now(UTC)
+    given = await db.execute(
+        update(PlanAlignment)
+        .where(
+            PlanAlignment.id == claim.id,
+            PlanAlignment.status == "processing",
+            PlanAlignment.attempts == claim.attempt,
+            PlanAlignment.edit_version == claim.edit_version,
+        )
+        .values(
+            status="pending",
+            claimed_at=now,
+            attempts=PlanAlignment.attempts - 1,
+            edit_version=PlanAlignment.edit_version + 1,
+        )
+        .returning(PlanAlignment.id)
+    )
+    return given.scalar_one_or_none() is not None
+
+
+async def _given_back(db: AsyncSession, claim: Claim, exc: DBAPIError) -> bool:
+    """After a statement failed: True when it gave up waiting for a lock and the job went back."""
+    if not lock_wait_exceeded(exc):
+        return False
+    await db.rollback()
+    if await give_back(db, claim):
+        logger.info("Plan alignment job %s: its object is held by a run — back in the queue", claim.id)
+    await db.commit()
+    return True
 
 
 async def finish_job(
@@ -345,18 +392,25 @@ async def run_once(factory: async_sessionmaker[AsyncSession] = async_session_mak
         except Exception:
             logger.exception("Plan markers unreadable for job %s", claim.id)
     async with factory() as db:
-        if object_uuid is not None:
-            # lock 3 before the floors and the row (plans › the lock order): a merge or a re-key
-            # holds the object while it moves this revision's alignment and floors
-            await lock_objects(db, object_uuid)
-        if not await _still_owned(db, claim):
-            return True  # moved onto another dataset meanwhile – the next claim takes it there
-        requeued = await apply_marker_plan(db, claim, plan) if plan else False
-        floors = await load_floors(db, claim.dataset_id, claim.version)
-        # …and WHY it is what it is: a pack the markers could not make must not leave the admin
-        # with an empty Geschoss list and no sentence about it (16.09.2026).
-        await write_marker_notes(db, claim, plan, floors)
-        await db.commit()
+        try:
+            # a bounded wait (plans › the lock order): a run holds its objects for minutes
+            await limit_lock_wait(db, plans.WORKER_LOCK_WAIT_MS)
+            if object_uuid is not None:
+                # lock 3 before the floors and the row: a merge or a re-key holds the object while
+                # it moves this revision's alignment and floors
+                await lock_objects(db, object_uuid)
+            if not await _still_owned(db, claim):
+                return True  # moved onto another dataset meanwhile – the next claim takes it there
+            requeued = await apply_marker_plan(db, claim, plan) if plan else False
+            floors = await load_floors(db, claim.dataset_id, claim.version)
+            # …and WHY it is what it is: a pack the markers could not make must not leave the admin
+            # with an empty Geschoss list and no sentence about it (16.09.2026).
+            await write_marker_notes(db, claim, plan, floors)
+            await db.commit()
+        except DBAPIError as exc:
+            if not await _given_back(db, claim, exc):
+                raise
+            return True
     floor_page = any(f.page == claim.page for f in floors)
     # this page is a Geschoss THESE markers wrote – so the fit below is the marked plan's own,
     # not one laid over a pack an admin built by hand (which apply_marker_plan refuses to touch)
@@ -401,12 +455,18 @@ async def run_once(factory: async_sessionmaker[AsyncSession] = async_session_mak
         )
     approves = result.reason == "markers" and marked_pack
     async with factory() as db:
-        if approves and object_uuid is not None:
-            # the approval takes the object row (plans › the lock order): take it BEFORE finish_job
-            # locks the alignment row, or an admin's Geschoss save on this row could deadlock with it
-            await lock_objects(db, object_uuid)
-        written = await finish_job(db, claim, result, digest=digest)
-        if written and approves:
-            await approve_marker_fit(db, claim.id)
-        await db.commit()
+        try:
+            await limit_lock_wait(db, plans.WORKER_LOCK_WAIT_MS)
+            if approves and object_uuid is not None:
+                # the approval takes the object row (plans › the lock order): take it BEFORE
+                # finish_job locks the alignment row, or an admin's Geschoss save on this row could
+                # deadlock with it
+                await lock_objects(db, object_uuid)
+            written = await finish_job(db, claim, result, digest=digest)
+            if written and approves:
+                await approve_marker_fit(db, claim.id)
+            await db.commit()
+        except DBAPIError as exc:
+            if not await _given_back(db, claim, exc):
+                raise
     return True

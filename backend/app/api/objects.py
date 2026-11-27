@@ -29,7 +29,7 @@ from ..geo_util import haversine_m
 from ..incident_service import get_incident_or_404
 from ..models import Incident, ObjectPositionEvent, ObjectSite, ReferenceDataset
 from ..object_visits import attach_refs, is_integration_only, object_ids_with_plans
-from ..plans import plans_pull_enabled, store_plan
+from ..plans import OBJECT_BUSY, PLANS_BUSY, brief_lock_wait, plans_pull_enabled, store_plan
 from ..schemas import (
     ObjectIn,
     ObjectOut,
@@ -228,58 +228,62 @@ async def set_position(
 ) -> ObjectSite:
     """The station's position + outline choice for one object. Marks it station-set (never
     overwritten by an import) and appends the change to the object's position history."""
-    o = await _object_or_404(db, object_id)
-    before = _position_snapshot(o)
-    o.lat, o.lng = body.lat, body.lng
-    o.outline = None if body.outline == "auto" else body.outline
-    if "address" in body.model_fields_set and (body.address or "").strip():
-        o.address = body.address.strip()  # type: ignore[union-attr]
-    if "locality" in body.model_fields_set:
-        default_locality, _bbox = await geocode._resolve_bias()
-        town = (body.locality or "").strip() or None
-        o.locality = None if town and geocode.is_home(town, None, default_locality) else town
-    o.position_source = "station"
-    o.position_set_at = datetime.now(UTC)
-    db.add(
-        ObjectPositionEvent(object_id=o.id, action="set", actor=_actor(who), before=before, after=_position_snapshot(o))
-    )
-    await db.flush()
-    await db.refresh(o)
-    return o
+    async with brief_lock_wait(db, OBJECT_BUSY):
+        o = await _object_or_404(db, object_id)
+        before = _position_snapshot(o)
+        o.lat, o.lng = body.lat, body.lng
+        o.outline = None if body.outline == "auto" else body.outline
+        if "address" in body.model_fields_set and (body.address or "").strip():
+            o.address = body.address.strip()  # type: ignore[union-attr]
+        if "locality" in body.model_fields_set:
+            default_locality, _bbox = await geocode._resolve_bias()
+            town = (body.locality or "").strip() or None
+            o.locality = None if town and geocode.is_home(town, None, default_locality) else town
+        o.position_source = "station"
+        o.position_set_at = datetime.now(UTC)
+        db.add(
+            ObjectPositionEvent(
+                object_id=o.id, action="set", actor=_actor(who), before=before, after=_position_snapshot(o)
+            )
+        )
+        await db.flush()
+        await db.refresh(o)
+        return o
 
 
 @router.post("/{object_id}/position/undo", response_model=ObjectOut)
 async def undo_position(object_id: uuid.UUID, who: EditorOrAdmin, db: AsyncSession = Depends(get_db)) -> ObjectSite:
     """Take the last correction back: the object says again what it said before it (the import's
     position and mark included). One step; a second undo has nothing left to take back (409)."""
-    o = await _object_or_404(db, object_id)
-    last = (
-        await db.execute(
-            select(ObjectPositionEvent)
-            .where(ObjectPositionEvent.object_id == o.id)
-            .order_by(ObjectPositionEvent.id.desc())
-            .limit(1)
+    async with brief_lock_wait(db, OBJECT_BUSY):
+        o = await _object_or_404(db, object_id)
+        last = (
+            await db.execute(
+                select(ObjectPositionEvent)
+                .where(ObjectPositionEvent.object_id == o.id)
+                .order_by(ObjectPositionEvent.id.desc())
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+        if last is None or last.action != "set":
+            raise HTTPException(status_code=409, detail="Keine Korrektur, die sich rückgängig machen lässt")
+        before = _position_snapshot(o)
+        prev = last.before
+        o.lat, o.lng = prev.get("lat"), prev.get("lng")
+        o.address = prev.get("address")
+        o.locality = prev.get("locality")
+        o.outline = prev.get("outline")
+        o.position_source = prev.get("position_source")
+        at = prev.get("position_set_at")
+        o.position_set_at = datetime.fromisoformat(at) if at else None
+        db.add(
+            ObjectPositionEvent(
+                object_id=o.id, action="undo", actor=_actor(who), before=before, after=_position_snapshot(o)
+            )
         )
-    ).scalar_one_or_none()
-    if last is None or last.action != "set":
-        raise HTTPException(status_code=409, detail="Keine Korrektur, die sich rückgängig machen lässt")
-    before = _position_snapshot(o)
-    prev = last.before
-    o.lat, o.lng = prev.get("lat"), prev.get("lng")
-    o.address = prev.get("address")
-    o.locality = prev.get("locality")
-    o.outline = prev.get("outline")
-    o.position_source = prev.get("position_source")
-    at = prev.get("position_set_at")
-    o.position_set_at = datetime.fromisoformat(at) if at else None
-    db.add(
-        ObjectPositionEvent(
-            object_id=o.id, action="undo", actor=_actor(who), before=before, after=_position_snapshot(o)
-        )
-    )
-    await db.flush()
-    await db.refresh(o)
-    return o
+        await db.flush()
+        await db.refresh(o)
+        return o
 
 
 @router.get("/{object_id}/position/history", response_model=list[ObjectPositionEventOut])
@@ -325,45 +329,46 @@ async def upsert_object(
 ) -> ObjectSite:
     """Create-or-update by id. Callers: the admin's object mask and ``admin_objects push``. The
     ``ObjectIn`` fields are replaced; the ``ObjectUpsertIn`` extras only when sent (see there)."""
-    o = (await db.execute(select(ObjectSite).where(ObjectSite.id == object_id))).scalar_one_or_none()
-    if "source_key" in body.model_fields_set and body.source_key is not None:
-        # The column is unique: two objects claiming one station key would hand a pulled plan to
-        # whichever the query returned first. Say which object holds it instead of a bare 500.
-        holder = (
-            await db.execute(
-                select(ObjectSite).where(ObjectSite.source_key == body.source_key, ObjectSite.id != object_id)
-            )
-        ).scalar_one_or_none()
-        if holder is not None:
-            raise HTTPException(
-                status_code=409,
-                detail=f"source_key {body.source_key!r} gehört schon zu Objekt {holder.id} ({holder.name})",
-            )
-    if o is None:
-        o = ObjectSite(id=object_id)
-        db.add(o)
-    for k, v in body.model_dump(
-        exclude={"source_key", "filing_folder", "refs", "measures", "remarks", "measures_source"}
-    ).items():
-        if k in ("lat", "lng") and o.position_source == "station":
-            continue  # the station corrected it in /admin — a push never moves it back
-        setattr(o, k, v)
-    if "source_key" in body.model_fields_set:
-        o.source_key = body.source_key
-    if "filing_folder" in body.model_fields_set:
-        o.filing_folder = (body.filing_folder or "").strip() or None
-    if "measures" in body.model_fields_set:
-        o.measures = clean_measures(body.measures)
-    if "remarks" in body.model_fields_set:
-        o.remarks = clean_measures(body.remarks)
-    if "measures_source" in body.model_fields_set:
-        o.measures_source = (body.measures_source or "").strip() or None
-    await db.flush()
-    if body.refs:
-        await attach_refs(db, o.id, [(r.source, r.id) for r in body.refs])
-    await db.flush()
-    await db.refresh(o)
-    return o
+    async with brief_lock_wait(db, OBJECT_BUSY):
+        o = (await db.execute(select(ObjectSite).where(ObjectSite.id == object_id))).scalar_one_or_none()
+        if "source_key" in body.model_fields_set and body.source_key is not None:
+            # The column is unique: two objects claiming one station key would hand a pulled plan to
+            # whichever the query returned first. Say which object holds it instead of a bare 500.
+            holder = (
+                await db.execute(
+                    select(ObjectSite).where(ObjectSite.source_key == body.source_key, ObjectSite.id != object_id)
+                )
+            ).scalar_one_or_none()
+            if holder is not None:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"source_key {body.source_key!r} gehört schon zu Objekt {holder.id} ({holder.name})",
+                )
+        if o is None:
+            o = ObjectSite(id=object_id)
+            db.add(o)
+        for k, v in body.model_dump(
+            exclude={"source_key", "filing_folder", "refs", "measures", "remarks", "measures_source"}
+        ).items():
+            if k in ("lat", "lng") and o.position_source == "station":
+                continue  # the station corrected it in /admin — a push never moves it back
+            setattr(o, k, v)
+        if "source_key" in body.model_fields_set:
+            o.source_key = body.source_key
+        if "filing_folder" in body.model_fields_set:
+            o.filing_folder = (body.filing_folder or "").strip() or None
+        if "measures" in body.model_fields_set:
+            o.measures = clean_measures(body.measures)
+        if "remarks" in body.model_fields_set:
+            o.remarks = clean_measures(body.remarks)
+        if "measures_source" in body.model_fields_set:
+            o.measures_source = (body.measures_source or "").strip() or None
+        await db.flush()
+        if body.refs:
+            await attach_refs(db, o.id, [(r.source, r.id) for r in body.refs])
+        await db.flush()
+        await db.refresh(o)
+        return o
 
 
 def _check_plan_digest(object_id: uuid.UUID, module: str, data: bytes, declared: str | None, *, machine: bool) -> None:
@@ -433,30 +438,31 @@ async def upload_plan(
     ),
     db: AsyncSession = Depends(get_db),
 ) -> ReferenceDataset:
-    o = (await db.execute(select(ObjectSite).where(ObjectSite.id == object_id))).scalar_one_or_none()
-    if o is None:
-        raise HTTPException(status_code=404, detail="Objekt nicht gefunden")
+    async with brief_lock_wait(db, PLANS_BUSY):
+        o = (await db.execute(select(ObjectSite).where(ObjectSite.id == object_id))).scalar_one_or_none()
+        if o is None:
+            raise HTTPException(status_code=404, detail="Objekt nicht gefunden")
 
-    content_type = file.content_type or "application/octet-stream"
-    if content_type not in _ALLOWED_PLAN_TYPES:
-        raise HTTPException(status_code=415, detail=f"Plan muss ein PDF sein (erhalten: {content_type!r})")
+        content_type = file.content_type or "application/octet-stream"
+        if content_type not in _ALLOWED_PLAN_TYPES:
+            raise HTTPException(status_code=415, detail=f"Plan muss ein PDF sein (erhalten: {content_type!r})")
 
-    data = await file.read()
-    _check_plan_digest(object_id, module, data, sha256, machine=actor is None)
+        data = await file.read()
+        _check_plan_digest(object_id, module, data, sha256, machine=actor is None)
 
-    # The plan write itself lives in app/plans.py, because it is not only this endpoint's:
-    # the snapshot pull writes the same datasets, and the id rule, storage key and version
-    # bump have to be decided once for both doors (see that module's docstring).
-    return await store_plan(
-        db,
-        o,
-        module,
-        data,
-        content_type=content_type,
-        title=title,
-        source_note=source_note,
-        actor_id=actor.id if actor else None,
-    )
+        # The plan write itself lives in app/plans.py, because it is not only this endpoint's:
+        # the snapshot pull writes the same datasets, and the id rule, storage key and version
+        # bump have to be decided once for both doors (see that module's docstring).
+        return await store_plan(
+            db,
+            o,
+            module,
+            data,
+            content_type=content_type,
+            title=title,
+            source_note=source_note,
+            actor_id=actor.id if actor else None,
+        )
 
 
 # Auto-surface the nearest object's plans on an incident.

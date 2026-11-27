@@ -3786,7 +3786,8 @@ export interface paths {
          *     The same mechanism the scheduler runs, not a shortcut around it — an operator pressing the
          *     button gets the mechanism (app/plans · pull_one_plan takes the same line). A full run is the
          *     answer to «the file is in SharePoint and the app still has the old one»: it re-imports
-         *     everything rather than trusting what we recorded.
+         *     everything rather than trusting what we recorded. While another run (or a merge) holds the
+         *     plans, nothing starts: 409 with RUN_BUSY, which the System card shows as it is.
          */
         post: operations["run_sync_api_sharepoint_sync_post"];
         delete?: never;

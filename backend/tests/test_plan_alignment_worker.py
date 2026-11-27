@@ -224,6 +224,7 @@ async def test_explicit_retry_cannot_reuse_a_stale_completion_token(db_session, 
         update(PlanAlignment).values(
             status="pending",
             attempts=0,
+            claimed_at=None,  # as `POST …/retry` writes it
             edit_version=PlanAlignment.edit_version + 1,
         )
     )
@@ -408,3 +409,47 @@ async def test_compute_with_a_snapshot_never_asks_overpass(single_page_store, ma
     assert result.reference_at is not None and result.reference_at.isoformat().startswith("2026-09-13T10:00")
     without = await compute.compute_alignment(page, "modul2", 7.0, 47.0, None, "auto", None)
     assert without.reason == "reference_unreachable"
+
+
+async def test_a_job_whose_object_a_run_holds_goes_back_and_the_next_one_runs(
+    session_factory, db_session, pdf_store, monkeypatch
+):
+    """A SharePoint run or an S3 pull holds its objects to its commit (`plans` › the lock order). The
+    worker gives such a job back – queued, the attempt not counted – and takes the next one, so one
+    held object does not stall the queue. PostgreSQL only: SQLite has no row locks."""
+    if db_session.bind.dialect.name != "postgresql":
+        pytest.skip("requires independent PostgreSQL transactions")
+    from app import plans
+
+    monkeypatch.setattr(plans, "WORKER_LOCK_WAIT_MS", 200)
+
+    async def no_snapshot(db):  # a two-page sheet ends «unsupported» before it is compared to one
+        return None
+
+    monkeypatch.setattr(worker, "ensure_snapshot", no_snapshot)
+    held_job = await seed(db_session, pdf_store)
+    free_job = await seed(db_session, pdf_store)
+    held_object = (
+        await db_session.execute(
+            select(ReferenceDataset.object_id)
+            .join(PlanAlignment, PlanAlignment.dataset_id == ReferenceDataset.id)
+            .where(PlanAlignment.id == held_job)
+        )
+    ).scalar_one()
+
+    async with session_factory() as run:
+        await plans.lock_objects(run, held_object)
+        assert await worker.run_once(session_factory)  # the held job: given back
+        assert await worker.run_once(session_factory)  # the free one: done
+        assert not await worker.run_once(session_factory)  # the held one is not due yet
+        await run.commit()
+
+    held = await db_session.get(PlanAlignment, held_job, populate_existing=True)
+    assert (held.status, held.attempts, held.reason) == ("pending", 0, None)
+    assert (await db_session.get(PlanAlignment, free_job, populate_existing=True)).status == "unsupported"
+    # BUSY_RETRY_SECONDS later it is claimed again, as the first attempt
+    held.claimed_at -= timedelta(seconds=worker.BUSY_RETRY_SECONDS + 1)
+    await db_session.commit()
+    assert await worker.run_once(session_factory)
+    done = await db_session.get(PlanAlignment, held_job, populate_existing=True)
+    assert (done.status, done.attempts) == ("unsupported", 1)

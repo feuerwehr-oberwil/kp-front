@@ -15,13 +15,14 @@ edited as config-as-code / in Verwaltung), the credentials on the Anbindungen pa
 import logging
 
 import httpx
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import sync_progress
 from ..auth.dependencies import CurrentAdmin
 from ..credentials import load as load_credentials
 from ..database import get_db
+from ..plans import RUN_BUSY
 from ..sharepoint_graph import GraphClient, GraphError
 from ..sharepoint_sync import sharepoint_credentials, sharepoint_settings, sharepoint_status, sync_sharepoint
 
@@ -63,9 +64,12 @@ async def run_sync(_admin: CurrentAdmin, full: bool = False, db: AsyncSession = 
     The same mechanism the scheduler runs, not a shortcut around it — an operator pressing the
     button gets the mechanism (app/plans · pull_one_plan takes the same line). A full run is the
     answer to «the file is in SharePoint and the app still has the old one»: it re-imports
-    everything rather than trusting what we recorded.
+    everything rather than trusting what we recorded. While another run (or a merge) holds the
+    plans, nothing starts: 409 with RUN_BUSY, which the System card shows as it is.
     """
     result = await sync_sharepoint(db, full=full)
+    if result.get("status") == "busy":
+        raise HTTPException(status_code=409, detail=RUN_BUSY)
     await db.commit()
     return result
 
