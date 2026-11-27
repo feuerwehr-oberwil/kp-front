@@ -824,6 +824,10 @@ describe('shareLive — equality never hides a real change', () => {
     expect(shareLive(live, { p1: { status: 'present' } })).toEqual({ p1: { status: 'present' } })
     expect(shareLive(live, { p1: { status: 'present' }, p2: { status: 'absent' } })).toBe(live)
   })
+  it('an unchanged list with a duplicate id keeps its identity', () => {
+    const live = [{ id: 'x', v: 1 }, { id: 'x', v: 2 }]
+    expect(shareLive(live, [{ id: 'x', v: 1 }, { id: 'x', v: 2 }])).toBe(live)
+  })
   it('a list without ids compares by position', () => {
     const live = ['A', 'B']
     expect(shareLive(live, ['A', 'B'])).toBe(live)

@@ -806,7 +806,9 @@ export function shareLive<T>(live: T, next: T): T {
     for (const l of live) if (hasStringId(l)) byId.set(l.id, l)
     let same = live.length === next.length
     const out = next.map((n: unknown, i) => {
-      const l = hasStringId(n) ? byId.get(n.id) : live[i]
+      // the row at the same place first (an unchanged list, duplicate ids too), else by id
+      const at: unknown = live[i]
+      const l = hasStringId(n) && !(hasStringId(at) && at.id === n.id) ? byId.get(n.id) : at
       const v = l !== undefined && jsonEqual(l, n) ? l : n
       if (v !== live[i]) same = false
       return v
@@ -831,14 +833,18 @@ export function shareLive<T>(live: T, next: T): T {
  * Hand each applied slice of `next` that differs from `live` (`shareLive`) to its setter, in the
  * order `set` lists them; a slice that did not change is not handed over at all. The Verlauf
  * always goes. Returns `next` as written — every unchanged record the live one, for the caller's
- * own diff and history re-lay — and the slices that moved.
+ * own diff and history re-lay — the same slices as `held` (what the device holds once this lands,
+ * for a second merge before it renders) and the slices that moved.
  */
-export function applyInitialState(next: InitialState, live: LiveSlices, set: WorkspaceAppliers): { next: InitialState; moved: (keyof LiveSlices)[] } {
+export function applyInitialState(next: InitialState, live: LiveSlices, set: WorkspaceAppliers): { next: InitialState; held: LiveSlices; moved: (keyof LiveSlices)[] } {
   const out: InitialState = { ...next }
+  const held: LiveSlices = { ...live }
   const moved: (keyof LiveSlices)[] = []
   const one = <K extends keyof LiveSlices>(k: K, cur: InitialState[K]) => {
     const v = shareLive(cur, next[k])
     out[k] = v
+    // the same slot: tsc cannot correlate LiveSlices[K] with InitialState[K] for a generic K
+    held[k] = v as LiveSlices[K]
     if (v === cur) return
     moved.push(k)
     set[k](v)
@@ -847,7 +853,7 @@ export function applyInitialState(next: InitialState, live: LiveSlices, set: Wor
     if (k === 'timeline') set.timeline(next.timeline)
     else one(k, live[k])
   }
-  return { next: out, moved }
+  return { next: out, held, moved }
 }
 
 // the plan a fresh emergency opens on: Modul 1 (the Übersicht), falling back to the first

@@ -171,6 +171,9 @@ export function useWorkspaceBlob({
   // device last remembered them (below) — committed state, read by a merge that lands later
   const built = useRef(slices)
   const rememberedLayers = useRef(layers)
+  /** …and the Verlauf echo the save last built: the journal store swaps it exactly when the ids
+   *  of the blob's legacy rows change (journalStore · ingestLegacy), and the save follows */
+  const builtTimeline = useRef(journal.blobTimeline)
   /** Write `ws` into the slices; true when it moved one the saved blob is built from — false
    *  means no save will follow it (useIncidentSync · hydrate then puts its echo guard back). */
   const applyWorkspace = useCallback((ws: Workspace): boolean => {
@@ -183,7 +186,7 @@ export function useWorkspaceBlob({
     // shareLive), so one Trupp saved elsewhere re-renders what shows that Trupp, not the workspace.
     // ⚠️ One setter per slice, typed (lib/workspace · WorkspaceAppliers): a synced slice without
     // a line here fails tsc. This was a hand-kept list until 25.09.2026, and it had lost `mittel`.
-    const { next, moved } = applyInitialState(derived, { ...built.current, layers: rememberedLayers.current, objects: liveObjects() }, {
+    const { next, held, moved } = applyInitialState(derived, { ...built.current, layers: rememberedLayers.current, objects: liveObjects() }, {
       // the store swaps in below, WITH its history (carryUndoThroughMerge: `rebaseObjects`, or
       // `replaceObjects` when the bookkeeping fails) — a replace here would drop every Karte step
       objects: () => {},
@@ -239,8 +242,13 @@ export function useWorkspaceBlob({
     setSelectedId((id) => (id && next.doc.entities.some((e) => e.id === id) ? id : null))
     setSelectedDrawingId((id) => (id && next.doc.drawings.some((d) => d.id === id) ? id : null))
     setSelectedDrawIds((ids) => ids.filter((id) => next.doc.drawings.some((d) => d.id === id)))
+    // a second merge before this one renders is written over what this one handed out
+    built.current = held; rememberedLayers.current = held.layers
+    const echo = builtTimeline.current
+    const timelineMoved = next.timeline.length !== echo.length || next.timeline.some((r, i) => r.id !== echo[i]?.id)
+    builtTimeline.current = timelineMoved ? next.timeline : echo
     // the Ebenen are this device's own and never ride the blob (buildPayload)
-    return moved.some((k) => k !== 'layers')
+    return timelineMoved || moved.some((k) => k !== 'layers')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [incidentMeta.id, incidentMeta.type])
 
@@ -256,7 +264,7 @@ export function useWorkspaceBlob({
      * every device can resolve, and is part of the record like any placed object. */
     const persisted = objects.filter((o) => o.entity?.kind !== 'photo' || !!o.entity.photoOf)
     const views = viewsOf(persisted)
-    built.current = slices
+    built.current = slices; builtTimeline.current = journal.blobTimeline
     // Every `Saved` key is named (EverySavedKey), so a new one that is not written here fails
     // tsc instead of being deleted by this save. Left out: `activeModule` (device-local, this build
     // never writes it) and `weather` (the replay fold's alone).
