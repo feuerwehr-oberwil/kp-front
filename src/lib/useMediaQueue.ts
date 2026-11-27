@@ -28,6 +28,7 @@ import {
   type MediaTarget,
 } from './mediaQueue'
 import type { SyncStatus } from './api/workspaceSync'
+import { tabLockAnswers } from './tabLock'
 import type { PhotoSlot } from './verlauf'
 
 /**
@@ -135,6 +136,9 @@ export function useMediaQueue({ incidentId, readOnly, onUploaded, onRestore }: O
   // Hand every receipt to its row (or Beilage) and retire the ones whose link is acknowledged.
   const replay = useCallback(async () => {
     if (readOnly || !mounted.current) return
+    // never behind another tab that holds the edit lock, nor before its first answer (lib/tabLock)
+    const may = tabLockAnswers.mayWrite(incidentId)
+    if (may === false || (may !== true && !(await may))) return
     await restored.current
     if (!mounted.current) return
     const receipts = inSlotOrder((await listMediaQueue(incidentId)).filter(isReceipt))
@@ -160,6 +164,8 @@ export function useMediaQueue({ incidentId, readOnly, onUploaded, onRestore }: O
    *  minute for ever on a link that answers nothing. */
   const run = useCallback(async (options: { retry?: boolean; due?: 'online' | 'reachable' } | undefined, hold: boolean) => {
     if (readOnly) return
+    const may = tabLockAnswers.mayWrite(incidentId) // see replay
+    if (may === false || (may !== true && !(await may))) return
     const { deferredUntil } = await flushMediaQueue(incidentId, uploadMedia, options)
     if (hold && deferredUntil != null) setEarlyAt(deferredUntil)
     await replay()

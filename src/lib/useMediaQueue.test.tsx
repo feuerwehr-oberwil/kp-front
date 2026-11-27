@@ -12,7 +12,8 @@ vi.mock('./idb', () => ({
 vi.mock('./mediaUrl', () => ({ forgetLocalThumb: vi.fn(), mintLocalThumb: async () => {} }))
 import { ApiError } from './api'
 import { noteAnswered, noteUnreached } from './connectivity'
-import { enqueueMedia, __resetMediaQueueForTests } from './mediaQueue'
+import { enqueueMedia, listMediaQueue, __resetMediaQueueForTests } from './mediaQueue'
+import { incidentLockName, TAB_LOCK_ANSWER_MS, tabLockAnswers } from './tabLock'
 import { useMediaQueue } from './useMediaQueue'
 
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); state.store.clear(); __resetMediaQueueForTests() })
@@ -164,4 +165,31 @@ it('two waiting captures do not hand each other an early try a minute after one 
   // Handing each other a try, each would go about once a minute: ten times.
   expect(since('a')).toBeLessThanOrEqual(3)
   expect(since('b')).toBeLessThanOrEqual(4)
+})
+
+// docs/sync-and-offline.md › Two tabs: the tab that holds the Einsatz's edit lock owns its queue
+it.each([
+  ['behind the holder', false, 0],
+  ['before its lock first answered', undefined, 1],
+])('a tab %s uploads nothing and leaves the queue as it is', async (_case, answer, uploadsAfterBound) => {
+  vi.useFakeTimers()
+  vi.stubGlobal('URL', { createObjectURL: () => 'blob:restored', revokeObjectURL: vi.fn() })
+  Object.defineProperty(navigator, 'locks', { value: {}, configurable: true })
+  const id = `tab-${String(answer)}`
+  tabLockAnswers.set(incidentLockName(id), answer)
+  try {
+    upload.mockReset().mockResolvedValue({ url: '/media/1' })
+    await enqueueMedia(id, 'row', 'photo', new Blob(['jpg']), 'photo-row', new Date().toISOString(), 'blob:cap')
+    const queued = await listMediaQueue(id)
+    const { result } = renderHook(() => useMediaQueue({ incidentId: id, readOnly: false, onUploaded: () => true, onRestore: () => {} }))
+    await act(async () => { void result.current.flush({ retry: true }); await vi.advanceTimersByTimeAsync(TAB_LOCK_ANSWER_MS - 10) })
+    expect(upload).not.toHaveBeenCalled()
+    expect(await listMediaQueue(id)).toEqual(queued)
+    // no answer within the bound: the tab uploads as without Web Locks
+    await act(async () => { await vi.advanceTimersByTimeAsync(TAB_LOCK_ANSWER_MS) })
+    expect(upload.mock.calls.length > 0 ? 1 : 0).toBe(uploadsAfterBound)
+  } finally {
+    tabLockAnswers.set(incidentLockName(id), undefined)
+    Reflect.deleteProperty(navigator, 'locks')
+  }
 })
