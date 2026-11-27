@@ -74,70 +74,99 @@ logger = logging.getLogger(__name__)
 #                              `admin_objects_repair merge --apply`, `admin_objects load`, the demo
 #                              reset. First, before any row; so they never overlap.
 #   2. the config row          `deployment_config.config_row(lock=True)`
-#   3. lock_objects            the object whose plans or alignments change
+#   3. lock_object_plans       «the plans of object X» – an advisory lock per object, NOT its row,
+#                              several in id order
+#   3b. lock_object_rows       the object ROW, FOR UPDATE – only a writer that may DELETE the
+#                              object (a merge's loser, a re-keyed object, the demo wipe, the
+#                              organizer's last ref), after its 3
 #   4. the plan rows           `plan:*` reference_datasets, plan_revisions, plan_alignments,
 #                              plan_page_floors
 #
 # A replacement (`store_plan`, the manifest load) and every alignment write that checks «is this
-# revision still current» (`plan_approval.lock_current_revision`: approve, Geschosse, retry,
-# the worker's marker approval) take 3 before they read the dataset row. So the check and the
-# write of an alignment never straddle a replacement: whoever comes second waits, re-reads, and
-# an alignment write on the replaced revision is refused with 409.
+# revision still current» (`plan_approval.lock_current_revision`: approve, Geschosse, retry, the
+# worker) take 3 before they read the dataset row. So the check and the write of an alignment
+# never straddle a replacement: whoever comes second waits, re-reads, and an alignment write on
+# the replaced revision is refused with 409. Under 1, a holder may take 2 and 3 in either order
+# (a SharePoint run reaches the config row in several areas): no transaction without 1 holds 2
+# together with 3 or 4. The organizer's ref removal takes 3b without 3: it touches no plan row.
 #
-# Under 1, a holder may take 2 and 3 in either order (a SharePoint run reaches the config row in
-# several areas). That is safe because no transaction without 1 holds 2 together with 3 or 4.
+# A PLAIN OBJECT WRITE – the object mask, «Lage korrigieren» and its undo, the organizer's object
+# PUT, the Modul-1 notes, a geocode – takes none of these. 3 is not its row, and a plan write
+# holds only the foreign-key key-share lock on the object row, which its UPDATE does not wait
+# for. It waits where it always did: for a merge or a re-key of that very object (3b), and for a
+# run that is itself updating that row (its filing folder, an object it creates).
 #
-# WHO WAITS, AND HOW LONG. A SharePoint run and an S3 pull are one transaction around network
-# downloads: they hold 1 and every object they stored a plan for (3) for minutes, to their one
-# commit. So the waits are bounded by who is waiting:
+# WHO WAITS FOR A RUN, AND HOW LONG. A SharePoint run and an S3 pull are one transaction around
+# network downloads: they hold 1 and the 3 of every object they stored a plan for, for minutes.
 #
-#   • an admin's HTTP request that takes 3 or updates an objects row (`brief_lock_wait`: approve,
-#     Geschosse, retry, a plan upload or fetch, the object mask, «Lage korrigieren» and its undo,
-#     the organizer's object PUT and DELETE) waits at most LOCK_WAIT_MS, then answers 409 with
-#     PLANS_BUSY or OBJECT_BUSY and writes nothing – the browser would give up at 20 s anyway,
-#     while its connection stayed out of the pool;
+#   • an admin's request at the desk that takes 3 (`brief_lock_wait`: approve, reject, withdraw,
+#     retry, Geschosse, a plan upload, `PUT /api/reference/plan:…`, a plan fetch) waits at most
+#     LOCK_WAIT_MS, then answers 409 PLANS_BUSY with Retry-After and writes nothing – the browser
+#     would give up at 20 s anyway, while its connection stayed out of the pool;
 #   • the alignment worker waits at most WORKER_LOCK_WAIT_MS, gives the job back uncounted and
 #     takes the next one (plan_alignment_worker · give_back), so one held object does not stall
 #     the queue;
-#   • a second scheduled run, the SharePoint button and the S3 pull do not wait for 1 at all
-#     (`try_plan_maintenance`): they skip and say «läuft bereits»;
+#   • a second run – a scheduled tick, the SharePoint button, the S3 pull – does not wait for 1 at
+#     all (`try_plan_maintenance`): it is skipped, and the button says «läuft bereits»;
 #   • the maintenance writers themselves (the run, the pull, the CLI tools, the demo reset) wait
-#     without a bound – they are the reason the others give up, and nothing waits behind them on
-#     a request.
+#     without a bound – they are the reason the others give up, and no request waits behind them.
 
 #: the key of lock 1 – any 64-bit number that no other `pg_advisory_*` caller uses
 _PLAN_MAINTENANCE = "kp-front:plan-maintenance"
+#: the namespace of lock 3, one key per object id
+_OBJECT_PLANS = "kp-front:object-plans:"
+
+
+def _postgres(db: AsyncSession) -> bool:
+    return db.bind.dialect.name == "postgresql"
 
 
 async def lock_plan_maintenance(db: AsyncSession) -> None:
     """Lock 1 of the order above, held to the end of the transaction. Take it OUTSIDE any savepoint:
     a rolled-back savepoint gives up the locks taken inside it. PostgreSQL only – SQLite (the local
     suite) has no advisory locks and runs one writer at a time."""
-    if db.bind.dialect.name == "postgresql":
+    if _postgres(db):
         await db.execute(select(func.pg_advisory_xact_lock(func.hashtextextended(_PLAN_MAINTENANCE, 0))))
 
 
 async def try_plan_maintenance(db: AsyncSession) -> bool:
     """Lock 1 without waiting: False while another transaction holds it. For the scheduled runs and
     the admin's button, which skip a run rather than queue behind one. True on SQLite."""
-    if db.bind.dialect.name != "postgresql":
+    if not _postgres(db):
         return True
     got = await db.execute(select(func.pg_try_advisory_xact_lock(func.hashtextextended(_PLAN_MAINTENANCE, 0))))
     return bool(got.scalar_one())
 
 
+async def lock_object_plans(db: AsyncSession, *object_ids: uuid.UUID) -> None:
+    """Lock 3 of the order above: «the plans of» these objects, to the end of the transaction, in id
+    order, so two callers that lock the same pair cannot deadlock on it. An advisory lock and not
+    the object row, so a plain object write never meets it. PostgreSQL only."""
+    if _postgres(db):
+        for object_id in sorted(set(object_ids)):
+            key = func.hashtextextended(f"{_OBJECT_PLANS}{object_id}", 0)
+            await db.execute(select(func.pg_advisory_xact_lock(key)))
+
+
+async def lock_object_rows(db: AsyncSession, *object_ids: uuid.UUID) -> None:
+    """Lock 3b of the order above: these object ROWS FOR UPDATE, in id order – for a writer that may
+    delete them. A foreign-key writer (a position event, a visit) then waits before it holds the
+    key-share lock the delete would have to wait for."""
+    await db.execute(
+        select(ObjectSite.id).where(ObjectSite.id.in_(object_ids)).order_by(ObjectSite.id).with_for_update()
+    )
+
+
 #: How long an admin's request waits for a lock before it gives up (`brief_lock_wait`). Long enough
-#: for another admin's ordinary save, short against a run that holds the object for minutes. Read
+#: for another admin's ordinary save, short against a run that holds the plans for minutes. Read
 #: at call time, so a test can shorten it.
 LOCK_WAIT_MS = 5000
 #: …and the alignment worker's, before it gives its job back (plan_alignment_worker)
 WORKER_LOCK_WAIT_MS = 2000
 #: the Retry-After of a busy 409 – the one signal `admin_objects push` retries on
 BUSY_RETRY_AFTER_S = 30
-#: the refusal for a request about an object's PLANS or alignments
+#: the refusal for a request about an object's plans or alignments while a run holds them
 PLANS_BUSY = "Die Pläne dieses Objekts werden gerade synchronisiert – in ein paar Minuten erneut versuchen."
-#: …and for one about the object itself (its mask, its position, an organizer's ref)
-OBJECT_BUSY = "Dieses Objekt wird gerade aktualisiert – in ein paar Minuten erneut versuchen."
 #: the SharePoint button while another run (or a merge, a load) holds lock 1
 RUN_BUSY = "Ein Abgleich der Pläne läuft bereits – in ein paar Minuten erneut versuchen."
 
@@ -147,7 +176,7 @@ async def limit_lock_wait(db: AsyncSession, ms: int) -> None:
 
     ``SET LOCAL``: it ends with the transaction – commit or rollback – so a pooled connection
     hands none of it to the next request. PostgreSQL only."""
-    if db.bind.dialect.name == "postgresql":
+    if _postgres(db):
         await db.execute(text(f"SET LOCAL lock_timeout = {int(ms)}"))
 
 
@@ -157,17 +186,17 @@ def lock_wait_exceeded(exc: BaseException) -> bool:
 
 
 @asynccontextmanager
-async def brief_lock_wait(db: AsyncSession, refusal: str) -> AsyncIterator[None]:
-    """Wrap the whole body of an HTTP request that takes lock 3 or updates an objects row:
+async def brief_lock_wait(db: AsyncSession) -> AsyncIterator[None]:
+    """Wrap the whole body of a desk request that takes lock 3 (an alignment decision, a plan
+    upload or fetch):
 
-        async with brief_lock_wait(db, PLANS_BUSY):
+        async with brief_lock_wait(db):
             ...
 
     Every lock wait inside (and the flush at its end) gives up after LOCK_WAIT_MS; then the
-    transaction is rolled back and the request answers 409 with ``refusal``, which the Verwaltung
-    shows as it is (admin/apiErrors), and a ``Retry-After`` that tells a machine client this 409
-    passes (`admin_objects push` waits and retries). Enter it before the first statement that can
-    wait.
+    transaction is rolled back and the request answers 409 PLANS_BUSY, which the Verwaltung shows
+    as it is (admin/apiErrors), with a ``Retry-After`` that tells a machine client this 409 passes
+    (`admin_objects push` waits and asks again). Enter it before the first statement that can wait.
     """
     await limit_lock_wait(db, LOCK_WAIT_MS)
     try:
@@ -177,24 +206,9 @@ async def brief_lock_wait(db: AsyncSession, refusal: str) -> AsyncIterator[None]
         if not lock_wait_exceeded(exc):
             raise
         await db.rollback()
-        raise HTTPException(status_code=409, detail=refusal, headers={"Retry-After": str(BUSY_RETRY_AFTER_S)}) from exc
-
-
-async def lock_objects(db: AsyncSession, *object_ids: uuid.UUID, deleting: bool = False) -> None:
-    """Lock 3 of the order above: these object rows to the end of the transaction, in id order, so
-    two callers that lock the same pair cannot deadlock on it.
-
-    FOR NO KEY UPDATE by default: it excludes every other caller of this, but not the key-share lock
-    a foreign-key check takes – a visit, a ref or a position event written against the object
-    meanwhile does not wait for a whole SharePoint run. ``deleting=True`` for rows the caller may
-    delete (a merge's loser, a re-keyed object): FOR UPDATE, so such a writer waits BEFORE it holds
-    a key-share lock that the delete would have to wait for."""
-    await db.execute(
-        select(ObjectSite.id)
-        .where(ObjectSite.id.in_(object_ids))
-        .order_by(ObjectSite.id)
-        .with_for_update(key_share=not deleting)
-    )
+        raise HTTPException(
+            status_code=409, detail=PLANS_BUSY, headers={"Retry-After": str(BUSY_RETRY_AFTER_S)}
+        ) from exc
 
 
 # ---------------------------------------------------------------------------------------
@@ -230,7 +244,7 @@ async def store_plan(
     ds_id = f"plan:{obj.id}:{module}"
     # lock 3 BEFORE the dataset is read: an alignment decision on the outgoing revision either
     # commits first or waits for this replacement and is refused (the lock order above)
-    await lock_objects(db, obj.id)
+    await lock_object_plans(db, obj.id)
     # populate_existing: a caller may have loaded the row before the lock (api/reference does)
     ds = (
         await db.execute(
@@ -595,8 +609,7 @@ async def pull_plans(db: AsyncSession) -> dict[str, int | str]:
 
         # one transaction over many objects (the lock order above); a run already going is enough
         if not await try_plan_maintenance(db):
-            logger.info("Objektplan-Pull: another run holds the plans — skipped")
-            return {"status": "busy"}
+            return {"status": "busy"}  # the scheduler counts and logs it (scheduler · _note_skip)
         objs = {
             o.source_key: o
             for o in (

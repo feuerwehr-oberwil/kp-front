@@ -33,7 +33,7 @@ from .api.plan_scales import GeorefPair
 from .models import PlanAlignment, PlanAlignmentEvent, PlanRevision, ReferenceDataset
 from .plan_floors import fit_publishable, load_floors
 from .plan_revision_info import revision_page_count
-from .plans import lock_objects
+from .plans import lock_object_plans
 
 #: an admin acting in the review UI …
 ADMIN = "admin"
@@ -68,7 +68,7 @@ def snapshot(row: PlanAlignment) -> dict:
 
 
 async def lock_current_revision(db: AsyncSession, row: PlanAlignment) -> ReferenceDataset:
-    """Lock the plan's object (lock 3, ``plans`` › the lock order) and re-read its dataset, or raise
+    """Lock «the plans of» its object (lock 3, ``plans`` › the lock order) and re-read its dataset, or raise
     ``ApprovalError`` 409 when ``row`` is no longer the current revision.
 
     Call it before the first check that the write depends on. A replacement in flight holds the
@@ -79,7 +79,7 @@ async def lock_current_revision(db: AsyncSession, row: PlanAlignment) -> Referen
     """
     ds = await db.get(ReferenceDataset, row.dataset_id)
     if ds is not None and ds.object_id is not None:
-        await lock_objects(db, ds.object_id)
+        await lock_object_plans(db, ds.object_id)
         ds = await db.get(ReferenceDataset, row.dataset_id, populate_existing=True)
     if ds is None or ds.current_version != row.plan_version:
         raise ApprovalError(409, "Dieser Plan wurde ersetzt – aktuelle Version prüfen")

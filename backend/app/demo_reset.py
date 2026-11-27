@@ -52,7 +52,7 @@ from .models import (
     WorkspaceSnapshot,
 )
 from .personnel import format_name
-from .plans import lock_objects, lock_plan_maintenance
+from .plans import lock_object_plans, lock_plan_maintenance
 
 logger = logging.getLogger(__name__)
 
@@ -881,8 +881,8 @@ async def reset(wipe_objects: bool = True) -> None:
         # 0.11.0 every stored sheet has one. Children first (20.09.2026: the nightly reset had
         # failed on exactly this for a week, and the demo kept a week of visitors' edits).
         if wipe_objects:
-            # lock 3 before the plan rows go: a Geschoss save holds its object, then its alignment
-            await lock_objects(db, *(await db.execute(select(ObjectSite.id))).scalars(), deleting=True)
+            # lock 3 before the plan rows go: a Geschoss save holds it, then its alignment
+            await lock_object_plans(db, *(await db.execute(select(ObjectSite.id))).scalars())
             plan_rows = select(ReferenceDataset.id).where(ReferenceDataset.object_id.is_not(None))
             alignments = select(PlanAlignment.id).where(PlanAlignment.dataset_id.in_(plan_rows))
             await db.execute(

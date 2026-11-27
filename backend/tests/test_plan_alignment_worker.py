@@ -438,7 +438,7 @@ async def test_a_job_whose_object_a_run_holds_goes_back_and_the_next_one_runs(
     ).scalar_one()
 
     async with session_factory() as run:
-        await plans.lock_objects(run, held_object)
+        await plans.lock_object_plans(run, held_object)
         assert await worker.run_once(session_factory)  # the held job: given back
         assert await worker.run_once(session_factory)  # the free one: done
         assert not await worker.run_once(session_factory)  # the held one is not due yet
@@ -455,52 +455,56 @@ async def test_a_job_whose_object_a_run_holds_goes_back_and_the_next_one_runs(
     assert (done.status, done.attempts) == ("unsupported", 1)
 
 
-async def test_a_job_whose_row_a_run_holds_too_does_not_stall_the_queue(
-    session_factory, db_session, pdf_store, monkeypatch
-):
-    """A re-key holds the alignment row as well as the object. The worker, which claimed the job
-    before, times out on the object; its give-back cannot write the row either and gives up as
-    quickly, leaving the job to its lease – and the next job still runs."""
+async def test_both_lock_timeouts_leave_no_attempt_charged(session_factory, db_session, single_page_store, monkeypatch):
+    """The reproduced case: a job ends on an unreadable station config while a re-key holds its row.
+    The completion times out, and so does the give-back. The give-back is owed and written on the
+    next tick, once the holder lets go – the attempt is never charged, and the job's next run ends
+    as `config_unreadable`, not as `worker_retry_limit`. PostgreSQL only."""
     if db_session.bind.dialect.name != "postgresql":
         pytest.skip("requires independent PostgreSQL transactions")
     import asyncio
 
-    from sqlalchemy.exc import DBAPIError
-
     from app import plans
 
-    async def no_snapshot(db):
-        return None
-
-    monkeypatch.setattr(worker, "ensure_snapshot", no_snapshot)
     monkeypatch.setattr(plans, "WORKER_LOCK_WAIT_MS", 200)
-    held_job = await seed(db_session, pdf_store)
-    free_job = await seed(db_session, pdf_store)
-    held_object = (
-        await db_session.execute(
-            select(ReferenceDataset.object_id)
-            .join(PlanAlignment, PlanAlignment.dataset_id == ReferenceDataset.id)
-            .where(PlanAlignment.id == held_job)
-        )
-    ).scalar_one()
-    claim = await worker.claim_job(db_session)
-    assert claim and claim.id == held_job
+    monkeypatch.setattr(worker, "_owed", {})
+    job_id = await seed(db_session, single_page_store)
+    await _store_config(session_factory, {"modules": "not a list"})
+    real_claim = worker.claim_job
+    rekey = session_factory()
+
+    async def claim_then_hold(db, now=None):
+        claim = await real_claim(db, now)
+        await db.commit()
+        if claim:  # the re-key takes the row once the claim is committed
+            await rekey.execute(select(PlanAlignment.id).where(PlanAlignment.id == claim.id).with_for_update())
+        return claim
+
+    monkeypatch.setattr(worker, "claim_job", claim_then_hold)
+    assert await asyncio.wait_for(worker.run_once(session_factory), 10)
+    assert job_id in worker._owed
+    await rekey.rollback()
+    await rekey.close()
+    monkeypatch.setattr(worker, "claim_job", real_claim)
+
+    assert not await worker.run_once(session_factory)  # settles the give-back; not due again yet
+    row = await db_session.get(PlanAlignment, job_id, populate_existing=True)
+    assert (row.status, row.attempts, row.reason) == ("pending", 0, None)
+    assert worker._owed == {}
+    row.claimed_at -= timedelta(seconds=worker.BUSY_RETRY_SECONDS + 1)
     await db_session.commit()
+    assert await worker.run_once(session_factory)
+    row = await db_session.get(PlanAlignment, job_id, populate_existing=True)
+    assert (row.status, row.reason, row.attempts) == ("failed", "config_unreadable", 1)
 
-    async with session_factory() as rekey:
-        await plans.lock_objects(rekey, held_object)
-        await rekey.execute(select(PlanAlignment.id).where(PlanAlignment.id == held_job).with_for_update())
-        async with session_factory() as db:
-            await plans.limit_lock_wait(db, plans.WORKER_LOCK_WAIT_MS)
-            with pytest.raises(DBAPIError) as waited:
-                await plans.lock_objects(db, held_object)
-            assert await asyncio.wait_for(worker._given_back(db, claim, waited.value), 5)
-        assert await worker.run_once(session_factory)  # the free job
-        await rekey.commit()
 
-    held = await db_session.get(PlanAlignment, held_job, populate_existing=True)
-    assert (held.status, held.attempts) == ("processing", 1)  # the lease brings it back
-    assert (await db_session.get(PlanAlignment, free_job, populate_existing=True)).status == "unsupported"
+def test_a_job_given_back_for_long_warns_once(monkeypatch, caplog):
+    monkeypatch.setattr(worker, "_busy_since", {7: datetime.now(UTC) - timedelta(minutes=worker.BUSY_WARN_MINUTES + 1)})
+    monkeypatch.setattr(worker, "_busy_warned", set())
+    with caplog.at_level("INFO", logger=worker.logger.name):
+        worker._note_busy(7)
+        worker._note_busy(7)
+    assert [r.levelname for r in caplog.records] == ["WARNING", "INFO"]
 
 
 async def test_the_retry_limit_sweep_skips_a_row_a_run_holds(session_factory, db_session, pdf_store):

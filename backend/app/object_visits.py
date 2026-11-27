@@ -54,7 +54,7 @@ from .models import (
     ReferenceDataset,
     VisitList,
 )
-from .plans import lock_objects
+from .plans import lock_object_rows
 from .push import notify_object_visit
 from .schemas import ObjectVisitDestination, ObjectVisitsConfig
 
@@ -1684,7 +1684,7 @@ async def delete_integration_object(db: AsyncSession, source: str, external_id: 
             return {"removed": "none"}
         owner = ref.object_id
         held = await db.begin_nested()
-        await lock_objects(db, owner, deleting=True)  # its last ref may take it along
+        await lock_object_rows(db, owner)  # 3b: its last ref may take it along
         ref = (await read_ref()).scalar_one_or_none()
         if ref is not None and ref.object_id == owner:
             await held.commit()  # the lock now belongs to the transaction

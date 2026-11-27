@@ -19,7 +19,7 @@ from ..database import get_db
 from ..models import ObjectSite, PlanAlignment, PlanAlignmentEvent, PlanRevision, ReferenceDataset, User
 from ..plan_floors import fit_publishable, load_floors
 from ..plan_revision_info import revision_page_count
-from ..plans import PLANS_BUSY, TooLargeError, brief_lock_wait, plans_pull_enabled, pull_one_plan, store_plan
+from ..plans import TooLargeError, brief_lock_wait, plans_pull_enabled, pull_one_plan, store_plan
 from ..schemas import ReferenceDatasetOut
 
 router = APIRouter(prefix="/reference", tags=["reference"])
@@ -396,7 +396,7 @@ async def replace_reference(
     `plans.LOCK_WAIT_MS` – also on its first import, while a run's own insert of the row is not
     visible yet and the generic path below would wait on its key."""
     if dataset_id.startswith("plan:"):
-        async with brief_lock_wait(db, PLANS_BUSY):
+        async with brief_lock_wait(db):
             return await _replace_reference(db, dataset_id, actor, file, title, source_note)
     return await _replace_reference(db, dataset_id, actor, file, title, source_note)
 
@@ -544,7 +544,7 @@ async def fetch_reference(dataset_id: str, _admin: CurrentAdmin, db: AsyncSessio
     """
     if dataset_id.startswith("plan:") and plans_pull_enabled():
         try:
-            async with brief_lock_wait(db, PLANS_BUSY):
+            async with brief_lock_wait(db):
                 result = await pull_one_plan(db, dataset_id)
         except ValueError as e:  # malformed index — refuse, exactly like the scheduled run
             raise HTTPException(status_code=502, detail=f"Objektplan-Index unbrauchbar: {e}") from e

@@ -53,7 +53,7 @@ from .models import (
     PlanRevision,
     ReferenceDataset,
 )
-from .plans import lock_objects, lock_plan_maintenance
+from .plans import lock_object_plans, lock_object_rows, lock_plan_maintenance
 
 # --- maintenance: what a merge or re-key touches -----------------------------------------
 #
@@ -666,9 +666,10 @@ async def _merge_into(loser_id: uuid.UUID, survivor_id: uuid.UUID, *, apply: boo
             # lock 1 of `plans` › the lock order: a SharePoint run holds plan rows and waits for the
             # config row, this holds the config row and needs plan rows – one waits for the other
             await lock_plan_maintenance(db)
-            # lock 3 before the rows are read, so the fold copies what is there now
-            await lock_objects(db, loser_id, deleting=True)
-            await lock_objects(db, survivor_id)
+            # locks 3 and 3b before the rows are read, so the fold copies what is there now; the
+            # loser's row FOR UPDATE because the fold deletes it
+            await lock_object_plans(db, loser_id, survivor_id)
+            await lock_object_rows(db, loser_id)
         loser = await db.get(ObjectSite, loser_id)
         survivor = await db.get(ObjectSite, survivor_id)
         if loser is None or survivor is None:

@@ -33,7 +33,7 @@ from .plan_approval import MARKERS, ApprovalError, approve_fit
 from .plan_floors import FloorError, PlanFloor, load_floors, replace_floors, validate_floors
 from .plan_markers import MarkerPlan, admin_overrides, apply_overrides, marker_snapshot, read_plan
 from .plan_markers import text as marker_text
-from .plans import limit_lock_wait, lock_objects, lock_wait_exceeded
+from .plans import limit_lock_wait, lock_object_plans, lock_wait_exceeded
 from .reference_buildings import ensure_snapshot
 from .schemas import load_stored_config
 
@@ -42,6 +42,16 @@ LEASE_SECONDS = 600
 MAX_ATTEMPTS = 3
 #: how long a job given back for a held object stays out of the queue (`give_back`)
 BUSY_RETRY_SECONDS = 60
+#: a job given back for this long logs one WARNING: a holder that never lets go is visible
+BUSY_WARN_MINUTES = 30
+
+#: Give-backs that could not be written because the row itself was held (a re-key): claim id →
+#: claim. Settled at the start of every tick (`_settle_owed`), so a lock timeout never leaves an
+#: attempt charged; only a worker restart in that window does, and that is a lost run.
+_owed: dict[int, Claim] = {}
+#: claim id → when it was first given back, and the ones already warned about
+_busy_since: dict[int, datetime] = {}
+_busy_warned: set[int] = set()
 _render_limiter = anyio.CapacityLimiter(1)
 
 
@@ -148,23 +158,60 @@ async def give_back(db: AsyncSession, claim: Claim, now: datetime | None = None)
     return given.scalar_one_or_none() is not None
 
 
+async def _try_give_back(db: AsyncSession, claim: Claim) -> bool:
+    """`give_back` in its own bounded transaction. False = the row itself is held (a re-key) and
+    nothing was written; True = written, or the claim is gone (requeued or dropped by the re-key)."""
+    try:
+        await limit_lock_wait(db, plans.WORKER_LOCK_WAIT_MS)
+        if await give_back(db, claim):
+            _note_busy(claim.id)
+        await db.commit()
+        return True
+    except DBAPIError as exc:
+        if not lock_wait_exceeded(exc):
+            raise
+        await db.rollback()
+        return False
+
+
+def _note_busy(claim_id: int) -> None:
+    now = datetime.now(UTC)
+    since = _busy_since.setdefault(claim_id, now)
+    if now - since > timedelta(minutes=BUSY_WARN_MINUTES) and claim_id not in _busy_warned:
+        _busy_warned.add(claim_id)
+        logger.warning(
+            "Plan alignment job %s: given back for %d min — something holds its object's plans that long",
+            claim_id,
+            BUSY_WARN_MINUTES,
+        )
+    else:
+        logger.info("Plan alignment job %s: its object is held by a run — back in the queue", claim_id)
+
+
+def _settled(claim_id: int) -> None:
+    """The job reached an outcome: forget it was ever busy."""
+    _busy_since.pop(claim_id, None)
+    _busy_warned.discard(claim_id)
+
+
 async def _given_back(db: AsyncSession, claim: Claim, exc: DBAPIError) -> bool:
     """After a statement failed: True when it gave up waiting for a lock and the job went back."""
     if not lock_wait_exceeded(exc):
         return False
     await db.rollback()  # …which ends the wait limit too, so the give-back sets its own
-    try:
-        await limit_lock_wait(db, plans.WORKER_LOCK_WAIT_MS)
-        if await give_back(db, claim):
-            logger.info("Plan alignment job %s: its object is held by a run — back in the queue", claim.id)
-        await db.commit()
-    except DBAPIError as again:
-        if not lock_wait_exceeded(again):
-            raise
-        # a re-key holds the row itself: the lease brings the job back (LEASE_SECONDS)
-        await db.rollback()
-        logger.info("Plan alignment job %s: its row is held by a run — left to the lease", claim.id)
+    if not await _try_give_back(db, claim):
+        _owed[claim.id] = claim
+        logger.info("Plan alignment job %s: its row is held too — given back on a later tick", claim.id)
     return True
+
+
+async def _settle_owed(factory: async_sessionmaker[AsyncSession]) -> None:
+    """Write the give-backs a held row refused (`_owed`), each bounded; the rest wait for the next
+    tick. Before any claim, so the lease never re-claims (and charges) a job that is owed back."""
+    for claim_id, claim in list(_owed.items()):
+        async with factory() as db:
+            if await _try_give_back(db, claim):
+                del _owed[claim_id]
 
 
 async def finish_job(
@@ -361,6 +408,7 @@ async def approve_marker_fit(db: AsyncSession, alignment_id: int) -> bool:
 
 async def run_once(factory: async_sessionmaker[AsyncSession] = async_session_maker) -> bool:
     """One timer tick, one PDF page; no session/row lock is held during rendering or HTTP."""
+    await _settle_owed(factory)
     async with factory() as db:
         claim = await claim_job(db)
         await db.commit()
@@ -393,6 +441,7 @@ async def run_once(factory: async_sessionmaker[AsyncSession] = async_session_mak
                 await limit_lock_wait(db, plans.WORKER_LOCK_WAIT_MS)  # a re-key may hold the row
                 await finish_job(db, claim, AlignmentResult("failed", "config_unreadable"))
                 await db.commit()
+                _settled(claim.id)
             except DBAPIError as exc:
                 if not await _given_back(db, claim, exc):
                     raise
@@ -417,7 +466,7 @@ async def run_once(factory: async_sessionmaker[AsyncSession] = async_session_mak
             if object_uuid is not None:
                 # lock 3 before the floors and the row: a merge or a re-key holds the object while
                 # it moves this revision's alignment and floors
-                await lock_objects(db, object_uuid)
+                await lock_object_plans(db, object_uuid)
             if not await _still_owned(db, claim):
                 return True  # moved onto another dataset meanwhile – the next claim takes it there
             requeued = await apply_marker_plan(db, claim, plan) if plan else False
@@ -480,11 +529,12 @@ async def run_once(factory: async_sessionmaker[AsyncSession] = async_session_mak
                 # the approval takes the object row (plans › the lock order): take it BEFORE
                 # finish_job locks the alignment row, or an admin's Geschoss save on this row could
                 # deadlock with it
-                await lock_objects(db, object_uuid)
+                await lock_object_plans(db, object_uuid)
             written = await finish_job(db, claim, result, digest=digest)
             if written and approves:
                 await approve_marker_fit(db, claim.id)
             await db.commit()
+            _settled(claim.id)
         except DBAPIError as exc:
             if not await _given_back(db, claim, exc):
                 raise

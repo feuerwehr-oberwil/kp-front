@@ -22,7 +22,7 @@ from ..plan_floors import (
     validate_floors,
 )
 from ..plan_revision_info import revision_page_count
-from ..plans import PLANS_BUSY, brief_lock_wait
+from ..plans import brief_lock_wait
 from .plan_scales import GeorefPair
 
 router = APIRouter(prefix="/admin/plan-alignments", tags=["admin-plan-alignments"])
@@ -233,7 +233,7 @@ async def approve_alignment(
 ):
     """«Freigeben»: publish this fit to incidents – the same gate the marker worker passes
     through when a plan states its own fit (app/plan_approval.py)."""
-    async with brief_lock_wait(db, PLANS_BUSY):
+    async with brief_lock_wait(db):
         row = await _get(db, item_id)
         try:
             await approve_fit(db, row, body.pairs, actor=ADMIN, edit_version=body.edit_version)
@@ -248,7 +248,7 @@ async def reject_alignment(
 ):
     """The admin looked and said no: the proposal leaves the open queue without publishing
     anything. The sheet can still be aligned by hand (manual approve) or the decision undone."""
-    async with brief_lock_wait(db, PLANS_BUSY):
+    async with brief_lock_wait(db):
         row = await _get(db, item_id)
         if row.status not in {"ready", "needs_review", "no_match", "failed", "unavailable"}:
             raise HTTPException(status_code=409, detail="Kein offener Vorschlag zum Ablehnen vorhanden")
@@ -260,7 +260,7 @@ async def undo_decision(
     item_id: int, body: AlignmentMutation, _admin: CurrentAdmin, db: AsyncSession = Depends(get_db)
 ):
     """Takes back an approval or a rejection; either way the sheet is back to «Bitte prüfen»."""
-    async with brief_lock_wait(db, PLANS_BUSY):
+    async with brief_lock_wait(db):
         row = await _get(db, item_id)
         if row.status not in {"approved", "rejected"}:
             raise HTTPException(status_code=409, detail="Keine Entscheidung zum Zurücknehmen vorhanden")
@@ -274,7 +274,7 @@ async def retry_alignment(
     """«Neu berechnen»: requeues the job – status, reason, lease and attempts reset; the stored
     fit stays until the worker writes a new one. A replaced revision, an approved fit and one
     the worker already holds are refused, each saying which it is."""
-    async with brief_lock_wait(db, PLANS_BUSY):
+    async with brief_lock_wait(db):
         row = await _get(db, item_id)
         await _lock_current(db, row)
         if row.status == "approved":
@@ -300,7 +300,7 @@ async def assign_floors(item_id: int, body: FloorPack, _admin: CurrentAdmin, db:
     the worker renders the right page. An approved fit is never moved silently: withdraw it
     first (409), then change the fit page.
     """
-    async with brief_lock_wait(db, PLANS_BUSY):
+    async with brief_lock_wait(db):
         row = await _get(db, item_id)
         await _lock_current(db, row)
         revision = await db.get(PlanRevision, (row.dataset_id, row.plan_version))

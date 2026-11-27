@@ -85,7 +85,7 @@ from .credentials import load as load_credentials
 from .deployment_config import config_row, read_config
 from .geocode import locate_coordinates
 from .models import ObjectSite, SharePointSyncState
-from .plans import lock_objects, plan_max_bytes, store_plan, try_plan_maintenance
+from .plans import lock_object_plans, lock_object_rows, plan_max_bytes, store_plan, try_plan_maintenance
 from .schemas import SharePointArea, SharePointConfig, SharePointSource
 from .sharepoint_graph import GraphAuthError, GraphClient, GraphDeltaExpiredError, GraphError, RemoteFile
 
@@ -825,8 +825,10 @@ async def _follow_renames(
         new_id = identities[new_folder]
         if old_id.object_id == new_id.object_id:
             continue
-        # lock 3, then read: an upload waits for the re-key, and a position saved meanwhile is copied
-        await lock_objects(db, old_id.object_id, deleting=True)
+        # locks 3 and 3b (the row goes), then read: an upload waits for the re-key, and a position
+        # saved meanwhile is the one copied
+        await lock_object_plans(db, old_id.object_id)
+        await lock_object_rows(db, old_id.object_id)
         obj = await db.get(ObjectSite, old_id.object_id, populate_existing=True)
         if obj is None:
             continue
