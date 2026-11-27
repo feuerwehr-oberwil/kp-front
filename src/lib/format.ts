@@ -111,13 +111,6 @@ export function fmtSpanShort(ms: number): string {
   return `${Math.floor(mins / 60)} h ${pad2(mins % 60)}`
 }
 
-/** A due time that fell to the next day (an exact Uhrzeit earlier than now rolls forward). */
-export function isNextDay(iso: string): boolean {
-  const due = new Date(iso)
-  const today = new Date()
-  return due.getDate() !== today.getDate() || due.getMonth() !== today.getMonth()
-}
-
 /** A time of day as a value, in the locale's words: «22:10 Uhr» (`copy.timeOfDay`; en/fr/it keep
  *  the bare clock). Owner pick UX journeys B2·43, 25.11.2026: a time of day ends on «Uhr», a
  *  duration never – a walker read «00:15» as the Einsatz clock's «5:00». For a clock that stands
