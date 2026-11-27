@@ -5,6 +5,7 @@ import { DrawEditor } from './DrawEditor'
 import { appConfig } from '../config/appConfig'
 import { HOSE_SIZES } from '../lib/hydraulics'
 import { askLineMeasure } from '../lib/useRelay'
+import { addStyles, appStylesheets } from '../test/dom.test-utils'
 
 afterEach(cleanup)
 
@@ -219,6 +220,17 @@ describe('line editor order', () => {
     // the reverse action sits directly under the Abschluss, in its group
     expect(screen.getByRole('button', { name: D.reverse }).closest('.de-group')!.querySelector('.de-row > span')!.firstChild!.textContent).toBe(D.ending)
     expect(labels(container)).not.toContain(D.width)
+  })
+
+  // Üben feedback (owner 27.11.2026, «align this to the proper right side»): at its word's width
+  // «Richtung umkehren» ran 6px past the sheet's content edge on the tablet. A body act fills the
+  // control column like a field or a menu, so it ends where every row ends (08-toasts · .de-act).
+  it('«Richtung umkehren» fills the control column, its word wrapping inside it if it must', () => {
+    const sheets = addStyles(...appStylesheets())
+    render(<DrawEditor {...base} drawing={{ kind: 'line' }} onEnding={noop} onReverse={noop} />)
+    const act = getComputedStyle(screen.getByRole('button', { name: D.reverse }))
+    expect([act.flexGrow, act.minWidth, act.whiteSpace]).toEqual(['1', '0px', 'normal'])
+    for (const s of sheets) s.ownerNode?.remove()
   })
 
   it('offers no Stärke on an area or a circle either', () => {

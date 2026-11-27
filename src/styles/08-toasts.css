@@ -773,8 +773,12 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
    «ONE label column, ONE control edge», owner pick 27B, 31.10.2026); this sheet adds its ink. */
 .draw-editor .de-row { color: var(--ink-dim); font-weight: var(--fw-medium); }
 /* the row label NAMES a picture-only pick under its word – «Linienende» / «Pfeil mit Stopp»,
-   «Linienart» / «Gestrichelt» (DrawEditor · `.de-pick`, button sweep audit A2/A3, 17.11.2026) */
-.draw-editor .de-row .de-pick { display: block; color: var(--ink); font: var(--fw-bold) var(--fs-1)/var(--lh-1) var(--body); }
+   «Linienart» / «Gestrichelt» (DrawEditor · `.de-pick`, button sweep audit A2/A3, 17.11.2026).
+   ⚠️ A name never breaks inside a word (owner, Üben feedback 27.11.2026: «Wasserabwurfzon / e»):
+   one too long for the label column breaks at its compound seam, a soft hyphen put in at render
+   (lib/symbolWrap · softHyphenate) – `hyphens: manual`, never auto, which breaks by syllable. */
+.draw-editor .de-row .de-pick { display: block; color: var(--ink); font: var(--fw-bold) var(--fs-1)/var(--lh-1) var(--body);
+  hyphens: manual; -webkit-hyphens: manual; }
 /* a read-out (the Messung's numbers) starts at the edge too, but is data: it keeps its chip */
 .draw-editor .de-row > .de-measure-v { flex: none; }
 /* ── ONE control height (01.09., 27x 31.10.2026) ─────────────────────────────────────────────
@@ -834,9 +838,12 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
    on the row rhythm's 52px band, starting at the CONTROLS' edge (27B, 31.10.2026), where the
    segments of «Abschluss» above it start – an act is a control. */
 .de-act { display: flex; align-items: center; min-height: 52px; padding: 4px 0 4px calc(var(--ctx-lbl) + var(--ctx-col-gap)); box-sizing: border-box; }
-/* one line, at its word's width: the tablet's control column is ~187px and «Richtung umkehren»
-   with THE button's 16px insets broke onto two lines there – 12px insets keep it on one */
-.de-act > .ip-btn { padding: 0 var(--sp-3); white-space: nowrap; }
+/* …and it ENDS at the sheet's content edge, where every control row ends – it fills the control
+   column like a field or a menu (owner, Üben feedback 27.11.2026: «align this to the proper right
+   side»). At its word's width «Richtung umkehren» stood 6px past that edge in the tablet's ~188px
+   column. 8px insets keep it on one line there (THE button's 16px broke it onto two); a narrower
+   column wraps the word inside the frame rather than letting it run out of it. */
+.de-act > .ip-btn { flex: 1 1 auto; min-width: 0; padding: 0 var(--sp-2); white-space: normal; text-align: center; text-wrap: balance; }
 /* line-preset chips (Freihand · Messpfeil · Rettungsachse) — post-pick style switcher */
 .draw-editor .de-presets { display: inline-flex; gap: var(--sp-1); flex-wrap: wrap; }
 /* a pair of them answers one question (Direkt | GPS-Spur), so they share the column like segments */

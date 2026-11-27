@@ -11,6 +11,7 @@ import { useEinsatzuhr } from '../lib/einsatzuhr'
 import { useIsPhone } from '../lib/useIsPhone'
 import { PANEL_KEY } from '../lib/hotkeys'
 import { useHoldEntry } from '../lib/useHoldEntry'
+import { useRailLabels } from '../lib/useDevicePrefs'
 import { useLiveBearing } from '../lib/liveBearing'
 import { HoldChargeRing, HoldTargets } from './HoldTargets'
 import { useHeadFit } from '../lib/useHeadFit'
@@ -166,11 +167,18 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
   const isPhone = useIsPhone()
   const E = appConfig.copy.einsatzuhr
   const clockText = useEinsatzuhr(startedAt, endedAt, isPhone)
+  // «Beschriftung der Werkzeugleisten: Aus» takes the actions' WORDS too, not only the rails'
+  // (Üben feedback, owner 27.11.2026): ↶ ↷ «Verlauf» «Eintrag» «Standort» stand as their glyphs
+  // (`data-bare`, 10-journal · «bare»). The word is not rendered at all – the hold-tooltip names a
+  // button only when it shows no text (lib/holdTooltip · labelOf) – and every button keeps it as
+  // `aria-label` / `title`.
+  const worded = useRailLabels() === 'short'
 
   // Verlauf (J) and Eintrag (E) wear their letter like the rails' tiles do (staging review
   // 06.11.2026, S6): the same `.rail-key` badge, in CSS only with a mouse and keyboard
-  // (10-journal.css · .tb-key). Not on a phone, whose bar is icons only. The tooltip names the key
-  // either way.
+  // (10-journal.css · .tb-key) – in the row after the word, or in the tile's corner when the bar
+  // is bare, as a rail tile wears it. Not on a phone, whose bar is icons only. The tooltip names
+  // the key either way.
   const keyHint = (k: string) => (!isPhone ? <span className="rail-key tb-key" aria-hidden>{k}</span> : null)
   const keyTitle = (label: string, key: string) => fillTemplate(appConfig.copy.journal.keyTitle, { label, key })
 
@@ -198,6 +206,7 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
   useHeadFit(barRef, [
     incident.title, incident.address, clockText.length, hasWind, gpsStale ? 1 : 0,
     azAlarm?.urgent && !azChipHidden ? `${azAlarm.peak}:${azAlarm.urgent.reason}` : '', recording ? 1 : 0, reminderCount,
+    worded ? 1 : 0,
   ].join('|'))
 
   // the Verlauf button's name: the word, plus what its number counts while Pendenzen are open
@@ -209,7 +218,7 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
     // `data-tiles`: a phone's actions are always tiles, glyph OVER word – the tablet's fold
     // (`fit-6`, lib/useHeadFit · 'action-words') worn from the start (10-journal · «the fold»).
     // An attribute, not a class: the ladder owns the bar's `fit-N` classes on the DOM.
-    <div className="topbar" data-tiles={isPhone || undefined} ref={barRef}>
+    <div className="topbar" data-tiles={isPhone || undefined} data-bare={!worded || undefined} ref={barRef}>
       {titleSlot ?? (
         <>
           <div className="ename">{incident.title}</div>
@@ -238,7 +247,7 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
           every word in it as an unused variable. */}
       <div className="tb-actions">
         {mapNav && (
-          <button className="tb-act quiet" title={mapNav.action.label} aria-label={mapNav.action.label} onClick={mapNav.action.onClick}><Icon id={mapNav.action.icon} /><span>{mapNav.action.label}</span></button>
+          <button className="tb-act quiet" title={mapNav.action.label} aria-label={mapNav.action.label} onClick={mapNav.action.onClick}><Icon id={mapNav.action.icon} />{worded && <span>{mapNav.action.label}</span>}</button>
         )}
         {showHistory && (
           // ONE pair (hill climb r20, Opus 8): ↶ ↷ stand 4px apart inside the bar's 8px, so the bar
@@ -251,8 +260,8 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
                 them is a quiet .tb-act too and comes and goes with the surface.
                 …each with its word (button sweep audit, owner pick 24a, 17.11.2026): a bare ↶ ↷
                 beside «Verlauf» and «Eintrag» was the one wordless pair in a worded row. */}
-            <button className="tb-act quiet tb-act-history" title={undoWord} aria-label={undoWord} disabled={!canUndo} onClick={onUndo}><Icon id="undo" /><span>{appConfig.copy.undo}</span></button>
-            <button className="tb-act quiet tb-act-history tb-act-redo" title={redoWord} aria-label={redoWord} disabled={!canRedo} onClick={onRedo}><Icon id="redo" /><span>{appConfig.copy.redo}</span></button>
+            <button className="tb-act quiet tb-act-history" title={undoWord} aria-label={undoWord} disabled={!canUndo} onClick={onUndo}><Icon id="undo" />{worded && <span>{appConfig.copy.undo}</span>}</button>
+            <button className="tb-act quiet tb-act-history tb-act-redo" title={redoWord} aria-label={redoWord} disabled={!canRedo} onClick={onRedo}><Icon id="redo" />{worded && <span>{appConfig.copy.redo}</span>}</button>
           </span>
         )}
         {/* ⚠️ `has-rem` tints the BUTTON, not just its corner. The count badge alone is 17px of amber
@@ -262,11 +271,11 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
             and the number rides along (see .tb-act.has-rem). */}
         <button className={`tb-act ${journalOpen ? 'on' : ''} ${reminderCount > 0 ? 'has-rem' : ''}`} aria-expanded={journalOpen} onClick={onToggleJournal}
           aria-label={journalDoor} title={keyTitle(journalDoor, PANEL_KEY.journal)}>
-          <Icon id="verlauf" /><span>{appConfig.copy.journal.open}</span>{keyHint(PANEL_KEY.journal)}
+          <Icon id="verlauf" />{worded && <span>{appConfig.copy.journal.open}</span>}{keyHint(PANEL_KEY.journal)}
           {/* «1 offen», the Pendenzen box's own words, in the row after «Verlauf» (owner pick UX
               journeys B2·35, 25.11.2026 – a bare «1» in the corner read as «not logged» on 7 walks).
-              Folded to tiles (fit-6, a phone) it is the bare number in the corner again: a tile has
-              no row for a word (10-journal · .tb-rem-count). */}
+              Folded to tiles (fit-6, a phone) or bare (words off) it is the bare number in the corner
+              again: a tile has no row for a word (10-journal · .tb-rem-count). */}
           {reminderCount > 0 && (
             <span className="tb-rem-count">
               <span className="tb-rem-word">{fillTemplate(J.openCount, { n: reminderCount })}</span>
@@ -279,6 +288,8 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
             className={`tb-act tb-act-add ${recording ? 'rec' : ''} ${latched ? 'cancelling' : ''}`}
             // held at its measured width while it is an ✕, so dropping the label cannot resize it
             style={latched && anchor ? { width: anchor.width } : undefined}
+            // named like the FAB: the word may not be on it (`worded`), and the title is a hint
+            aria-label={recording ? appConfig.copy.journal.recordStop : appConfig.copy.journal.add}
             title={recording ? appConfig.copy.journal.recordStop : keyTitle(appConfig.copy.journal.addHint, PANEL_KEY.composer)}
             data-hold-target="cancel"
             {...handlers}
@@ -298,7 +309,7 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
                   <EntryGlyph />
                   {pressing && pressedSince != null && <HoldChargeRing since={pressedSince} />}
                 </span>
-                <span className="tb-act-label">{appConfig.copy.journal.add}</span>
+                {worded && <span className="tb-act-label">{appConfig.copy.journal.add}</span>}
                 {keyHint(PANEL_KEY.composer)}
               </>}
           </button>

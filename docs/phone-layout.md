@@ -27,7 +27,11 @@ unchanged.
   ON on every device (`railLabelsFor`); it stays a switch for those who want the map width back.
   It covers the nav bar (Karte · Pläne · Checkliste · Trupps · Einsatz) and the tool bar of the
   Karte and of every Plan, and the tool DOCK over them (a tool's options, round 15.11.2026 #2, owner
-  pick 2A: every item glyph over word, the bar's 46px tiles, the row scrolling with the ✕ sticky). A
+  pick 2A: every item glyph over word, the bar's 46px tiles, the row scrolling with the ✕ sticky).
+  Since 27.11.2026 (owner, Üben feedback) it also covers the top bar's actions (↶ ↷ Verlauf
+  Eintrag Standort) and the floating row (Gebäude-Info, Messungen, the Eintrag FAB): off, each is
+  its glyph; the hazard words on the Gebäude-Info stay, and a name (the Objekt's street) is data,
+  not a word, and stays. Sheets and modals keep their words. A
   hand choice is marked (`railLabelsChosen`) and always wins; a stored 'off' without the mark is
   the old default the app saved for everybody, not a choice. «Gerät auf Standard zurücksetzen»
   clears the mark, so it lands on the words.

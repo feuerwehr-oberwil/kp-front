@@ -1283,6 +1283,10 @@ span.wb-ghost-label { cursor: default; }
   color: var(--ink); font: var(--fw-bold) var(--fs-1) var(--body); cursor: pointer; }
 .wb-scale-chip svg { width: 16px; height: 16px; flex: none; color: var(--ink-dim); }
 .wb-scale-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* with «Beschriftung der Werkzeugleisten» off the Gebäude-Info and «Messungen» are their glyph
+   alone (BuildingFloat, ReadingsChip · `worded`, owner 27.11.2026): a square in the row, glyph
+   centred */
+.wb-scale-chip.wb-chip-bare { min-width: var(--float-h); justify-content: center; }
 .wb-scale-chip:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 @media (hover: hover) {
   .wb-scale-chip:hover:where(:not(:disabled)) svg:not(.wb-chip-chev) { color: var(--ink); }

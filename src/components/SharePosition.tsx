@@ -7,6 +7,7 @@ import { rankAbbr, rankOrder } from '../lib/rank'
 import { matchesQuery, searchQuery } from '../lib/search'
 import { Button } from './Button'
 import { cx } from '../lib/cx'
+import { useRailLabels } from '../lib/useDevicePrefs'
 import { Modal } from './panels/_shared'
 import { SearchField } from './SearchField'
 import type { Person } from '../types'
@@ -144,6 +145,8 @@ export function SharePositionSheet({ roster, onPick, onClose, pickOnly, lastPers
 export function SharePositionPill({ share, onChangeName }: { share: ShareApi; onChangeName: (restore: () => void) => void }) {
   const C = appConfig.copy.sharePosition
   const [open, setOpen] = useState(false)
+  // «Beschriftung … Aus»: the glyph alone, like the bar's other actions (TopBar · `worded`)
+  const worded = useRailLabels() === 'short'
   if (share.state === 'off') return null
   const state = share.state
   const tone = TONE[state]
@@ -160,7 +163,7 @@ export function SharePositionPill({ share, onChangeName }: { share: ShareApi; on
       <button type="button" className={cx('tb-act', s[tone])} onClick={() => setOpen(true)} aria-label={labelFor(state)} title={labelFor(state)}>
         {/* same glyph as the row that switches it on (see MapViewsMenu) — the switch and its
             indicator have to be recognisably the same thing */}
-        <Icon id="people" /><span>{C.pillWord}</span>
+        <Icon id="people" />{worded && <span>{C.pillWord}</span>}
       </button>
       {open && (
         <Modal title={labelFor(state)} onClose={() => setOpen(false)} fit>

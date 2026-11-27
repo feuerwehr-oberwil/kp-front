@@ -7,6 +7,7 @@ import { buildingChipSummary } from '../lib/buildingCard'
 import { useOnlyOpenCard } from '../lib/floatCards'
 import { useLayer } from '../lib/overlays/layer'
 import { useIsPhone } from '../lib/useIsPhone'
+import { useRailLabels } from '../lib/useDevicePrefs'
 import { BuildingCard } from './BuildingCard'
 import s from './BuildingFloat.module.css'
 
@@ -31,6 +32,8 @@ import s from './BuildingFloat.module.css'
  * Gebäude-Info when it's about the info»). OPEN, it is lit like a pressed tile (owner pick M4 B,
  * 18.11.2026) – the chip toggles the card, and now looks it; no chevron (owner, 18.11.2026 evening). Not «Gebäude» + the storey glyph: that is the rail's
  * Gebäude tile, a surface of its own. Nothing to say → no chip (lib/buildingCard · hasBuildingContent).
+ * With «Beschriftung der Werkzeugleisten» off (owner, Üben feedback 27.11.2026) the word goes, as
+ * the bars' words do – ⓘ alone, or ⚠ + the hazard words, which are the fact and stay.
  *
  * ⚠️ On a PHONE it is a TILE, always (button round 17.11.2026, owner pick 12C + follow-up «the whole
  * phone floating row = tiles»; 09-whiteboard · .wb-tile): the 22px glyph over its 11/700 word, the
@@ -64,6 +67,7 @@ export function BuildingFloat({ info, autoOpen = false, onRead }: {
   if (autoOpen !== auto) { setAuto(autoOpen); if (autoOpen) setOpen(true) }
   const summary = buildingChipSummary(info)
   const phone = useIsPhone()
+  const worded = useRailLabels() === 'short'
   const read = useRef(onRead)
   useEffect(() => { read.current = onRead })
   const close = useCallback(() => { setOpen(false); read.current?.() }, [])
@@ -85,7 +89,7 @@ export function BuildingFloat({ info, autoOpen = false, onRead }: {
         type="button"
         // the floating family's own chip (`.wb-scale-chip`), a tile on a phone (`.wb-tile`) — the
         // module only adds the hazard tone and the count badge
-        className={cx('wb-scale-chip wb-tile', open && 'arm', summary.hazard && s.hazard)}
+        className={cx('wb-scale-chip wb-tile', open && 'arm', summary.hazard && s.hazard, !worded && !summary.hazard && 'wb-chip-bare')}
         aria-label={summary.label}
         title={summary.label}
         aria-expanded={open}
@@ -95,9 +99,11 @@ export function BuildingFloat({ info, autoOpen = false, onRead }: {
         {/* a KNOWN hazard is the words after the dot, in the hazard tone (hill climb r15, Opus 5):
             in ink the chip read as one more neutral control. The plate stays neutral – no fill,
             this is a fact to read, not an alarm. */}
-        <span>{phone
-          ? summary.hazard ? <b className={s.words}>{summary.words.join(' · ')}</b> : C.chipTitleShort
-          : <>{C.chipTitle}{summary.hazard && <> · <b className={s.words}>{summary.words.join(' · ')}</b></>}</>}</span>
+        {/* «Beschriftung … Aus» (owner, Üben feedback 27.11.2026): the word «Gebäude-Info» / «Info»
+            goes like the bars' words, the hazard words stay – they are the fact, not a name */}
+        {phone || !worded
+          ? summary.hazard ? <span><b className={s.words}>{summary.words.join(' · ')}</b></span> : worded && <span>{C.chipTitleShort}</span>
+          : <span>{C.chipTitle}{summary.hazard && <> · <b className={s.words}>{summary.words.join(' · ')}</b></>}</span>}
         {/* the Objekt's Sofortmassnahmen are inside: their count, in the one count-badge idiom –
             while the card is open it shows them. Open = LIT (09-whiteboard · .wb-scale-chip.arm),
             no chevron, open or closed (owner 18.11.2026 «drop the chevron»; the card keeps its ✕) */}
