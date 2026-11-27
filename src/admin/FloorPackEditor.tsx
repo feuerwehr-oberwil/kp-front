@@ -1,8 +1,11 @@
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode, type SVGProps } from 'react'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { Icon } from '../lib/icons'
 import { LoadingStatus, ShellLoader } from '../components/ShellLoader'
+import { Chip } from '../components/Chip'
+import { Overlay } from '../lib/overlays'
+import { useMediaQuery } from '../lib/useIsPhone'
 import { joinShifts } from '../lib/floorPackBinding'
 import { ActionMenu } from './ui'
 import { hasMarkerWarnings } from './markerNotes'
@@ -46,7 +49,17 @@ import {
  * stand in the same row as the sheet's zoom and the floors column's head. That is why the editor
  * is mounted on the Karte tab too, where it is the bar and nothing else – the row used to be two
  * (tabs, then an almost empty sheet toolbar holding the zoom cluster alone).
+ *
+ * On a PHONE (owner pick C «Liste zuerst, Zeichnen im Vollbild», 27.11.2026) the list IS the page:
+ * no sheet column, each row shows a crop of its own drawing. The sheet appears only FULL SCREEN,
+ * over the editor's header, through the overlay system: «Bereich zeichnen» and «Verbinden» open
+ * it in their mode, and a tap on a row's crop opens it without one, to move a box or a join point.
+ * Its foot holds the floors as chips – a chip is `selected`, so a join reaches the other floor
+ * there. The view is open exactly while a mode runs (or the crop opened it), so it closes the way
+ * a mode ends: after the rectangle unless the join takes over, after the join, on «Abbrechen».
  */
+/** the editor's phone width – the same 700px as planAlignment.css's phone blocks and the header (#811) */
+const PHONE_EDITOR = '(max-width: 700px)'
 type Mode = { key: string; kind: 'region' } | { key: string; kind: 'join'; at?: Pt } | null
 
 export interface FloorDraft { floors: PlanFloor[]; fitPage?: number; dirty: boolean; complete: boolean }
@@ -75,6 +88,28 @@ export function FloorPackEditor({ item, onDraft, view, tabs, historyRef, onUndoS
     return sameStack(next, h.stack) ? h : { stack: next, past: [...h.past, h.stack] }
   })
   const [mode, setMode] = useState<Mode>(null)
+  const phone = useMediaQuery(PHONE_EDITOR)
+  /** the phone's full-screen sheet opened from a row's crop, with no mode */
+  const [browsing, setBrowsing] = useState(false)
+  const fullOpen = phone && view === 'edit' && (mode != null || browsing)
+  const closeFull = () => { setMode(null); setBrowsing(false) }
+  // the full-screen sheet is the phone layout's own session: crossing the breakpoint, either
+  // way, ends it and any mode with it, so neither layout inherits a mode the other armed (its
+  // floor may sit on a page the other one is not showing). The edits and their undo stay.
+  const [layout, setLayout] = useState(phone)
+  if (layout !== phone) { setLayout(phone); setMode(null); setBrowsing(false) }
+  /** the control that opened the full-screen sheet – focus goes back there when it closes, or,
+   *  when the sheet's work took it away (a join opens the other floor's row), to the open row's
+   *  crop, brought into view (the overlay returns focus without scrolling) */
+  const opener = useRef<HTMLElement | null>(null)
+  const section = useRef<HTMLElement>(null)
+  const focusBack = () => {
+    if (opener.current?.isConnected) return opener.current
+    const crop = section.current?.querySelector<HTMLElement>('.adm-floor.active .adm-floor-crop')
+    crop?.scrollIntoView?.({ block: 'nearest' })
+    return crop ?? true
+  }
+  const chipsHeld = mode?.kind === 'region' || (mode?.kind === 'join' && !mode.at)
   const undo = () => { setHistory((h) => h.past.length ? { stack: h.past[h.past.length - 1], past: h.past.slice(0, -1) } : h); setMode(null) }
   useEffect(() => {
     if (historyRef) historyRef.current = { undo }
@@ -101,6 +136,8 @@ export function FloorPackEditor({ item, onDraft, view, tabs, historyRef, onUndoS
   const complete = stackComplete(stack)
   useEffect(() => { onDraft?.({ floors: floorsFromStack(stack), fitPage: stack.fitPage, dirty, complete }) }, [stack, dirty, complete]) // eslint-disable-line react-hooks/exhaustive-deps
   const regionsOn = (page: number) => stack.order.filter((e) => e.page === page && e.clip)
+  // the phone list's row crops draw from the page rasters; a wide screen has the sheet instead
+  const crops = usePageImages(item.id, phone && view === 'edit' ? [...pages] : [], { measure: true })
   /** «Geschoss hinzufügen», the dashed row at the FOOT of the list: the next storey BELOW the
    *  lowest, on the same page as that one – or, on a fresh single-page pack, the one whole-page
    *  entry itself becomes the first drawing (= level 0). Then straight into region mode; the
@@ -128,7 +165,25 @@ export function FloorPackEditor({ item, onDraft, view, tabs, historyRef, onUndoS
     return `${signedIndex(index)} · ${named || standardFloorName(index)}`
   }
 
-  return <section className={`adm-floors${view === 'map' ? ' adm-floors-baronly' : ''}`} aria-label={C.title}>
+  /** the sheet with everything it changes – in the split's sheet column on a wide screen, in the
+   *  full-screen view on a phone, where the top bar says the mode's sentence (`bare`) */
+  const sheet = (bare: boolean) => <FloorSheet zoom={zoom} item={item} page={sheetPage} entries={stack.order} selected={selectedEntry?.key ?? null} mode={mode} labelOf={labelOf} indexOf={(k) => indexOf(stack, k)} zero={stack.zero}
+    onClip={(key, clip) => { setStack((s) => patchEntry(s, key, { clip })); setMode(regionsOn(sheetPage).some((e) => e.key !== key) ? { key, kind: 'join' } : null) }}
+    onJoinAt={(key, at) => setMode({ key, kind: 'join', at })}
+    onJoin={(key, at, toKey, there) => { setStack((s) => patchEntry(s, key, { join: { toKey, at, there } })); setMode(null) }}
+    onMove={(key, clip, dx, dy) => setStack((s) => ({
+      ...s,
+      // the rectangle and its own join point move; a join of ANOTHER floor that lands in this
+      // drawing (its `there`) moves with it too – the staircase went along
+      order: s.order.map((e) => e.key === key
+        ? { ...e, clip, ...(e.join ? { join: { ...e.join, at: [e.join.at[0] + dx, e.join.at[1] + dy] as Pt } } : {}) }
+        : e.join?.toKey === key ? { ...e, join: { ...e.join, there: [e.join.there[0] + dx, e.join.there[1] + dy] as Pt } } : e),
+    }))}
+    onMovePoint={(hit, at) => setStack((s) => moveJoinPoint(s, hit, [round(at[0]), round(at[1])]))}
+    onSelect={setSelected} bare={bare} />
+
+  return <section ref={section} className={`adm-floors${view === 'map' ? ' adm-floors-baronly' : ''}`} aria-label={C.title}
+    onClickCapture={(e) => { if (phone && !fullOpen) opener.current = e.target instanceof Element ? e.target.closest('button') : null }}>
     {/* ONE row over both columns: the editor's tabs left, then – only where there is a sheet to
         look at – what belongs to the SHEET (which page, how close) right above it, and the floors
         column's own head above its column. The zoom is the Geschosse tab's business: the Karte
@@ -136,16 +191,11 @@ export function FloorPackEditor({ item, onDraft, view, tabs, historyRef, onUndoS
     <div className={`adm-floors-bar${view === 'edit' ? '' : ' solo'}`}>
       <div className="adm-floors-bar-main">
         {tabs}
-        {view === 'edit' && <div className="adm-floors-bar-tools">
+        {/* on a phone the sheet and its tools live in the full-screen view instead */}
+        {view === 'edit' && !phone && <div className="adm-floors-bar-tools">
           {mode && <button type="button" className="btn" onClick={() => setMode(null)}>{appConfig.copy.cancel}</button>}
           {pageCount > 1 && <span className="adm-hint" role="status">{fillTemplate(C.pageOf, { n: sheetPage + 1, total: pageCount })}</span>}
-          {/* glyph + word like the tabs and «Abbrechen» in the same bar (button sweep audit, owner
-              pick 24, 17.11.2026): the zoom pair was bare and the reset a bare percentage */}
-          <div className="adm-floors-zoom">
-            <button type="button" disabled={zoom <= 1} onClick={() => setZoom((z) => Math.max(1, z / 1.5))}><Icon id="minus" />{appConfig.copy.nav.zoomOut}</button>
-            <button type="button" className="adm-floors-zoom-value" aria-label={`${C.zoomReset} – ${Math.round(zoom * 100)} %`} title={C.zoomReset} onClick={() => setZoom(1)}><Icon id="resize" />{Math.round(zoom * 100)} %</button>
-            <button type="button" disabled={zoom >= 4} onClick={() => setZoom((z) => Math.min(4, z * 1.5))}><Icon id="plus" />{appConfig.copy.nav.zoomIn}</button>
-          </div>
+          <SheetZoom zoom={zoom} onZoom={setZoom} />
         </div>}
       </div>
       {/* the head names the column against the sheet beside it and carries the list's own menu –
@@ -156,22 +206,7 @@ export function FloorPackEditor({ item, onDraft, view, tabs, historyRef, onUndoS
     </div>
     {view === 'preview' && <FloorPreview item={item} floors={floorsFromStack(stack)} fitPage={stack.fitPage ?? zeroEntry?.page ?? item.page} map={mapPreview} />}
     <div className="adm-floors-split" hidden={view !== 'edit'}>
-      <div className="adm-floors-sheetcol">
-        <FloorSheet zoom={zoom} item={item} page={sheetPage} entries={stack.order} selected={selectedEntry?.key ?? null} mode={mode} labelOf={labelOf} indexOf={(k) => indexOf(stack, k)} zero={stack.zero}
-          onClip={(key, clip) => { setStack((s) => patchEntry(s, key, { clip })); setMode(regionsOn(sheetPage).some((e) => e.key !== key) ? { key, kind: 'join' } : null) }}
-          onJoinAt={(key, at) => setMode({ key, kind: 'join', at })}
-          onJoin={(key, at, toKey, there) => { setStack((s) => patchEntry(s, key, { join: { toKey, at, there } })); setMode(null) }}
-          onMove={(key, clip, dx, dy) => setStack((s) => ({
-            ...s,
-            // the rectangle and its own join point move; a join of ANOTHER floor that lands in this
-            // drawing (its `there`) moves with it too – the staircase went along
-            order: s.order.map((e) => e.key === key
-              ? { ...e, clip, ...(e.join ? { join: { ...e.join, at: [e.join.at[0] + dx, e.join.at[1] + dy] as Pt } } : {}) }
-              : e.join?.toKey === key ? { ...e, join: { ...e.join, there: [e.join.there[0] + dx, e.join.there[1] + dy] as Pt } } : e),
-          }))}
-          onMovePoint={(hit, at) => setStack((s) => moveJoinPoint(s, hit, [round(at[0]), round(at[1])]))}
-          onSelect={setSelected} />
-      </div>
+      {!phone && <div className="adm-floors-sheetcol">{sheet(false)}</div>}
       <aside className="adm-floors-col">
         {/* ONE line, and only here: a pack with nothing assigned yet is a fact about this column,
             not about the Vorschau or the Karte, where it used to repeat as an amber band.
@@ -213,6 +248,13 @@ export function FloorPackEditor({ item, onDraft, view, tabs, historyRef, onUndoS
               onDrop={(e) => { e.preventDefault(); e.stopPropagation(); if (dragging != null) setStack((s) => reorderStack(s, dragging, entry.key)); setDragging(null); setOver(null) }}>
               <div className="adm-floor-head">
                 <span className="adm-floor-grip" draggable onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; setDragging(entry.key) }} onDragEnd={() => { setDragging(null); setOver(null) }} aria-hidden><Icon id="move" /></span>
+                {/* phone: the drawing itself, and the way to the sheet without a mode – to move
+                    its box or a join point */}
+                {phone && <button type="button" className="adm-floor-crop" aria-haspopup="dialog"
+                  aria-label={`${labelOf(drawing)} · ${fillTemplate(C.page, { n: drawing.page + 1 })}`}
+                  onClick={(e) => { e.stopPropagation(); setSelected(drawing.key); setBrowsing(true) }}>
+                  <RowCrop entry={drawing} images={crops.images} aspect={crops.aspects[drawing.page] ?? item.aspect ?? 1.414} />
+                </button>}
                 {/* the chip says WHICH storey; on the open row it is also the one tap that says
                     «this one is level 0» – nested in a select button it could never be that */}
                 {active
@@ -288,15 +330,79 @@ export function FloorPackEditor({ item, onDraft, view, tabs, historyRef, onUndoS
             : tray.map((page) => <button key={page} type="button" className="btn" onClick={() => setStack((s) => restoreToStack(s, page))} title={C.restore}>{fillTemplate(C.page, { n: page + 1 })} · {C.restore}</button>)}</span></div>
       </aside>
     </div>
+    {/* the phone's full-screen sheet: the way out and the mode's sentence on top, the sheet with
+        its zoom floating on it, the floors as chips at the foot – a chip is the selected floor,
+        which is how a join reaches the other drawing */}
+    {phone && <Overlay open={fullOpen} onClose={closeFull} className="adm-floors-full" backdropClassName="adm-floors-full-scrim" swipeToClose={false} finalFocus={focusBack}
+      ariaLabel={mode ? (mode.kind === 'region' ? C.region : C.join) : C.title}>
+      <div className="adm-floors-full-top">
+        <button type="button" className="btn" onClick={closeFull}>{mode ? appConfig.copy.cancel : appConfig.copy.done}</button>
+        <p role="status"><b>{modeHint(mode, stack.order, labelOf) ?? C.moveHint}</b>
+          {(mode || pageCount > 1) && <small>{[mode && (mode.kind === 'region' ? C.region : C.join), pageCount > 1 && fillTemplate(C.pageOf, { n: sheetPage + 1, total: pageCount })].filter(Boolean).join(' · ')}</small>}
+        </p>
+      </div>
+      <div className="adm-floors-full-sheet">
+        {sheet(true)}
+        <SheetZoom zoom={zoom} onZoom={setZoom} compact />
+      </div>
+      <div className="adm-floors-chips" role="group" aria-label={C.title}>
+        {/* held while the sheet must show the mode's OWN floor – its rectangle, or a join's first
+            point; once that point stands, a chip picks the drawing it is joined to */}
+        {stack.order.map((e) => {
+          const group = partsOf(stack, e.key)
+          const index = indexOf(stack, e.key)
+          const name = group.length > 1 ? e.name || fillTemplate(C.partName, { n: group.indexOf(e) + 1 }) : e.name || standardFloorName(index)
+          return <Chip key={e.key} selected={e.key === selectedEntry?.key} disabled={chipsHeld} aria-label={`${signedIndex(index)} · ${name}`} onClick={() => setSelected(e.key)}>
+            <span className={`adm-floor-index${e.key === stack.zero ? ' zero' : ''}`}>{signedIndex(index)}</span>{name}
+          </Chip>
+        })}
+      </div>
+    </Overlay>}
   </section>
 }
+
+/** The sentence a running mode asks with – on the paper on a wide screen, in the full-screen
+ *  view's top bar on a phone. Null outside a mode. */
+function modeHint(mode: Mode, entries: FloorEntry[], labelOf: (e: FloorEntry) => string): string | null {
+  const C = appConfig.copy.admin.alignment.floors
+  const entry = mode && entries.find((e) => e.key === mode.key)
+  if (!mode || !entry) return null
+  return mode.kind === 'region' ? fillTemplate(C.regionHint, { floor: labelOf(entry) }) : mode.at ? C.joinHint2 : fillTemplate(C.joinHint1, { floor: labelOf(entry) })
+}
+
+/** The sheet's zoom: − · back to 100 % · +. A wide screen says each step in a word beside its
+ *  glyph, like the tabs and «Abbrechen» in the same bar (button sweep audit, owner pick 24,
+ *  17.11.2026). `compact` is the phone's cluster floating on the full-screen sheet (owner pick C,
+ *  27.11.2026): glyphs and the percentage only, the words kept as the buttons' names. */
+function SheetZoom({ zoom, onZoom, compact = false }: { zoom: number; onZoom: (zoom: number) => void; compact?: boolean }) {
+  const C = appConfig.copy.admin.alignment.floors
+  const { zoomOut, zoomIn } = appConfig.copy.nav
+  return <div className={`adm-floors-zoom${compact ? ' compact' : ''}`}>
+    <button type="button" aria-label={compact ? zoomOut : undefined} disabled={zoom <= 1} onClick={() => onZoom(Math.max(1, zoom / 1.5))}><Icon id="minus" />{!compact && zoomOut}</button>
+    <button type="button" className="adm-floors-zoom-value" aria-label={`${C.zoomReset} – ${Math.round(zoom * 100)} %`} title={C.zoomReset} onClick={() => onZoom(1)}>{!compact && <Icon id="resize" />}{Math.round(zoom * 100)} %</button>
+    <button type="button" aria-label={compact ? zoomIn : undefined} disabled={zoom >= 4} onClick={() => onZoom(Math.min(4, zoom * 1.5))}><Icon id="plus" />{!compact && zoomIn}</button>
+  </div>
+}
+
+/** A phone list row's picture: its drawing cut from the page raster (the Vorschau's own
+ *  `FloorCrop`), fitted into the row's crop box. A whole-page floor shows the whole page. */
+function RowCrop({ entry, images, aspect }: { entry: FloorEntry; images: Record<number, string>; aspect: number }) {
+  const frame = entry.clip ?? [0, 0, 1, 1]
+  const ratio = ((frame[2] - frame[0]) * aspect) / (frame[3] - frame[1])
+  const size = ratio > CROP_BOX.width / CROP_BOX.height
+    ? { width: CROP_BOX.width, height: CROP_BOX.width / ratio }
+    : { width: CROP_BOX.height * ratio, height: CROP_BOX.height }
+  return <FloorCrop parts={[{ page: entry.page, clip: entry.clip }]} images={images} frame={frame} aspect={aspect} style={size} aria-hidden />
+}
+/** the row crop's box in CSS px (planAlignment.css · .adm-floor-crop) */
+const CROP_BOX = { width: 64, height: 76 }
 
 /** The sheet: one page as its exact raster, the floors on it as rectangles and join lines. In
  *  `region` mode a drag draws the selected floor's rectangle; in `join` mode the first tap picks a
  *  point in the floor's own drawing, the second the same point in another drawing. Outside any
  *  mode a press GRABS: a join point if one is within reach, otherwise the rectangle under the
  *  finger. Coordinates are normalized to the page, exactly what the pack fit speaks. */
-function FloorSheet({ zoom, item, page, entries, selected, mode, labelOf, indexOf: indexOfKey, zero, onClip, onJoinAt, onJoin, onMove, onMovePoint, onSelect }: {
+function FloorSheet({ zoom, item, page, entries, selected, mode, labelOf, indexOf: indexOfKey, zero, onClip, onJoinAt, onJoin, onMove, onMovePoint, onSelect, bare }: {
   zoom: number; item: AlignmentItem; page: number; entries: FloorEntry[]; selected: string | null; mode: Mode
   labelOf: (e: FloorEntry) => string; indexOf: (key: string) => number; zero: string
   onClip: (key: string, clip: Clip) => void
@@ -307,6 +413,8 @@ function FloorSheet({ zoom, item, page, entries, selected, mode, labelOf, indexO
   /** a placed join point dragged to a new place – the reference point, not its drawing */
   onMovePoint: (hit: JoinPointHit, at: Pt) => void
   onSelect: (key: string) => void
+  /** no sentence on the paper – the phone's full-screen view says it in its top bar */
+  bare: boolean
 }) {
   const C = appConfig.copy.admin.alignment.floors
   const source = `${item.id}:${page}`
@@ -329,7 +437,11 @@ function FloorSheet({ zoom, item, page, entries, selected, mode, labelOf, indexO
     const el = viewport.current
     if (!el || typeof ResizeObserver === 'undefined') return
     const observer = new ResizeObserver(() => {
-      const { width, height } = el.getBoundingClientRect()
+      // the room the sheet may fill: the phone's full-screen view keeps its foot free for the
+      // floating zoom (planAlignment.css · .adm-floors-full), the split has no padding
+      const { width, height: outer } = el.getBoundingClientRect()
+      const style = getComputedStyle(el)
+      const height = outer - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom)
       if (width > 0 && height > 0) setViewportSize({ width, height })
     })
     observer.observe(el)
@@ -375,7 +487,10 @@ function FloorSheet({ zoom, item, page, entries, selected, mode, labelOf, indexO
       if (point) {
         e.preventDefault(); e.stopPropagation()
         ;(e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId)
-        onSelect(point.key)
+        // the point's OWN drawing is selected – for the far end of a join from another page that
+        // is the joined floor, or the sheet would turn to the other page under the finger
+        const owner = entries.find((en) => en.key === point.key)
+        onSelect(point.end === 'there' && owner?.join && owner.page !== page ? owner.join.toKey : point.key)
         moving.current = { kind: 'point', hit: point }
         setHeld({ hit: point, at: clampToClip(p, joinPointClip(entries, point)) })
         return
@@ -430,9 +545,7 @@ function FloorSheet({ zoom, item, page, entries, selected, mode, labelOf, indexO
     onClip(mode.key, [round(x0), round(y0), round(x1), round(y1)])
   }
   const pct = (v: number) => `${(v * 100).toFixed(2)}%`
-  const hint = mode && modeEntry
-    ? mode.kind === 'region' ? fillTemplate(C.regionHint, { floor: labelOf(modeEntry) }) : mode.at ? C.joinHint2 : fillTemplate(C.joinHint1, { floor: labelOf(modeEntry) })
-    : null
+  const hint = modeHint(mode, entries, labelOf)
   const shifted = (key: string, p: Pt): Pt => shift?.key === key ? [p[0] + shift.dx, p[1] + shift.dy] : p
   return <div className="adm-floors-paper"><div ref={viewport} className="adm-floors-viewport"><div style={{ width: viewportSize.width ? Math.min(viewportSize.width, viewportSize.height * pageAspect) * zoom : `${zoom * 100}%` }} ref={box} className={`adm-floors-sheet${mode ? ' drawing' : ''}`} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerLeave={() => setAim(null)} onPointerCancel={() => { setAim(null); moving.current = null; setShift(null); setHeld(null); setDraft(null) }}>
     {failed ? <div className="adm-floors-sheet-wait" role="alert">{appConfig.copy.admin.alignment.previewFailed}</div>
@@ -464,7 +577,7 @@ function FloorSheet({ zoom, item, page, entries, selected, mode, labelOf, indexO
   </div></div>
     {/* the sentence stands ON the paper, where the eye is while drawing – dark while a mode is
         on (something is expected of you), quiet when it only says what the rectangles can do */}
-    {hint ? <span className="adm-floors-hint" role="status">{hint}</span>
+    {bare ? null : hint ? <span className="adm-floors-hint" role="status">{hint}</span>
       : visibleEntries.some((e) => e.clip) ? <span className="adm-floors-hint quiet" role="status">{C.moveHint}</span> : null}
     {/* the loupe is for HITTING the same staircase twice – it belongs to the join, and nowhere
         else: while drawing or moving a rectangle it only covers the paper being worked on */}
@@ -495,26 +608,11 @@ const POINT_GRAB = 22
  */
 function FloorPreview({ item, floors, fitPage, map }: { item: AlignmentItem; floors: PlanFloor[]; fitPage: number; map?: ReactNode }) {
   const C = appConfig.copy.admin.alignment.floors
-  const pages = [...new Set(floors.map((f) => f.page))].sort((a, b) => a - b).join(',')
-  const [images, setImages] = useState<Record<number, string>>({})
-  const [failed, setFailed] = useState(false)
-  useEffect(() => {
-    const abort = new AbortController()
-    const urls: string[] = []
-    for (const page of pages.split(',').filter(Boolean).map(Number)) {
-      void alignmentPagePreview(item.id, page, abort.signal).then((blob) => {
-        if (abort.signal.aborted) return
-        const url = URL.createObjectURL(blob); urls.push(url)
-        setImages((current) => ({ ...current, [page]: url }))
-      }).catch(() => { if (!abort.signal.aborted) setFailed(true) })
-    }
-    return () => { abort.abort(); urls.forEach(URL.revokeObjectURL) }
-  }, [item.id, pages])
+  const { images, failed } = usePageImages(item.id, floors.map((f) => f.page))
   const onFitPage = floors.filter((f) => f.page === fitPage && !(f.part ?? 0))
   const reference = onFitPage.find((f) => f.index === 0) ?? onFitPage[0] ?? floors[0]
   if (!reference) return null
   const frame = reference.clip ?? [0, 0, 1, 1]
-  const width = frame[2] - frame[0], height = frame[3] - frame[1]
   const shifts = joinShifts(floors, reference)
   // ONE tile per Geschoss; a storey drawn as two wings shows both in it, each in its own place.
   // ⚠️ Sorted HERE and not left to the order the stack happens to hand over: the tiles are a
@@ -530,17 +628,8 @@ function FloorPreview({ item, floors, fitPage, map }: { item: AlignmentItem; flo
       const chip = signedIndex(index)
       const name = (parts.length === 1 && parts[0].name) || standardFloorName(index)
       return <div className="adm-floor-tile" key={index}>
-        <svg viewBox={`${frame[0]} ${frame[1]} ${width} ${height}`} preserveAspectRatio="none" style={{ aspectRatio: `${width * (item.aspect ?? 1.414)} / ${height}` }} role="img" aria-label={`${chip} · ${name}`} aria-busy={!failed && parts.some(floor => !images[floor.page]) || undefined}>
-          {parts.map((floor) => {
-            const shift = shifts.get(floorKey(floor)) ?? [0, 0]
-            const clip = floor.clip ?? [0, 0, 1, 1]
-            const clipId = `floor-preview-${item.id}-${floorKey(floor).replace(':', '-')}`
-            return <g key={clipId}>
-              <defs><clipPath id={clipId}><rect x={clip[0] + shift[0]} y={clip[1] + shift[1]} width={clip[2] - clip[0]} height={clip[3] - clip[1]} /></clipPath></defs>
-              {images[floor.page] && <image href={images[floor.page]} x={shift[0]} y={shift[1]} width={1} height={1} preserveAspectRatio="none" clipPath={`url(#${clipId})`} />}
-            </g>
-          })}
-        </svg>
+        <FloorCrop parts={parts.map((floor) => ({ page: floor.page, clip: floor.clip, shift: shifts.get(floorKey(floor)) }))} images={images} frame={frame} aspect={item.aspect ?? 1.414}
+          role="img" aria-label={`${chip} · ${name}`} aria-busy={!failed && parts.some(floor => !images[floor.page]) || undefined} />
         {!failed && parts.some(floor => !images[floor.page]) && <div className="adm-floor-tile-wait" aria-hidden><ShellLoader size="surface" /></div>}
         <span className="adm-floor-tile-cap" aria-hidden><span className="adm-floor-index">{chip}</span><b>{name}</b>
           {parts.length > 1 && <small>{parts.map((f, n) => f.name || fillTemplate(C.partName, { n: n + 1 })).join(' · ')}</small>}
@@ -549,4 +638,63 @@ function FloorPreview({ item, floors, fitPage, map }: { item: AlignmentItem; flo
     })}
     </div>
   </div>
+}
+
+/** One storey's drawings cut out of their page rasters and laid into `frame` (normalized page
+ *  coordinates), each moved by its `shift` – the Vorschau tile's picture (the pack's common frame
+ *  and join shifts) and the phone list's row crop (the drawing's own rectangle, no shift). */
+function FloorCrop({ parts, images, frame, aspect, style, ...svg }: {
+  parts: { page: number; clip?: readonly number[] | null; shift?: readonly number[] }[]
+  images: Record<number, string>
+  frame: readonly number[]
+  /** the page's width / height – the frame is normalized, the picture must not be */
+  aspect: number
+  style?: CSSProperties
+} & Omit<SVGProps<SVGSVGElement>, 'viewBox' | 'preserveAspectRatio' | 'style'>) {
+  const id = useId()
+  const width = frame[2] - frame[0], height = frame[3] - frame[1]
+  return <svg viewBox={`${frame[0]} ${frame[1]} ${width} ${height}`} preserveAspectRatio="none" style={{ aspectRatio: `${width * aspect} / ${height}`, ...style }} {...svg}>
+    {parts.map((part, n) => {
+      const [dx, dy] = part.shift ?? [0, 0]
+      const clip = part.clip ?? [0, 0, 1, 1]
+      const clipId = `${id}-${n}`
+      return <g key={clipId}>
+        <defs><clipPath id={clipId}><rect x={clip[0] + dx} y={clip[1] + dy} width={clip[2] - clip[0]} height={clip[3] - clip[1]} /></clipPath></defs>
+        {images[part.page] && <image href={images[part.page]} x={dx} y={dy} width={1} height={1} preserveAspectRatio="none" clipPath={`url(#${clipId})`} />}
+      </g>
+    })}
+  </svg>
+}
+
+/** The rasters of a sheet's pages as object URLs by page number, fetched per distinct set of
+ *  `pages` and revoked – and dropped from `images` – when the set changes or the caller
+ *  unmounts, so no picture points at a dead blob. With `measure`, each
+ *  raster's own width / height lands in `aspects` (a pack may mix portrait and landscape pages);
+ *  only the phone's row crops ask, the Vorschau fits its common frame. `failed` once any page
+ *  did not arrive. An empty list fetches nothing. */
+function usePageImages(id: number, pages: readonly number[], { measure = false }: { measure?: boolean } = {}) {
+  const key = [...new Set(pages)].sort((a, b) => a - b).join(',')
+  const [images, setImages] = useState<Record<number, string>>({})
+  const [aspects, setAspects] = useState<Record<number, number>>({})
+  const [failed, setFailed] = useState(false)
+  useEffect(() => {
+    const abort = new AbortController()
+    const urls: string[] = []
+    for (const page of key.split(',').filter(Boolean).map(Number)) {
+      void alignmentPagePreview(id, page, abort.signal).then((blob) => {
+        if (abort.signal.aborted) return
+        const url = URL.createObjectURL(blob); urls.push(url)
+        setImages((current) => ({ ...current, [page]: url }))
+        if (measure && typeof createImageBitmap === 'function') void createImageBitmap(blob).then((bitmap) => {
+          if (!abort.signal.aborted && bitmap.height) setAspects((current) => ({ ...current, [page]: bitmap.width / bitmap.height }))
+          bitmap.close()
+        }).catch(() => { /* the pack's own aspect stands in */ })
+      }).catch(() => { if (!abort.signal.aborted) setFailed(true) })
+    }
+    return () => {
+      abort.abort(); urls.forEach(URL.revokeObjectURL)
+      if (urls.length) setImages((current) => Object.fromEntries(Object.entries(current).filter(([, url]) => !urls.includes(url))))
+    }
+  }, [id, key, measure])
+  return { images, aspects, failed }
 }

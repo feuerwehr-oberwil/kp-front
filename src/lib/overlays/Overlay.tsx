@@ -79,6 +79,12 @@ export interface OverlayProps {
    * of it), never for one that is full-screen or centred there.
    */
   grab?: boolean
+  /**
+   * Where focus goes on close (Base UI's `finalFocus`). Default: back to the opener. A surface
+   * whose opener can be gone by then – it lived in a row the overlay's own work replaced – names
+   * a target that is still there; return `true` for the default.
+   */
+  finalFocus?: () => HTMLElement | boolean
   children: ReactNode
 }
 
@@ -88,7 +94,7 @@ function setRef<T>(ref: Ref<T> | undefined, node: T | null) {
   else if (ref) ref.current = node
 }
 
-export function Overlay({ open, onClose, className, backdropClassName = 'ui-backdrop', ariaLabel, initialFocus, modal = 'trap-focus', dismissEscape = true, onEscape, style, popupRef, swipeToClose = true, grab = false, children }: OverlayProps) {
+export function Overlay({ open, onClose, className, backdropClassName = 'ui-backdrop', ariaLabel, initialFocus, modal = 'trap-focus', dismissEscape = true, onEscape, style, popupRef, swipeToClose = true, grab = false, finalFocus, children }: OverlayProps) {
   useMobileScrollLock(open)
   const isOpeningEcho = useDismissGrace(open)
   const ownPopup = useRef<HTMLDivElement | null>(null)
@@ -130,7 +136,7 @@ export function Overlay({ open, onClose, className, backdropClassName = 'ui-back
     >
       <Dialog.Portal>
         <Dialog.Backdrop ref={backdropRef} className={backdropClassName} />
-        <Dialog.Popup ref={setPopup} {...kbFirst} className={cls} style={lift ? { ...lift, ...style } : style} aria-label={ariaLabel} initialFocus={initialFocus} {...swipe}>
+        <Dialog.Popup ref={setPopup} {...kbFirst} className={cls} style={lift ? { ...lift, ...style } : style} aria-label={ariaLabel} initialFocus={initialFocus} finalFocus={finalFocus} {...swipe}>
           {grab && swipeToClose && <SheetGrab />}
           {children}
         </Dialog.Popup>
