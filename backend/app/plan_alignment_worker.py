@@ -389,8 +389,13 @@ async def run_once(factory: async_sessionmaker[AsyncSession] = async_session_mak
             modules = load_stored_config({} if stored is None else stored).modules
         except ValidationError:
             logger.warning("Plan alignment job %s: the station config cannot be read", claim.id, exc_info=True)
-            await finish_job(db, claim, AlignmentResult("failed", "config_unreadable"))
-            await db.commit()
+            try:
+                await limit_lock_wait(db, plans.WORKER_LOCK_WAIT_MS)  # a re-key may hold the row
+                await finish_job(db, claim, AlignmentResult("failed", "config_unreadable"))
+                await db.commit()
+            except DBAPIError as exc:
+                if not await _given_back(db, claim, exc):
+                    raise
             return True
         alignment = module_alignment(modules, module)
         # the station-wide building snapshot – fetched once, clipped per sheet (reference_buildings)
