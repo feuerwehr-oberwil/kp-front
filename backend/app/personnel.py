@@ -22,6 +22,7 @@ from datetime import UTC, datetime
 from typing import Literal, Protocol
 
 import httpx
+from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -270,7 +271,7 @@ def derive_rank_from_quals(qual_names: list[str], ranks: list[dict]) -> str | No
 # and says so, a display caller shows the shipped default.
 
 
-async def _raw_roster(db: AsyncSession) -> dict | None:
+async def raw_roster(db: AsyncSession) -> dict | None:
     """The stored ``roster`` part as it lies: ``{}`` when nothing is stored, ``None`` when the
     document or the part is not an object."""
     row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
@@ -285,7 +286,7 @@ async def _raw_roster(db: AsyncSession) -> dict | None:
 
 async def load_roster_ranks_info(db: AsyncSession) -> tuple[list[dict], bool] | None:
     """``(active rank list, station has one of its own)``, or ``None`` when the roster or its
-    ``ranks`` cannot be read (see above: not a list of ``{key, label}`` objects).
+    ``ranks`` cannot be read (see above: not a list of ``schemas.RankConfig`` objects).
 
     ⚠️ The second half is the part that is easy to get wrong. A station whose ``roster.ranks``
     is EMPTY is not a station without ranks — every reader falls back to the shipped Swiss list
@@ -293,11 +294,16 @@ async def load_roster_ranks_info(db: AsyncSession) -> tuple[list[dict], bool] | 
     foreign value like «Sdt» is unknown. Anything that offers to WRITE the rank list has to know
     which of the two lists it is looking at: appending to the fallback without materialising it
     first would replace twelve working ranks with one (see :func:`adopt_ranks`)."""
-    roster = await _raw_roster(db)
+    roster = await raw_roster(db)
     ranks = None if roster is None else roster.get("ranks", [])
-    if not isinstance(ranks, list) or not all(
-        isinstance(r, dict) and isinstance(r.get("key"), str) and isinstance(r.get("label"), str) for r in ranks
-    ):
+    if not isinstance(ranks, list):
+        return None
+    from .schemas import RankConfig  # local import avoids an import cycle
+
+    try:  # every entry the shape `RankConfig` gives it: a list where a string belongs breaks matching
+        for r in ranks:
+            RankConfig.model_validate(r)
+    except ValidationError:
         return None
     if ranks:
         return list(ranks), True
@@ -318,7 +324,7 @@ async def load_roster_name_order(db: AsyncSession) -> NameOrder | None:
     Read on every request that serves names — the order is applied when a name goes out, never
     when it is stored, so flipping the setting takes effect without a migration or a re-sync.
     Raw (see above): the Divera sync writes the names in this order."""
-    roster = await _raw_roster(db)
+    roster = await raw_roster(db)
     value = None if roster is None else roster.get("nameOrder", DEFAULT_NAME_ORDER)
     return value if value in ("last-first", "first-last") else None
 
@@ -330,7 +336,7 @@ async def load_roster_auto_sync(db: AsyncSession) -> AutoSyncLevel | None:
     Read on every run of the nightly job rather than at boot, so switching the level in
     Verwaltung takes effect tonight and not at the next deploy — the same reason the scheduler
     re-reads its credentials on every tick."""
-    roster = await _raw_roster(db)
+    roster = await raw_roster(db)
     value = None if roster is None else roster.get("autoSync", DEFAULT_AUTO_SYNC)
     return value if value in ("off", "safe", "full") else None
 
@@ -339,7 +345,7 @@ async def load_divera_response_kinds(db: AsyncSession) -> dict[str, ResponseKind
     """The station's ``roster.diveraResponses`` override (status id/name → kind; unset → ``{}``),
     or ``None`` when the roster cannot be read (see above). Raw: the poll stores the answers it
     classifies with this."""
-    roster = await _raw_roster(db)
+    roster = await raw_roster(db)
     value = None if roster is None else roster.get("diveraResponses", {})
     if not isinstance(value, dict) or not all(isinstance(k, str) and v in _RESPONSE_KINDS for k, v in value.items()):
         return None

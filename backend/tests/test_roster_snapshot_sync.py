@@ -411,3 +411,27 @@ async def test_a_roster_that_does_not_match_the_index_changes_nothing(db_session
 
     assert "sha256" in status["outcome"]["refused"]
     assert await _people(db_session) == []
+
+
+@pytest.mark.parametrize(
+    "roster",
+    ["corrupt", {"snapshotMaxDeactivatePct": None}, {"snapshotMaxDeactivatePct": "20"}],
+    ids=["roster-string", "cap-null", "cap-string"],
+)
+async def test_a_policy_it_cannot_read_writes_nothing_and_says_so(db_session, source, roster):
+    """The cap is the one thing between a broken file and a deactivated Wehr: one the station
+    stored but that cannot be read is not the shipped 20 %. The run refuses, on the card."""
+    from app.models import DeploymentConfig
+
+    db_session.add(DeploymentConfig(id=1, config_json={"roster": roster}))
+    await db_session.commit()
+    assert await roster_snapshot_sync.due(db_session)  # due all the same – the run is what says why
+
+    status = await roster_snapshot_sync.run(db_session, trigger="scheduled")
+
+    assert (
+        status["outcome"]["refused"].startswith("run failed")
+        and "lassen sich nicht lesen" in status["outcome"]["refused"]
+    )
+    assert "lassen sich nicht lesen" in (await _state(db_session)).last_error
+    assert await _people(db_session) == []

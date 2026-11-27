@@ -310,7 +310,11 @@ async def test_list_follows_first_last_in_both_spelling_and_sort(client, editor,
     assert (anna["first_name"], anna["last_name"]) == ("Anna", "Brunner")
 
 
-@pytest.mark.parametrize("ranks", [None, ["Wm"], [{"key": "wm"}]], ids=["null", "strings", "no-label"])
+@pytest.mark.parametrize(
+    "ranks",
+    [None, ["Wm"], [{"key": "wm"}], [{"key": "wm", "label": "Wachtmeister", "abbr": ["Wm"]}]],
+    ids=["null", "strings", "no-label", "abbr-list"],
+)
 async def test_a_rank_list_it_cannot_read_stops_the_writers(
     client, editor, admin_login, db_session, monkeypatch, ranks
 ):
