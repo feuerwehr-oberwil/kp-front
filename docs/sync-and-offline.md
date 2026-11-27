@@ -34,8 +34,14 @@ the module they concern (`lib/connectivity`, `lib/eventScope`, `lib/jsonEqual`,
   (`useIncidentSync`): in place, never pushed back, and the echo guard is armed only when the
   hand-over moved what the blob is built from – otherwise it would swallow the next local edit.
   A holder that loses the lock retires at once: no write, push,
-  retry or merge round after it. The guarantee is at COMMITTED persistence: an edit still inside
-  the 300 ms cache debounce when another tab takes over (or when the tab dies) can be lost. The
+  retry or merge round after it. A PUT under the lock leaves only once the cache has committed it
+  as on its way (`sending`); the next engine carries the newest two such saves of its
+  predecessors (`handed`) and applies them to both sides of every merge, so one that lands late
+  brings back nothing deleted since. The guarantee is at COMMITTED persistence: an edit still inside
+  the 300 ms cache debounce when another tab takes over (or when the tab dies) can be lost. Known
+  limits: a third save still on its way after three hand-overs is not carried, and an object a
+  handed save added that ANOTHER device deleted after it landed comes back once (telling «landed»
+  from «refused» would need the PUT's outcome). The
   media queue's read-modify-writes and flushes take a cross-tab Web Lock per Einsatz too, and a
   receipt is linked and retired only while the tab still holds the edit lock
   (`lib/incidentSelection` header).
