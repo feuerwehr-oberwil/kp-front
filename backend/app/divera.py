@@ -3,7 +3,8 @@
 The keyword vocabulary is not a literal here. The shipped default lives in
 `data/alarm_keywords.json`, vendored byte-for-byte into kp-rueck and pinned by checksum in
 both — the same mechanism as `app/telemetry/`, and for the same reason: the two products may
-not share a library (`RUNNING-BOTH.md`), so the copies stay copies and a test compares them.
+not share a library (kp-rueck's `docs/RUNNING-BOTH.md`), so the copies stay copies and a test
+compares them.
 It used to be two hand-maintained tables that nobody compared, and they had already drifted.
 A station whose alarm words differ replaces the whole vocabulary from its deployment config
 (`alarmKeywords`, docs/CONFIGURATION.md §1a) — see `active_vocabulary()` below.

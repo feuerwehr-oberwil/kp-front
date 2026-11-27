@@ -11,9 +11,9 @@ in force, the same failure `docs/openapi.json` had when it went 31 endpoints out
 Regenerate with `just roster-schema` in the same change that touches the models.
 
 **2. Cross-repo drift.** kp-rück holds byte-identical copies of both schema files AND of the
-code that reads them (`app/roster_snapshot.py`, `app/roster_snapshot_ingest.py`), the
-reference producer (`scripts/roster_snapshot_from_csv.py`) and its example input. Neither
-repository may import the other (`docs/RUNNING-BOTH.md`), so the copies stay copies, listed with
+code that reads them (`app/roster_snapshot.py`, `app/roster_snapshot_ingest.py`), the reference
+producer (`scripts/roster_snapshot_from_csv.py`) and its example input. Neither repository may
+import the other (kp-rueck's `docs/RUNNING-BOTH.md`), so the copies stay copies, listed with
 their sha256 in `shared/MANIFEST.json` beside the telemetry sanitiser and the alarm vocabulary.
 `test_shared_files.py` holds this repository's copies to the manifest; CI's «Shared files match
 KP Rück» job checks out both repositories and compares them, and is the only thing that does.

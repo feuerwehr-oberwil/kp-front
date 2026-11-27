@@ -1,16 +1,15 @@
 """Automatic plan alignment — the CV matcher behind the plan-alignment worker (plan_alignment_compute).
 
-Based on the feasibility prototype (docs/planning/auto-alignment/prototype.py,
-2026-09-08: 12/16 Modul-2 sheets produced plausible starting alignments): segment the filled
-building footprints out of the rendered sheet, fetch OSM building rings around the object,
-and register the printed context onto them at the fixed printed scale: an exhaustive
-rotation × translation search (FFT cross-correlation of the context edges against the
-dilated OSM edges = context coverage at every pose), then trimmed ICP refinement of the best
-peaks. The pose with the highest context coverage wins. Modul 1 scores its red compound
-against the full building set, since an operational compound need not be a single OSM
-footprint (the score is diagnostic only, see COVERAGE_CONFIDENT). The result
-is a similarity transform — a STARTING PROPOSAL the station reviews and approves on
-Objektpläne, never a silently accepted georeference, and not a claim of survey accuracy.
+Based on a feasibility prototype (2026-09-08: 12/16 Modul-2 sheets produced plausible starting
+alignments): segment the filled building footprints out of the rendered sheet, fetch OSM
+building rings around the object, and register the printed context onto them at the fixed
+printed scale: an exhaustive rotation × translation search (FFT cross-correlation of the context
+edges against the dilated OSM edges = context coverage at every pose), then trimmed ICP
+refinement of the best peaks. The pose with the highest context coverage wins. Modul 1 scores
+its red compound against the full building set, since an operational compound need not be a
+single OSM footprint (the score is diagnostic only, see COVERAGE_CONFIDENT). The result is a
+similarity transform — a STARTING PROPOSAL the station reviews and approves on Objektpläne,
+never a silently accepted georeference, and not a claim of survey accuracy.
 
 This module carries the heavy numeric dependencies (opencv-python-headless, numpy, scipy —
 the optional `georef` dependency group). The worker (plan_alignment_compute · _load_matcher)

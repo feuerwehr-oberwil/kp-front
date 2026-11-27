@@ -8,8 +8,7 @@ import type { LeitungOption } from './truppLines'
 export type CrewSlot = { name: string; personId?: string }
 
 /**
- * The phone card's mini sheets — Kanal · Auftrag · Trupp (26.09.2026, phone card slim-down,
- * docs/planning/az-card-2026-09-26 · Runde 3).
+ * The phone card's mini sheets — Kanal · Auftrag · Trupp (26.09.2026, phone card slim-down).
  *
  * The opened phone card stopped being a place to READ everything and went back to «unit, verb,
  * value»; what it no longer says in words it says as tappable facts, and each fact opens ONE
