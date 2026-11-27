@@ -279,7 +279,10 @@ const renderPlan = (annos: BoardAnno[], extra: Partial<React.ComponentProps<type
   return { ...utils, onChange, remoteWrite }
 }
 
-const chip: BoardAnno = { id: 'c1', kind: 'resource', x: 0.5, y: 0.5, floor: 0, text: 'Trupp 1', t: '03:12' }
+/** A stamp no clock can show: a test that expects a move to re-stamp the chip compares against it,
+ *  and a real time of day would equal the app's fresh stamp for one minute every day. */
+const STAMP = '99:99'
+const chip: BoardAnno = { id: 'c1', kind: 'resource', x: 0.5, y: 0.5, floor: 0, text: 'Trupp 1', t: STAMP }
 const line: BoardAnno = { id: 'l1', kind: 'draw', pts: [[0.2, 0.2, 0], [0.8, 0.8, 0]], floor: 0 }
 // the fat transparent hit surface WbInkLayer lays over each stroke — the only way to tap ink
 const hitShape = (c: HTMLElement) => c.querySelector('.wb-ink-svg polyline[style], .wb-ink-svg polygon[style]')!
@@ -2271,7 +2274,7 @@ describe('gesture contracts of the plan surface', () => {
       vi.useFakeTimers()
       const { emit } = mount([chip])
       finger(screen.getByText('Trupp 1'), [[200, 200], [240, 230], [300, 280]])
-      expect(find('c1')).toMatchObject({ x: 0.5, y: 0.5, t: '03:12' })
+      expect(find('c1')).toMatchObject({ x: 0.5, y: 0.5, t: STAMP })
       expect(moves(emit)).toEqual([])
       expect(screen.queryByRole('button', { name: appConfig.copy.whiteboard.markPosition })).toBeNull()
     })
@@ -2301,10 +2304,10 @@ describe('gesture contracts of the plan surface', () => {
       expect(onChange).toHaveBeenCalledTimes(1)
       expect(onCheckpoint).toHaveBeenCalledTimes(1)
       expect(find('c1')).toMatchObject({ x: 0.75, y: 0.7 })
-      expect(find('c1').t).not.toBe('03:12')
+      expect(find('c1').t).not.toBe(STAMP)
       expect(node.style.translate).toBe('')
       act(() => history.current!.undo())
-      expect(find('c1')).toMatchObject({ x: 0.5, y: 0.5, t: '03:12' })
+      expect(find('c1')).toMatchObject({ x: 0.5, y: 0.5, t: STAMP })
     })
 
     // GESTURES.13: a right press on an object is never a left one – no select, no drag
