@@ -395,6 +395,57 @@ describe('(n) ↶ takes back a Notiz while it is being typed', () => {
     expect(notes()).toEqual(['Alt, Wasser ab 14:20'])
   })
 
+  // a vehicle moved while a Notiz has the caret takes the one gesture slot and keeps its own ↶
+  // step; the Notiz's typing lays none then (open point), but its row is still written
+  describe('a vehicle moved while a Notiz is typed', () => {
+    type Drag = { onMarkerDragStart: (id: string) => void; onMarkerMove: (id: string, c: [number, number]) => void; onMarkerDragEnd: (id: string, c: [number, number]) => void }
+    const map = () => lastMap() as unknown as Drag & { onNoteEdit: (id: string) => void; onNoteText: (id: string, v: string) => void; onNoteCommit: (id: string, v: string) => void }
+    const truckAt = () => lastMap().entities.find((e) => e.id === truck.id)?.coord
+    const typeThenMove = async () => {
+      const append = vi.spyOn(AuditEventStore.prototype, 'append')
+      await mount({ workspace: { entities: [truck, { id: 'a', kind: 'note', coord: [7.6, 47.5], label: 'Alt' } as Entity] } as unknown as Saved })
+      act(() => map().onNoteEdit('a'))
+      act(() => map().onNoteText('a', 'Wasser ab 14:20'))
+      act(() => map().onMarkerDragStart(truck.id))
+      act(() => map().onMarkerMove(truck.id, [7.61, 47.5]))
+      act(() => map().onMarkerDragEnd(truck.id, [7.61, 47.5]))
+      await settle()
+      const rows = () => append.mock.calls.map(([e]) => e).filter((e) => e.op_type === 'entity.edit' && (e.payload as { id?: string }).id === 'a')
+        .map((e) => (e.payload as { patch?: { label?: string } }).patch?.label)
+      return { rows }
+    }
+
+    it('the Notiz still writes its one row, and the move stays one ↶ step', async () => {
+      const { rows } = await typeThenMove()
+      act(() => map().onNoteCommit('a', 'Wasser ab 14:20'))
+      await settle()
+      expect(rows()).toEqual(['Wasser ab 14:20'])
+      await press(appConfig.copy.undo)
+      expect(truckAt()).toEqual(truck.coord)
+    })
+
+    // the ↶ takes back the move only: the Notiz still holds what was typed, so the row stays
+    // (a ↶ that takes the typed text back writes none – «a ↶ while another Notiz is typed» above)
+    it('…also when a ↶ took back only the move', async () => {
+      const { rows } = await typeThenMove()
+      await press(appConfig.copy.undo)
+      expect(truckAt()).toEqual(truck.coord)
+      expect(notes()).toEqual(['Wasser ab 14:20'])
+      act(() => map().onNoteCommit('a', 'Wasser ab 14:20'))
+      await settle()
+      expect(rows()).toEqual(['Wasser ab 14:20'])
+    })
+
+    it('typed on after that ↶: one row with the final text', async () => {
+      const { rows } = await typeThenMove()
+      await press(appConfig.copy.undo)
+      act(() => map().onNoteText('a', 'Wasser ab 14:30'))
+      act(() => map().onNoteCommit('a', 'Wasser ab 14:30'))
+      await settle()
+      expect(rows()).toEqual(['Wasser ab 14:30'])
+    })
+  })
+
   // after a ↶, an existing Notiz opened on the map and closed with ✓, nothing typed
   it('✓ on an unchanged Notiz lays no step: ↷ stays', async () => {
     await mount({ workspace: { entities: [truck, { id: 'a', kind: 'note', coord: [7.6, 47.5], label: 'Alt' } as Entity] } as unknown as Saved })
