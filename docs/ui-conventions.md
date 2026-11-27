@@ -630,7 +630,10 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     OUT OF THE TOP BAR wears the bar's own glass (`--glass` + blur + `--glass-line` + `--shadow`):
     the Atemschutz head detail and the Meteo details (30.09.2026:
     `.tb-weather-pop` wore `--surface`, a lighter slate than the bar at night).
-    **The blur is `--float-blur`, never its value** (`styles/paintCost.test.ts`), and it is `none`
+    **The blur is `--float-blur`, never its value** (`styles/paintCost.test.ts`) – the bars, and
+    the sheets, dialogs and cards on `--glass` too. A literal `blur()` stands only where the
+    background is see-through, so the blur shows: the scrims and the capture view's 88 % heads,
+    each on the test's allow-list with its reason. The token is `none`
     in both themes: the night glass is 97 % opaque (perf sweep 26.11.2026, every map frame
     re-blurred each bar), and the day glass is solid `--surface` (owner pick, 27.11.2026: at 90 %
     without the blur map labels read through the top bar). The token stays for a re-themed

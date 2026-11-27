@@ -458,7 +458,7 @@
 /* --- shared create / edit / re-deploy form modal --- */
 /* centered dialog frame — Base UI (<Overlay>) supplies the scrim (.ui-backdrop), focus trap,
    scroll-lock and Esc; the popup owns its own fixed centering (siblings, no grid parent). */
-/* ⚠️ The HOUSE dialog material and geometry (.ip-sheet): --glass + blur, --r-hero, a 19/800
+/* ⚠️ The HOUSE dialog material and geometry (.ip-sheet): --glass + --float-blur, --r-hero, a 19/800
    title. This modal used to be a parallel design system inside a shared primitive — flat
    --surface, --r-surface, a 17px title and three private button classes — so opening «Trupp
    anlegen» straight after any other dialog was the most visible break in the app. */
@@ -477,7 +477,7 @@
      scale with it — the Mannschaftsliste and the Auftrag tiles. Still inside an iPad's
      1024px landscape with air around it. */
   width: min(820px, calc(100vw - 32px)); height: min(760px, calc(100dvh - 32px)); overflow: hidden;
-  background: var(--glass); backdrop-filter: blur(16px); border-radius: var(--r-hero); box-shadow: var(--e4);
+  background: var(--glass); backdrop-filter: var(--float-blur); border-radius: var(--r-hero); box-shadow: var(--e4);
   display: flex; flex-direction: column; }
 /* Keyboard up (Overlay · useKeyboardInset) — same signal, same shape of fix `.ip-sheet` already
    uses (13-incident.css `.is-kb`): ride up to a fixed top instead of a vertical centre (whose
@@ -2232,7 +2232,7 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
     background: none; backdrop-filter: none; box-shadow: none; border-radius: 0;
     display: flex; flex-direction: column; }
   .sheetFrame { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden;
-    background: var(--glass); backdrop-filter: blur(16px); box-shadow: var(--e4);
+    background: var(--glass); backdrop-filter: var(--float-blur); box-shadow: var(--e4);
     border-radius: var(--r-hero) var(--r-hero) 0 0; }
   /* the grab bar is the sheet's top gutter now — the head needs none of its own (15-mobile.css
      · `.ui-sheet-grab`), and a head under a bar is the handle, as on every other bottom sheet */

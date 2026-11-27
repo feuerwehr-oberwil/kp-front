@@ -467,13 +467,13 @@
 /* ⚠️ `.ui-dialog` alone positions NOTHING — every dialog pairs it with its own sheet class, and
    one that forgets renders unstyled at the top of <body>: present in the DOM, invisible on
    screen («der Stift öffnet nichts»). This is the Mittel remark's sheet. */
-/* The house dialog material: --glass + blur, like the seventeen sheets. It was flat --surface
+/* The house dialog material: --glass + --float-blur, like the seventeen sheets. It was flat --surface
    with a hand-rolled shadow, so a confirm opening over a sheet was visibly a different colour of
    card — and the title was 17/700 against the 19/800 every other dialog and surface uses. */
 .confirm-card { width: min(420px, 92vw);
   max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
   overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; box-sizing: border-box;
-  background: var(--glass); backdrop-filter: blur(16px);
+  background: var(--glass); backdrop-filter: var(--float-blur);
   /* no edge (r35, 06.11.2026): the sheets draw none, --e4 is the outline. Its title's text stands
      24 from the top and the side, where a sheet title beside its 36px ✕ stands too. */
   border-radius: var(--r-hero); padding: var(--sp-5) var(--sp-5) var(--sp-4); box-shadow: var(--e4);
@@ -701,7 +701,7 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
 .photo-view.ui-dialog { position: fixed; inset: 0; margin: auto; z-index: var(--z-photo);
   width: min(96vw, 1600px); height: 92dvh; }
 .photo-view { box-sizing: border-box; display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-3);
-  background: var(--glass); backdrop-filter: blur(16px);
+  background: var(--glass); backdrop-filter: var(--float-blur);
   border: 1px solid var(--glass-line); border-radius: var(--r-hero); box-shadow: var(--e4); }
 .photo-view-head { display: flex; align-items: center; gap: 10px; }
 .photo-view-cap { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
