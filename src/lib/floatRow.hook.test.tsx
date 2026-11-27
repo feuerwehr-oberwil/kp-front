@@ -151,6 +151,31 @@ describe('useFloatRowPlacement — when the floating row is placed', () => {
     expect(reads).toBeGreaterThan(0)
   })
 
+  it('re-places when the strip changes size with no DOM change (Messen\'s panel under a capped strip)', () => {
+    let resized = () => {}
+    const watched = new Set<Element>()
+    vi.stubGlobal('ResizeObserver', class {
+      constructor(cb: () => void) { resized = cb }
+      observe(t: Element) { watched.add(t) }
+      unobserve(t: Element) { watched.delete(t) }
+      disconnect() { watched.clear() }
+    })
+    // the panel clamped under a tall strip (its top at `--under-alert`)
+    const panel = el('wb-dock', app, { left: 30, right: 360, top: 580, bottom: 652 })
+    const strip = el('ml', app, { left: 0, right: 390, top: 50, bottom: 500 })
+    renderHook(() => useFloatRowPlacement(true))
+    expect([...watched]).toEqual([strip])
+    expect(lift()).toBe(`${652 - 580 + 8}px`)
+    // arming capped the strip; it republished its height and the panel grew under it – no DOM came
+    rects.set(strip, { left: 0, right: 390, top: 50, bottom: 240 })
+    rects.set(panel, { left: 30, right: 360, top: 572, bottom: 652 })
+    reads = 0
+    resized()
+    paint()
+    expect(lift()).toBe(`${652 - 572 + 8}px`)
+    expect(reads).toBeGreaterThan(0)
+  })
+
   it('places on resize', () => {
     const dock = el('wb-dock', app, { left: 135, right: 255, top: 592, bottom: 652 })
     renderHook(() => useFloatRowPlacement(true))

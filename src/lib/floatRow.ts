@@ -139,7 +139,15 @@ function contentAtFloor(row: HTMLElement): Box | null {
 export function useFloatRowPlacement(on: boolean) {
   useLayoutEffect(() => {
     if (!on) return
+    // the strip whose size is watched (below): the one on screen at the last pass
+    let watched: Element | null = null
     const place = () => {
+      const stripEl = document.querySelector(STRIP_SEL)
+      if (stripEl !== watched) {
+        if (watched) ro?.unobserve(watched)
+        if (stripEl) ro?.observe(stripEl)
+        watched = stripEl
+      }
       const measure = (sel: string) => [...document.querySelectorAll(sel)]
         .map((el) => el.getBoundingClientRect()).filter((r) => r.width && r.height).map(box)
       const obstacles = measure(OBSTACLE_SEL)
@@ -178,6 +186,11 @@ export function useFloatRowPlacement(on: boolean) {
     // asked for from the observer runs before that frame is painted.
     let raf = 0
     const soon = () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; place() }) }
+    // …and when the strip changes SIZE with no DOM change: its cap follows the lane and the
+    // reserves (08-toasts · .ml), and Messen's panel hangs under it (Meldeleiste · `--ml-h` →
+    // 15-mobile · `--under-alert`). Armed under a strip taller than the cap, the panel grew 8px
+    // after the pass and the row stood on it until the first tap.
+    const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(soon) : null
     place()
     // A dock or a bar comes and goes with a tool, and a dock changes width with its options: all
     // of it is DOM coming and going, which a childList observer hears before the frame is
@@ -190,6 +203,7 @@ export function useFloatRowPlacement(on: boolean) {
     return () => {
       cancelAnimationFrame(raf)
       mo.disconnect()
+      ro?.disconnect()
       window.removeEventListener('resize', soon)
       for (const row of document.querySelectorAll<HTMLElement>(ROW_SEL)) {
         delete row.dataset.floatPlaced

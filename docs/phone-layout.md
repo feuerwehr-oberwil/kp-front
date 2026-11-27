@@ -66,7 +66,9 @@ unchanged.
   it sideways. `--float-base` keeps the worst case (a dock as wide as the screen) until measured.
   It places at mount, then at most once a frame, and only for DOM that can move a row: a piece,
   an obstacle, the Meldeleiste, or a subject of a `:has()` rule that moves one (`floatRow ·
-  MOVED_BY` – a new such rule names its subject there). Typing elsewhere measures nothing.
+  MOVED_BY` – a new such rule names its subject there), and when the Meldeleiste changes size
+  with no DOM change (its cap moves with the lane, Messen's panel hangs under it). Typing
+  elsewhere measures nothing.
 - *Every bottom row is ONE bar, and a short one shares its line* (B+, owner picks 13 + 14,
   17.11.2026): the armed tool's name is the dock's first tile, not a pill of its own, and the dock
   HUGS its tiles, centred, 4px apart. Where it leaves room – [Unfall · Mehrere · Abbrechen], Mehrfach's
