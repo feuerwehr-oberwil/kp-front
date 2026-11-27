@@ -604,9 +604,10 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     `--float-bottom` (15-mobile): `--float-gap` (8px) above the highest bar (nav bar · Rapport tab
     strip · tool bar · a tool's option dock), 8px from the screen's edge and from
     each other. The FAB is a `--line-h` square in the bars' corner (round until 16.11.2026, owner:
-    «match the corner radius of the other things»; r12 until pick 20, 17.11.2026), «Eintrag» always under its glyph like a
-    worded tool-bar tile (the 22px glyph flush on the 11/700 word, centred) – not tied to «Beschriftung der Werkzeugleisten», which is the bars'
-    setting, not the floating row's – on that baseline; `--fab-safe` is its width + the gap. On a
+    «match the corner radius of the other things»; r12 until pick 20, 17.11.2026), «Eintrag» under its glyph like a
+    worded tool-bar tile (the 22px glyph flush on the 11/700 word, centred) – and, like every word of
+    the floating row and the top bar's actions, gone with «Beschriftung der Werkzeugleisten» off
+    (owner, Üben feedback 27.11.2026; the floating row ignored the setting until then) – on that baseline; `--fab-safe` is its width + the gap. On a
     phone EVERY piece of that row is such a tile (button round 17.11.2026, owner pick 12C): the
     chips (`.wb-tile`) and the Karte's squares too, the lamp or › at the tile's corner, a long word
     cut inside a tile capped at 136px – the street on the Objekt tile is spelt out, uncapped

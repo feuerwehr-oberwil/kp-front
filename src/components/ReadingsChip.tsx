@@ -4,6 +4,7 @@ import { cx } from '../lib/cx'
 import { Icon } from '../lib/icons'
 import { useOnlyOpenCard } from '../lib/floatCards'
 import { useLayer } from '../lib/overlays/layer'
+import { useRailLabels } from '../lib/useDevicePrefs'
 import { useMinuteClock } from '../lib/minuteClock'
 import { worstFirst, type MeasuredPoint } from '../lib/readingsList'
 import { ReadingPill } from '../lib/symbolRender'
@@ -20,7 +21,8 @@ import s from './ReadingsChip.module.css'
  * place as a tag (pick L2: no groups). A row goes to its point – the sheet it was placed on, else
  * the Karte – and closes the list. Non-modal like the Gebäude-Info beside it: Esc, the chip, a tap
  * beside it or the native back close it (lib/overlays/layer).
- * Rendered only once a Messpunkt exists (`points` non-empty).
+ * Rendered only once a Messpunkt exists (`points` non-empty). With «Beschriftung der
+ * Werkzeugleisten» off the word goes, as the bars' words do (owner, Üben feedback 27.11.2026).
  */
 export function ReadingsChip({ points, compact = false, onGo }: {
   points: MeasuredPoint[]
@@ -29,6 +31,8 @@ export function ReadingsChip({ points, compact = false, onGo }: {
   onGo: (p: MeasuredPoint) => void
 }) {
   const [open, setOpen] = useState(false)
+  // «Beschriftung … Aus»: the pill alone, no «Messungen» (TopBar · `worded`, owner 27.11.2026)
+  const worded = useRailLabels() === 'short'
   // one chip-row card at a time: opening this list closes the Gebäude card, and vice versa
   useOnlyOpenCard(open, () => setOpen(false))
   // the way out is the Gebäude card's, every layer's (lib/overlays/layer): a tap beside it only
@@ -45,14 +49,15 @@ export function ReadingsChip({ points, compact = false, onGo }: {
   const C = appConfig.copy.building
   return (
     <span className={s.anchor} ref={anchor}>
-      <button ref={chip} type="button" className={cx('wb-scale-chip wb-tile', open && 'arm')} aria-expanded={open}
+      <button ref={chip} type="button" className={cx('wb-scale-chip wb-tile', open && 'arm', !worded && 'wb-chip-bare')} aria-expanded={open}
         title={C.readingsChipLabel} aria-label={C.readingsChipLabel} onClick={() => setOpen(!open)}>
         {/* the glyph leads a tile (the pill over the word), the word leads a chip */}
         {compact
-          ? <><ReadingPill props={worst.props} inline bare /><span>{C.readingsChip}</span></>
-          : <><span>{C.readingsChip}</span><ReadingPill props={worst.props} inline bare /></>}
-        {/* open = lit with ⌄, the Gebäude chip's twin beside it (BuildingFloat, owner pick M4 B) */}
-        {open && <Icon id="chevron-down" className="wb-chip-chev" />}
+          ? <><ReadingPill props={worst.props} inline bare />{worded && <span>{C.readingsChip}</span>}</>
+          : <>{worded && <span>{C.readingsChip}</span>}<ReadingPill props={worst.props} inline bare /></>}
+        {/* open = lit with ⌄, the Gebäude chip's twin beside it (BuildingFloat, owner pick M4 B);
+            bare (words off) the lit fill alone says it – a ⌄ would be a second glyph */}
+        {open && worded && <Icon id="chevron-down" className="wb-chip-chev" />}
       </button>
       {open && (
         <div className={s.pop} role="dialog" aria-label={C.readingsChip}>

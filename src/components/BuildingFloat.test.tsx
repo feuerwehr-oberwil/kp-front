@@ -7,9 +7,13 @@ import { readFileSync } from 'node:fs'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { stubMatchMedia } from '../test/dom.test-utils'
 import { BuildingFloat } from './BuildingFloat'
+import { loadPrefs, savePrefs } from '../lib/prefs'
 import type { BuildingInfo } from '../lib/api/building'
 
-afterEach(() => { cleanup(); vi.unstubAllGlobals() })
+afterEach(() => {
+  cleanup(); vi.unstubAllGlobals()
+  savePrefs({ ...loadPrefs(), railLabels: undefined, railLabelsChosen: undefined })
+})
 
 /** every media query matches — useIsPhone reads a phone */
 const asPhone = () => stubMatchMedia(() => true)
@@ -94,6 +98,22 @@ describe('BuildingFloat', () => {
     expect(noted.textContent).toBe('Info')
     expect(noted.classList.contains('wb-tile')).toBe(true)
     expect(noted.querySelector('use')?.getAttribute('href')).toBe('#info')
+  })
+
+  // Üben feedback (owner 27.11.2026): «Beschriftung der Werkzeugleisten: Aus» takes the chip's word
+  // like the bars' – the hazard words are the fact and stay; the full label stays the name
+  it('words off: the glyph alone, or ⚠ + the hazard words – on a tablet and a phone', () => {
+    savePrefs({ ...loadPrefs(), railLabels: 'off', railLabelsChosen: true })
+    const calm = { ...base, gwr: { ...base.gwr!, heating: ['district'], hot_water: [] }, plants: [], object: { ...base.object!, measures: null, remarks: 'Schlüssel beim Hauswart' } }
+    for (const phone of [false, true]) {
+      if (phone) asPhone()
+      render(<BuildingFloat info={calm} />)
+      expect(screen.getByRole('button', { name: 'Gebäude-Steckbrief öffnen' }).textContent).toBe('')
+      cleanup()
+      render(<BuildingFloat info={base} />)
+      expect(screen.getByRole('button', { name: 'Gebäude: Gas, PV – Steckbrief öffnen · 1 Sofortmassnahme' }).textContent).toBe('Gas · PV1')
+      cleanup()
+    }
   })
 
   it('autoOpen (the first open, lib/buildingFirstOpen) opens the card by itself; any close marks it read', () => {

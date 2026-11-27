@@ -1307,10 +1307,10 @@
      owner: «add a label below»; it was a bare circle from 08.2026, when a word BESIDE the glyph
      crowded the weather pill on the same baseline). The tool docks' shape (09-whiteboard ·
      .wb-dock-worded, #633): a glyph BAND of one fixed height over the word, so the word stands on
-     the bars' word line. ⚠️ ALWAYS worded, not tied to «Beschriftung der Werkzeugleisten»: that
-     setting is the BARS' (rail, tool bar, docks, view bar) — no piece of the floating row follows
-     it. The recording state keeps its timer beside the stop square so the running time stays
-     legible.
+     the bars' word line. ⚠️ Worded with «Beschriftung der Werkzeugleisten» like the bars (owner,
+     Üben feedback 27.11.2026 – it was ALWAYS worded until then): with the setting off the word is
+     not rendered (FabEntry · `worded`) and the glyph band stands alone, centred in the square. The
+     recording state keeps its timer beside the stop square so the running time stays legible.
      ⚠️ The tile's inside is the tool bar's worded tile, measured (round 16.11.2026, owner: «not sure
      if the padding is correct compared to the other tools»): a 22px glyph flush on the 11/700 word,
      no gap (07-toolrail · .vrail-glyph .i, 15-mobile · .labelled .vrail-label), the pair centred in

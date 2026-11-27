@@ -5,9 +5,13 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { formatTime } from '../lib/format'
 import { fmtClock } from '../lib/atemschutz'
 import { TopBar, windArrowRotation } from './TopBar'
+import { loadPrefs, savePrefs } from '../lib/prefs'
 import type { Incident } from '../types'
 
-afterEach(() => { cleanup(); vi.useRealTimers() })
+afterEach(() => {
+  cleanup(); vi.useRealTimers()
+  savePrefs({ ...loadPrefs(), railLabels: undefined, railLabelsChosen: undefined })
+})
 
 const INCIDENT: Incident = {
   type: 'Brand', title: 'Brand Hauptstrasse', address: 'Hauptstrasse 1', center: [7.55, 47.51],
@@ -39,6 +43,26 @@ describe('the top bar\'s shortcut letters', () => {
     expect(letters()).toEqual(['J', 'E'])
     expect(screen.getByRole('button', { name: /Verlauf/ }).title).toBe('Verlauf – Taste J')
     expect(screen.getByRole('button', { name: 'Eintrag' }).title).toMatch(/– Taste E$/)
+  })
+})
+
+// Üben feedback (owner 27.11.2026): «Beschriftung der Werkzeugleisten: Aus» takes the actions'
+// words as it takes the rails'. The word is not rendered at all – the hold-tooltip names only a
+// button that shows no text (lib/holdTooltip · labelOf) – and stays the button's name.
+describe('the top bar with the words off', () => {
+  const actions = () => [...document.querySelectorAll<HTMLButtonElement>('.tb-act')]
+  const withHistory = () => render(<TopBar incident={INCIDENT} startedAt={STARTED} recording={false} recStartedAt={null} journalOpen={false}
+    onToggleJournal={vi.fn()} onAddEntry={vi.fn()} onUndo={vi.fn()} onRedo={vi.fn()} canUndo={false} canRedo={false} showHistory />)
+  it('words on: ↶ ↷ Verlauf Eintrag wear their words', () => {
+    withHistory()
+    expect(actions().map((b) => b.textContent)).toEqual(['Rückgängig', 'Wiederherstellen', 'VerlaufJ', 'EintragE'])
+  })
+  it('words off: each is its glyph (the key letter aside), named as before', () => {
+    savePrefs({ ...loadPrefs(), railLabels: 'off', railLabelsChosen: true })
+    withHistory()
+    expect(document.querySelector('.topbar')!.hasAttribute('data-bare')).toBe(true)
+    expect(actions().map((b) => b.textContent)).toEqual(['', '', 'J', 'E'])
+    expect(actions().map((b) => b.getAttribute('aria-label') ?? b.title)).toEqual(['Rückgängig', 'Wiederherstellen', 'Verlauf', 'Eintrag'])
   })
 })
 

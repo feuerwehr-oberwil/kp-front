@@ -5,13 +5,14 @@ import { useHoldEntry } from '../lib/useHoldEntry'
 import { HoldChargeRing, HoldTargets } from './HoldTargets'
 import { EntryGlyph } from '../lib/icons'
 import { useGeorefMode } from '../lib/georefMode'
+import { useRailLabels } from '../lib/useDevicePrefs'
 
 // Mobile field-capture FAB. Same tap / long-hold gesture as the TopBar "Eintrag": tap opens
 // the composer, hold offers Sprachnotiz · Foto, tap-while-recording stops it. The hold acts on
 // RELEASE — two targets rise above the button and the finger slides onto one; release without
 // moving and you get the voice memo (see lib/useHoldEntry).
-// A square of the floating row's height in the one corner, «Eintrag» always under the glyph
-// (15-mobile · .fab-entry, round 16.11.2026 #4).
+// A square of the floating row's height in the one corner, «Eintrag» under the glyph while
+// «Beschriftung der Werkzeugleisten» is on (15-mobile · .fab-entry, round 16.11.2026 #4).
 export function FabEntry({ recording, recStartedAt, onTap, onHoldStart, onHoldStop, onHoldPhoto }: {
   recording: boolean
   recStartedAt: number | null
@@ -34,6 +35,9 @@ export function FabEntry({ recording, recStartedAt, onTap, onHoldStart, onHoldSt
   // subscription lives HERE rather than in the shell, so one small component re-renders per
   // tap instead of the whole workspace.
   const georefArmed = !!useGeorefMode().planId
+  // «Beschriftung der Werkzeugleisten: Aus» takes «Eintrag» too, the bar's Eintrag's twin (TopBar ·
+  // `worded`, owner 27.11.2026); the recording timer is a reading, not a word, and stays
+  const worded = useRailLabels() === 'short'
 
   // ⚠️ There is deliberately NO scroll-triggered «quiet» mode any more (18.09.2026): the circle
   // used to shrink and half-fade while anything under it was scrolled, which on the Journal was
@@ -68,7 +72,7 @@ export function FabEntry({ recording, recStartedAt, onTap, onHoldStart, onHoldSt
             <EntryGlyph />
             {pressing && pressedSince != null && <HoldChargeRing since={pressedSince} />}
           </span>
-          <span className="tb-act-label">{appConfig.copy.journal.add}</span>
+          {worded && <span className="tb-act-label">{appConfig.copy.journal.add}</span>}
         </>}
     </button>
   )
