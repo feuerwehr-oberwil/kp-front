@@ -73,7 +73,7 @@ export function useMapCanvasGestures({ mapInst, mapReady, freehand, onFreehand, 
   // then coalesces away touch samples, thinning the stroke ("blocky, few nodes"). The preview is
   // written into the map source — no React state, so a stroke renders MapView at its start and
   // end only — in an animation frame at most every FREEHAND_PREVIEW_MS. Every path that ends a
-  // stroke empties the source (it starts empty, so a stroke's start writes nothing).
+  // stroke empties the source; a stroke's start writes only if a stroke is still shown.
   const fhPoints = useRef<LngLat[]>([])
   const fhRaf = useRef<number | null>(null)
   // "latest ref" mirrors — synced in an effect (NOT during render) so the gesture effects can
@@ -98,10 +98,14 @@ export function useMapCanvasGestures({ mapInst, mapReady, freehand, onFreehand, 
     const map = mapInst.current
     if (!map || !mapReady || !freehand) return
     const cancelRaf = () => { if (fhRaf.current != null) { cancelAnimationFrame(fhRaf.current); fhRaf.current = null } }
+    // does the source show a stroke? A stroke's start then empties it – one left by a gesture that
+    // ended without a release this hook hears (a touchcancel, a mouse let go off the map)
+    let shown = false
     const preview = (pts: LngLat[]) => {
+      shown = pts.length >= 2
       // the map may already be torn down when a tool change's cleanup lands here
       try {
-        map.getSource<GeoJSONSource>(FREEHAND_SOURCE)?.setData(pts.length >= 2 ? fc([lineFeat(pts)]) : FREEHAND_EMPTY)
+        map.getSource<GeoJSONSource>(FREEHAND_SOURCE)?.setData(shown ? fc([lineFeat(pts.slice())]) : FREEHAND_EMPTY)
           .catch(() => { /* map gone: nothing left to draw on */ })
       } catch { /* map gone */ }
     }
@@ -115,7 +119,7 @@ export function useMapCanvasGestures({ mapInst, mapReady, freehand, onFreehand, 
       preview(fhPoints.current)
     }
     const schedule = () => { if (fhRaf.current == null) fhRaf.current = requestAnimationFrame(flushPreview) }
-    const start = (ll: LngLat) => { fhActive.current = true; fhPoints.current = [ll]; map.dragPan.disable(); onFreehandPointerRef.current?.('start', ll) }
+    const start = (ll: LngLat) => { fhActive.current = true; fhPoints.current = [ll]; if (shown) preview([]); map.dragPan.disable(); onFreehandPointerRef.current?.('start', ll) }
     const addPoint = (ll: LngLat) => { fhPoints.current.push(ll); schedule(); onFreehandPointerRef.current?.('move', ll) }
     const finish = (commit: boolean) => {
       map.dragPan.enable()

@@ -155,15 +155,28 @@ describe('a freehand Linie on the Karte', () => {
     expect(onFreehand).not.toHaveBeenCalled()
   })
 
-  it('writes the preview at most every FREEHAND_PREVIEW_MS, and the waiting samples land in a later frame', () => {
+  it('writes the preview at most every FREEHAND_PREVIEW_MS, and a waiting sample lands in a later frame', () => {
     const { fh, fire } = mount()
     fire('mousedown', mouse(...SAMPLES[0]))
-    fh.setData.mockClear()
-    // 60 Hz frames, one sample each: about every second frame writes
-    for (const p of SAMPLES.slice(1, 21)) { fire('mousemove', mouse(...p)); flushFrame(1000 / 60) }
-    expect(fh.setData.mock.calls.length).toBeLessThanOrEqual(11)
-    // no new sample: the next frames still bring the last ones in
-    flushFrame(1000 / 60); flushFrame(1000 / 60)
-    expect(lastPreview(fh)?.features[0].geometry.coordinates).toEqual(SAMPLES.slice(0, 21).map(([x, y]) => toLL(x, y)))
+    fire('mousemove', mouse(...SAMPLES[1])); flushFrame()
+    const written = fh.setData.mock.calls.length
+    // a sample 10 ms after that write waits…
+    fire('mousemove', mouse(...SAMPLES[2])); flushFrame(10)
+    expect(fh.setData).toHaveBeenCalledTimes(written)
+    // …and the next frame past the rhythm writes it, with no further movement
+    flushFrame(30)
+    expect(fh.setData).toHaveBeenCalledTimes(written + 1)
+    expect(lastPreview(fh)?.features[0].geometry.coordinates).toEqual(SAMPLES.slice(0, 3).map(([x, y]) => toLL(x, y)))
+  })
+
+  it('a stroke left on the source by a gesture this hook never heard end is cleared by the next press', () => {
+    const { fh, fire } = mount()
+    const t = (x: number, y: number, touches: number) => ({ ...mouse(x, y), originalEvent: { type: 'touchmove', touches: Array.from({ length: touches }) } })
+    fire('touchstart', t(...SAMPLES[0], 1))
+    for (const p of SAMPLES.slice(1, 5)) { fire('touchmove', t(...p, 1)); flushFrame() }
+    expect(lastPreview(fh)?.features).toHaveLength(1)
+    // a touchcancel: no touchend reaches the hook. The next press starts clean.
+    fire('touchstart', t(...SAMPLES[10], 1))
+    expect(lastPreview(fh)?.features).toEqual([])
   })
 })
