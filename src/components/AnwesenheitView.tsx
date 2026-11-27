@@ -1,12 +1,13 @@
-import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
+import { memo, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
 import { ONE_LINE } from '../lib/fieldKeys'
 import { Icon } from '../lib/icons'
 import { SearchField } from './SearchField'
-import type { AttendanceState, LngLat, Person, PresenceInterval, ReactivateResult, Shift, ShiftBand } from '../types'
+import type { AttendanceEntry, AttendanceOrt, AttendanceState, LngLat, Person, PresenceInterval, ReactivateResult, Shift, ShiftBand } from '../types'
 import { ageMinutes, type LivePerson } from '../lib/usePersonPositions'
 import { fmtDistance, haversineM } from '../lib/geo'
 import type { ZeitplanSheet } from '../lib/zeitplanPrint'
 import { cx } from '../lib/cx'
+import { useSteadyFns } from '../lib/useSteadyFns'
 import { appConfig } from '../config/appConfig'
 import { useIsPhone } from '../lib/useIsPhone'
 import { incidentSlot, useIncidentSlot } from '../lib/draftKeep'
@@ -294,24 +295,15 @@ function PaperSheet({ sheet, people, bands, printOnline, onPrint, onDownload, on
  * information, never a warning. Somebody 3 km out is doing what they were told, and colouring
  * that amber would turn a working picture into an accusation.
  *
- * Renders nothing at all when that person is not sharing — an empty slot says "no data",
+ * The row renders none at all when that person is not sharing — an empty slot says "no data",
  * which is honest, where a dash or a «kein Standort» label would imply something is missing.
  */
-function LivePositionChip({ live, center, onShow }: {
-  live: LivePerson | undefined
-  center?: LngLat
+function LivePositionChip({ text, atScene, onShow }: {
+  text: string
+  atScene: boolean
   onShow?: () => void
 }) {
   const L = appConfig.copy.livePosition
-  if (!live) return null
-  const mins = ageMinutes(live.at, Date.now())
-  const dist = center ? fmtDistance(haversineM(center, live.coord)) : ''
-  // Under the GPS noise floor there is no meaningful distance to state — «12 m» would be a
-  // precision the fix does not have. At the Einsatzort is the useful reading anyway.
-  const atScene = center ? haversineM(center, live.coord) < 60 : false
-  const text = atScene
-    ? L.atScene
-    : fillTemplate(mins === 0 ? L.chipNow : L.chip, { d: dist, n: String(mins) })
   // Icon ONLY on the row. «63 m · jetzt» is the answer to a question you ask about ONE person,
   // and printed behind every name it became a second column of numbers competing with the name
   // — the thing the list is actually read for. The reading is not lost: it is the tooltip and
@@ -330,6 +322,182 @@ function LivePositionChip({ live, center, onShow }: {
     </button>
   )
 }
+
+/** The chip's reading for one shared position, as primitives (a row re-renders when they change,
+ *  not when the position map is rebuilt): «63 m · vor 2 min», or «am Einsatzort» under the GPS
+ *  noise floor. Read with the wall clock, so it is computed while the list renders. */
+function livePositionReading(live: LivePerson, center: LngLat | undefined, nowMs: number): { text: string; atScene: boolean } {
+  const L = appConfig.copy.livePosition
+  const mins = ageMinutes(live.at, nowMs)
+  const dist = center ? fmtDistance(haversineM(center, live.coord)) : ''
+  // Under the GPS noise floor there is no meaningful distance to state — «12 m» would be a
+  // precision the fix does not have. At the Einsatzort is the useful reading anyway.
+  const atScene = center ? haversineM(center, live.coord) < 60 : false
+  const text = atScene
+    ? L.atScene
+    : fillTemplate(mins === 0 ? L.chipNow : L.chip, { d: dist, n: String(mins) })
+  return { text, atScene }
+}
+
+/** The row's writers, each by person id – steady for the list's life (useSteadyFns), so a tap
+ *  on one row hands every other row the same props. */
+type PersonRowActions = {
+  cycle: (id: string) => void
+  openBlocks: (id: string) => void
+  setOrt?: (id: string) => void
+  showOnMap?: (id: string) => void
+}
+
+/**
+ * One person on the crew list: the name button whose tap cycles the presence, the Ort, the live
+ * position and the clock to the Zeiten sheet.
+ *
+ * Memo'd, with only row-own primitives for props: one tap on a 40-name list renders the tapped
+ * row and no other (perf sweep 26.11.2026 – every row rendered on every commit of the workspace).
+ * `copy` is the catalogue's Anwesenheit block, so a locale that lands renders the rows too.
+ */
+const PersonRow = memo(function PersonRow({
+  id, name, rank, guest, inactive, state, ort, hasNote, hasBlocks, locked, canEdit,
+  rosterProvider, liveText, liveAtScene, actions, copy: A,
+}: {
+  id: string
+  name: string
+  rank?: string
+  guest: boolean
+  /** not (any more) on the roster's source – the button's title says so */
+  inactive: boolean
+  state: 'frei' | 'present' | 'left'
+  ort: AttendanceOrt
+  hasNote: boolean
+  hasBlocks: boolean
+  /** present and in an active Trupp – the tap jumps to the Trupp */
+  locked: boolean
+  canEdit: boolean
+  rosterProvider: string | null
+  /** the live-position reading, absent while this person is not sharing */
+  liveText?: string
+  liveAtScene: boolean
+  actions: PersonRowActions
+  copy: typeof appConfig.copy.anwesenheit
+}) {
+  const present = state === 'present'
+  const left = state === 'left'
+  const ortLabel = ort === 'station' ? A.ortStation : A.ortScene
+  return (
+    <div className={cx(s.person, present && s.isPresent, left && s.isLeft)}>
+      <button
+        type="button"
+        className={s.personMain}
+        disabled={!canEdit}
+        onClick={() => actions.cycle(id)}
+        // «zuerst über Raus melden austreten» tells a writer how to get the row free
+        title={locked && canEdit ? A.lockedTitle
+          : inactive ? (rosterProvider ? fillTemplate(A.notInSource, { provider: rosterProvider }) : A.notInDivera)
+            : undefined}
+      >
+        {/* no status dot (29.09.2026, owner: the tint alone says «anwesend»); the state
+            word rides in the button's name for a screen reader instead */}
+        <span className="sr-only">{present ? A.statusPresent : left ? A.statusLeft : A.statusFrei}: </span>
+        {/* the app's one Dienstgrad chip — it renders nothing for a rank the station's
+            list has no abbreviation for (an EMPTY badge in front of the name, once) */}
+        <RankBadge rank={rank} />
+        {/* somebody recorded for this Einsatz only — the badge sits where a Grad would,
+            so the row still reads «who is this» before it reads the name */}
+        {guest && <span className="ip-badge ip-badge-arch">{A.guestBadge}</span>}
+        <span className={s.name}>{name}</span>
+        {/* ⚠️ NO remark text in the row. It was shown here so it would not be
+            forgotten — and it took the width away from the NAME («Anna Me…»), which is
+            the one thing this list exists to show. The remark lives in the person's
+            sheet; a dot on the clock button says there IS one. */}
+        {locked && <Icon id="gauge" />}
+      </button>
+      {/* NO time on the row. It carried a whole editor — and once a start sitting on the
+          alarm time read «ab Beginn», that word alone took most of the width and crushed
+          the name to «B…», which is the one thing this list must never do. The times
+          belong to the sheet, where a person's several stretches are all visible at once
+          instead of just the latest. The row answers «who is here», the sheet «since
+          when, exactly». */}
+      {/* Rückkehr — the tap cycle's third step CLEARS the row (frei), and it must keep
+          doing that (it is the only way back from a mis-tick). So coming back gets its
+          own control: it opens a NEW block instead of reopening the closed one. */}
+      {/* THE one clock in the row, always there: it opens the sheet where several
+          stretches — came, went, came back — are added and corrected. The chip beside it
+          edits the single time shown; this is the way to all the others. */}
+      {/* Am Einsatzort oder noch im Magazin – the place's GLYPH on the row (pin = vor Ort,
+          Haus = Magazin), and a tap opens the two-row choice that says it in words (owner
+          note 26.11.2026 – replaces M·8's «Vor Ort ▾» word on the chip, 25.11.2026: the
+          word took the row's width). Still never the one-tap flip of 09.08.2026: a stray
+          tap moved somebody to the Magazin without a word, two taps and a named choice
+          cannot. The accessible name carries the place. Only on somebody who is HERE:
+          «wo ist jemand, der gegangen ist» has no answer worth a control. */}
+      {present && (
+        canEdit && actions.setOrt ? (
+          <Menu
+            trigger={
+              <button type="button" className={cx(s.ort, ort === 'station' ? s.ortStation : s.ortScene)}
+                title={`${fillTemplate(A.ortPick, { name })}: ${ortLabel}`}
+                aria-label={`${fillTemplate(A.ortPick, { name })}: ${ortLabel}`}>
+                <span className={s.ortChip}>
+                  <Icon id={ort === 'station' ? 'station' : 'pin'} />
+                </span>
+              </button>
+            }
+            popupClassName={c.menuPop}
+            itemClassName={() => c.menuItem}
+            items={[{
+              kind: 'radio' as const,
+              // the menu IS this one choice: a pick closes it (owner note 26.11.2026)
+              closeOnPick: true,
+              value: ort,
+              // a pick of the place already set changes nothing – that is the point
+              onChange: (v: string) => { if (v !== ort) actions.setOrt?.(id) },
+              options: [
+                { value: 'scene', label: <span className={cx(s.markRow, s.markOrt)}><Icon id="pin" />{A.ortScene}</span> },
+                { value: 'station', label: <span className={cx(s.markRow, s.markOrt, s.markOrtStation)}><Icon id="station" />{ort === 'station' ? A.ortStation : A.ortToStationPick}</span> },
+              ],
+            }]}
+          />
+        ) : (
+          <span className={cx(s.ort, ort === 'station' ? s.ortStation : s.ortScene)}
+            role="img" aria-label={ortLabel} title={ortLabel}>
+            <span className={s.ortChip}>
+              <Icon id={ort === 'station' ? 'station' : 'pin'} />
+            </span>
+          </span>
+        )
+      )}
+      {/* Renders nothing at all when that person is not sharing (see LivePositionChip) */}
+      {liveText !== undefined && (
+        <LivePositionChip text={liveText} atScene={liveAtScene}
+          onShow={actions.showOnMap ? () => actions.showOnMap?.(id) : undefined} />
+      )}
+      {/* for a session that cannot write too (RBAC audit 22.10.2026): the sheet is the
+          only place the Zeiten and the Bemerkung can be READ, and it has a read-only mode
+          – the «mit Bemerkung» filter found people whose remark nobody could open */}
+      {hasBlocks && (
+        <button
+          type="button"
+          className={cx(s.backBtn, hasNote && s.hasNote)}
+          /* ⚠️ The blue dot on this button means «da steht eine Bemerkung» and nothing
+             on the row said so — a mark you have to be told about is a mark nobody
+             reads. It is named in the filter menu now, and the button says it too. */
+          title={fillTemplate(hasNote ? A.openBlocksNote : A.openBlocks, { name })}
+          aria-label={fillTemplate(hasNote ? A.openBlocksNote : A.openBlocks, { name })}
+          onClick={() => actions.openBlocks(id)}
+        >
+          <Icon id="clock" />
+          {/* its word under the glyph (pick M·8, 25.11.2026): the clock opened a sheet
+              nobody could name before tapping */}
+          <span className={s.actWord} aria-hidden="true">{A.zeitenWord}</span>
+        </button>
+      )}
+    </div>
+  )
+})
+
+/** a row's presence state from its attendance entry */
+const presenceState = (a: AttendanceEntry | undefined): 'frei' | 'present' | 'left' =>
+  isPresent(a) ? 'present' : a ? 'left' : 'frei'
 
 // marking them gone (the checkout rule). Order is stable alphabetical by name (A–Z, not by Grad –
 // pick M·7, 25.11.2026) so chips don't reflow under your finger while you tap.
@@ -646,6 +814,15 @@ export function AnwesenheitView({
       onMarkPresent(p)
     }
   }
+
+  /** a row's person by id – the roster, then the guests (synthesised fresh on every write) */
+  const personById = (id: string) => people.find((p) => p.id === id) ?? guests.find((p) => p.id === id)
+  const rowActions = useSteadyFns<PersonRowActions>({
+    cycle: (id) => { const p = personById(id); if (p) cycle(p) },
+    openBlocks: setBlocksFor,
+    setOrt: onSetOrt ? (id) => { const p = personById(id); if (p) onSetOrt(p) } : undefined,
+    showOnMap: onShowOnMap,
+  })
 
   // where the axis reaches, in words — the grid's own span, so the two can never disagree
   const horizonEndLabel = useMemo(() => {
@@ -1089,120 +1266,17 @@ export function AnwesenheitView({
           )}
           {rows.map((p) => {
             const a = attendance[p.id]
-            const present = isPresent(a)
-            const left = !!a && !present
-            const locked = present && blockedIds.has(p.id)
-            const blocks = intervalsOf(a)
+            const state = presenceState(a)
+            const live = livePositions?.get(p.id)
+            const reading = live ? livePositionReading(live, incidentCenter, Date.now()) : undefined
             return (
-              <div key={p.id} className={cx(s.person, present && s.isPresent, left && s.isLeft)}>
-                <button
-                  type="button"
-                  className={s.personMain}
-                  disabled={!canEdit}
-                  onClick={() => cycle(p)}
-                  // «zuerst über Raus melden austreten» tells a writer how to get the row free
-                  title={locked && canEdit ? A.lockedTitle
-                    : !p.active ? (rosterProvider ? fillTemplate(A.notInSource, { provider: rosterProvider }) : A.notInDivera)
-                      : undefined}
-                >
-                  {/* no status dot (29.09.2026, owner: the tint alone says «anwesend»); the state
-                      word rides in the button's name for a screen reader instead */}
-                  <span className="sr-only">{present ? A.statusPresent : left ? A.statusLeft : A.statusFrei}: </span>
-                  {/* the app's one Dienstgrad chip — it renders nothing for a rank the station's
-                      list has no abbreviation for (an EMPTY badge in front of the name, once) */}
-                  <RankBadge rank={p.rank} />
-                  {/* somebody recorded for this Einsatz only — the badge sits where a Grad would,
-                      so the row still reads «who is this» before it reads the name */}
-                  {p.guest && <span className="ip-badge ip-badge-arch">{A.guestBadge}</span>}
-                  <span className={s.name}>{p.displayName}</span>
-                  {/* ⚠️ NO remark text in the row. It was shown here so it would not be
-                      forgotten — and it took the width away from the NAME («Anna Me…»), which is
-                      the one thing this list exists to show. The remark lives in the person's
-                      sheet; a dot on the clock button says there IS one. */}
-                  {locked && <Icon id="gauge" />}
-                </button>
-                {/* NO time on the row. It carried a whole editor — and once a start sitting on the
-                    alarm time read «ab Beginn», that word alone took most of the width and crushed
-                    the name to «B…», which is the one thing this list must never do. The times
-                    belong to the sheet, where a person's several stretches are all visible at once
-                    instead of just the latest. The row answers «who is here», the sheet «since
-                    when, exactly». */}
-                {/* Rückkehr — the tap cycle's third step CLEARS the row (frei), and it must keep
-                    doing that (it is the only way back from a mis-tick). So coming back gets its
-                    own control: it opens a NEW block instead of reopening the closed one. */}
-                {/* THE one clock in the row, always there: it opens the sheet where several
-                    stretches — came, went, came back — are added and corrected. The chip beside it
-                    edits the single time shown; this is the way to all the others. */}
-                {/* Am Einsatzort oder noch im Magazin – the place's GLYPH on the row (pin = vor Ort,
-                    Haus = Magazin), and a tap opens the two-row choice that says it in words (owner
-                    note 26.11.2026 – replaces M·8's «Vor Ort ▾» word on the chip, 25.11.2026: the
-                    word took the row's width). Still never the one-tap flip of 09.08.2026: a stray
-                    tap moved somebody to the Magazin without a word, two taps and a named choice
-                    cannot. The accessible name carries the place. Only on somebody who is HERE:
-                    «wo ist jemand, der gegangen ist» has no answer worth a control. */}
-                {present && (
-                  canEdit && onSetOrt ? (
-                    <Menu
-                      trigger={
-                        <button type="button" className={cx(s.ort, ortOf(a) === 'station' ? s.ortStation : s.ortScene)}
-                          title={`${fillTemplate(A.ortPick, { name: p.displayName })}: ${ortOf(a) === 'station' ? A.ortStation : A.ortScene}`}
-                          aria-label={`${fillTemplate(A.ortPick, { name: p.displayName })}: ${ortOf(a) === 'station' ? A.ortStation : A.ortScene}`}>
-                          <span className={s.ortChip}>
-                            <Icon id={ortOf(a) === 'station' ? 'station' : 'pin'} />
-                          </span>
-                        </button>
-                      }
-                      popupClassName={c.menuPop}
-                      itemClassName={() => c.menuItem}
-                      items={[{
-                        kind: 'radio' as const,
-                        // the menu IS this one choice: a pick closes it (owner note 26.11.2026)
-                        closeOnPick: true,
-                        value: ortOf(a),
-                        // a pick of the place already set changes nothing – that is the point
-                        onChange: (v: string) => { if (v !== ortOf(a)) onSetOrt(p) },
-                        options: [
-                          { value: 'scene', label: <span className={cx(s.markRow, s.markOrt)}><Icon id="pin" />{A.ortScene}</span> },
-                          { value: 'station', label: <span className={cx(s.markRow, s.markOrt, s.markOrtStation)}><Icon id="station" />{ortOf(a) === 'station' ? A.ortStation : A.ortToStationPick}</span> },
-                        ],
-                      }]}
-                    />
-                  ) : (
-                    <span className={cx(s.ort, ortOf(a) === 'station' ? s.ortStation : s.ortScene)}
-                      role="img" aria-label={ortOf(a) === 'station' ? A.ortStation : A.ortScene}
-                      title={ortOf(a) === 'station' ? A.ortStation : A.ortScene}>
-                      <span className={s.ortChip}>
-                        <Icon id={ortOf(a) === 'station' ? 'station' : 'pin'} />
-                      </span>
-                    </span>
-                  )
-                )}
-                <LivePositionChip
-                  live={livePositions?.get(p.id)}
-                  center={incidentCenter}
-                  onShow={onShowOnMap ? () => onShowOnMap(p.id) : undefined}
-                />
-                {/* for a session that cannot write too (RBAC audit 22.10.2026): the sheet is the
-                    only place the Zeiten and the Bemerkung can be READ, and it has a read-only mode
-                    – the «mit Bemerkung» filter found people whose remark nobody could open */}
-                {blocks.length > 0 && (
-                  <button
-                    type="button"
-                    className={cx(s.backBtn, attendance[p.id]?.note && s.hasNote)}
-                    /* ⚠️ The blue dot on this button means «da steht eine Bemerkung» and nothing
-                       on the row said so — a mark you have to be told about is a mark nobody
-                       reads. It is named in the filter menu now, and the button says it too. */
-                    title={fillTemplate(attendance[p.id]?.note ? A.openBlocksNote : A.openBlocks, { name: p.displayName })}
-                    aria-label={fillTemplate(attendance[p.id]?.note ? A.openBlocksNote : A.openBlocks, { name: p.displayName })}
-                    onClick={() => setBlocksFor(p.id)}
-                  >
-                    <Icon id="clock" />
-                    {/* its word under the glyph (pick M·8, 25.11.2026): the clock opened a sheet
-                        nobody could name before tapping */}
-                    <span className={s.actWord} aria-hidden="true">{A.zeitenWord}</span>
-                  </button>
-                )}
-              </div>
+              <PersonRow key={p.id} id={p.id} name={p.displayName} rank={p.rank} guest={!!p.guest}
+                inactive={!p.active} state={state} ort={ortOf(a)} hasNote={!!a?.note}
+                hasBlocks={intervalsOf(a).length > 0}
+                locked={state === 'present' && blockedIds.has(p.id)}
+                canEdit={canEdit} rosterProvider={rosterProvider}
+                liveText={reading?.text} liveAtScene={!!reading?.atScene}
+                actions={rowActions} copy={A} />
             )
           })}
           {/* THE GAST DOOR, LAST under the matches — the same place and the same shape the Trupp
