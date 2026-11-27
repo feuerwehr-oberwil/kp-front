@@ -1,7 +1,8 @@
 // Paint costs a slow device pays for every frame, held as static counts (perf sweep 26.11.2026 –
 // CI has no GPU, so the stylesheet is the only place these can be checked):
-//   · the floating blur lives in ONE token, and the night theme turns it off (its glass is 97 %
-//     opaque, the blur showed through at 3 %);
+//   · the floating blur lives in ONE token, and both themes turn it off over an opaque glass: the
+//     night glass is 97 % (the blur showed through at 3 %), the day glass is solid (owner pick,
+//     27.11.2026 – no blur, no map labels ghosting through the bars);
 //   · the Plan's open-drawing dashes step at the Karte's cadence (lib/draftAnts), not at 60 Hz;
 //   · the Karte's «Einsatz läuft» dot pulses a few times, never forever, inside the blurred bar.
 import { globSync, readFileSync } from 'node:fs'
@@ -24,6 +25,24 @@ describe('the floating blur is one token', () => {
   it('the night theme turns it off', () => {
     const night = ruleBody(read('src/styles/01-tokens.css'), ':root[data-theme="night"]')
     expect(night).toMatch(/--float-blur:\s*none\s*;/)
+  })
+
+  const day = ruleBody(read('src/styles/01-tokens.css'), ':root')
+  /** a day token's value, following var() chains inside the day block */
+  const dayValue = (token: string): string => {
+    const raw = new RegExp(`${token}\\s*:\\s*([^;]+);`).exec(day)?.[1].trim() ?? ''
+    const ref = /^var\((--[\w-]+)\)$/.exec(raw)
+    return ref ? dayValue(ref[1]) : raw
+  }
+
+  it('the day theme turns it off', () => {
+    expect(dayValue('--float-blur')).toBe('none')
+  })
+
+  it('the day glass is solid, so nothing shows through the unblurred bars', () => {
+    const glass = dayValue('--glass')
+    const alpha = /^rgba\([^,]+,[^,]+,[^,]+,\s*([\d.]+)\)$/.exec(glass)?.[1]
+    expect(/^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(glass) || alpha === '1', `--glass: ${glass}`).toBe(true)
   })
 })
 

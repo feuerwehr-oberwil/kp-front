@@ -19,9 +19,11 @@
      back to the OS setting, re-opening the white-bar bug this comment exists for. Measured
      with `e2e/blink-force-dark.spec.ts`: day chrome 26 → 242 mean luminance under auto-dark. */
   color-scheme: only light;
-  /* Field-readable glass: opaque enough to hold contrast over aerial imagery
-     and in daylight, with a faint dark hairline so edges read on any base map. */
-  --glass: rgba(255, 255, 255, .9);
+  /* Field-readable glass: SOLID by day (owner pick, perf sweep 27.11.2026) – the bars, rails, docks
+     and chips over the map are the white --surface with no blur behind them. At 90 % without the
+     blur a map label read through the top bar, and still as a ghost at 94 %; solid holds the best
+     contrast in daylight and costs the GPU no re-blur per map frame. The edge is --shadow's hairline. */
+  --glass: var(--surface);
   --glass-line: rgba(255, 255, 255, .7);
   --glass-edge: rgba(30, 45, 70, .1);
   --ink: #1b2330;
@@ -102,12 +104,13 @@
      a message keeps the one corner. */
   --float-bg: var(--glass);
   /* THE glass blur of every bar, rail, chip and card over the Karte or a Plan – spell it as this
-     token, never as its value (styles/paintCost.test.ts). The compositor re-blurs each of those
-     regions on every map frame. ⚠️ A blur also makes its box the containing block of positioned
-     descendants; where the token is `none` (the night theme) it is not: a bar that hangs an
-     absolute child must be positioned itself, and a fixed child must not rely on the bar
-     (docs/ui-conventions · «Two materials»). */
-  --float-blur: blur(14px) saturate(1.4);
+     token, never as its value (styles/paintCost.test.ts). It is `none` in both themes, since both
+     glasses are opaque; the token stays so a re-themed deployment with a see-through glass can
+     turn a blur back on (e.g. `blur(14px) saturate(1.4)`). The compositor re-blurs each blurred
+     region on every map frame. ⚠️ A blur also makes its box the containing block of positioned
+     descendants; with `none` it is not: a bar that hangs an absolute child must be positioned
+     itself, and a fixed child must not rely on the bar (docs/ui-conventions · «Two materials»). */
+  --float-blur: none;
   --float-edge: inset 0 0 0 1px var(--glass-line), var(--shadow);
   --float-h: calc(var(--tap) + 2 * var(--msg-pad));
   --float-pad-x: 14px;
