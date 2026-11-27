@@ -269,8 +269,10 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
             chip, which is painted after it and simply covered it up. What «12 offen» has to do is
             be noticed from across a Schadenplatz, so the control it belongs to carries the colour
             and the number rides along (see .tb-act.has-rem). */}
+        {/* bare, a hold names it and opens nothing (`data-holdname`, lib/holdTooltip) – its glyph
+            alone does not say «Verlauf» to a touch user (owner, Üben feedback 27.11.2026) */}
         <button className={`tb-act ${journalOpen ? 'on' : ''} ${reminderCount > 0 ? 'has-rem' : ''}`} aria-expanded={journalOpen} onClick={onToggleJournal}
-          aria-label={journalDoor} title={keyTitle(journalDoor, PANEL_KEY.journal)}>
+          aria-label={journalDoor} title={keyTitle(journalDoor, PANEL_KEY.journal)} data-holdname={!worded || undefined}>
           <Icon id="verlauf" />{worded && <span>{appConfig.copy.journal.open}</span>}{keyHint(PANEL_KEY.journal)}
           {/* «1 offen», the Pendenzen box's own words, in the row after «Verlauf» (owner pick UX
               journeys B2·35, 25.11.2026 – a bare «1» in the corner read as «not logged» on 7 walks).

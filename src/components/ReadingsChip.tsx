@@ -50,6 +50,8 @@ export function ReadingsChip({ points, compact = false, onGo }: {
   return (
     <span className={s.anchor} ref={anchor}>
       <button ref={chip} type="button" className={cx('wb-scale-chip wb-tile', open && 'arm', !worded && 'wb-chip-bare')} aria-expanded={open}
+        // bare, a hold names it and opens nothing (lib/holdTooltip · data-holdname)
+        data-holdname={!worded || undefined}
         title={C.readingsChipLabel} aria-label={C.readingsChipLabel} onClick={() => setOpen(!open)}>
         {/* the glyph leads a tile (the pill over the word), the word leads a chip */}
         {compact

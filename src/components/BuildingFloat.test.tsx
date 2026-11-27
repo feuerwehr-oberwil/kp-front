@@ -108,10 +108,15 @@ describe('BuildingFloat', () => {
     for (const phone of [false, true]) {
       if (phone) asPhone()
       render(<BuildingFloat info={calm} />)
-      expect(screen.getByRole('button', { name: 'Gebäude-Steckbrief öffnen' }).textContent).toBe('')
+      const bare = screen.getByRole('button', { name: 'Gebäude-Steckbrief öffnen' })
+      expect(bare.textContent).toBe('')
+      // a bare panel door: a hold names it and opens nothing (lib/holdTooltip · data-holdname)
+      expect(bare.hasAttribute('data-holdname')).toBe(true)
       cleanup()
       render(<BuildingFloat info={base} />)
-      expect(screen.getByRole('button', { name: 'Gebäude: Gas, PV – Steckbrief öffnen · 1 Sofortmassnahme' }).textContent).toBe('Gas · PV1')
+      const hazard = screen.getByRole('button', { name: 'Gebäude: Gas, PV – Steckbrief öffnen · 1 Sofortmassnahme' })
+      expect(hazard.textContent).toBe('Gas · PV1')
+      expect(hazard.hasAttribute('data-holdname')).toBe(false) // its words answer
       cleanup()
     }
   })

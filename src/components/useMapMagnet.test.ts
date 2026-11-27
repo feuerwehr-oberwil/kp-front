@@ -93,3 +93,33 @@ describe('useMapMagnet — a line end on a hydrant of the Hydranten Ebene', () =
     } finally { vi.useRealTimers() }
   })
 })
+
+// owner, Üben feedback 27.11.2026 (found building #847): a placed symbol whose layer is switched
+// off is no magnet – a dragged end over it shows no ring and hangs on nothing
+describe('useMapMagnet — a symbol on a hidden layer', () => {
+  it('a dragged end over it gets no candidate and is released free', () => {
+    vi.useFakeTimers()
+    try {
+      const hydrant: Entity = { id: 'h', kind: 'symbol', layer: 'taktisch', coord: [0.1, 0], symbol: 'Hydrant' }
+      const L = { id: 'L', kind: 'line' as const, coords: [[0, 0.05], [0.05, 0]] as LngLat[] }
+      for (const shown of [true, false]) {
+        const scene: MagnetScene = { entities: [hydrant], drawings: [], attachmentLines: [], trupps: [], layerPoints: [], entityShown: () => shown, zoom: 18, bearing: 0, symMul: 1 }
+        const onDrawingAttachment = vi.fn()
+        const { result, unmount } = renderHook(() => useMapMagnet({
+          mapInst: { current: flat as unknown as MlMap },
+          storedDrawings: [L], entities: [hydrant], onDrawingAttachment,
+          candidates: (src, at) => mapMagnetTargets(flat, scene, src, at),
+          draft: { kind: 'line', freehand: 'line', length: 0 },
+          carry: { start: vi.fn(), move: vi.fn(), end: vi.fn() },
+        }))
+        act(() => { result.current.beginEndpointDrag('L', 'end', [0.05, 0]) })
+        act(() => { result.current.moveEndpointDrag([0.1, 0]) })
+        expect(result.current.endpointDrag?.candidate?.target).toEqual(shown ? expect.objectContaining({ kind: 'object', id: 'h' }) : undefined)
+        act(() => { vi.advanceTimersByTime(500) })
+        act(() => { result.current.finishEndpointDrag() })
+        expect(onDrawingAttachment).toHaveBeenCalledWith('L', 'end', shown ? expect.objectContaining({ target: expect.objectContaining({ id: 'h' }) }) : undefined, [0.1, 0])
+        unmount()
+      }
+    } finally { vi.useRealTimers() }
+  })
+})

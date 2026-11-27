@@ -153,6 +153,18 @@ export const mapCopy = {
       selfReportedAge: 'Selbstauskunft · vor {n} min',
       lastFix: 'Letzte Position',
       accuracy: 'Genauigkeit',
+      // the Traccar vehicle's detail rows (`useVehiclePositions` · toEntity) and its subtitle; with
+      // the feed silent past GPS_STALE_AFTER_MS the subtitle and one more row say since when
+      fieldStatus: 'Status',
+      fieldSpeed: 'Geschwindigkeit',
+      fieldCourse: 'Kurs',
+      fieldPlace: 'Standort',
+      fieldLastGps: 'Letzte GPS-Pos.',
+      vehicleSubtitle: 'GPS · {status}',
+      vehicleSubtitleStale: 'GPS · veraltet ({n} min)',
+      fieldFeed: 'GPS-Feed',
+      feedSilent: 'seit {n} min keine Daten',
+      feedUnreachable: 'GPS nicht erreichbar',
     },
   },
 } as const

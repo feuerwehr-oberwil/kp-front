@@ -93,6 +93,8 @@ export function BuildingFloat({ info, autoOpen = false, onRead }: {
         aria-label={summary.label}
         title={summary.label}
         aria-expanded={open}
+        // bare (words off, no hazard), a hold names it and opens nothing (lib/holdTooltip · data-holdname)
+        data-holdname={(!worded && !summary.hazard) || undefined}
         onClick={() => (open ? close() : setOpen(true))}
       >
         <Icon id={summary.hazard ? 'warn' : 'info'} />

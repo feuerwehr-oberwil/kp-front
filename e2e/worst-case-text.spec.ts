@@ -202,14 +202,26 @@ for (const device of [
     })
 
     // Sol review, PR #702: on a narrow foot «Schätzung ≈ 263 bar» was clipped (phone, room kept for
-    // «Eintrag»), and the ⌄ followed the flex box – between the two lines – not the last value
-    test(`the Trupp card foot cuts no value and ends in its ⌄ (${device.name})`, async ({ page }) => {
+    // «Eintrag»), and the ⌄ followed the flex box – between the two lines – not the last value.
+    // …and a VIEWER's card the same (owner pick B, Üben feedback 27.11.2026): «drin 8:00 · 270 bar ·
+    // ≈ 263 bar» wrapped on a tablet, so a viewer's foot is the editor's «drin · ≈ bar». The session
+    // reads as a viewer through its `/api/auth/me` (the seed needs the editor's login).
+    for (const viewer of [false, true]) test(`the Trupp card foot cuts no value and ends in its ⌄${viewer ? ', a viewer\'s too' : ''} (${device.name})`, async ({ page }) => {
+      if (viewer) {
+        await page.route('**/api/auth/me', async (route) => {
+          const response = await route.fetch()
+          await route.fulfill({ response, json: { ...await response.json() as object, role: 'viewer' } })
+        })
+      }
       await openEinsatz(page)
       await go(page, 'Trupps')
       const card = page.locator('[class*="trowCard"]').filter({ hasText: WORST.crew[0] })
       if (!await card.isVisible()) await page.getByText(WORST.leader, { exact: true }).filter({ visible: true }).first().click()
       const line = card.locator('[class*="metaLine"]')
       await expect(line).toBeVisible()
+      // a viewer's card for sure, not the editor's drawn from the cached role while the patched
+      // `/api/auth/me` is on its way (Sol review): it has no «Raus melden»
+      if (viewer) await expect(card.getByRole('button', { name: 'Raus melden' })).toHaveCount(0)
       await settled(card)
       const items = line.locator(':scope > span')
       // no value cut at its right edge (the ⌄'s 28px box overhangs its line by design, so not the height)
@@ -226,6 +238,11 @@ for (const device of [
       // ONE line beside «⋯ Mehr» (Üben feedback 27.11.2026: «two rows of text … feels like an afterthought»)
       const tops = await line.evaluate((l) => new Set([...l.querySelectorAll(':is(i, b)')].map((e) => Math.round(e.getBoundingClientRect().top))).size)
       expect(tops, 'the foot is one line').toBe(1)
+      // the measured Druck stays in the Verlauf: «drin 8:00 · ≈ 263 bar», no «270 bar» item between
+      if (viewer) {
+        await expect(items).toHaveCount(2)
+        await expect(items.last()).toHaveText(/^≈ \d+ bar$/)
+      }
     })
 
     // Sol review 2, PR #702: with the room kept for «Eintrag» (the FAB guard, `data-az-fab-foot`) a
