@@ -1428,6 +1428,20 @@ async def test_an_object_deleted_during_the_run_is_skipped_whole_and_imported_ne
     await db_session.commit()
     tenant = FakeTenant({"Musterweg 1/Modul 1.pdf": PDF, "Musterweg 1/Modul 2.pdf": PDF, "Dorfmatt/Modul 1.pdf": PDF})
 
+    # X's first sheet was imported once already – its eTag is in the memo, so this run calls it
+    # «unchanged»; only forgetting it again brings it back with the object
+    from app.schemas import SharePointSource
+
+    db_session.add(
+        SharePointSyncState(
+            area="plans",
+            status="ok",
+            source_fingerprint=sharepoint_sync._fingerprint(SharePointSource.model_validate(source("plans"))),
+            files={"Musterweg 1/Modul 1.pdf": tenant._store["Musterweg 1/Modul 1.pdf"].etag},
+        )
+    )
+    await db_session.commit()
+
     result = await _holding_up_x(session_factory, tenant, x_id, delete_x=_organizer_removes_its_ref)
 
     assert result["areas"]["plans"]["status"] == "needs_review"

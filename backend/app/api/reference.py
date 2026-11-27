@@ -497,7 +497,13 @@ async def _replace_reference(
 
     key = storage.new_key("reference", f"-{dataset_id.replace(':', '_')}")
     storage.put_bytes(key, data)
-    storage.replaced_in_transaction(db, new_key=key, old_key=ds.storage_key if ds is not None else None)
+    old_key = ds.storage_key if ds is not None else None
+    if old_key and dataset_id.startswith("plan:"):
+        # a legacy plan row may still have revisions an Einsatz downloads by version: their bytes stay
+        pinned = select(PlanRevision.version).where(PlanRevision.storage_key == old_key).limit(1)
+        if (await db.execute(pinned)).first() is not None:
+            old_key = None
+    storage.replaced_in_transaction(db, new_key=key, old_key=old_key)
 
     if ds is None:
         ds = ReferenceDataset(id=dataset_id, kind=kind)

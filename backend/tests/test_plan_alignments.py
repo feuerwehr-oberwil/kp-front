@@ -428,19 +428,24 @@ async def test_a_first_put_of_a_plan_id_takes_the_plan_write_path(client, admin_
 async def test_a_legacy_plan_row_without_an_object_is_replaced_as_it_always_was(client, admin_login, db_session):
     """A `plan:` row from before plans had an object (object_id and module empty) has no «plans of an
     object» to lock. `PUT /api/reference/…` replaces it the way main did – a new file and version –
-    and hangs no revision and no alignment job off it."""
+    and hangs no revision and no alignment job off it; a version an Einsatz pinned still downloads."""
     obj = ObjectSite(name="Altbestand")
     db_session.add(obj)
     await db_session.flush()
     ds_id = f"plan:{obj.id}:modul1"
+    storage.put_bytes("reference/old.pdf", PDF2)
     db_session.add(ReferenceDataset(id=ds_id, kind="pdf", storage_key="reference/old.pdf", current_version=1))
+    await db_session.flush()
+    db_session.add(PlanRevision(dataset_id=ds_id, version=1, storage_key="reference/old.pdf"))
     await db_session.commit()
     await admin_login(client)
-    response = await client.put(f"/api/reference/{ds_id}", files={"file": ("m1.pdf", PDF1, "application/pdf")})
+    url = f"/api/reference/{quote(ds_id, safe='')}"
+    response = await client.put(url, files={"file": ("m1.pdf", PDF1, "application/pdf")})
     assert response.status_code == 200, response.text
     assert response.json()["current_version"] == 2
     assert (await db_session.execute(select(PlanAlignment))).scalars().all() == []
-    assert (await db_session.execute(select(PlanRevision))).scalars().all() == []
+    assert len((await db_session.execute(select(PlanRevision))).scalars().all()) == 1
+    assert (await client.get(url, params={"v": 1})).content == PDF2
 
 
 async def test_store_plan_links_a_legacy_row_to_its_object_before_it_queues_a_job(db_session):
