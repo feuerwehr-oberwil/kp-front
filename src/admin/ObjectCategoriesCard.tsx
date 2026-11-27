@@ -39,6 +39,10 @@ export function ObjectCategoriesCard() {
   const raw = getPath(draft, ['map', 'objectCategories'])
   const stored = Array.isArray(raw) ? raw : []
   const [editing, setEditing] = useState<ObjectCategoryRule[] | null>(null)
+  // A row's key is its index, and a rule has no stable id (it follows the name). So a move, a
+  // delete or an add gives every row a new key: an armed «Löschen?» is dropped instead of staying
+  // at its index and deleting the rule that moved there.
+  const [layout, setLayout] = useState(0)
   const rows = editing ?? stored
   const { edited, saved } = useStoredRows(stored, writableRules, (r) => chars(r.id) > TEXT_MAX_LENGTH['map.objectCategories.0.id']
     || (r.match?.modules ?? []).some((m) => chars(m) > MODULE_MAX))
@@ -47,6 +51,7 @@ export function ObjectCategoriesCard() {
     setEditing(next)
     set(['map', 'objectCategories'], saved(next))
   }
+  const reshape = (next: ObjectCategoryRule[]) => { setLayout((n) => n + 1); write(next) }
   const patch = (i: number, over: Partial<ObjectCategoryRule>) => write(rows.map((r, j) => (j === i ? edited(r, { ...r, ...over }) : r)))
   /** a German name edits the German entry of a per-language label, and leaves the others */
   const setName = (i: number, name: string) => {
@@ -63,7 +68,7 @@ export function ObjectCategoriesCard() {
     if (j < 0 || j >= rows.length) return
     const next = [...rows]
     ;[next[i], next[j]] = [next[j], next[i]]
-    write(next)
+    reshape(next)
   }
 
   return (
@@ -83,7 +88,7 @@ export function ObjectCategoriesCard() {
           ])
         return (
           <RecordRows
-            key={i}
+            key={`${layout}:${i}`}
             name={name || appConfig.copy.admin.common.newEntry}
             swatch={ink ? INK_SWATCH : HEX.test(row.color) ? row.color : null}
             meta={row.id ? <code>{row.id}</code> : undefined}
@@ -94,7 +99,7 @@ export function ObjectCategoriesCard() {
                 <ConfirmButton
                   className="adm-formlink-x" ariaLabel={C.catRemove} label={<Icon id="trash" />}
                   question={C.catRemoveConfirm} danger
-                  onConfirm={() => write(rows.filter((_, j) => j !== i))}
+                  onConfirm={() => reshape(rows.filter((_, j) => j !== i))}
                 />
               </span>
             )}
@@ -138,7 +143,7 @@ export function ObjectCategoriesCard() {
       })}
       <SettingsNote>
         <button type="button" className="adm-formlink-add"
-          onClick={() => write([...rows, { id: '', label: '', color: NEW_COLOR, match: {} }])}>
+          onClick={() => reshape([...rows, { id: '', label: '', color: NEW_COLOR, match: {} }])}>
           <Icon id="plus" />{C.catAdd}
         </button>
       </SettingsNote>

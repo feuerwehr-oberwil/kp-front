@@ -366,3 +366,34 @@ describe('a stored row past its bound stays in the save', () => {
     })
   })
 })
+
+// Lead review of #834 (S4): rows are keyed by index, so an armed «Löschen?» stayed at its index
+// when the rows moved and deleted the row that came there.
+describe('an armed delete never lands on another row', () => {
+  const T = appConfig.copy.admin.objectVisits
+  const M = appConfig.copy.admin.map
+  const yes = () => screen.queryAllByRole('button', { name: appConfig.copy.admin.common.confirmYes })
+  const click = (el: Element) => act(async () => { fireEvent.click(el) })
+
+  it('Objektfarben: a move drops it', async () => {
+    const rule = (id: string) => ({ id, label: id, color: '#64748b', match: { kinds: ['objekt'] } })
+    apiGet.mockResolvedValue({ ...structuredClone(STATION), map: { objectCategories: [rule('a'), rule('b')] } })
+    await act(async () => { render(<ConfigProvider><ObjectCategoriesCard /></ConfigProvider>) })
+    await click((await waitFor(() => screen.getAllByRole('button', { name: M.catRemove })))[0])
+    expect(yes()).toHaveLength(1)
+    await click(screen.getAllByRole('button', { name: M.catDown })[0])
+    expect(yes()).toHaveLength(0)
+  })
+
+  it('Korrekturvorschlag fields: deleting a row above drops it', async () => {
+    const fields = ['a', 'b', 'c'].map((id) => ({ id, label: id }))
+    apiGet.mockResolvedValue({ ...structuredClone(STATION), objectVisits: { proposalFields: fields } })
+    await act(async () => { render(<ConfigProvider><ProposalFieldsEditor /></ConfigProvider>) })
+    await click((await waitFor(() => screen.getAllByRole('button', { name: T.fieldRemove })))[1])
+    await click(screen.getAllByRole('button', { name: T.fieldRemove })[0])
+    expect(yes()).toHaveLength(2)
+    await click(yes()[0])
+    expect(yes()).toHaveLength(0)
+    expect(screen.getAllByPlaceholderText(T.fieldIdPlaceholder).map((el) => (el as HTMLInputElement).value)).toEqual(['b', 'c'])
+  })
+})

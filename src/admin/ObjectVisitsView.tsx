@@ -149,6 +149,9 @@ export function ProposalFieldsEditor() {
   const { ov, set } = useOv()
   const stored: FieldRow[] = Array.isArray(ov.proposalFields) ? ov.proposalFields : []
   const [editing, setEditing] = useState<FieldRow[] | null>(null)
+  // A row's key is its index (the Kennung is edited in the row). So a delete or an add gives every
+  // row a new key: an armed «Löschen?» is dropped instead of deleting the row that moved up.
+  const [layout, setLayout] = useState(0)
   const rows = editing ?? stored
   const problem = (f: FieldRow, i: number, all: readonly FieldRow[]): string | null => {
     const id = f.id?.trim()
@@ -169,6 +172,7 @@ export function ProposalFieldsEditor() {
     setEditing(next)
     set(['objectVisits', 'proposalFields'], saved(next, (f) => ({ id: f.id.trim(), label: f.label.trim() })))
   }
+  const reshape = (next: FieldRow[]) => { setLayout((n) => n + 1); write(next) }
   const patch = (i: number, over: Partial<FieldRow>) => {
     const tick = Math.max(0, ...rows.map((r) => r.since ?? 0)) + 1
     write(rows.map((r, j) => {
@@ -189,12 +193,12 @@ export function ProposalFieldsEditor() {
         const warn = problem(row, i, rows)
         return (
           <RecordRows
-            key={i}
+            key={`${layout}:${i}`}
             name={row.label?.trim() || appConfig.copy.admin.common.newEntry}
             meta={row.id?.trim() || undefined}
             action={(
               <ConfirmButton className="adm-formlink-x" ariaLabel={T.fieldRemove} label={<Icon id="trash" />}
-                question={T.fieldRemoveConfirm} danger onConfirm={() => write(rows.filter((_, j) => j !== i))} />
+                question={T.fieldRemoveConfirm} danger onConfirm={() => reshape(rows.filter((_, j) => j !== i))} />
             )}
           >
             <SettingRow label={T.fieldLabel}>
@@ -210,7 +214,7 @@ export function ProposalFieldsEditor() {
         )
       })}
       <SettingsNote>
-        <button type="button" className="adm-formlink-add" onClick={() => write([...rows, { id: '', label: '' }])}>
+        <button type="button" className="adm-formlink-add" onClick={() => reshape([...rows, { id: '', label: '' }])}>
           <Icon id="plus" />{T.fieldAdd}
         </button>
       </SettingsNote>
