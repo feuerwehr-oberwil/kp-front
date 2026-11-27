@@ -28,7 +28,6 @@ describe('the floating blur is one token', () => {
   // for it on every frame behind it).
   const VISIBLE_BLURS: Record<string, string> = {
     'src/styles/13-incident.css · .ui-backdrop, .modal-backdrop, .mp-backdrop, .help-scrim': 'the modal scrim, .32',
-    'src/styles/13-incident.css · .ip-ovl': 'the sheets’ own scrim, .32',
     'src/styles/08-toasts.css · .photo-scrim': 'the photo viewer’s dark room, .72',
     'src/styles/13-incident.css · .cv-head': 'the capture view’s sticky head, --surface at 88 %',
     'src/styles/13-incident.css · .cv-acc-head': 'the capture view’s sticky section head, --surface at 88 %',

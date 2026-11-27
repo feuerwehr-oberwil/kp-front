@@ -312,7 +312,7 @@
   max-height: 240px; overflow-y: auto; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-bar); box-shadow: var(--e4); }
 /* portalled to <body> so a scrollable/overflow-hidden panel can't clip or cut off the menu */
 /* z above the phone bottom sheet (.ctx @62), journal drawer (@61) AND the modal sheets
-   (.ip-ovl @80 — the Einsatz wizard's Kategorie combo rendered BEHIND the modal at 70:
+   (.ui-backdrop @80 — the Einsatz wizard's Kategorie combo rendered BEHIND the modal at 70:
    "category can't be selected"). Below the toaster (@90). The menu is portalled precisely
    so no container can clip it; it must out-stack them all. */
 .combo-menu-portal { position: fixed; right: auto; z-index: var(--z-dialog-menu); }
