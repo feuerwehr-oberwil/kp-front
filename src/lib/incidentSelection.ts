@@ -29,7 +29,10 @@ export class IncidentSelection {
     try {
       const incident = meta ?? await getIncident(id)
       if (!stillOpening()) return null
-      if (previous?.incidentId === id) return { meta: incident, workspace: previous.workspace, rev: previous.rev }
+      // The Einsatz already open answers from its engine – unless that engine's tab followed
+      // another one (WorkspaceSync · lockLost): it writes nothing again, so a tab that took the
+      // edit lock over opens afresh from the cache.
+      if (previous?.incidentId === id && !previous.lockLost) return { meta: incident, workspace: previous.workspace, rev: previous.rev }
 
       // A second tap on the same Einsatz joins its load. Two candidates for one id
       // would both write the same cache, including on teardown of the losing request.

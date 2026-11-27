@@ -28,6 +28,7 @@ import {
 } from './workspace'
 import type { Trupp } from '../../types'
 import { isIncidentClosedRefusal, refusalClosedAt, reportIncidentClosed } from '../incidentClosed'
+import { tabLockAnswers, type TabLockAnswers } from '../tabLock'
 import { isOlderBuildRefusal } from '../olderBuild'
 
 // --- Workspace sync: offline cache + debounced save with three-way merge -------------
@@ -325,6 +326,9 @@ export interface WorkspaceSyncOptions {
    * reason about the WHOLE blob (the server's copy carries everything).
    */
   slice?: 'trupps' | 'record'
+  /** Where this tab's edit-lock answer is read (lib/tabLock). Default: the tab's own; a test of
+   *  two tabs gives each its own. */
+  tabLock?: TabLockAnswers
 }
 
 /** The trupp slice of an opaque workspace blob. The engine treats the blob as data it only
@@ -569,10 +573,21 @@ export class WorkspaceSync {
    *  device — see `subscribeForeignParked`. */
   private foreignParkedListeners = new Set<(owners: string[]) => void>()
 
+  /** The tab lock answered «another tab holds this Einsatz» (lib/tabLock): from then on this engine
+   *  writes nothing – no cache write, no PUT, no beacon. Never cleared: a tab that takes the lock
+   *  over opens a fresh engine from the cache (IncidentSelection.open), docs/sync-and-offline.md
+   *  › Two tabs. */
+  private followed = false
+  private readonly lockAnswers: TabLockAnswers
+  private readonly offLock: () => void
+
   constructor(
     readonly incidentId: string,
     private readonly opts: WorkspaceSyncOptions = {},
   ) {
+    this.lockAnswers = opts.tabLock ?? tabLockAnswers
+    this.followed = this.lockAnswers.get(incidentId) === false
+    this.offLock = this.lockAnswers.on(incidentId, (held) => { if (!held) this.follow() })
     this.debounceMs = opts.debounceMs ?? 3000
     // The cache lives in IndexedDB (async), so it can't be read in the constructor; init()
     // loads it before the first edit. Start empty/synced until then.
@@ -610,10 +625,36 @@ export class WorkspaceSync {
    *  synchronously first: teardown, an owner change and the server push (the cache ancestor
    *  has to be the one we pushed). */
   private writeCache() {
-    if (!this.ownsCache) return
+    if (!this.ownsCache || this.followed) return
     if (this.cacheTimer) clearTimeout(this.cacheTimer)
-    this.cacheTimer = setTimeout(this.flushCache, CACHE_DEBOUNCE_MS)
+    this.cacheTimer = setTimeout(this.cacheDue, CACHE_DEBOUNCE_MS)
     pendingCacheWrites.add(this.flushCache)
+  }
+
+  /** The debounced cache write. Before this tab's lock first answered it waits for that answer
+   *  (bounded, lib/tabLock · TAB_LOCK_ANSWER_MS): a tab opening behind the holder must not write a
+   *  server copy over the holder's draft. A write flushed synchronously (teardown, push) does not wait. */
+  private cacheDue = () => {
+    if (this.lockAnswers.get(this.incidentId) !== undefined) void this.flushCache()
+    else void this.lockAnswers.answered(this.incidentId).then(this.flushCache)
+  }
+
+  /** This tab lost the edit lock, or opened behind its holder: drop every write still waiting – the
+   *  holder reads the slot now. A write already handed to the browser may still land. */
+  private follow() {
+    this.followed = true
+    if (this.cacheTimer) clearTimeout(this.cacheTimer)
+    this.cacheTimer = null
+    pendingCacheWrites.delete(this.flushCache)
+    if (this.timer) clearTimeout(this.timer)
+    this.timer = null
+    if (this.retryTimer) clearTimeout(this.retryTimer)
+    this.retryTimer = null
+  }
+
+  /** true once this tab's lock said another tab holds the Einsatz (see `followed`) */
+  get lockLost(): boolean {
+    return this.followed
   }
 
   /** Write the current entry to the offline cache NOW (a no-op when nothing is waiting). */
@@ -680,7 +721,7 @@ export class WorkspaceSync {
    *  it used to sit in the slot until a reload, neither merged nor pushed, under a green badge).
    *  Unsynced and someone else's ⇒ park it for its owner first, durable-or-abort, as init() does. */
   private async probeUnreadSlot() {
-    if (this.probing || !this.sessionActive) return
+    if (this.probing || !this.sessionActive || this.followed) return
     this.probing = true
     try {
       const read = await readCache(this.incidentId)
@@ -1211,7 +1252,9 @@ export class WorkspaceSync {
 
   private run(): Promise<void> {
     if (this.flushing) return this.flushing
-    if (!this.entry.dirty || !this.sessionActive) return Promise.resolve()
+    if (!this.entry.dirty || !this.sessionActive || this.followed) return Promise.resolve()
+    // no PUT before this tab's lock first answered (bounded) – see cacheDue
+    if (this.lockAnswers.get(this.incidentId) === undefined) return this.lockAnswers.answered(this.incidentId).then(() => this.run())
     this.flushing = (async () => {
       do {
         this.flushRequested = false
@@ -1251,7 +1294,7 @@ export class WorkspaceSync {
         }
         await this.pushCurrent()
       } catch (e) {
-        if (!this.sessionActive) return
+        if (!this.sessionActive || this.followed) return
         // ⚠️ BEFORE the 409 branch: this 409 is not a revision conflict — merging and retrying
         // would only collect it again (N3). The save is parked and the view goes back to the record.
         if (isIncidentClosedRefusal(e)) {
@@ -1277,7 +1320,7 @@ export class WorkspaceSync {
 
   /** Exponential-backoff re-flush: 5s · 10s · 20s · 40s · then every 60s while dirty. */
   private scheduleRetry() {
-    if (this.disposed) return
+    if (this.disposed || this.followed) return
     if (this.retryTimer) clearTimeout(this.retryTimer)
     const delay = Math.min(60_000, 5_000 * 2 ** this.retryCount)
     this.retryCount++
@@ -1305,7 +1348,7 @@ export class WorkspaceSync {
    * for the next open (15.11.2026). */
   flushKeepalive(): void {
     this.flushCache() // the page is dying — the debounce would never fire
-    if (!this.entry.dirty || !this.sessionActive) return
+    if (!this.entry.dirty || !this.sessionActive || this.followed) return
     const v = versionOf(this.entry.workspace)
     if (this.opts.slice === 'record') putWorkspaceRecordBeacon(this.incidentId, recordSlice(this.entry.workspace), this.entry.baseRev, v)
     else if (this.opts.slice === 'trupps' || onlyTruppsChanged(this.entry.base, this.entry.workspace)) putWorkspaceTruppsBeacon(this.incidentId, truppSlice(this.entry.workspace), this.entry.baseRev, this.editedAtIso(), v)
@@ -1317,6 +1360,7 @@ export class WorkspaceSync {
    *  Both callers set `entry.base` to the server's copy at `baseRev` before they push, so an
    *  editor's save that changed only Trupps goes the slice route as well (onlyTruppsChanged). */
   private async push(workspace: Workspace, baseRev: number) {
+    if (this.followed) throw new Error('Another tab holds the edit lock') // caught quietly: drain, resolveConflict
     const v = versionOf(workspace)
     if (this.opts.slice === 'trupps') return putWorkspaceTrupps(this.incidentId, truppSlice(workspace), baseRev, this.editedAtIso(), this.writerId, v)
     if (this.opts.slice === 'record') return putWorkspaceRecord(this.incidentId, recordSlice(workspace), baseRev, this.writerId, v)
@@ -1438,7 +1482,7 @@ export class WorkspaceSync {
         this.opts.onMerged?.()
         return true
       } catch (e) {
-        if (!this.sessionActive) return false
+        if (!this.sessionActive || this.followed) return false
         // the merge landed on a closed Einsatz — the same answer as a plain push gets (see drain)
         if (isIncidentClosedRefusal(e) || isOlderBuildRefusal(e)) {
           const parked = isIncidentClosedRefusal(e) ? await this.parkRefused(e) : await this.parkOlderBuild()
@@ -1817,6 +1861,7 @@ export class WorkspaceSync {
   dispose() {
     this.flushCache() // land the last edit before the debounce is torn down with the instance
     this.disposed = true
+    this.offLock()
     if (this.timer) clearTimeout(this.timer)
     if (this.retryTimer) clearTimeout(this.retryTimer)
     if (this.probeTimer) clearTimeout(this.probeTimer)

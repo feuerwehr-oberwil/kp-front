@@ -218,6 +218,34 @@ the module they concern (`lib/connectivity`, `lib/eventScope`, `lib/jsonEqual`,
   ([`ARCHITECTURE.md`](ARCHITECTURE.md#the-server-observes-devices-never-write-observations)).
   What the devices still observe gets a derived id (below).
 
+## Two tabs
+
+Two tabs of one browser on one Einsatz share its cache slot. Only the tab that holds the Einsatz's
+edit lock (`lib/tabLock`, Web Locks) writes for it; the other one reads and shows, read-only. The
+lock's answers reach the writers through `TabLockAnswers`, one per tab:
+
+1. **A tab that does not hold the lock writes nothing** for that Einsatz: no cache write, no PUT, no
+   beacon, no media upload and no receipt retired (`WorkspaceSync · followed`, `useMediaQueue`).
+   The lock state starts «held» for the moment the try-acquire takes, so the debounced cache write
+   and the PUT wait for the lock's first answer, at most `TAB_LOCK_ANSWER_MS` (1 s). Opening,
+   reading and showing never wait, and a teardown write (page-hide, dispose) does not wait either.
+2. **A tab that takes over starts from the cache as the holder left it.** The engine that followed
+   is never written from again; the App opens the Einsatz afresh (`IncidentSelection.open` with a
+   `lockLost` engine – the normal open: slot, then server), and the view stays read-only until it
+   is in place.
+3. **A tab that loses the lock stops at once**: its waiting cache write, its push and its retry
+   are dropped, not flushed – the new holder reads the slot.
+
+Without Web Locks, a lock request that rejects before any grant, or no answer within the bound: a
+tab writes as if it held the lock. With one tab nothing here changes anything.
+
+The accepted limits (owner, 27.11.2026), none of which one tab can meet: an edit still inside the
+cache debounce (`CACHE_DEBOUNCE_MS`) when the lock is taken away is lost; a cache write or a PUT
+already on its way at that moment can land after the new holder read the slot; a save in flight
+during a handover can bring one deleted thing back once. The opening writes that park or re-home
+another account's cache entry (`loadReadableEntry`, `parkForRole`) run before the lock is asked and
+are not gated.
+
 ## Live but never synced: the Präsentationsmodus (05.11.2026)
 
 A presentation is a way of LOOKING at the Einsatz together, so it has none of the machinery above:

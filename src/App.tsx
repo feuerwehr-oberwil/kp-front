@@ -449,6 +449,14 @@ function IncidentApp() {
       : { ...prev, incidentId: id, incidentChosenAt: Date.now(), landedAt: undefined })
   }, [markOpened, syncRef, isSessionCurrent])
 
+  // A tab that took the edit lock over (the holder closed, or «Hier bearbeiten») starts from the
+  // cache as the holder left it: the engine that followed writes nothing again (WorkspaceSync ·
+  // lockLost), so the Einsatz opens afresh – docs/sync-and-offline.md › Two tabs.
+  useEffect(() => {
+    if (!tabLock.held || !activeId || syncRef.current?.incidentId !== activeId || !syncRef.current.lockLost) return
+    selectIncident(activeId, { meta: activeMeta ?? undefined, readOnly: forceReadOnlyRef.current, boot: true }).catch(() => {})
+  }, [tabLock.held, activeId, activeMeta, syncRef, selectIncident])
+
   // `selectIncident` for a HUMAN tap: the same open, but a failure is SAID. Every interactive
   // caller used to swallow the rejection — offline with no cached workspace, a 404 for an Einsatz
   // archived since the list was written, the 20 s bound on a half-open link — so the card simply
@@ -866,7 +874,8 @@ function IncidentApp() {
           workspace={workspace}
           sync={syncRef.current}
           forceReadOnly={forceReadOnly}
-          tabLockLost={!tabLock.held}
+          // …and stays lost until the fresh engine of a takeover is in place (the effect above)
+          tabLockLost={!tabLock.held || syncRef.current.lockLost}
           tabLockHeldAtOpen={tabLock.heldAtOpen === true}
           onTakeOverTab={tabLock.takeOver}
           // An abgeschlossener Einsatz opens read-only — the same rule «Alle Einsätze» follows
