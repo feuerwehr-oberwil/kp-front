@@ -1782,3 +1782,54 @@ async def test_einsaetze_held_in_turn_make_the_run_give_up_within_one_budget(
     await db_session.commit()
     assert again["areas"]["plans"]["status"] == "ok"
     assert await _einsaetze(db_session, first, second) == {(1, str(new_id))}
+
+
+async def test_an_einsatz_switched_to_another_renamed_object_while_the_run_waits_follows_it(
+    db_session, session_factory, blank_env, storage_root
+):
+    """Two folders renamed in one run. An Einsatz names the first's old object when the run looks
+    for Einsätze; a device then switches it to the second's old object and holds the row while the
+    run waits for it (the checkpoint). The run re-points what the Einsatz names once it holds the
+    row – the second object's new id, not a dangling old one. PostgreSQL only."""
+    import asyncio
+
+    from sqlalchemy import text
+
+    if db_session.bind.dialect.name != "postgresql":
+        pytest.skip("requires independent PostgreSQL transactions")
+    a_old, a_new, b_old, b_new = "Musterweg 1-14", "Musterweg 2-14", "Feldrain 3", "Feldrain 3-5"
+    await configure(db_session, [source("plans")])
+    tenant = FakeTenant({f"{a_old}/Modul 1.pdf": PDF, f"{b_old}/Modul 2.pdf": PDF})
+    await sync_sharepoint(db_session, transport=tenant.transport)
+    incident = await _einsatz_on(db_session, object_id_for_key(a_old))
+    await db_session.commit()
+    tenant.rename_folder(a_old, a_new)
+    tenant.rename_folder(b_old, b_new)
+    pulling, pull_pids = _recording_pids(session_factory)
+
+    async def pull():
+        async with pulling() as db:
+            out = await sync_sharepoint(db, transport=tenant.transport)
+            await db.commit()
+            return out
+
+    run = None
+    try:
+        async with session_factory() as device:
+            await device.execute(
+                text(
+                    "UPDATE incidents SET workspace_rev = workspace_rev + 1, map_workspace_json ="
+                    " jsonb_set(map_workspace_json::jsonb, '{pickedObjectId}', to_jsonb(CAST(:b AS text)))"
+                    " WHERE id = :id"
+                ),
+                {"b": str(object_id_for_key(b_old)), "id": incident},
+            )
+            run = asyncio.create_task(pull())
+            await _until_blocked(session_factory, run, pull_pids, await _pid(device))
+            await device.commit()
+        result = await asyncio.wait_for(run, 10)
+    finally:
+        await _settle(run)
+
+    assert result["areas"]["plans"]["status"] == "ok"
+    assert await _einsaetze(db_session, incident) == {(2, str(object_id_for_key(b_new)))}

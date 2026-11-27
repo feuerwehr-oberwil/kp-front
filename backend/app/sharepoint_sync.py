@@ -69,7 +69,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 import httpx
-from sqlalchemy import func, or_, select, text, update
+from sqlalchemy import Text, cast, func, or_, select, text, update
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -365,15 +365,11 @@ async def _repoint_einsaetze(db: AsyncSession, rekeyed: list[tuple[uuid.UUID, uu
     time on a big table but waits for no lock. Past the deadline the run raises
     `EinsaetzeBusyError`, because a re-key must not commit without its Einsätze. Then each is
     re-pointed with the ``workspace_rev`` rule (admin_objects_repair · _retarget_incident), once
-    for each old id it names.
+    for each old id it names AFTER the lock – a save the lock waited for may have changed which.
     """
     from .admin_objects_repair import _incidents_naming, _retarget_incident
 
-    names: dict[uuid.UUID, list[tuple[uuid.UUID, uuid.UUID]]] = {}  # Einsatz → the pairs it names
-    for old, new in rekeyed:
-        for incident in await _incidents_naming(db, old):
-            names.setdefault(incident, []).append((old, new))
-    found = sorted(names)
+    found = sorted({incident for old, _ in rekeyed for incident in await _incidents_naming(db, old)})
     if not found:
         return
     on_postgres = db.bind.dialect.name == "postgresql"
@@ -394,9 +390,15 @@ async def _repoint_einsaetze(db: AsyncSession, rekeyed: list[tuple[uuid.UUID, uu
         raise
     if on_postgres:
         await db.execute(select(func.set_config("statement_timeout", before, True)))
-    for incident in incidents:
-        for old, new in names[incident]:
-            await _retarget_incident(db, incident, old, new)
+    # what each one names NOW, under the lock: a save the lock waited for may have switched it to
+    # another renamed object's old id
+    current = await db.execute(
+        select(Incident.id, cast(Incident.map_workspace_json, Text)).where(Incident.id.in_(incidents))
+    )
+    for incident, doc in current.all():
+        for old, new in rekeyed:
+            if str(old) in (doc or ""):
+                await _retarget_incident(db, incident, old, new)
 
 
 async def _sync_one(
