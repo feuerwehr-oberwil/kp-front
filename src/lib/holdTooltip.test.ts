@@ -155,6 +155,27 @@ describe('holdTooltip', () => {
     expect(bubble()).toBeNull()
   })
 
+  // Üben feedback (owner 27.11.2026, «Yes, hold names them»): with the words off, Verlauf and the
+  // Gebäude-Info / Messungen chips are a glyph alone – their host marks them, and a hold names them
+  it('a bare panel door ([data-holdname]) IS claimed – held it names, the release opens nothing; a tap opens', () => {
+    const onClick = vi.fn()
+    btn.setAttribute('aria-expanded', 'false')
+    btn.setAttribute('data-holdname', 'true')
+    btn.setAttribute('aria-label', 'Verlauf')
+    btn.innerHTML = '<svg></svg><span aria-hidden="true">J</span>' // the corner key letter is no word
+    btn.addEventListener('click', onClick)
+    ptr('pointerdown', btn)
+    vi.advanceTimersByTime(520)
+    expect(bubble()?.textContent).toBe('Verlauf')
+    ptr('pointerup', btn)
+    ptr('click', btn)
+    expect(onClick).not.toHaveBeenCalled()
+    ptr('pointerdown', btn)
+    ptr('pointerup', btn)
+    ptr('click', btn)
+    expect(onClick).toHaveBeenCalledTimes(1)
+  })
+
   it('a hold whose release sent no click does not eat the next real tap', () => {
     const onClick = vi.fn()
     btn.addEventListener('click', onClick)

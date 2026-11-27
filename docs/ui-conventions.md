@@ -1102,7 +1102,10 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     (`useHoldToDrag`); **GUARD 250 → 825 ms** when it takes something away (`lib/nodeHold`: a
     node, «Entsperren», the Notfall tile – nothing shows before 250, it acts at 825). A
     disclosure (`aria-expanded`: the ⓘ, a menu or card toggle) is never hold-explained – its tap
-    already shows what it means, and the same words twice read as a glitch (28.10.2026).
+    already shows what it means, and the same words twice read as a glitch (28.10.2026). The one
+    exception is a panel door that «Beschriftung … Aus» left a bare glyph (Verlauf, Gebäude-Info,
+    Messungen): its host marks it `data-holdname` while it shows no word, a hold names it and the
+    release opens nothing (owner, Üben feedback 27.11.2026).
   - *The compass hold* (GESTURES.7, owner 17.11.2026): **Einsatz → Einpassen, Frieden →
     Standort.** In an Einsatz a hold on the Lage's compass and on the Plan's north dial
     (`PlanCompass · onFit`, the whole plan) fits the view; on the peacetime Karte it finds
