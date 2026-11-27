@@ -1,11 +1,13 @@
 // @vitest-environment jsdom
+import { Profiler, type ComponentProps } from 'react'
 import { afterEach, describe, it, expect, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { formatTime } from '../lib/format'
+import { fmtClock } from '../lib/atemschutz'
 import { TopBar, windArrowRotation } from './TopBar'
 import type { Incident } from '../types'
 
-afterEach(() => { cleanup() })
+afterEach(() => { cleanup(); vi.useRealTimers() })
 
 const INCIDENT: Incident = {
   type: 'Brand', title: 'Brand Hauptstrasse', address: 'Hauptstrasse 1', center: [7.55, 47.51],
@@ -14,6 +16,20 @@ const INCIDENT: Incident = {
 const STARTED = '2026-11-06T10:00:00Z'
 const bar = () => render(<TopBar incident={INCIDENT} startedAt={STARTED} recording={false} recStartedAt={null} journalOpen={false}
   onToggleJournal={vi.fn()} onAddEntry={vi.fn()} onUndo={vi.fn()} onRedo={vi.fn()} canUndo={false} canRedo={false} />)
+/** the bar inside a Profiler: `commits()` counts every commit of the bar and what it renders */
+function profiledBar(props: Partial<ComponentProps<typeof TopBar>> = {}) {
+  let n = 0
+  const all = (p: Partial<ComponentProps<typeof TopBar>>) => (
+    <Profiler id="bar" onRender={() => { n++ }}>
+      <TopBar incident={INCIDENT} startedAt={STARTED} recording={false} recStartedAt={null} journalOpen={false}
+        onToggleJournal={vi.fn()} onAddEntry={vi.fn()} onUndo={vi.fn()} onRedo={vi.fn()} canUndo={false} canRedo={false} {...p} />
+    </Profiler>
+  )
+  const view = render(all(props))
+  return { commits: () => n, rerender: (p: Partial<ComponentProps<typeof TopBar>>) => view.rerender(all({ ...props, ...p })) }
+}
+/** let `ms` pass, one second at a time, each in its own act (one act would batch the ticks) */
+const pass = (ms: number) => { for (let t = 0; t < ms; t += 1000) act(() => { vi.advanceTimersByTime(Math.min(1000, ms - t)) }) }
 const letters = () => [...document.querySelectorAll('.tb-act .tb-key')].map((el) => el.textContent)
 
 // S6 (staging review 06.11.2026): Verlauf and Eintrag are listed with their keys like the rail tiles
@@ -34,6 +50,41 @@ describe('the Einsatzuhr', () => {
     expect(clock.textContent).not.toContain('Einsatzdauer')
     fireEvent.click(clock)
     expect(await screen.findByText(`Einsatzdauer · seit ${formatTime(new Date(STARTED))} Uhr`)).toBeTruthy()
+  })
+
+  // perf sweep 26.11.2026: the bar rendered every second for a clock that shows H:MM
+  it('an idle minute costs the bar at most the one commit of the minute change', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(Date.parse(STARTED) + 42 * 60_000 + 17_000)
+    const { commits } = profiledBar()
+    const before = commits()
+    pass(60_000)
+    expect(commits() - before).toBeLessThanOrEqual(2)
+    expect(screen.getByRole('button', { name: /^Einsatzdauer: / }).textContent).toBe('0:43')
+  })
+})
+
+// the two second-clocks are leaves of their own: they tick while they show, and the bar does not
+describe('the bar\'s second-clocks', () => {
+  it('the voice memo counts seconds while it records', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(Date.parse(STARTED) + 600_000)
+    profiledBar({ recording: true, recStartedAt: Date.now() })
+    expect(document.querySelector('.tb-act-add .tb-act-label')?.textContent).toBe('00:00')
+    pass(3000)
+    expect(document.querySelector('.tb-act-add .tb-act-label')?.textContent).toBe('00:03')
+  })
+
+  it('the Atemschutz chip ticks its contact clock from the moment the alarm shows', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(Date.parse(STARTED) + 600_000)
+    const { rerender } = profiledBar()
+    const contactAt = Date.now() - 125_000
+    rerender({ azAlarm: { peak: 2, severities: {}, urgent: { id: 't1', name: 'Trupp 1', sinceContactSec: 125, contactAt, severity: 2, reason: 'contact' } } })
+    const clock = () => document.querySelector('.tb-az-clock')?.textContent
+    expect(clock()).toBe(fmtClock(125))
+    pass(2000)
+    expect(clock()).toBe(fmtClock(127))
   })
 })
 

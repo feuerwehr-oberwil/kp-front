@@ -131,20 +131,24 @@ interface Props {
   shareSlot?: React.ReactNode
 }
 
-// Single-line top bar: incident identity + clock on the left, global journal +
-// undo/redo on the right (the surface switch moved to the left NavRail). The clock
-// interval lives here so the per-second tick re-renders only the bar, not the map below.
-export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, journalOpen, onToggleJournal, reminderCount = 0, onAddEntry, onHoldStart, onHoldEnd, onHoldPhoto, titleSlot, onUndo, onRedo, canUndo, canRedo, undoLabel, redoLabel, showHistory, mapNav, weather, onOpenWeather, bearing = 0, azAlarm, azChipHidden = false, onOpenAtemschutz, gpsStale, gpsAgeMs, shareSlot }: Props) {
-  // The deployment's clock (lib/serverClock), not the device's: the Einsatzdauer counts from a
-  // timestamp another device wrote, and the Atemschutz chip below ticks off `contactAt`, which
-  // the alarm fold expresses in server time. Reading those with a device clock a few seconds off
-  // is how the same Trupp showed two different ages on a phone and a PC. Offline it IS Date.now().
+/** Whole seconds since `since` (server ms), as `format` prints them – a leaf that ticks once a
+ *  second while it is mounted, so the bar around it does not (perf sweep 26.11.2026). The
+ *  deployment's clock (lib/serverClock), not the device's: the Atemschutz chip ticks off
+ *  `contactAt`, which the alarm fold expresses in server time, and has to show the board's second. */
+function SecondsSince({ since, format }: { since: number; format: (sec: number) => string }) {
   const [now, setNow] = useState(() => serverNow())
   useEffect(() => {
     const t = setInterval(() => setNow(serverNow()), 1000)
     return () => clearInterval(t)
   }, [])
-  const recSec = recording && recStartedAt ? Math.max(0, Math.round((now - recStartedAt) / 1000)) : 0
+  return <>{format(Math.round((now - since) / 1000))}</>
+}
+
+// Single-line top bar: incident identity + clock on the left, global journal +
+// undo/redo on the right (the surface switch moved to the left NavRail). It holds no ticking
+// state: the Einsatzuhr renders it once a minute, and the two second-clocks (the voice memo, the
+// Atemschutz chip) are `SecondsSince` leaves.
+export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, journalOpen, onToggleJournal, reminderCount = 0, onAddEntry, onHoldStart, onHoldEnd, onHoldPhoto, titleSlot, onUndo, onRedo, canUndo, canRedo, undoLabel, redoLabel, showHistory, mapNav, weather, onOpenWeather, bearing = 0, azAlarm, azChipHidden = false, onOpenAtemschutz, gpsStale, gpsAgeMs, shareSlot }: Props) {
   const hasWind = weather?.wind_dir_deg != null
   // ⚠️ The pair's word IS its promise. Both buttons are icon-only, so the app-wide hold-tooltip
   // reads exactly this off `aria-label` (lib/holdTooltip · labelOf) — and since ↶ now reaches
@@ -161,7 +165,7 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
   // second line, under the Stichwort (panels/IncidentSwitcher).
   const isPhone = useIsPhone()
   const E = appConfig.copy.einsatzuhr
-  const clockText = useEinsatzuhr(startedAt, endedAt, now)
+  const clockText = useEinsatzuhr(startedAt, endedAt, isPhone)
 
   // Verlauf (J) and Eintrag (E) wear their letter like the rails' tiles do (staging review
   // 06.11.2026, S6): the same `.rail-key` badge, in CSS only with a mouse and keyboard
@@ -282,7 +286,7 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
             {/* below: this button lives in the TOP bar, so the targets open downward */}
             {latched && <HoldTargets placement="below" anchor={anchor} onPick={pick} />}
             {recording
-              ? <><span className="tb-stop" /><span className="tb-act-label">{fmtMMSS(recSec)}</span></>
+              ? <><span className="tb-stop" /><span className="tb-act-label">{recStartedAt ? <SecondsSince since={recStartedAt} format={(sec) => fmtMMSS(Math.max(0, sec))} /> : fmtMMSS(0)}</span></>
               : <>
                 {/* the charge ring rings the glyph — anchored at the right edge it sat ON the
                     label's last letters and read as clutter over the word it was charging */}
@@ -362,11 +366,11 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
               {/* the Manometer for the Alarmdruck (26.09.2026): the droplet it wore said water */}
               <Icon id={notfall ? 'warn' : lowPressure ? 'manometer' : 'gauge'} />
               <span className="tb-az-name">{notfall ? `${appConfig.copy.atemschutz.notfall.title} · ${u.name}` : u.name}</span>
-              {/* the clock ticks off the bar's own 1 Hz tick — the alarm state object stays
-                  reference-stable between tier/Trupp transitions (App must not re-render per
-                  second). A pressure alarm has no clock to tick: it shows the number. */}
+              {/* the clock ticks in its own leaf — the alarm state object stays reference-stable
+                  between tier/Trupp transitions (App must not re-render per second), and the bar
+                  does not either. A pressure alarm has no clock to tick: it shows the number. */}
               <span className="tb-az-clock">
-                {lowPressure ? `${u.bar} bar` : fmtClock(Math.round((now - u.contactAt) / 1000))}
+                {lowPressure ? `${u.bar} bar` : <SecondsSince since={u.contactAt} format={fmtClock} />}
               </span>
             </button>
           )

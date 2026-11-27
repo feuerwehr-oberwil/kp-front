@@ -19,6 +19,8 @@ import { useResumingPoll, WATCH_POLL_MS, WATCH_RESUME_GAP_MS } from './useResumi
  */
 export function useDiveraWatch(enabled: boolean): { alarms: DiveraAlarm[]; refresh: () => Promise<void> } {
   const [alarms, setAlarms] = useState<DiveraAlarm[]>([])
+  // the pool on screen, as text: what a round's answer is compared with
+  const shown = useRef('[]')
   // A round can settle after this watch unmounted (sign-out remounts the app): its answer must not
   // reach the shared readiness sign, which the next session's watches own.
   const mounted = useRef(false)
@@ -30,11 +32,15 @@ export function useDiveraWatch(enabled: boolean): { alarms: DiveraAlarm[]; refre
   // The cadence, the foreground resume and the one-round-at-a-time guard are useResumingPoll's
   // (which also keeps the last-known pool on a transient failure — never blank the banner).
   // Every round reports to the readiness sign (lib/alarmPollHealth · «Bereit für Alarme»).
+  // An answer equal to the pool on screen sets nothing: a new (usually empty) array every 30 s
+  // rendered App and the whole workspace for nothing (perf sweep 26.11.2026). Not a functional
+  // update that returns `prev` – React can still render once before it bails out.
   const refresh = useCallback(async () => {
     try {
       const pool = await getDiveraPool()
       if (!mounted.current) return
-      setAlarms(pool)
+      const text = JSON.stringify(pool)
+      if (text !== shown.current) { shown.current = text; setAlarms(pool) }
       markAlarmPoll(true)
     } catch (e) {
       if (mounted.current) markAlarmPoll(false)
@@ -45,7 +51,7 @@ export function useDiveraWatch(enabled: boolean): { alarms: DiveraAlarm[]; refre
   const run = useResumingPoll(enabled, refresh, { pollMs: WATCH_POLL_MS, resumeGapMs: WATCH_RESUME_GAP_MS })
 
   // a watch that is off shows no pool
-  useEffect(() => { if (!enabled) setAlarms([]) }, [enabled])
+  useEffect(() => { if (!enabled) { shown.current = '[]'; setAlarms([]) } }, [enabled])
 
   return { alarms, refresh: run }
 }
