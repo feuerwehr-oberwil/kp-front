@@ -1351,6 +1351,47 @@ describe('JournalStore – a sent row stays on display until a pull holds it', (
     } finally { store.dispose() }
   })
 
+  it('a kept correction folds before a later one the same answer took: the later wording shows', async () => {
+    const server = fakeServer()
+    const store = new JournalStore(INC, false)
+    try {
+      await store.init([])
+      store.append(row('a'))
+      await settle()
+      apiGet.mockRejectedValue(offline())
+      apiPost.mockImplementationOnce(async (_p: string, body: { entries: TimelineEvent[] }) => {
+        for (const e of body.entries) server.rows.push({ seq: server.rows.length + 1, row: e })
+        throw offline()
+      })
+      store.appendPatch('a', { textEdit: 'eins' })
+      await settle()
+      expect(store.pendingCount).toBe(1)
+      store.appendPatch('a', { textEdit: 'zwei' }) // the retry carries both; its answer only «zwei»
+      await settle()
+      expect(store.pendingCount).toBe(0)
+      expect(store.display().map((r) => r.text)).toEqual(['zwei'])
+    } finally { store.dispose() }
+  })
+
+  it('a promoted tab whose old copy still queues a row the writer has since kept as sent does not owe it', async () => {
+    fakeServer()
+    apiGet.mockRejectedValue(offline())
+    apiPost.mockRejectedValue(offline())
+    await idb.idbSet(`kp-journal-${INC}`, { rows: [], latestSeq: 0, outbox: [row('a')] })
+    const follower = new JournalStore(INC, true)
+    try {
+      await follower.init([])
+      expect([...follower.unsentRowIds()]).toEqual(['a'])
+      // meanwhile the writer's retry was answered «nothing new»
+      await idb.idbSet(`kp-journal-${INC}`, { rows: [], latestSeq: 0, outbox: [], sent: [{ row: row('a'), upTo: 1 }] })
+      follower.setReadOnly(false)
+      await vi.waitFor(() => expect(follower.unsentRowIds().size).toBe(0))
+      expect(follower.display().map((r) => r.id)).toEqual(['a'])
+      expect(follower.syncStatus).toBe('synced')
+      expect(apiPost).not.toHaveBeenCalled()
+    } finally { follower.dispose() }
+  })
+
   it('a cache stored before kept rows existed loads unchanged', async () => {
     await idb.idbSet(`kp-journal-${INC}`, { rows: [{ seq: 1, row: row('s') }], latestSeq: 1, outbox: [row('o', { at: '2026-07-02T14:01:00Z' })] })
     apiGet.mockRejectedValue(offline())

@@ -63,9 +63,11 @@ interface Persisted { rows: ServerRow[]; latestSeq: number; outbox: TimelineEven
  *  lost answer, which the server answers «nothing new» for a row it already holds. It is in no
  *  pulled row yet, so without it the Verlauf showed the row nowhere until the next pull answered.
  *  Kept on display until a pull holds it; it counts as sent (not pending, not «nur auf diesem
- *  Gerät», never sent again). `upTo` is the server's `latest_seq` in that answer: the row, if the
- *  server holds it, sits at or below it – so once the pull cursor has passed `upTo` without
- *  delivering it, the server holds none (it drops rows only it may write) and the row goes. */
+ *  Gerät», never sent again). `upTo` bounds the seq the server holds it at: below the first row
+ *  that answer newly took (the server took the kept row before), else the answer's `latest_seq`.
+ *  display() folds it before every server row above `upTo`, so a later correction to the same
+ *  row still wins; and once the pull cursor has passed `upTo` without delivering it, the server
+ *  holds none (it drops rows only it may write) and the row goes. */
 interface SentRow { row: TimelineEvent; upTo: number }
 
 /** Whose outbox a store keeps: `key` is the identity (`<user id>:<link kind or 'login'>`), and
@@ -104,8 +106,12 @@ function mergePersisted(into: Persisted, from: Persisted): void {
   into.outbox = into.outbox.filter((r) => !refused.has(r.id))
   const dead = new Map([...(from.dead ?? []), ...(into.dead ?? [])].map((r) => [r.id, r]))
   into.dead = [...dead.values()].filter((r) => !accepted.has(r.id) && !pending.has(r.id) && !refused.has(r.id))
+  // the server answered for a kept row: it supersedes a queued copy another snapshot still holds
   const sent = new Map([...(from.sent ?? []), ...(into.sent ?? [])].map((r) => [r.row.id, r]))
-  into.sent = [...sent.values()].filter((r) => !accepted.has(r.row.id) && !pending.has(r.row.id) && !refused.has(r.row.id) && !dead.has(r.row.id))
+  into.sent = [...sent.values()].filter((r) => !accepted.has(r.row.id))
+  into.outbox = into.outbox.filter((r) => !sent.has(r.id))
+  into.refused = into.refused.filter((r) => !sent.has(r.id))
+  into.dead = into.dead.filter((r) => !sent.has(r.id))
   into.latestSeq = Math.max(into.latestSeq, from.latestSeq ?? 0)
 }
 const FLUSH_BATCH = 400
@@ -525,7 +531,9 @@ export class JournalStore {
       const kept = batch.filter((r) => !held.has(r.id))
       if (kept.length) {
         const ids = new Set(kept.map((r) => r.id))
-        this.state.sent = [...(this.state.sent ?? []).filter((k) => !ids.has(k.row.id)), ...kept.map((row) => ({ row, upTo: res.latest_seq }))]
+        const firstTaken = Math.min(...res.entries.map((e) => e.seq))
+        const upTo = Number.isFinite(firstTaken) ? firstTaken - 1 : res.latest_seq
+        this.state.sent = [...(this.state.sent ?? []).filter((k) => !ids.has(k.row.id)), ...kept.map((row) => ({ row, upTo }))]
       }
       if (!this.state.outbox.length) this.singleMode = false
       this.persist()
@@ -728,7 +736,8 @@ export class JournalStore {
   }
 
   /** The UI's timeline: union (server ∪ legacy-not-yet-on-server ∪ outbox ∪ dead-lettered ∪
-   *  sent-not-yet-pulled; the first copy of an id wins, so a pulled row beats a kept one),
+   *  sent-not-yet-pulled; the first copy of an id wins, and a kept row whose id a pulled row
+   *  holds is skipped, so the pulled copy shows),
    *  patches folded, session overlays applied, and finally ordered newest-first by written
    *  time (`chronological`) — the union order is `seq` per source, which is acceptance order,
    *  not the order the operator wrote the rows. */
@@ -738,11 +747,18 @@ export class JournalStore {
     const push = (r: TimelineEvent) => {
       if (!seen.has(r.id)) { seen.add(r.id); out.push(r) }
     }
-    for (const r of this.state.rows) push(r.row)
+    // a kept row folds before every server row above its `upTo` (see SentRow)
+    const held = new Set(this.state.rows.map((r) => r.row.id))
+    const kept = (this.state.sent ?? []).filter((r) => !held.has(r.row.id)).sort((a, b) => a.upTo - b.upTo)
+    let k = 0
+    for (const r of this.state.rows) {
+      while (k < kept.length && kept[k].upTo < r.seq) push(kept[k++].row)
+      push(r.row)
+    }
+    while (k < kept.length) push(kept[k++].row)
     for (const r of this.legacy) push(r)
     for (const r of this.state.outbox) push(r)
     for (const r of this.state.dead ?? []) push(r)
-    for (const r of this.state.sent ?? []) push(r.row)
     const rows = foldJournalRows(out)
     // session overlay last (blob: URLs beat everything for display)
     const withOverlay = rows.map((r) => (this.overlay.has(r.id) ? { ...r, ...this.overlay.get(r.id) } : r))
