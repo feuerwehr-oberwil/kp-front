@@ -227,7 +227,11 @@ lock's answers reach the writers through `TabLockAnswers`, one per tab:
 1. **A tab that does not hold the lock writes nothing** for that Einsatz: no cache write, no PUT, no
    beacon, no media upload and no receipt retired (`WorkspaceSync · followed`, `useMediaQueue`).
    Only a confirmed answer stops a writer, and nothing ever waits for one: until the lock has
-   answered, a tab writes exactly as before. A tab opening behind the holder is stopped in time
+   answered, a tab writes exactly as before. «Confirmed» means the browser names the holder: after
+   a try that was not granted the tab asks `navigator.locks.query()`, and only a holder whose
+   `clientId` is another document's publishes «another tab holds it». This document holds it
+   itself (a lock restarted while its old request is still being released), nobody holds it any
+   more, or the browser cannot say (no `query`, no `clientId`, an error) – nothing is published. A tab opening behind the holder is stopped in time
    because its first cache write is debounced (`CACHE_DEBOUNCE_MS`) and the try-acquire answers
    in milliseconds once the Einsatz is on screen.
 2. **A tab that takes over starts from the cache as the holder left it.** The engine that followed
@@ -239,11 +243,9 @@ lock's answers reach the writers through `TabLockAnswers`, one per tab:
    A held lock that the browser takes back is a loss only when the next try says another tab holds
    it: WebKit also releases the lock of a lone document it suspends (back-forward cache, an iOS
    app in the background), and then the try is granted and the tab goes on with the same engine.
-   A try that fails while this tab's own previous request for the Einsatz is still being released
-   (a lock restarted right after it stopped) says nothing either.
 
-Without Web Locks, a lock request that rejects, or a lock that has not answered yet: a tab writes
-as if it held the lock. With one tab nothing here changes anything, not even a timing.
+Without Web Locks, a lock request that rejects, a lock that has not answered yet, or a browser that
+cannot name the holder: a tab writes as if it held the lock. With one tab nothing here changes anything, not even a timing.
 
 The accepted limits (owner, 27.11.2026), none of which one tab can meet: an edit still inside the
 cache debounce (`CACHE_DEBOUNCE_MS`) when the lock is taken away is lost; a cache write or a PUT
@@ -254,9 +256,9 @@ are not gated, and so do the writes of a tab whose lock has not answered yet: a 
 behind the holder and writes before its lock answered (the first cache write fires 300 ms after the
 server answered the open, and the lock is asked only once the Einsatz is on screen – a slow first
 render or the previous Einsatz's last PUT can take longer; a closed Einsatz's mount flush of a
-stale draft goes at once), a page-hide, an open cancelled before it became the active Einsatz, or
-a restart of the lock that meets another tab while this tab's own old request is still released. A capture the operator started before the loss is still
-enqueued: dropping it would lose the picture, and the holder picks it up from the shared queue.
+stale draft goes at once), a page-hide, or an open cancelled before it became the active Einsatz.
+The tab that lost the lock stops only once the browser has answered its `query()`, so it writes a
+little longer when that is slow. A capture the operator started before the loss is still enqueued: dropping it would lose the picture, and the holder picks it up from the shared queue.
 
 ## Live but never synced: the Präsentationsmodus (05.11.2026)
 

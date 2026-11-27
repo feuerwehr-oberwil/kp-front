@@ -60,8 +60,12 @@ const tabs: Tab[] = []
 interface Tab { selection: IncidentSelection; lock: IncidentTabLock | null; held: boolean; restart: () => void }
 const engine = (t: Tab) => t.selection.current as WorkspaceSync
 
-/** One tab with the Einsatz open; its lock starts `lockAfterMs` after the open (App's first render). */
-async function tab({ lockAfterMs = 0, options = {} }: { lockAfterMs?: number; options?: WorkspaceSyncOptions } = {}): Promise<Tab> {
+type Locks = Pick<LockManager, 'request'> & Partial<Pick<LockManager, 'query'>>
+let browser: FakeLocks
+
+/** One tab with the Einsatz open – its own document of the one browser (`locks`, null: no Web
+ *  Locks); its lock starts `lockAfterMs` after the open (App's first render). */
+async function tab({ lockAfterMs = 0, options = {}, locks = browser.client(`tab-${tabs.length}`) }: { lockAfterMs?: number; options?: WorkspaceSyncOptions; locks?: Locks | null } = {}): Promise<Tab> {
   const answers = new TabLockAnswers()
   const opts = { debounceMs: 1_000, ...options, tabLock: answers }
   const t: Tab = { selection: new IncidentSelection(), lock: null, held: true, restart: () => {} }
@@ -71,7 +75,7 @@ async function tab({ lockAfterMs = 0, options = {} }: { lockAfterMs?: number; op
     t.lock = new IncidentTabLock(incidentLockName(ID), (held) => {
       t.held = held
       if (held && (t.selection.opening ?? ID) === ID && t.selection.current?.lockLost) void t.selection.open(ID, meta, opts)
-    }, undefined, answers)
+    }, locks, answers)
     t.lock.start()
   }
   t.restart = () => { t.lock?.stop(); start() } // App's lock effect re-run for the same Einsatz
@@ -97,7 +101,7 @@ const putsBy = (e: WorkspaceSync) => [...put.mock.calls, ...putTrupps.mock.calls
 
 beforeEach(() => {
   vi.useFakeTimers()
-  Object.defineProperty(globalThis.navigator, 'locks', { value: new FakeLocks(), configurable: true })
+  browser = new FakeLocks()
   store.clear()
   setWorkspaceCacheOwner('anna')
   get.mockReset().mockResolvedValue({ workspace: {}, workspace_rev: 1 })
@@ -110,7 +114,6 @@ beforeEach(() => {
 afterEach(() => {
   for (const t of tabs.splice(0)) { t.lock?.stop(); t.selection.dispose() }
   vi.useRealTimers()
-  Reflect.deleteProperty(globalThis.navigator, 'locks')
   setWorkspaceCacheOwner(null)
 })
 
@@ -251,15 +254,13 @@ it('a follower re-sending refused saves leaves the parked copies on disk', async
   expect(store.get(`kp-front-ws-${ID}::__refused__`)).toEqual(parked)
 })
 
-it.each([
-  ['without Web Locks', undefined],
+it.each<[string, Locks | null]>([
+  ['without Web Locks', null],
   ['a lock that never answers', { request: () => new Promise(() => {}) }],
   ['a lock request that rejects (an inactive document)', { request: () => Promise.reject(new DOMException('inactive', 'InvalidStateError')) }],
 ])('one tab %s: the cache write and the PUT go at main’s times', async (_case, locks) => {
-  if (locks) Object.defineProperty(globalThis.navigator, 'locks', { value: locks, configurable: true })
-  else Reflect.deleteProperty(globalThis.navigator, 'locks')
   put.mockResolvedValue({ workspace: null, workspace_rev: 2 })
-  const a = await tab()
+  const a = await tab({ locks })
   engine(a).save({ reportMeta: { remarks: 'alone' } }) // a rejecting lock shows read-only, as on main; the engine is what is checked
   await vi.advanceTimersByTimeAsync(CACHE_DEBOUNCE_MS)
   expect(slot()).toMatchObject({ dirty: true, workspace: { reportMeta: { remarks: 'alone' } } })
@@ -272,7 +273,7 @@ it('one tab whose held lock the browser releases (WebKit suspends the document) 
   const a = await tab()
   const first = engine(a)
   edit(a, { remarks: 'only in memory yet' }) // both debounces armed
-  ;(navigator.locks as unknown as FakeLocks).suspend(incidentLockName(ID))
+  browser.suspend(incidentLockName(ID))
   await vi.advanceTimersByTimeAsync(0)
   expect([a.held, first.lockLost, engine(a)]).toEqual([true, false, first]) // asked again, granted at once: no other tab
   await vi.advanceTimersByTimeAsync(CACHE_DEBOUNCE_MS)
@@ -281,15 +282,34 @@ it('one tab whose held lock the browser releases (WebKit suspends the document) 
   expect(putsBy(first)).toBe(1)
 })
 
-it('one tab whose lock restarts before the browser released its old request keeps writing (its own request is not another tab)', async () => {
+it.each<[string, (b: FakeLocks) => void]>([
+  ['the browser answers it at once', () => {}],
+  ['its «unavailable» arrives after the old request settled', (b) => { b.nullLagMs = 20 }],
+  ['the old request settles before the browser released the lock', (b) => { b.releaseLagMs = 20 }],
+])('one tab whose lock restarts on its own old request keeps its engine and writes – %s', async (_case, order) => {
   put.mockResolvedValue({ workspace: null, workspace_rev: 2 })
   const a = await tab()
   const first = engine(a)
   first.save({ reportMeta: { remarks: 'alone' } })
-  a.restart() // the new try meets the old request, still held for a moment – as on main, the view flips read-only and back
-  await vi.advanceTimersByTimeAsync(0)
+  order(browser)
+  a.restart() // the new try meets the old request – as on main, the view flips read-only and back
+  await vi.advanceTimersByTimeAsync(50)
   expect([a.held, first.lockLost, engine(a)]).toEqual([true, false, first])
   await vi.advanceTimersByTimeAsync(1_000 + CACHE_DEBOUNCE_MS)
   expect(slot()).toMatchObject({ dirty: false, workspace: { reportMeta: { remarks: 'alone' } } })
   expect(putsBy(first)).toBe(1)
+})
+
+it.each<[string, (id: string) => Locks]>([
+  ['has no query()', (id) => ({ request: browser.client(id).request })],
+  ['has a query() that throws', (id) => ({ ...browser.client(id), query: () => Promise.reject(new Error('query failed')) })],
+  ['names no client ids', (id) => ({
+    ...browser.client(id),
+    query: async () => { const s = await browser.query(); return { ...s, held: s.held?.map((l) => ({ ...l, clientId: undefined })) } },
+  })],
+])('a tab behind the holder whose browser %s cannot be sure of the other tab: it writes as on main', async (_case, locksOf) => {
+  await tab()
+  const b = await tab({ locks: locksOf('b') })
+  await vi.advanceTimersByTimeAsync(50)
+  expect([b.held, engine(b).lockLost]).toEqual([false, false]) // read-only on screen, as on main; the engine is not stopped
 })

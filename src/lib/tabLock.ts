@@ -24,10 +24,32 @@ import { useCallback, useEffect, useRef, useState } from 'react'
  * Browsers without Web Locks (none of our supported targets) just keep today's behaviour.
  */
 
-type LocksAPI = Pick<LockManager, 'request'>
+type LocksAPI = Pick<LockManager, 'request'> & Partial<Pick<LockManager, 'query'>>
 
 function defaultLocks(): LocksAPI | null {
   return typeof navigator !== 'undefined' && 'locks' in navigator ? navigator.locks : null
+}
+
+/** This document's Web Locks client id, learned once per lock manager from a lock only it
+ *  requests; null when the browser cannot say (no `query`, no `clientId`). */
+const ownClientIds = new WeakMap<LocksAPI, Promise<string | null>>()
+
+/** The browser names ANOTHER document as the holder of lock `name` (LockManager.query) – false
+ *  whenever it cannot say so for certain: this document holds it, nobody does, the ids are unknown. */
+async function anotherClientHolds(locks: LocksAPI, name: string): Promise<boolean> {
+  const query = locks.query?.bind(locks)
+  if (!query) return false
+  const holder = async (lock: string) => (await query()).held?.find((l) => l.name === lock)?.clientId || null
+  if (!ownClientIds.has(locks)) {
+    const self = `kp-front-self-${Math.random().toString(36).slice(2)}`
+    ownClientIds.set(locks, locks.request(self, () => holder(self)).catch(() => null))
+  }
+  try {
+    const [own, current] = await Promise.all([ownClientIds.get(locks), holder(name)])
+    return !!own && !!current && current !== own
+  } catch {
+    return false
+  }
 }
 
 /** The lock name of Einsatz `id` – one per Einsatz, shared by every tab of the browser. */
@@ -57,22 +79,6 @@ export class TabLockAnswers {
     return () => { set.delete(listener) }
   }
 
-  private settling = new Map<string, Promise<unknown>>()
-
-  /** IncidentTabLock's side: the requests a stopped lock left for `name`, until the browser settled
-   *  them. A try that fails meanwhile may be failing on one of them (a new lock for the Einsatz
-   *  started right after the old one stopped), so it says nothing to the writers. */
-  leftBehind(name: string, requests: Promise<unknown>[]): void {
-    const left = Promise.allSettled([...requests, this.settling.get(name)])
-    this.settling.set(name, left)
-    void left.then(() => { if (this.settling.get(name) === left) this.settling.delete(name) })
-  }
-
-  /** …whether this tab still has such a request for `name` */
-  ownSettling(name: string): boolean {
-    return this.settling.has(name)
-  }
-
   /** IncidentTabLock's side: the lock `name` answered (or, `held` undefined, stopped asking). */
   set(name: string, held: boolean | undefined): void {
     if (held === undefined) { this.answers.delete(name); return }
@@ -88,16 +94,14 @@ export class IncidentTabLock {
   private abort: AbortController | null = null
   private stopped = false
   private generation = 0
-  /** this lock's requests the browser has not settled yet – see TabLockAnswers · leftBehind */
-  private requests = new Set<Promise<unknown>>()
 
   constructor(
     private readonly name: string,
     /** fired on every editable/read-only transition of THIS tab */
     private readonly onChange: (held: boolean) => void,
     private readonly locks: LocksAPI | null = defaultLocks(),
-    /** where the writers read this tab's answer – only a real answer is written: a request that
-     *  rejects says nothing, and the writers go on as without Web Locks until a try answers */
+    /** where the writers read this tab's answer – only a confirmed one is written: a request
+     *  that rejects says nothing, nor does a try the browser cannot pin on another document */
     private readonly answers: TabLockAnswers = tabLockAnswers,
   ) {}
 
@@ -108,13 +112,6 @@ export class IncidentTabLock {
       return
     }
     void this.acquire(true)
-  }
-
-  private track(request: Promise<unknown>): Promise<unknown> {
-    this.requests.add(request)
-    const settled = () => { this.requests.delete(request) }
-    request.then(settled, settled)
-    return request
   }
 
   /** resolves when stop()/switch releases the held lock */
@@ -131,27 +128,32 @@ export class IncidentTabLock {
     try {
       if (tryFirst) {
         let got = false
-        await this.track(this.locks.request(this.name, { ifAvailable: true }, async (lock) => {
+        const locks = this.locks
+        await locks.request(this.name, { ifAvailable: true }, async (lock) => {
           if (!lock || !current()) return // another tab holds it, or this request ended
           got = true
           granted = true
           this.answers.set(this.name, true)
           this.onChange(true)
           await this.hold()
-        }))
+        })
         if (got || !current()) return
-        // another tab holds it – unless the holder may be this tab's own previous request
-        if (!this.answers.ownSettling(this.name)) this.answers.set(this.name, false)
         this.onChange(false)
+        // The writers hear «another tab holds it» only when the browser names that holder: a try
+        // can also fail on this document's own request that is still being released (a lock
+        // restarted for the same Einsatz). Meanwhile this tab queues, as before.
+        void anotherClientHolds(locks, this.name).then((other) => {
+          if (other && current() && !granted) this.answers.set(this.name, false)
+        })
       }
       // queue behind the current holder — granted (→ editing) when that tab goes away
-      await this.track(this.locks.request(this.name, { signal: this.abort.signal }, async () => {
+      await this.locks.request(this.name, { signal: this.abort.signal }, async () => {
         if (!current()) return
         granted = true
         this.answers.set(this.name, true)
         this.onChange(true)
         await this.hold()
-      }))
+      })
     } catch {
       if (!current()) return
       this.onChange(false)
@@ -170,13 +172,13 @@ export class IncidentTabLock {
     const current = () => !this.stopped && generation === this.generation
     let granted = false
     this.abort?.abort() // leave the waiting queue; the steal below replaces it
-    void this.track(this.locks.request(this.name, { steal: true }, async () => {
+    void this.locks.request(this.name, { steal: true }, async () => {
       if (!current()) return
       granted = true
       this.answers.set(this.name, true)
       this.onChange(true)
       await this.hold()
-    })).catch(() => {
+    }).catch(() => {
       if (!current()) return
       this.onChange(false)
       if (granted) void this.acquire(true) // lost again → ask, then wait in line (see acquire)
@@ -186,7 +188,6 @@ export class IncidentTabLock {
   stop(): void {
     this.stopped = true
     this.answers.set(this.name, undefined)
-    if (this.requests.size) this.answers.leftBehind(this.name, [...this.requests])
     this.generation++
     this.abort?.abort()
     this.release?.()
