@@ -65,7 +65,6 @@ export const materialCopy = {
     qtyLabel: 'Menge',
     save: 'Speichern',
     cancel: 'Abbrechen',
-    removeRow: 'Auf 0 setzen',
     // deleting happens immediately – the ↶ brings it back; the Verlauf is kept
     // Verlauf rows
     logSet: '{label}: {menge} {unit}',

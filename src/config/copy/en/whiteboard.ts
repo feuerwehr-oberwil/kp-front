@@ -221,7 +221,6 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
     floorShow: 'show',
     floorHidden: 'hidden',
     removeFloor: 'Remove floor',
-    floorRemoved: 'Floor removed',
     floorRemovedLog: 'Floor {floor} removed',
     floorRemovedLogMarks: 'Floor {floor} removed – {n} markings removed or shortened',
     floorRestoredLog: 'Floor {floor} restored',

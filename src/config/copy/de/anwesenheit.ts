@@ -166,7 +166,6 @@ export const anwesenheitCopy = {
     lockedTitle: 'Im Trupp – zuerst über «Raus melden» austreten',
     notInDivera: 'Nicht mehr auf der Personalliste',
     notInSource: 'Nicht mehr in {provider}',
-    weg: 'weg',
     // …and the one-tap version of the same question, on ALL three tabs (18.09.2026): a ✓ in the
     // search row narrows the list to whoever is «Vor Ort» right now. The button is a state, not
     // an instruction, so it names the filter and lets `aria-pressed` say whether it is on.

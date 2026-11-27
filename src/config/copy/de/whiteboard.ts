@@ -337,7 +337,6 @@ export const whiteboardCopy = {
     floorShow: 'einblenden',
     floorHidden: 'ausgeblendet',
     removeFloor: 'Geschoss entfernen',
-    floorRemoved: 'Geschoss entfernt',
     /** the Verlauf row for the act itself (25.09.2026) — it used to write only its ↶ row */
     floorRemovedLog: 'Geschoss {floor} entfernt',
     floorRemovedLogMarks: 'Geschoss {floor} entfernt – {n} Markierungen entfernt oder gekürzt',

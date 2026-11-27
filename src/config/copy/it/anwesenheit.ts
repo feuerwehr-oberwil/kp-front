@@ -36,7 +36,6 @@ export const anwesenheitCopy: Localizable<Pick<Copy, Keys>> = {
     lockedTitle: 'In una squadra – annunciare prima l’uscita con «Annuncia uscita»',
     notInDivera: 'Non più nell’elenco',
     notInSource: 'Non più in {provider}',
-    weg: 'via',
 
     noteLabel: 'Osservazione',
     notePlaceholder: 'p. es. autista autobotte',
