@@ -549,7 +549,7 @@ describe('mediaQueue · no answer at all', () => {
     ])
     const upload = vi.fn<MediaUploader>().mockResolvedValue({ url: '/api/media/m' })
     expect((await flushMediaQueue(INC, upload)).uploaded).toEqual([])
-    const out = await flushMediaQueue(INC, upload, { due: true })
+    const out = await flushMediaQueue(INC, upload, { due: 'reachable' })
     expect(out.uploaded.map((u) => u.rowId)).toEqual(['cellar'])
     expect(upload).toHaveBeenCalledTimes(1)
   })
@@ -558,15 +558,26 @@ describe('mediaQueue · no answer at all', () => {
     await enqueueMedia(INC, 'big', 'photo', blob(), 'p', '')
     const upload = noAnswer()
     await flushMediaQueue(INC, upload) // a miss: 5 s pause
-    for (let poll = 0; poll < 5; poll++) await flushMediaQueue(INC, upload, { due: true }) // answered polls
+    for (let poll = 0; poll < 5; poll++) await flushMediaQueue(INC, upload, { due: 'reachable' }) // answered polls
     expect(upload).toHaveBeenCalledTimes(2)
     // any server answer starts a new run: the next recovery may try early again
     vi.setSystemTime((await listMediaQueue(INC))[0].retryAt!)
     upload.mockRejectedValueOnce(new ApiError(503, 'down'))
     await flushMediaQueue(INC, upload)
-    await flushMediaQueue(INC, upload, { due: true })
-    await flushMediaQueue(INC, upload, { due: true })
+    await flushMediaQueue(INC, upload, { due: 'reachable' })
+    await flushMediaQueue(INC, upload, { due: 'reachable' })
     expect(upload).toHaveBeenCalledTimes(4)
     expect((await listMediaQueue(INC))[0]).toMatchObject({ status: 'pending', attempts: 1, misses: 1 })
+  })
+
+  it('the browser\'s `online` event still tries at once after an early try missed', async () => {
+    await enqueueMedia(INC, 'big', 'photo', blob(), 'p', '')
+    const upload = noAnswer()
+    await flushMediaQueue(INC, upload)
+    await flushMediaQueue(INC, upload, { due: 'reachable' }) // early try, misses again
+    await flushMediaQueue(INC, upload, { due: 'reachable' })
+    expect(upload).toHaveBeenCalledTimes(2)
+    upload.mockResolvedValue({ url: '/api/media/m' })
+    expect((await flushMediaQueue(INC, upload, { due: 'online' })).uploaded).toHaveLength(1)
   })
 })

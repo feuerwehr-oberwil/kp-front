@@ -137,9 +137,10 @@ function laneFor(incidentId: string) {
 const sameCapture = (a: MediaQueueItem, b: MediaQueueItem) =>
   a.id === b.id && a.rev === b.rev && a.createdAt === b.createdAt
 
-/** Captures that already used their early try (`due`) in the current run of misses. A capture
- *  whose upload keeps timing out re-arms connectivity · onReachable with every failure, and the
- *  next answered poll would send its Blob again – one early try per run, then its pause holds.
+/** Captures that already used their early try on `due: 'reachable'` in the current run of
+ *  misses. A capture whose upload keeps timing out re-arms connectivity · onReachable with every
+ *  failure, and the next answered poll would send its Blob again – one such early try per run,
+ *  then its pause holds. The browser's `online` event (`due: 'online'`) is not limited.
  *  Forgotten on any server answer. In memory only: a reload starts from the stored pause. */
 const triedEarly = new Set<string>()
 const captureKey = (item: MediaQueueItem) => `${item.incidentId}|${item.id}|${item.rev ?? item.createdAt}`
@@ -270,13 +271,13 @@ export interface FlushOutcome {
  *  unchanged — it never got to the server). A 502/503/504 counts an attempt (the backoff grows)
  *  but stays `pending`: the backend comes back. Any other HTTP error flips to `failed` once
  *  attempts reach MAX_ATTEMPTS – so one after a long outage fails at once. One attempt per item
- *  per flush, and none before its `retryAt` – unless `due` (the server is reachable again, so a
- *  pause still running from a dead link is over: one early try per capture per run of misses;
- *  failed items still wait for `retry`). No answer
- *  at all counts a miss instead (`misses`): the pause doubles while the link stays dead. Receipts
+ *  per flush, and none before its `retryAt` – unless `due`: connectivity is back, so a pause
+ *  still running from a dead link is over (`'online'`: the browser's event; `'reachable'`: the
+ *  server answered another request – one early try per capture per run of misses, see
+ *  triedEarly). Failed items still wait for `retry`. No answer at all counts a miss instead (`misses`): the pause doubles while the link stays dead. Receipts
  *  are never uploaded again, `retry` or not. Never throws — a bad flush just leaves work queued
  *  for the next one. */
-export function flushMediaQueue(incidentId: string, upload: MediaUploader, { retry = false, due = false }: { retry?: boolean; due?: boolean } = {}): Promise<FlushOutcome> {
+export function flushMediaQueue(incidentId: string, upload: MediaUploader, { retry = false, due }: { retry?: boolean; due?: 'online' | 'reachable' } = {}): Promise<FlushOutcome> {
   const lane = laneFor(incidentId)
   return lane.flush(async () => {
     const { items } = await lane.edit(() => readQueue(incidentId))
@@ -287,7 +288,7 @@ export function flushMediaQueue(incidentId: string, upload: MediaUploader, { ret
       if (isReceipt(item)) continue
       const key = captureKey(item)
       const early = (item.retryAt ?? 0) > Date.now()
-      if (!retry && (item.status === 'failed' || (early && (!due || triedEarly.has(key))))) continue
+      if (!retry && (item.status === 'failed' || (early && (!due || (due === 'reachable' && triedEarly.has(key)))))) continue
       if (early && !retry) triedEarly.add(key)
       // Older JSON fallbacks may already hold {} instead of a Blob. Keep the record visible
       // as failed, but never crash the restore/upload path or pretend the bytes are present.

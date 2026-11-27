@@ -152,7 +152,7 @@ export function useMediaQueue({ incidentId, readOnly, onUploaded, onRestore }: O
     }
   }, [incidentId, readOnly])
 
-  const flush = useCallback(async (options?: { retry?: boolean; due?: boolean }) => {
+  const flush = useCallback(async (options?: { retry?: boolean; due?: 'online' | 'reachable' }) => {
     if (readOnly) return
     await flushMediaQueue(incidentId, uploadMedia, options)
     await replay()
@@ -207,9 +207,9 @@ export function useMediaQueue({ incidentId, readOnly, onUploaded, onRestore }: O
   // again after a dead link (which the browser never announces). The pauses that dead link grew
   // are over: every waiting capture is due (mediaQueue · flushMediaQueue `due`).
   useEffect(() => {
-    const onOnline = () => { setReconnected((n) => n + 1); void flush({ due: true }) }
+    const onOnline = () => { setReconnected((n) => n + 1); void flush({ due: 'online' }) }
     window.addEventListener('online', onOnline)
-    const offReachable = onReachable(() => { void flush({ due: true }) })
+    const offReachable = onReachable(() => { void flush({ due: 'reachable' }) })
     return () => { window.removeEventListener('online', onOnline); offReachable() }
   }, [flush])
 
