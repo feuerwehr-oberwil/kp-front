@@ -27,13 +27,16 @@ const chars = (s: string | undefined) => [...(s ?? '')].length
  *  character the API refuses. While the rule still holds a stored glob past it (`before`), the box
  *  cuts nothing: the row's warning names the glob until the admin shortens it, and the save keeps
  *  the stored rule (useStoredRows). A glob the admin did not touch keeps its string from `before`:
- *  the box shows it without line breaks and surrounding spaces, so it is matched as shown. */
+ *  the box shows it without line breaks, so a token is matched against it as shown. */
 const parseModules = (text: string, before: readonly string[]) => {
   const cut = before.every((m) => chars(m) <= MODULE_MAX)
-  const shown = (m: string) => m.replace(/[\r\n]/g, '').trim()
-  return text.split(',').map((m) => m.trim())
-    .map((m) => before.find((b) => shown(b) === m) ?? (cut ? [...m].slice(0, MODULE_MAX).join('') : m))
-    .filter(Boolean)
+  const shown = (m: string) => m.replace(/[\r\n]/g, '')
+  return text.split(',').map((raw, k) => {
+    // the box shows `before` joined by «, », so a token after the first starts with that space
+    const token = k > 0 && raw.startsWith(' ') ? raw.slice(1) : raw
+    const m = raw.trim()
+    return before.find((b) => shown(b) === token) ?? (cut ? [...m].slice(0, MODULE_MAX).join('') : m)
+  }).filter(Boolean)
 }
 
 export function ObjectCategoriesCard() {

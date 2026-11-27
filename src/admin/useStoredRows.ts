@@ -1,6 +1,13 @@
 import { useRef } from 'react'
 import { useConfig } from './ConfigContext'
 
+/** Per row object an editor wrote or holds: the stored original it stands for. Keyed by identity
+ *  and kept outside the editor, so it outlives a remount (another Station section and back): the
+ *  draft keeps the very objects the editor wrote, and the editor finds their originals again. */
+const origins = new WeakMap<object, object>()
+/** The originals whose repair the server has saved. */
+const retired = new WeakSet<object>()
+
 /**
  * What a list editor saves (Korrekturvorschlag fields, Formulare & Links, Objektfarben).
  * `writable` is the editor's own filter: the rows the server takes. A row it leaves out is held
@@ -27,10 +34,6 @@ export function useStoredRows<T extends object>(
 ) {
   const { save, dirty } = useConfig()
   const held = useRef<ReadonlySet<T> | null>(null)
-  const origin = useRef(new WeakMap<T, T>())
-  /** stored original → the last fitting version written for it, as the draft holds it (JSON) */
-  const written = useRef(new Map<T, string>())
-  const retired = useRef(new Set<T>())
   const heldRows = () => {
     if (!held.current) {
       const ok = writable(stored)
@@ -38,18 +41,18 @@ export function useStoredRows<T extends object>(
     }
     return held.current
   }
-  const original = (row: T) => {
-    const o = heldRows().has(row) ? row : origin.current.get(row)
-    return o && !retired.current.has(o) ? o : undefined
+  const original = (row: T): T | undefined => {
+    const o = heldRows().has(row) ? row : (origins.get(row) as T | undefined)
+    return o && !retired.has(o) ? o : undefined
   }
-
-  /** Before each edit: if the server took a save of the draft as it is now, every repair that
-   *  draft carries is stored, and its original retires. */
+  /** Before each write: if the server took a save of the draft as it is now, every repair in that
+   *  draft is stored, and its original retires. Checked here, at the next write, the only place
+   *  where it matters. */
   const retire = () => {
     if (save.kind !== 'ok' || dirty) return
-    const now = new Set(stored.map((r) => JSON.stringify(r)))
-    for (const [o, json] of written.current) {
-      if (now.has(json)) { retired.current.add(o); written.current.delete(o) }
+    for (const r of stored) {
+      const o = origins.get(r)
+      if (o) retired.add(o)
     }
   }
 
@@ -57,7 +60,7 @@ export function useStoredRows<T extends object>(
     edited: (before: T, after: T): T => {
       retire()
       const o = original(before)
-      if (o) origin.current.set(after, o)
+      if (o) origins.set(after, o)
       return after
     },
     saved: (rows: readonly T[], clean: (row: T) => T = (row) => row): T[] => {
@@ -67,7 +70,7 @@ export function useStoredRows<T extends object>(
         const o = original(r)
         if (ok.includes(r)) {
           const out = clean(r)
-          if (o) written.current.set(o, JSON.stringify(out))
+          if (o) origins.set(out, o)
           return [out]
         }
         return o ? [o] : []
