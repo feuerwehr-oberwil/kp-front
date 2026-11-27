@@ -1353,6 +1353,9 @@ export function IncidentWorkspace({
       const kept = !laid && typing !== null && (note.label ?? '') === v && v !== typing.from
       if (!laid && !kept) return
       emit('entity.edit', { id, patch: { label: v } })
+      // a style edit's settle window (noteEntityEdit) holds the text from before or during the
+      // typing: the typing's row below says the new one, so the window must not say it again
+      entityLogSettle.current?.rebase(id, (e) => ({ ...e, label: v }))
       // …and its one Verlauf row, against the text the typing began with – once the act is over:
       // the panel's «Entfernen» ends the typing just BEFORE it removes the Notiz, whose removal
       // row then says the text («Wasser ab 14:20 entfernt»), so a Notiz gone by then writes none

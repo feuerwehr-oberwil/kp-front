@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest'
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { useState } from 'react'
 import type { Entity, MittelEntry } from './types'
 import type { MittelDraft } from './components/MittelView'
@@ -660,6 +660,8 @@ describe('(n) a Notiz typed on the Lage writes its Verlauf row', () => {
   })
 
   describe('in its panel', () => {
+    /** a size in the open panel – a style edit, written through patchEntity */
+    const size = (name: string) => fireEvent.click(within(within(field().closest<HTMLElement>('.ctx-note')!).getByText(N.notes.size).closest<HTMLElement>('.field')!).getByRole('button', { name }))
     /** the tap that selects the Notiz opens its panel (MapMarkers · onNotePanel) */
     const open = async () => {
       act(() => { lastMap().onSelect(lastMap().entities.find((e) => e.id === 'a')!); map().onNotePanel('a') })
@@ -695,6 +697,33 @@ describe('(n) a Notiz typed on the Lage writes its Verlauf row', () => {
       await settle()
       expect(rows()).toEqual([written('Wasser'), written('Wasser ab 14:20')])
     })
+
+    // a style edit opens the edit row's settle window (patchEntity) with the text from before the
+    // typing; the typing's own row already said the new text, so the window must not say it again
+    it('a style edit before and after the typing: still one row', { timeout: 15_000 }, async () => {
+      const { rows } = await start()
+      await open()
+      size(N.notes.sizeL)
+      typeInPanel('Wasser ab 14:20')
+      // a real blur: the caret leaves the field, so the settle window may close
+      act(() => { field().blur() })
+      await settle()
+      size(N.notes.sizeS)
+      await settle(4_500)
+      expect(rows()).toEqual([written('Wasser ab 14:20')])
+    })
+
+    it('a style edit only before the typing: one row, the typed text', { timeout: 20_000 }, async () => {
+      const { rows } = await start()
+      await open()
+      size(N.notes.sizeL)
+      typeInPanel('Wasser ab 14:20')
+      act(() => { field().blur() })
+      // the window re-arms while the typing goes on, so it closes 4 s after the last keystroke
+      await settle(9_000)
+      expect(rows()).toEqual([written('Wasser ab 14:20')])
+    })
+
 
     // «Entfernen» ends the typing just before the removal, whose own row names the text
     it('typed, then «Entfernen»: no «written» row', async () => {

@@ -131,6 +131,10 @@ export function entityEditRow(prev: Entity, next: Entity): string | null {
 export interface EditSettle<T> {
   /** report one edit — opens a window, or keeps the open one's base and pushes its close out */
   push(id: string, before: T, after: T): void
+  /** apply a change another row already reported (a typed Notiz's own row, IncidentWorkspace ·
+   *  noteTextEnd) to BOTH ends of an open window, so it neither says it again nor reports it
+   *  backwards; nothing when no window is open */
+  rebase(id: string, change: (state: T) => T): void
 }
 
 /**
@@ -167,6 +171,10 @@ export function createEditSettle<T>({ ms, stillEditing, onSettled }: {
       const cur = open.get(id)
       if (cur) clearTimeout(cur.timer)
       open.set(id, { base: cur?.base ?? before, latest: after, timer: arm(id) })
+    },
+    rebase(id, change) {
+      const cur = open.get(id)
+      if (cur) { cur.base = change(cur.base); cur.latest = change(cur.latest) }
     },
   }
 }
