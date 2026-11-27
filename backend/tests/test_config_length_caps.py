@@ -331,3 +331,151 @@ async def test_a_saved_long_proposal_label_survives_a_shorter_field(client, edit
     await set_config(db_session, {"proposalFields": [{"id": "kontakt", "label": "Kontakt"}]})
     r = await put(client, vid, visit_doc(vid, obj, proposals=[proposal], notes="nachgetragen"), 1)
     assert r.status_code == 200, r.text
+
+
+# --- a read is a fixed point ----------------------------------------------------------------------
+
+UNSTABLE_ROOT = {**DEST, "root": "/" + "r" * 400 + "/.. /"}  # «.. » is «..» once trimmed
+
+
+@pytest.mark.asyncio
+async def test_a_document_that_does_not_read_back_as_itself_reads_as_the_defaults(client, admin_login, session_factory):
+    """The first pass kept a «.. » segment the second pass trims to «..» and refuses: the
+    response then failed (500) where base served the defaults."""
+    await admin_login(client)
+    document = {
+        "identity": {"appName": "Feuerwehr Talheim"},
+        "objectVisits": {"enabled": True, "destinations": [UNSTABLE_ROOT]},
+    }
+    await _store(session_factory, document)
+    r = await client.get("/api/config")
+    assert r.status_code == 200, r.text
+    assert (r.json()["identity"]["appName"], r.json()["objectVisits"]["enabled"]) == (None, False)
+    assert await _stored(session_factory) == document
+
+
+@pytest.mark.asyncio
+async def test_a_snapshot_that_cannot_be_served_is_not_restored(client, admin_login, session_factory):
+    from app.models import DeploymentConfigHistory
+
+    await admin_login(client)
+    await _store(session_factory, STATION)
+    async with session_factory() as db:
+        entry = DeploymentConfigHistory(
+            config_json={"objectVisits": {"enabled": True, "destinations": [UNSTABLE_ROOT]}}, source="api"
+        )
+        db.add(entry)
+        await db.commit()
+        entry_id = entry.id
+    r = await client.post(f"/api/config/history/{entry_id}/restore")
+    assert r.status_code == 422 and "nicht wiederherstellen" in r.text
+    assert await _stored(session_factory) == STATION
+
+
+ARCHIVE = {"id": "archiv", "siteUrl": "https://fw.sharepoint.com/sites/archiv"}
+LONG = "x" * 2100  # past every cap of the document
+
+#: Every capped string of the document, as (path, its over-long value).
+CAPPED: list[tuple[tuple, str]] = [
+    (("identity", "shortName"), LONG),
+    (("map", "objectCategories", 0, "id"), LONG),
+    (("map", "objectCategories", 0, "match", "modules", 0), LONG),
+    (("doctrine", "equipment", 0, "id"), LONG),
+    (("doctrine", "equipment", 0, "label"), LONG),
+    (("report", "links", 0, "id"), LONG),
+    (("report", "links", 0, "title"), LONG),
+    (("report", "links", 0, "url"), "https://forms.example.ch/" + LONG),
+    (("report", "links", 0, "note"), LONG),
+    (("objectVisits", "proposalFields", 0, "id"), LONG),
+    (("objectVisits", "proposalFields", 0, "label"), LONG),
+    (("objectVisits", "destinations", 0, "id"), LONG),
+    (("objectVisits", "destinations", 0, "siteUrl"), "https://fw.sharepoint.com/sites/" + LONG),
+    (("objectVisits", "destinations", 0, "library"), LONG),
+    (("objectVisits", "destinations", 0, "root"), LONG),
+    (("objectVisits", "destinations", 0, "objectFolder"), LONG),
+    (("objectVisits", "destinations", 0, "visitFolder"), LONG),
+    (("objectVisits", "destinations", 0, "locationFolder"), LONG),
+    (("incidentArchive", "destinations", 0, "id"), LONG),
+    (("incidentArchive", "destinations", 0, "siteUrl"), "https://fw.sharepoint.com/sites/" + LONG),
+    (("incidentArchive", "destinations", 0, "library"), LONG),
+    (("incidentArchive", "destinations", 0, "photoFolder"), LONG + "/{date}"),
+    (("incidentArchive", "destinations", 0, "reportFolder"), LONG + "/{date}"),
+]
+
+#: What a hand-edited or older row may wrap such a value in.
+SHAPES = [
+    lambda v: v,
+    lambda v: f"  {v}  ",
+    lambda v: f"/{v}/.. /",
+    lambda v: f"Basel\\{v}",
+    lambda v: f"{v}/ /",
+]
+
+
+def test_every_over_long_value_that_reads_reads_back_as_itself():
+    """Property over every capped string × the shapes above: a value past its cap that a read
+    accepts dumps and validates again to the same value. Anything else is refused on the read,
+    which then serves the defaults (`safe_config`) – never a document the response refuses."""
+    assert len(CAPPED) == len(
+        [p for p, wrapped in _string_caps(DeploymentConfigIn.__pydantic_core_schema__) if wrapped]
+    )
+    base = {
+        "identity": {},
+        "map": {"objectCategories": [{"id": "pv", "label": "PV", "color": "#ff0000", "match": {"modules": ["m"]}}]},
+        "doctrine": {"equipment": [{"id": "wbk", "label": "WBK"}]},
+        "report": {"links": [LINK]},
+        "objectVisits": {"proposalFields": [{"id": "kontakt", "label": "Kontakt"}], "destinations": [DEST]},
+        "incidentArchive": {"destinations": [ARCHIVE]},
+    }
+    served = 0
+    for path, long in CAPPED:
+        for shape in SHAPES:
+            document = copy.deepcopy(base)
+            parent, leaf = _at(document, path)
+            parent[leaf] = shape(long)
+            try:
+                doc = load_stored_config(document)
+            except (ValidationError, ValueError):
+                continue
+            served += 1
+            dumped = doc.model_dump(mode="json")
+            assert load_stored_config(dumped).model_dump(mode="json") == dumped, (path, shape(long)[:20])
+    assert served >= 40  # the property is about values that ARE served
+
+
+# --- a writer on another key ----------------------------------------------------------------------
+
+BACKSLASH_ROOT = {**DEST, "root": "Basel\\" + "r" * 400}
+
+
+@pytest.mark.asyncio
+async def test_a_branding_write_refuses_rather_than_rewrite_an_over_long_value(client, admin_login, session_factory):
+    """The logo delete would have written the untouched root back normalised («/» for «\\»). It
+    is refused with the 422 the autosave gets, and the row stays as it was."""
+    await admin_login(client)
+    document = {
+        "identity": {"appName": "Feuerwehr Talheim"},
+        "objectVisits": {"enabled": True, "destinations": [BACKSLASH_ROOT]},
+    }
+    await _store(session_factory, document)
+
+    r = await client.delete("/api/branding/logo")
+    assert r.status_code == 422
+    [error] = r.json()["detail"]
+    assert (error["type"], error["loc"]) == ("string_too_long", ["body", "objectVisits", "destinations", "0", "root"])
+    assert await _stored(session_factory) == document
+
+
+@pytest.mark.asyncio
+async def test_a_rank_adoption_refuses_rather_than_rewrite_an_over_long_value(db_session, session_factory):
+    from app.personnel import adopt_ranks
+
+    document = {
+        "roster": {"ranks": [{"key": "wm", "label": "Wachtmeister"}]},
+        "report": {"links": [{**LINK, "title": "t" * 121}]},
+    }
+    await _store(session_factory, document)
+    with pytest.raises(ValidationError, match="string_too_long"):
+        await adopt_ranks(db_session, ["Sdt"], None)
+    await db_session.rollback()
+    assert await _stored(session_factory) == document

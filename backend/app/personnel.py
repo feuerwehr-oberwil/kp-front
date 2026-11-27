@@ -547,7 +547,7 @@ async def adopt_ranks(db: AsyncSession, values: Sequence[str], actor_id: uuid.UU
     the rank write down with it.
     """
     from .config_history import keep_previous  # local imports avoid an import cycle
-    from .schemas import load_stored_config
+    from .schemas import stored_config_for_write
 
     row = await config_row(db, lock=True)
     info = await load_roster_ranks_info(db)
@@ -558,11 +558,12 @@ async def adopt_ranks(db: AsyncSession, values: Sequence[str], actor_id: uuid.UU
     await keep_previous(db, "roster", actor_id)
     raw = dict((row.config_json if row else None) or {})
     raw["roster"] = {**(raw.get("roster") or {}), "ranks": updated}
-    # Read as a STORED document (`schemas · load_stored_config`), not through the strict PUT-body
-    # model: a field that has grown a rule since it was written – an accentColor from before hex
-    # was enforced – must not make a CSV import 500 on a document it never touched. The result is
-    # still normalized, so the stored document stays canonical and GET round-trips it unchanged.
-    doc_json = load_stored_config(raw).model_dump(mode="json")
+    # Validated as a STORED document to write (`schemas · stored_config_for_write`), not through
+    # the strict PUT-body model: a field that has grown a rule since it was written – an
+    # accentColor from before hex was enforced – must not make a CSV import 500 on a document it
+    # never touched. A value past its length cap elsewhere raises (the caller answers 422) rather
+    # than be written back. The result is still normalized, so GET round-trips it unchanged.
+    doc_json = stored_config_for_write(raw).model_dump(mode="json")
     row.config_json = doc_json
     row.updated_by = actor_id
     await db.flush()

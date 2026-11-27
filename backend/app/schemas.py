@@ -29,6 +29,10 @@ from .alarm_validation import CONTACT_GRACE_SEC, CONTACT_INTERVAL_MIN, TruppStat
 
 logger = logging.getLogger(__name__)
 
+#: How a stored config document is read to be SERVED (`load_stored_config`): stored mode, plus
+#: `LengthCap` keeping a value past its cap as it lies.
+SERVE_CONTEXT = {"stored": True, "serve": True}
+
 
 @dataclass(frozen=True)
 class LengthCap:
@@ -36,11 +40,13 @@ class LengthCap:
     instead of ``Field(min_length=1, max_length=120)``.
 
     New input is held to it exactly as ``Field`` would — the same ``string_too_long`` error, the
-    same ``maxLength`` in the OpenAPI schema (the /admin guards read both). A STORED document
-    (``context={"stored": True}``, see `load_stored_config`) is served with the value as it lies:
+    same ``maxLength`` in the OpenAPI schema (the /admin guards read both). A stored document READ
+    to be served (``SERVE_CONTEXT``, see `load_stored_config`) keeps the value as it lies:
     a length cap is input hygiene, not integrity, so a label typed before a cap existed must not
     take the document down, and leaving it out or cutting it would change what the rest MEANS.
-    ``min_length`` and ``pattern`` hold in both modes, and so does every list cap.
+    ``min_length`` and ``pattern`` hold in both modes, and so does every list cap. A WRITER that
+    merges into the stored document holds the cap (`stored_config_for_write`): it must not store
+    what only a read may let pass.
 
     Every capped string of the document goes through this type; `test_config_length_caps` fails
     on a ``Field(max_length=…)`` that does not."""
@@ -58,7 +64,7 @@ class LengthCap:
             try:
                 return validate(value)
             except ValidationError as exc:
-                if (info.context or {}).get("stored") and all(e["type"] == "string_too_long" for e in exc.errors()):
+                if (info.context or {}).get("serve") and all(e["type"] == "string_too_long" for e in exc.errors()):
                     return uncapped.validate_python(value)
                 raise
 
@@ -2450,6 +2456,15 @@ _OV_DEST_ID_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
 _OV_FIELD_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$")
 
 
+def _plain_path(value: str) -> str:
+    """A folder path with ``\\`` as ``/`` and no outer spaces or slashes – stripped until nothing
+    changes, so a stored path reads back as itself (``load_stored_config`` checks that)."""
+    value = value.replace("\\", "/")
+    while value != (trimmed := value.strip().strip("/")):
+        value = trimmed
+    return value
+
+
 class ObjectVisitProposalField(BaseModel):
     """One entry of the Korrekturvorschlag field list. The id is opaque to KP Front — the
     organizer maps it to its own master data (docs/object-visits.md)."""
@@ -2501,13 +2516,13 @@ class ObjectVisitDestination(BaseModel):
         if not site.startswith("https://"):
             raise ValueError(f"objectVisits destination {self.id!r}: 'siteUrl' must start with https://")
         self.siteUrl = site
-        root = (self.root or "").replace("\\", "/").strip().strip("/")
-        if any(part in ("..", ".") for part in root.split("/") if part):
+        root = _plain_path(self.root or "")
+        if any(part.strip() in ("..", ".") for part in root.split("/") if part):
             raise ValueError(f"objectVisits destination {self.id!r}: 'root' must be a plain folder path")
         self.root = root
         self.library = (self.library or "").strip() or None
         for name in ("objectFolder", "visitFolder", "locationFolder"):
-            value = getattr(self, name).replace("\\", "/").strip().strip("/")
+            value = _plain_path(getattr(self, name))
             if not value or any(part.strip() in ("..", ".") for part in value.split("/")):
                 raise ValueError(f"objectVisits destination {self.id!r}: '{name}' must be a plain folder pattern")
             setattr(self, name, value)
@@ -2576,7 +2591,7 @@ class IncidentArchiveDestination(BaseModel):
         self.siteUrl = site
         self.library = (self.library or "").strip() or None
         for name in ("photoFolder", "reportFolder"):
-            value = getattr(self, name).replace("\\", "/").strip().strip("/")
+            value = _plain_path(getattr(self, name))
             parts = value.split("/")
             if not value or any(part.strip() in ("", "..", ".") for part in parts):
                 raise ValueError(f"{where}: '{name}' must be a plain folder pattern")
@@ -2836,6 +2851,28 @@ def load_stored_config(raw: Any) -> DeploymentConfigIn:
 
     A fresh WRITE (`PUT /api/config`, an `admin_config load`) validates strictly through
     `DeploymentConfigIn` itself — that is where a value is still being chosen, and where
-    refusing it costs nothing but a corrected keystroke.
+    refusing it costs nothing but a corrected keystroke. A writer that merges ITS key into the
+    stored document takes `stored_config_for_write`.
+
+    ⚠️ Accepted only as a FIXED POINT: the document's own dump must validate again, as stored, to
+    the same value. A validator that normalises after it checks (a folder root whose «.. »
+    segment is only trimmed to «..» on the second pass) would otherwise serve a document the
+    response then refuses — a 500 on every read instead of the defaults.
+    """
+    doc = DeploymentConfigIn.model_validate(raw, context=SERVE_CONTEXT)
+    dumped = doc.model_dump(mode="json")
+    if DeploymentConfigIn.model_validate(dumped, context=SERVE_CONTEXT).model_dump(mode="json") != dumped:
+        raise ValueError("the stored config document does not read back as itself")
+    return doc
+
+
+def stored_config_for_write(raw: Any) -> DeploymentConfigIn:
+    """The stored document with ONE writer's key merged in, validated for storing.
+
+    Stored mode (a field that has grown a rule since it was written is dropped, as in
+    `load_stored_config`), but the length caps HOLD: what only a read may let pass must not be
+    written back. A merged document with a value past its cap anywhere therefore raises, and
+    the writer refuses — the branding upload, the workbook import, the rank adoption, the
+    direct geodata load. An API caller answers with `api.config · refused_as_input`.
     """
     return DeploymentConfigIn.model_validate(raw, context={"stored": True})

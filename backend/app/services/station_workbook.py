@@ -55,9 +55,9 @@ from openpyxl import Workbook, load_workbook
 from openpyxl.cell.cell import Cell
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
-from ..config_guard import emptied_declared_sections
+from ..config_guard import emptied_declared_sections, format_validation_errors
 from ..personnel import (
     DEFAULT_NAME_ORDER,
     NameOrder,
@@ -69,7 +69,7 @@ from ..personnel import (
     person_display_name,
     plan_roster_rows,
 )
-from ..schemas import load_stored_config
+from ..schemas import load_stored_config, stored_config_for_write
 
 # ── the contract ───────────────────────────────────────────────────────────────────────
 #
@@ -1247,8 +1247,16 @@ def plan_import(
     # the strict PUT-body model. A field that has grown a validation rule since the row was
     # written (an old `accentColor`) must be dropped, not make an import 500 on a section it
     # never touched.
+    # …and as a document to STORE (`stored_config_for_write`): a value past its length cap in a
+    # section the workbook never touched is refused, never written back.
     try:
-        normalized = load_stored_config(projected).model_dump(mode="json")
+        normalized = stored_config_for_write(projected).model_dump(mode="json")
+    except ValidationError as exc:
+        errors.append(
+            "Die Daten aus der Arbeitsmappe ergeben keine gültige Stations-Konfiguration: "
+            + " · ".join(format_validation_errors(exc))
+        )
+        normalized = base
     except Exception:  # noqa: BLE001 — a refusal the operator can read beats a 500
         errors.append("Die Daten aus der Arbeitsmappe ergeben keine gültige Stations-Konfiguration.")
         normalized = base

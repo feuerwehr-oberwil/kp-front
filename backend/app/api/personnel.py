@@ -39,6 +39,7 @@ from ..schemas import (
     RosterRankOption,
     RosterUnknownRank,
 )
+from .config import refused_as_input
 
 router = APIRouter(prefix="/personnel", tags=["personnel"])
 
@@ -343,7 +344,10 @@ async def import_csv(
                 status_code=403,
                 detail="Neue Grade kann nur die Verwaltung übernehmen (Admin-Anmeldung erforderlich).",
             )
-        updated = await personnel_svc.adopt_ranks(db, adopt_values, actor.id if actor else None)
+        try:
+            updated = await personnel_svc.adopt_ranks(db, adopt_values, actor.id if actor else None)
+        except ValidationError as e:  # a value past its cap elsewhere in the stored document
+            raise refused_as_input(e) from e
         # append_ranks appends in the order it was given, so the tail lines up with adopt_values
         adopted_keys = [str(r.get("key")) for r in updated[-len(adopt_values) :]]
         for value, key in zip(adopt_values, adopted_keys, strict=True):

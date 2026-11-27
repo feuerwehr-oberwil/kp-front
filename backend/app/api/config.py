@@ -61,6 +61,7 @@ import logging
 from collections.abc import Iterable
 
 from fastapi import APIRouter, Cookie, Depends, Header, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 from sqlalchemy import select
@@ -85,6 +86,7 @@ from ..i18n import set_locale
 from ..models import DeploymentConfig, DeploymentConfigHistory, User
 from ..providers import integrations
 from ..schemas import (
+    SERVE_CONTEXT,
     AlarmVocabularyStatus,
     ConfigHistoryEntry,
     ConfigValidationResult,
@@ -298,8 +300,14 @@ def _projection(
             "version": version,
             "warnings": warnings or [],
         },
-        context={"stored": True},
+        context=SERVE_CONTEXT,
     )
+
+
+def refused_as_input(exc: ValidationError) -> RequestValidationError:
+    """A merged document a writer may not store (`schemas · stored_config_for_write`), refused
+    with the 422 the Verwaltung's autosave gets for the same value: same ``loc``, ``msg``, ``type``."""
+    return RequestValidationError([{**e, "loc": ("body", *e["loc"])} for e in exc.errors()])
 
 
 def _final_document(stored: dict | None, stated: set[str], doc: DeploymentConfigIn) -> dict:
@@ -659,23 +667,27 @@ async def restore_config(
     # clobber, and refusing to give a station its fleet and roster back because a colour kept in
     # 2026 no longer passes today's rule would break the one thing this endpoint is for. Such a
     # field comes back unset; everything else comes back.
+    row = await config_row(db, lock=True)
+    # ⚠️ The snapshot AND the answer it would give are checked before anything is written: a
+    # snapshot that cannot be served (it does not read back as itself) must not be committed and
+    # then fail as the response – that left the row on a document every later read refused.
     try:
         doc = load_stored_config(entry.config_json)
+        # ⚠️ The brandmark is carried from the LIVE document, not taken from the restored one —
+        # the same rule a PUT follows. Restoring a config from before a logo upload must not
+        # delete the logo: the asset URLs are written by the upload endpoints and point at blobs
+        # that exist now. A restore STATES every section — it is a whole document somebody chose
+        # off the list — so nothing else is carried: the layers it puts back are the ones stored
+        # with it, which is the point of restoring it.
+        doc_json = _final_document(row.config_json, set(DeploymentConfigIn.model_fields), doc)
+        echo = _projection(load_stored_config(doc_json), version=_version(doc_json))
     except Exception as e:  # the message is for a person, not a caller
         raise HTTPException(
             status_code=422,
             detail=f"Dieser Stand lässt sich mit der laufenden Version nicht wiederherstellen: {e}",
         ) from e
 
-    row = await config_row(db, lock=True)
     await keep_previous(db, "api", actor.id if actor else None)
-    # ⚠️ The brandmark is carried from the LIVE document, not taken from the restored one — the
-    # same rule a PUT follows. Restoring a config from before a logo upload must not delete the
-    # logo: the asset URLs are written by the upload endpoints and point at blobs that exist now.
-    # A restore STATES every section — it is a whole document somebody chose off the list — so
-    # nothing else is carried: the layers it puts back are the ones stored with it, which is the
-    # point of restoring it.
-    doc_json = _final_document(row.config_json, set(DeploymentConfigIn.model_fields), doc)
     row.config_json = doc_json
     row.updated_by = actor.id if actor else None
     # ⚠️ COMMIT here, not at dependency teardown. `get_db` commits after the response has been
@@ -689,5 +701,4 @@ async def restore_config(
     from ..divera import reset_vocabulary_cache
 
     reset_vocabulary_cache()
-    # as STORED, like the read above: the restored document may hold a string past its length cap
-    return _projection(load_stored_config(doc_json), version=_version(doc_json))
+    return echo
