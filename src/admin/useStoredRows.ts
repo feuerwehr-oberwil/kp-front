@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useRef } from 'react'
 import { useConfig } from './ConfigContext'
 
 /**
@@ -43,22 +43,25 @@ export function useStoredRows<T extends object>(
     return o && !retired.current.has(o) ? o : undefined
   }
 
-  // A save the server took with the draft as it is now: every repair it carries is stored.
-  useEffect(() => {
+  /** Before each edit: if the server took a save of the draft as it is now, every repair that
+   *  draft carries is stored, and its original retires. */
+  const retire = () => {
     if (save.kind !== 'ok' || dirty) return
     const now = new Set(stored.map((r) => JSON.stringify(r)))
     for (const [o, json] of written.current) {
       if (now.has(json)) { retired.current.add(o); written.current.delete(o) }
     }
-  }, [save, dirty, stored])
+  }
 
   return {
     edited: (before: T, after: T): T => {
+      retire()
       const o = original(before)
       if (o) origin.current.set(after, o)
       return after
     },
     saved: (rows: readonly T[], clean: (row: T) => T = (row) => row): T[] => {
+      retire()
       const ok = writable(rows)
       return rows.flatMap((r) => {
         const o = original(r)
