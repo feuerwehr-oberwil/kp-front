@@ -1718,9 +1718,9 @@ async def test_einsaetze_held_in_turn_make_the_run_give_up_within_one_budget(
     db_session, session_factory, blank_env, storage_root, monkeypatch
 ):
     """Two Einsätze on the renamed object. One writer holds the first row; the run's re-point
-    waits for it (the first checkpoint). The writer lets go after 1.4 s, and another writer holds
+    waits for it (the first checkpoint). The writer lets go after 1 s, and another writer holds
     the second row (the second checkpoint). The run gives up within ONE budget for the whole batch
-    (`plans.LOCK_WAIT_MS`, here 2 s) – a budget per row would add up to 3.4 s. It raises
+    (`plans.LOCK_WAIT_MS`, here 3 s) – a budget per row would add up to 4 s. It raises
     `EinsaetzeBusyError`, nothing of the re-key is stored, no Einsatz row stays held, and the next
     run renames and re-points. On main the run waited for the holder without a bound.
     PostgreSQL only."""
@@ -1733,7 +1733,7 @@ async def test_einsaetze_held_in_turn_make_the_run_give_up_within_one_budget(
 
     if db_session.bind.dialect.name != "postgresql":
         pytest.skip("requires independent PostgreSQL transactions")
-    monkeypatch.setattr(plans, "LOCK_WAIT_MS", 2000)
+    monkeypatch.setattr(plans, "LOCK_WAIT_MS", 3000)
     tenant, old_id, new_id, first = await _renamed_with_a_redrawn_sheet(db_session)
     second = await _einsatz_on(db_session, old_id)
     await db_session.commit()
@@ -1757,17 +1757,17 @@ async def test_einsaetze_held_in_turn_make_the_run_give_up_within_one_budget(
             await _until_blocked(session_factory, run, pull_pids, await _pid(one))
             loop = asyncio.get_running_loop()
             started = loop.time()
-            await asyncio.sleep(1.4)
+            await asyncio.sleep(1.0)
             await one.rollback()
             await _until_blocked(session_factory, run, pull_pids, await _pid(two))
             with pytest.raises(EinsaetzeBusyError):
-                await asyncio.wait_for(run, 5)
+                await asyncio.wait_for(run, 6)
             waited = loop.time() - started
             await two.rollback()
     finally:
         await _settle(run)
 
-    assert waited < 2.9, f"the run waited {waited:.1f} s – more than one budget"
+    assert waited < 3.5, f"the run waited {waited:.1f} s – more than one budget"
     async with session_factory() as probe:  # no Einsatz row is held by the run any more
         free = await probe.execute(
             text("SELECT id FROM incidents WHERE id IN (:a, :b) FOR UPDATE NOWAIT"), {"a": first, "b": second}

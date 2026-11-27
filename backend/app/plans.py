@@ -82,11 +82,12 @@ logger = logging.getLogger(__name__)
 #                              ref), after its 3
 #   4. the plan rows           `plan:*` reference_datasets, plan_revisions, plan_alignments,
 #                              plan_page_floors
-#   5. the Einsatz rows        `incidents` – a lock class of its own, taken LAST: a SharePoint run
-#                              re-points the Einsätze of a renamed object right before its commit,
-#                              in id order under one deadline (sharepoint_sync · _repoint_einsaetze).
-#                              No Einsatz path takes 1–4 after it has locked its Einsatz row, so a
-#                              run that waits here waits only for an Einsatz write to end.
+#   5. the Einsatz rows        `incidents` – a lock class of its own, taken LAST by a SharePoint
+#                              run: it re-points the Einsätze of a renamed object right before its
+#                              commit, in id order under one deadline (sharepoint_sync ·
+#                              _repoint_einsaetze). No ordinary Einsatz write takes 1–4 after it has
+#                              locked its Einsatz row, so the run waits here only for such a write to
+#                              end. (The demo reset deletes Einsätze before it takes 3, under 1.)
 #
 # A replacement (`store_plan`, the manifest load) and every alignment write that checks «is this
 # revision still current» (`plan_approval.lock_current_revision`: approve, Geschosse, retry, the
