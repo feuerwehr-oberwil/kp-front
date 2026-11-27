@@ -501,3 +501,27 @@ async def test_a_job_whose_row_a_run_holds_too_does_not_stall_the_queue(
     held = await db_session.get(PlanAlignment, held_job, populate_existing=True)
     assert (held.status, held.attempts) == ("processing", 1)  # the lease brings it back
     assert (await db_session.get(PlanAlignment, free_job, populate_existing=True)).status == "unsupported"
+
+
+async def test_the_retry_limit_sweep_skips_a_row_a_run_holds(session_factory, db_session, pdf_store):
+    """A job at its last attempt whose lease ran out while a re-key holds its row: the sweep that
+    marks such jobs failed skips it (SKIP LOCKED) instead of waiting, and the free job is claimed."""
+    if db_session.bind.dialect.name != "postgresql":
+        pytest.skip("requires independent PostgreSQL transactions")
+    import asyncio
+
+    held_job = await seed(db_session, pdf_store)
+    free_job = await seed(db_session, pdf_store)
+    held = await db_session.get(PlanAlignment, held_job)
+    held.status, held.attempts = "processing", worker.MAX_ATTEMPTS
+    held.claimed_at = datetime.now(UTC) - timedelta(seconds=worker.LEASE_SECONDS + 1)
+    await db_session.commit()
+
+    async with session_factory() as rekey:
+        await rekey.execute(select(PlanAlignment.id).where(PlanAlignment.id == held_job).with_for_update())
+        async with session_factory() as db:
+            claim = await asyncio.wait_for(worker.claim_job(db), 5)
+            assert claim and claim.id == free_job
+            await db.commit()
+        await rekey.commit()
+    assert (await db_session.get(PlanAlignment, held_job, populate_existing=True)).status == "processing"

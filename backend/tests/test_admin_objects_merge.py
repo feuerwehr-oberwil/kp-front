@@ -275,6 +275,26 @@ async def _revision(db, dataset_id: str, *, version: int = 1, approved: bool = F
     return alignment.id
 
 
+async def test_a_job_the_worker_is_running_goes_back_to_the_queue_when_its_sheet_moves(db_session):
+    """The worker's claim names the old dataset id, so it can never finish a moved job
+    (plan_alignment_worker · finish_job): the fold requeues it and does not charge the attempt."""
+    survivor = await _object(db_session, NFC_NAME)
+    loser = await _object(db_session, NFD_NAME, oid=object_id_for_key(NFD_NAME), plans={"modul2": "b" * 64})
+    running = await db_session.get(PlanAlignment, await _revision(db_session, f"plan:{loser}:modul2"))
+    running.status, running.attempts, running.claimed_at = "processing", 2, datetime.now(UTC)
+    await db_session.commit()
+
+    assert await admin_objects_repair._merge_into(loser, survivor, apply=True) == 0
+
+    moved = await db_session.get(PlanAlignment, running.id, populate_existing=True)
+    assert (moved.dataset_id, moved.status, moved.attempts, moved.claimed_at) == (
+        f"plan:{survivor}:modul2",
+        "pending",
+        1,
+        None,
+    )
+
+
 async def test_a_folded_sheet_takes_its_revisions_and_alignments_with_it(db_session):
     """⚠️ The FWO case, 16.09.2026: a plan row is no longer alone. `plan_revisions.dataset_id` is
     ON DELETE RESTRICT and carries no ON UPDATE CASCADE, so a merge that deletes or re-keys a

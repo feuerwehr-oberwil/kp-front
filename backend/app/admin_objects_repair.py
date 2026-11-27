@@ -430,7 +430,8 @@ async def _drop_plan_rows(db: AsyncSession, dataset_id: str) -> None:
 
 
 async def _rekey_dataset(db: AsyncSession, old_id: str, new_id: str, object_id: uuid.UUID) -> None:
-    """Move a plan dataset — row, revisions, alignments, floors — onto a new dataset id.
+    """Move a plan dataset — row, revisions, alignments, floors — onto a new dataset id. A job the
+    alignment worker is running on it goes back to the queue, its attempt uncounted.
 
     ⚠️ Copied and dropped, never updated in place. `plan_revisions` is a CHILD of
     ``reference_datasets`` and the PARENT of ``plan_alignments`` / ``plan_page_floors``, and
@@ -450,6 +451,19 @@ async def _rekey_dataset(db: AsyncSession, old_id: str, new_id: str, object_id: 
             .values(dataset_id=new_id)
             .execution_options(synchronize_session=False)
         )
+    # A job the worker is running now can never be finished: its claim names the old dataset id
+    # (plan_alignment_worker · finish_job). Back to the queue, and the attempt is not its fault.
+    await db.execute(
+        update(PlanAlignment)
+        .where(PlanAlignment.dataset_id == new_id, PlanAlignment.status == "processing")
+        .values(
+            status="pending",
+            claimed_at=None,
+            attempts=PlanAlignment.attempts - 1,
+            edit_version=PlanAlignment.edit_version + 1,
+        )
+        .execution_options(synchronize_session=False)
+    )
     await db.execute(
         delete(PlanRevision).where(PlanRevision.dataset_id == old_id).execution_options(synchronize_session=False)
     )

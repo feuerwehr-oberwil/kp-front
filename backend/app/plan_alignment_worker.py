@@ -75,9 +75,15 @@ async def claim_job(db: AsyncSession, now: datetime | None = None) -> Claim | No
             ),
         ),
     )
+    # SKIP LOCKED like the claim below: a row a SharePoint re-key holds must not stall the queue
+    exhausted = (
+        select(PlanAlignment.id)
+        .where(eligible, PlanAlignment.attempts >= MAX_ATTEMPTS)
+        .with_for_update(skip_locked=True)
+    )
     await db.execute(
         update(PlanAlignment)
-        .where(eligible, PlanAlignment.attempts >= MAX_ATTEMPTS)
+        .where(PlanAlignment.id.in_(exhausted))
         .values(
             status="failed",
             reason="worker_retry_limit",
