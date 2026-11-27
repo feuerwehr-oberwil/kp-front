@@ -514,8 +514,15 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     the sheet's head. A PLACEMENT MODE (any armed map or plan tool, Messen, the Passung, the
     Karte's Punkt setzen / Gefahrgut) calls `usePlacementLane(active)` (lib/toastLane → `<html
     data-placing>`), which bounds the strip so the lane under it stays near the head; a new mode
-    calls the hook, it never adds a selector to a list. On the Karte the lane also clears the
-    running-Einsatz strip. The Karte's «Auf die Karte tippen …» is a `MapHint` in the foot lane
+    calls the hook, it never adds a selector to a list. While an armed tool's column stands beside
+    the tool rail (tablet, laptop – it stands level with the rail's top, in the lane's band), the
+    lane – Meldeleiste, toasts, the Plan's «in der Nähe» banner – ends 24px left of it and never
+    moves it (ToolDock · `--dock-w`, 08-toasts; owner, Üben feedback 27.11.2026: the strip lay on
+    «Freihand»); where the centred strip already clears it, nothing moves. The lane keeps a 220px
+    floor, and a strip or toast lane of 440px or less takes the phone's rows: where the floor binds
+    (an expanded rail on a window under ~650–800px) an unreadable alert would be worse, so only
+    there it still reaches onto the column's edge. On the Karte the lane
+    also clears the running-Einsatz strip. The Karte's «Auf die Karte tippen …» is a `MapHint` in the foot lane
     (components/karte/KarteApp), not a toast. No Meldeleiste row has a left edge (29.09.2026: the alarm's red
     bar first, then amber / blue / grey): a row's tone is its leading glyph's colour, so every
     `Meldung` carries an `icon`. A row TITLE whose way in is the same
