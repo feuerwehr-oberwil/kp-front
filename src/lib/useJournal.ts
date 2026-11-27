@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from 'react'
 import { JournalStore, type JournalOwner } from './journalStore'
 import { useLongPoll } from './useLongPoll'
 import type { TimelineEvent } from '../types'
@@ -7,8 +7,9 @@ import type { PhotoSlot } from './verlauf'
 /**
  * React binding for the JournalStore — one store per incident mount (IncidentWorkspace is
  * keyed by incident id upstream). Pulls new rows + retries the outbox on the same long-poll
- * loop as the workspace live-follow (useLongPoll), flushes on reconnect, and re-renders via a
- * change nonce.
+ * loop as the workspace live-follow (useLongPoll), and flushes on reconnect. It renders from the
+ * store's compared snapshot (JournalStore.view): only a change of what it returns renders the
+ * workspace, and the rows are rebuilt only when their inputs changed.
  */
 export function useJournal({ incidentId, readOnly, legacy, slowFollow = false, owner = null }: {
   incidentId: string
@@ -20,16 +21,14 @@ export function useJournal({ incidentId, readOnly, legacy, slowFollow = false, o
   /** the blob's timeline at open (newest-first) — legacy display + migration input */
   legacy: TimelineEvent[]
 }) {
-  const [nonce, setNonce] = useState(0)
-  // rows the CLOSED Einsatz refused (journalStore · refused) — for the notice that says why.
-  // Carried as state, set from the store's change callback, never read off the store in render.
-  const [refusedCount, setRefusedCount] = useState(0)
-  // the rows still only on this device (journalStore · unsentRowIds), read on each change like
-  // `refusedCount` – the delivery notice counts them, the Verlauf marks them
-  const [unsentIds, setUnsentIds] = useState<ReadonlySet<string>>(() => new Set())
   const storeRef = useRef<JournalStore | null>(null)
   if (!storeRef.current) storeRef.current = new JournalStore(incidentId, readOnly, owner)
   const store = storeRef.current
+  const subscribe = useCallback((notify: () => void) => {
+    store.onChange = notify
+    return () => { if (store.onChange === notify) store.onChange = undefined }
+  }, [store])
+  const view = useSyncExternalStore(subscribe, () => store.view())
 
   // Same live-follow loop as the workspace sync — literally the same one (useLongPoll), so only
   // the round differs. Before the store's effect, so a teardown stops the loop (and aborts the
@@ -69,7 +68,6 @@ export function useJournal({ incidentId, readOnly, legacy, slowFollow = false, o
     // store drops every `append` on the floor without a word. In dev that meant: the composer
     // closed, the toast said «gespeichert», and no Verlaufszeile ever reached the server.
     if (store.isDisposed) store.revive()
-    store.onChange = () => { setNonce((n) => n + 1); setRefusedCount(store.refusedCount); setUnsentIds(store.unsentRowIds()) }
     void store.init(legacy)
 
     return () => { store.dispose() }
@@ -79,8 +77,8 @@ export function useJournal({ incidentId, readOnly, legacy, slowFollow = false, o
   // the tab lock can flip read-only at runtime; a promoted tab starts flushing
   useEffect(() => { store.setReadOnly(readOnly) }, [readOnly, store])
 
-  const rows = useMemo(() => store.display(), [nonce])           // eslint-disable-line react-hooks/exhaustive-deps
-  const blobTimeline = useMemo(() => store.blobTimeline(), [nonce]) // eslint-disable-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- rowsKey stands for everything display() reads
+  const rows = useMemo(() => store.display(), [view.rowsKey])
 
   const append = useCallback((row: TimelineEvent) => store.append(row), [store])
   const appendPatch = useCallback(
@@ -101,7 +99,11 @@ export function useJournal({ incidentId, readOnly, legacy, slowFollow = false, o
   const getStatus = useCallback(() => store.syncStatus, [store])
   const rowShown = useCallback((id: string) => store.rowShown(id), [store])
 
+  // refusedCount: rows the CLOSED Einsatz refused (journalStore · refused) — for the notice that
+  // says why; unsentIds: the rows still only on this device — the delivery notice counts them,
+  // the Verlauf marks them
+  const { blobTimeline, syncStatus, pendingCount, rejectedCount, refusedCount, unsentIds } = view
   return { rows, blobTimeline, append, appendPatch, overlaySession, swapPhoto, ingestLegacy,
-    retry, flush, requeueRefused, recoveryData, getStatus, rowShown, syncStatus: store.syncStatus,
-    pendingCount: store.pendingCount, rejectedCount: store.rejectedCount, refusedCount, unsentIds }
+    retry, flush, requeueRefused, recoveryData, getStatus, rowShown, syncStatus,
+    pendingCount, rejectedCount, refusedCount, unsentIds }
 }

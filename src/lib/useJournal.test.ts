@@ -26,6 +26,8 @@ vi.mock('./journalStore', () => {
     display = vi.fn().mockReturnValue([])
     blobTimeline = vi.fn().mockReturnValue([])
     unsentRowIds = vi.fn().mockReturnValue(new Set())
+    private readonly snapshot = { rowsKey: '', syncStatus: 'synced', pendingCount: 0, rejectedCount: 0, refusedCount: 0, unsentIds: new Set(), blobTimeline: [] }
+    view = () => this.snapshot
     constructor() { instances.push(this) }
   }
   return { JournalStore: FakeStore }

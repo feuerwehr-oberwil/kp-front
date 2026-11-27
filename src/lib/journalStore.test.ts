@@ -1170,3 +1170,67 @@ it('does not fold client corrections or retractions onto server lifecycle rows',
     expect(store.display()).toEqual([expect.objectContaining({ id: 'sys-closed', lifecycle: 'closed', text: 'Einsatz abgeschlossen' })])
   } finally { store.dispose() }
 })
+
+// A pull that brings back only rows this device holds (the drain's pull, a long-poll wake) has
+// nothing to keep or show – but a held row can still advance the cursor (perf sweep 26.11.2026).
+describe('a pull of rows already held', () => {
+  const storedCursor = async () => { const read = await idb.idbRead<{ latestSeq: number }>(`kp-journal-${INC}`); return read.ok ? read.value?.latestSeq : undefined }
+  it('writes and announces nothing when it changes nothing', async () => {
+    fakeServer([row('a')])
+    const store = new JournalStore(INC, false)
+    try {
+      const write = vi.spyOn(idb, 'idbSet')
+      await store.init([])
+      // init's own write has landed, and announced that it did, before anything is counted
+      await vi.waitFor(() => expect(write).toHaveBeenCalled())
+      for (let seen = -1; seen !== write.mock.results.length;) {
+        seen = write.mock.results.length
+        await Promise.all(write.mock.results.map((r) => r.value))
+        await settle()
+      }
+      write.mockClear()
+      const changes = vi.fn()
+      store.onChange = changes
+      const view = store.view()
+      apiGet.mockResolvedValueOnce({ entries: [{ seq: 1, row: row('a') }], latest_seq: 1 })
+      expect(await store.pull()).toBe('new')
+      await settle()
+      expect(write).not.toHaveBeenCalled()
+      expect(changes).not.toHaveBeenCalled()
+      expect(store.view()).toBe(view)
+    } finally { store.dispose() }
+  })
+
+  it('still writes the cursor a held row advances, so a reload does not pull from the old one', async () => {
+    const server = fakeServer()
+    const store = new JournalStore(INC, false)
+    try {
+      await store.init([])
+      store.append(row('m1'))
+      apiGet.mockImplementation(async () => ({ entries: [], latest_seq: 0 })) // the drain's pull finds nothing yet
+      await store.flush()
+      await settle()
+      expect(await storedCursor()).toBe(0)
+      // the long-poll wake brings back m1, held since the POST answer, at its seq
+      apiGet.mockResolvedValueOnce({ entries: [...server.rows], latest_seq: 1 })
+      await store.pull()
+      await settle()
+      expect(await storedCursor()).toBe(1)
+      expect(store.display().map((r) => r.id)).toEqual(['m1'])
+    } finally { store.dispose() }
+  })
+})
+
+it('a legacy row changed under its id rebuilds the rows a viewer shows', async () => {
+  fakeServer()
+  const store = new JournalStore(INC, true)
+  try {
+    await store.init([row('old', { text: 'vorher' })])
+    const before = store.view().rowsKey
+    store.ingestLegacy([row('old', { text: 'vorher' })])
+    expect(store.view().rowsKey).toBe(before) // the same content again: nothing to rebuild
+    store.ingestLegacy([row('old', { text: 'nachher' })])
+    expect(store.view().rowsKey).not.toBe(before)
+    expect(store.display().map((r) => r.text)).toEqual(['nachher'])
+  } finally { store.dispose() }
+})

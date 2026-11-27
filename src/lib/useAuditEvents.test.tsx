@@ -123,3 +123,26 @@ describe('observed events and the role scope', () => {
     hook.unmount()
   })
 })
+
+// What one audit event costs the workspace (perf sweep 26.11.2026): the hook renders when a value
+// it returns changes – the event queued, the event acknowledged – and not for each IDB write.
+describe('renders per event', () => {
+  it('one event end to end renders twice: queued, then acknowledged', async () => {
+    ingestEvents.mockResolvedValue([])
+    let renders = 0
+    const hook = renderHook(() => { renders++; return useAuditEvents('incident', false, 'editor') })
+    await act(async () => { await hook.result.current.flushEvents() })
+    renders = 0
+    act(() => hook.result.current.emit('draw.add', { id: 'drawing' }))
+    expect(hook.result.current.status).toBe('pending')
+    // one act per task, as the browser runs them: the IDB write landing, the POST answer and the
+    // write after it are separate tasks there, and each update outside a batch is its own commit
+    const settle = async () => { for (let i = 0; i < 5; i++) await act(() => new Promise((r) => setTimeout(r, 0))) }
+    await settle()
+    act(() => { void hook.result.current.flushEvents() })
+    await settle()
+    expect(hook.result.current.status).toBe('synced')
+    expect(renders).toBe(2)
+    hook.unmount()
+  })
+})

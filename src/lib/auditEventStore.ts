@@ -20,6 +20,16 @@ export type PendingAuditEvent = ClientEvent & { client_id: string }
  * Einsatz runs again (`requeueClosed`, «Wieder öffnen»), which is why the two are kept apart.
  */
 interface StoredAuditEvents { pending: PendingAuditEvent[]; rejected: PendingAuditEvent[]; refused?: PendingAuditEvent[]; closed?: PendingAuditEvent[] }
+/** The values useAuditEvents renders from — one snapshot that keeps its identity until one of
+ *  them changes (see AuditEventStore.view). */
+export interface AuditView {
+  pendingCount: number
+  rejectedCount: number
+  refusedCount: number
+  closedCount: number
+  cacheDurable: boolean
+  status: SyncStatus
+}
 const BATCH_SIZE = 100
 const RETRY_MS = 8_000
 
@@ -47,6 +57,7 @@ export class AuditEventStore {
   private readFailed = false
   private rereadTimer: ReturnType<typeof setTimeout> | null = null
   private onChange?: () => void
+  private lastView: AuditView | null = null
 
   constructor(private incidentId: string, private ownerId: string, private readOnly: boolean, private scope: EventScope = ALL_EVENTS) {}
 
@@ -75,6 +86,20 @@ export class AuditEventStore {
   subscribe(listener: () => void) {
     this.onChange = listener
     return () => { if (this.onChange === listener) this.onChange = undefined }
+  }
+
+  /** The counts and status as a `useSyncExternalStore` snapshot: the same object while they
+   *  stay, so a notification that moved none of them (a write landing durable again) renders
+   *  nothing. */
+  view(): AuditView {
+    const next: AuditView = {
+      pendingCount: this.pendingCount, rejectedCount: this.rejectedCount, refusedCount: this.refusedCount,
+      closedCount: this.closedCount, cacheDurable: this.durable, status: this.status,
+    }
+    const prev = this.lastView
+    if (prev && (Object.keys(next) as (keyof AuditView)[]).every((k) => prev[k] === next[k])) return prev
+    this.lastView = next
+    return next
   }
 
   private get key() { return `kp-audit-${this.incidentId}:${this.ownerId}` }
