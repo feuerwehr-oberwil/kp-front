@@ -53,20 +53,18 @@
    (design pass C6, 18.11.2026): the red and the counting timer already say «recording». */
 .fab-entry.rec { background: var(--red-fill); color: var(--on-accent-ink); border-color: transparent; }
 .fab-entry.rec span { font-family: var(--mono); }
-/* ⚠️ NO «quiet» step-back (18.09.2026, field ask): the FAB keeps one size and one opacity at all
-   times, also while the list under it scrolls. Shrunk and half-faded on the Journal, where the
-   list is scrolled constantly, it read as a button that was disappearing (FabEntry). */
+/* ⚠️ NO «quiet» step-back (18.09.2026, field ask): scrolling never shrinks or fades the FAB.
+   Shrunk and half-faded on the Journal, where the list is scrolled constantly, it read as a
+   button that was disappearing (FabEntry). */
 @media (prefers-reduced-motion: reduce) { .fab-entry { transition: none; } }
 
-/* ---- Tablet (the primary device, ~768–1024px): the desktop layout's fixed-width side
-   panels occlude the map. Narrow + tuck them so the centre stays usable. The phone rules
-   below override this.
-   ⚠️ `--tablet`'s height/width clauses (lib/breakpoints · TABLET_QUERY) are not a second guess
-   at the device — together they are the exact NEGATION of `--phone` («≤600px wide, OR landscape
-   and ≤520px tall and ≤1000px wide»). A phone turned sideways is 800–960px wide and would
-   otherwise land in this tablet band; the comma-OR `(min-width: 1001px)` half keeps a WIDE
-   tablet in the band even if something shortens its layout viewport below 521px (the old
-   `resizes-content` keyboard shrink did exactly that — see lib/useIsPhone). ---- */
+/* ---- Tablet (the primary device, ~768–1024px): the top bar's Einsatz address
+   (`.eaddr`) is capped at 26vw. The phone rules below override this.
+   ⚠️ `--tablet` (lib/breakpoints · TABLET_QUERY) is `--not-phone` capped at 1024px wide, so a
+   phone turned sideways (800–960px wide, ≤520px tall) stays out of this band; the comma-OR
+   `(min-width: 1001px)` half keeps a WIDE tablet in it even if something shortens its layout
+   viewport below 521px (the old `resizes-content` keyboard shrink did exactly that — see
+   lib/useIsPhone). ---- */
 @media (--tablet) {
   /* (`.ctx` keeps its 360px here – no tablet narrowing: the label column (--ctx-lbl) and the
      control edge need the whole 360. Below ~355 the Linienende's four segments at the 44px touch
