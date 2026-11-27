@@ -202,8 +202,17 @@ for (const device of [
     })
 
     // Sol review, PR #702: on a narrow foot «Schätzung ≈ 263 bar» was clipped (phone, room kept for
-    // «Eintrag»), and the ⌄ followed the flex box – between the two lines – not the last value
-    test(`the Trupp card foot cuts no value and ends in its ⌄ (${device.name})`, async ({ page }) => {
+    // «Eintrag»), and the ⌄ followed the flex box – between the two lines – not the last value.
+    // …and a VIEWER's card the same (owner pick B, Üben feedback 27.11.2026): «drin 8:00 · 270 bar ·
+    // ≈ 263 bar» wrapped on a tablet, so a viewer's foot is the editor's «drin · ≈ bar». The session
+    // reads as a viewer through its `/api/auth/me` (the seed needs the editor's login).
+    for (const viewer of [false, true]) test(`the Trupp card foot cuts no value and ends in its ⌄${viewer ? ', a viewer\'s too' : ''} (${device.name})`, async ({ page }) => {
+      if (viewer) {
+        await page.route('**/api/auth/me', async (route) => {
+          const response = await route.fetch()
+          await route.fulfill({ response, json: { ...await response.json() as object, role: 'viewer' } })
+        })
+      }
       await openEinsatz(page)
       await go(page, 'Trupps')
       const card = page.locator('[class*="trowCard"]').filter({ hasText: WORST.crew[0] })
@@ -226,6 +235,8 @@ for (const device of [
       // ONE line beside «⋯ Mehr» (Üben feedback 27.11.2026: «two rows of text … feels like an afterthought»)
       const tops = await line.evaluate((l) => new Set([...l.querySelectorAll(':is(i, b)')].map((e) => Math.round(e.getBoundingClientRect().top))).size)
       expect(tops, 'the foot is one line').toBe(1)
+      // the measured Druck stays in the Verlauf: «≈ 263 bar» alone, never «270 bar» beside it
+      if (viewer) await expect(line).not.toContainText(/(^|[^≈] )270 bar/)
     })
 
     // Sol review 2, PR #702: with the room kept for «Eintrag» (the FAB guard, `data-az-fab-foot`) a

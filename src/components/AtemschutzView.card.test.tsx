@@ -154,13 +154,18 @@ describe('the contact times (the head of the Verlauf)', () => {
       expect(text()).toMatch(/≈ \d+ bar/)
     })
 
-    /* The ONE value that is allowed to join the line, and only where nothing else shows it: a
-     * viewer has no pressure tile, so «240 bar» would otherwise be a tap away on the surface a
-     * life depends on. With the tile live, the number is already on it and the line must not say
-     * it twice. */
-    it('adds the aktueller Druck for a viewer, and never beside the live pressure tile', () => {
+    /* The measured Druck joins the line only where nothing else shows it and no Schätzung stands:
+     * a viewer has no pressure tile, but with «≈ … bar» beside it the line wrapped on a tablet –
+     * a viewer's foot is an editor's (owner pick B, Üben feedback 27.11.2026), the reading stays in
+     * the Verlauf. With the tile live, the number is already on it and the line must not say it twice. */
+    it('a viewer\'s foot is the editor\'s «drin · ≈ bar»; the aktueller Druck only with no Schätzung', () => {
       mount({ canEdit: false })
-      expect(document.querySelector(`.${s.metaLine}`)!.textContent).toContain('240 bar')
+      const viewer = document.querySelector(`.${s.metaLine}`)!.textContent!
+      expect(viewer).not.toMatch(/(^|[^≈] )240 bar/)
+      expect(viewer).toMatch(new RegExp(`^${az.footInside}\\d+:\\d{2}≈ \\d+ bar$`))
+      cleanup()
+      mount({ canEdit: false, trupps: [{ ...aktivTrupp(), entryPressureBar: Number.NaN }] })
+      expect(document.querySelector(`.${s.metaLine}`)!.textContent).toMatch(new RegExp(`^${az.footInside}\\d+:\\d{2}240 bar$`))
       cleanup()
       mount({ canEdit: true })
       const line = document.querySelector(`.${s.metaLine}`)!.textContent!
