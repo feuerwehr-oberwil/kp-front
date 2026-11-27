@@ -45,6 +45,12 @@ export class FakeLocks {
     })
   }
 
+  /** What WebKit does to a lone document it suspends (back-forward cache, an iOS app in the
+   *  background): the held request rejects and the lock is free – no other tab took it. */
+  suspend(name: string): void {
+    this.held.get(name)?.reject(new DOMException('released by the browser', 'AbortError'))
+  }
+
   private release(name: string, done: Promise<void>) {
     // A stolen holder settling cannot release the replacement holder.
     if (this.held.get(name)?.done !== done) return

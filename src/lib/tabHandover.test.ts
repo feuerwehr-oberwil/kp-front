@@ -46,7 +46,7 @@ import { ApiError } from './api'
 import type { IncidentMeta } from './api/incidents'
 import { CACHE_DEBOUNCE_MS, setWorkspaceCacheOwner, type WorkspaceSync, type WorkspaceSyncOptions } from './api/workspaceSync'
 import { IncidentSelection } from './incidentSelection'
-import { IncidentTabLock, incidentLockName, TAB_LOCK_ANSWER_MS, TabLockAnswers } from './tabLock'
+import { IncidentTabLock, incidentLockName, TabLockAnswers } from './tabLock'
 import { FakeLocks } from './webLocks.test-utils'
 
 const ID = 'e1'
@@ -145,17 +145,18 @@ it('hole 1: «Hier bearbeiten» keeps what the holder saved, and the holder writ
   expect(putsBy(holder)).toBe(0)
 })
 
-it.each([0, CACHE_DEBOUNCE_MS + 200])('hole 2: a tab opening behind the holder writes no server copy over the holder’s draft (lock asked after %i ms)', async (lockAfterMs) => {
+it('hole 2: a tab opening behind the holder writes no server copy over the holder’s draft', async () => {
   const a = await tab()
   let answer!: () => void
   get.mockImplementationOnce(() => new Promise((resolve) => { answer = () => resolve({ workspace: {}, workspace_rev: 1 }) }))
-  const opening = tab({ lockAfterMs })
+  // App's order: the open arms the debounced cache write, then the lock is asked and answers
+  const opening = tab({ lockAfterMs: CACHE_DEBOUNCE_MS / 3 })
   await vi.waitFor(() => expect(answer).toBeTypeOf('function')) // B read the slot and asks the server
   edit(a, { remarks: 'newer in A' })
   await settle()
   answer()
   const b = await opening
-  await vi.advanceTimersByTimeAsync(TAB_LOCK_ANSWER_MS + 500)
+  await vi.advanceTimersByTimeAsync(5_000)
   expect(b.held).toBe(false)
   expect(slot()).toMatchObject({ dirty: true, workspace: { reportMeta: { remarks: 'newer in A' } } })
 })
@@ -249,27 +250,32 @@ it('a follower re-sending refused saves leaves the parked copies on disk', async
   expect(store.get(`kp-front-ws-${ID}::__refused__`)).toEqual(parked)
 })
 
-it('one tab, a lock that never answers: the cache write and the PUT go after the bound, as on main', async () => {
-  Object.defineProperty(globalThis.navigator, 'locks', { value: { request: () => new Promise(() => {}) }, configurable: true })
+it.each([
+  ['without Web Locks', undefined],
+  ['a lock that never answers', { request: () => new Promise(() => {}) }],
+  ['a lock request that rejects (an inactive document)', { request: () => Promise.reject(new DOMException('inactive', 'InvalidStateError')) }],
+])('one tab %s: the cache write and the PUT go at main’s times', async (_case, locks) => {
+  if (locks) Object.defineProperty(globalThis.navigator, 'locks', { value: locks, configurable: true })
+  else Reflect.deleteProperty(globalThis.navigator, 'locks')
   put.mockResolvedValue({ workspace: null, workspace_rev: 2 })
   const a = await tab()
-  edit(a, { remarks: 'alone' })
-  await settle()
-  expect(slot()?.workspace.reportMeta).toBeUndefined() // waiting for the lock's first answer
-  await vi.advanceTimersByTimeAsync(TAB_LOCK_ANSWER_MS)
-  expect(slot()).toMatchObject({ workspace: { reportMeta: { remarks: 'alone' } } })
-  await vi.advanceTimersByTimeAsync(TAB_LOCK_ANSWER_MS)
-  expect(putsBy(engine(a))).toBe(1)
-  expect(slot()).toMatchObject({ dirty: false, workspace: { reportMeta: { remarks: 'alone' } } })
-})
-
-it('one tab without Web Locks: the cache write and the PUT go at main’s times', async () => {
-  Reflect.deleteProperty(globalThis.navigator, 'locks')
-  put.mockResolvedValue({ workspace: null, workspace_rev: 2 })
-  const a = await tab()
-  edit(a, { remarks: 'alone' })
+  engine(a).save({ reportMeta: { remarks: 'alone' } }) // a rejecting lock shows read-only, as on main; the engine is what is checked
   await vi.advanceTimersByTimeAsync(CACHE_DEBOUNCE_MS)
   expect(slot()).toMatchObject({ dirty: true, workspace: { reportMeta: { remarks: 'alone' } } })
   await vi.advanceTimersByTimeAsync(1_000 - CACHE_DEBOUNCE_MS)
   expect(putsBy(engine(a))).toBe(1)
+})
+
+it('one tab whose held lock the browser releases (WebKit suspends the document) keeps its engine and its writes', async () => {
+  put.mockResolvedValue({ workspace: null, workspace_rev: 2 })
+  const a = await tab()
+  const first = engine(a)
+  edit(a, { remarks: 'only in memory yet' }) // both debounces armed
+  ;(navigator.locks as unknown as FakeLocks).suspend(incidentLockName(ID))
+  await vi.advanceTimersByTimeAsync(0)
+  expect([a.held, first.lockLost, engine(a)]).toEqual([true, false, first]) // asked again, granted at once: no other tab
+  await vi.advanceTimersByTimeAsync(CACHE_DEBOUNCE_MS)
+  expect(slot()).toMatchObject({ workspace: { reportMeta: { remarks: 'only in memory yet' } } })
+  await vi.advanceTimersByTimeAsync(1_000)
+  expect(putsBy(first)).toBe(1)
 })

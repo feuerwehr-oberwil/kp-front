@@ -586,7 +586,7 @@ export class WorkspaceSync {
     private readonly opts: WorkspaceSyncOptions = {},
   ) {
     this.lockAnswers = opts.tabLock ?? tabLockAnswers
-    this.followed = this.lockAnswers.get(incidentId) === false
+    this.followed = this.lockAnswers.anotherTabHolds(incidentId)
     this.offLock = this.lockAnswers.on(incidentId, (held) => { if (!held) this.follow() })
     this.debounceMs = opts.debounceMs ?? 3000
     // The cache lives in IndexedDB (async), so it can't be read in the constructor; init()
@@ -627,18 +627,8 @@ export class WorkspaceSync {
   private writeCache() {
     if (!this.ownsCache || this.followed) return
     if (this.cacheTimer) clearTimeout(this.cacheTimer)
-    this.cacheTimer = setTimeout(this.cacheDue, CACHE_DEBOUNCE_MS)
+    this.cacheTimer = setTimeout(this.flushCache, CACHE_DEBOUNCE_MS)
     pendingCacheWrites.add(this.flushCache)
-  }
-
-  /** The debounced cache write. Before this tab's lock first answered it waits for that answer
-   *  (bounded, lib/tabLock · TAB_LOCK_ANSWER_MS): a tab opening behind the holder must not write a
-   *  server copy over the holder's draft. A write flushed synchronously (teardown, push) does not wait. */
-  private cacheDue = () => {
-    if (this.lockAnswers.get(this.incidentId) !== undefined) { void this.flushCache(); return }
-    const due = this.cacheTimer
-    // a newer save re-armed the debounce meanwhile: its own timer writes it
-    void this.lockAnswers.answered(this.incidentId).then(() => { if (this.cacheTimer === due) void this.flushCache() })
   }
 
   /** This tab lost the edit lock, or opened behind its holder: drop every write still waiting – the
@@ -1256,8 +1246,6 @@ export class WorkspaceSync {
   private run(): Promise<void> {
     if (this.flushing) return this.flushing
     if (!this.entry.dirty || !this.sessionActive || this.followed) return Promise.resolve()
-    // no PUT before this tab's lock first answered (bounded) – see cacheDue
-    if (this.lockAnswers.get(this.incidentId) === undefined) return this.lockAnswers.answered(this.incidentId).then(() => this.run())
     this.flushing = (async () => {
       do {
         this.flushRequested = false

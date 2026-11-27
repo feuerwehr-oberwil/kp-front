@@ -30,28 +30,22 @@ function defaultLocks(): LocksAPI | null {
   return typeof navigator !== 'undefined' && 'locks' in navigator ? navigator.locks : null
 }
 
-/** How long a write waits for this tab's first lock answer before it goes as if the tab held the
- *  lock. The try-acquire answers in milliseconds once the Einsatz is on screen; the bound only
- *  covers a lock that never answers, so a lone tab is never held up for longer than this. */
-export const TAB_LOCK_ANSWER_MS = 1_000
-
 /** The lock name of Einsatz `id` – one per Einsatz, shared by every tab of the browser. */
 export const incidentLockName = (id: string) => `kp-front-incident-${id}`
 
 /**
  * This tab's edit-lock answers per Einsatz, for the writers that must not write behind another tab
  * (WorkspaceSync, useMediaQueue – docs/sync-and-offline.md › Two tabs). One per tab: the module's
- * `tabLockAnswers`, written by IncidentTabLock; a test makes one per simulated tab.
+ * `tabLockAnswers`, written by IncidentTabLock; a test makes one per simulated tab. Only a
+ * confirmed «another tab holds it» stops a writer: no answer yet, or no Web Locks, writes as before.
  */
 export class TabLockAnswers {
   private answers = new Map<string, boolean>()
   private listeners = new Map<string, Set<(held: boolean) => void>>()
 
-  /** true – this tab holds the lock (or there are no Web Locks, or the first answer is overdue);
-   *  false – another tab holds it; undefined – not answered yet. */
-  get(id: string): boolean | undefined {
-    if (!defaultLocks()) return true
-    return this.answers.get(incidentLockName(id))
+  /** The lock said another tab holds Einsatz `id` – the last answer, not a guess. */
+  anotherTabHolds(id: string): boolean {
+    return this.answers.get(incidentLockName(id)) === false
   }
 
   /** Hear every later answer for Einsatz `id`. Returns the unsubscribe. */
@@ -61,28 +55,6 @@ export class TabLockAnswers {
     this.listeners.set(name, set)
     set.add(listener)
     return () => { set.delete(listener) }
-  }
-
-  /** Resolves once Einsatz `id` has an answer – at the latest after TAB_LOCK_ANSWER_MS, which then
-   *  counts as «held». */
-  answered(id: string): Promise<void> {
-    if (this.get(id) !== undefined) return Promise.resolve()
-    return new Promise((resolve) => {
-      const off = this.on(id, () => { clearTimeout(timer); off(); resolve() })
-      const timer = setTimeout(() => {
-        off()
-        if (this.get(id) === undefined) this.answers.set(incidentLockName(id), true)
-        resolve()
-      }, TAB_LOCK_ANSWER_MS)
-    })
-  }
-
-  /** May this tab write for Einsatz `id`? false once another tab holds it; before the first
-   *  answer, the (bounded) wait for it. */
-  mayWrite(id: string): boolean | Promise<boolean> {
-    const now = this.get(id)
-    if (now !== undefined) return now
-    return this.answered(id).then(() => this.get(id) !== false)
   }
 
   /** IncidentTabLock's side: the lock `name` answered (or, `held` undefined, stopped asking). */
@@ -107,7 +79,7 @@ export class IncidentTabLock {
     private readonly onChange: (held: boolean) => void,
     private readonly locks: LocksAPI | null = defaultLocks(),
     /** where the writers read this tab's answer – only a real answer is written: a request that
-     *  rejects before any grant says nothing, and the writers go on as without Web Locks */
+     *  rejects says nothing, and the writers go on as without Web Locks until a try answers */
     private readonly answers: TabLockAnswers = tabLockAnswers,
   ) {}
 
@@ -156,11 +128,12 @@ export class IncidentTabLock {
       })
     } catch {
       if (!current()) return
-      if (granted) this.answers.set(this.name, false) // stolen by another tab
       this.onChange(false)
-      // A stolen holder may queue again. An ungranted rejection must stop: WebKit rejects
-      // requests from a departing document, and immediate retries freeze navigation.
-      if (granted) void this.acquire(false)
+      // A lost holder asks again, try first: only that try says whether another tab took the
+      // lock – WebKit also releases a lone document's lock when it suspends it, and then the
+      // try is granted and nothing changed for the writers. An ungranted rejection must stop:
+      // WebKit rejects requests from a departing document, and immediate retries freeze navigation.
+      if (granted) void this.acquire(true)
     }
   }
 
@@ -181,9 +154,8 @@ export class IncidentTabLock {
       })
       .catch(() => {
         if (!current()) return
-        if (granted) this.answers.set(this.name, false)
         this.onChange(false)
-        if (granted) void this.acquire(false) // stolen back → wait in line again
+        if (granted) void this.acquire(true) // lost again → ask, then wait in line (see acquire)
       })
   }
 
