@@ -552,21 +552,31 @@ async def test_an_owed_job_is_neither_claimed_nor_failed_by_the_sweep(db_session
 
 async def test_an_owed_give_back_is_tried_once_per_window_not_before_every_claim(monkeypatch, session_factory):
     """A tick claims up to 20 jobs; an owed give-back whose row stays held is tried once per
-    OWED_RETRY_SECONDS, not 20 times at WORKER_LOCK_WAIT_MS each – and stays owed meanwhile."""
+    OWED_RETRY_SECONDS, not 20 times at WORKER_LOCK_WAIT_MS each – and stays owed meanwhile. The
+    window runs from the end of each try: two slow tries do not leave the next sweep due at once."""
+    now = [0.0]
     tries: list[int] = []
 
-    async def still_held(db, claim):
+    async def still_held(db, claim):  # each try waits out its lock limit
         tries.append(claim.id)
+        now[0] += 6
         return False
 
-    claim = worker.Claim(7, "plan:x:modul1", 1, 0, 1, 2)
-    monkeypatch.setattr(worker, "_owed", {7: claim})
+    owed = {n: worker.Claim(n, f"plan:x:modul{n}", 1, 0, 1, 2) for n in (7, 8)}
+    monkeypatch.setattr(worker, "_owed", dict(owed))
     monkeypatch.setattr(worker, "_owed_due", {})
+    monkeypatch.setattr(worker, "_clock", lambda: now[0])
     monkeypatch.setattr(worker, "_try_give_back", still_held)
+    await worker._settle_owed(session_factory)  # tries both: 0 → 12 s
+    await worker._settle_owed(session_factory)  # 7 is due at 16 s, 8 at 22 s
+    assert tries == [7, 8]
+    now[0] = 15.9
     await worker._settle_owed(session_factory)
+    assert tries == [7, 8]
+    now[0] = 16.0  # 7 is due; its try takes the clock to 22 s, when 8 is due as well
     await worker._settle_owed(session_factory)
-    assert tries == [7]
-    assert worker._owed == {7: claim}
+    assert tries == [7, 8, 7, 8]
+    assert worker._owed == owed
 
 
 async def test_a_legacy_plan_without_an_object_still_takes_its_lock_3(

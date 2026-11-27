@@ -8,6 +8,7 @@ that fit is the plan author's statement and not a matcher's guess.
 from __future__ import annotations
 
 import logging
+import time
 from collections.abc import Iterable
 from dataclasses import asdict, dataclass, replace
 from datetime import UTC, datetime, timedelta
@@ -53,7 +54,10 @@ _owed: dict[int, Claim] = {}
 #: …tried again at most once per OWED_RETRY_SECONDS each (≈ one alignment tick), not before every
 #: claim of a tick: each try may wait WORKER_LOCK_WAIT_MS, and a tick claims up to 20 jobs
 OWED_RETRY_SECONDS = 10
-_owed_due: dict[int, datetime] = {}
+_owed_due: dict[int, float] = {}
+#: the clock `_owed_due` is kept on – read after each try, so a slow sweep does not make the next
+#: one due at once
+_clock = time.monotonic
 #: claim id → when it was first given back, and the ones already warned about
 _busy_since: dict[int, datetime] = {}
 _busy_warned: set[int] = set()
@@ -214,7 +218,7 @@ async def _given_back(db: AsyncSession, claim: Claim, exc: DBAPIError) -> bool:
     _note_busy(claim.id)
     if not await _try_give_back(db, claim):
         _owed[claim.id] = claim
-        _owed_due[claim.id] = datetime.now(UTC) + timedelta(seconds=OWED_RETRY_SECONDS)
+        _owed_due[claim.id] = _clock() + OWED_RETRY_SECONDS
         logger.info("Plan alignment job %s: its row is held too — given back on a later tick", claim.id)
     return True
 
@@ -223,16 +227,15 @@ async def _settle_owed(factory: async_sessionmaker[AsyncSession]) -> None:
     """Write the give-backs a held row refused (`_owed`), each bounded; the rest wait for the next
     tick. Before any claim, so the lease never re-claims (and charges) a job that is owed back – the
     claim skips every owed job, due or not (`claim_job(owed=…)`)."""
-    now = datetime.now(UTC)
     for claim_id, claim in list(_owed.items()):
-        if _owed_due.get(claim_id, now) > now:
+        if _owed_due.get(claim_id, 0.0) > _clock():
             continue
         async with factory() as db:
             if await _try_give_back(db, claim):
                 del _owed[claim_id]
                 _owed_due.pop(claim_id, None)
             else:
-                _owed_due[claim_id] = now + timedelta(seconds=OWED_RETRY_SECONDS)
+                _owed_due[claim_id] = _clock() + OWED_RETRY_SECONDS  # from the end of THIS try
                 _note_busy(claim_id)
 
 
