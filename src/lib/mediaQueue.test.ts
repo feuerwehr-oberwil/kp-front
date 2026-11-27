@@ -554,20 +554,19 @@ describe('mediaQueue · no answer at all', () => {
     expect(upload).toHaveBeenCalledTimes(1)
   })
 
-  it('an upload that keeps timing out gets one early try per run of misses, however often the server answers others', async () => {
+  it('an upload that keeps failing gets one early try, however often the server answers others', async () => {
     await enqueueMedia(INC, 'big', 'photo', blob(), 'p', '')
     const upload = noAnswer()
     await flushMediaQueue(INC, upload) // a miss: 5 s pause
     for (let poll = 0; poll < 5; poll++) await flushMediaQueue(INC, upload, { due: 'reachable' }) // answered polls
     expect(upload).toHaveBeenCalledTimes(2)
-    // any server answer starts a new run: the next recovery may try early again
+    // a backend down for uploads re-arms onReachable as well: still no early re-send
     vi.setSystemTime((await listMediaQueue(INC))[0].retryAt!)
     upload.mockRejectedValueOnce(new ApiError(503, 'down'))
     await flushMediaQueue(INC, upload)
-    await flushMediaQueue(INC, upload, { due: 'reachable' })
-    await flushMediaQueue(INC, upload, { due: 'reachable' })
-    expect(upload).toHaveBeenCalledTimes(4)
-    expect((await listMediaQueue(INC))[0]).toMatchObject({ status: 'pending', attempts: 1, misses: 1 })
+    for (let poll = 0; poll < 5; poll++) await flushMediaQueue(INC, upload, { due: 'reachable' })
+    expect(upload).toHaveBeenCalledTimes(3)
+    expect((await listMediaQueue(INC))[0]).toMatchObject({ status: 'pending', attempts: 1 })
   })
 
   it('the browser\'s `online` event still tries at once after an early try missed', async () => {

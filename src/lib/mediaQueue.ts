@@ -137,11 +137,11 @@ function laneFor(incidentId: string) {
 const sameCapture = (a: MediaQueueItem, b: MediaQueueItem) =>
   a.id === b.id && a.rev === b.rev && a.createdAt === b.createdAt
 
-/** Captures that already used their early try on `due: 'reachable'` in the current run of
- *  misses. A capture whose upload keeps timing out re-arms connectivity · onReachable with every
- *  failure, and the next answered poll would send its Blob again – one such early try per run,
- *  then its pause holds. The browser's `online` event (`due: 'online'`) is not limited.
- *  Forgotten on any server answer. In memory only: a reload starts from the stored pause. */
+/** Captures that already used their early try on `due: 'reachable'`. A capture whose upload
+ *  keeps failing re-arms connectivity · onReachable with every no-answer or 502/503/504, and the
+ *  next answered poll would send its Blob again – one such early try, then its pause holds. Only
+ *  the upload landing forgets it. The browser's `online` event (`due: 'online'`) is not limited.
+ *  In memory only: a reload starts from the stored pause. */
 const triedEarly = new Set<string>()
 const captureKey = (item: MediaQueueItem) => `${item.incidentId}|${item.id}|${item.rev ?? item.createdAt}`
 
@@ -273,7 +273,7 @@ export interface FlushOutcome {
  *  attempts reach MAX_ATTEMPTS – so one after a long outage fails at once. One attempt per item
  *  per flush, and none before its `retryAt` – unless `due`: connectivity is back, so a pause
  *  still running from a dead link is over (`'online'`: the browser's event; `'reachable'`: the
- *  server answered another request – one early try per capture per run of misses, see
+ *  server answered another request – one early try per capture until it uploads, see
  *  triedEarly). Failed items still wait for `retry`. No answer at all counts a miss instead (`misses`): the pause doubles while the link stays dead. Receipts
  *  are never uploaded again, `retry` or not. Never throws — a bad flush just leaves work queued
  *  for the next one. */
@@ -308,7 +308,6 @@ export function flushMediaQueue(incidentId: string, upload: MediaUploader, { ret
         // is down counts (the pause grows) but never fails the item; any other HTTP answer counts
         // toward `failed`. Any answer ends the run of misses.
         const networkDown = !navigatorOnline() || (e instanceof ApiError && e.status === 0)
-        if (!networkDown) triedEarly.delete(key)
         const backendDown = e instanceof ApiError && BACKEND_DOWN.has(e.status)
         const previous = retry && item.status === 'failed' ? 0 : item.attempts
         const attempts = networkDown ? previous : previous + 1
