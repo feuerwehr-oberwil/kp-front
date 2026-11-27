@@ -1,6 +1,7 @@
 import { request as apiRequest, type Browser, type BrowserContext, type Page } from '@playwright/test'
 import type { StationObjects } from '../../src/lib/api/stationReference'
 import type { KarteView } from '../../src/lib/karte/session'
+import type { Prefs } from '../../src/lib/prefs'
 import { buildingAlreadyRead, isolateFromOutside, retire, seedIncident, signIn, waitForWorkspace, POLL_MS, type Seeded } from '../perf/harness'
 
 // The freezing half of the screenshot regression tests (e2e/screens.visual.ts,
@@ -160,12 +161,14 @@ export async function openKarte(page: Page, theme: 'day' | 'night' = 'day') {
   const context = page.context()
   await context.route('**/api/reference/objects', (route) => route.fulfill({ json: CATALOGUE }))
   for (const set of ['houses', 'underground']) await context.route(`**/api/reference/${set}*`, (route) => route.fulfill({ json: { enabled: false } }))
-  // what the device remembers, written before any app code runs: its theme (lib/prefs, the prefs
-  // cookie) and where the Karte was looking (lib/karte/session)
+  // what the device remembers, written before any app code runs: its theme and its name (lib/prefs,
+  // the prefs cookie – a device without a name gets «Name dieses Geräts» over the home,
+  // lib/deviceName) and where the Karte was looking (lib/karte/session)
+  const prefs: Partial<Prefs> = { theme, deviceName: 'Tablet 1', deviceNameAsked: true }
   await context.addInitScript(([prefs, view]) => {
     document.cookie = `kp-front-prefs=${encodeURIComponent(prefs)}; path=/`
     sessionStorage.setItem('kp.karte.view', view)
-  }, [JSON.stringify({ theme }), JSON.stringify(KARTE_VIEW)] as const)
+  }, [JSON.stringify(prefs), JSON.stringify(KARTE_VIEW)] as const)
   await signIn(context.request)
   await startClock(page)
   await page.goto('/karte')
@@ -183,15 +186,17 @@ export async function retireIncident(baseURL: string, id: string) {
 }
 
 /** Nothing left to arrive: fonts in, no shell-trail loader (components/ShellLoader — its viewBox
- *  is its only stable mark), no opening cover, no image still decoding, and — inside an Einsatz —
- *  every outbox acknowledged: the head's pill says `data-sync="synced"` (panels/IncidentSwitcher –
- *  it draws no ✓ since round 2b). The opening saves once; a shot taken while that save was in
- *  flight showed the «pending» mark instead of the ✓ (09.10.2026). */
+ *  is its only stable mark), no opening cover, no image still decoding, no toast, and — inside an
+ *  Einsatz — every outbox acknowledged: the head's pill says `data-sync="synced"`
+ *  (panels/IncidentSwitcher – it draws no ✓ since round 2b). The opening saves once; a shot taken
+ *  while that save was in flight showed the «pending» mark instead of the ✓ (09.10.2026). A toast
+ *  lives a few seconds of REAL time (lib/ui · toast), so a shot with one in it is a race: the first
+ *  tap of a state arms the alarm tone, and «Alarmton an» stood beside the symbol editor. */
 export async function settled(page: Page) {
   await page.evaluate(() => document.fonts.ready)
   await page.waitForFunction((faces) => faces.every((face) => document.fonts.check(face)), FACES, { polling: POLL_MS, timeout: 10_000 })
   await page.waitForFunction(() => {
-    if (document.querySelector('svg[viewBox="480 245 270 315"], .login.splash')) return false
+    if (document.querySelector('svg[viewBox="480 245 270 315"], .login.splash, .toaster .toast')) return false
     const sync = document.querySelector('[data-sync]')
     if (sync && sync.getAttribute('data-sync') !== 'synced') return false
     return [...document.images].every((img) => img.complete)
