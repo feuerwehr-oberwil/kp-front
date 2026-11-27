@@ -207,8 +207,10 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
     // ⚠️ The commit that brings a fresh editor engine can also bring a new payload – from the view
     // the FOLLOWER showed. Saved into the fresh engine it would replace the draft that engine just
     // read from the slot, and the hand-over would then show that stale copy (Sol r1, 25.11.2026).
-    // This effect runs before the hand-over in the same commit, so it waits for it.
-    if (shownSync.current !== sync) return
+    // This effect runs before the hand-over in the same commit, so it waits for it – but it still
+    // builds, unsaved: the hand-over's hydrate answers against what the save last built, and this
+    // commit's payload is what the view shows (a pull in it may already hold the handed slices).
+    if (shownSync.current !== sync) { buildPayload(); return }
     const payload = buildPayload()
     if (firstSave.current) { firstSave.current = false; lastPushed.current = JSON.stringify(payload); return }
     if (skipSave.current) { skipSave.current = false; lastPushed.current = JSON.stringify(payload); return }

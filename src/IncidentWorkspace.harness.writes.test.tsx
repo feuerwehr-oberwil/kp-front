@@ -325,6 +325,15 @@ describe('(f) the edit lock comes back to this tab', () => {
     expect(saved.intakeReviewedAt).toBe('2026-09-23T10:30:00Z')
   })
 
+  it('a pull of the old engine in the same commit that brings what is handed: the next edit is saved', async () => {
+    const same = (held: Saved) => ({ ...held, intakeReviewedAt: '2026-09-23T10:30:00Z' })
+    const { save } = await handOver(same, same)
+    expect(save).not.toHaveBeenCalled()
+    await deleteFirst()
+    expect(save).toHaveBeenCalledTimes(1)
+    expect((save.mock.lastCall![0] as Saved).intakeReviewedAt).toBe('2026-09-23T10:30:00Z')
+  })
+
   it('a pull of the old engine in the same commit: the handed workspace wins, not the pull', async () => {
     const { save } = await handOver(
       (held) => ({ ...held, intakeReviewedAt: '2026-09-23T10:30:00Z' }),
