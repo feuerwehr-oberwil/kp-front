@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { PlanDocument, TimelineEvent } from '../types'
 import { linkParts, type JournalLink } from '../lib/journalLinks'
 import { Icon } from '../lib/icons'
@@ -55,6 +55,18 @@ function useAudioPlayer() {
   return { playing, toggle }
 }
 
+/** A function that keeps ONE identity for the drawer's life and calls the latest `fn` – what the
+ *  memo'd rows (JournalRow) are handed, so a parent's fresh closure on every render does not
+ *  render every row again. Undefined while `fn` is: whether a handler exists decides what a row
+ *  offers. Call it from an event, not during render (it reads the last committed `fn`). */
+function useSteady<A extends unknown[], R>(fn: (...args: A) => R): (...args: A) => R
+function useSteady<A extends unknown[], R>(fn: ((...args: A) => R) | undefined): ((...args: A) => R) | undefined
+function useSteady<A extends unknown[], R>(fn: ((...args: A) => R) | undefined) {
+  const latest = useRef(fn)
+  useLayoutEffect(() => { latest.current = fn })
+  const [steady] = useState(() => (...args: A) => latest.current!(...args))
+  return fn ? steady : undefined
+}
 
 /** Rows the log mounts at first, and how many more each scroll to the tail reveals: about two
  *  screenfuls of the tablet drawer (15–25 rows), so opening it mounts what can be read. */
@@ -325,6 +337,8 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
     }
     return out
   }, [groups, visibleCount])
+  /** each mounted row's clock, once – a row's stamp and its neighbour's «same minute» read it */
+  const shownTimes = useMemo(() => new Map(shown.flatMap((g) => g.events.map((e) => [e.id, rowTime(e)] as const))), [shown])
   const listRef = useRef<HTMLDivElement>(null)
   // ⚠️ A callback ref, not an effect: the drawer's content mounts inside the Overlay's portal a
   // commit after this component's effects ran, so an effect found no sentinel and the list never
@@ -414,7 +428,8 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
   // subtitle lines mark the same vocabulary the composer marked while it was being typed
   // ⚠️ `subjectId`: a row ABOUT a Trupp links its «Trupp N» to that Trupp by id — after a
   // renumbering (docs/trupp-naming.md §7) its early rows say a number another crew holds now
-  const marked = (text: string, subjectId?: string) => linkParts(text, vocab, { subjectId }).map((p, pi) => {
+  const showTrupp = useSteady(onShowTrupp)
+  const marked = useCallback((text: string, subjectId?: string) => linkParts(text, vocab, { subjectId }).map((p, pi) => {
     if (!p.kind) return <span key={pi}>{p.text}</span>
     // ⚠️ An address is the one mark that DOES something, so it is the one that must not also do
     // what the row does. A row selects, seeks or opens a place under the finger; without the
@@ -428,11 +443,11 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
     // a Trupp's mark is the door to its card (ENT.2) – like the address, it must not ALSO do
     // what the row under it does
     const truppId = p.truppId
-    if (truppId && onShowTrupp) {
+    if (truppId && showTrupp) {
       return (
         <button type="button" key={pi} className={`jr-link jr-link-${p.kind} jr-link-go${p.role ? ' jr-link-unit' : ''}`}
           title={p.hint} data-trupp={truppId}
-          onClick={(e) => { e.stopPropagation(); onShowTrupp(truppId) }}>
+          onClick={(e) => { e.stopPropagation(); showTrupp(truppId) }}>
           {p.text}
           {p.role && <i className="jr-link-role"> ({p.role})</i>}
         </button>
@@ -446,7 +461,7 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
         {p.role && <i className="jr-link-role"> ({p.role})</i>}
       </b>
     )
-  })
+  }), [vocab, showTrupp])
 
   /** Make sure the row is mounted. True when that needed a reveal — the DOM has it only after
    *  the re-render, so the caller lands on it then (`pendingJump`, or the landing loop below).
@@ -786,6 +801,16 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
     </div>
   )
 
+  // the rows' functions, steady across renders (useSteady): a parent's fresh closures, and this
+  // component's own, would otherwise render every mounted row on every change
+  const rowHandlers = {
+    togglePlay: useSteady(audio.toggle), saveTranscript: useSteady(saveTranscript), saveRowText: useSteady(saveRowText),
+    jumpToRow: useSteady(jumpToRow), onSelect: useSteady(onSelect), onSeekTo: useSteady(onSeekTo),
+    onTranscript: useSteady(onTranscript), onEditText: useSteady(onEditText), onEditTime: useSteady(onEditTime),
+    onOpenPlayer: useSteady(onOpenPlayer), onReminderTick: useSteady(onReminderTick), onReminderNote: useSteady(onReminderNote),
+    onReminderAgain: useSteady(onReminderAgain),
+  }
+
   return (
     <Overlay open onClose={onClose} className="journal-drawer" backdropClassName="journal-scrim" ariaLabel={C.title} onEscape={escapeInner} grab popupRef={setDrawerEl} style={heldStyle}>
         {/* ── the head: the title with its count, ✕ – and nothing else, on every device (owner pick 25 B
@@ -983,21 +1008,34 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
           {shown.map((g, gi) => (
             <Fragment key={g.label ?? `today-${gi}`}>
               {g.label && <div className="jr-day-sep" role="separator">{g.label}</div>}
-              {g.events.map((e, i) => (
-                <JournalRow
-                  key={e.id} e={e} plans={plans} live={live} closedAt={closedAt} now={now} replayAtMs={replayAtMs}
-                  openMap={openMap} repeated={repeats.counts.get(e.id) ?? 1}
-                  sameMinute={i > 0 && rowTime(g.events[i - 1]) === rowTime(e)}
-                  pendenzTitles={pendenzTitles} pendenzRowIds={pendenzRowIds} reRaised={reRaised} audioWindows={audioWindows}
-                  playing={audio.playing === e.id} onTogglePlay={audio.toggle}
-                  editTx={editTx} editRow={editRow} setEditTx={setEditTx} setEditRow={setEditRow}
-                  saveTranscript={saveTranscript} saveRowText={saveRowText}
-                  marked={marked} jumpToRow={jumpToRow} onOpenDetail={setDetailId}
-                  onSelect={onSelect} onSeekTo={onSeekTo} onTranscript={onTranscript} onEditText={onEditText} onEditTime={onEditTime}
-                  onOpenPlayer={onOpenPlayer} onReminderTick={onReminderTick} onReminderNote={onReminderNote} onReminderAgain={onReminderAgain}
-                  mediaStatusOf={mediaStatusOf} unsent={!!unsentIds?.has(e.id)} showDevice={deviceShown.has(e.id)}
-                />
-              ))}
+              {g.events.map((e, i) => {
+                // ⚠️ only values of THIS row and steady functions (JournalRow is memo'd – see its header)
+                const item = e.reminder?.id
+                const rowMs = e.at ? Date.parse(e.at) : NaN
+                const time = shownTimes.get(e.id) ?? ''
+                const win = onOpenPlayer && !e.audioUrl && Number.isFinite(rowMs) ? audioWindows.find((w) => rowMs >= w.start && rowMs <= w.end) : undefined
+                return (
+                  <JournalRow
+                    key={e.id} e={e} plans={plans} live={live} closedAt={closedAt} now={now}
+                    future={replayAtMs != null && Number.isFinite(rowMs) && rowMs > replayAtMs}
+                    openRem={item && (e.reminder?.op === 'created' || e.reminder?.op === 'done') ? openMap.get(item) : undefined} repeated={repeats.counts.get(e.id) ?? 1}
+                    time={time} sameMinute={i > 0 && shownTimes.get(g.events[i - 1].id) === time}
+                    pendenzTitle={item ? pendenzTitles.get(item) : undefined} pendenzRowId={item ? pendenzRowIds.get(item) : undefined}
+                    reRaisedMins={item ? reRaised.get(item) : undefined}
+                    annotates={win?.row} annotatesSec={win ? (rowMs - win.start) / 1000 : 0}
+                    playing={audio.playing === e.id} onTogglePlay={rowHandlers.togglePlay}
+                    editTx={editTx?.id === e.id ? editTx : null} editRow={editRow?.id === e.id ? editRow : null}
+                    setEditTx={setEditTx} setEditRow={setEditRow}
+                    saveTranscript={rowHandlers.saveTranscript} saveRowText={rowHandlers.saveRowText}
+                    marked={marked} jumpToRow={rowHandlers.jumpToRow} onOpenDetail={setDetailId}
+                    onSelect={rowHandlers.onSelect} onSeekTo={rowHandlers.onSeekTo} onTranscript={rowHandlers.onTranscript}
+                    onEditText={rowHandlers.onEditText} onEditTime={rowHandlers.onEditTime} onOpenPlayer={rowHandlers.onOpenPlayer}
+                    onReminderTick={rowHandlers.onReminderTick} onReminderNote={rowHandlers.onReminderNote} onReminderAgain={rowHandlers.onReminderAgain}
+                    mediaState={rowPhotos(e).length > 0 || e.audioUrl ? mediaStatusOf?.(e.id) : undefined}
+                    unsent={!!unsentIds?.has(e.id)} showDevice={deviceShown.has(e.id)}
+                  />
+                )
+              })}
             </Fragment>
           ))}
           {/* the tail's sentinel: scrolling it into view mounts the next page (see `shown`) */}

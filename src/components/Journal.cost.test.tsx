@@ -261,3 +261,70 @@ describe('Journal · the Pendenzen box fits once per change', () => {
     expect(boxReads).toBe(0)
   })
 })
+
+describe('Journal · a remote row while the Verlauf is open', () => {
+  /** The drawer as JournalLayer feeds it: fresh callbacks on every render, the open Pendenzen
+   *  derived from the rows again (useReminders), and a media status that is a new function. */
+  function Host({ rows }: { rows: TimelineEvent[] }) {
+    // the workspace memoises these (IncidentWorkspace · planDocs, journalVocab)
+    const [plans] = useState(() => [])
+    const [vocab] = useState(() => [])
+    return (
+      <Journal
+        events={rows} plans={plans} live={LIVE} vocab={vocab} closedAt={null}
+        openReminders={deriveReminders(rows)}
+        onSelect={() => {}} onClose={() => {}}
+        onTranscript={(id, t) => void [id, t]} onEditText={(id, t) => void [id, t]} onEditTime={(id, at) => void [id, at]}
+        onOpenPlayer={(e) => void e} onReminderTick={(r) => void r} onReminderNote={(r) => void r} onReminderAgain={(id) => void id}
+        mediaStatusOf={() => undefined} onShowTrupp={(id) => void id} onReplay={() => {}}
+      />
+    )
+  }
+  const remote = (text: string): TimelineEvent => ({
+    id: `remote-${text}`, t: '', at: new Date(Date.parse(FAT[0].at!) + 60_000).toISOString(), text, icon: 'note', kind: 'journal',
+  })
+
+  it('renders the new row and nothing else', () => {
+    const { rerender } = render(<StrictMode><Host rows={FAT} /></StrictMode>)
+    vi.mocked(rowGlyph).mockClear()
+    rerender(<StrictMode><Host rows={[remote('Wasser am Hydrant 3'), ...FAT]} /></StrictMode>)
+    // StrictMode renders each component twice: the new row, and the one under it whose «same
+    // minute» neighbour changed, are at most four calls
+    expect(vi.mocked(rowGlyph).mock.calls.length).toBeLessThanOrEqual(4)
+  })
+})
+
+describe('Journal · a memo\'d row still follows its own state', () => {
+  const at = (min: number) => new Date(Date.parse('2026-11-20T20:00:00Z') + min * 60_000).toISOString()
+  const photo: TimelineEvent = { id: 'ph', t: '', at: at(3), text: 'Foto Rückseite', icon: 'camera', kind: 'photo', photoUrl: '/media/a.jpg' }
+  const raised: TimelineEvent = { id: 'pz', t: '', at: at(2), text: 'Lüfter holen', icon: 'type', kind: 'journal', reminder: { op: 'created', id: 'pz' } }
+  const plain: TimelineEvent = { id: 'pl', t: '', at: at(1), text: 'Erkundung läuft', icon: 'note', kind: 'journal' }
+  const rows = [photo, raised, plain]
+  const item: OpenReminder = { id: 'pz', rowId: 'pz', text: 'Lüfter holen', createdAt: at(2), notes: [] }
+  const base = props({ events: rows, openReminders: [item], mediaStatusOf: () => 'pending' })
+  const el = (id: string) => document.querySelector(`[data-ev="${id}"]`)!
+
+  it('its media status, its Pendenz, its correction and the replay cursor on it', () => {
+    const { rerender } = render(<Journal {...base} />)
+    expect(el('ph').querySelector('.jr-media-state')).not.toBeNull()
+    expect(el('pz').querySelector('.jr-rem-struck')).toBeNull()
+    // the upload lands, the Pendenz is ticked off elsewhere, the line is corrected, a Wiedergabe stands at minute 1
+    const corrected = { ...plain, text: 'Erkundung abgeschlossen', correctedAt: at(4) }
+    rerender(<Journal {...base} events={[photo, raised, corrected]} openReminders={[]} mediaStatusOf={() => undefined} replayAtMs={Date.parse(at(1))} />)
+    expect(el('ph').querySelector('.jr-media-state')).toBeNull()
+    expect(el('pz').querySelector('.jr-rem-struck')).not.toBeNull()
+    expect(el('pl').textContent).toContain('Erkundung abgeschlossen')
+    expect(el('ph').className).toContain('jr-future')
+    expect(el('pl').className).not.toContain('jr-future')
+  })
+
+  it('a tap calls the handler of the latest render', () => {
+    const first = vi.fn()
+    const latest = vi.fn()
+    const { rerender } = render(<Journal {...base} replayAtMs={0} onSeekTo={first} />)
+    rerender(<Journal {...base} replayAtMs={0} onSeekTo={latest} />)
+    fireEvent.click(el('pl'))
+    expect(first).not.toHaveBeenCalled()
+    expect(latest).toHaveBeenCalledWith(expect.objectContaining({ id: 'pl' }))
+  })
+})

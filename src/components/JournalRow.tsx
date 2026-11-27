@@ -1,10 +1,11 @@
 // One row of the Verlauf (Journal) and the classification disc it shares with the drawer's
-// «Art» filter menu. The row is the drawer's `.map` body made a component (sweep A.8): it
-// gets the drawer's lookups and handlers as props and renders exactly what the inline body did.
-// Not `React.memo`'d: its caller (workspace/JournalLayer) hands the drawer fresh callbacks every
-// render, so a memo would compare unequal props on every pass.
+// «Art» filter menu. The row is the drawer's `.map` body made a component (sweep A.8).
+// ⚠️ `memo`'d, so a new row in an open Verlauf renders that row and not the whole page: every
+// prop is either a value of THIS row (its Pendenz, its media status, whether the playhead has
+// passed it) or a function Journal keeps steady across renders. A prop that is a lookup over all
+// rows (a Map, a list) or a fresh closure makes every row render again on every change.
 
-import type { ReactNode } from 'react'
+import { memo, type ReactNode } from 'react'
 import type { PlanDocument, TimelineEvent } from '../types'
 import { Icon } from '../lib/icons'
 import { leaveOnEscape } from '../lib/fieldKeys'
@@ -13,7 +14,7 @@ import { caretToEnd, openPhoto } from '../lib/ui'
 import { appConfig } from '../config/appConfig'
 import { dueClock, fillTemplate, fmtDuration, formatTime } from '../lib/format'
 import { safeHref, thumbUrl } from '../lib/mediaUrl'
-import { isHandWritten, isNachtrag, rowGlyph, rowPhotos, rowTarget, rowText, rowTime, type ArtTone } from '../lib/verlauf'
+import { isHandWritten, isNachtrag, rowGlyph, rowPhotos, rowTarget, rowText, type ArtTone } from '../lib/verlauf'
 import { journalDisc } from '../lib/report'
 import type { OpenReminder } from '../lib/reminders'
 import { DoneChip } from './DoneChip'
@@ -71,14 +72,18 @@ export type AudioWindow = { row: TimelineEvent; start: number; end: number }
 type Draft = { id: string; value: string } | null
 
 type JournalRowProps = Pick<JournalProps,
-  'live' | 'closedAt' | 'replayAtMs' | 'onSelect' | 'onSeekTo' | 'onTranscript' | 'onEditText' | 'onEditTime' | 'onOpenPlayer'
-  | 'onReminderTick' | 'onReminderNote' | 'onReminderAgain' | 'mediaStatusOf'> & {
+  'live' | 'closedAt' | 'onSelect' | 'onSeekTo' | 'onTranscript' | 'onEditText' | 'onEditTime' | 'onOpenPlayer'
+  | 'onReminderTick' | 'onReminderNote' | 'onReminderAgain'> & {
   e: TimelineEvent
   plans: PlanDocument[]
   /** the drawer's clock, captured when it opened — flags overdue reminders */
   now: number
-  /** still-open reminders by id (lib/reminders) */
-  openMap: ReadonlyMap<string, OpenReminder>
+  /** the item this row raised or closed, while it is still open (lib/reminders); else undefined */
+  openRem: OpenReminder | undefined
+  /** a Wiedergabe runs and its playhead has not reached this row yet (Journal · replayAtMs) */
+  future: boolean
+  /** the offline-queue status of the row's media (Journal · mediaStatusOf); undefined once uploaded */
+  mediaState: 'pending' | 'failed' | undefined
   /** how many times this row's state was re-stated in a run (lib/verlauf · repeatRuns); 1 = once */
   repeated: number
   /** the row is only on this device (Journal · unsentIds): «nur auf diesem Gerät» under it */
@@ -87,15 +92,20 @@ type JournalRowProps = Pick<JournalProps,
   showDevice: boolean
   /** the row above it prints the same clock: this one's stamp steps back (`.t[data-same]`) */
   sameMinute: boolean
-  /** reminder id → the item's own words, and → the row that raised it (a Meldung's anchor) */
-  pendenzTitles: ReadonlyMap<string, string>
-  pendenzRowIds: ReadonlyMap<string, string>
-  /** closed item id → minutes ahead of its still-open re-raise (lib/reminders · openReRaises) */
-  reRaised: ReadonlyMap<string, number>
-  audioWindows: readonly AudioWindow[]
+  /** the row's item's own words, and the row that raised it (a Meldung's anchor) */
+  pendenzTitle: string | undefined
+  pendenzRowId: string | undefined
+  /** on a done row: the minutes ahead of the item's still-open re-raise (lib/reminders · openReRaises) */
+  reRaisedMins: number | undefined
+  /** the recording whose window this row's time falls in (an annotation of it), else undefined,
+   *  and how many seconds into it the row was written */
+  annotates: TimelineEvent | undefined
+  annotatesSec: number
+  /** the row's clock (lib/verlauf · rowTime), computed once by Journal */
+  time: string
   /** this row's recording is the one sounding */
   playing: boolean
-  /** the inline transcript / text editors — open on this row when their id is this row's */
+  /** the inline transcript / text editors, while they are open on THIS row */
   editTx: Draft
   editRow: Draft
   /** marks the linkable vocabulary in a piece of prose (lib/journalLinks) */
@@ -112,10 +122,10 @@ type JournalRowProps = Pick<JournalProps,
 
 /** One Verlauf row: time, disc, the sentence, its trail of footnotes/media/controls, and the
  *  transcript lines and inline editors under it. Rendered by Journal once per shown row. */
-export function JournalRow({
-  e, plans, live, closedAt, now, replayAtMs, openMap, repeated, unsent, showDevice, sameMinute, pendenzTitles, pendenzRowIds, reRaised, audioWindows, playing,
+export const JournalRow = memo(function JournalRow({
+  e, plans, live, closedAt, now, future, openRem: itemOpen, repeated, unsent, showDevice, sameMinute, pendenzTitle, pendenzRowId, reRaisedMins, annotates, annotatesSec, time, playing,
   editTx, editRow, marked, jumpToRow, onTogglePlay, onOpenDetail, setEditTx, setEditRow, saveTranscript, saveRowText,
-  onSelect, onSeekTo, onTranscript, onEditText, onEditTime, onOpenPlayer, onReminderTick, onReminderNote, onReminderAgain, mediaStatusOf,
+  onSelect, onSeekTo, onTranscript, onEditText, onEditTime, onOpenPlayer, onReminderTick, onReminderNote, onReminderAgain, mediaState,
 }: JournalRowProps) {
   const C = appConfig.copy.journal
   const target = rowTarget(e, live)
@@ -137,7 +147,7 @@ export function JournalRow({
   // opens the same sheet, so the item's words mean one thing in both places (duck sweep LISTS.6)
   const hasDetail = (!!e.audioUrl && ((!!e.audioMeta && !!onOpenPlayer) || !!onTranscript))
     || ((!!onEditText || !!onEditTime) && isHandWritten(e) && !e.audioUrl)
-    || (!!onReminderNote && e.reminder?.op === 'created' && openMap.has(e.reminder.id))
+    || (!!onReminderNote && e.reminder?.op === 'created' && !!itemOpen)
   const opensDetail = !seekable && hasDetail
   const clickable = seekable || opensDetail || target != null
   const onRow = seekable ? () => onSeekTo(e)
@@ -146,7 +156,6 @@ export function JournalRow({
   // …and rows the playhead has not reached yet are the future: shown (the Verlauf stays
   // whole and searchable) but visibly not-yet, so nothing on screen claims to be part of
   // the moment being looked at.
-  const future = replayAtMs != null && Number.isFinite(rowMs) && rowMs > replayAtMs
   // a `created` reminder row: still-open (look up derived state) ⇒ show due + done
   // toggle; gone from the open set ⇒ already erledigt (checked + struck through).
   // ⚠️ Keyed off the LIFECYCLE EVENT, not off `kind === 'reminder'`. A Pendenz rides on
@@ -156,7 +165,7 @@ export function JournalRow({
   const isReminder = e.reminder?.op === 'created'
   /** the item this row RAISED – what its tick box ticks off and takes back */
   const raised = isReminder ? e.reminder : undefined
-  const openRem = isReminder && e.reminder ? openMap.get(e.reminder.id) : undefined
+  const openRem = isReminder ? itemOpen : undefined
   const remDone = isReminder && !openRem
   const remOverdue = !!openRem?.dueAt && Date.parse(openRem.dueAt) <= now
   // A `done` row CLOSED its item only while the item is still closed: «Erledigt» →
@@ -164,7 +173,7 @@ export function JournalRow({
   // current — no closed ring, and no «wieder in», which would raise a duplicate of an
   // item that is open right now.
   // …and a WITHDRAWN re-raise (ENT.4) closed nothing: its row is a log line, no ring, no «wieder in»
-  const closedRow = e.reminder?.op === 'done' && !e.reminder.withdrawn && !openMap.has(e.reminder.id)
+  const closedRow = e.reminder?.op === 'done' && !e.reminder.withdrawn && !itemOpen
   // ── the disc ──
   // ONE classification column, and the row's only one. A Pendenz shows the ring (the
   // composer's own, which is what it has always promised); every other row shows its
@@ -183,7 +192,6 @@ export function JournalRow({
   const nachtrag = isNachtrag(e, closedAt)
   const hasFootnotes = nachtrag || !!e.correctedAt || !!e.timeCorrectedAt || repeated > 1 || e.via === 'atemschutz-link' || e.via === 'atemschutz-fix' || (showDevice && !!e.device)
   const txMissing = !!e.audioUrl && !!onTranscript && !hasTx
-  const mediaState = (rowPhotos(e).length > 0 || !!e.audioUrl) ? mediaStatusOf?.(e.id) : undefined
   const offersAgain = closedRow && !!onReminderAgain
   const hasMeta = hasFootnotes || txMissing || !!mediaState || offersAgain || unsent
   return (
@@ -196,7 +204,7 @@ export function JournalRow({
       // only the row's OWN keys: a Space or Enter typed in the correction field inside it is text
       onKeyDown={onRow ? (ev) => { if (ev.target === ev.currentTarget && (ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); onRow() } } : undefined}
     >
-      <span className="t" data-same={sameMinute || undefined}>{rowTime(e)}</span>
+      <span className="t" data-same={sameMinute || undefined}>{time}</span>
       {/* ⚠️ The box is the tick, HERE as well as in the pinned block. It was taken
           off the row on the grounds that two controls did the same thing and this one
           scrolls away — but a Pendenz is met in the log at least as often as in the
@@ -208,7 +216,7 @@ export function JournalRow({
       <Disc
         icon={glyph.icon} surface={disc.surface} tone={glyph.tone} ring={ring} title={disc.label}
         onTick={onReminderTick && raised
-          ? () => onReminderTick(openRem ?? { id: raised.id, text: pendenzTitles.get(raised.id) ?? rowText(e), dueAt: raised.dueAt }, !!openRem)
+          ? () => onReminderTick(openRem ?? { id: raised.id, text: pendenzTitle ?? rowText(e), dueAt: raised.dueAt }, !!openRem)
           : undefined}
         tickTitle={openRem ? C.markDoneTitle : C.markOpenTitle}
       />
@@ -313,9 +321,9 @@ export function JournalRow({
                 while the item it raised is open, the chips give way to ✓ «↻ in 30 min gesetzt»
                 (lib/reminders · openReRaises) – a double tap raised two. Its own done row offers
                 the next one. */}
-            {closedRow && onReminderAgain && (e.reminder && reRaised.has(e.reminder.id) ? (
+            {closedRow && onReminderAgain && (reRaisedMins != null ? (
               <span className="jr-again">
-                <DoneChip>{fillTemplate(C.againSet, { mins: String(reRaised.get(e.reminder.id)) })}</DoneChip>
+                <DoneChip>{fillTemplate(C.againSet, { mins: String(reRaisedMins) })}</DoneChip>
               </span>
             ) : (
               <span className="jr-again">
@@ -342,13 +350,13 @@ export function JournalRow({
             fit, so the words alone often cannot identify the item — tapping it scrolls
             to the row that raised it and flashes it, which answers «which one» in full
             and in its own context. */}
-        {e.reminder?.op === 'note' && pendenzTitles.get(e.reminder.id) && (
+        {e.reminder?.op === 'note' && pendenzTitle && (
           <button
             type="button" className="jr-note-on"
             title={C.openReminderGo} aria-label={C.openReminderGo}
-            onClick={(ev) => { ev.stopPropagation(); jumpToRow(pendenzRowIds.get(e.reminder!.id)!, true) }}
-            disabled={!pendenzRowIds.has(e.reminder.id)}
-          ><i>{pendenzTitles.get(e.reminder.id)}</i></button>
+            onClick={(ev) => { ev.stopPropagation(); if (pendenzRowId) jumpToRow(pendenzRowId, true) }}
+            disabled={!pendenzRowId}
+          ><i>{pendenzTitle}</i></button>
         )}
         {/* ⚠️ No CONTROL out here — the tick lives on the ring in the icon slot (see the
             Disc above), where it is the same shape and the same gesture as in the pinned
@@ -406,20 +414,15 @@ export function JournalRow({
             action. Still NEVER on system rows («Trupp 2 eingerückt» is the app
             reporting an action), and NOT on audio rows (their words live in the
             transcript). See the sheet at the bottom of the drawer. */}
-        {!e.audioUrl && e.at && onOpenPlayer && (() => {
-          // annotation of a recording → jump into the player at this moment
-          const t = Date.parse(e.at)
-          const w = audioWindows.find((x) => t >= x.start && t <= x.end)
-          if (!w) return null
-          return (
-            <button
-              className="jr-jump"
-              title={C.playerOpen}
-              aria-label={C.playerOpen}
-              onClick={(ev) => { ev.stopPropagation(); onOpenPlayer(w.row, (t - w.start) / 1000) }}
-            ><Icon id="wave" /></button>
-          )
-        })()}
+        {/* annotation of a recording → jump into the player at this moment */}
+        {annotates && onOpenPlayer && (
+          <button
+            className="jr-jump"
+            title={C.playerOpen}
+            aria-label={C.playerOpen}
+            onClick={(ev) => { ev.stopPropagation(); onOpenPlayer(annotates, annotatesSec) }}
+          ><Icon id="wave" /></button>
+        )}
         {e.audioUrl && (
           <button
             className={`tl-play ${playing ? 'playing' : ''}`}
@@ -489,4 +492,4 @@ export function JournalRow({
       )}
     </div>
   )
-}
+})
