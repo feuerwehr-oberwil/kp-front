@@ -268,6 +268,52 @@ it('a takeover while the record is still being written: the old holder’s PUT n
   expect(put.mock.calls.filter((c) => c[4] === holder)).toEqual([])
 })
 
+/** A server whose first PUT lands but whose answer is lost on the way back (a timeout).
+ *  `hangRetry`: the next PUT never answers. */
+function lostFirstAnswer(hangRetry: boolean) {
+  const server = { rev: 1, workspace: baseline as Saved }
+  get.mockImplementation(async () => ({ workspace: server.workspace, workspace_rev: server.rev }))
+  put.mockImplementation(async (_id, ws, baseRev) => {
+    if (put.mock.calls.length === 2 && hangRetry) return new Promise(() => {})
+    if (baseRev !== server.rev) throw new ApiError(409, 'conflict')
+    server.rev++
+    server.workspace = ws as Saved
+    if (server.rev === 2) throw new ApiError(0, 'timeout')
+    return { workspace: null, workspace_rev: server.rev }
+  })
+  return server
+}
+
+// Sol r3 (27.11.2026): a PUT that landed but whose answer was lost is a save of unknown outcome.
+// The retry's record must not erase it: if it did land, the marker deleted since is not a server
+// addition – not in this engine's merge, and not in the next holder's.
+it.each([
+  ['in the same tab', false],
+  ['after a takeover while the retry is on its way', true],
+])('a PUT that landed without an answer brings back nothing deleted since – %s', async (_case, takeover) => {
+  const id = `lost-${n}`
+  const server = lostFirstAnswer(takeover)
+  const a = await tab(id)
+  const b = takeover ? await tab(id) : null
+  edit(a, { entities: [marker] as unknown as Saved['entities'] })
+  await vi.advanceTimersByTimeAsync(1_100)
+  await vi.waitFor(() => expect(server.rev).toBe(2)) // landed – A heard nothing
+  edit(a, { entities: [] })
+  await vi.advanceTimersByTimeAsync(1_100)
+  await vi.waitFor(() => expect(put.mock.calls.length).toBeGreaterThanOrEqual(2)) // A's retry, at the old revision
+  if (b) {
+    b.takeOver()
+    await vi.waitFor(() => expect(b.editing).toBe(true))
+    edit(b, { reportMeta: { remarks: 'from B' } })
+  }
+  const t = engine(b ?? a)
+  await vi.waitFor(async () => {
+    await vi.advanceTimersByTimeAsync(6_000)
+    expect(t.hasUnsynced).toBe(false)
+  }, { timeout: 4_000 })
+  expect(server.workspace.entities).toEqual([])
+})
+
 it('a promotion overtaken by a steal back does not fence the thief out of its slot', async () => {
   const id = `claim-${n}`
   const a = await tab(id)

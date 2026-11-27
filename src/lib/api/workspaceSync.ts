@@ -63,8 +63,9 @@ type CacheEntry = {
    *  the server copy it was built on – stored before it is sent, cleared by a later success or a
    *  409. Another tab (the edit lock moved) or a later page opens it as `handed`. */
   sending?: SentSave
-  /** The saves of the engines this one opened the slot from that may still be on their way,
-   *  oldest first (Sol r2/r3 25.11.2026, r1 27.11.2026): landing after this engine's open, one
+  /** Saves that may have landed or may still land, oldest first: those of the engines this one
+   *  opened the slot from, and its own that got no answer (`carryUnanswered`) (Sol r2/r3
+   *  25.11.2026, r1/r3 27.11.2026). Landing unseen, one
    *  would make an object deleted since look like a fresh server addition, and a merge would bring
    *  it back. So every merge applies them to both sides first (withSent) – it reads the same
    *  whether they landed or not. An open takes what its predecessor had been handed and its save
@@ -81,13 +82,16 @@ const withSent = (sent: readonly SentSave[] | undefined, ws: Workspace): Workspa
  *  cover a steal back while both tabs' PUTs are on their way; a third PUT still on its way after
  *  three hand-overs is the documented limit. */
 const MAX_HANDED = 2
-/** What an engine opening `cached` is handed: what that engine had been handed, then its save on
- *  its way. A save equal to one already carried is carried once. */
-function handedFrom(cached: CacheEntry): SentSave[] | undefined {
-  const next = [...(cached.handed ?? []), ...(cached.sending ? [cached.sending] : [])]
+/** `handed` with `sent` carried on – an engine's save whose outcome is unknown, or a predecessor's
+ *  on its way. A save equal to one already carried is carried once; the newest MAX_HANDED stay. */
+function carried(handed: readonly SentSave[] | undefined, sent: SentSave | undefined): SentSave[] | undefined {
+  const next = [...(handed ?? []), ...(sent ? [sent] : [])]
   const once = next.filter((s, i) => !next.slice(0, i).some((t) => jsonEqual(t.workspace, s.workspace) && jsonEqual(t.base, s.base)))
   return once.length ? once.slice(-MAX_HANDED) : undefined
 }
+/** What an engine opening `cached` is handed: what that engine had been handed, then its save on
+ *  its way. */
+const handedFrom = (cached: CacheEntry) => carried(cached.handed, cached.sending)
 const cacheKey = (id: string) => `kp-front-ws-${id}`
 // Which engine may write the main slot (opts.lock): the writerId of the tab that last took the
 // edit lock. Checked inside every main-slot write's own transaction (idb · idbSetFenced), so a
@@ -1401,6 +1405,7 @@ export class WorkspaceSync {
           if (e instanceof ApiError && e.status === 401) denyWorkspaceCache()
           this.setStatus(e instanceof ApiError && e.status === 0 ? 'offline' : 'error')
           this.unreached = isUnverifiable(e)
+          if (this.unreached) this.carryUnanswered()
           return
         }
       }
@@ -1598,6 +1603,7 @@ export class WorkspaceSync {
         if (e instanceof ApiError && e.status === 401) denyWorkspaceCache() // revoked mid-merge — deny device-wide, like flush()
         this.setStatus(e instanceof ApiError && e.status === 0 ? 'offline' : 'error')
         this.unreached = isUnverifiable(e)
+        if (this.unreached) this.carryUnanswered()
         return false // offline/other: stay dirty + merged; a later flush retries
       }
     }
@@ -1960,6 +1966,17 @@ export class WorkspaceSync {
   /** epoch ms of the last successful server sync, or null if never synced this session. */
   get lastSyncedAt(): number | null {
     return this.entry.lastSyncedAt
+  }
+
+  /** The PUT just sent got no answer (a timeout, a dead route, a 502–504): it may have landed. It
+   *  is carried on as handed, so the next attempt's record does not erase it – a delete made since
+   *  must not read as a server addition if it did land, in this engine's merge or the next
+   *  holder's (Sol r3, 27.11.2026). Not while the browser is offline: that PUT never left, and a
+   *  carried save hides a divergence from the merge's conflict notes (mergeReporting). */
+  private carryUnanswered() {
+    if (!this.entry.sending || (typeof navigator !== 'undefined' && navigator.onLine === false)) return
+    this.entry = { ...this.entry, handed: carried(this.entry.handed, this.entry.sending), sending: undefined }
+    this.writeCache()
   }
 
   /**
