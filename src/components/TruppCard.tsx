@@ -735,7 +735,7 @@ export const TruppCard = memo(function TruppCard({
    * afterthought»): «drin 30:44 · ≈ 69 bar ⌄» inside, «drin 30:44 · 210 bar ⌄» where
    * the line carries the measured Druck, «drin 12:10 ⌄» on an OUT card.
    *  · «drin» is the one word, `quiet` (dim ink, regular), so the values read first; it makes the
-   *    figure a duration, so the value drops its «min» / «h» (`fmtElapsedFull`, not `fmtDuration`).
+   *    figure a duration, so the value drops its «min» / «h» (`fmtElapsedFull`, not `fmtElapsedWithUnit`).
    *  · the Schätzung drops its word: the «≈» says it (it was «Schätzung ≈ 69 bar» from 29.09.2026
    *    to 27.11.2026). Its Planungshilfe caveat stays its `title`, and the opened Verlauf's panel
    *    and the Alarmdruck note keep the word «Schätzung».

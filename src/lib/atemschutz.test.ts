@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { notfallFacts, notfallOffered, safetyCandidates, safetyInside, safetyMissing, safetyReady, truppInNotfall, alarmBarFor, anyTruppInField, contactSeverity, deriveTruppLive, EARLY_PRESSURE_CORRECTION_MS, earlyEntryCorrection, entryPressureAsks, entryPressureConfirmed, estimatePressure, fmtClock, fmtDuration, fmtElapsedFull, isAtemschutzTrupp, isStandDownExit, peakAtemschutzAlarm, pressureAlarm, truppAlarm, truppCrewWithout, truppEditPatch, truppFieldGroupsChanged, truppFieldsOf, truppInField, truppLogName, truppNeverDeployed, truppStillDeployed, truppStillRegistered, truppTransferState } from './atemschutz'
+import { notfallFacts, notfallOffered, safetyCandidates, safetyInside, safetyMissing, safetyReady, truppInNotfall, alarmBarFor, anyTruppInField, contactSeverity, deriveTruppLive, EARLY_PRESSURE_CORRECTION_MS, earlyEntryCorrection, entryPressureAsks, entryPressureConfirmed, estimatePressure, fmtClock, fmtElapsedWithUnit, fmtElapsedFull, isAtemschutzTrupp, isStandDownExit, peakAtemschutzAlarm, pressureAlarm, truppAlarm, truppCrewWithout, truppEditPatch, truppFieldGroupsChanged, truppFieldsOf, truppInField, truppLogName, truppNeverDeployed, truppStillDeployed, truppStillRegistered, truppTransferState } from './atemschutz'
 import type { Trupp } from '../types'
 import { alarmRowKey, azChipRedundant, contactViaLink, truppAwaitsEntry, truppGroupTransfer, truppHeadName, truppRegisteredAt } from './atemschutz'
 
@@ -852,12 +852,12 @@ describe('estimatePressure · time spent closed does not count', () => {
 })
 
 // staging r4
-describe('fmtDuration — a duration that says it is one', () => {
+describe('fmtElapsedWithUnit — a duration that says it is one', () => {
   it('carries its unit, so «23:39» is never read as a clock time', () => {
-    expect(fmtDuration(23 * 60 + 39)).toBe('23:39 min')
-    expect(fmtDuration(3600 + 125)).toBe('1:02:05 h')
-    expect(fmtDuration(2 * 86_400 + 3 * 3600)).toBe('2 d 3 h')
-    expect(fmtDuration(null)).toBe('–:––')
+    expect(fmtElapsedWithUnit(23 * 60 + 39)).toBe('23:39 min')
+    expect(fmtElapsedWithUnit(3600 + 125)).toBe('1:02:05 h')
+    expect(fmtElapsedWithUnit(2 * 86_400 + 3 * 3600)).toBe('2 d 3 h')
+    expect(fmtElapsedWithUnit(null)).toBe('–:––')
   })
 })
 
