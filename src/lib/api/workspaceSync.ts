@@ -1013,7 +1013,7 @@ export class WorkspaceSync {
     // Fold in concurrent changes to the SAME owner's cache against what the view saw.
     // A different owner keeps the shared slot, including if ownership changes inside IDB.
     const seq = this.saveSeq
-    const currentAck = () => this.sessionActive && this.saveSeq === seq && !this.entry.dirty
+    const currentAck = () => this.sessionActive && !this.followed && this.saveSeq === seq && !this.entry.dirty
     if (!currentAck()) return false
     const reconcile = (latest: CacheEntry | null): CacheEntry => {
       if (latest && latest.baseRev > entry.baseRev) return latest // a newer server acknowledgement too
@@ -1742,13 +1742,13 @@ export class WorkspaceSync {
     const main = refusedCacheKey(this.incidentId)
     for (const key of this.refusedKeys) {
       const read = await idbRead<RefusedWorkspace[]>(key)
-      if (!read.ok || !this.sessionActive) return
+      if (!read.ok || !this.sessionActive || this.followed) return
       if (!read.value) continue
       const keep = read.value.filter((p) => p.owner !== this.sessionOwner || !markers.has(p.id ?? p.refusedAt))
       if (keep.length === read.value.length) continue
       // A plain delete acknowledges no durability. First persist the filtered contents so
       // even a failed cleanup cannot replay this copy over a later edit on the next launch.
-      if (!(await idbSet(key, keep)) || !this.sessionActive) return
+      if (!(await idbSet(key, keep)) || !this.sessionActive || this.followed) return
       if (!keep.length && key !== main) {
         await idbDel(key)
         if (!this.sessionActive) return
