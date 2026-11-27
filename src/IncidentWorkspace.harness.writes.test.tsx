@@ -272,6 +272,70 @@ describe('(f) a pull moves only what it changed', () => {
   })
 })
 
+describe('(f) the edit lock comes back to this tab', () => {
+  // Two tabs, one Einsatz (lib/incidentSelection): this tab lost the edit lock, then gets it back,
+  // and the view is handed a FRESH editor engine with the slot as the other tab left it. ⚠️ The
+  // hand-over is a hydrate like a pull: when the handed workspace is what the view already shows,
+  // nothing moves and no save effect runs – an echo guard armed anyway swallowed the next edit.
+  const other = { ...truck, id: 'p2', coord: [7.61, 47.51] } as Entity
+  const tr = { id: 't1', no: 1, name: 'Tst Ida', members: [], entryPressureBar: 300, entryTime: '', lastContactTime: '', status: 'angemeldet', readings: [] }
+  // a Trupp: the boot files its crew and saves, which is `held` – the blob as this view holds it
+  const boot = { entities: [truck, other], trupps: [tr] } as unknown as Saved
+  /** `pulled`: a merge the old engine hands the view in the same commit as the fresh engine */
+  const handOver = async (handed: (held: Saved) => Saved, pulled?: (held: Saved) => Saved) => {
+    const m = meta()
+    const first = new WorkspaceSync(m.id)
+    const firstSave = vi.spyOn(first, 'save')
+    const utils = render(workspaceTree(m, { sync: first, workspace: boot }).tree)
+    await settle(60); await settle(60)
+    const held = firstSave.mock.lastCall![0] as Saved
+    utils.rerender(workspaceTree(m, { sync: first, workspace: boot, tabLockLost: true }).tree)
+    await settle(60)
+    const fresh = new WorkspaceSync(m.id)
+    vi.spyOn(fresh, 'workspace', 'get').mockReturnValue(handed(held) as unknown as typeof fresh.workspace)
+    const save = vi.spyOn(fresh, 'save')
+    act(() => {
+      if (pulled) first.onApplyMerged!(pulled(held) as unknown as typeof fresh.workspace, 1)
+      utils.rerender(workspaceTree(m, { sync: fresh, workspace: boot, tabLockLost: false }).tree)
+    })
+    await settle(60)
+    return { save }
+  }
+  const deleteFirst = async () => {
+    act(() => { lastMap().onSelect(lastMap().entities.find((e) => e.id === 'p1')!) })
+    act(() => { key('Delete') })
+    await settle(60)
+  }
+
+  it('handed what the view shows: nothing is saved back, and the next local edit is', async () => {
+    const { save } = await handOver((held) => held)
+    expect(save).not.toHaveBeenCalled()
+    await deleteFirst()
+    expect(save).toHaveBeenCalledTimes(1)
+    expect((save.mock.lastCall![0] as Saved).objects?.map((o) => o.id)).toEqual(['p2'])
+  })
+
+  it('handed what the other tab saved: it shows, is not saved back, and the next edit keeps it', async () => {
+    const { save } = await handOver((held) => ({ ...held, intakeReviewedAt: '2026-09-23T10:30:00Z' }))
+    expect(save).not.toHaveBeenCalled()
+    await deleteFirst()
+    expect(save).toHaveBeenCalledTimes(1)
+    const saved = save.mock.lastCall![0] as Saved
+    expect(saved.objects?.map((o) => o.id)).toEqual(['p2'])
+    expect(saved.intakeReviewedAt).toBe('2026-09-23T10:30:00Z')
+  })
+
+  it('a pull of the old engine in the same commit: the handed workspace wins, not the pull', async () => {
+    const { save } = await handOver(
+      (held) => ({ ...held, intakeReviewedAt: '2026-09-23T10:30:00Z' }),
+      (held) => ({ ...held, intakeReviewedAt: '2026-09-23T10:20:00Z' }),
+    )
+    expect(save).not.toHaveBeenCalled() // the pull is the old engine's, never saved into the fresh one
+    await deleteFirst()
+    expect((save.mock.lastCall![0] as Saved).intakeReviewedAt).toBe('2026-09-23T10:30:00Z')
+  })
+})
+
 // toast diet call 6 (17.11.2026): a merge that takes ↶'s own step used to raise a toast per merge.
 // Now the NEXT ↶ press says it at the button and does not step; the press after it steps.
 describe('(f) ↶ after a merge took its step', () => {

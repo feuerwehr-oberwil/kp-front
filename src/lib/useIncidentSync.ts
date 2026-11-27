@@ -326,8 +326,9 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
     shownSync.current = sync
     if (!handed) return
     liveRev.current = sync.rev
-    skipSave.current = true // hydrate: the handed workspace is not an edit to push back
-    applyWorkspace(sync.workspace)
+    // ⚠️ `hydrate`, like a pull: the handed workspace is not an edit to push back – and a guard
+    // armed for a hand-over that moved nothing would swallow the next local edit (hydrate above)
+    skipSave.current = applyWorkspace(sync.workspace)
   }, [sync, applyWorkspace])
   // The mechanics (generation guard, in-flight abort, ease-off, visibility/online/pagehide) are
   // the shared loop's (useLongPoll · pollBackoff); this is only what a round DOES.
