@@ -26,7 +26,8 @@ const retired = new WeakSet<object>()
  * kept) is left out as before: keeping it could refuse a save the server takes. Pass every
  * row an edit replaces through `edited(before, after)`, which carries its stored original along,
  * and write `saved(rows, clean)`: `clean` shapes a written row (a trim), never a stored original.
- * `isStored(row)` tells the editor's warning which of its rows stands for such an original.
+ * `keptOriginals(rows)` tells the editor's warning which of its rows the save replaces by such
+ * an original.
  */
 export function useStoredRows<T extends object>(
   stored: readonly T[],
@@ -44,9 +45,6 @@ export function useStoredRows<T extends object>(
     const o = heldNow.has(row) ? row : (origins.get(row) as T | undefined)
     return o && !retired.has(o) ? o : undefined
   }
-  // before the first edit the held rows are not fixed yet: a render reads them from the draft
-  // as it is, so a config that arrives after the first render still counts
-  let heldPreview: ReadonlySet<T> | undefined
   /** Before each write: if the server took a save of the draft as it is now, every repair in that
    *  draft is stored, and its original retires. Checked here, at the next write, the only place
    *  where it matters. */
@@ -59,10 +57,18 @@ export function useStoredRows<T extends object>(
   }
 
   return {
-    /** Does `row` stand for a stored original past a bound – the row whose length refuses every
-     *  save of the config, not only its own? The editor's warning says so. */
-    isStored: (row: T): boolean =>
-      original(row, held.current ?? (heldPreview ??= heldIn(stored))) !== undefined,
+    /** Each row of `rows` that the save replaces by its stored original past a bound, with that
+     *  original – the value that refuses every save of the config until the admin fixes the row.
+     *  The editor's warning names it. For a render: before the first edit the held rows are read
+     *  from the draft as it is, so a config that arrives after the first render still counts. */
+    keptOriginals: (rows: readonly T[]): ReadonlyMap<T, T> => {
+      const heldNow = held.current ?? heldIn(stored)
+      const ok = writable(rows)
+      return new Map(rows.flatMap((r) => {
+        const o = ok.includes(r) ? undefined : original(r, heldNow)
+        return o ? [[r, o] as const] : []
+      }))
+    },
     edited: (before: T, after: T): T => {
       retire()
       const o = original(before)

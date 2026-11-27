@@ -200,6 +200,16 @@ describe('a row held for its length names the limit', () => {
       expect(storedLine(R.linkTitle, 120)).not.toBeNull()
     })
 
+    it('keeps that line while a short title waits on another field: the save still holds the stored link', async () => {
+      const long = { id: 'lnk1', title: 'T'.repeat(130), url: 'https://formulare.example/lang' }
+      apiGet.mockResolvedValue(structuredClone({ ...STATION, report: { ...STATION.report, links: [long] } }))
+      await act(async () => { render(<ConfigProvider><ReportSection /></ConfigProvider>) })
+      await type((await waitFor(titles))[0], 'T'.repeat(120))
+      expect(storedLine(R.linkTitle, 120)).toBeNull()
+      await type(screen.getByPlaceholderText(R.linkUrlPlaceholder), '')
+      expect(storedLine(R.linkTitle, 120)).not.toBeNull()
+    })
+
     it('says «not saved like this» again once the repair was saved', async () => {
       const long = { id: 'lnk1', title: 'T'.repeat(130), url: 'https://formulare.example/lang' }
       apiGet.mockResolvedValue(structuredClone({ ...STATION, report: { ...STATION.report, links: [long] } }))
@@ -234,10 +244,10 @@ describe('a row held for its length names the limit', () => {
       expect(storedLine(T.fieldLabel, 120)).not.toBeNull()
     })
 
-    it('keeps that line beside another reason the edit gives the row', async () => {
+    it('keeps that line beside another reason the edit gives the row, also once the label fits', async () => {
       apiGet.mockResolvedValue({ ...structuredClone(STATION), objectVisits: { proposalFields: fields } })
       await act(async () => { render(<ConfigProvider><ProposalFieldsEditor /></ConfigProvider>) })
-      await waitFor(() => expect(storedLine(T.fieldLabel, 120)).not.toBeNull())
+      await type((await waitFor(labels))[0], 'L'.repeat(120))
       await type(screen.getAllByPlaceholderText(T.fieldIdPlaceholder)[0], '')
       expect(screen.getByText(T.fieldIncomplete)).toBeTruthy()
       expect(storedLine(T.fieldLabel, 120)).not.toBeNull()
@@ -263,7 +273,9 @@ describe('a row held for its length names the limit', () => {
       await act(async () => { render(<ConfigProvider><ObjectCategoriesCard /></ConfigProvider>) })
       await waitFor(() => expect(storedLine(M.catModules, 60)).not.toBeNull())
       expect(line(M.catModules, 60)).toBeNull()
-      // …also beside another reason the edit gives the rule
+      // …also beside another reason the edit gives the rule, once the glob fits
+      await type(screen.getByPlaceholderText(M.catModulesPlaceholder), 'm'.repeat(60))
+      expect(storedLine(M.catModules, 60)).toBeNull()
       await type(screen.getByLabelText(M.catColorHex), 'rot')
       expect(screen.getByText(M.catBadColor)).toBeTruthy()
       expect(storedLine(M.catModules, 60)).not.toBeNull()

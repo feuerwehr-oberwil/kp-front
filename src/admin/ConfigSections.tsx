@@ -2117,7 +2117,7 @@ function ReportLinksEditor() {
   // Null until the first edit, so a config arriving from elsewhere still shows through.
   const [editing, setEditing] = useState<ReportLink[] | null>(null)
   const rows = editing ?? stored
-  const { edited, saved, isStored } = useStoredRows(stored, writableLinks, (l) => !fitsText('report.links.0.title', l.title)
+  const { edited, saved, keptOriginals } = useStoredRows(stored, writableLinks, (l) => !fitsText('report.links.0.title', l.title)
     || !fitsText('report.links.0.url', l.url) || !fitsText('report.links.0.note', l.note))
   // the URL field a chip inserts into: the one that was focused last. Held as an element ref
   // rather than an index, because the insert needs its live selection anyway.
@@ -2170,16 +2170,22 @@ function ReportLinksEditor() {
     }
   }
 
+  /** The line under a link past a bound; `stored`: the wording for a stored original
+   *  (useStoredRows · keptOriginals). */
+  const linkLength = (l: ReportLink, stored = false) => tooLongNote([
+    ['report.links.0.title', C.linkTitle, l.title],
+    ['report.links.0.note', C.linkNote, l.note],
+    ['report.links.0.url', C.linkUrl, l.url],
+  ], stored)
+  const kept = keptOriginals(rows)
   return (
     <>
       {rows.map((row, i) => {
         const preview = resolveLinkUrl(row.url ?? '', linkTokenValues(SAMPLE_LINK_FACTS))
-        // the bounds `write` holds the row to, as the line under it
-        const tooLong = tooLongNote([
-          ['report.links.0.title', C.linkTitle, row.title],
-          ['report.links.0.note', C.linkNote, row.note],
-          ['report.links.0.url', C.linkUrl, row.url],
-        ], isStored(row))
+        // the bounds `write` holds the row to, as the line under it – for a link the save replaces
+        // by its stored original, that original's: it blocks every save until the link is fixed
+        const original = kept.get(row)
+        const tooLong = original ? linkLength(original, true) : linkLength(row)
         return (
           <div className="adm-formlink" key={row.id}>
             <SettingsGroup

@@ -51,7 +51,7 @@ export function ObjectCategoriesCard() {
   // at its index and deleting the rule that moved there.
   const [layout, setLayout] = useState(0)
   const rows = editing ?? stored
-  const { edited, saved, isStored } = useStoredRows(stored, writableRules, (r) => chars(r.id) > TEXT_MAX_LENGTH['map.objectCategories.0.id']
+  const { edited, saved, keptOriginals } = useStoredRows(stored, writableRules, (r) => chars(r.id) > TEXT_MAX_LENGTH['map.objectCategories.0.id']
     || (r.match?.modules ?? []).some((m) => chars(m) > MODULE_MAX))
 
   const write = (next: ObjectCategoryRule[]) => {
@@ -78,6 +78,14 @@ export function ObjectCategoriesCard() {
     reshape(next)
   }
 
+  /** …and the bounds `writableRules` holds a rule to: the name derives a short id and the box cuts
+   *  each glob, so only a stored rule (the CLI, an import) can be past one. `stored`: the wording
+   *  for a stored original (useStoredRows · keptOriginals). */
+  const lengthNote = (r: ObjectCategoryRule, stored = false) => tooLongNote([
+    ['map.objectCategories.0.id', C.catId, r.id],
+    ...(r.match?.modules ?? []).map((m) => ['map.objectCategories.0.match.modules.0', C.catModules, m] as const),
+  ], stored)
+  const kept = keptOriginals(rows)
   return (
     <RecordTable title={C.groupCategories} tip={C.categoriesTip} recordLabel={C.colCategory}>
       {rows.length === 0 && <SettingsNote>{C.categoriesEmpty}</SettingsNote>}
@@ -86,16 +94,11 @@ export function ObjectCategoriesCard() {
         const kinds = row.match?.kinds ?? []
         const modules = row.match?.modules ?? []
         const ink = row.color === INK
-        // …and the bounds `writableRules` holds a rule to: the name derives a short id and the box
-        // cuts each glob, so only a stored rule (the CLI, an import) can be past one. Its line
-        // comes along with any other reason: the stored rule blocks every save until it is fixed.
         const other = !name.trim() ? C.catNoName : !isCategoryColor(row.color) ? C.catBadColor : null
-        const fromServer = isStored(row)
-        const length = tooLongNote([
-          ['map.objectCategories.0.id', C.catId, row.id],
-          ...modules.map((m) => ['map.objectCategories.0.match.modules.0', C.catModules, m] as const),
-        ], fromServer)
-        const problems = other ? (fromServer && length ? [other, length] : [other]) : length ? [length] : []
+        // a rule the save replaces by its stored original: that original's length, beside any
+        // other reason – it blocks every save until the rule is fixed
+        const original = kept.get(row)
+        const problems = (original ? [other, lengthNote(original, true)] : [other ?? lengthNote(row)]).filter((p) => p !== null)
         return (
           <RecordRows
             key={`${layout}:${i}`}

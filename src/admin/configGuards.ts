@@ -120,9 +120,9 @@ export function fitsText(field: keyof typeof TEXT_MAX_LENGTH, value: string | nu
 
 /** The reason line under a row that its writer holds for a length: the first of `fields`
  *  (bound, the form's label for the box, the value the writer checks) past its bound, as
- *  «<label>: höchstens <n> Zeichen – …». Null when every value fits. `stored`: the row stands for
- *  a stored original (useStoredRows · isStored), which refuses every save of the config until it
- *  is shortened or deleted – the line says that instead of «not saved like this». */
+ *  «<label>: höchstens <n> Zeichen – …». Null when every value fits. `stored`: the values are a
+ *  stored original the save keeps (useStoredRows · keptOriginals), which refuses every save of
+ *  the config until it is shortened or deleted – the line says that, not «not saved like this». */
 export function tooLongNote(
   fields: ReadonlyArray<readonly [field: keyof typeof TEXT_MAX_LENGTH, label: string, value: string | null | undefined]>,
   stored = false,
