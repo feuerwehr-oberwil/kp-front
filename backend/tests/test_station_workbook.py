@@ -747,3 +747,22 @@ async def test_symbol_options_regroup_from_one_row_per_option(client, station):
         ("vkf-fahrzeug", "Typ"): ["TLF", "ADL", "HLF"],
         ("luefter", "Typ"): ["Exhauster"],
     }
+
+
+async def test_a_workbook_does_not_write_back_an_over_long_value_it_never_touched(client, station):
+    """A Formular title past its cap, padded: a read trims and keeps it, a write must not – the
+    vehicle import is refused and the row stays as it was."""
+    row = (await station.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one()
+    link = {"id": "form", "title": "Example" + " " * 120, "url": "https://forms.example.ch/f", "note": None}
+    row.config_json = {**STATION_CONFIG, "report": {**STATION_CONFIG["report"], "links": [link]}}
+    await station.commit()
+    before = await stored(station)
+    data = sheets_of(await export(client))
+    data[SHEET_FAHRZEUGE].append(["adl-41", "ADL 41"])
+
+    body = await preview(client, make_xlsx(data))
+    assert body["ok"] is False
+    assert any("report.links.0.title" in e and "120" in e for e in body["errors"])
+    r = await client.post("/api/station-workbook/import", files=upload(make_xlsx(data)))
+    assert r.status_code == 400
+    assert await stored(station) == before

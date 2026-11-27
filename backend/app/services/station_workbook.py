@@ -1250,7 +1250,7 @@ def plan_import(
     # …and as a document to STORE (`stored_config_for_write`): a value past its length cap in a
     # section the workbook never touched is refused, never written back.
     try:
-        normalized = stored_config_for_write(projected).model_dump(mode="json")
+        normalized = stored_config_for_write(_changed_onto(raw, base, projected)).model_dump(mode="json")
     except ValidationError as exc:
         errors.append(
             "Die Daten aus der Arbeitsmappe ergeben keine gültige Stations-Konfiguration: "
@@ -1283,6 +1283,26 @@ def plan_import(
         ranks_for_row=rank_for_row,
         deactivate=deactivate,
     )
+
+
+def _changed_onto(raw: dict[str, Any], base: dict[str, Any], projected: dict[str, Any]) -> dict[str, Any]:
+    """The RAW stored document with what the workbook changed put in, two levels deep
+    (``fleet.vehicles``, ``report.partnerOrgs``) – the candidate the write validates.
+
+    ⚠️ Not ``projected`` itself: that is built on the document as it is SERVED, and a value a
+    read only lets pass (a title past its cap, trimmed on the read) would be written back in its
+    served form. Untouched keys stay as they lie, so such a value makes the write refuse."""
+    out = dict(raw)
+    for key, new in projected.items():
+        old = base.get(key)
+        if new == old:
+            continue
+        stored = raw.get(key)
+        if isinstance(new, dict) and isinstance(old, dict) and isinstance(stored, dict):
+            out[key] = {**stored, **{sub: value for sub, value in new.items() if value != old.get(sub)}}
+        else:
+            out[key] = new
+    return out
 
 
 def _and_more(names: list[str], limit: int = REMOVAL_LIMIT) -> str:

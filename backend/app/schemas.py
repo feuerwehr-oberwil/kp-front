@@ -1479,7 +1479,9 @@ class IdentityConfig(BaseModel):
         text = " ".join(v.split())
         if not text:
             return None
-        if len(text) > SHORT_NAME_MAX and not (info.context or {}).get("stored"):
+        # only a read to serve keeps it (`LengthCap`); every write – a PUT, a merging writer –
+        # refuses it with the same German sentence
+        if len(text) > SHORT_NAME_MAX and not (info.context or {}).get("serve"):
             raise ValueError(_SHORT_NAME_ERROR)
         return text
 
@@ -2387,7 +2389,7 @@ class SharePointSource(BaseModel):
         # A path is a folder inside the library, never a way out of it. `..` is refused rather
         # than resolved: this string is pasted into a Graph URL, and «resolve it politely» is
         # how a traversal becomes a feature.
-        path = (self.path or "").replace("\\", "/").strip().strip("/")
+        path = _plain_path(self.path or "")
         if len(path) > _SHAREPOINT_PATH_MAX:
             raise ValueError(f"sharepoint source {self.area!r}: 'path' is longer than {_SHAREPOINT_PATH_MAX}")
         if any(part in ("..", ".") for part in path.split("/") if part) or path.startswith(("http://", "https://")):
@@ -2517,7 +2519,7 @@ class ObjectVisitDestination(BaseModel):
             raise ValueError(f"objectVisits destination {self.id!r}: 'siteUrl' must start with https://")
         self.siteUrl = site
         root = _plain_path(self.root or "")
-        if any(part.strip() in ("..", ".") for part in root.split("/") if part):
+        if any(part in ("..", ".") for part in root.split("/") if part):
             raise ValueError(f"objectVisits destination {self.id!r}: 'root' must be a plain folder path")
         self.root = root
         self.library = (self.library or "").strip() or None

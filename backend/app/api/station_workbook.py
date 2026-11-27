@@ -125,7 +125,14 @@ async def plan_workbook(db: AsyncSession, data: bytes, *, lock: bool = False) ->
     that will apply the result passes ``lock=True`` and keeps that transaction open through apply.
     """
     _row, raw = await _stored_config(db, lock=lock)
-    stored = load_stored_config(raw).model_dump(mode="json")
+    try:
+        stored = load_stored_config(raw).model_dump(mode="json")
+    except Exception as exc:  # the stored document fails its read: refuse, never a 500
+        raise HTTPException(
+            status_code=400,
+            detail="Die gespeicherte Stations-Konfiguration lässt sich nicht lesen – "
+            "die Arbeitsmappe wird nicht übernommen. Bitte die Konfiguration unter Sicherung prüfen.",
+        ) from exc
     known = known_keys(stored)
     try:
         parsed = await anyio.to_thread.run_sync(lambda: parse_workbook(data, known=known))

@@ -184,15 +184,16 @@ async def upload_branding(
     _check_icon(slot, data)
 
     key = storage.new_key("branding", _ext_for(file.filename, content_type))
-    storage.put_bytes(key, data)
-
     row = await _load_row(db)
     # `_set_asset` rewrites the WHOLE document (normalized), so this is a config write like any
     # other and owes the same undo — see app/config_history.
     await keep_previous(db, "branding", actor.id if actor else None)
+    # the document first, the blob after: a write `_set_asset` refuses (422) leaves no file
+    # behind, and a failed store rolls the document back with the request
     doc = _set_asset(row, slot, f"/api/branding/file/{key}")
     row.updated_by = actor.id if actor else None
     await db.flush()
+    storage.put_bytes(key, data)
     # ⚠️ WITH the version. Without it the response carries `version: None`, ConfigContext keeps
     # the hash it read BEFORE the upload (`safe.version ?? versionRef.current`), and the admin's
     # next keystroke PUTs a stale If-Match — 409 «Die Konfiguration wurde inzwischen an anderer

@@ -479,3 +479,44 @@ async def test_a_rank_adoption_refuses_rather_than_rewrite_an_over_long_value(db
         await adopt_ranks(db_session, ["Sdt"], None)
     await db_session.rollback()
     assert await _stored(session_factory) == document
+
+
+def test_a_sharepoint_path_reads_back_as_itself():
+    """`/ Station /` was served as `Station` on base; a trim that took two passes made the read
+    refuse the whole document."""
+    source = {"area": "plans", "siteUrl": "https://fw.sharepoint.com/sites/plaene", "path": "/ Station /"}
+    served = safe_config({"identity": {"appName": "Feuerwehr Talheim"}, "sharepoint": {"sources": [source]}})
+    assert (served.identity.appName, served.sharepoint.sources[0].path) == ("Feuerwehr Talheim", "Station")
+
+
+@pytest.mark.asyncio
+async def test_an_over_long_short_name_is_refused_alike_by_every_write(client, admin_login, session_factory):
+    """The autosave and a merging writer (the logo delete) give the same 422 body for it."""
+    await admin_login(client)
+    document = {"identity": {"appName": "Feuerwehr Talheim", "shortName": "Steintal Nord"}}
+    await _store(session_factory, document)
+    body = (await client.get("/api/config")).json()
+    assert body["identity"]["shortName"] == "Steintal Nord"  # a read keeps it
+    version = body.pop("version")
+    put = await client.put("/api/config", json=body, headers={"If-Match": version})
+    delete = await client.delete("/api/branding/logo")
+    assert put.status_code == delete.status_code == 422
+    assert put.json()["detail"] == delete.json()["detail"]
+    assert "Kurzname" in put.json()["detail"][0]["msg"]
+    assert await _stored(session_factory) == document
+
+
+@pytest.mark.asyncio
+async def test_a_refused_logo_upload_stores_no_file(client, admin_login, session_factory, monkeypatch):
+    import app.api.branding as branding
+
+    stored_files: list[str] = []
+    monkeypatch.setattr(branding.storage, "put_bytes", lambda key, data: stored_files.append(key))
+    await admin_login(client)
+    document = {"objectVisits": {"enabled": True, "destinations": [BACKSLASH_ROOT]}}
+    await _store(session_factory, document)
+    svg = b"<svg xmlns='http://www.w3.org/2000/svg'/>"
+    r = await client.post("/api/branding/logo", files={"file": ("logo.svg", svg, "image/svg+xml")})
+    assert r.status_code == 422
+    assert stored_files == []
+    assert await _stored(session_factory) == document
