@@ -123,8 +123,8 @@
 /* the admin modal's copy of the instrument sits in the flow, above its panes */
 .pillInline, :global(.app.georef-mode) .pillInline { position: static; z-index: auto; margin: 0; }
 .pillText { min-width: 0; flex: 1 1 auto; }
-/* the actions, as one block — so the phone can put them on a line of their own (see
-   `.bar .acts` in the first `@media (--phone)` block below) */
+/* the actions, as one block — so the phone can put them on a line of their own (see the
+   `max-width: 600px` block at the foot of this file) */
 .acts { display: flex; align-items: center; gap: 8px; flex: none; }
 .checkBlend {
   min-width: 176px; display: grid; grid-template-columns: auto minmax(80px, 1fr) auto;
