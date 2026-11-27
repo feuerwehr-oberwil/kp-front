@@ -161,7 +161,6 @@ describe('the contact times (the head of the Verlauf)', () => {
     it('a viewer\'s foot is the editor\'s «drin · ≈ bar»; the aktueller Druck only with no Schätzung', () => {
       mount({ canEdit: false })
       const viewer = document.querySelector(`.${s.metaLine}`)!.textContent!
-      expect(viewer).not.toMatch(/(^|[^≈] )240 bar/)
       expect(viewer).toMatch(new RegExp(`^${az.footInside}\\d+:\\d{2}≈ \\d+ bar$`))
       cleanup()
       mount({ canEdit: false, trupps: [{ ...aktivTrupp(), entryPressureBar: Number.NaN }] })
