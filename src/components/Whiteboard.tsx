@@ -2303,13 +2303,16 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
         <b>{appConfig.copy.whiteboard.nearbyBannerTitle}</b>{' '}
         {fillTemplate(appConfig.copy.whiteboard.nearbyBannerBody, { incident: incidentAddress || appConfig.copy.whiteboard.nearbyBannerNoAddress, object: objectChipName, distance: nearbyDist })}
       </span>
-      {onObjectSwitch && (
-        <button type="button" className="wb-nearby-switch" onClick={onObjectSwitch}>{appConfig.copy.whiteboard.objectSwitchShort}</button>
-      )}
-      <button
-        type="button" className="wb-nearby-x" aria-label={appConfig.copy.closeDialog} title={appConfig.copy.closeDialog}
-        onClick={() => { dismissNearbyBanner(bannerKey); setBannerGone(bannerKey) }}
-      ><Icon id="close" /></button>
+      {/* the two actions wrap TOGETHER under the sentence where the lane is narrow (09-whiteboard) */}
+      <span className="wb-nearby-acts">
+        {onObjectSwitch && (
+          <button type="button" className="wb-nearby-switch" onClick={onObjectSwitch}>{appConfig.copy.whiteboard.objectSwitchShort}</button>
+        )}
+        <button
+          type="button" className="wb-nearby-x" aria-label={appConfig.copy.closeDialog} title={appConfig.copy.closeDialog}
+          onClick={() => { dismissNearbyBanner(bannerKey); setBannerGone(bannerKey) }}
+        ><Icon id="close" /></button>
+      </span>
     </div>
   ) : null
 

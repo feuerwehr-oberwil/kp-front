@@ -105,14 +105,25 @@
 .wb-object.wb-object-nearby > .i, .wb-object.wb-object-nearby:disabled > .i { color: var(--amber-strong); }
 /* …and the banner half of that warning (Whiteboard · nearbyBanner): once per Einsatz and object,
    over the sheet's top edge, right of the rail. Amber like the chip, never red – nothing is on
-   fire on the Plan; something may merely be the neighbour's. */
-.wb-nearby-banner { position: absolute; left: calc(var(--rail-w) + 16px); right: 16px; top: 12px; z-index: var(--z-dock);
+   fire on the Plan; something may merely be the neighbour's.
+   ⚠️ It stands in THE message lane, under the top bar: hung from `--rail-top`, where both rails
+   start, with the Meldeleiste's edges (08-toasts · .ml: between the rails, 860px at most). At
+   `top: 12px; right: 16px` it lay under the top bar, which floats over the full-bleed stage:
+   «Anderes Objekt wählen» and its ✕ peeked out beside the bar with the bar's shadow on them
+   (owner, Üben feedback 27.11.2026, «what is going on here»). */
+.wb-nearby-banner { position: absolute; z-index: var(--z-dock); top: var(--rail-top);
+  left: calc(max(16px, env(safe-area-inset-left)) + var(--rail-w) + 24px);
+  right: calc(max(16px, env(safe-area-inset-right)) + var(--rail-w) + 24px); max-width: 860px; margin-inline: auto;
   /* the message surface; the tone is its amber glyph (08-toasts.css · «ONE message surface», 25.09.2026) */
-  display: flex; align-items: center; gap: var(--sp-2); padding: var(--msg-pad) var(--msg-pad) var(--msg-pad) var(--float-pad-x); border-radius: var(--r-sm);
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); padding: var(--msg-pad) var(--msg-pad) var(--msg-pad) var(--float-pad-x); border-radius: var(--r-sm);
   background: var(--float-bg); backdrop-filter: var(--float-blur); border: none; box-shadow: var(--float-edge);
   font: var(--fw-medium) var(--fs-2)/1.35 var(--body); color: var(--ink); }
 .wb-nearby-banner > .i { flex: none; width: 18px; height: 18px; color: var(--amber-strong); }
-.wb-nearby-text { flex: 1 1 auto; min-width: 0; }
+/* the sentence keeps a readable measure: where the lane leaves it less than 320px beside the two
+   actions (a narrow tablet), the actions wrap under it as one group, at the right edge, instead of
+   squeezing it to a word a line */
+.wb-nearby-text { flex: 1 1 min(320px, calc(100% - 28px)); min-width: 0; }   /* 28: the ⚠ glyph and its gap */
+.wb-nearby-acts { display: flex; align-items: center; gap: var(--sp-2); flex: none; margin-left: auto; }
 .wb-nearby-text b { color: var(--amber-strong); }
 /* ⚠️ a framed compact button, like every message's own (08-toasts · .ml-btn) — it was a bare
    blue word (28.09.2026, owner pick A: no bare blue word as an action) */
@@ -122,15 +133,20 @@
 .wb-nearby-x { flex: none; width: 44px; height: 44px; border: none; border-radius: var(--r-msg-in); cursor: pointer;
   background: var(--ink-8); color: var(--ink-dim); display: grid; place-items: center; }
 .wb-nearby-x .i { width: 16px; height: 16px; }
+/* …and one --float-gap under the Meldeleiste while one stands: the strip hangs in the same band
+   (08-toasts · .ml) and publishes its height as `--ml-h` */
+:root:has(.ml) .wb-nearby-banner { top: calc(var(--rail-top) + var(--ml-h, 0px) + var(--float-gap)); }
 @media (--phone) {
   /* the NavRail is a bottom bar here – the banner takes the full width and wraps its actions. ⚠️
      The phone's top bar floats over the sheet (15-mobile · .topbar), so the banner starts under
      it, where the weather chip does – at 12px its first lines were hidden (owner, 22.10.2026) */
-  .wb-nearby-banner { top: var(--under-bar, calc(76px + env(safe-area-inset-top))); left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right)); flex-wrap: wrap; }
+  .wb-nearby-banner { top: var(--under-bar, calc(76px + env(safe-area-inset-top))); left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right)); max-width: none; flex-wrap: wrap; }
   /* …and under the Meldeleiste while one stands (15-mobile · --under-alert, owner 26.11.2026):
      at --under-bar it lay on the alert's first row */
   :root:has(.ml) .wb-nearby-banner { top: var(--under-alert); }
   .wb-nearby-text { flex-basis: calc(100% - 28px); }
+  /* …its actions at the line's start, under the glyph, as they stood before the group */
+  .wb-nearby-acts { margin-left: 0; }
 }
 /* the door between the two faces of the ONE «Gebäude» tile (Whiteboard · buildingChip). On the
    PICKER face it is a verb («Zurück zum Gebäude») and never truncates: half a verb is not an
