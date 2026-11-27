@@ -1227,32 +1227,70 @@ async def test_a_rename_with_an_edited_file_is_not_guessed_at(db_session, blank_
 # session now waits on that lock» – and FAILS if the task finishes first or the time runs out:
 # a race test that passes without reaching its race proves nothing.
 
-#: pg_stat_activity's names for the lock waits these tests look for
-ADVISORY = ("advisory",)  # locks 1 and 3 of `plans` › the lock order
-ROW = ("transactionid", "tuple")  # a row another transaction holds
+
+def _recording_pids(session_factory):
+    """A session factory whose sessions append their backend pid to the returned list as their
+    transaction begins – so a test can name the session under test, even one product code opens."""
+    from sqlalchemy import event
+
+    pids: list[int] = []
+
+    def make(**kw):
+        session = session_factory(**kw)
+
+        @event.listens_for(session.sync_session, "after_begin")
+        def _record(_session, _transaction, connection):
+            pids.append(connection.exec_driver_sql("SELECT pg_backend_pid()").scalar())
+
+        return session
+
+    return make, pids
 
 
-async def _until_lock_wait(session_factory, task, events, *, within_s: float = 10) -> None:
-    """Return once a session of this database waits on a lock of `events`; fail the test if `task`
-    ends before that, or if `within_s` seconds pass."""
+async def _pid(db) -> int:
+    from sqlalchemy import text
+
+    return (await db.execute(text("SELECT pg_backend_pid()"))).scalar_one()
+
+
+def _plans_lock(object_id) -> str:
+    """The name `plans.lock_object_plans` hashes into lock 3 of an object."""
+    from app import plans
+
+    return f"{plans._OBJECT_PLANS}{object_id}"
+
+
+async def _until_blocked(session_factory, task, waiter, holder, *, advisory: str | None = None, within_s: float = 10):
+    """Return once the backend under test (`waiter`: its pid, or the list `_recording_pids` fills)
+    waits in this database for a lock that backend `holder` holds – and, with `advisory`, for exactly
+    the advisory lock that name hashes to (as `plans` takes it). Fail the test if `task` ends before
+    that, or if `within_s` seconds pass."""
     import asyncio
 
     from sqlalchemy import text
 
-    query = text(
-        "SELECT count(*) FROM pg_stat_activity WHERE datname = current_database()"
-        " AND wait_event_type = 'Lock' AND wait_event = ANY(:events)"
+    blocked = text("SELECT CAST(:holder AS int) = ANY(pg_blocking_pids(:waiter))")
+    on_key = text(
+        "SELECT EXISTS (SELECT 1 FROM pg_locks l WHERE l.pid = :waiter AND NOT l.granted"
+        " AND l.locktype = 'advisory'"
+        " AND l.database = (SELECT oid FROM pg_database WHERE datname = current_database())"
+        " AND ((l.classid::bigint << 32) | l.objid::bigint) = hashtextextended(:name, 0))"
     )
     deadline = asyncio.get_running_loop().time() + within_s
     async with session_factory() as observer:
         while asyncio.get_running_loop().time() < deadline:
             if task.done():
-                pytest.fail(f"the task ended before it waited on {events}: {task.exception() or task.result()!r}")
-            if (await observer.execute(query, {"events": list(events)})).scalar_one():
-                return
-            await observer.rollback()  # pg_stat_activity is a snapshot per transaction
+                pytest.fail(f"the task ended before it was blocked: {task.exception() or task.result()!r}")
+            pid = (waiter[-1] if waiter else None) if isinstance(waiter, list) else waiter  # not begun yet
+            if pid is not None:
+                by_holder = (await observer.execute(blocked, {"holder": holder, "waiter": pid})).scalar_one()
+                if by_holder and (
+                    advisory is None or (await observer.execute(on_key, {"waiter": pid, "name": advisory})).scalar_one()
+                ):
+                    return
+            await observer.rollback()  # the lock views are a snapshot per transaction
             await asyncio.sleep(0.05)
-    pytest.fail(f"no session waited on {events} within {within_s} s")
+    pytest.fail(f"backend {waiter} was not blocked by {holder}{f' on {advisory}' if advisory else ''} in {within_s} s")
 
 
 async def _settle(*tasks) -> None:
@@ -1282,11 +1320,12 @@ async def test_a_merge_waits_for_the_run_instead_of_deadlocking_with_it(
 
     import httpx
 
-    from app import admin_objects_repair
+    from app import admin_objects_repair, plans
 
     if db_session.bind.dialect.name != "postgresql":
         pytest.skip("requires independent PostgreSQL transactions")
-    monkeypatch.setattr(admin_objects_repair, "async_session_maker", session_factory)
+    merging, merge_pids = _recording_pids(session_factory)
+    monkeypatch.setattr(admin_objects_repair, "async_session_maker", merging)
     loser, survivor = object_id_for_key("musterweg"), object_id_for_key("Musterweg 1 (EH)")
     await configure(db_session, [source("plans"), source("geodata")])
     db_session.add(ObjectSite(id=survivor, name="Musterweg 1 (EH)"))
@@ -1304,15 +1343,23 @@ async def test_a_merge_waits_for_the_run_instead_of_deadlocking_with_it(
             await release.wait()
         return tenant._handle(request)
 
-    run = asyncio.create_task(sync_sharepoint(db_session, transport=httpx.MockTransport(paused)))
+    pulling, pull_pids = _recording_pids(session_factory)
+
+    async def pull():
+        async with pulling() as db:
+            out = await sync_sharepoint(db, transport=httpx.MockTransport(paused))
+            await db.commit()
+            return out
+
+    run = asyncio.create_task(pull())
     merge = None
     try:
         await asyncio.wait_for(reached.wait(), timeout=30)
         merge = asyncio.create_task(admin_objects_repair._merge_into(loser, survivor, apply=True))
-        await _until_lock_wait(session_factory, merge, ADVISORY)
+        # the merge waits for the pull on LOCK 1 – not on the loser's lock 3, which the pull holds too
+        await _until_blocked(session_factory, merge, merge_pids, pull_pids[-1], advisory=plans._PLAN_MAINTENANCE)
         release.set()
         result = await asyncio.wait_for(run, timeout=60)
-        await db_session.commit()
         assert await asyncio.wait_for(merge, timeout=60) == 0
     finally:
         release.set()
@@ -1391,8 +1438,10 @@ async def test_an_object_deleted_after_the_run_queued_its_folder_keeps_the_area_
             await release.wait()
         return tenant._handle(request)
 
+    pulling, pull_pids = _recording_pids(session_factory)
+
     async def pull():
-        async with session_factory() as db:
+        async with pulling() as db:
             out = await sync_sharepoint(db, transport=httpx.MockTransport(paused))
             await db.commit()
             return out
@@ -1402,8 +1451,9 @@ async def test_an_object_deleted_after_the_run_queued_its_folder_keeps_the_area_
     try:
         async with session_factory() as deleter:
             await asyncio.wait_for(reached.wait(), 10)
+            remover = await _pid(deleter)  # its transaction goes on in the removal below
             deleting = asyncio.create_task(_organizer_removes_its_ref(deleter))
-            await _until_lock_wait(session_factory, deleting, ROW)  # it waits for the run's row
+            await _until_blocked(session_factory, deleting, remover, pull_pids[-1])  # by the run's row
             release.set()
             result = await asyncio.wait_for(run, 10)
             removed = await asyncio.wait_for(deleting, 10)
@@ -1451,8 +1501,10 @@ async def test_an_object_deleted_during_the_run_is_skipped_whole_and_imported_ne
     )
     await db_session.commit()
 
+    pulling, pull_pids = _recording_pids(session_factory)
+
     async def pull():
-        async with session_factory() as db:
+        async with pulling() as db:
             out = await sync_sharepoint(db, transport=tenant.transport)
             await db.commit()
             return out
@@ -1462,7 +1514,8 @@ async def test_an_object_deleted_during_the_run_is_skipped_whole_and_imported_ne
         async with session_factory() as holder, session_factory() as deleter:
             await plans.lock_object_plans(holder, x_id)
             run = asyncio.create_task(pull())
-            await _until_lock_wait(session_factory, run, ADVISORY)  # at X's Modul 2
+            # at X's Modul 2: the pull waits for the holder on X's lock 3
+            await _until_blocked(session_factory, run, pull_pids, await _pid(holder), advisory=_plans_lock(x_id))
             deleting = asyncio.create_task(_organizer_removes_its_ref(deleter))
             assert await asyncio.wait_for(deleting, 10) == {"removed": "object"}
             assert not run.done()  # still at X's lock 3 when X went
