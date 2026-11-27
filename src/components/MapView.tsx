@@ -274,7 +274,7 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
   // The live map transform + pan switch every dragging layer works against (MapMarkers and both
   // twin layers). Stable identities, so the memoised twin layer is not rebuilt on every render
   // just because its props are fresh lambdas.
-  const projectLngLat = useCallback((c: LngLat) => mapInst.current?.project(c as [number, number]), [])
+  const projectLngLat = useCallback((c: LngLat) => mapInst.current?.project(c), [])
   const unprojectPoint = useCallback((p: { x: number; y: number }): LngLat | undefined => {
     const m = mapInst.current
     if (!m) return undefined
@@ -774,9 +774,9 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
     const m = mapInst.current
     const mid = coords[Math.floor((coords.length - 1) / 2)]
     if (!m) return [{ coord: mid, deg: 0 }]
-    const px = coords.map((c) => { const p = m.project(c as [number, number]); return [p.x, p.y] as [number, number] })
+    const px = coords.map((c) => { const p = m.project(c); return [p.x, p.y] as [number, number] })
     const out = markerParamsAlong(px, markerSpacing(marker))
-      .map(({ seg, t, deg }) => ({ coord: lerpPoint(coords[seg], coords[seg + 1], t) as LngLat, deg }))
+      .map(({ seg, t, deg }) => ({ coord: lerpPoint(coords[seg], coords[seg + 1], t), deg }))
     if (out.length === 0) out.push({ coord: mid, deg: 0 })
     return out
   }
@@ -816,10 +816,10 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
       let dir: [number, number] = [1, 0]
       let side: 1 | -1 = 1
       if (m) {
-        const pe = m.project(end as [number, number])
-        const pr = m.project(d.coords[n - 2] as [number, number])
+        const pe = m.project(end)
+        const pr = m.project(d.coords[n - 2])
         angleDeg = (Math.atan2(pe.y - pr.y, pe.x - pr.x) * 180) / Math.PI
-        const screen = d.coords.map((c): [number, number] => { const p = m.project(c as [number, number]); return [p.x, p.y] })
+        const screen = d.coords.map((c): [number, number] => { const p = m.project(c); return [p.x, p.y] })
         dir = endDirection(screen)
         side = endTagSide(screen)
       }
@@ -841,7 +841,7 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
   const heldTagAnchor = (ld: (typeof lineDecor)[number]): LngLat => {
     const m = mapInst.current
     if (ld.d.endLabelAt || !m) return ld.tagAt
-    const p = m.project(ld.tagAt as [number, number])
+    const p = m.project(ld.tagAt)
     const g = m.unproject([p.x + ld.tagOffset[0] - END_TAG_HELD_OFFSET[0], p.y + ld.tagOffset[1] - END_TAG_HELD_OFFSET[1]])
     return [g.lng, g.lat]
   }
@@ -874,7 +874,7 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
   // both ends rang two couplings per hose where there is one place a Trupp goes
   const freeHoseEnds = openHoseLines.flatMap((d) => (
     d.kind !== 'line' || !Array.isArray(d.coords) || d.coords.length < 2 || d.endAttachment ? []
-      : [{ lineId: d.id, endpoint: 'end' as const, color: d.color || DEFAULT_INK, coord: d.coords[d.coords.length - 1] as LngLat }]
+      : [{ lineId: d.id, endpoint: 'end' as const, color: d.color || DEFAULT_INK, coord: d.coords[d.coords.length - 1] }]
   ))
   // a Trupp marker in the hand aims at a free hose end or a symbol to dock to (components/useTruppMarkerAim)
   const { teamJoin, dockAim, teamDragId, setTeamDragId, teamJoinMarkerMove, teamJoinMarkerDragEnd } =
@@ -918,7 +918,7 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
   // on every render; the map bumps a render on moveend (see bumpLabelFrame), so a pinch-zoom lands
   // the new spread when the fingers come off.
   const editPx = editNodes && editDraw && mapInst.current
-    ? editDraw.coords.map((c) => { const p = mapInst.current!.project(c as [number, number]); return [p.x, p.y] as [number, number] })
+    ? editDraw.coords.map((c) => { const p = mapInst.current!.project(c); return [p.x, p.y] as [number, number] })
     : null
   const editHandleIdx = editNodes && editDraw
     ? editPx ? vertexHandleIndices(editPx) : evenIndices(editDraw.coords.length)
@@ -977,8 +977,8 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
   const groupDraws = groupActive ? drawings.filter((d) => selectedDrawIds.includes(d.id) && Array.isArray(d.coords) && d.coords.length > 0) : []
   const groupEnts = groupActive ? entities.filter((e) => selectedEntityIds.includes(e.id) && Array.isArray(e.coord) && !e.live) : []
   const groupCentroid: LngLat | null = centroid([
-    ...groupDraws.flatMap((d) => d.coords as [number, number][]),
-    ...groupEnts.map((e) => e.coord as [number, number]),
+    ...groupDraws.flatMap((d) => d.coords),
+    ...groupEnts.map((e) => e.coord),
   ])
   // dragging a line's distance/text label: the label is anchored at a GEOREFERENCED point
   // (the polyline midpoint, or a dragged `labelAt`). We keep the grab offset between the
@@ -1003,7 +1003,7 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
     labelMoved.current = false
     const m = mapInst.current
     const r = m?.getContainer().getBoundingClientRect()
-    const a = m?.project(anchor as [number, number])
+    const a = m?.project(anchor)
     // grab offset = pointer − the anchor's current screen position, so the label doesn't jump under the finger
     labelDrag.current = {
       id,
@@ -1064,7 +1064,7 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
   const barDelta = (dx: number, dy: number, at: LngLat): [number, number] | null => {
     const m = mapInst.current
     if (!m) return null
-    const p = m.project(at as [number, number])
+    const p = m.project(at)
     const ll = m.unproject([p.x + dx, p.y + dy])
     return [ll.lng - at[0], ll.lat - at[1]]
   }
@@ -1111,7 +1111,7 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
     if (!st) return
     if (editDraw) {
       const xScale = Math.cos((st.at[1] * Math.PI) / 180) || 1e-6
-      onDrawingEdit?.(editDraw.id, st.coords.map((c) => rotateAround(c as [number, number], st.at as [number, number], deg, { xScale, yUp: true }) as LngLat), phase)
+      onDrawingEdit?.(editDraw.id, st.coords.map((c) => rotateAround(c, st.at, deg, { xScale, yUp: true })), phase)
     } else if (selShape) {
       // ⚠️ The bearing always rides a 'move': the entity writer deliberately ignores the patch on
       // 'end' (it only closes the undo step there — MapMarkers · shapeUp sends {} for the same
@@ -1145,7 +1145,7 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
     const m = mapInst.current
     if (!m || !barCentre) return null
     const r = m.getContainer().getBoundingClientRect()
-    const p = m.project(barCentre as [number, number])
+    const p = m.project(barCentre)
     return { x: r.left + p.x, y: r.top + p.y }
   }
   const arm = useArmedTransform({
@@ -1219,7 +1219,7 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
       edit: editDraw && editNodes ? { id: editDraw.id, points: editDraw.coords, isArea: editArea, canInsert: !!onDrawingVertexInsert } : null,
       draft: draftKind ? { points: draft, isArea: draftKind === 'area', canInsert: !!onDraftInsert } : null,
       placing: !!placing, lockedIds,
-    }, m ? (c) => m.project(c as [number, number]) : null)
+    }, m ? (c) => m.project(c) : null)
     switch (click.kind) {
       case 'pick': onPick?.(click.at); return
       case 'measureInsert': onMeasureInsert?.(click.index, click.at); return
@@ -1287,7 +1287,7 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
       // pixels, so the gaps between the hatch lines are live too.)
       interactiveLayerIds={['l-draw-edit-hit', 'l-measure-hit', 'l-draft-hit', 'l-draw-hit', 'l-draw-line', 'l-draw-line-dash', 'l-draw-fill', 'l-draw-hatch']}
       onLoad={(e) => {
-        const m = e.target as MlMap
+        const m = e.target
         mapInst.current = m
         // two fingers turn the Karte only after a deliberate twist (lib/mapTwist) — never
         // incidentally inside a pan or a pinch, which is what turned it on an iPad (23.09.2026)
