@@ -2,9 +2,13 @@
 // (tap its fat hit-line in WbInkLayer), a single Absperrkreis (its ring or fill in WbCircleLayer),
 // and a Linie's free-text label or end tag nudged to a per-line offset. One grammar for all three:
 // a drag past the shared deadzone checkpoints ONCE, the release writes one audit event with the
-// position it ended on. ⚠️ The press is the Lage's (duck sweep GESTURES.1, owner 17.11.2026 – the
-// same rule as useWbChipDrag): on a body that is NOT selected a finger pans the board, a tap
-// selects on release, and only a still hold (HOLD_DRAG_MS) lifts it; a selected body, and any
+// position it ended on. ⚠️ An Absperrkreis and a label move their own NODES while the finger is
+// down (the chip drag's rule, useWbChipDrag) and write the board ONCE, on release – a write per move
+// re-rendered the whole workspace (perf sweep 26.11.2026: 37 store writes for 40 moves). A stroke
+// still writes per move: its decor (Länge, tags, grips) and an end pinned to an object follow the
+// stored points, which a translate cannot preview.
+// ⚠️ The press is the Lage's (duck sweep GESTURES.1, owner 17.11.2026 – the same rule as
+// useWbChipDrag): on a body that is NOT selected a finger pans the board, a tap selects on release, and only a still hold (HOLD_DRAG_MS) lifts it; a selected body, and any
 // mouse press, drags at once. A hose under the finger that pans the Gebäude no longer moves. Lifted out of the Whiteboard (sweep A.1, 25.10.2026),
 // beside its siblings useWbChipDrag / useWbVertexEdit / useWbRotor; the drag refs are handed back
 // for the stage dispatcher (Whiteboard · manipMove).
@@ -32,6 +36,9 @@ interface Args {
   setSelId: (id: string | null) => void
   setSelIds: (ids: string[]) => void
   boardRef: React.RefObject<HTMLDivElement | null>
+  /** the board's px size as drawn (the ink's px space) – a moved node is translated in it */
+  sW: number
+  sH: number
   boardPts: FloorGeometry['boardPts']
   moveRigid: FloorGeometry['moveRigid']
   localY: FloorGeometry['localY']
@@ -55,8 +62,19 @@ interface Args {
   stopPan: () => void
 }
 
+/** Moves a node by (dx, dy) board px on top of where the board draws it; (0, 0) hands it back.
+ *  An SVG group takes the `transform` attribute, an HTML node the `translate` property (both leave
+ *  the node's own transform alone). */
+function shift(n: Element, dx: number, dy: number) {
+  const home = dx === 0 && dy === 0
+  if (n instanceof SVGElement) {
+    if (home) n.removeAttribute('transform')
+    else n.setAttribute('transform', `translate(${dx} ${dy})`)
+  } else if (n instanceof HTMLElement) n.style.translate = home ? '' : `${dx}px ${dy}px`
+}
+
 /** The Plan's ink body drags; see the file header. */
-export function useWbBodyDrag({ tool, readOnly, annos, selId, setAnnoTap, setSelId, setSelIds, boardRef, boardPts, moveRigid, localY, mapY, stack, floorAt, floorsTTB, setDropFloor, pushPast, patch, emit, activeId, snapMove, panFrom, stopPan }: Args) {
+export function useWbBodyDrag({ tool, readOnly, annos, selId, setAnnoTap, setSelId, setSelIds, boardRef, sW, sH, boardPts, moveRigid, localY, mapY, stack, floorAt, floorsTTB, setDropFloor, pushPast, patch, emit, activeId, snapMove, panFrom, stopPan }: Args) {
   const hold = useHoldToDrag()
   /** The one press rule for every body (see the file header): `select` runs on the tap (or at
    *  once), `grab` sets up the drag from the press point. */
@@ -168,7 +186,17 @@ export function useWbBodyDrag({ tool, readOnly, annos, selId, setAnnoTap, setSel
   // grabbed anywhere on its face, and moving the centre to the grab point would shift the ring
   // out from under the hand. Same grammar as the stroke body-drag above — deadzone, one
   // checkpoint per drag, one board.move on release.
-  const circleDrag = useRef<{ id: string; sx: number; sy: number; x0: number; by0: number; floor: number; moved: boolean } | null>(null)
+  // Off the stack the drag translates every node tagged `data-circle-id` (the ring, its radius
+  // readout, its radius grip) and writes once on release. On the Gebäude stack it writes per move
+  // (`live`): the ring is clipped to its storey's section, and a translated clip would move along.
+  const circleDrag = useRef<{
+    id: string; sx: number; sy: number; x0: number; by0: number; floor: number; moved: boolean
+    /** the floor as stored (absent on a flat sheet) – what the audit row names */
+    storedFloor: number | undefined
+    live: boolean; nodes: Element[]
+    /** where the finger has put the centre so far */
+    last: { x: number; y: number } | null
+  } | null>(null)
   const circleDown = (id: string, e: React.PointerEvent) => {
     if (tool !== 'pan') return
     // only the main button selects or drags (GESTURES.13): a right press on an object does nothing
@@ -180,7 +208,7 @@ export function useWbBodyDrag({ tool, readOnly, annos, selId, setAnnoTap, setSel
     const select = () => { setAnnoTap(tap); setSelId(id); setSelIds([]) }
     // selected for its read-only panel, never moved (see drawDown)
     press(e, id, select, readOnly ? null : (sx, sy) => {
-      circleDrag.current = { id, sx, sy, x0: a.x ?? 0, by0: mapY(a.floor, a.y ?? 0), floor: a.floor ?? 0, moved: false }
+      circleDrag.current = { id, sx, sy, x0: a.x ?? 0, by0: mapY(a.floor, a.y ?? 0), floor: a.floor ?? 0, storedFloor: a.floor, moved: false, live: stack, nodes: [], last: null }
     })
   }
   const circleMove = (e: React.PointerEvent) => {
@@ -188,26 +216,39 @@ export function useWbBodyDrag({ tool, readOnly, annos, selId, setAnnoTap, setSel
     const rect = boardRef.current?.getBoundingClientRect(); if (!rect?.width) return
     if (!st.moved) {
       if (Math.hypot(e.clientX - st.sx, e.clientY - st.sy) < DRAG_DEADZONE_PX) return
-      pushPast(); st.moved = true // one checkpoint per drag
+      if (st.live) pushPast() // one checkpoint per drag (off the stack: on release)
+      // collected here, not on the press: the radius grip mounts with the selection the press made
+      else st.nodes = [...(boardRef.current?.querySelectorAll('[data-circle-id]') ?? [])].filter((n) => n.getAttribute('data-circle-id') === st.id)
+      st.moved = true
     }
     const ndx = (e.clientX - st.sx) / rect.width, ndy = (e.clientY - st.sy) / rect.height
     // the storey stays put (a cordon belongs to the sheet it was drawn on): board-global y is
     // re-localised back into that same tile, exactly as the stroke drag does
-    patch(st.id, { x: st.x0 + ndx, y: localY(st.by0 + ndy, st.floor) })
+    const last = { x: st.x0 + ndx, y: localY(st.by0 + ndy, st.floor) }
+    st.last = last
+    if (st.live) { patch(st.id, last); return }
+    const dx = (last.x - st.x0) * sW, dy = (mapY(st.floor, last.y) - st.by0) * sH
+    st.nodes.forEach((n) => shift(n, dx, dy))
   }
   const circleUp = () => {
     const st = circleDrag.current; circleDrag.current = null
-    if (!st?.moved) return
-    const a = annos.find((x) => x.id === st.id)
-    emit('board.move', { id: st.id, x: a?.x, y: a?.y, floor: a?.floor, planId: activeId })
+    if (!st?.moved || !st.last) return
+    if (!st.live) {
+      // the board takes the circle over from the nodes in the same frame
+      st.nodes.forEach((n) => shift(n, 0, 0))
+      pushPast() // the drag's one step
+      patch(st.id, st.last)
+    }
+    emit('board.move', { id: st.id, ...st.last, floor: st.storedFloor, planId: activeId })
   }
 
   // --- drag a Linie's free-text label to a per-line offset (normalized board fractions, so it
-  // tracks under zoom), mirroring the Lage map's moveLabel. Folds into one undo step like the
-  // stroke move: snapshot on first move, stream, emit on release. ---
-  const labelDrag = useRef<{ id: string; sx: number; sy: number; dx0: number; dy0: number; moved: boolean } | null>(null)
+  // tracks under zoom), mirroring the Lage map's moveLabel. The label's own element moves while the
+  // finger is down; the release writes the offset as one undo step and emits it. ---
+  const labelDrag = useRef<{ id: string; sx: number; sy: number; dx0: number; dy0: number; moved: boolean; el: HTMLElement; last: { labelDx: number; labelDy: number } | null } | null>(null)
   const labelDown = (e: React.PointerEvent, id: string, dx0: number, dy0: number) => {
-    if (tool !== 'pan' || readOnly) return
+    // a second finger is the pinch's (useBoardGestures · trackDown ends the drag through labelEnd)
+    if (tool !== 'pan' || readOnly || !e.isPrimary) return
     // only the main button selects or drags (GESTURES.13): a right press on an object does nothing
     if (e.button > 0) { e.stopPropagation(); return }
     e.stopPropagation()
@@ -217,7 +258,7 @@ export function useWbBodyDrag({ tool, readOnly, annos, selId, setAnnoTap, setSel
     const el = e.currentTarget as HTMLElement, pid = e.pointerId
     const grab = (sx: number, sy: number) => {
       el.setPointerCapture?.(pid)
-      labelDrag.current = { id, sx, sy, dx0, dy0, moved: false }
+      labelDrag.current = { id, sx, sy, dx0, dy0, moved: false, el, last: null }
     }
     // the label belongs to its line: the press rule is the line's (see the file header)
     if (selId === id || e.pointerType === 'mouse') { setSelId(id); grab(e.clientX, e.clientY); return }
@@ -239,23 +280,30 @@ export function useWbBodyDrag({ tool, readOnly, annos, selId, setAnnoTap, setSel
     const rect = boardRef.current?.getBoundingClientRect(); if (!rect?.width) return
     if (!st.moved) {
       if (Math.hypot(e.clientX - st.sx, e.clientY - st.sy) < 6) return // tap, not a drag
-      pushPast(); st.moved = true
+      st.moved = true
     }
     const ndx = st.dx0 + (e.clientX - st.sx) / rect.width
     const ndy = st.dy0 + (e.clientY - st.sy) / rect.height
-    patch(st.id, { labelDx: ndx, labelDy: ndy })
+    st.last = { labelDx: ndx, labelDy: ndy }
+    shift(st.el, (ndx - st.dx0) * sW, (ndy - st.dy0) * sH)
   }
   const labelUp = (e: React.PointerEvent) => {
     if (!labelDrag.current) return
     e.stopPropagation()
+    labelEnd()
+  }
+  /** Ends a label drag where it lies – its release, and the stage's (Whiteboard · manipUp) when a
+   *  second finger starts a pinch. */
+  const labelEnd = () => {
     const st = labelDrag.current; labelDrag.current = null
-    if (!st?.moved) return
+    if (!st?.moved || !st.last) return
+    shift(st.el, 0, 0)
+    pushPast() // the drag's one step
+    patch(st.id, st.last)
     // …with the offsets it dragged: a `board.edit` naming no patch folds to nothing (lib/replay),
     // so the nudged label snapped back on every scrub between snapshots.
-    const a = annos.find((x) => x.id === st.id)
-    emit('board.edit', { id: st.id, planId: activeId,
-      patch: { labelDx: a?.labelDx, labelDy: a?.labelDy } })
+    emit('board.edit', { id: st.id, planId: activeId, patch: st.last })
   }
 
-  return { drawDrag, drawDown, drawMove, drawUp, circleDrag, circleDown, circleMove, circleUp, labelDown, labelMove, labelUp }
+  return { drawDrag, drawDown, drawMove, drawUp, circleDrag, circleDown, circleMove, circleUp, labelDown, labelMove, labelUp, labelEnd }
 }

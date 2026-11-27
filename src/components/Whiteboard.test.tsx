@@ -854,6 +854,7 @@ describe('the Absperrkreis on a plan', () => {
     const { container, onChange } = renderPlan([cordon])
     mouseDown(ring(container), { clientX: 280, clientY: 200, pointerId: 1 })
     fireEvent.pointerMove(ring(container), { clientX: 320, clientY: 200, pointerId: 1 })
+    fireEvent.pointerUp(ring(container), { clientX: 320, clientY: 200, pointerId: 1 })
     const [a] = placed(onChange)
     expect(a.x).toBeCloseTo(0.6, 6) // 0.5 + 40/400
     expect(a.y).toBeCloseTo(0.5, 6)
@@ -2130,6 +2131,120 @@ describe('gesture contracts of the plan surface', () => {
       expect(back.getAttribute('aria-label')).toContain(W.climbBack.split('{')[0].trim())
       fireEvent.click(back)
       expect(find('l1').pts).toEqual([[0.3, 0.4, 0], [0.6, 0.5, 0]])
+    })
+  })
+
+  // perf sweep 26.11.2026: an Absperrkreis and a label move their own nodes while the finger is
+  // down; the board (and with it the whole workspace) is written once, on release
+  describe('a body drag writes the board once', () => {
+    const cordon: BoardAnno = { id: 'k1', kind: 'circle', x: 0.5, y: 0.5, floor: 0, radiusN: 0.2 }
+    const ring = (c: HTMLElement) => c.querySelector('.wb-ink-svg circle[style]')!
+    const board = () => document.querySelector('.wb-canvas')!
+    /** 40 pointer moves from (200, 200) to (280, 240) on the 400 px board */
+    const forty = (el: Element, target: Element) => {
+      mouseDown(el, { clientX: 200, clientY: 200, pointerId: 1 })
+      for (let i = 1; i <= 40; i++) fireEvent.pointerMove(target, { pointerType: 'mouse', clientX: 200 + 2 * i, clientY: 200 + i, pointerId: 1 })
+    }
+
+    it('drags an Absperrkreis through 40 moves with ONE store write and ONE step, on release', () => {
+      const { container, onChange, onCheckpoint, emit } = mount([cordon])
+      forty(ring(container), board())
+      expect(onChange).toHaveBeenCalledTimes(0)
+      const node = container.querySelector('[data-circle-id="k1"]')!
+      expect(node.getAttribute('transform')).toMatch(/^translate\(/)
+      // the radius grip the press's selection mounted rides along
+      const grip = screen.getByRole('button', { name: appConfig.copy.whiteboard.dragRadius })
+      expect(grip.style.translate).toMatch(/px/)
+      fireEvent.pointerUp(board(), { pointerType: 'mouse', clientX: 280, clientY: 240, pointerId: 1 })
+      expect(onChange).toHaveBeenCalledTimes(1)
+      expect(onCheckpoint).toHaveBeenCalledTimes(1)
+      expect(find('k1').x).toBeCloseTo(0.7, 6)
+      expect(find('k1').y).toBeCloseTo(0.6, 6)
+      expect(node.getAttribute('transform')).toBeNull()
+      expect(grip.style.translate).toBe('')
+      // the audit row names the point the drag ended on
+      expect(emit.mock.calls.filter((c) => c[0] === 'board.move')).toEqual([['board.move', { id: 'k1', x: find('k1').x, y: find('k1').y, floor: 0, planId: 'tafel' }]])
+      act(() => { history.current!.undo() })
+      expect(find('k1')).toMatchObject({ x: 0.5, y: 0.5 })
+    })
+
+    it('a press that stays inside the dead zone writes nothing and lays no step', () => {
+      const { container, onChange, onCheckpoint, emit } = mount([cordon])
+      mouseDown(ring(container), { clientX: 200, clientY: 200, pointerId: 1 })
+      fireEvent.pointerMove(board(), { pointerType: 'mouse', clientX: 202, clientY: 201, pointerId: 1 })
+      fireEvent.pointerUp(board(), { pointerType: 'mouse', clientX: 202, clientY: 201, pointerId: 1 })
+      expect(onChange).not.toHaveBeenCalled()
+      expect(onCheckpoint).not.toHaveBeenCalled()
+      expect(emit.mock.calls.filter((c) => c[0] === 'board.move')).toEqual([])
+    })
+
+    it('a cancelled drag ends where the circle lies, as a release does', () => {
+      const { container, onChange } = mount([cordon])
+      forty(ring(container), board())
+      fireEvent.pointerCancel(board(), { pointerType: 'mouse', pointerId: 1 })
+      expect(onChange).toHaveBeenCalledTimes(1)
+      expect(find('k1').x).toBeCloseTo(0.7, 6)
+      expect(container.querySelector('[data-circle-id="k1"]')!.getAttribute('transform')).toBeNull()
+    })
+
+    it('names the floor as stored: a cordon on a flat sheet without one stays without one', () => {
+      const { id, kind, x, y, radiusN } = cordon
+      const { container, emit } = mount([{ id, kind, x, y, radiusN }])
+      forty(ring(container), board())
+      fireEvent.pointerUp(board(), { pointerType: 'mouse', clientX: 280, clientY: 240, pointerId: 1 })
+      expect(find('k1').floor).toBeUndefined()
+      expect(emit.mock.calls.find((c) => c[0] === 'board.move')?.[1]).toMatchObject({ id: 'k1', floor: undefined })
+    })
+
+    // on the Gebäude stack the ring is clipped to its storey, so it keeps writing per move – and a
+    // drag across the tiles leaves it on the sheet it was drawn on
+    it('on the Gebäude stack: writes per move, and the cordon stays on its storey', () => {
+      const building: BuildingDoc = { ...aBuilding, floors: [0, 1], pack: { aspect: 1 } }
+      const upstairs: BoardAnno = { ...cordon, floor: 1 }
+      const { container, onChange, onCheckpoint, emit } = mount([upstairs], { activeId: 'gebaeude', building })
+      mouseDown(ring(container), { clientX: 100, clientY: 100, pointerId: 1 })
+      for (let i = 1; i <= 10; i++) fireEvent.pointerMove(board(), { pointerType: 'mouse', clientX: 100, clientY: 100 + 25 * i, pointerId: 1 })
+      expect(onChange.mock.calls.length).toBeGreaterThan(1)
+      fireEvent.pointerUp(board(), { pointerType: 'mouse', clientX: 100, clientY: 350, pointerId: 1 })
+      expect(find('k1').floor).toBe(1)
+      expect(onCheckpoint).toHaveBeenCalledTimes(1)
+      expect(emit.mock.calls.filter((c) => c[0] === 'board.move')).toEqual([['board.move', { id: 'k1', x: find('k1').x, y: find('k1').y, floor: 1, planId: 'gebaeude' }]])
+    })
+
+    it('drags a Fläche’s label through 40 moves with ONE store write, carrying its offset', () => {
+      const area: BoardAnno = { id: 'a1', kind: 'area', pts: [[0.3, 0.3, 0], [0.7, 0.3, 0], [0.7, 0.7, 0], [0.3, 0.7, 0]], floor: 0, label: 'Sektor' }
+      const { onChange, onCheckpoint, emit } = mount([area])
+      const label = screen.getByText('Sektor').closest('.wb-line-label')! as HTMLElement
+      forty(label, label)
+      expect(onChange).toHaveBeenCalledTimes(0)
+      expect(label.style.translate).toMatch(/px/)
+      fireEvent.pointerUp(label, { pointerType: 'mouse', clientX: 280, clientY: 240, pointerId: 1 })
+      expect(onChange).toHaveBeenCalledTimes(1)
+      expect(onCheckpoint).toHaveBeenCalledTimes(1)
+      expect(find('a1').labelDx).toBeCloseTo(0.2, 6)
+      expect(find('a1').labelDy).toBeCloseTo(0.1, 6)
+      expect(label.style.translate).toBe('')
+      expect(edits(emit)).toEqual([['board.edit', { id: 'a1', planId: 'tafel', patch: { labelDx: find('a1').labelDx, labelDy: find('a1').labelDy } }]])
+    })
+
+    it('a second finger on the label ends its drag where it lies – it is the pinch’s, not a new drag', () => {
+      vi.useFakeTimers()
+      const area: BoardAnno = { id: 'a1', kind: 'area', pts: [[0.3, 0.3, 0], [0.7, 0.3, 0], [0.7, 0.7, 0], [0.3, 0.7, 0]], floor: 0, label: 'Sektor' }
+      const { onChange, onCheckpoint } = mount([area])
+      const label = screen.getByText('Sektor').closest('.wb-line-label')! as HTMLElement
+      const touch = { pointerType: 'touch', pointerId: 1, isPrimary: true }
+      fireEvent.pointerDown(label, { ...touch, clientX: 200, clientY: 200 })
+      act(() => { vi.advanceTimersByTime(HOLD_DRAG_MS + 20) })
+      fireEvent.pointerMove(label, { ...touch, clientX: 240, clientY: 220 })
+      fireEvent.pointerDown(label, { pointerType: 'touch', pointerId: 2, isPrimary: false, clientX: 300, clientY: 300 })
+      expect(onChange).toHaveBeenCalledTimes(1)
+      expect(onCheckpoint).toHaveBeenCalledTimes(1)
+      expect(find('a1').labelDx).toBeCloseTo(0.1, 6)
+      expect(label.style.translate).toBe('')
+      // …and the second finger's moves drag nothing
+      fireEvent.pointerMove(label, { pointerType: 'touch', pointerId: 2, isPrimary: false, clientX: 340, clientY: 300 })
+      expect(label.style.translate).toBe('')
+      expect(onChange).toHaveBeenCalledTimes(1)
     })
   })
 

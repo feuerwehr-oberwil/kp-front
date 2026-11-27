@@ -327,8 +327,9 @@ export function WbCircleLayer({ annos, draft, sW, sH, mapY, color, selId, flashI
         // wears an edge mark wherever it leaves the section
         const section = sections?.get(a.floor ?? 0)
         const { marks, cut } = strokeCut(section ? circleRing(cx, cy, r) : [], section, true)
+        // `data-circle-id`: the body drag moves this group while the finger is down (useWbBodyDrag)
         return (
-          <g key={a.id}>
+          <g key={a.id} data-circle-id={a.id}>
             {selId === a.id && cut && <circle cx={cx} cy={cy} r={r} fill="none" stroke={ink} strokeWidth={2} strokeOpacity={0.4} strokeDasharray="3 5" style={{ pointerEvents: 'none' }} />}
             <g clipPath={section ? `url(#${sectionClipId(space, a.floor ?? 0)})` : undefined}>
               {flashId === a.id && <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--blue)" strokeWidth={w + 14} strokeOpacity={0.3} />}
@@ -377,7 +378,7 @@ export function WbCircleHandle({ anno, sW, sH, mapY, onRadiusDown, onMove, onUp 
   const cx = (anno.x ?? 0) * sW, cy = mapY(anno.floor, anno.y ?? 0) * sH
   const r = Math.max(1, (anno.radiusN ?? 0) * sW)
   return (
-    <button className="wb-vertex" title={appConfig.copy.whiteboard.dragRadius} aria-label={appConfig.copy.whiteboard.dragRadius} data-holdaction
+    <button className="wb-vertex" title={appConfig.copy.whiteboard.dragRadius} aria-label={appConfig.copy.whiteboard.dragRadius} data-holdaction data-circle-id={anno.id}
       style={{ left: 0, top: 0, transform: `translate(${cx + r}px, ${cy}px) translate(-50%, -50%)` }}
       onPointerDown={onRadiusDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}
       onClick={(e) => e.stopPropagation()} />

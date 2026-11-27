@@ -1377,8 +1377,8 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // --- the ink's body drags: a stroke, an Absperrkreis, a Linie's label — components/useWbBodyDrag ---
   // the storey tile a move would drop its selection onto – lit while the drag is over it
   const [dropFloor, setDropFloor] = useState<number | null>(null)
-  const { drawDrag, drawDown, drawMove, drawUp, circleDrag, circleDown, circleMove, circleUp, labelDown, labelMove, labelUp } = useWbBodyDrag({
-    tool, readOnly, annos, selId, setAnnoTap, setSelId, setSelIds, boardRef, boardPts, moveRigid, localY, mapY, stack, floorAt, floorsTTB, setDropFloor, pushPast, patch, emit, activeId, snapMove: snapMoveOf,
+  const { drawDrag, drawDown, drawMove, drawUp, circleDrag, circleDown, circleMove, circleUp, labelDown, labelMove, labelUp, labelEnd } = useWbBodyDrag({
+    tool, readOnly, annos, selId, setAnnoTap, setSelId, setSelIds, boardRef, sW, sH, boardPts, moveRigid, localY, mapY, stack, floorAt, floorsTTB, setDropFloor, pushPast, patch, emit, activeId, snapMove: snapMoveOf,
     // lazy: the board's pan lives in useBoardGestures, further down
     panFrom: (e) => panFrom(e), stopPan: () => stopPan(),
   })
@@ -1433,7 +1433,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     // peeks down to its grip line so the board isn't reduced to a strip — lib/sheetPeek
     if (chipDrag.current?.moved || circleDrag.current?.moved || drawDrag.current?.moved || vertDrag.current?.moved) beginSheetPeek()
   }
-  const manipUp = () => { endSheetPeek(); chipUp(); circleUp(); drawUp(); vertUp(); draftVertUp(); measUp(); onStepEnd?.() }
+  const manipUp = () => { endSheetPeek(); chipUp(); circleUp(); labelEnd(); drawUp(); vertUp(); draftVertUp(); measUp(); onStepEnd?.() }
 
   // pan / pinch-zoom / marquee multi-select + the shared stage pointer dispatcher live in
   // useBoardGestures; object manipulation is reached through manipMove/manipUp above.
@@ -2821,7 +2821,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
               const cx = (a.x ?? 0) * sW, cy = mapY(a.floor, a.y ?? 0) * sH
               const r = (a.radiusN ?? 0) * sW
               return (
-                <span key={`cr-${a.id}`} className="wb-line-label"
+                <span key={`cr-${a.id}`} className="wb-line-label" data-circle-id={a.id}
                   style={{ left: 0, top: 0, transform: `translate(${cx}px, ${cy - r}px) translate(-50%, -100%)` }}>
                   {fmtDistance(circleRadiusM(a.radiusN ?? 0, activeScale.mPerU, measureAR))}
                 </span>
