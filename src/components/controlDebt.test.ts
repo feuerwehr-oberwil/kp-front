@@ -105,7 +105,6 @@ const BASELINE: Record<string, Counts> = {
   // +1 pressed (31.10.2026): the foot's «Erledigt» toggle – an action tile pressed in place, not a choice
   'src/components/ContextPanel.tsx': { pressed: 2, row: 1, field: 4 },
   'src/components/DrawEditor.tsx': { row: 2, field: 3 },
-  'src/components/EntityMarker.tsx': { field: 1 },
   'src/components/ErrorBoundary.tsx': { ipBtn: 4 },
   'src/components/GeorefMode.tsx': { pressed: 1 },
   'src/components/GeorefTransfer.tsx': { row: 1, disabledPrimary: 1 },
@@ -123,8 +122,9 @@ const BASELINE: Record<string, Counts> = {
   'src/components/MapViewsMenu.tsx': { pressed: 3, row: 5, field: 1 },
   'src/components/MeasurePanel.tsx': { row: 1 },
   'src/components/MittelView.tsx': { pressed: 1, row: 3, ipBtn: 8, disabledPrimary: 1 },
+  'src/components/NoteField.tsx': { field: 1 },
   'src/components/PersonnelSyncDialog.tsx': { ipBtn: 2, disabledPrimary: 1 },
-  'src/components/PlanAnno.tsx': { row: 1, field: 1 },
+  'src/components/PlanAnno.tsx': { row: 1 },
   'src/components/PlanScalePrompts.tsx': { field: 1 },
   'src/components/Presentation.tsx': { ipBtn: 7, field: 1 },
   'src/components/ReadingParts.tsx': { field: 1 },

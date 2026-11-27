@@ -7,6 +7,7 @@ import type { MittelDraft } from './components/MittelView'
 import { AUTH, SYM, rec, registerHarnessHooks, lastMap, lastBoard, meta, truck, workspaceTree, settle, mount, lastBtn, key, openPlan, type BoardProps } from './IncidentWorkspace.harness.setup'
 import { Meldeleiste } from './components/Meldeleiste'
 import { WorkspaceSync } from './lib/api/workspaceSync'
+import { AuditEventStore } from './lib/auditEventStore'
 import type { Saved } from './lib/workspace'
 import { appConfig } from './config/appConfig'
 import { loadPrefs, savePrefs } from './lib/prefs'
@@ -295,6 +296,167 @@ describe('(g) a Link-registered crew reaches the Anwesenheit through the editor 
     fireEvent.click(screen.getAllByRole('button', { name: 'Anwesenheit' })[0])
     await settle(120)
     expect(document.body.textContent ?? '').toMatch(/(?<!\d)2 anwesend/)
+  })
+})
+
+/* A Notiz placed and being typed, and a ↶ that takes back the placing: the Notiz goes, and its editor
+   goes with it, without a blur. Its typing must end with no step – one would bring the Notiz back
+   empty and clear ↷ (sweep 26.11.2026, after #801). */
+describe('(n) ↶ takes back a Notiz while it is being typed', () => {
+  const historyButton = (label: string) => screen.getAllByRole('button').find((b) => (b.getAttribute('aria-label') ?? '').startsWith(label))!
+  const notes = () => lastMap().entities.filter((e) => e.kind === 'note').map((e) => e.label)
+  /** the Notiz tool, one tap on the map: the Notiz is placed and its panel opens with the caret in it */
+  const placeNote = async () => {
+    key('n')
+    act(() => (lastMap() as unknown as { onMapClick: (c: [number, number]) => void }).onMapClick([7.601, 47.501]))
+    await settle()
+    return lastMap().entities.find((e) => e.kind === 'note')!.id
+  }
+  const press = async (label: string) => { fireEvent.click(historyButton(label)); await settle() }
+
+  it('in its panel: ↷ brings it back with what was typed', async () => {
+    await mount()
+    await placeNote()
+    const field = document.querySelector<HTMLTextAreaElement>('.ctx-note-input')!
+    expect(document.activeElement).toBe(field)
+    fireEvent.change(field, { target: { value: 'Wasser ab 14:20' } })
+    await press(appConfig.copy.undo)
+    expect(notes()).toEqual([])
+    await press(appConfig.copy.redo)
+    expect(notes()).toEqual(['Wasser ab 14:20'])
+  })
+
+  it('in the editor on the map: ↷ brings it back with what was typed', async () => {
+    await mount()
+    const id = await placeNote()
+    const map = () => lastMap() as unknown as { onNoteEdit: (id: string) => void; onNoteText: (id: string, v: string) => void; onNoteCommit: (id: string, v: string) => void }
+    act(() => map().onNoteEdit(id))
+    act(() => map().onNoteText(id, 'Wasser ab 14:20'))
+    await settle()
+    await press(appConfig.copy.undo)
+    expect(notes()).toEqual([])
+    // the editor went with the Notiz, and ends its edit as it goes (EntityMarker · NoteField)
+    act(() => map().onNoteCommit(id, 'Wasser ab 14:20'))
+    await press(appConfig.copy.redo)
+    expect(notes()).toEqual(['Wasser ab 14:20'])
+  })
+
+  // a double tap on another Notiz opens its editor; the first one's goes and ends its edit then
+  it('the editor of the Notiz opened next stays open when the first one’s edit ends', async () => {
+    const note = (id: string) => ({ id, kind: 'note', coord: [7.601, 47.501], label: '' }) as Entity
+    await mount({ workspace: { entities: [truck, note('a'), note('b')] } as unknown as Saved })
+    const map = () => lastMap() as unknown as { editNoteId: string | null; onNoteEdit: (id: string) => void; onNoteText: (id: string, v: string) => void; onNoteCommit: (id: string, v: string) => void }
+    act(() => map().onNoteEdit('a'))
+    act(() => map().onNoteText('a', 'Wasser ab 14:20'))
+    act(() => map().onNoteEdit('b'))
+    act(() => map().onNoteCommit('a', 'Wasser ab 14:20'))
+    await settle()
+    expect(map().editNoteId).toBe('b')
+  })
+
+  // ↶ takes back placing Notiz B while Notiz A's text is typed on the map: A gets its old text
+  // back, then A's editor goes. Its end must lay no step and write no row – the history holds it
+  it('a ↶ while another Notiz is typed: its end lays no step and writes no row with the taken-back text', async () => {
+    const append = vi.spyOn(AuditEventStore.prototype, 'append')
+    await mount({ workspace: { entities: [truck, { id: 'a', kind: 'note', coord: [7.6, 47.5], label: 'Alt' } as Entity] } as unknown as Saved })
+    await placeNote()
+    const map = () => lastMap() as unknown as { onNoteEdit: (id: string) => void; onNoteText: (id: string, v: string) => void; onNoteCommit: (id: string, v: string) => void }
+    act(() => map().onNoteEdit('a'))
+    act(() => map().onNoteText('a', 'Neu'))
+    await press(appConfig.copy.undo)
+    expect(notes()).toEqual(['Alt'])
+    act(() => map().onNoteCommit('a', 'Neu'))
+    await settle()
+    const edits = append.mock.calls.map(([e]) => e).filter((e) => e.op_type === 'entity.edit')
+    expect(edits.map((e) => (e.payload as { patch?: { label?: string } }).patch?.label)).not.toContain('Neu')
+    await press(appConfig.copy.redo)
+    expect(notes()).toEqual(['Neu', ''])
+  })
+
+  // the map editor stays open through the ↶; what is typed after it is an edit of its own
+  it('typed on after a ↶: the new text is its own ↶ step with its one row', async () => {
+    const append = vi.spyOn(AuditEventStore.prototype, 'append')
+    await mount({ workspace: { entities: [truck, { id: 'a', kind: 'note', coord: [7.6, 47.5], label: 'Alt' } as Entity] } as unknown as Saved })
+    await placeNote()
+    const map = () => lastMap() as unknown as { onNoteEdit: (id: string) => void; onNoteText: (id: string, v: string) => void; onNoteCommit: (id: string, v: string) => void }
+    act(() => map().onNoteEdit('a'))
+    act(() => map().onNoteText('a', 'Erst'))
+    await press(appConfig.copy.undo)
+    expect(notes()).toEqual(['Alt'])
+    act(() => map().onNoteText('a', 'Alt, Wasser ab 14:20'))
+    act(() => map().onNoteCommit('a', 'Alt, Wasser ab 14:20'))
+    await settle()
+    const rows = append.mock.calls.map(([e]) => e).filter((e) => e.op_type === 'entity.edit')
+      .map((e) => (e.payload as { patch?: { label?: string } }).patch?.label)
+    expect(rows).toEqual(['Alt, Wasser ab 14:20'])
+    await press(appConfig.copy.undo)
+    expect(notes()).toEqual(['Alt'])
+    await press(appConfig.copy.redo)
+    expect(notes()).toEqual(['Alt, Wasser ab 14:20'])
+  })
+
+  // a vehicle moved while a Notiz has the caret takes the one gesture slot and keeps its own ↶
+  // step; the Notiz's typing lays none then (open point), but its row is still written
+  describe('a vehicle moved while a Notiz is typed', () => {
+    type Drag = { onMarkerDragStart: (id: string) => void; onMarkerMove: (id: string, c: [number, number]) => void; onMarkerDragEnd: (id: string, c: [number, number]) => void }
+    const map = () => lastMap() as unknown as Drag & { onNoteEdit: (id: string) => void; onNoteText: (id: string, v: string) => void; onNoteCommit: (id: string, v: string) => void }
+    const truckAt = () => lastMap().entities.find((e) => e.id === truck.id)?.coord
+    const typeThenMove = async () => {
+      const append = vi.spyOn(AuditEventStore.prototype, 'append')
+      await mount({ workspace: { entities: [truck, { id: 'a', kind: 'note', coord: [7.6, 47.5], label: 'Alt' } as Entity] } as unknown as Saved })
+      act(() => map().onNoteEdit('a'))
+      act(() => map().onNoteText('a', 'Wasser ab 14:20'))
+      act(() => map().onMarkerDragStart(truck.id))
+      act(() => map().onMarkerMove(truck.id, [7.61, 47.5]))
+      act(() => map().onMarkerDragEnd(truck.id, [7.61, 47.5]))
+      await settle()
+      const rows = () => append.mock.calls.map(([e]) => e).filter((e) => e.op_type === 'entity.edit' && (e.payload as { id?: string }).id === 'a')
+        .map((e) => (e.payload as { patch?: { label?: string } }).patch?.label)
+      return { rows }
+    }
+
+    it('the Notiz still writes its one row, and the move stays one ↶ step', async () => {
+      const { rows } = await typeThenMove()
+      act(() => map().onNoteCommit('a', 'Wasser ab 14:20'))
+      await settle()
+      expect(rows()).toEqual(['Wasser ab 14:20'])
+      await press(appConfig.copy.undo)
+      expect(truckAt()).toEqual(truck.coord)
+    })
+
+    // the ↶ takes back the move only: the Notiz still holds what was typed, so the row stays
+    // (a ↶ that takes the typed text back writes none – «a ↶ while another Notiz is typed» above)
+    it('…also when a ↶ took back only the move', async () => {
+      const { rows } = await typeThenMove()
+      await press(appConfig.copy.undo)
+      expect(truckAt()).toEqual(truck.coord)
+      expect(notes()).toEqual(['Wasser ab 14:20'])
+      act(() => map().onNoteCommit('a', 'Wasser ab 14:20'))
+      await settle()
+      expect(rows()).toEqual(['Wasser ab 14:20'])
+    })
+
+    it('typed on after that ↶: one row with the final text', async () => {
+      const { rows } = await typeThenMove()
+      await press(appConfig.copy.undo)
+      act(() => map().onNoteText('a', 'Wasser ab 14:30'))
+      act(() => map().onNoteCommit('a', 'Wasser ab 14:30'))
+      await settle()
+      expect(rows()).toEqual(['Wasser ab 14:30'])
+    })
+  })
+
+  // after a ↶, an existing Notiz opened on the map and closed with ✓, nothing typed
+  it('✓ on an unchanged Notiz lays no step: ↷ stays', async () => {
+    await mount({ workspace: { entities: [truck, { id: 'a', kind: 'note', coord: [7.6, 47.5], label: 'Alt' } as Entity] } as unknown as Saved })
+    await placeNote()
+    await press(appConfig.copy.undo)
+    const map = () => lastMap() as unknown as { onNoteEdit: (id: string) => void; onNoteCommit: (id: string, v: string) => void }
+    act(() => map().onNoteEdit('a'))
+    act(() => map().onNoteCommit('a', 'Alt'))
+    await settle()
+    await press(appConfig.copy.redo)
+    expect(notes()).toEqual(['Alt', ''])
   })
 })
 

@@ -93,3 +93,42 @@ describe('useUndoableDoc', () => {
     expect(result.current.canRedo).toBe(false)
   })
 })
+
+// sweep 26.11.2026 (PR #810): a Notiz's typing holds a gesture open for as long as it has the
+// caret, so another gesture can begin on top of it – and a ↶ can run under it
+describe('a gesture ended by its token', () => {
+  it('dropping a typing leaves the drag begun after it: the move stays one ↶ step', () => {
+    const { result } = renderHook(() => useUndoableDoc<Doc>(INIT, false))
+    let typing = 0
+    act(() => { typing = result.current.beginDrag(); result.current.setDocRaw({ n: 1 }) })
+    act(() => { result.current.beginDrag(); result.current.setDocRaw({ n: 2 }) })
+    act(() => result.current.dropDrag(typing)) // the Notiz went (another device removed it)
+    act(() => { expect(result.current.endDrag()).toBe(true) })
+    act(() => { result.current.undo() })
+    expect(result.current.current()).toEqual({ n: 1 })
+  })
+
+  it('lays no step when a ↶ ran while it was open – ↷ stays', () => {
+    const { result } = renderHook(() => useUndoableDoc<Doc>(INIT, false))
+    act(() => result.current.commit(() => ({ n: 1 })))
+    let typing = 0
+    act(() => { typing = result.current.beginDrag(); result.current.setDocRaw({ n: 2 }) })
+    act(() => { result.current.undo() })
+    act(() => { expect(result.current.endDrag(typing)).toBe(false) })
+    expect(result.current.current()).toEqual({ n: 0 })
+    act(() => { result.current.redo() })
+    expect(result.current.current()).toEqual({ n: 2 })
+  })
+
+  it('a typing a ↶ stepped over is stale while it holds the slot – not once a newer gesture took it', () => {
+    const { result } = renderHook(() => useUndoableDoc<Doc>(INIT, false))
+    act(() => result.current.commit(() => ({ n: 1 })))
+    let typing = 0
+    act(() => { typing = result.current.beginDrag() })
+    expect(result.current.steppedOver(typing)).toBe(false)
+    act(() => { result.current.undo() })
+    expect(result.current.steppedOver(typing)).toBe(true)
+    act(() => { result.current.beginDrag() }) // a vehicle dragged meanwhile: its slot stays its own
+    expect(result.current.steppedOver(typing)).toBe(false)
+  })
+})

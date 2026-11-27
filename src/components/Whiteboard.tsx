@@ -610,9 +610,14 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   const planEndpointDrag = useRef<PlanEndpointDrag | null>(null)
   const planDwellTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const setPlanEndpointDrag = (next: PlanEndpointDrag | null) => { planEndpointDrag.current = next; setPlanEndpointDragState(next) }
-  // which text note is mid-edit (so we checkpoint undo once per edit session, then stream
-  // each keystroke live into the anno — like the Lage note title)
-  const textEditId = useRef<string | null>(null)
+  // which text note is mid-edit in its field on the sheet (so we checkpoint undo once per edit
+  // session, then stream each keystroke live into the anno — like the Lage note title), the
+  // sheet it is typed on and its text so far (typeText … endTextEdit)
+  const textEdit = useRef<{ id: string; planId: string; text: string } | null>(null)
+  // …a field that went without a blur, settled after the commit (settleTextEdit), and the
+  // leave-document end of an open session, re-pointed every commit like releaseRef
+  const textFieldGone = useRef<string | null>(null)
+  const leaveTextRef = useRef(() => {})
   // zoom/pan view state (layout-based zoom + focal wheel-zoom) lives in a hook, which also
   // remembers it per plan across a surface switch — `signature` says when a remembered view has
   // gone stale (the plan's image / floor stack / calibration changed under it).
@@ -1014,8 +1019,11 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // the Lage. Checkpoint once when typing starts, emit once on blur — otherwise «Sicherung» is
   // nine undo steps and nine audit rows. (A symbol's name is a draft instead: `titleDraft`.)
   const titleLive = useRef<string | null>(null)
-  /** ↶ / ↷ on the Tafel lands where the step was: the page it changed, else the Skizze */
+  /** ↶ / ↷ on the Tafel lands where the step was: the page it changed, else the Skizze. Any ↶ / ↷
+   *  also closes the Notiz editor on the sheet (useBoardDoc · undo) and takes its typing session
+   *  with it, so the field's end (endTextEdit) writes no row with the text the step took back. */
   const onRestore = (from: BoardAnno[], to: BoardAnno[]) => {
+    textEdit.current = null
     if (!onTafel) return
     const was = new Map(from.filter((a) => a.kind === 'form').map((a) => [a.id, JSON.stringify(a)]))
     const changed = to.find((a) => a.kind === 'form' && was.get(a.id) !== JSON.stringify(a))
@@ -1344,11 +1352,70 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     // the document was OPENED in, when the draft did not exist yet — the ref, re-pointed every
     // commit and read before any new effect runs, still holds the old document's closure, so
     // the auto-commit lands on the sheet the shape was actually drawn on.
-    return () => releaseRef.current(prevTool.current, { ask: false })
+    // …and a Notiz being typed in its field ends its session here, on the sheet it was typed on,
+    // before the field could read the next sheet (leaveTextEdit)
+    return () => { releaseRef.current(prevTool.current, { ask: false }); leaveTextRef.current() }
   }, [activeId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** A keystroke in a Notiz's field on the sheet (PlanAnno): the session's first lays its ↶ step. */
+  const typeText = (id: string, p: Partial<BoardAnno> & { text: string }) => {
+    const open = textEdit.current
+    if (open?.id === id) open.text = p.text
+    else { textEdit.current = { id, planId: activeId, text: p.text }; pushPast() }
+    patch(id, p)
+  }
+  /** The session's one audit edit, on the sheet it was typed on. It keeps the note even if empty
+   *  (a placed note must persist, mirroring the Lage map). */
+  const writeTextEdit = (open: { id: string; planId: string }, value: string, was: string) => {
+    emit('board.edit', { id: open.id, patch: { text: value }, planId: open.planId })
+    // …and the Verlauf gets what it SAYS, not that a note exists (parity with the Lage's map
+    // notes, lib/entityEdit). Once per editing session, on the way out — a row per keystroke
+    // would be a wall.
+    const v = value.replace(/\s+/g, ' ').trim()
+    const w = was.replace(/\s+/g, ' ').trim()
+    if (v !== w) {
+      log('type', v
+        ? fillTemplate(appConfig.copy.log.noteWritten, { value: v })
+        : appConfig.copy.log.notesCleared)
+    }
+  }
+  /** The blur ends the session now. Once per session: a later end finds the marker cleared. */
+  const endTextEdit = (a: BoardAnno, value: string) => {
+    const open = textEdit.current
+    if (open?.id !== a.id) return
+    textEdit.current = null
+    writeTextEdit(open, value, a.text ?? '')
+  }
+  /** The field went without a blur (PlanAnno · NoteField). Its closure is the last render's, which
+   *  cannot tell whether the Notiz left the sheet (another device removed it), so the end is
+   *  settled after the commit (settleTextEdit). */
+  const textFieldEnded = (id: string) => { if (textEdit.current?.id === id) textFieldGone.current = id }
+  /** After every commit, against the sheet as it now stands. A session whose Notiz no longer holds
+   *  the text it typed ends with NO row: the history moved under it – a ↶ / ↷ of either history (a
+   *  Notiz the Karte lends to the sheet steps on the Karte's, which never calls onRestore), another
+   *  device's write, the Notiz removed. Otherwise a field that went ends its session with its row. */
+  const settleTextEdit = () => {
+    const gone = textFieldGone.current
+    textFieldGone.current = null
+    const open = textEdit.current
+    if (!open) return
+    if (annos.find((a) => a.id === open.id)?.text !== open.text) { textEdit.current = null; return }
+    if (gone !== open.id) return
+    textEdit.current = null
+    writeTextEdit(open, open.text, open.text)
+  }
+  /** Leaving the sheet or closing the board (the document effect's cleanup): the open session
+   *  ends on the sheet it was typed on. */
+  const leaveTextEdit = () => {
+    const open = textEdit.current
+    textEdit.current = null
+    textFieldGone.current = null
+    if (open) writeTextEdit(open, open.text, open.text)
+  }
   // re-point the leave-document release every commit (see releaseRef above for why a ref), and
   // release on a TOOL change — below usePlanDraft, whose commit machinery the release is.
-  useEffect(() => { releaseRef.current = releaseDraft })
+  // …and settle a Notiz field that went in this commit, against the sheet as it now stands
+  useEffect(() => { releaseRef.current = releaseDraft; leaveTextRef.current = leaveTextEdit; settleTextEdit() })
   useEffect(() => {
     const from = prevTool.current
     prevTool.current = tool
@@ -2423,8 +2490,8 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
 
   // what every <PlanAnno> reads from this render — one object, handed to each
   const annoBoard: PlanAnnoBoard = {
-    sW, sH, scale, mapY, stack, symBase, txtBase, tool, readOnly, captionMode, sym, annos, trupps, truppSeverities, activeId, textEditId,
-    chipRef, chipDown, setEditId, setSelId, setNotePanelId, pushPast, patch, patchCommit, emit, log,
+    sW, sH, scale, mapY, stack, symBase, txtBase, tool, readOnly, captionMode, sym, annos, trupps, truppSeverities,
+    chipRef, chipDown, setEditId, setSelId, setNotePanelId, patchCommit, typeText, endTextEdit, textFieldEnded,
     teamNameTaken, onTeamTrupp, onTeamNewTrupp, onShowTrupp, markPosition, clearTrail, removeWithConnections, removeWithTrail,
     toggleTrail, rotDown, rotMove, rotUp,
   }

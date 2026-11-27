@@ -179,6 +179,9 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
   const noteEditStart = useRef(0)
   // set on Enter so its blur() commits even inside the guard window (an explicit commit, not a steal)
   const noteForceCommit = useRef(false)
+  // the Notiz typed in the input and its text so far, until a commit ends the edit (noteBlur,
+  // noteDone) – or the input goes without one (noteEnd)
+  const noteTyped = useRef<{ id: string; text: string } | null>(null)
   // focus the note input when it mounts. MUST be stable (useCallback) — an inline ref callback
   // re-fires every render, which would re-focus/select on each keystroke (one-key-at-a-time).
   const focusNote = useCallback((el: HTMLTextAreaElement | null) => {
@@ -545,7 +548,13 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
   }
 
   // ── the inline note editor (see focusNote above) ──
-  const noteChange = (ev: React.ChangeEvent<HTMLTextAreaElement>, id: string) => { onNoteText?.(id, ev.target.value); autoGrow(ev.currentTarget) }
+  const noteChange = (ev: React.ChangeEvent<HTMLTextAreaElement>, id: string) => {
+    noteTyped.current = { id, text: ev.target.value }
+    onNoteText?.(id, ev.target.value); autoGrow(ev.currentTarget)
+  }
+  const commitNote = (id: string, text: string) => { noteTyped.current = null; onNoteCommit?.(id, text) }
+  /** the input is going (NoteField): what was typed and not yet committed is, as its blur would */
+  const noteEnd = (id: string) => { const typed = noteTyped.current; if (typed?.id === id) commitNote(id, typed.text) }
   const noteBlur = (ev: React.FocusEvent<HTMLTextAreaElement>, id: string) => {
     // A blur in the first moment after placement is NOT the user leaving the
     // field — it's MapLibre focusing its canvas (and/or a select-panel mount)
@@ -556,7 +565,7 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
     const el = ev.currentTarget
     if (!noteForceCommit.current && Date.now() - noteEditStart.current < 350) { requestAnimationFrame(() => el.focus()); return }
     noteForceCommit.current = false
-    onNoteCommit?.(id, ev.target.value)
+    commitNote(id, ev.target.value)
   }
   // Enter makes a new line — the ✓, Esc and clicking away are the way out.
   // `noteForceCommit` tells the blur this is a deliberate commit, so the 350ms
@@ -567,7 +576,7 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
     }
   }
   /** the ✓ Fertig (bound on pointerdown: the textarea's blur unmounts the button first) */
-  const noteDone = (id: string, text: string) => { noteForceCommit.current = true; onNoteCommit?.(id, text) }
+  const noteDone = (id: string, text: string) => { noteForceCommit.current = true; commitNote(id, text) }
 
   /** A press on one marker's body (EntityMarker): tap selects, resolving the pile under the pad;
    *  press-and-hold (touch) / press-and-drag (mouse) moves. `dockDragStart` = where a docked
@@ -691,7 +700,7 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
           renaming={renameTeamId === e.id} onRenaming={(on) => setRenameTeamId(on ? e.id : null)}
           dockedSlots={dockedSlots} markerRef={heldMarker.refOf(e.id)} onPress={pressMarker}
           rotDown={rotDown} rotMove={rotMove} rotUp={rotUp} shapeDown={shapeDown} shapeMove={shapeMove} shapeUp={shapeUp}
-          focusNote={focusNote} focusTeam={focusTeam} noteChange={noteChange} noteBlur={noteBlur} noteKeyDown={noteKeyDown} noteDone={noteDone}
+          focusNote={focusNote} focusTeam={focusTeam} noteChange={noteChange} noteBlur={noteBlur} noteKeyDown={noteKeyDown} noteDone={noteDone} noteEnd={noteEnd}
           onSelect={onSelect} onDeselect={onDeselect} onDelete={onDelete} onRotate={onRotate} onShapeTransform={onShapeTransform} onUnlockShape={onUnlockShape} onNoteEdit={onNoteEdit}
           trupps={trupps} onShowTrupp={onShowTrupp} onTeamTrupp={onTeamTrupp} onTeamNewTrupp={onTeamNewTrupp} onTeamMark={onTeamMark}
           onTeamRename={onTeamRename} onTeamClearTrail={onTeamClearTrail} onTeamRemoveWithTrail={onTeamRemoveWithTrail}

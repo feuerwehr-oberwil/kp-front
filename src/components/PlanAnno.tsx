@@ -17,6 +17,7 @@ import { fillTemplate } from '../lib/format'
 import { toast } from '../lib/ui'
 import { TacticalSymbol, compositeSpec, compositePartGlyph, luefterVariant, isHubretter, HubretterBoom, floorBadge } from '../lib/symbolRender'
 import { doneBadge } from '../lib/objectDone'
+import { NoteField } from './NoteField'
 import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import { placardSvgForSymbol } from '../lib/placard'
 import { symbolCaptionText, symbolOriginText, isMeasuredSymbol, isRotatableSym, isVehicleSym } from '../lib/symbols'
@@ -90,20 +91,19 @@ export interface PlanAnnoBoard {
   trupps: Trupp[]
   /** per-Trupp alarm tier – a chip wears its Trupp's (lib/truppLines · truppMarkerTone) */
   truppSeverities?: Record<string, 1 | 2>
-  activeId: string
-  /** which note is mid-edit on the canvas — one checkpoint per editing session, board-wide */
-  textEditId: React.MutableRefObject<string | null>
   /** a Trupp chip reports its rendered size (components/useWbChipSizes) */
   chipRef: (el: HTMLElement | null) => void
   chipDown: ReturnType<typeof useWbChipDrag>['chipDown']
   setEditId: (id: string | null) => void
   setSelId: (id: string | null) => void
   setNotePanelId: (id: string | null) => void
-  pushPast: BoardDoc['pushPast']
-  patch: BoardDoc['patch']
   patchCommit: BoardDoc['patchCommit']
-  emit: (op: string, payload?: Record<string, unknown>) => void
-  log: (icon: string, text: string) => void
+  /** a keystroke in a Notiz's field: one ↶ step per editing session (Whiteboard · typeText) */
+  typeText: (id: string, p: Partial<BoardAnno> & { text: string }) => void
+  /** the session ends on the field's blur, with what it holds (Whiteboard · endTextEdit) … */
+  endTextEdit: (a: BoardAnno, value: string) => void
+  /** …or when the field goes without one (NoteField · onEnd; Whiteboard · textFieldEnded) */
+  textFieldEnded: (id: string) => void
   teamNameTaken?: (id: string, label: string) => boolean
   onTeamTrupp?: (annoId: string, truppId: string | undefined) => void
   onTeamNewTrupp?: (annoId: string) => void
@@ -139,8 +139,8 @@ interface Props {
 /** One non-ink anno on the Plan, positioned in board px; see the file header. */
 export function PlanAnno({ a, selected, grouped, networked, editing, trailShown, board, spoke }: Props) {
   const {
-    sW, sH, scale, mapY, stack, symBase, txtBase, tool, readOnly, captionMode, sym, annos, trupps, truppSeverities, activeId, textEditId,
-    chipRef, chipDown, setEditId, setSelId, setNotePanelId, pushPast, patch, patchCommit, emit, log,
+    sW, sH, scale, mapY, stack, symBase, txtBase, tool, readOnly, captionMode, sym, annos, trupps, truppSeverities,
+    chipRef, chipDown, setEditId, setSelId, setNotePanelId, patchCommit, typeText, endTextEdit, textFieldEnded,
     teamNameTaken, onTeamTrupp, onTeamNewTrupp, onShowTrupp, markPosition, clearTrail, removeWithConnections, removeWithTrail,
     toggleTrail, rotDown, rotMove, rotUp,
   } = board
@@ -271,34 +271,17 @@ export function PlanAnno({ a, selected, grouped, networked, editing, trailShown,
           ...(a.color ? (a.notePlain ? { color: a.color } : { '--note-tint': a.color }) : null),
         } as React.CSSProperties
         return editing
-          ? <textarea className={cls('wb-text-input')} ref={focusOnce} value={a.text} placeholder={appConfig.copy.whiteboard.textPlaceholder} rows={1} style={style}
+          ? <NoteField className={cls('wb-text-input')} ref={focusOnce} value={a.text} placeholder={appConfig.copy.whiteboard.textPlaceholder} rows={1} style={style}
+              onEnd={() => textFieldEnded(a.id)}
               onPointerDown={(e) => e.stopPropagation()}
               // stream each keystroke live into the note (silent — checkpoint once on the
               // first edit), so the text shows as you type and the note never vanishes
               onChange={(e) => {
-                if (textEditId.current !== a.id) { textEditId.current = a.id; pushPast() }
                 const v = e.target.value
-                patch(a.id, { text: v, ...(a.noteAutoW ? { wN: autoNoteWN(v, noteFontPx, sW) } : null) })
+                typeText(a.id, { text: v, ...(a.noteAutoW ? { wN: autoNoteWN(v, noteFontPx, sW) } : null) })
                 autoGrow(e.currentTarget)
               }}
-              // finalise on blur: keep the note even if empty (a placed note must persist,
-              // mirroring the Lage map) and record one audit edit for the whole session
-              onBlur={(e) => {
-                setEditId(null)
-                if (textEditId.current !== a.id) return
-                textEditId.current = null
-                emit('board.edit', { id: a.id, patch: { text: e.target.value }, planId: activeId })
-                // …and the Verlauf gets what it SAYS, not that a note exists (parity with
-                // the Lage's map notes, lib/entityEdit). Once per editing session, on the
-                // way out — a row per keystroke would be a wall.
-                const v = e.target.value.replace(/\s+/g, ' ').trim()
-                const was = (a.text ?? '').replace(/\s+/g, ' ').trim()
-                if (v !== was) {
-                  log('type', v
-                    ? fillTemplate(appConfig.copy.log.noteWritten, { value: v })
-                    : appConfig.copy.log.notesCleared)
-                }
-              }}
+              onBlur={(e) => { setEditId(null); endTextEdit(a, e.target.value) }}
               // Enter makes a new line — the ✓, Esc and tapping away are the way out
               onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); (e.target as HTMLTextAreaElement).blur() } }} />
           : <span className={cls('wb-text-label')} style={style}>{a.text || appConfig.copy.whiteboard.text}</span>

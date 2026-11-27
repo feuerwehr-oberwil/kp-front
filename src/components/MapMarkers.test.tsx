@@ -448,3 +448,37 @@ describe('a held marker in the hand', () => {
     expect(fakes[0].at).toEqual([20, 0])
   })
 })
+
+// sweep 26.11.2026 (after #801): the editor on the map can go without a blur – the selection's
+// «Fertig», another tool, a ↶ that takes the Notiz away. Its typing then stayed open, and the next
+// act's ↶ took the Notiz text back with it. Going, it ends the edit, as its blur does.
+describe('the Notiz editor on the map', () => {
+  const note = { id: 'n1', kind: 'note', layer: 'lage', coord: at, label: 'Alt' } as Entity
+  const editing = (onNoteCommit: (id: string, text: string) => void, editNoteId: string | null) => (
+    <MapMarkers entities={[note]} byName={{}} isVisible={() => true} selectedId={null}
+      zoom={18} draggable project={() => ({ x: 0, y: 0 })} unproject={() => at} setDragPan={() => {}}
+      onSelect={() => {}} onMarkerDragStart={() => {}} onMarkerMove={() => {}} onMarkerDragEnd={() => {}}
+      onDelete={() => {}} editNoteId={editNoteId} onNoteText={() => {}} onNoteCommit={onNoteCommit} />
+  )
+  const type = (text: string) => fireEvent.change(document.querySelector('.note-pill-input')!, { target: { value: text } })
+
+  it('closed without a blur, it ends the edit with what was typed', () => {
+    const onNoteCommit = vi.fn()
+    const { rerender } = render(editing(onNoteCommit, 'n1'))
+    type('Wasser ab 14:20')
+    rerender(editing(onNoteCommit, null))
+    expect(onNoteCommit.mock.calls).toEqual([['n1', 'Wasser ab 14:20']])
+  })
+
+  it('ends it once: not again after its ✓, and not at all when nothing was typed', () => {
+    const onNoteCommit = vi.fn()
+    const { rerender } = render(editing(onNoteCommit, 'n1'))
+    type('Wasser ab 14:20')
+    fireEvent.pointerDown(screen.getByRole('button', { name: appConfig.copy.notes.done }))
+    rerender(editing(onNoteCommit, null))
+    expect(onNoteCommit).toHaveBeenCalledTimes(1)
+    rerender(editing(onNoteCommit, 'n1'))
+    rerender(editing(onNoteCommit, null))
+    expect(onNoteCommit).toHaveBeenCalledTimes(1)
+  })
+})

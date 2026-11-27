@@ -574,7 +574,7 @@ export function IncidentWorkspace({
     },
   )
   const {
-    objects, doc, board, setDocRaw, setBoard, beginSheetStep, endSheetStep, commit, beginDrag, endDrag, gestureOpen, rebake,
+    objects, doc, board, setDocRaw, setBoard, beginSheetStep, endSheetStep, commit, beginDrag, endDrag, dropDrag, steppedOver, gestureOpen, rebake,
     undo: undoDoc, redo: redoDoc, rebaseObjects, replaceObjects, liveObjects, liveViews, stepKeys: storeStepKeys,
   } = store
   // ⚠️ Through refs: the entry outlives the render that pushed it, and `undoDoc` closes over that
@@ -1308,6 +1308,10 @@ export function IncidentWorkspace({
   // true once a live title edit has snapshotted for undo, so we beginDrag once per edit
   // session and fold the whole keystroke stream into a single undo step on blur
   const titleLiveRef = useRef(false)
+  // …and the Karte gesture a Notiz's typing opened (useUndoableDoc · beginDrag), so its end folds
+  // THAT gesture and never one begun after it (a vehicle dragged while the Notiz has the caret) –
+  // with the Notiz's text when it began, for its audit row (noteTextEnd)
+  const noteTyping = useRef<{ token: number; from: string } | null>(null)
   // stream a note's raw text live (silent — snapshot once for undo), then fold the whole
   // edit into one undo step + a single audit event on blur. Mirrors the title editor.
   const noteTextLive = (id: string, v: string) => {
@@ -1315,18 +1319,49 @@ export function IncidentWorkspace({
     // …and the Verlauf's settle window learns that this note is still being written: the canvas
     // editor is not inside a panel, so focus alone cannot tell (see noteEntityEdit)
     entityTypedAt.current.set(id, Date.now())
-    if (!titleLiveRef.current) { titleLiveRef.current = true; beginDrag() }
+    // …and once a ↶ / ↷ stepped over the open typing, what is typed next is an edit of its own:
+    // a fresh gesture from the state the ↶ left (its end would lay nothing for the stale one)
+    const stale = noteTyping.current !== null && steppedOver(noteTyping.current.token)
+    if (!titleLiveRef.current || stale) {
+      titleLiveRef.current = true
+      const from = liveViews().doc.entities.find((e) => e.id === id)?.label ?? ''
+      noteTyping.current = { token: beginDrag(), from }
+    }
     // a note that has never been resized by hand follows what is typed (lib/notes) — it grows
     // out of the minimum and stops at the maximum, where it wraps as it always did
     setDocRaw((d) => ({ ...d, entities: d.entities.map((e) => (e.id === id
       ? { ...e, label: v, ...(e.noteAutoW ? { noteW: autoNoteWPx(v, e.noteSize) } : null) }
       : e)) }))
   }
+  /** …and its end, from the editor on the map and from the Notiz panel alike: ONE ↶ step and one
+   *  audit row for the typing. None at all when the history moved under it – a ↶ / ↷ while it was
+   *  open (endDrag with the typing's token), or the Notiz gone (a ↶ took back placing it, another
+   *  device removed it): a step from the old snapshot would bring back what the ↶ took and clear
+   *  ↷, which already holds the typed text. A gesture begun while it was typed (a vehicle drag)
+   *  took the one slot and keeps its own step: the typing then lays none, but its text still
+   *  writes its row while the Notiz holds it and it changed – a ↶ that took the text back leaves
+   *  an older one there, and no row. Nothing typed: a step only for a changed text, so a ✓ on an
+   *  unchanged Notiz leaves ↷ standing. */
+  const noteTextEnd = (id: string, v: string) => {
+    const live = titleLiveRef.current
+    const typing = noteTyping.current
+    titleLiveRef.current = false
+    noteTyping.current = null
+    const note = liveViews().doc.entities.find((e) => e.id === id)
+    if (live) {
+      if (!note) { if (typing) dropDrag(typing.token); return }
+      const laid = endDrag(typing?.token)
+      const kept = !laid && typing !== null && (note.label ?? '') === v && v !== typing.from
+      if (laid || kept) emit('entity.edit', { id, patch: { label: v } })
+      return
+    }
+    if (note && (note.label ?? '') !== v) patchEntity(id, { label: v })
+  }
+  /** The map editor's commit. It also runs when the editor goes because ANOTHER Notiz opened
+   *  (EntityMarker · NoteField), so it closes the editor only while it is still this one's. */
   const noteTextCommit = (id: string, v: string) => {
-    if (tacticalLocked) { setEditNoteId(null); return }
-    if (titleLiveRef.current) { titleLiveRef.current = false; endDrag(); emit('entity.edit', { id, patch: { label: v } }) }
-    else patchEntity(id, { label: v })
-    setEditNoteId(null)
+    if (!tacticalLocked) noteTextEnd(id, v)
+    setEditNoteId((open) => (open === id ? null : open))
   }
   // which note has its detail panel open. NOT derived from selectedId: unlike a symbol, selecting
   // a note stays quiet — it is placed mid-sentence and a panel sliding in on every tap would be
@@ -3355,7 +3390,7 @@ export function IncidentWorkspace({
         vehicleOverrides, canEditIncident, readOnly, stopPersonSharing, setVehicleOverrides, resetVehicleGps, placeVehicle, holdGpsInstead, keepGpsTwin, log,
         fahrzeuge: reportMeta.fahrzeuge,
         assignTypedName, drawings, entities, focusDrawing, noteEntity, notePlacedId, setNotePanelId,
-        noteTextLive, setNoteDefaults, selectedDrawing, patchDrawing,
+        noteTextLive, noteTextEnd, setNoteDefaults, selectedDrawing, patchDrawing,
         selectedDrawingId, patchDrawingLabelLive, commitDrawingLabel,
         changeMapEnding, reverseDrawing, setDrawingWallRole, objects, syncLineNoToTrupp, pickablePersonnel, linkTruppLine,
         unlinkLine, setSelectedDrawingId, setMode, setPanel, showTrupp, setGpsRouting, revertAll, gpsEndOf, releaseHere,

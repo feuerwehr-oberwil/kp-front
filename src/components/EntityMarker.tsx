@@ -16,6 +16,7 @@ import { thumbUrl } from '../lib/mediaUrl'
 import { Icon } from '../lib/icons'
 import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
 import { LockChip } from './LockChip'
+import { NoteField } from './NoteField'
 import { TwinTeamPill } from './TwinTeamPill'
 import { truppMarkerTone } from '../lib/truppLines'
 import { SHAPE_AXIS_GRIPS, SHAPE_TWO_POINT, ShapeGlyph, rotationGripOffPx, shapeAspect } from '../lib/shapes'
@@ -68,6 +69,7 @@ type EntityMarkerProps = Pick<MapMarkersProps,
   noteBlur: (ev: React.FocusEvent<HTMLTextAreaElement>, id: string) => void
   noteKeyDown: (ev: React.KeyboardEvent<HTMLTextAreaElement>) => void
   noteDone: (id: string, text: string) => void
+  noteEnd: (id: string) => void
   /** a Trupp marker's rename, opened by its pen OR a double tap (MapMarkers · namedDoubleTap) */
   renaming: boolean
   onRenaming: (on: boolean) => void
@@ -148,7 +150,7 @@ function DockTether({ dx, dy, ringPx, color, raus, capPx }: { dx: number; dy: nu
 export function EntityMarker({
   e, entities, byName, selectedId, groupSelectedIds, networkEntityIds, zoom, bearing, symMul, captionMode, suppressedLabels,
   readOnly, draggable, editNoteId, project, unproject, spoke, draggingId, grabbedId, dockedSlots, markerRef, onPress,
-  rotDown, rotMove, rotUp, shapeDown, shapeMove, shapeUp, focusNote, focusTeam, noteChange, noteBlur, noteKeyDown, noteDone,
+  rotDown, rotMove, rotUp, shapeDown, shapeMove, shapeUp, focusNote, focusTeam, noteChange, noteBlur, noteKeyDown, noteDone, noteEnd,
   onSelect, onDeselect, onDelete, onRotate, onShapeTransform, onUnlockShape, onNoteEdit, trupps, onShowTrupp, onTeamTrupp, onTeamNewTrupp,
   onTeamMark, onTeamRename, onTeamClearTrail, onTeamRemoveWithTrail, hiddenTrails, onToggleTrail, teamLines, onTeamUnlink,
   onTeamUndock, truppSeverities, renaming, onRenaming,
@@ -378,7 +380,7 @@ export function EntityMarker({
           ...(e.color ? (e.notePlain ? { color: e.color } : { '--note-tint': e.color }) : null),
         } as React.CSSProperties
         return editNoteId === e.id ? (
-          <textarea
+          <NoteField
             className={cls('note-pill note-pill-input')}
             ref={focusNote}
             rows={1}
@@ -389,6 +391,7 @@ export function EntityMarker({
             onPointerDown={(ev) => ev.stopPropagation()}
             onChange={(ev) => noteChange(ev, e.id)}
             onBlur={(ev) => noteBlur(ev, e.id)}
+            onEnd={() => noteEnd(e.id)}
             // Enter makes a new line — the ✓, Esc and clicking away are the way out (noteKeyDown).
             onKeyDown={noteKeyDown}
           />
