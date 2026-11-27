@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
+import { memo, useEffect, useMemo, useRef, useState, useSyncExternalStore, type MouseEvent } from 'react'
 import { ONE_LINE } from '../lib/fieldKeys'
 import { Icon } from '../lib/icons'
 import { SearchField } from './SearchField'
@@ -13,7 +13,7 @@ import { useIsPhone } from '../lib/useIsPhone'
 import { incidentSlot, useIncidentSlot } from '../lib/draftKeep'
 import { usePageHeadFit } from '../lib/pageHeadFit'
 import { fillTemplate, fmtSpanShort, hhmm, stripUnprintable } from '../lib/format'
-import { personnelProviderName } from '../lib/deploymentConfig'
+import { getDeploymentConfig, personnelProviderName, subscribeDeploymentConfig } from '../lib/deploymentConfig'
 import { rankDisplay, rankOrder } from '../lib/rank'
 import { RankBadge } from './RankBadge'
 import { matchesQuery, searchQuery } from '../lib/search'
@@ -354,7 +354,8 @@ type PersonRowActions = {
  *
  * Memo'd, with only row-own primitives for props: one tap on a 40-name list renders the tapped
  * row and no other (perf sweep 26.11.2026 – every row rendered on every commit of the workspace).
- * `copy` is the catalogue's Anwesenheit block, so a locale that lands renders the rows too.
+ * `copy` is the catalogue's Anwesenheit block, so a locale that lands renders the rows too; the
+ * station config (the rank list RankBadge reads) is subscribed, so a late answer renders them.
  */
 const PersonRow = memo(function PersonRow({
   id, name, rank, guest, inactive, state, ort, hasNote, hasBlocks, locked, canEdit,
@@ -380,6 +381,7 @@ const PersonRow = memo(function PersonRow({
   actions: PersonRowActions
   copy: typeof appConfig.copy.anwesenheit
 }) {
+  useSyncExternalStore(subscribeDeploymentConfig, getDeploymentConfig)
   const present = state === 'present'
   const left = state === 'left'
   const ortLabel = ort === 'station' ? A.ortStation : A.ortScene

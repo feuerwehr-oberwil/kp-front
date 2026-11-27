@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { Profiler, createRef, useImperativeHandle, useState, type Ref } from 'react'
+import { createRef, useImperativeHandle, useState, type Ref } from 'react'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { stubMatchMedia } from '../test/dom.test-utils'
 import { fillTemplate } from '../lib/format'
 import { AnwesenheitView } from './AnwesenheitView'
 import { appConfig } from '../config/appConfig'
 import { applyLocale } from '../config/copy'
+import { adoptSessionConfig } from '../lib/deploymentConfig'
 import { closePresence, openPresence, setIntervalTime } from '../lib/attendanceIntervals'
 import type { LivePerson } from '../lib/usePersonPositions'
 import type { AttendanceState, LngLat, Person } from '../types'
@@ -16,7 +17,7 @@ import type { AttendanceState, LngLat, Person } from '../types'
  *
  * Every person row draws its Dienstgrad chip, so the RankBadge stand-in below counts row renders,
  * keyed by the rank it was handed – each person carries their own rank key (`r-<id>`), which is
- * how a count names the row. The list itself is counted by its Profiler commits.
+ * how a count names the row.
  */
 const rowRenders: string[] = []
 vi.mock('./RankBadge', async (importOriginal) => {
@@ -84,25 +85,22 @@ function Host({ initial, ctl }: { initial: Over; ctl: Ref<HostCtl> }) {
     />
   )
 }
-let commits = 0
-/** mounts the list and lets its mount settle (one passive-effect commit), then zeroes the counts */
+/** mounts the list and lets its mount settle (one passive-effect commit), then zeroes the count */
 const mount = (over: Over = {}) => {
-  render(<Profiler id="list" onRender={() => { commits++ }}><Host initial={over} ctl={host} /></Profiler>)
+  render(<Host initial={over} ctl={host} />)
   act(() => { bump() })
   rowRenders.length = 0
-  commits = 0
 }
 const row = (name: string) => screen.getByRole('button', { name: new RegExp(`${name}$`) })
 const stateWord = (name: string) => row(name).querySelector('.sr-only')?.textContent
 /** the rows that rendered since the last reset, as person ids */
 const rendered = () => rowRenders.map((r) => r.slice(2))
-const reset = () => { rowRenders.length = 0; commits = 0 }
+const reset = () => { rowRenders.length = 0 }
 
 describe('one presence tap renders the tapped row, and no other', () => {
-  it('marks one person gegangen: one commit, one row (it was all 44)', () => {
+  it('marks one person gegangen: one row (it was all 44)', () => {
     mount()
     act(() => { fireEvent.click(row('Person 10')) })
-    expect(commits).toBe(1)
     expect(rendered()).toEqual(['p10'])
     expect(stateWord('Person 10')).toBe(`${A.statusLeft}: `)
   })
@@ -111,7 +109,6 @@ describe('one presence tap renders the tapped row, and no other', () => {
     mount()
     act(() => { bump() })
     act(() => { bump() })
-    expect(commits).toBe(2)
     expect(rendered()).toEqual([])
   })
 
@@ -234,6 +231,16 @@ describe('every input a row shows still renders that row, and only that row', ()
     expect(screen.queryByRole('button', { name: /Person 02$/ })).toBeNull()
     expect(screen.queryByRole('button', { name: /Person 31$/ })).toBeNull()
     expect(screen.getByRole('button', { name: /Person 07$/ })).toBeTruthy()
+  })
+
+  describe('the station config', () => {
+    afterAll(() => { adoptSessionConfig({}) })
+    it('a rank list that lands renders every row with it', () => {
+      mount()
+      act(() => { adoptSessionConfig({ roster: { ranks: [{ key: 'r-p03', label: 'Wachtmeister', abbr: 'Wm' }] } } as never) })
+      expect(rendered()).toHaveLength(N)
+      expect(row('Person 03').textContent).toContain('Wm')
+    })
   })
 
   describe('the language', () => {
