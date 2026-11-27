@@ -237,7 +237,7 @@ describe('every input a row shows still renders that row, and only that row', ()
     afterAll(() => { adoptSessionConfig({}) })
     it('a rank list that lands renders every row with it', () => {
       mount()
-      act(() => { adoptSessionConfig({ roster: { ranks: [{ key: 'r-p03', label: 'Wachtmeister', abbr: 'Wm' }] } } as never) })
+      act(() => { adoptSessionConfig({ roster: { ranks: [{ key: 'r-p03', label: 'Wachtmeister', abbr: 'Wm' }] } }) })
       expect(rendered()).toHaveLength(N)
       expect(row('Person 03').textContent).toContain('Wm')
     })
