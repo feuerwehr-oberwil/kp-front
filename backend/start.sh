@@ -33,6 +33,17 @@ abort_or_override() {
 }
 
 if [ -n "${DATABASE_URL:-}" ]; then
+  # Wait (up to 60 s) for a database that is still starting. On the public demo both the app and
+  # its Postgres sleep when unused (Railway Serverless), and the app's first connection is what
+  # wakes the database: without this wait, the `alembic current` below would meet a database
+  # that is not up yet and abort the boot. Anywhere else the first check passes at once.
+  if command -v pg_isready >/dev/null; then
+    for _ in $(seq 1 30); do
+      pg_isready -q -d "${DATABASE_URL/+asyncpg/}" && break
+      echo "… waiting for the database to accept connections"
+      sleep 2
+    done
+  fi
   # An older image cannot resolve a newer database revision. Treating that error as an empty
   # database took another dump on every failed boot and eventually rotated away the actual
   # pre-upgrade backup. Resolve BOTH sides successfully before creating or rotating any dump.

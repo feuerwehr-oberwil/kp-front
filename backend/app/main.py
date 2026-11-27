@@ -187,6 +187,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception:
         logger.exception("Sweeping stale upload temp files failed (continuing)")
 
+    # The public demo starts fresh on every boot, i.e. on every wake (app/demo_sleep). Before
+    # the scheduler and before the port opens, so nobody is served a half-reset demo.
+    from .demo_sleep import reset_on_boot
+
+    await reset_on_boot()
+
     await token_blocklist.start_cleanup_task()
 
     # Divera poll scheduler (Phase 3) is started here once that module lands.
@@ -359,6 +365,12 @@ app.add_middleware(GzipRequestMiddleware, max_decompressed_bytes=settings.max_js
 # prepends, so the last one added is the outermost. It must see the bytes as they came off
 # the wire, before anything inflates them.
 app.add_middleware(LimitRequestBody)
+
+# The public demo's «somebody is here» clock (app/demo_sleep). One float write per request,
+# on every deployment; only the demo ever reads it.
+from .demo_sleep import MarkUse
+
+app.add_middleware(MarkUse)
 
 
 @app.exception_handler(StarletteHTTPException)
@@ -735,6 +747,7 @@ def _register_optional_routers() -> None:
         ("app.api.sharepoint", "router"),
         ("app.api.diag", "router"),
         ("app.api.visits", "router"),
+        ("app.api.demo", "router"),
         ("app.api.object_visits", "router"),
         ("app.api.integrations", "router"),
         ("app.api.object_visits_admin", "router"),
