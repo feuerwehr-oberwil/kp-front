@@ -30,7 +30,10 @@ the module they concern (`lib/connectivity`, `lib/eventScope`, `lib/jsonEqual`,
   (`api/workspaceSync · opts.lock`). A grant opens a FRESH editor engine, which writes its id
   into the slot's fence and only then reads the slot; every main-slot write is fenced in its own
   IndexedDB transaction (`idb · idbSetFenced`), so whatever the previous holder starts after a
-  «Hier bearbeiten» is refused. A holder that loses the lock retires at once: no write, push,
+  «Hier bearbeiten» is refused. The view takes the fresh engine's workspace like a pull
+  (`useIncidentSync`): in place, never pushed back, and the echo guard is armed only when the
+  hand-over moved what the blob is built from – otherwise it would swallow the next local edit.
+  A holder that loses the lock retires at once: no write, push,
   retry or merge round after it. The guarantee is at COMMITTED persistence: an edit still inside
   the 300 ms cache debounce when another tab takes over (or when the tab dies) can be lost. The
   media queue's read-modify-writes and flushes take a cross-tab Web Lock per Einsatz too, and a
@@ -249,8 +252,8 @@ beendet». The rules: [`presentation.md`](presentation.md).
 - If a dirty cache write runs out of space and map-tile eviction finishes after the editor
   retires, the retry writes to one recovery slot per Einsatz and author. Another tab can keep
   editing the main slot while eviction runs. On the author's next open, recovery reads the latest
-  same-author main or parked copy and merges it into the view. This happens before the UI takes
-  the edit lock, so opening leaves both copies on disk. The recovering editor saves changes in
+  same-author main or parked copy and merges it into the view. Only an engine that holds the
+  tab's edit lock (or runs without one) recovers, and opening leaves both copies on disk. The recovering editor saves changes in
   the author’s recovery slot, including the peer snapshot it saw so deliberate deletions survive.
   Independently recovered edits merge there before upload. A server acknowledgement (or durable
   refusal park) reconciles the still-current peer copy and clears only the recovery receipt it
@@ -265,7 +268,9 @@ beendet». The rules: [`presentation.md`](presentation.md).
   leaves the attempt count alone and counts a stored miss instead: the pause still doubles, the
   item never ends `failed`, and any server answer ends the run of misses. When the server is
   reachable again (`online`, or `connectivity · onReachable`) every waiting capture is due at
-  once, through the same flush lane (after `onReachable` at most once a minute per capture:
+  once, through the same flush lane – which holds the Einsatz's cross-tab flush lock, so the try
+  of the tab that took the edit lock waits for a flush the other tab is still in, and a tab
+  without the edit lock tries nothing (after `onReachable` at most once a minute per capture and tab:
   an upload that keeps failing while other requests answer would otherwise re-send its Blob per
   poll; a signal inside that minute gets its try when the minute is over, unless the stored pause
   ends first – one such held try per signal, which arms no further one: taken as a new signal it
