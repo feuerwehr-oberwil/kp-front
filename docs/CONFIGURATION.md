@@ -1019,7 +1019,10 @@ Two kinds, mirroring the existing `LayerDef`:
   "vectorKind": "point",                // "point" | "line"
   "symbol": "SI Ueberflurhydrant",       // optional: render points as this FKS symbol, in
                                         //   `color`, on a white plate with a shadow (≈ 24 px
-                                        //   from z16 – owner pick B2·52, 25.11.2026)
+                                        //   from z16 – owner pick B2·52, 25.11.2026); a
+                                        //   Linie end then snaps to a point like to a placed
+                                        //   symbol, named by the feature's `name`/`nr`/…
+                                        //   field (lib/layerPoints)
   "color": "#0f52b5",
   "nightColor": "#5b9bff",
   "attribution": "© Wasserversorgung Musterdorf",

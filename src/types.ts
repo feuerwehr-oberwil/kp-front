@@ -372,7 +372,7 @@ export type GpsFollowState = 'guarded' | 'continuous' | 'paused'
 /** Persisted relationship intent for one magnetic line endpoint. The coordinate stored in
  *  `coords`/`pts` remains its fail-safe fallback and is materialised before detaching. */
 export interface LineAttachment {
-  target: { kind: 'object'; id: string; live?: boolean } | { kind: 'line'; id: string; endpoint: LineEndpoint }
+  target: { kind: 'object'; id: string; live?: boolean } | { kind: 'line'; id: string; endpoint: LineEndpoint } | LayerPointTarget
   routing: LineRoutingMode
   /** Assigned 0..2 when the target is the three-port end of an FKS Teilstück (-E). */
   port?: number
@@ -391,6 +391,15 @@ export interface LineAttachment {
     before?: GpsFollowSnapshot
   }
 }
+/** A line end on a point of a symbol point Ebene – a Hydrant of «Hydranten» (owner, Üben feedback
+ *  27.11.2026: the white plate reads like a placed symbol, so a line hangs on it like on one).
+ *  The point never moves, so the attachment carries it (`at`, WGS84): the end resolves from
+ *  `at` alone and needs neither the Ebene switched on nor the point still in the file after a
+ *  config pull. `id` is the point's key in its file at the moment of the snap, `label` names
+ *  it in the editor («Hydrant 1234»). An older build reads the kind as a line it cannot find
+ *  and keeps the stored coordinate, which is where the finger let go. Karte only: the Plan
+ *  draws no Ebenen. */
+export interface LayerPointTarget { kind: 'layer'; layer: LayerId; id: string; label: string; at: LngLat }
 /** `LineAttachment.gps.before` — the on-site line at the moment following began. */
 export interface GpsFollowSnapshot {
   /** the line's vertices, its GPS end on the point the screen showed on site */

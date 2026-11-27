@@ -11,7 +11,7 @@ import type { Map as MlMap } from 'maplibre-gl'
 import { useHiddenTrails } from '../lib/useHiddenTrails'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import '../lib/maplibreWorker'
-import type { Drawing, LineAttachment, LineEndpoint, LngLat } from '../types'
+import type { Drawing, LayerPointTarget, LineAttachment, LineEndpoint, LngLat } from '../types'
 import { appConfig } from '../config/appConfig'
 import { shownTeamColor } from '../lib/teamColors'
 import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
@@ -72,7 +72,9 @@ import { useFreshPoint } from '../lib/useFreshPoint'
 import { setLiveBearing } from '../lib/liveBearing'
 import { dismissRelayBubble } from '../lib/useRelay'
 import { LABEL_ABOVE, measureLabelPlacement } from '../lib/measureLabelPlace'
-import { ARROW_BOX, ARROW_STOP_BAR, arrowHeadPoints } from '../lib/mapImages'
+import { ARROW_BOX, ARROW_STOP_BAR, arrowHeadPoints, pointPlateRadiusPx } from '../lib/mapImages'
+import { layerDataSnapshot } from '../lib/layerData'
+import { magnetLayerPoints } from '../lib/layerPoints'
 import { attachInsetPx, lineJoints, boundaryPoint, DETACH_SHOW_PROGRESS, dwellFor, forkPortPoint, gpsGuard, moveLineBody, relationshipNetwork, resolveLinePoints, TRUPP_AIM_DWELL_MS, type AttachableLine, type MagneticTarget } from '../lib/lineAttachments'
 import { toast } from '../lib/ui'
 import { locateFailedText } from '../lib/permissionPath'
@@ -509,7 +511,17 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
     const ll = map.unproject(port)
     return [ll.lng, ll.lat]
   }
-  for (const l of attachmentLines) resolved.set(l.id, resolveLinePoints(l, { lines: attachmentLines, objectPoint, linePoint }))
+  // an end on an Ebene's point (a Hydrant) stops at its white plate's edge, which lies UNDER the
+  // ink (MapLayers draws the Ebenen first) – so no tuck, unlike a glyph. From the point the
+  // attachment carries, Ebene on or off: the line stays where it was drawn (types · LayerPointTarget).
+  const layerPoint = (target: LayerPointTarget, toward: LngLat): LngLat => {
+    const map = mapReady ? mapInst.current : null
+    if (!map) return target.at
+    const c = map.project(target.at), t = map.project(toward)
+    const ll = map.unproject(boundaryPoint({ shape: 'circle', center: [c.x, c.y], radius: pointPlateRadiusPx(zoom) }, [t.x, t.y], 0))
+    return [ll.lng, ll.lat]
+  }
+  for (const l of attachmentLines) resolved.set(l.id, resolveLinePoints(l, { lines: attachmentLines, objectPoint, linePoint, layerPoint }))
   return resolved
   }, [attachmentLines, entities, zoom, bearing, symMul, mapReady])
   // ⚠️ not seeded from a selected TRUPP marker (15.09.): its hose's other end lit up the symbol
@@ -534,7 +546,10 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
   const candidatesAt = (sourceId: string, at: LngLat): MagneticTarget[] => {
     const map = mapInst.current
     if (!map) return []
-    return mapMagnetTargets(map, { entities, drawings, attachmentLines, trupps: trupps ?? [], zoom, bearing, symMul },
+    // the Ebenen's points (lib/layerPoints), read from the store at event time: MapView does not
+    // re-render on a load's progress
+    const layerPoints = magnetLayerPoints(layers, isVisible, layerDataSnapshot())
+    return mapMagnetTargets(map, { entities, drawings, attachmentLines, trupps: trupps ?? [], layerPoints, zoom, bearing, symMul },
       sourceId, at, draftStart())
   }
   // a Rotation's two taps may each claim a symbol by dwelling (components/usePlaceMagnet)

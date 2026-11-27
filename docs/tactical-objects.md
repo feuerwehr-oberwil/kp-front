@@ -28,7 +28,10 @@ One object, two surfaces: how a tactical object is stored, anchored, projected a
   (`useTacticalSelection · usePlacement`, `lib/useHiddenTrails`, `lib/useNotePanelClosing`).
 - **«Ring lädt, dann schnappt es» has three speeds** (`lib/lineAttachments`): a line end on a
   symbol or vehicle waits `MAGNET_DWELL_MS` (500 ms), on a Trupp `TRUPP_AIM_DWELL_MS` (1 s), on
-  another line's end 0 (`dwellFor`);
+  another line's end 0 (`dwellFor`). A point of a symbol point Ebene that is on (a Hydrant of
+  «Hydranten», on its white plate) is a target exactly like a placed symbol – Karte only, the Plan
+  draws no Ebenen (`lib/layerPoints`, owner 27.11.2026). Its attachment (`types · LayerPointTarget`)
+  carries the point and its name, so the end stays put with the Ebene off or the point gone;
   a Trupp MARKER in the hand – docked to a symbol or joined to a free hose end
   (`components/useTruppMarkerAim`) – waits `TRUPP_AIM_DWELL_MS` (1 s, round 18.11.2026: it docked
   «a bit too often» with its 120 px reach). The ring fills over the same duration (`ConnectRing · ms`).

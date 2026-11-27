@@ -8,7 +8,7 @@
  * that by resolving across documents in an adapter; the fallback is the contract.
  */
 
-import type { BoardAnno, BoardPoint, Drawing, Entity, GpsFollowState, LineAttachment, LineEndpoint, LineRoutingMode, LngLat } from '../types'
+import type { BoardAnno, BoardPoint, Drawing, Entity, GpsFollowState, LayerPointTarget, LineAttachment, LineEndpoint, LineRoutingMode, LngLat } from '../types'
 import { rdpIndices } from './lineStyle'
 
 export type Point = [number, number]
@@ -436,7 +436,8 @@ export function relationshipNetwork<P extends Coordinate>(lines: AttachableLine<
       const a = attachmentAt(line, ep); if (!a) continue
       const sourceKey = `line:${line.id}`, targetKey = `${a.target.kind}:${a.target.id}`
       const sd = depth.get(sourceKey), td = depth.get(targetKey)
-      if (sd != null && td == null) { depth.set(targetKey, sd + 1); a.target.kind === 'line' ? lineIds.add(a.target.id) : objectIds.add(a.target.id); changed = true }
+      // an Ebene's point (a Hydrant) is no object of the Einsatz: nothing to light up there
+      if (sd != null && td == null) { depth.set(targetKey, sd + 1); if (a.target.kind === 'line') lineIds.add(a.target.id); else if (a.target.kind === 'object') objectIds.add(a.target.id); changed = true }
       if (td != null && sd == null) { depth.set(sourceKey, td + 1); lineIds.add(line.id); changed = true }
     }
   }
@@ -449,6 +450,9 @@ export interface ResolveContext<P extends Coordinate = Point> {
    *  tucks under the glyph (see attachInsetPx). */
   objectPoint: (id: string, toward: P, attachment: LineAttachment, source: AttachableLine<P>) => P | null
   linePoint?: (target: AttachableLine<P>, endpoint: LineEndpoint, attachment: LineAttachment, resolved: P, toward: P) => P
+  /** where an end on an Ebene's point lands (types · LayerPointTarget). A surface without one
+   *  (the Plan) keeps the stored point. */
+  layerPoint?: (target: LayerPointTarget, toward: P, source: AttachableLine<P>) => P | null
 }
 
 /** Resolve relationship intent without mutating stored fallback geometry. Dangling/cyclic data
@@ -464,6 +468,7 @@ export function resolveLinePoints<P extends Coordinate>(line: AttachableLine<P>,
     const neighbor = points[ep === 'start' ? 1 : points.length - 2]
     let resolved: P | null = null
     if (a.target.kind === 'object') resolved = ctx.objectPoint(a.target.id, neighbor, a, line)
+    else if (a.target.kind === 'layer') resolved = ctx.layerPoint?.(a.target, neighbor, line) ?? null
     else {
       const target = ctx.lines.find((l) => l.id === a.target.id)
       if (target && !nextStack.has(target.id)) {
@@ -516,6 +521,13 @@ export function flipLine<P extends Coordinate>(line: AttachableLine<P>, lines: A
     endAttachment: line.startAttachment,
     incoming,
   }
+}
+
+/** Where «Lösen» leaves an end: where its target stands – the object (`objectAt`), the other
+ *  line's end (`lineEnd`), the Ebene's point – else where the end is stored (`own`). */
+export function releasePoint(a: LineAttachment, own: LngLat, objectAt: (id: string) => LngLat | undefined, lineEnd: (id: string, endpoint: LineEndpoint) => LngLat | undefined): LngLat {
+  const t = a.target
+  return (t.kind === 'object' ? objectAt(t.id) : t.kind === 'layer' ? t.at : lineEnd(t.id, t.endpoint)) ?? own
 }
 
 /** The attachment keys a detach clears — spread onto the line, so only the freed ends' keys are
@@ -703,7 +715,9 @@ export function resolveMapDrawings(drawings: Drawing[], entities: Entity[], radi
     const ox = fx * fwd - fy * perp, oy = fy * fwd + fx * perp
     return [resolved[0] + ox / (111320 * cos), resolved[1] + oy / 110540]
   }
-  const resolved = new globalThis.Map(lines.map((l) => [l.id, resolveLinePoints(l, { lines, objectPoint, linePoint })]))
+  // an Ebene's point has no glyph off screen: the end lands on the point itself
+  const layerPoint = (target: LayerPointTarget): LngLat => target.at
+  const resolved = new globalThis.Map(lines.map((l) => [l.id, resolveLinePoints(l, { lines, objectPoint, linePoint, layerPoint })]))
   return drawings.map((d) => resolved.has(d.id) ? { ...d, coords: resolved.get(d.id)! } : d)
 }
 
