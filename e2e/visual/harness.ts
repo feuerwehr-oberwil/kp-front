@@ -1,6 +1,7 @@
 import { request as apiRequest, type Browser, type BrowserContext, type Page } from '@playwright/test'
 import type { StationObjects } from '../../src/lib/api/stationReference'
 import type { KarteView } from '../../src/lib/karte/session'
+import type { Prefs } from '../../src/lib/prefs'
 import { buildingAlreadyRead, isolateFromOutside, retire, seedIncident, signIn, waitForWorkspace, POLL_MS, type Seeded } from '../perf/harness'
 
 // The freezing half of the screenshot regression tests (e2e/screens.visual.ts,
@@ -160,12 +161,14 @@ export async function openKarte(page: Page, theme: 'day' | 'night' = 'day') {
   const context = page.context()
   await context.route('**/api/reference/objects', (route) => route.fulfill({ json: CATALOGUE }))
   for (const set of ['houses', 'underground']) await context.route(`**/api/reference/${set}*`, (route) => route.fulfill({ json: { enabled: false } }))
-  // what the device remembers, written before any app code runs: its theme (lib/prefs, the prefs
-  // cookie) and where the Karte was looking (lib/karte/session)
+  // what the device remembers, written before any app code runs: its theme and its name (lib/prefs,
+  // the prefs cookie – a device without a name gets «Name dieses Geräts» over the home,
+  // lib/deviceName) and where the Karte was looking (lib/karte/session)
+  const prefs: Partial<Prefs> = { theme, deviceName: 'Tablet 1', deviceNameAsked: true }
   await context.addInitScript(([prefs, view]) => {
     document.cookie = `kp-front-prefs=${encodeURIComponent(prefs)}; path=/`
     sessionStorage.setItem('kp.karte.view', view)
-  }, [JSON.stringify({ theme }), JSON.stringify(KARTE_VIEW)] as const)
+  }, [JSON.stringify(prefs), JSON.stringify(KARTE_VIEW)] as const)
   await signIn(context.request)
   await startClock(page)
   await page.goto('/karte')
