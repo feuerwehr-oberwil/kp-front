@@ -549,7 +549,7 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
     // the Ebenen's points (lib/layerPoints), read from the store at event time: MapView does not
     // re-render on a load's progress
     const layerPoints = magnetLayerPoints(layers, isVisible, layerDataSnapshot(), byName)
-    return mapMagnetTargets(map, { entities, drawings, attachmentLines, trupps: trupps ?? [], layerPoints, zoom, bearing, symMul },
+    return mapMagnetTargets(map, { entities, drawings, attachmentLines, trupps: trupps ?? [], layerPoints, entityShown: (e) => isVisible(effectiveLayer(e)), zoom, bearing, symMul },
       sourceId, at, draftStart())
   }
   // a Rotation's two taps may each claim a symbol by dwelling (components/usePlaceMagnet)

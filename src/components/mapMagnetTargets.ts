@@ -20,6 +20,8 @@ export interface MagnetScene {
   trupps: Trupp[]
   /** the points of every symbol point Ebene that is ON, one list per Ebene (lib/layerPoints) */
   layerPoints: readonly (readonly LayerPoint[])[]
+  /** is this object drawn (its layer on)? Only a drawn one covers an Ebene's point. Default: yes */
+  entityShown?: (e: Entity) => boolean
   zoom: number
   bearing: number
   symMul: number
@@ -37,7 +39,7 @@ export const DRAFT_SOURCE = '__draft__'
  * claim a draft's first end has already made, so one stroke cannot put a Trupp on both ends.
  */
 export function mapMagnetTargets(map: MapProjector, scene: MagnetScene, sourceId: string, at: LngLat, draftStart?: LineAttachment): MagneticTarget[] {
-  const { entities, drawings, attachmentLines, trupps, layerPoints, zoom, bearing, symMul } = scene
+  const { entities, drawings, attachmentLines, trupps, layerPoints, entityShown = () => true, zoom, bearing, symMul } = scene
   const pointer = map.project(at)
   // ── EINE Leitung, EIN Trupp, schon am Magneten (lib/truppLines · markerTakesLineEnd) ──
   // A hose that already has a crew does not SEE another Trupp's marker: no ring, no dwell, no
@@ -76,9 +78,9 @@ export function mapMagnetTargets(map: MapProjector, scene: MagnetScene, sourceId
     const corners = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([sx, sy]) => map.unproject([pointer.x + sx * reach, pointer.y + sy * reach]))
     const w = Math.min(...corners.map((c) => c.lng)), e = Math.max(...corners.map((c) => c.lng))
     const s = Math.min(...corners.map((c) => c.lat)), n = Math.max(...corners.map((c) => c.lat))
-    // a point under a PLACED symbol or vehicle is that object's: the operator's own Hydrant set
-    // on the layer one must win the snap, not the smaller plate beneath it
-    const covers = entities.flatMap((x) => (x.kind === 'symbol' || x.kind === 'vehicle') && Array.isArray(x.coord)
+    // a point under a PLACED symbol or vehicle on screen is that object's: the operator's own
+    // Hydrant set on the layer one must win the snap, not the smaller plate beneath it
+    const covers = entities.flatMap((x) => (x.kind === 'symbol' || x.kind === 'vehicle') && Array.isArray(x.coord) && entityShown(x)
       ? [{ c: map.project(x.coord), r: symPx(x.kind, x.coord[1], zoom, symMul) / 2 }] : [])
     for (const points of layerPoints) for (const p of points) {
       if (p.at[0] < w || p.at[0] > e || p.at[1] < s || p.at[1] > n) continue

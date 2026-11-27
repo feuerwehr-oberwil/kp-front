@@ -69,6 +69,8 @@ describe('mapMagnetTargets — the points of a symbol Ebene (Hydranten)', () => 
   it('a hydrant under a placed symbol is that symbol\'s: only the symbol is offered', () => {
     const placed: Entity = { ...hydrant, coord: near.at }
     expect(keys(scene({ entities: [placed], layerPoints: [[near]] }), DRAFT_SOURCE)).toEqual(['object:h'])
+    // …only while that symbol is drawn: on a switched-off layer it covers nothing
+    expect(keys(scene({ entities: [placed], layerPoints: [[near]], entityShown: () => false }), DRAFT_SOURCE)).toContain('layer:hydranten:0')
   })
 
   it('projects only the points inside the magnet\'s reach — a district\'s hydrants are not walked', () => {
