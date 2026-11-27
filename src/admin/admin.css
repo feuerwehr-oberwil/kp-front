@@ -36,7 +36,7 @@
   padding: 12px 22px;
   background: var(--glass);
   border-bottom: 1px solid var(--glass-edge);
-  backdrop-filter: blur(14px) saturate(1.4);
+  backdrop-filter: var(--float-blur);
 }
 .adm-header-left { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
 .adm-station {
@@ -1048,7 +1048,7 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
   width: min(440px, 100%);
   background: var(--glass); border: 1px solid var(--glass-line);
   border-radius: var(--r-surface); box-shadow: var(--e4);
-  backdrop-filter: blur(14px) saturate(1.4);
+  backdrop-filter: var(--float-blur);
   padding: 30px 28px 26px; text-align: center;
 }
 .adm-denied-title { font-size: 18px; font-weight: var(--fw-bold); margin: 0 0 10px; }

@@ -306,7 +306,7 @@
    (It was − + glyph squares beside a word-only «Einpassen», 40px – a third anatomy for one act.) */
 .wb-zoom-float { position: absolute; right: 16px; top: calc(16px + env(safe-area-inset-top)); z-index: var(--z-map-util);
   display: flex; align-items: center; gap: 4px; background: var(--glass);
-  backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line); box-shadow: var(--e4); border-radius: var(--r-bar); padding: var(--bar-pad); }
+  backdrop-filter: var(--float-blur); border: 1px solid var(--glass-line); box-shadow: var(--e4); border-radius: var(--r-bar); padding: var(--bar-pad); }
 /* Below 860px the top bar runs the full width, so the cluster drops under it — what the Karte's
    own cluster does at the same width (MapUtility · .toputil). At 820 its «–» sat under the bar
    and a tap on it hit the bar (3am test r4, 26.09.2026). */
@@ -758,7 +758,7 @@ span.wb-ghost-label { cursor: default; }
 .wb-pill-card-x:active { background-image: linear-gradient(var(--press), var(--press)); }
 .wb-pill-acts.docked { position: static; top: auto; transform: none; box-sizing: border-box;
   width: auto; max-width: none; padding: var(--bar-pad); gap: 4px; flex-wrap: nowrap; align-items: center; justify-content: center;
-  border-radius: var(--r-bar); background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
+  border-radius: var(--r-bar); background: var(--glass); backdrop-filter: var(--float-blur);
   border: 1px solid var(--glass-line); box-shadow: var(--e4); color: var(--ink); }
 .wb-pill-acts.docked .wb-pa { width: 46px; height: 46px; padding: 0; color: var(--ink); background: transparent; }
 .wb-pill-acts.docked .wb-pa .i { width: 22px; height: 22px; }
@@ -1001,7 +1001,7 @@ span.wb-ghost-label { cursor: default; }
      the sidebar ugly. */
   flex-wrap: nowrap; max-height: calc(100dvh - 168px); overflow-y: auto; overflow-x: hidden;
   scrollbar-width: thin; scrollbar-color: var(--ink-22) transparent;
-  background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line); box-shadow: var(--e4); color: var(--ink);
+  background: var(--glass); backdrop-filter: var(--float-blur); border: 1px solid var(--glass-line); box-shadow: var(--e4); color: var(--ink);
   border-radius: var(--r-bar); padding: var(--bar-pad); }
 /* THE way out's plate – the dock's ✕ «Abbrechen» and the selection bar's ✕ «Schliessen», and
    nothing else in a bar or a dock (owner pick 22, 17.11.2026, docs/ui-conventions.md · «The colour
@@ -1186,7 +1186,7 @@ span.wb-ghost-label { cursor: default; }
 /* Gebäude rotation popover (30.08.) — what the north dial (PlanCompass), its one door, opens.
    THE popover shell (ui-conventions · Overlays): --r-bar over the even --bar-pad, its label at a
    menu row's 12px inset beyond it, as .tb-weather-pop – it was --r-ctl over 12/16. */
-.wb-orient-popup { background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
+.wb-orient-popup { background: var(--glass); backdrop-filter: var(--float-blur);
   border: 1px solid var(--glass-line); border-radius: var(--r-bar); box-shadow: var(--e4); }
 .wb-orient-pop { display: flex; flex-direction: column; gap: var(--sp-3); padding: calc(var(--bar-pad) + var(--sp-3)); min-width: 250px; }
 .wb-orient-row { display: flex; align-items: center; gap: var(--sp-2); }
@@ -1453,10 +1453,16 @@ span.wb-ghost-label { cursor: default; }
    offen» pill at its last point (usePlanDraft · openName; the pill's pulse said the dashes' «open»
    twice, design pass C5, 18.11.2026). Where the next point lands is a ring
    and nothing else (owner: «no text, no guide lines»): magenta when it catches, a small grey dot
-   when it is free; a mouse also draws the rubber band from the last point. */
-.wb-draft-open { fill: none; stroke: var(--open); stroke-width: 3; stroke-dasharray: 10 7; animation: wb-ants .8s linear infinite; }
+   when it is free; a mouse also draws the rubber band from the last point.
+   The dashes march at the Karte's cadence (lib/draftAnts, perf sweep 26.11.2026 – a gliding dash
+   offset repainted the board 60×/s): one step per DRAFT_ANTS_TICK_MS = 180ms, each step
+   DRAFT_ANTS_STEP / DRAFT_ANTS.length = 3/14 of a dash period (10 + 7 = 17px). 14 steps then make
+   3 periods: 2.52s, -51px (styles/paintCost.test.ts holds the numbers). A finger on the board
+   stands them still, as on the Karte: `.held` (lib/draftAnts · useDraftAntsHold). */
+.wb-draft-open { fill: none; stroke: var(--open); stroke-width: 3; stroke-dasharray: 10 7; animation: wb-ants 2.52s steps(14) infinite; }
+.wb-ink-svg.held .wb-draft-open { animation-play-state: paused; }
 polygon.wb-draft-open { fill: var(--open); fill-opacity: .1; }
-@keyframes wb-ants { to { stroke-dashoffset: -34; } }
+@keyframes wb-ants { to { stroke-dashoffset: -51; } }
 .wb-open-pill { position: absolute; left: 0; top: 0; z-index: 8; pointer-events: none; white-space: nowrap;
   padding: 2px var(--sp-2); border-radius: var(--r-pill); background: var(--open); color: var(--on-amber);
   font-size: var(--fs-1); font-weight: var(--fw-bold); }

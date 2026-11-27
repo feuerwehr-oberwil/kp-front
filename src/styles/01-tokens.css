@@ -101,6 +101,12 @@
      corner, --r-bar (owner pick 20, 17.11.2026: at 12px beside the bars they read «too angular»);
      a message keeps the one corner. */
   --float-bg: var(--glass);
+  /* THE glass blur of every bar, rail, chip and card over the Karte or a Plan – spell it as this
+     token, never as its value (styles/paintCost.test.ts). The compositor re-blurs each of those
+     regions on every map frame. ⚠️ A blur also makes its box the containing block of positioned
+     descendants; where the token is `none` (the night theme) it is not: a bar that hangs an
+     absolute child must be positioned itself, and a fixed child must not rely on the bar
+     (docs/ui-conventions · «Two materials»). */
   --float-blur: blur(14px) saturate(1.4);
   --float-edge: inset 0 0 0 1px var(--glass-line), var(--shadow);
   --float-h: calc(var(--tap) + 2 * var(--msg-pad));
@@ -459,8 +465,10 @@
   --done-filter: grayscale(1) brightness(1.6);
   --done-opacity: .75;
   /* near-opaque so glass panels (Ebenen, ctx, Verlauf, rails) read properly dark
-     instead of letting the map bleed through the blur */
+     instead of letting the map bleed through – and so no blur behind them: at 97 % the blur
+     showed through at 3 % and cost a re-blur on every map frame (perf sweep 26.11.2026) */
   --glass: rgba(20, 26, 36, .97);
+  --float-blur: none;
   --glass-line: rgba(255, 255, 255, .08);
   --glass-edge: rgba(255, 255, 255, .12);
   --ink: #e8edf4;

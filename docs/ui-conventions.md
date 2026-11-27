@@ -625,6 +625,12 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     OUT OF THE TOP BAR wears the bar's own glass (`--glass` + blur + `--glass-line` + `--shadow`):
     the Atemschutz head detail and the Meteo details (30.09.2026:
     `.tb-weather-pop` wore `--surface`, a lighter slate than the bar at night).
+    **The blur is `--float-blur`, never its value** (`styles/paintCost.test.ts`), and it is `none`
+    at night (perf sweep 26.11.2026: the night glass is 97 % opaque, and every map frame re-blurs
+    each bar). ⚠️ Without the blur a bar is no longer the containing block of its positioned
+    children: a bar that hangs an ABSOLUTE child must be positioned itself; a FIXED child then
+    counts from the viewport at night and from the bar by day, so it must not depend on either
+    (`.wb-join` drops its blur while its fixed Gebäude card stands).
     **Nothing is dark by day**: the last exception, the Trupp marker's action bar (`.wb-pill-acts`,
     `--ink-fill`), docks at the foot in the ✥ ⟳ bar's glass on every screen since 18.11.2026
     (phone-layout.md); a new surface that is dark by day is a bug. **Tool docks wear the floating material too** (`.wb-dock`, 20.10.2026, owner: «why do we

@@ -370,7 +370,7 @@
    row's twin (15-mobile). ⚠️ `.wb-dock-x` / `.wb-dock-tog` bring the dock's colours, and the
    column's `sticky` on the ✕, which a row does not want – reset here. */
 .sel-bar { display: flex; align-items: center; gap: 4px; padding: var(--bar-pad);
-  border-radius: var(--r-bar); background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
+  border-radius: var(--r-bar); background: var(--glass); backdrop-filter: var(--float-blur);
   border: 1px solid var(--glass-line); box-shadow: var(--e4); }
 .sel-bar > button { position: relative; order: 0; margin: 0; flex: none;
   display: grid; place-items: center; width: 46px; height: 46px; padding: 0; border: none; border-radius: var(--r-sm); }
@@ -492,7 +492,7 @@ body.sel-transforming .wb-grow { display: none; }
    value comes from geo · fmtDistance as one string (both surfaces share it), so the gap is
    closed here rather than by splitting the number from its unit. */
 .measure-readout { position: absolute; top: calc(14px + env(safe-area-inset-top)); left: 50%; translate: -50% 0;
-  z-index: var(--z-map-util); background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
+  z-index: var(--z-map-util); background: var(--glass); backdrop-filter: var(--float-blur);
   border: 1px solid var(--glass-line); border-radius: var(--r-cluster); box-shadow: var(--e4);
   padding: 12px 16px; font: var(--fw-bold) var(--fs-3)/1 var(--mono); color: var(--ink); font-variant-numeric: tabular-nums;
   word-spacing: -.3ch; pointer-events: none; white-space: nowrap; }

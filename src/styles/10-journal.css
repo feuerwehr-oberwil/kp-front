@@ -161,7 +161,7 @@
    THE popover shell: --r-bar over --bar-pad, the sentence a menu row's 12px further in (as
    .tb-weather-pop; it was --r-sm over 12/16), 8px clear of both screen edges */
 .tb-gps-pop { max-width: min(300px, calc(100vw - 2 * var(--float-gap))); padding: calc(var(--bar-pad) + var(--sp-3));
-  background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line);
+  background: var(--glass); backdrop-filter: var(--float-blur); border: 1px solid var(--glass-line);
   border-radius: var(--r-bar); box-shadow: var(--e4); animation: popIn .15s var(--ease); }
 .tb-gps-hint { margin: 0; font: var(--fw-medium) var(--fs-2) / var(--lh-2) var(--body); color: var(--ink); }
 @keyframes tb-az-pulse { 0%, 100% { background-color: var(--red-16); } 50% { background-color: color-mix(in srgb, var(--red) 34%, transparent); } }
@@ -215,7 +215,7 @@
      too) — 30.09.2026, staging phone pass: «the toolbar, the weather details have
      different colors (at least in dark mode)». It was `--surface`, the raised BUTTON fill, a
      visibly lighter slate than the bar at night, with a heavier shadow of its own. */
-  background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line);
+  background: var(--glass); backdrop-filter: var(--float-blur); border: 1px solid var(--glass-line);
   /* THE popover shell, the Atemschutz head's beside it (13-incident · .az-head-detail): --r-bar over the
      even --bar-pad (r35, 06.11.2026 – it was --r-ctl over 16px). What it holds is READ, not tapped
      row by row, so it stands one inset further in – a menu row's text inset (--sp-3), the one

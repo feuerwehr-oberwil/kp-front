@@ -20,6 +20,7 @@ import { NodeDeleteChip } from './NodeDeleteChip'
 import { lineJoints } from '../lib/lineAttachments'
 import { floorSections, signedFloor } from '../lib/whiteboard'
 import { fillTemplate } from '../lib/format'
+import { useDraftAntsHold } from '../lib/draftAnts'
 import { canDropVertex } from '../lib/vertexOps'
 import { circleRing, clipStroke, edgeMarkHead, markDeg, thinMarks, type EdgeMark, type Pt, type Section } from '../lib/storeyClip'
 
@@ -150,8 +151,10 @@ export function WbInkLayer({ annos, draft, draftFloor, draftClosed, draftOpen, c
   /** the section clip of one storey — nothing off the stack, or for a storey the board does not draw */
   const clipOf = (floor: number | undefined) => (sections?.has(floor ?? 0) ? `url(#${sectionClipId(space, floor ?? 0)})` : undefined)
   const sectionOf = (floor: number | undefined) => sections?.get(floor ?? 0)
+  const layer = useRef<SVGSVGElement>(null)
+  useDraftAntsHold(layer, !!draftOpen && !!draft && draft.length >= 2)
   return (
-    <svg className="wb-ink-svg" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
+    <svg ref={layer} className="wb-ink-svg" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
       <HatchDefs colors={COLORS} space={INK_HATCH_SPACE} />
       <SectionClips space={space} sections={sections} />
       {/* filled areas (under the lines) */}

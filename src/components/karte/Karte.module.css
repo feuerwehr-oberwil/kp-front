@@ -70,7 +70,11 @@
 }
 .runningText { min-width: 0; overflow: hidden; }
 .runningText b { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pulse { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; animation: koPulse 1.4s infinite; }
+/* «Einsatz läuft»: three pulses, then the dot stands still, fully on (the keyframes end on the
+   base opacity) – like the rail's nudge (04b-rail · .rail-more-down): an endless animation in the
+   blurred top bar kept a device on this screen compositing for the whole Einsatz. A chip that
+   mounts again (a new Einsatz, back from a route) pulses again. */
+.pulse { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; animation: koPulse 1.4s 3; }
 @keyframes koPulse { 50% { opacity: .3; } }
 @media (prefers-reduced-motion: reduce) { .pulse { animation: none; } }
 /* a live Ernstfall's Atemschutz alarm on the SAME chip (KarteApp · runningChip, round 2b): ⚠ before
@@ -97,7 +101,7 @@
 /* ── search results ───────────────────────────────────────────────────────────────────────── */
 .results { position: absolute; top: calc(84px + env(safe-area-inset-top)); left: max(16px, env(safe-area-inset-left)); width: 470px; max-width: calc(100vw - 32px);
   max-height: calc(100% - 100px); overflow: auto; z-index: var(--z-floating-card);
-  background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line); border-radius: var(--r-bar);
+  background: var(--glass); backdrop-filter: var(--float-blur); border: 1px solid var(--glass-line); border-radius: var(--r-bar);
   box-shadow: var(--e4); padding: var(--sp-2); display: flex; flex-direction: column; gap: var(--sp-1); }
 .grp { font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-dim); padding: var(--sp-2) var(--sp-2) var(--sp-1); }
 .quiet { font: var(--fw-medium) var(--fs-1)/var(--lh-1, 1.35) var(--body); color: var(--ink-dim); padding: 0 var(--sp-2); }
@@ -128,7 +132,7 @@ button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel
 /* ── the one panel ────────────────────────────────────────────────────────────────────────── */
 .panel { position: absolute; top: calc(88px + env(safe-area-inset-top)); left: max(16px, env(safe-area-inset-left)); bottom: 16px; width: 404px; height: max-content;
   max-height: calc(100% - 104px - env(safe-area-inset-top)); z-index: var(--z-chrome); display: flex; flex-direction: column;
-  background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line); border-radius: var(--r-bar); box-shadow: var(--e4); }
+  background: var(--glass); backdrop-filter: var(--float-blur); border: 1px solid var(--glass-line); border-radius: var(--r-bar); box-shadow: var(--e4); }
 /* beside the NavRail, which a tablet always shows (Karte · Checkliste — 05-navrail · .navrail is 16px in, --rail-w wide) */
 .panel.withRail { left: calc(max(16px, env(safe-area-inset-left)) + var(--rail-w, 60px) + 16px); }
 .head { display: grid; grid-template-columns: 44px 1fr auto; gap: var(--sp-3); align-items: start; padding: var(--sp-4) var(--sp-4) var(--sp-2); }
@@ -570,7 +574,7 @@ button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel
    menu (--z-drawer-menu) and the search results */
 .alarmCard { position: absolute; top: calc(84px + env(safe-area-inset-top)); left: max(16px, env(safe-area-inset-left)); width: 420px; max-width: calc(100vw - 32px);
   z-index: var(--z-topbar); display: grid; gap: var(--sp-2); padding: var(--sp-3);
-  background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line); border-radius: var(--r-bar); box-shadow: var(--e4); }
+  background: var(--glass); backdrop-filter: var(--float-blur); border: 1px solid var(--glass-line); border-radius: var(--r-bar); box-shadow: var(--e4); }
 .alarmCardPhone { top: calc(88px + env(safe-area-inset-top)); left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right)); width: auto; max-width: none; }
 .alarmEyebrow { font: var(--fw-bold) var(--fs-micro)/1.2 var(--body); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-dim); }
 .alarmHead { margin: 0; font: var(--fw-bold) var(--fs-3)/1.25 var(--body); color: var(--ink); }
@@ -591,7 +595,7 @@ button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel
 /* the details: the top bar's glass, as every popup out of the bar (10-journal · .tb-weather-pop) */
 .readyPop { width: 380px; max-width: calc(100vw - 16px); display: grid; gap: var(--sp-3);
   max-height: calc(100dvh - 90px - env(safe-area-inset-top)); overflow-y: auto; overscroll-behavior: contain;
-  background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line);
+  background: var(--glass); backdrop-filter: var(--float-blur); border: 1px solid var(--glass-line);
   border-radius: var(--r-bar); box-shadow: var(--e4); padding: var(--bar-pad); }
 .readyPop :global(.list-row-sub) { white-space: normal; display: block; -webkit-line-clamp: unset; }
 /* …and no lines inside it (owner, sign-off 25.11.2026: «drop the border inside the cards»): the

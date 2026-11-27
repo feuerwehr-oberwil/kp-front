@@ -31,7 +31,7 @@
    THE popover shell: --r-bar over --bar-pad, the text a menu row's 12px further in, 8px clear of
    the screen edges (it was --r-ctl over 8/12, consistency sweep R2-A) */
 .sourcesPop { max-width: min(300px, calc(100vw - 2 * var(--float-gap))); box-sizing: border-box; padding: calc(var(--bar-pad) + var(--sp-3));
-  background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
+  background: var(--glass); backdrop-filter: var(--float-blur);
   border: 1px solid var(--glass-line); border-radius: var(--r-bar); box-shadow: var(--e4); }
 .sources { margin: 0; text-align: left; font-size: var(--fs-micro); line-height: var(--lh-micro); color: var(--ink-dim); }
 
