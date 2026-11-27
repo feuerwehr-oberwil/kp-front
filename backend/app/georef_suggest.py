@@ -37,6 +37,8 @@ import cv2
 import numpy as np
 from scipy.spatial import cKDTree
 
+from .geo_util import M_PER_DEG_EQUATOR
+
 # Half-width of the OSM reference box around the object coordinate, in metres — the floor;
 # `reference_radius_m` scales it up for sheets whose printed extent outruns it (Modul 1 at
 # 1:2500 covers ~±370 m, and context with no reference to land on reads as pure error).
@@ -93,16 +95,16 @@ class Suggestion:
 def local_metres(lng: float, lat: float, anchor_lng: float, anchor_lat: float) -> tuple[float, float]:
     """WGS84 → the local equirectangular east/north frame anchored at the object."""
     return (
-        (lng - anchor_lng) * 111_320 * math.cos(math.radians(anchor_lat)),
-        (lat - anchor_lat) * 111_320,
+        (lng - anchor_lng) * M_PER_DEG_EQUATOR * math.cos(math.radians(anchor_lat)),
+        (lat - anchor_lat) * M_PER_DEG_EQUATOR,
     )
 
 
 def local_to_wgs84(x: float, y: float, anchor_lng: float, anchor_lat: float) -> tuple[float, float]:
     """The exact inverse of `local_metres` — (lng, lat)."""
     return (
-        anchor_lng + x / (111_320 * math.cos(math.radians(anchor_lat))),
-        anchor_lat + y / 111_320,
+        anchor_lng + x / (M_PER_DEG_EQUATOR * math.cos(math.radians(anchor_lat))),
+        anchor_lat + y / M_PER_DEG_EQUATOR,
     )
 
 

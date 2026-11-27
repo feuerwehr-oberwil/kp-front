@@ -39,6 +39,7 @@ from sqlalchemy import not_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from . import overpass, storage
+from .geo_util import M_PER_DEG_EQUATOR
 from .models import ObjectSite, ReferenceDataset
 
 logger = logging.getLogger(__name__)
@@ -64,8 +65,8 @@ def bbox_of(points: list[tuple[float, float]], pad_m: float = PAD_M) -> tuple[fl
     lats = [p[1] for p in points]
     lngs = [p[0] for p in points]
     mid = sum(lats) / len(lats)
-    dlat = pad_m / 111_320
-    dlng = pad_m / (111_320 * math.cos(math.radians(mid)))
+    dlat = pad_m / M_PER_DEG_EQUATOR
+    dlng = pad_m / (M_PER_DEG_EQUATOR * math.cos(math.radians(mid)))
     return (min(lats) - dlat, min(lngs) - dlng, max(lats) + dlat, max(lngs) + dlng)
 
 
@@ -76,8 +77,8 @@ def covers(outer: tuple[float, float, float, float], inner: tuple[float, float, 
 def clip(snapshot: dict, lng: float, lat: float, radius_m: float) -> dict:
     """An Overpass-shaped answer for the box around one object: every element with at least one
     vertex inside it (the bbox filter's own rule), unchanged otherwise."""
-    dlat = radius_m / 111_320
-    dlng = radius_m / (111_320 * math.cos(math.radians(lat)))
+    dlat = radius_m / M_PER_DEG_EQUATOR
+    dlng = radius_m / (M_PER_DEG_EQUATOR * math.cos(math.radians(lat)))
     return clip_bbox(snapshot, (lat - dlat, lng - dlng, lat + dlat, lng + dlng))
 
 

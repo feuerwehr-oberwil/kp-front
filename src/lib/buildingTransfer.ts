@@ -1,5 +1,6 @@
 import { activeViewDeg, buildView, fpBoxFrac, type Pt, type Ring } from './footprint'
 import { tileAspectOf } from './whiteboard'
+import { M_PER_DEG_LAT, mPerDegLng } from './metresPerDegree'
 import type { BoardAnno, BoardPoint, BuildingDoc, LngLat, SrcGeoref } from '../types'
 
 export type { SrcGeoref }
@@ -43,11 +44,6 @@ export type { SrcGeoref }
  * LEGACY path: its markings are dropped, counted and named, exactly as before. Never guessed.
  */
 
-/** metres per degree of latitude — the same constant `OsmOutline` projects its bbox with */
-export const M_PER_LAT = 110540
-/** metres per degree of longitude at this latitude */
-export const mPerLon = (lat: number) => 111320 * Math.cos((lat * Math.PI) / 180)
-
 /** A building as this transform needs to see it: its footprints, the view its annotations were
  *  stored in, where it sits on the ground, and how many storeys share the board. */
 export interface BuildingFrame {
@@ -75,7 +71,7 @@ export function georefFromPick(center: LngLat, radiusM: number, picked: Ring[]):
   const eastM = (minX - 0.5) * sideM
   const southM = (minY - 0.5) * sideM
   return {
-    origin: [center[0] + eastM / mPerLon(center[1]), center[1] - southM / M_PER_LAT],
+    origin: [center[0] + eastM / mPerDegLng(center[1]), center[1] - southM / M_PER_DEG_LAT],
     spanM: span * sideM,
   }
 }
@@ -87,8 +83,8 @@ export function srcToPicker(geo: SrcGeoref, center: LngLat, radiusM: number, [x,
   const sideM = 2 * radiusM
   // the same reference latitude `georefFromPick` used, so the round-trip is exact rather than
   // merely close — a half-metre of drift here would be enough to mis-hit a narrow Reihenhaus
-  const eastM = (geo.origin[0] - center[0]) * mPerLon(center[1]) + x * geo.spanM
-  const southM = (center[1] - geo.origin[1]) * M_PER_LAT + y * geo.spanM
+  const eastM = (geo.origin[0] - center[0]) * mPerDegLng(center[1]) + x * geo.spanM
+  const southM = (center[1] - geo.origin[1]) * M_PER_DEG_LAT + y * geo.spanM
   return [0.5 + eastM / sideM, 0.5 + southM / sideM]
 }
 
@@ -96,8 +92,8 @@ export function srcToPicker(geo: SrcGeoref, center: LngLat, radiusM: number, [x,
 export function srcAcrossGround(from: SrcGeoref, to: SrcGeoref, [x, y]: Pt): Pt {
   const lat = (from.origin[1] + to.origin[1]) / 2
   // how far the NEW origin sits east / south of the OLD one
-  const eastM = (to.origin[0] - from.origin[0]) * mPerLon(lat)
-  const southM = (from.origin[1] - to.origin[1]) * M_PER_LAT
+  const eastM = (to.origin[0] - from.origin[0]) * mPerDegLng(lat)
+  const southM = (from.origin[1] - to.origin[1]) * M_PER_DEG_LAT
   return [(x * from.spanM - eastM) / to.spanM, (y * from.spanM - southM) / to.spanM]
 }
 

@@ -202,7 +202,7 @@ describe('IncidentSwitcher · the pill says the address', () => {
 })
 
 // button sweep SHEETS.11 (17.11.2026): every act of the Einsatz card leads with its glyph, and
-// «Teilen» wears the app's share glyph, not the «Zum Original» door's
+// «Teilen» wears the app's share glyph
 describe('IncidentSwitcher · card acts', () => {
   const cp = appConfig.copy.incidentSwitcher
   const active = {

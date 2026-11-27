@@ -1292,7 +1292,7 @@ export function IncidentWorkspace({
   const composerOpenedAt = useRef<string | null>(null)
   useEffect(() => { if (composerOpen) composerOpenedAt.current = new Date().toISOString() }, [composerOpen])
   // a Verlauf row can ask the plan to revisit a point; nonce makes each request distinct
-  const [planFocus, setPlanFocus] = useState<{ x: number; y: number; floor: number; annoId?: string; twinEntityId?: string; flash?: boolean; scale?: number; span?: { w: number; h: number }; nonce: number } | null>(null)
+  const [planFocus, setPlanFocus] = useState<{ x: number; y: number; floor: number; annoId?: string; flash?: boolean; scale?: number; span?: { w: number; h: number }; nonce: number } | null>(null)
   // the Präsentationsmodus (workspace/usePresentation): follow / present / point, never stored
   const presentation = usePresentation({
     incidentId: incidentMeta.id, enabled: running && !replayActive && !asLink, canPresent: canShareLink, isLink: linkScoped,

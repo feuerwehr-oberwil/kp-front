@@ -2,6 +2,15 @@
 
 import math
 
+# Metres per degree – the flat-earth factors of every local lng/lat ↔ metre conversion in the
+# backend (the frontend's twin is src/lib/metresPerDegree.ts). ⚠️ Two numbers on purpose, and a
+# call site keeps the one it has: most use M_PER_DEG_LAT for a degree of latitude, a few use
+# M_PER_DEG_EQUATOR for it. Unifying them would move alignments, footprints and Kroki output.
+M_PER_DEG_LAT = 110_540.0
+"""Metres per degree of latitude."""
+M_PER_DEG_EQUATOR = 111_320.0
+"""Metres per degree of longitude at the equator – × cos(latitude) for any other latitude."""
+
 
 def haversine_m(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
     """Great-circle distance in metres."""

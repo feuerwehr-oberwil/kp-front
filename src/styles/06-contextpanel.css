@@ -562,13 +562,6 @@
   .ip-btn.de-lock[aria-pressed='true']:hover { background: var(--sel); border-color: var(--sel); }
 }
 .ip-btn.de-lock[aria-pressed='true'] svg { stroke-width: 2.6; }
-/* A DOOR to the object's original («Zum Original») takes a row of its own, above the foot's acts
-   (30.09.2026, owner: «fix this» – in a shared row, a door's label ran out of its share of the
-   row and over «Zentrieren»). Its label is cut, never spilled (ContextPanel · LinkBtn). */
-.ctx-actions > .ip-btn.link { flex: 1 1 100%; }
-.btn-t { display: flex; min-width: 0; white-space: pre; }
-.btn-t > * { flex: none; }
-.btn-t > .btn-t-cut { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .btn { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 8px; min-height: var(--tap); font-size: var(--fs-1); font-weight: var(--fw-bold);
   padding: 12px 4px; border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--surface-2);
   cursor: pointer; color: var(--ink); white-space: nowrap; }
@@ -584,7 +577,7 @@
 @media (hover: hover) {
   .btn.warn:hover { background: color-mix(in srgb, var(--red) 10%, var(--surface)); border-color: var(--del-edge); }
 }
-/* `.btn.link` («Zum Original» on a Georeferenz twin's panel, the Passung's quiet actions) is a
+/* `.btn.link` (the Passung's quiet actions) is a
    placement hook only: it wears the neutral `.btn`. Blue means «chosen» and nothing else (style
    sweep T2, owner pick A, 15.11.2026 – it was the blue «link tone»); a pressed one is `--sel`. */
 

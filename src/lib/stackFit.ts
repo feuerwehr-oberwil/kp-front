@@ -1,6 +1,6 @@
 import { tileAspectOf } from './whiteboard'
 import { activeViewDeg, buildView, fpBoxFrac, type FootprintView, type Pt, type Ring } from './footprint'
-import { M_PER_LAT, mPerLon } from './buildingTransfer'
+import { M_PER_DEG_LAT, mPerDegLng } from './metresPerDegree'
 import { fitSimilarity, type GeorefFit, type GeorefPair } from './georef'
 import type { BoardAnno, BuildingDoc, SrcGeoref } from '../types'
 import { directionalGlyph, directionalGlyph2 } from './planProjection'
@@ -64,12 +64,12 @@ export function regionCorners(corners: [Pt, Pt, Pt], region: readonly [number, n
  */
 
 const srcToGround = (geo: SrcGeoref, [x, y]: Pt) => ({
-  lng: geo.origin[0] + (x * geo.spanM) / mPerLon(geo.origin[1]),
-  lat: geo.origin[1] - (y * geo.spanM) / M_PER_LAT,
+  lng: geo.origin[0] + (x * geo.spanM) / mPerDegLng(geo.origin[1]),
+  lat: geo.origin[1] - (y * geo.spanM) / M_PER_DEG_LAT,
 })
 const groundToSrc = (geo: SrcGeoref, p: { lng: number; lat: number }): Pt => [
-  ((p.lng - geo.origin[0]) * mPerLon(geo.origin[1])) / geo.spanM,
-  ((geo.origin[1] - p.lat) * M_PER_LAT) / geo.spanM,
+  ((p.lng - geo.origin[0]) * mPerDegLng(geo.origin[1])) / geo.spanM,
+  ((geo.origin[1] - p.lat) * M_PER_DEG_LAT) / geo.spanM,
 ]
 
 /** tile-local → ground for one stack layout (all tiles alike). A PACK stack (`b.pack`) has no

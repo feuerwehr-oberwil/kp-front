@@ -14,6 +14,7 @@
 // Pure functions + one metre-scale step model, so the movement is testable without a map.
 
 import type { LngLat } from '../types'
+import { M_PER_DEG_LAT, mPerDegLng } from './metresPerDegree'
 
 /** One simulated responder mid-walk. `heading` is degrees clockwise from north. */
 export interface Walker {
@@ -32,8 +33,6 @@ const LEASH_M = 90
 /** degrees of heading wander per second — enough to look alive, little enough to read as walking */
 const TURN_DEG_PER_S = 14
 
-const M_PER_DEG_LAT = 110_540
-const mPerDegLng = (lat: number) => 111_320 * Math.cos((lat * Math.PI) / 180)
 
 /** Metres between two WGS84 points at this scale — a local flat approximation is plenty for a
  *  few hundred metres and keeps this module free of the geo helpers. */

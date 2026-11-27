@@ -220,7 +220,6 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
     floorShow: 'afficher',
     floorHidden: 'masqué',
     removeFloor: 'Retirer l’étage',
-    floorRemoved: 'Étage retiré',
     floorRemovedLog: 'Étage {floor} retiré',
     floorRemovedLogMarks: 'Étage {floor} retiré – {n} marquages retirés ou raccourcis',
     floorRestoredLog: 'Étage {floor} rétabli',

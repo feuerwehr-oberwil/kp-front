@@ -13,6 +13,7 @@ import { Sheet } from '../lib/overlays'
 import type { ObjectWithPlans } from '../lib/incidents'
 import { searchPlaces, setObjectPosition, undoObjectPosition, type OutlineMode, type PlaceHit, type SavedObject } from './stationDataApi'
 import { apiErrorText } from './apiErrors'
+import { M_PER_DEG_LAT, mPerDegLng } from '../lib/metresPerDegree'
 
 // «Lage korrigieren» — the station's own word on where an Einsatzobjekt is (Karte & Objekte,
 // review round 2, 17.10.2026: ARA Birsig stood 1.1 km off, in the wrong village). Lazy: MapLibre
@@ -44,8 +45,8 @@ const SUGGEST_M = 60
 
 const streetKey = (s: string) => s.split(',')[0].normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/str\.(?=\s|\d|$)/g, 'strasse').replace(/[^a-z0-9]/g, '')
 function distanceM(a: [number, number], b: [number, number]): number {
-  const kx = 111_320 * Math.cos((a[1] * Math.PI) / 180)
-  return Math.hypot((a[0] - b[0]) * kx, (a[1] - b[1]) * 110_540)
+  const kx = mPerDegLng(a[1])
+  return Math.hypot((a[0] - b[0]) * kx, (a[1] - b[1]) * M_PER_DEG_LAT)
 }
 
 export default function ObjectPositionSheet({ object, onClose, onSaved }: {

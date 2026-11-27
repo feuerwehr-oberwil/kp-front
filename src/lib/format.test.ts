@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { applyLocale } from '../config/copy'
 import { de } from '../config/copy/de'
-import { compareText, fieldWhen, formatLocale, localeDate, localeDateTime, dueClock, fillTemplate, fmtDuration, fmtFileSize, fmtMMSS, fmtWhen, hhmm, formatSymbolName, formatTime, initials, isNextDay, restoreUmlauts, roleLabel, stripUnprintable, telHref, unitLabel, streetPart, einsatzHeadName } from './format'
+import { compareText, fieldWhen, formatLocale, localeDate, localeDateTime, dueClock, fillTemplate, fmtDuration, fmtFileSize, fmtMMSS, fmtWhen, hhmm, formatSymbolName, formatTime, initials, restoreUmlauts, roleLabel, stripUnprintable, telHref, unitLabel, streetPart, einsatzHeadName } from './format'
 import { COMPOSITE_PART_GLYPHS } from './symbolRender'
 
 describe('restoreUmlauts', () => {
@@ -305,7 +305,6 @@ describe('dueClock (a Wiedervorlage that fell to tomorrow)', () => {
   it('says «morgen» once the due time is not today — the banner used to hide that', () => {
     const tomorrow = new Date('2026-11-18T06:30:00')
     expect(dueClock(tomorrow.toISOString())).toBe('06:30 Uhr · morgen')
-    expect(isNextDay(tomorrow.toISOString())).toBe(true)
   })
 
   it('names the day of a due time from yesterday – never «morgen» (LISTS.10)', () => {

@@ -154,13 +154,6 @@ export interface ContextPanelProps {
   onClose: () => void
   /** recenter the surface on this object — absent where the surface can't (yet) recenter */
   onCenter?: () => void
-  /** «Zum Original» — an explicit jump to this object on the other surface. Absent on a surface
-   *  that has nowhere to send it. (It is the SAME object either way now; what the row offers is a
-   *  different view of it, not a different copy.) */
-  onOriginal?: () => void
-  originalLabel?: string
-  // (no «Auf {plan} zeigen» / «Auf Karte zeigen» any more, 31.10.2026: every object is drawn on
-  // the Karte and on its linked plans alike, so a door to «the same thing over there» said nothing)
   /** The ERG Schutzabstand around a Gefahrentafel (SymbolProps.ergRings, lib/ergRings) – Karte
    *  only, because the Plan has no metric scale. `coord` is where the rings stand ([lng, lat]):
    *  the sun there decides the day or the night distance (lib/ergRings · ergDayNote); absent →
@@ -289,18 +282,7 @@ function LabeledStepper({ label, ...rest }: { label: string } & React.ComponentP
   )
 }
 
-/** A door to the object's original («Zum Original») – the foot's link tone. Its label may not
- *  outgrow its tile (30.09.2026, owner: a door's label ran out of its frame into «Zentrieren»): it
- *  is cut at its end, and the whole label is the title. */
-function LinkBtn({ onClick, text }: { onClick: () => void; text: string }) {
-  return (
-    <Button className="link" icon={<Icon id="external" />} onClick={onClick} title={text} aria-label={text}>
-      <span className="btn-t" aria-hidden><span className="btn-t-cut">{text}</span></span>
-    </Button>
-  )
-}
-
-export function ContextPanel({ entity, subject, onPatch, svg, onClose, onCenter, onOriginal, originalLabel, onReadingAgain, erg, captionDefault = 'auto', controls, titleOptions, fieldOptions, rosterRank, protectedKeys, onDelete, onDone, onStopSharing, readOnly, allowDelete = false, hasOverride, onPinGps, onResetGps, driver, origin, vehicleTimes = [], gpsTwin, personStatus, fieldHints, connectedLines = [], onFocusLine, dockedToLabel, onUndock, dockedTeams = [], autoFocusNote = false }: ContextPanelProps) {
+export function ContextPanel({ entity, subject, onPatch, svg, onClose, onCenter, onReadingAgain, erg, captionDefault = 'auto', controls, titleOptions, fieldOptions, rosterRank, protectedKeys, onDelete, onDone, onStopSharing, readOnly, allowDelete = false, hasOverride, onPinGps, onResetGps, driver, origin, vehicleTimes = [], gpsTwin, personStatus, fieldHints, connectedLines = [], onFocusLine, dockedToLabel, onUndock, dockedTeams = [], autoFocusNote = false }: ContextPanelProps) {
   // read per-render (not module-load) so the resolved locale is applied — see config/copy
   const C = appConfig.copy.contextPanel
   const N = appConfig.copy.notes
@@ -712,9 +694,6 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
   // scrolling body for phones (.ctx-footer-inline) — CSS shows exactly one copy
   const actions = (
     <div className="ctx-actions">
-      {/* first, and in the link tone: on a read-only panel it is the only thing that DOES anything,
-          and what it does is leave for the real object. */}
-      {onOriginal && <LinkBtn onClick={onOriginal} text={originalLabel ?? C.toOriginal} />}
       {onCenter && <Button icon={<Icon id="cross" />} onClick={onCenter}>{C.center}</Button>}
       {/* «GPS» (reset a vehicle's manual override) and «Löschen» are alternatives, and a live
           entity gets neither — `readOnly` is already true for anything externally sourced.

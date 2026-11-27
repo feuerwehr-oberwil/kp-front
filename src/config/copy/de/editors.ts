@@ -47,9 +47,6 @@ export const editorsCopy = {
     airflowBlow: 'Einblasen',
     airflowExtract: 'Absaugen',
     center: 'Zentrieren',
-    // Georeferenz-Zwilling: das Fenster spiegelt ein Objekt der anderen Fläche und ist deshalb
-    // ganz gesperrt. Diese eine Zeile führt dorthin, wo es wirklich liegt – und bearbeitbar ist.
-    toOriginal: 'Zum Original',
     resetGps: 'Zurück auf GPS',
     resetGpsTitle: 'Zurück auf GPS – das Fahrzeug folgt wieder seiner Live-Position',
     // the ↶ caption of that reset (workspace/useMapActions · resetVehicleGps)

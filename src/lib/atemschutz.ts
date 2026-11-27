@@ -965,7 +965,7 @@ export function fmtElapsedFull(sec: number | null): string {
 /** A DURATION that says it is one (staging r4): «Einsatzzeit 23:39» on the Link, read at 23:58, was
  *  taken for a clock time. Under an hour the value carries «min», under a day «h»; beyond that
  *  fmtElapsedFull already names its units. The safety clock stays the bare fmtClock. */
-export function fmtDuration(sec: number | null): string {
+export function fmtElapsedWithUnit(sec: number | null): string {
   const v = fmtElapsedFull(sec)
   if (sec == null) return v
   const s = Math.max(0, sec)

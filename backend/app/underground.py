@@ -49,7 +49,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from . import geocode, storage
 from .config import settings
-from .geo_util import lv95_to_wgs84
+from .geo_util import M_PER_DEG_EQUATOR, M_PER_DEG_LAT, lv95_to_wgs84
 from .object_footprints import _bbox_condition, _equals, _geojson_polygons, in_any
 
 logger = logging.getLogger(__name__)
@@ -92,12 +92,12 @@ def enabled() -> bool:
 
 def box_size_m(box: Box) -> tuple[float, float]:
     w, s, e, n = box
-    return ((e - w) * 111_320.0 * math.cos(math.radians((s + n) / 2)), (n - s) * 110_540.0)
+    return ((e - w) * M_PER_DEG_EQUATOR * math.cos(math.radians((s + n) / 2)), (n - s) * M_PER_DEG_LAT)
 
 
 def box_around(lng: float, lat: float, half_m: float = REACH_M) -> Box:
-    dl = half_m / (111_320.0 * math.cos(math.radians(lat)))
-    dp = half_m / 110_540.0
+    dl = half_m / (M_PER_DEG_EQUATOR * math.cos(math.radians(lat)))
+    dp = half_m / M_PER_DEG_LAT
     return (lng - dl, lat - dp, lng + dl, lat + dp)
 
 

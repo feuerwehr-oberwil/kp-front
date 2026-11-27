@@ -2,7 +2,7 @@ import type { Trupp } from '../../types'
 import { appConfig } from '../../config/appConfig'
 import { fillTemplate, formatTime } from '../format'
 import { atemschutzDoctrine } from '../deploymentConfig'
-import { alarmBarFor, currentRunStart, earlyEntryCorrection, fmtDuration, isAtemschutzTrupp, notfallFacts, notfallOffered, truppInNotfall, truppLogName } from '../atemschutz'
+import { alarmBarFor, currentRunStart, earlyEntryCorrection, fmtElapsedWithUnit, isAtemschutzTrupp, notfallFacts, notfallOffered, truppInNotfall, truppLogName } from '../atemschutz'
 // ⚠️ Every Trupp timestamp below is stamped in the DEPLOYMENT's time, not the device's
 // (lib/serverClock). These are the safety clocks and the legal record: written device-local, a
 // tablet six seconds ahead put contact times into the Rapport that no other device agreed with,
@@ -328,7 +328,7 @@ export function truppClockActions(deps: ClockDeps) {
     const icon = status === 'raus' ? 'logout' : status === 'rueckzug' ? 'undo' : 'flag'
     const line = tpl ? fillTemplate(tpl, {
       name: tr ? truppLogName(tr) : '', bar: exitBar ?? '',
-      ...(notfallFor ? { target: truppLogName(notfallFor), dur: fmtDuration(notfallFacts(notfallFor, Date.parse(now)).sinceSec) } : {}),
+      ...(notfallFor ? { target: truppLogName(notfallFor), dur: fmtElapsedWithUnit(notfallFacts(notfallFor, Date.parse(now)).sinceSec) } : {}),
     }) : null
     // ⚠️ `subjectId`: the row NAMES this Trupp without becoming a jump target — which is what lets
     // the Verlauf tell a repeated line from a second, real cycle (lib/verlauf · repeatRuns).
@@ -337,7 +337,7 @@ export function truppClockActions(deps: ClockDeps) {
     // …and the Notfall it ended, in its own row beside the Austritt (see `endsNotfall`)
     if (endsNotfall && tr) {
       const nf = az.notfall
-      log('flag', fillTemplate(nf.logEndOut, { name: truppLogName(tr), dur: fmtDuration(notfallFacts(tr, Date.parse(now)).sinceSec) }),
+      log('flag', fillTemplate(nf.logEndOut, { name: truppLogName(tr), dur: fmtElapsedWithUnit(notfallFacts(tr, Date.parse(now)).sinceSec) }),
         'team', undefined, undefined, { subjectId: id })
       emit('atemschutz.notfallEnde', { id })
     }
@@ -435,7 +435,7 @@ export function truppClockActions(deps: ClockDeps) {
     }
     setTrupps((ts) => ts.map((t) => (t.id === id ? apply(t) : t)))
     const nf = appConfig.copy.atemschutz.notfall
-    const line = fillTemplate(nf.logEnd, { name: truppLogName(tr), dur: fmtDuration(notfallFacts(tr, Date.parse(now)).sinceSec) })
+    const line = fillTemplate(nf.logEnd, { name: truppLogName(tr), dur: fmtElapsedWithUnit(notfallFacts(tr, Date.parse(now)).sinceSec) })
     log('flag', line, 'team', undefined, undefined, { subjectId: id })
     emit('atemschutz.notfallEnde', { id })
     remember(id, line, tr, apply)

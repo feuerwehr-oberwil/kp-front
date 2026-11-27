@@ -83,7 +83,6 @@ export const materialCopy: Localizable<Pick<Copy, 'mittel' | 'checklists'>> = {
     qtyLabel: 'Quantità',
     save: 'Salva',
     cancel: 'Annulla',
-    removeRow: 'Metti a 0',
     logSet: '{label}: {menge} {unit}',
     logRemoved: '{label} messo a 0',
     logDeleted: '{label} eliminato',

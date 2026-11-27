@@ -220,7 +220,6 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
     floorShow: 'mostra',
     floorHidden: 'nascosto',
     removeFloor: 'Rimuovi piano',
-    floorRemoved: 'Piano rimosso',
     floorRemovedLog: 'Piano {floor} rimosso',
     floorRemovedLogMarks: 'Piano {floor} rimosso – {n} contrassegni rimossi o accorciati',
     floorRestoredLog: 'Piano {floor} ripristinato',

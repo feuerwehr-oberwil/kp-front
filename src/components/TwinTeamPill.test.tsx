@@ -154,9 +154,9 @@ describe('the bar', () => {
   const line = { lineId: 'l1', color: '#00f', tone: 'idle' as const, coupled: true }
   const linked = (pick = vi.fn()) => render(
     <TwinTeamPill name="Meier Anna" color="#c00" raus={false} truppId="t1" trailCount={3} trailShown trupps={TRUPPS}
-      line={line} originalLabel="Auf Plan zeigen"
+      line={line}
       acts={{ unlink: () => {}, showTrupp: () => {}, pick, mark: () => {}, toggleTrail: () => {},
-        toOriginal: () => {}, remove: () => {}, clearTrail: () => {} }} />)
+        remove: () => {}, clearTrail: () => {} }} />)
   const loose = () => render(
     <TwinTeamPill name="Trupp 3" color="#c00" raus={false} trailCount={0} trailShown={false} trupps={TRUPPS}
       acts={{ rename: () => {}, pick: () => {}, mark: () => {}, remove: () => {} }} />)
@@ -170,7 +170,7 @@ describe('the bar', () => {
     // the short word on the bar, the full words for the title and the screen reader
     expect(screen.getByRole('button', { name: W.markPosition }).textContent).toBe(W.markShort)
     openMore()
-    expect(rows()).toEqual([A.markerLabel, picked(W.trails), 'Auf Plan zeigen', W.removeMarker, W.clearTrail])
+    expect(rows()).toEqual([A.markerLabel, picked(W.trails), W.removeMarker, W.clearTrail])
     // the Spuren row says it is on, the menu's ✓
     expect(screen.getByRole('menuitem', { name: new RegExp(W.trails) }).querySelector('.de-menu-tick.on')).not.toBeNull()
   })

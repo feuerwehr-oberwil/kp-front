@@ -17,6 +17,7 @@ import { useNightTheme } from '../lib/useNightTheme'
 import { WARM_BYTES, estimateStorage, fittedTileCap, prefetchFit, tileBytesFor } from '../lib/storageBudget'
 import { confirmDialog, toast } from '../lib/ui'
 import { useOnline } from '../lib/useOnline'
+import { M_PER_DEG_EQUATOR, mPerDegLng } from '../lib/metresPerDegree'
 import type { LayerDef, LngLat } from '../types'
 
 export interface OfflinePrefetchInputs {
@@ -44,8 +45,8 @@ export function useOfflinePrefetch({ incidentId, center, mapRef, layers, backend
   const offlineRadiusM = stationOfflineRadiusM()
   const incidentBounds = useMemo(() => {
     const [clng, clat] = center
-    const dLat = offlineRadiusM / 111320
-    const dLng = offlineRadiusM / (111320 * Math.cos((clat * Math.PI) / 180))
+    const dLat = offlineRadiusM / M_PER_DEG_EQUATOR
+    const dLng = offlineRadiusM / mPerDegLng(clat)
     return { west: clng - dLng, south: clat - dLat, east: clng + dLng, north: clat + dLat }
   }, [center, offlineRadiusM])
   const geoBbox = useMemo(
