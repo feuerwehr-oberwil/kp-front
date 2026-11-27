@@ -87,17 +87,27 @@ export function ergRingsFor(row: ErgTihRow | undefined, mode: ErgRingMode, now: 
   return rings
 }
 
+/** The UN-Nr a placed UN-speaking symbol carries — the number its rings are looked up by. */
+function ringUn(e: Entity): string | null {
+  // every UN-speaking symbol earns rings — the Tafel, and since 07.09. the Gas/Chemie
+  // hazard symbols too (lib/symbols · UN_CAPABLE, derived from the presets)
+  if (e.kind !== 'symbol' || !e.symbol || !UN_CAPABLE.has(e.symbol) || !e.coord) return null
+  return Object.entries(e.fields ?? {}).find(([k]) => k.replace(/\.$/, '') === 'UN-Nr')?.[1]?.trim() || null
+}
+
+/** Whether any entity may earn rings — the `erg` need of lib/useHazardData for ergRingOverlays. */
+export function anyRingUn(entities: readonly Entity[]): boolean {
+  return entities.some((e) => ringUn(e) !== null)
+}
+
 /** Every ring the current entity set earns, as ready-made map overlays. Pure and cheap: one
  *  Map lookup per placard, so the workspace can recompute it per render. */
 export function ergRingOverlays(entities: readonly Entity[], now: Date): PreparedMapOverlay[] {
   const cfg = appConfig.ergRings
   const overlays: PreparedMapOverlay[] = []
   for (const e of entities) {
-    // every UN-speaking symbol earns rings — the Tafel, and since 07.09. the Gas/Chemie
-    // hazard symbols too (lib/symbols · UN_CAPABLE, derived from the presets)
-    if (e.kind !== 'symbol' || !e.symbol || !UN_CAPABLE.has(e.symbol) || !e.coord) continue
-    const un = Object.entries(e.fields ?? {}).find(([k]) => k.replace(/\.$/, '') === 'UN-Nr')?.[1]
-    if (!un?.trim()) continue
+    const un = ringUn(e)
+    if (!un || !e.coord) continue
     const row = lookupErg(un)?.tih?.[0]
     const done = !!doneOf(e)
     for (const ring of ergRingsFor(row, e.ergRings ?? DEFAULT_ERG_RING_MODE, now, e.coord)) {

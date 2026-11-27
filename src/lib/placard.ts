@@ -49,10 +49,20 @@ export function placardSvg(un: string, kemler?: string | null): string {
  * Gefahrentafel without a UN-Nr → the empty library plate shows instead).
  */
 export function placardSvgForSymbol(symbol?: string, fields?: Record<string, string>): string | null {
+  const un = placardUn(symbol, fields)
+  return un ? placardSvg(un, lookupUN(un)?.hazardNumber ?? null) : null
+}
+
+/** The UN-Nr a Gefahrentafel carries — null for any other symbol, or a Tafel without one. */
+function placardUn(symbol?: string, fields?: Record<string, string>): string | null {
   if (symbol !== appConfig.symbols.placardName) return null
   const unKey = appConfig.copy.contextPanel.unField
   // symbols saved before the key gained its abbreviation dot store 'UN-Nr' — read both
-  const un = (fields?.[unKey] ?? fields?.[unKey.replace(/\.$/, '')])?.trim()
-  if (!un) return null
-  return placardSvg(un, lookupUN(un)?.hazardNumber ?? null)
+  return (fields?.[unKey] ?? fields?.[unKey.replace(/\.$/, '')])?.trim() || null
+}
+
+/** Whether any of `items` draws a numbered Gefahrentafel, whose plate bakes its Kemler from the
+ *  ADR table — the `un` need of lib/useHazardData for a surface that draws them. */
+export function anyPlacardUn(items: readonly { symbol?: string; fields?: Record<string, string> }[]): boolean {
+  return items.some((o) => placardUn(o.symbol, o.fields) !== null)
 }

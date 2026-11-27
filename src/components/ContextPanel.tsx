@@ -303,8 +303,10 @@ export function ContextPanel({ entity, subject, onPatch, svg, onClose, onCenter,
   // read per-render (not module-load) so the resolved locale is applied — see config/copy
   const C = appConfig.copy.contextPanel
   const N = appConfig.copy.notes
-  // repaint the ADR/ERG readout when the fetched hazard datasets land (lib/useHazardData)
-  const hazVersion = useHazardData()
+  // a UN-speaking symbol's panel (lib/symbols · UN_CAPABLE) has the UN field and the Stoff search:
+  // both tables load as it opens, not on the first key, and the readout repaints when they land
+  const unPanel = !!entity.symbol && UN_CAPABLE.has(entity.symbol)
+  const hazVersion = useHazardData({ un: unPanel, erg: unPanel })
   // leadership glyph → its roster picker offers the officer-first sort + "nur Offiziere" filter
   const officerSym = !!entity.symbol && OFFICER_ROSTER_SYMBOLS.has(entity.symbol)
   const rankOf = officerSym && rosterRank ? (n: string) => rosterRank[n] : undefined
@@ -502,7 +504,7 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
   // UN-speaking symbols (Tafel, Gas, Chemie — lib/symbols · UN_CAPABLE): the Stoff row turns
   // into a substance search over the station's common list plus the full ADR table, and a
   // committed Stoff resolves its UN number the same way a committed UN resolves its Stoff.
-  const unCapable = !!entity.symbol && UN_CAPABLE.has(entity.symbol)
+  const unCapable = unPanel
   const commons = (unCapable && appConfig.symbols.unCommons[entity.symbol!]) || []
   const stoffOptions = useMemo(() => {
     if (!unCapable) return []

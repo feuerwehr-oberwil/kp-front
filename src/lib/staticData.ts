@@ -8,9 +8,9 @@
 //
 // The contract consumers build on:
 //   • `get()` is synchronous and returns null until the data has landed — lookup helpers
-//     stay sync and simply miss during the short window after boot (main.tsx kicks
-//     `ensure()` on idle right after first paint, on the field-app routes only, so in practice
-//     the data is there before anyone types a UN-Nr).
+//     stay sync and simply miss until the load lands (lib/useHazardData kicks `ensure()` as
+//     soon as a surface has something to look up — a UN field opens, a numbered Tafel is drawn
+//     — and the precached file lands before anyone has typed the UN-Nr).
 //   • `subscribe()`/`version()` feed useSyncExternalStore, so surfaces that rendered during
 //     that window re-render once the data lands (see lib/useHazardData).
 //   • A failed fetch retries on a short backoff, then again on any later `ensure()` — the

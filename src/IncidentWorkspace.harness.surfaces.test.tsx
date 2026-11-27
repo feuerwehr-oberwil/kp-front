@@ -3,8 +3,8 @@ import { describe, expect, it, vi } from 'vitest'
 import { stubMatchMedia } from './test/dom.test-utils'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { useState } from 'react'
-import type { BoardAnno, MittelEntry } from './types'
-import { AUTH, SYM, rec, registerHarnessHooks, lastMap, lastBoard, meta, truck, workspaceTree, settle, mount, key, mode, openPlan, boardIds } from './IncidentWorkspace.harness.setup'
+import type { BoardAnno, Entity, MittelEntry } from './types'
+import { AUTH, SYM, rec, registerHarnessHooks, lastMap, lastBoard, meta, truck, workspaceTree, settle, mount, key, mode, openPlan, boardIds, type WsProps } from './IncidentWorkspace.harness.setup'
 import { georefDispatch } from './lib/georefMode'
 import { appConfig } from './config/appConfig'
 
@@ -303,5 +303,29 @@ describe('(l) «Unterirdische Bauten» on the Einsatz map', () => {
     fireEvent.click(screen.getByRole('button', { name: appConfig.copy.layerPanel.reset }))
     expect(visible(ov.layer)).toBe(true)
     expect(asked).toHaveLength(1)
+  })
+})
+
+/* Perf sweep 26.11.2026 #12: the ADR (587 KB) and ERG (76 KB) tables load when something on the
+   board needs them, not on every launch (lib/useHazardData). The workspace's own reader is the
+   ERG rings; the placard's plate (MapMarkers, mocked here with MapView) asks for the ADR table. */
+describe('(m) the hazard tables', () => {
+  it('a board without a UN number fetches neither; a placard already on it fetches the ERG table at open', async () => {
+    const asked: string[] = []
+    vi.stubGlobal('fetch', vi.fn(async (u: RequestInfo | URL) => {
+      const url = String(u)
+      if (/(un-hazard|erg)\.json$/.test(url)) {
+        asked.push(url.split('/').pop()!)
+        return new Response(JSON.stringify(url.endsWith('erg.json') ? { version: '2024', un: {} } : []), { status: 200, headers: { 'content-type': 'application/json' } })
+      }
+      return new Response('{}', { status: 404, headers: { 'content-type': 'application/json' } })
+    }))
+    const first = await mount()
+    await settle(60)
+    expect(asked).toEqual([])
+    first.unmount()
+    const placard = { id: 'g1', kind: 'symbol', layer: 'lage', symbol: appConfig.symbols.placardName, coord: [7.6, 47.5], fields: { [appConfig.copy.contextPanel.unField]: '1203' } } as Entity
+    await mount({ workspace: { entities: [truck, placard] } as unknown as WsProps['workspace'] })
+    await waitFor(() => expect(asked).toEqual(['erg.json']))
   })
 })

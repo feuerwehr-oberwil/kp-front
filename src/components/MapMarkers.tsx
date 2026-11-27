@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Marker } from 'react-map-gl/maplibre'
 import type { CaptionMode, Entity, LngLat, Trupp } from '../types'
 import { useLayer } from '../lib/overlays/layer'
@@ -18,6 +18,7 @@ import { fillTemplate } from '../lib/format'
 import { ConnectRing } from './NodeDeleteChip'
 import { EntityMarker, type ShapeGripMode } from './EntityMarker'
 import { useHazardData } from '../lib/useHazardData'
+import { anyPlacardUn } from '../lib/placard'
 import { fanOffsets, pileAt } from '../lib/labelPass'
 import { groundPxPerM, symPx, effectiveLayer } from '../lib/mapView'
 import { dockSlots, teamDockHost } from '../lib/docking'
@@ -170,9 +171,9 @@ export interface MapMarkersProps {
  */
 export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelectedIds = [], networkEntityIds = [], zoom, bearing = 0, symMul = 1, captionMode = 'off', suppressedLabels, draggable, project, unproject, setDragPan, onSelect, onDeselect, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onDelete, onRotate, onShapeTransform, onUnlockShape, readOnly = false, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, trupps, onShowTrupp, onTeamTrupp, onTeamNewTrupp, onTeamMark, onTeamRename, onTeamClearTrail, onTeamRemoveWithTrail, hiddenTrails, onToggleTrail, teamLines, onTeamUnlink, onTeamUndock, ghostTrails, onGhostTrail, truppSeverities }: MapMarkersProps) {
   const ghostLabel = (g: TruppTrail) => ghostTrailLabel(g, appConfig.copy.whiteboard.team, trupps ?? [])
-  // repaint the baked placard glyphs (Kemler auto-derived via lookupUN) when the fetched
-  // ADR dataset lands — see lib/useHazardData.
-  useHazardData()
+  // the baked placard glyphs (Kemler auto-derived via lookupUN): the ADR table loads once a
+  // numbered Tafel is drawn, and they repaint when it lands — see lib/useHazardData.
+  useHazardData({ un: useMemo(() => anyPlacardUn(entities), [entities]) })
   // when the note input mounted — onBlur uses this to tell a real "done editing" click-away
   // (commit) apart from the placement focus-steal (bounce focus back). See onBlur below.
   const noteEditStart = useRef(0)

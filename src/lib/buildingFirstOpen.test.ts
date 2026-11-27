@@ -157,7 +157,7 @@ describe('never under the opening cover (lib/bootCover)', () => {
   it('opens only once the snail has faded out — not while it is on, not while it leaves', async () => {
     const before = reads().length
     const h = renderHook((p: { ready: boolean }) => {
-      const phase = useBootCover(true, p.ready)
+      const phase = useBootCover(true, { ready: p.ready })
       return { phase, ...useBuildingFirstOpen('inc-1', gas, phase === 'off') }
     }, { initialProps: { ready: false } })
     await waitFor(() => expect(h.result.current.phase).toBe('on'))

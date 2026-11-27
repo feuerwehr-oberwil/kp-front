@@ -8,8 +8,8 @@ import { createStaticDataset } from './staticData'
  * deep-link away.
  *
  * The data rides as a static asset (public/erg.json, service-worker-precached) loaded via
- * lib/staticData like the ADR table (lib/unHazard): lookups miss until the boot prefetch
- * lands, and surfaces re-render on arrival through lib/useHazardData.
+ * lib/staticData like the ADR table (lib/unHazard): lookups miss until it lands, a surface that
+ * needs it starts the load and re-renders on arrival through lib/useHazardData.
  */
 
 export interface ErgLargeSpill { li?: string; ld?: string; ln?: string }
@@ -38,7 +38,7 @@ export interface ErgData { version: string; un: Record<string, ErgEntry> }
 
 const ds = createStaticDataset<ErgData>('erg.json')
 
-/** Kick (or await) the dataset load — boot prefetch and the print path call this. */
+/** Kick (or await) the dataset load — lib/useHazardData and the print path call this. */
 export async function ensureErg(): Promise<void> { await ds.ensure() }
 /** For lib/useHazardData (useSyncExternalStore). */
 export const subscribeErg = ds.subscribe

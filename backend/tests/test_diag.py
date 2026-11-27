@@ -212,6 +212,39 @@ async def test_a_boot_report_is_one_bounded_line(client, caplog):
     assert "\n" not in line
 
 
+async def test_a_boot_report_with_every_mark_the_client_sends_is_logged(client, caplog):
+    """lib/bootTiming's whole set – browser, worker, app and opening-cover marks, flags – fits the cap."""
+    names = [
+        "ws",
+        "rs",
+        "re",
+        "di",
+        "dcl",
+        "css",
+        "fcp",
+        "swe",
+        "swn",
+        "entry",
+        "cfg",
+        "root",
+        "sym",
+        "map",
+        "plans",
+        "wx",
+        "cap",
+        "cover",
+        "lift",
+        "nosw",
+        "upd",
+        "hid",
+    ]
+    with caplog.at_level(logging.INFO, logger="kpfront.boot"):
+        r = await client.post("/api/diag/boot", json={"marks": {n: i for i, n in enumerate(names)}})
+    assert r.status_code == 204
+    [line] = [rec.getMessage() for rec in caplog.records if rec.getMessage().startswith("boot-timing")]
+    assert "wx=15 cap=16 cover=17" in line
+
+
 async def test_a_boot_report_with_too_many_marks_is_refused(client):
     r = await client.post("/api/diag/boot", json={"marks": {f"m{i}": i for i in range(30)}})
     assert r.status_code == 422

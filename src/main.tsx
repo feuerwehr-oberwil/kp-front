@@ -25,8 +25,6 @@ import { loadStationPlanScales, refreshStationPlanScales } from './lib/stationPl
 import { migrateLocalStorageToIdb } from './lib/storageMigration'
 import { requestPersistentStorage } from './lib/idb'
 import { applyLocale } from './config/copy'
-import { ensureErg } from './lib/erg'
-import { ensureUnHazard } from './lib/unHazard'
 import { whenIdle } from './lib/idle'
 import { purgeStaleTiles } from './lib/tilePurge'
 import { liftBootCover } from './lib/snailLaunch'
@@ -192,18 +190,10 @@ void (async () => {
     // budgeted like everything on the boot path: past the budget the app renders German
     // and the overlay applies when it lands (a reload picks it up fully).
     await withBudget(applyLocale(cfg.identity?.locale), BOOT_BUDGET_MS, undefined)
-    // Prefetch the hazard reference datasets (ADR table + ERG — static assets since they
-    // left the entry bundle, see lib/staticData). Deliberately NOT awaited: nothing on the
-    // boot path may block first paint, and the surfaces re-render when they land
-    // (lib/useHazardData). ⚠️ On IDLE, and only where the field app mounts (perf sweep
-    // 23.09.2026): fetching and parsing ~660 KB of JSON right before createRoot competed with
-    // the first render, and the capture poster and /admin never read a UN number at all. The
-    // idle callback fires in the first quiet moment after first paint (2 s at the latest), and
-    // both files are precached, so offline they land exactly as before.
-    // …and the field app itself on a device nobody is signed in to (a kiosk): its PIN pad is on
+    // The field app itself, on idle, on a device nobody is signed in to (a kiosk): its PIN pad is on
     // screen first, and the chunk loads while the PIN is typed (performance F3 – loading it only
     // after the PIN cost the cold start half a second; a signed-in device has warmed it already).
-    if (fieldRoute) whenIdle(() => { warmApp(); void ensureUnHazard(); void ensureErg() })
+    if (fieldRoute) whenIdle(warmApp)
     // Tiles cached by releases before 08.11.2026 move from Cache Storage into the worker's tile
     // store (public/sw-tile-store.js), asked on every launch until it is done – well after the boot.
     setTimeout(() => navigator.serviceWorker?.controller?.postMessage({ type: 'kp-tile-migrate' }), 10_000)

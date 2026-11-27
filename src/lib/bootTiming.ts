@@ -19,9 +19,21 @@ let wasHidden = document.visibilityState === 'hidden'
 const onVisibility = () => { if (document.visibilityState === 'hidden') wasHidden = true }
 document.addEventListener('visibilitychange', onVisibility)
 
-/** Record a boot milestone (first call per name wins). */
+// Set once the launch's line went out (reportBoot): a mark after it joins `late`, which goes out
+// as a second line (`nav=late`) when the opening cover is off. That is a kiosk's cold start: its
+// line leaves at the PIN pad, and the Einsatz opens behind the cover after the PIN.
+let sendLate: ((marks: Record<string, number>) => void) | null = null
+const late: Record<string, number> = {}
+
+/** Record a boot milestone (first call per name wins). Also a User Timing mark `boot:<name>`,
+ *  which the performance journeys (e2e/perf/harness · coverMarks) and a devtools profile read. */
 export function markBoot(name: string): void {
-  marks[name] ??= Math.round(performance.now())
+  if (name in marks) return
+  marks[name] = Math.round(performance.now())
+  performance.mark?.(`boot:${name}`)
+  if (!sendLate) return
+  late[name] = marks[name]
+  if (name === 'cover') sendLate(late)
 }
 
 /** milestones the browser already timed: navigation, the render-blocking stylesheet, first paint */
@@ -66,7 +78,8 @@ function workerMarks(): Promise<Record<string, number>> {
   })
 }
 
-/** Send the launch's line once the boot splash is gone (or after 30 s, whatever it shows then).
+/** Send the launch's line once the boot splash is gone (or after 30 s, whatever it shows then),
+ *  and the opening cover's marks in a `late` line when they came after it.
  *  `send` is the app's beacon, passed in so this module stays import-free. */
 export function reportBoot(send: (body: unknown) => void, build: string): void {
   const flags = {
@@ -88,6 +101,7 @@ export function reportBoot(send: (body: unknown) => void, build: string): void {
     void workerMarks().then((sw) => {
       document.removeEventListener('visibilitychange', onVisibility)
       send({ nav, build, standalone, marks: { ...browserMarks(), ...sw, ...marks, ...flags, hid: wasHidden ? 1 : 0 } })
+      if (!('cover' in marks)) sendLate = (m) => send({ nav: 'late', build, standalone, marks: m })
     })
   }
   const lifted = () => {

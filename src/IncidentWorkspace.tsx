@@ -29,7 +29,7 @@ import { useReplay } from './lib/useReplay'
 import { isTypingTarget, keyOwnedElsewhere } from './lib/hotkeys'
 import { navStops } from './lib/navRail'
 import { incident as demoIncident, planDocuments, gebaeudeDoc } from './data/demoIncident'
-import { ergRingOverlays } from './lib/ergRings'
+import { anyRingUn, ergRingOverlays } from './lib/ergRings'
 import { useHazardData } from './lib/useHazardData'
 import type { BoardAnno, Drawing, Entity, Incident, LayerDef, LayerId, LngLat, MittelEntry, ReactivateResult, TimelineEvent, Trupp } from './types'
 import { appConfig } from './config/appConfig'
@@ -106,7 +106,6 @@ import { ZielPickBar } from './components/ZielPickBar'
 import { ReplayBar } from './components/ReplayBar'
 import { FabEntry } from './components/FabEntry'
 import { useFloatRowPlacement } from './lib/floatRow'
-import { prewarmPlans } from './lib/pdfRaster'
 import { prefetchOutlines } from './components/OsmOutline'
 import {
   WorkspaceSync, 
@@ -164,10 +163,10 @@ import type { PlanStepLink } from './lib/planStepLink'
 import { mittelLineCount } from './lib/mittel'
 import { autoNoteWPx } from './lib/notes'
 import { photoUrlKey, setDevicePositionSource, withPhotoUrls } from './lib/photoGeo'
-import { whenIdle } from './lib/idle'
 import { useSessionRole, useWorkspaceFlags, viewOnlyReason } from './workspace/access'
 import { useOfflinePrefetch } from './workspace/useOfflinePrefetch'
-import { loadReportPreflight, loadWhiteboard, requestReportStep } from './workspace/lazySurfaces'
+import { requestReportStep } from './workspace/lazySurfaces'
+import { useWarmUps } from './workspace/useWarmUps'
 import { useTafelPages } from './workspace/useTafelPages'
 import { calibratePlan } from './workspace/planCalibration'
 import { compoundSteps } from './workspace/compoundStep'
@@ -744,9 +743,9 @@ export function IncidentWorkspace({
   )
   const drawings = replayActive ? (replayWs?.drawings ?? []) : doc.drawings
 
-  // re-render when the fetched ADR/ERG datasets land (lib/useHazardData) — the rings and
-  // baked placards below read them synchronously.
-  const hazVersion = useHazardData()
+  // the ERG rings below read the ERG table synchronously: it loads once a UN number is on the
+  // board (live or in the replay), and the workspace re-renders when it lands (lib/useHazardData)
+  const hazVersion = useHazardData({ erg: useMemo(() => anyRingUn(entities), [entities]) })
   const resolvedMapDrawings = useMemo(() => resolveMapDrawings(drawings, entities), [drawings, entities])
   /**
    * The ONE thing the header pair does: step the global timeline, then SAY what it stepped.
@@ -1385,10 +1384,12 @@ export function IncidentWorkspace({
   // top bar. Each of those used to arrive in view, one jump at a time (01.10.2026).
   const [mapSettled, setMapSettled] = useState(false)
   const onMapSettled = useCallback(() => setMapSettled(true), [])
-  const coverPhase = useBootCover(!!openCover, (sym.ready || !!sym.error)
-    && (mode !== 'map' || mapSettled)
-    && plansSettled
-    && (!liveFeeds || !!liveWeather.data || !!liveWeather.error), onOpenCoverDone)
+  const coverPhase = useBootCover(!!openCover, {
+    sym: sym.ready || !!sym.error,
+    map: mode !== 'map' || mapSettled,
+    plans: plansSettled,
+    wx: !liveFeeds || !!liveWeather.data || !!liveWeather.error,
+  }, onOpenCoverDone)
   // The Gebäude card opens by itself the first time THIS device shows the Karte of this Einsatz
   // whose building has anything to show (lib/buildingFirstOpen): after the cover
   // has lifted (never under the snail), on the Karte only — an Einsatz that opens on another
@@ -1812,30 +1813,8 @@ export function IncidentWorkspace({
   // next ordinary open of this browser land on the Atemschutz board for no reason anyone gave.)
   useEffect(() => { savePrefs({ ...loadPrefs(), ...(asLink ? {} : { mode, modeIncidentId: incidentMeta.id }), activePlanId, symbolScaleMap: symbolScale.map, symbolScaleBoard: symbolScale.board, symbolCaptions, keepScreenOn, railLabels }) }, [asLink, mode, incidentMeta.id, activePlanId, symbolScale, symbolCaptions, keepScreenOn, railLabels])
 
-  // …and the CODE of the two lazy surfaces (Plan, Rapport — see loadWhiteboard at the top), on
-  // idle after the first paint, so a mode switch finds its chunk already parsed. Not for an
-  // Atemschutz-Link phone: it is shown the Tafel and nothing else.
-  useEffect(() => {
-    if (asLink) return
-    return whenIdle(() => { void loadWhiteboard(); void loadReportPreflight() })
-  }, [asLink])
-
-  // warm the plan bitmaps at app load (on idle) so the first open of the Plan tab appears
-  // instantly — the exact-fit bake reuses these unless the stage is larger. ⚠️ Only the active
-  // plan and its two rail neighbours are baked at window size; the rest get a small preview
-  // (~5 MB instead of up to ~83 MB each on an iPad — every plan at full size was enough to have
-  // the tab reclaimed before the Plan tab was ever opened). Re-runs on a plan switch, so the
-  // new neighbours are warmed as the operator moves along the rail (PdfViewport · prewarmPlans).
-  useEffect(() => {
-    if (asLink) return // never shows a plan — a phone must not bake every page into memory for nothing
-    const docs = resolvedPlanDocs.filter((p) => p.imageUrl)
-    const urls = docs.map((p) => (p.imageUrl.startsWith('/') || /^https?:/.test(p.imageUrl) ? p.imageUrl : `${import.meta.env.BASE_URL}${p.imageUrl}`))
-    const active = Math.max(0, docs.findIndex((p) => p.id === activePlanId))
-    const run = () => prewarmPlans(urls, window.innerWidth, window.innerHeight, urls.slice(Math.max(0, active - 1), active + 2))
-    const idle = (window as unknown as { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback
-    const id = idle ? idle(run) : window.setTimeout(run, 600)
-    return () => { const ric = (window as unknown as { cancelIdleCallback?: (h: number) => void }).cancelIdleCallback; if (idle && ric) ric(id); else clearTimeout(id) }
-  }, [resolvedPlanDocs, activePlanId, asLink])
+  // the Plan and Rapport chunks and the plan bitmaps, on idle once the opening cover is off
+  useWarmUps({ coverOff: coverPhase === 'off', asLink, resolvedPlanDocs, activePlanId })
 
   // Layers the MAP renders: during replay, apply the reconstructed layerState so
   // `layer.toggle` history (which layer was on/off at that moment) is faithful too.
@@ -1872,8 +1851,8 @@ export function IncidentWorkspace({
   // interaction provides — a Planungshilfe does not warrant its own clock.
   const mapOverlays = useMemo(
     () => [...(undergroundMapOverlay ? [undergroundMapOverlay] : []), ...ergRingOverlays(entities, new Date())],
-    // hazVersion: the ERG table arrives by fetch shortly after boot (lib/useHazardData) —
-    // rings drawn from an already-typed UN appear with it.
+    // hazVersion: the ERG table arrives by fetch once a UN number is on the board
+    // (lib/useHazardData) — rings drawn from an already-typed UN appear with it.
     [entities, hazVersion, undergroundMapOverlay],
   )
 

@@ -27,6 +27,8 @@ Trupps inside. The journeys never measure an empty app.
 | `idle` | Leaves the Karte alone for a minute | API requests per minute; saves (should be 0); script/task ms, layouts and style recalcs per minute; heap growth |
 | `env` | — | `calibration`: how fast the runner is today (not gated, see below) |
 
+`cold-start` and `warm-reload` also record `ready_<wait>_ms` (`sym`, `map`, `plans`, `wx`, and `cap` when the 8 s cap lifted it, `cover` when it was off): when each wait of the opening cover held (`lib/bootCover`, `harness · coverMarks`), so the last one names what kept the snail up. Not in the baseline (26.11.2026): they show as 🆕 and gate nothing until a baseline is accepted.
+
 Every number is **lower-is-better**. `perf-results/<journey>.json` also records the API routes the
 journey called. When a request count moves, the report shows which routes changed.
 
