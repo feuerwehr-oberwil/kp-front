@@ -14,8 +14,7 @@ Five rules hold this together, each of them somebody else's outage:
    "clear the table" would be one branch of the very write that also carries ``doctrine``,
    ``identity`` and ``mittel``: a whole-document replace. Deletion is expressed by a row's
    ABSENCE from a sheet that is present, it is always previewed by name, and it is always
-   confirmed. (kp-rueck spent three fixes on the mode picker this design does not have —
-   see the study in scratchpad/parity.)
+   confirmed. (kp-rueck spent three fixes on the mode picker this design does not have.)
 2. **An absent sheet is not an empty sheet.** :class:`ParsedSheet` carries ``present`` so the
    difference is representable at all. A workbook with no ``Fahrzeuge`` tab does not touch the
    fleet; a ``Fahrzeuge`` tab holding only its header clears it, on purpose, after a preview

@@ -751,7 +751,7 @@ class DiveraTakeBody(BaseModel):
 # running both feeds one dispatch system into both apps, and a slug accepted here but
 # rejected there would be a trap that only shows up on the second integration. Reserving a
 # name Front doesn't use costs nothing; it was never a valid external sender name anyway.
-# Keep in sync with kp-rueck's app/schemas/alarms.py. See docs/RUNNING-BOTH.md.
+# Keep in sync with kp-rueck's app/schemas/alarms.py. See kp-rueck's docs/RUNNING-BOTH.md.
 #
 # "feld" was missing until 2026-08-19, so the comment above claimed a union this set did not
 # hold: a sender calling itself `feld` was accepted here and rejected there. Both sides

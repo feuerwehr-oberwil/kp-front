@@ -1,6 +1,6 @@
 """Floor packs: which page of a plan revision is which Geschoss, and what that allows.
 
-Decided 14.09.2026 (docs/planning/gebaeude-map-module-linking.md § 6a):
+Decided 14.09.2026 (overview: docs/objektplaene-architecture.md › Floor packs):
 
 * one floor per page; a revision with any ``PlanPageFloor`` row is a *floor pack*;
 * …and since 16.09.2026 a floor may be drawn in several PIECES on that page (``PlanFloor.part``
