@@ -177,7 +177,7 @@ export function useMediaQueue({ incidentId, readOnly, writable, onUploaded, onRe
       if (options?.due) missedDue.current = missedDue.current === 'online' ? 'online' : options.due
       return
     }
-    const due = options?.due ?? missedDue.current
+    const due = options?.due === 'online' || missedDue.current === 'online' ? 'online' : options?.due ?? missedDue.current
     missedDue.current = undefined
     const { deferredUntil } = await flushMediaQueue(incidentId, uploadMedia, due ? { ...options, due } : options)
     if (hold && deferredUntil != null) setEarlyAt(deferredUntil)
