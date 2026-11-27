@@ -10,7 +10,7 @@
  * ladder (`climbLadder`, `lib/pageHeadFit`, 28.09.2026 — «ONE page head» in lib/pageHeadFit).
  */
 
-import { useEffect, useLayoutEffect, type RefObject } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, type RefObject } from 'react'
 
 /**
  * The top bar's priority ladder (walk-through 25.09.2026, N12 / N23).
@@ -127,6 +127,9 @@ export function fitHead(bar: HTMLElement, crowded: (bar: HTMLElement, step: numb
   }, (step) => crowded(bar, step))
 }
 
+/** Have the page's fonts settled? Without `document.fonts` there is nothing to wait for. */
+const fontsSettled = () => document.fonts?.status !== 'loading'
+
 /**
  * Keep the element fitted: whenever what it carries changes (`key`) and whenever the window resizes.
  * Classes are set on the DOM directly — measuring needs the layout of every step, and a React
@@ -134,32 +137,43 @@ export function fitHead(bar: HTMLElement, crowded: (bar: HTMLElement, step: numb
  * `fit` is the top bar's ladder by default; a page head passes `fitPageHead`. `observeSize` also
  * refits when the element's own WIDTH changes (a page head narrows when the rail expands or the
  * Checkliste's picker stands beside it — no window resize says so).
+ * ⚠️ Every fit restarts the ladder (style writes, layout reads), so the two late signals refit only
+ * when they bring something new: the fonts' promise only when the last fit ran before they were in,
+ * the size observer only when the width differs from the one the last fit measured. Its first
+ * report on mount is the width the mount fit already had; a slow tablet paid a whole ladder for it.
  */
 export function useHeadFit(
   ref: RefObject<HTMLElement | null>, key: string,
   fit: (el: HTMLElement) => unknown = fitHead, observeSize = false,
 ) {
+  /** what the last fit measured: the border-box width (only where the size is observed) and
+   *  whether the fonts were in */
+  const last = useRef<{ width: number; fonts: boolean } | null>(null)
+  const fitNow = useCallback((el: HTMLElement) => {
+    fit(el)
+    last.current = { width: observeSize ? el.offsetWidth : Number.NaN, fonts: fontsSettled() }
+  }, [fit, observeSize])
   useLayoutEffect(() => {
-    if (ref.current) fit(ref.current)
-  }, [ref, key, fit])
+    if (ref.current) fitNow(ref.current)
+  }, [ref, key, fitNow])
   useEffect(() => {
-    const on = () => { if (ref.current) fit(ref.current) }
+    const on = () => { if (ref.current) fitNow(ref.current) }
     window.addEventListener('resize', on)
     // fonts arriving late change every width in the bar
-    void document.fonts?.ready.then(on)
+    void document.fonts?.ready.then(() => { if (!last.current?.fonts) on() })
     // …and so does a chip coming or going inside the pill (a sync chip, the ÜBUNG marker): the
     // bar's own renders do not see those. Child lists only — the clock's text ticks every second.
     const mo = typeof MutationObserver === 'undefined' || !ref.current ? null : new MutationObserver(on)
     if (ref.current) mo?.observe(ref.current, { childList: true, subtree: true })
     // width only: the ladder's own last step (a second row) changes the HEIGHT, and refitting on
     // that would be a loop that settles on the same answer every time
-    let width = -1
     const ro = !observeSize || typeof ResizeObserver === 'undefined' || !ref.current ? null
       : new ResizeObserver(([e]) => {
-        const w = Math.round(e.contentRect.width)
-        if (w !== width) { width = w; on() }
+        // the same box the fit measured; the observer reports after layout, so either read is free
+        const w = Math.round(e.borderBoxSize?.[0]?.inlineSize ?? (e.target as HTMLElement).offsetWidth)
+        if (w !== last.current?.width) on()
       })
-    if (ref.current) ro?.observe(ref.current)
+    if (ref.current) ro?.observe(ref.current, { box: 'border-box' })
     return () => { window.removeEventListener('resize', on); mo?.disconnect(); ro?.disconnect() }
-  }, [ref, fit, observeSize])
+  }, [ref, fitNow, observeSize])
 }

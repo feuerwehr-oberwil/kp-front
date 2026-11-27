@@ -95,12 +95,17 @@ export function useReportPlace(
   // returns to the tab it left from; a fresh Einsatz opens on «Bericht», which is the first
   // section of the printed rapport.
   const [phoneTab, setPhoneTab] = useState<PhoneTab>(() => kept?.tab ?? 'bericht')
+  /** Where the body stands, as the last scroll (or our own reset / jump) left it – the unmount
+   *  stores THIS, never `scrollTop`: read in the cleanup while the next surface mounts, that read
+   *  forced a full layout on every switch away from the Rapport. */
+  const topRef = useRef(kept?.top ?? 0)
   /** Picked by hand — each tab starts at ITS top, never at the scroll offset of the one before
    *  (which is a different page of different length). The «noch offen» chips do NOT go through
    *  here: they scroll to their own field instead. */
   const pickTab = (t: PhoneTab) => {
     setPhoneTab(t)
     if (bodyRef.current) bodyRef.current.scrollTop = 0
+    topRef.current = 0
   }
 
   /**
@@ -144,6 +149,9 @@ export function useReportPlace(
     // unhandled error that fails the whole run rather than one test
     if (typeof body.scrollTo === 'function') body.scrollTo({ top, behavior: scrollBehavior() })
     else body.scrollTop = top
+    // where the jump stands now (its target when instant, its start when smooth – the scroll
+    // events follow the rest); the layout is clean from the measure above
+    topRef.current = body.scrollTop
     // …and the same two-beat ink ring the Atemschutz board uses when a locked Anwesenheits-Zeile
     // sends you to a card (Atemschutz.module.css · truppFlash). One surface, one way of saying
     // «this one» — a soft 1.2 s background wash read as a rendering artefact rather than a point.
@@ -199,7 +207,7 @@ export function useReportPlace(
   }, [])
 
   // Scroll keep-alive across the Anwesenheit/Mittel/Verlauf round trip (see rapportKept):
-  // restore before paint on mount, capture on unmount. There is no «close» any more: leaving is
+  // restore before paint on mount, follow the scroll (`topRef`), store it on unmount. There is no «close» any more: leaving is
   // choosing another surface in the rail, which unmounts this one and captures the scroll — and
   // «Einsatz abschliessen» forgets the kept place itself, because coming back to a completed
   // rapport should start at the top.
@@ -214,9 +222,15 @@ export function useReportPlace(
   const forgotten = useRef(false)
   useLayoutEffect(() => {
     const el = bodyRef.current
-    if (el && kept) el.scrollTop = kept.top
+    // seeded with where the restore LANDED: a Rapport that got shorter meanwhile clamps it, and
+    // without a scroll event the next exit would store the old offset. Read at mount, not on exit.
+    if (el && kept) { el.scrollTop = kept.top; topRef.current = el.scrollTop }
+    // a scroll event comes after the browser has scrolled, so its read is free
+    const follow = () => { if (el) topRef.current = el.scrollTop }
+    el?.addEventListener('scroll', follow, { passive: true })
     return () => {
-      if (el && !forgotten.current) rapportKept.write(incidentId, { top: el.scrollTop, tab: phoneTabRef.current, ...snapshotRef.current() })
+      el?.removeEventListener('scroll', follow)
+      if (el && !forgotten.current) rapportKept.write(incidentId, { top: topRef.current, tab: phoneTabRef.current, ...snapshotRef.current() })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
