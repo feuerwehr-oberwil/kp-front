@@ -57,14 +57,14 @@ const slot = () => store.get(`kp-front-ws-${ID}`) as Stored | undefined
 const settle = () => vi.advanceTimersByTimeAsync(CACHE_DEBOUNCE_MS + 50)
 const tabs: Tab[] = []
 
-interface Tab { selection: IncidentSelection; lock: IncidentTabLock | null; held: boolean }
+interface Tab { selection: IncidentSelection; lock: IncidentTabLock | null; held: boolean; restart: () => void }
 const engine = (t: Tab) => t.selection.current as WorkspaceSync
 
 /** One tab with the Einsatz open; its lock starts `lockAfterMs` after the open (App's first render). */
 async function tab({ lockAfterMs = 0, options = {} }: { lockAfterMs?: number; options?: WorkspaceSyncOptions } = {}): Promise<Tab> {
   const answers = new TabLockAnswers()
   const opts = { debounceMs: 1_000, ...options, tabLock: answers }
-  const t: Tab = { selection: new IncidentSelection(), lock: null, held: true }
+  const t: Tab = { selection: new IncidentSelection(), lock: null, held: true, restart: () => {} }
   tabs.push(t)
   await t.selection.open(ID, meta, opts)
   const start = () => {
@@ -74,6 +74,7 @@ async function tab({ lockAfterMs = 0, options = {} }: { lockAfterMs?: number; op
     }, undefined, answers)
     t.lock.start()
   }
+  t.restart = () => { t.lock?.stop(); start() } // App's lock effect re-run for the same Einsatz
   if (lockAfterMs) setTimeout(start, lockAfterMs)
   else start()
   await vi.advanceTimersByTimeAsync(0)
@@ -277,5 +278,18 @@ it('one tab whose held lock the browser releases (WebKit suspends the document) 
   await vi.advanceTimersByTimeAsync(CACHE_DEBOUNCE_MS)
   expect(slot()).toMatchObject({ workspace: { reportMeta: { remarks: 'only in memory yet' } } })
   await vi.advanceTimersByTimeAsync(1_000)
+  expect(putsBy(first)).toBe(1)
+})
+
+it('one tab whose lock restarts before the browser released its old request keeps writing (its own request is not another tab)', async () => {
+  put.mockResolvedValue({ workspace: null, workspace_rev: 2 })
+  const a = await tab()
+  const first = engine(a)
+  first.save({ reportMeta: { remarks: 'alone' } })
+  a.restart() // the new try meets the old request, still held for a moment – as on main, the view flips read-only and back
+  await vi.advanceTimersByTimeAsync(0)
+  expect([a.held, first.lockLost, engine(a)]).toEqual([true, false, first])
+  await vi.advanceTimersByTimeAsync(1_000 + CACHE_DEBOUNCE_MS)
+  expect(slot()).toMatchObject({ dirty: false, workspace: { reportMeta: { remarks: 'alone' } } })
   expect(putsBy(first)).toBe(1)
 })

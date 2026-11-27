@@ -57,6 +57,22 @@ export class TabLockAnswers {
     return () => { set.delete(listener) }
   }
 
+  private settling = new Map<string, Promise<unknown>>()
+
+  /** IncidentTabLock's side: the requests a stopped lock left for `name`, until the browser settled
+   *  them. A try that fails meanwhile may be failing on one of them (a new lock for the Einsatz
+   *  started right after the old one stopped), so it says nothing to the writers. */
+  leftBehind(name: string, requests: Promise<unknown>[]): void {
+    const left = Promise.allSettled([...requests, this.settling.get(name)])
+    this.settling.set(name, left)
+    void left.then(() => { if (this.settling.get(name) === left) this.settling.delete(name) })
+  }
+
+  /** …whether this tab still has such a request for `name` */
+  ownSettling(name: string): boolean {
+    return this.settling.has(name)
+  }
+
   /** IncidentTabLock's side: the lock `name` answered (or, `held` undefined, stopped asking). */
   set(name: string, held: boolean | undefined): void {
     if (held === undefined) { this.answers.delete(name); return }
@@ -72,6 +88,8 @@ export class IncidentTabLock {
   private abort: AbortController | null = null
   private stopped = false
   private generation = 0
+  /** this lock's requests the browser has not settled yet – see TabLockAnswers · leftBehind */
+  private requests = new Set<Promise<unknown>>()
 
   constructor(
     private readonly name: string,
@@ -92,6 +110,13 @@ export class IncidentTabLock {
     void this.acquire(true)
   }
 
+  private track(request: Promise<unknown>): Promise<unknown> {
+    this.requests.add(request)
+    const settled = () => { this.requests.delete(request) }
+    request.then(settled, settled)
+    return request
+  }
+
   /** resolves when stop()/switch releases the held lock */
   private hold(): Promise<void> {
     return new Promise((res) => { this.release = res })
@@ -106,26 +131,27 @@ export class IncidentTabLock {
     try {
       if (tryFirst) {
         let got = false
-        await this.locks.request(this.name, { ifAvailable: true }, async (lock) => {
+        await this.track(this.locks.request(this.name, { ifAvailable: true }, async (lock) => {
           if (!lock || !current()) return // another tab holds it, or this request ended
           got = true
           granted = true
           this.answers.set(this.name, true)
           this.onChange(true)
           await this.hold()
-        })
+        }))
         if (got || !current()) return
-        this.answers.set(this.name, false) // another tab holds it
+        // another tab holds it – unless the holder may be this tab's own previous request
+        if (!this.answers.ownSettling(this.name)) this.answers.set(this.name, false)
         this.onChange(false)
       }
       // queue behind the current holder — granted (→ editing) when that tab goes away
-      await this.locks.request(this.name, { signal: this.abort.signal }, async () => {
+      await this.track(this.locks.request(this.name, { signal: this.abort.signal }, async () => {
         if (!current()) return
         granted = true
         this.answers.set(this.name, true)
         this.onChange(true)
         await this.hold()
-      })
+      }))
     } catch {
       if (!current()) return
       this.onChange(false)
@@ -144,24 +170,23 @@ export class IncidentTabLock {
     const current = () => !this.stopped && generation === this.generation
     let granted = false
     this.abort?.abort() // leave the waiting queue; the steal below replaces it
-    void this.locks
-      .request(this.name, { steal: true }, async () => {
-        if (!current()) return
-        granted = true
-        this.answers.set(this.name, true)
-        this.onChange(true)
-        await this.hold()
-      })
-      .catch(() => {
-        if (!current()) return
-        this.onChange(false)
-        if (granted) void this.acquire(true) // lost again → ask, then wait in line (see acquire)
-      })
+    void this.track(this.locks.request(this.name, { steal: true }, async () => {
+      if (!current()) return
+      granted = true
+      this.answers.set(this.name, true)
+      this.onChange(true)
+      await this.hold()
+    })).catch(() => {
+      if (!current()) return
+      this.onChange(false)
+      if (granted) void this.acquire(true) // lost again → ask, then wait in line (see acquire)
+    })
   }
 
   stop(): void {
     this.stopped = true
     this.answers.set(this.name, undefined)
+    if (this.requests.size) this.answers.leftBehind(this.name, [...this.requests])
     this.generation++
     this.abort?.abort()
     this.release?.()
