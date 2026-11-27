@@ -58,7 +58,7 @@ async function tab({ lockAfterMs = 0, options = {} }: { lockAfterMs?: number; op
   const start = () => {
     t.lock = new IncidentTabLock(incidentLockName(ID), (held) => {
       t.held = held
-      if (held && t.selection.current?.lockLost) void t.selection.open(ID, meta, opts)
+      if (held && (t.selection.opening ?? ID) === ID && t.selection.current?.lockLost) void t.selection.open(ID, meta, opts)
     }, undefined, answers)
     t.lock.start()
   }
@@ -177,6 +177,18 @@ it('a tab that loses the lock drops its waiting cache write, its push and its re
   await vi.advanceTimersByTimeAsync(70_000)
   expect(putsBy(holder)).toBe(1)
   expect(slot()?.workspace.reportMeta).toEqual({ remarks: 'pushed, refused offline' })
+})
+
+it('a tab that loses and regains the lock during a slow takeover ends up editing', async () => {
+  const a = await tab()
+  const b = await tab()
+  get.mockImplementationOnce(() => new Promise(() => {})) // the first reopen's server read hangs
+  b.lock!.takeOver()
+  await vi.waitFor(() => expect(b.held).toBe(true))
+  a.lock!.takeOver() // stolen back while that reopen waits
+  await vi.waitFor(() => expect([a.held, b.held]).toEqual([true, false]))
+  b.lock!.takeOver()
+  await editable(b)
 })
 
 it('a Trupp save refused with 422 after the lock was lost does not fall back to a full PUT', async () => {

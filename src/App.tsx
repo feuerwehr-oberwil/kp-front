@@ -448,12 +448,12 @@ function IncidentApp() {
 
   // A tab that took the edit lock over (the holder closed, or «Hier bearbeiten») starts from the
   // cache as the holder left it: the engine that followed writes nothing again (WorkspaceSync ·
-  // lockLost), so the Einsatz opens afresh – docs/sync-and-offline.md › Two tabs. An operator's
-  // open of another Einsatz goes first; «Hier bearbeiten» asks again.
+  // lockLost), so the Einsatz opens afresh – docs/sync-and-offline.md › Two tabs. An open of
+  // another Einsatz already in flight goes first; «Hier bearbeiten» asks again.
   const reopenTakenOver = useCallback((id: string) => {
-    if (opening || syncRef.current?.incidentId !== id || !syncRef.current.lockLost) return
+    if ((syncRef.opening ?? id) !== id || syncRef.current?.incidentId !== id || !syncRef.current.lockLost) return
     selectIncident(id, { meta: activeMeta ?? undefined, readOnly: forceReadOnlyRef.current, boot: true }).catch(() => {})
-  }, [opening, activeMeta, syncRef, selectIncident])
+  }, [activeMeta, syncRef, selectIncident])
   // single-editor-per-browser: only one tab may edit an incident (they'd race the shared
   // IDB sync cache); a second tab is read-only with a one-tap take-over.
   const tabLock = useIncidentTabLock(activeId, reopenTakenOver)
