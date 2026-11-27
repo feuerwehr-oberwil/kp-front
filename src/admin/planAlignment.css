@@ -32,7 +32,10 @@
 .adm-marker-notes p { margin: 6px 0 0; }
 /* A reason the modal still has to say is a line, not a band – the person is already aligning. */
 .adm-align-reason { margin: 0; padding: 12px 20px 0; max-width: none; }
-.adm-align-review > .adm-state { margin: 15px 20px; }
+/* A refused write is a line too: the compact error line (`.adm-save-err`), never the empty-state
+   box – its 40px padding left ~100px of air around one sentence on a phone. */
+.adm-align-review > .adm-save-err { margin: 0; padding: 12px 20px; }
+.adm-align > .adm-save-err { margin: 0 0 var(--sp-3); }
 .adm-align-empty { padding: 20px; margin: 0; color: var(--ink-dim); font-size: 13px; }
 /* What «Übernehmen» did, beside the filters – it is a receipt, not an alert. */
 .adm-align-applied { margin: 0; flex: 1 1 auto; }
