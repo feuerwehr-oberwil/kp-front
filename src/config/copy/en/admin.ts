@@ -1370,6 +1370,7 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
       deleteNote: 'Tablets that already loaded the template keep their copy until the next sync.',
       orphans: '{n} diagrams without a template – leftovers of a renamed or deleted checklist.',
       cleanOrphans: 'Delete leftovers',
+      cleanFailed: 'Leftovers not deleted ({reason}) – they stay in the list.',
       uploadTitle: 'Upload checklist template',
       uploadHint: 'The file decides where it belongs: its own “id” is the key. Same key means replace.',
       pickFile: 'Choose JSON',

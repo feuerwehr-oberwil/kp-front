@@ -23,7 +23,7 @@ import {
   type ParsedChecklist,
 } from './stationDataApi'
 import './stationData.css'
-import { apiErrorText } from './apiErrors'
+import { apiErrorText, describeApiError } from './apiErrors'
 
 // «Checklisten» — the station's FU/EL checklist templates, in a browser.
 //
@@ -121,18 +121,24 @@ export function ChecklistsView() {
   const datasets = state.kind === 'ok' ? state.data : []
   const { rows, orphanAssets } = groupChecklists(datasets)
 
-  /** «Reste löschen»: one prune for every orphan. A failure stays on the card under the button,
-   *  and the list is read again either way, so what was deleted is gone and the rest stays. */
+  /** «Reste löschen»: one prune for every orphan, then the list is read again, so what was
+   *  deleted is gone and the rest stays. A failure stays on the card under the button, as one
+   *  sentence of this card's own: the reason (the server's, or the transport's) goes in brackets,
+   *  without `ApiError.hint` – that instruction is written for the field app. When the re-read
+   *  fails too (offline, both fail), the last list stands: the sentence says it is still there. */
   const cleanOrphans = async () => {
     setCleaning(true)
     setCleanError(null)
     try {
       const res = await deleteChecklistDatasets(orphanAssets.map((a) => a.id))
       setFlash(fillTemplate(C.deleted, { n: res.pruned.length }))
+      await reload()
     } catch (e) {
-      setCleanError(apiErrorText(e, C.deleteFailed))
+      setCleanError(fillTemplate(C.cleanFailed, { reason: describeApiError(e).message }))
+      try {
+        setState({ kind: 'ok', data: await listReferenceDatasets() })
+      } catch { /* the last list stands */ }
     }
-    await reload()
     setCleaning(false)
   }
 
@@ -172,8 +178,6 @@ export function ChecklistsView() {
         {flash && <p className="adm-save-ok">{flash}</p>}
         {state.kind === 'loading' && <EmptyState loading message={C.loading} />}
         {state.kind === 'error' && <EmptyState tone="err" message={C.loadError} />}
-        {/* a cleanup that failed while the re-read failed too: the leftovers block is gone, its error stays */}
-        {state.kind === 'error' && cleanError && <p className="adm-state adm-state-err">{cleanError}</p>}
         {state.kind === 'ok' && rows.length === 0 && <EmptyState message={C.none} hint={C.noneHint} />}
         {/* Typ und Quelle mirror the Geodaten table (DataView · GeodataView), down to the
             column names — the same two facts, asked of the same registry. */}
@@ -224,9 +228,7 @@ export function ChecklistsView() {
         )}
         {orphanAssets.length > 0 && (
           <div className="adm-ck-orphans">
-            <p className="adm-state adm-state-err">
-              {fillTemplate(C.orphans, { n: orphanAssets.length })}
-            </p>
+            <p className="adm-state-err">{fillTemplate(C.orphans, { n: orphanAssets.length })}</p>
             {/* Labelled, not a bare id dump: which template each ghost was filed under, which
                 page it is and what kind of file — the three facts that make «Reste löschen» a
                 decision rather than a leap. */}
@@ -243,7 +245,7 @@ export function ChecklistsView() {
             <button type="button" className="btn adm-int-btn" disabled={cleaning} onClick={() => void cleanOrphans()}>
               {cleaning ? C.deleting : C.cleanOrphans}
             </button>
-            {cleanError && <p className="adm-state adm-state-err">{cleanError}</p>}
+            {cleanError && <p className="adm-save-err">{cleanError}</p>}
           </div>
         )}
       </Card>

@@ -25,6 +25,7 @@ import { ChecklistsView } from './ChecklistsView'
 import { parseChecklistTemplate } from './stationDataApi'
 import { appConfig } from '../config/appConfig'
 import { ApiError } from '../lib/api'
+import { fillTemplate } from '../lib/format'
 
 const C = appConfig.copy.admin.checklists
 
@@ -141,23 +142,28 @@ describe('Checklisten — cleaning up the leftovers', () => {
     render(<ChecklistsView />)
     fireEvent.click(await screen.findByRole('button', { name: C.cleanOrphans }))
 
-    expect((await screen.findByText('Datenbank nicht erreichbar')).className).toContain('adm-state-err')
+    expect(await screen.findByText(fillTemplate(C.cleanFailed, { reason: 'Datenbank nicht erreichbar' }))).toBeTruthy()
     expect(screen.getByText('checklists:alt:p2')).toBeTruthy()
     expect(screen.queryByText('checklists:alt:p1')).toBeNull()
   })
 
-  it('keeps the error when the list cannot be read again either', async () => {
+  // Sweep 26.11.2026: offline, the line carried the field app's «Gespeicherte Einsätze bleiben
+  // offline verfügbar.», and the failed re-read took the list away that it said was still there.
+  it('offline: says what was not deleted and keeps the leftovers listed, without the field app\'s hint', async () => {
+    const E = appConfig.copy.errors
+    const offline = Object.assign(new ApiError(0, E.serverUnreachable), { hint: E.serverUnreachableHint })
     const orphan = ds('checklists:alt:p1', { content_type: 'image/png' })
-    apiGet
-      .mockResolvedValueOnce([...REGISTRY, orphan])
-      .mockResolvedValueOnce([...REGISTRY, orphan])
-      .mockRejectedValue(new ApiError(503, 'Datenbank nicht erreichbar'))
-    apiPost.mockRejectedValue(new ApiError(503, 'Datenbank nicht erreichbar'))
+    apiGet.mockResolvedValueOnce([...REGISTRY, orphan]).mockRejectedValue(offline)
     render(<ChecklistsView />)
     fireEvent.click(await screen.findByRole('button', { name: C.cleanOrphans }))
 
-    await screen.findByText(C.loadError)
-    expect(screen.getByText('Datenbank nicht erreichbar')).toBeTruthy()
+    const line = await screen.findByText(fillTemplate(C.cleanFailed, { reason: E.serverUnreachable }))
+    expect(line.textContent).not.toContain(E.serverUnreachableHint)
+    // the re-read has settled once the button is back
+    await waitFor(() => expect(screen.getByRole('button', { name: C.cleanOrphans }).hasAttribute('disabled')).toBe(false))
+    expect(screen.getByText('checklists:alt:p1')).toBeTruthy()
+    expect(screen.queryByText(C.loadError)).toBeNull()
+    expect(apiPost).not.toHaveBeenCalled()
   })
 })
 
