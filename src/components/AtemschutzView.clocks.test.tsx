@@ -231,14 +231,16 @@ describe('the board keeps ticking for what reads the clock itself', () => {
     expect(vi.getTimerCount()).toBeGreaterThan(0)
   })
 
-  it('draws the cards in a language catalogue that lands after the board mounted', async () => {
+  it.each([['the tablet grid', false], ['the phone board', true]] as const)('draws the cards in a language catalogue that lands after the board mounted — %s', async (_, phone) => {
+    vi.mocked(useIsPhone).mockReturnValue(phone)
     mountBoard([inside('a', 'Alpha', 30)])
     const kontakt = () => cardOf('Alpha').querySelector(`.${s.trowKontakt}`)!.textContent
+    const caption = () => cardOf('Alpha').querySelector(`.${s.trowSub}`)!.textContent
     expect(kontakt()).toBe(getCopy().atemschutz.actContact)
     await act(async () => { await applyLocale('en') })
-    const en = getCopy().atemschutz.actContact
-    expect(en).not.toBe(az.actContact)
+    const en = getCopy().atemschutz
+    expect(en.actContact).not.toBe(az.actContact)
     tick()
-    expect(kontakt()).toBe(en)
+    expect({ kontakt: kontakt(), caption: caption() }).toEqual({ kontakt: en.actContact, caption: en.sinceContact })
   })
 })

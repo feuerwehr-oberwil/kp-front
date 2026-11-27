@@ -124,6 +124,8 @@ export const TruppRow = memo(function TruppRow({
    *  (plainWords); the row itself carries no lite-only controls. */
   lite: boolean
 }) {
+  // the board's context: a late doctrine or language draws the memoised row again, as its clock leaf
+  useBoardClock()
   const az = appConfig.copy.atemschutz
   const status = live.status
   const words = plainWords(t, lite)
