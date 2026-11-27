@@ -66,6 +66,11 @@ describe('mapMagnetTargets — the points of a symbol Ebene (Hydranten)', () => 
     expect(t.point[1]).toBeCloseTo(0)
   })
 
+  it('a hydrant under a placed symbol is that symbol\'s: only the symbol is offered', () => {
+    const placed: Entity = { ...hydrant, coord: near.at }
+    expect(keys(scene({ entities: [placed], layerPoints: [[near]] }), DRAFT_SOURCE)).toEqual(['object:h'])
+  })
+
   it('projects only the points inside the magnet\'s reach — a district\'s hydrants are not walked', () => {
     let projected = 0
     const counting: MapProjector = { ...flat, project: (c) => { projected += 1; return flat.project(c) } }

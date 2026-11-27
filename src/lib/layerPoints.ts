@@ -42,10 +42,12 @@ export function layerPoints(layer: Pick<LayerDef, 'id' | 'label' | 'geojson' | '
 
 /** What the magnet may reach for right now: the points of every symbol point Ebene that is ON
  *  and loaded, one list per Ebene (components/mapMagnetTargets · MagnetScene.layerPoints). An
- *  Ebene switched off, faded to 0 %, still loading or drawn as plain dots offers nothing. */
-export function magnetLayerPoints(layers: readonly LayerDef[], isVisible: (id: LayerId) => boolean, loads: ReadonlyMap<LayerId, LayerData>): LayerPoint[][] {
+ *  Ebene switched off, faded to 0 %, still loading, drawn as plain dots or whose symbol the pack
+ *  does not know (`byName`; lib/mapImages draws nothing for it) offers nothing. */
+export function magnetLayerPoints(layers: readonly LayerDef[], isVisible: (id: LayerId) => boolean, loads: ReadonlyMap<LayerId, LayerData>, byName: Readonly<Record<string, string>>): LayerPoint[][] {
   return layers.flatMap((l) => {
-    const load = isMagnetLayer(l) && isVisible(l.id) && (l.opacity ?? 100) > 0 ? loads.get(l.id) : undefined
+    const drawn = isMagnetLayer(l) && !!l.symbol && !!byName[l.symbol] && isVisible(l.id) && (l.opacity ?? 100) > 0
+    const load = drawn ? loads.get(l.id) : undefined
     return load?.state === 'ready' ? [layerPoints(l, load.data)] : []
   })
 }

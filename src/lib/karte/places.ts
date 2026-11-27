@@ -228,20 +228,26 @@ export function hydrantAt(hydrants: readonly NamedPoint[], at: LngLat, maxM = LI
 }
 
 /** Point features of a GeoJSON FeatureCollection as named points (a hydrant layer). The label is
- *  whatever the feature calls itself (`name`, `nr`, `id`, …), else its index. */
+ *  whatever the feature calls itself (`name`, `nr`, `id`, …), else its index. A MultiPoint is
+ *  one point per member (`<prefix><i>.<j>`), as the map draws it – an import takes it as a
+ *  point layer (api/reference · firstGeometryKind). */
 export function pointsFromGeoJson(fc: unknown, prefix = 'p'): NamedPoint[] {
   const feats = (fc as { features?: unknown[] } | null)?.features
   if (!Array.isArray(feats)) return []
   const out: NamedPoint[] = []
   feats.forEach((f, i) => {
     const g = (f as { geometry?: { type?: string; coordinates?: unknown } })?.geometry
-    if (g?.type !== 'Point' || !Array.isArray(g.coordinates)) return
-    const [lng, lat] = g.coordinates as number[]
-    if (typeof lng !== 'number' || typeof lat !== 'number') return
+    if (!Array.isArray(g?.coordinates) || (g.type !== 'Point' && g.type !== 'MultiPoint')) return
+    const members = (g.type === 'Point' ? [g.coordinates] : g.coordinates) as unknown[]
     const props = ((f as { properties?: Record<string, unknown> }).properties ?? {}) as Record<string, unknown>
     const raw = ['name', 'Name', 'nr', 'Nr', 'nummer', 'Nummer', 'bezeichnung', 'Bezeichnung', 'id', 'ID']
       .map((k) => props[k]).find((v) => typeof v === 'string' || typeof v === 'number')
-    out.push({ id: `${prefix}${i}`, label: raw != null ? String(raw) : String(i + 1), coord: [lng, lat], ...(raw != null ? { name: String(raw) } : {}) })
+    members.forEach((c, j) => {
+      const [lng, lat] = Array.isArray(c) ? c as unknown[] : []
+      if (typeof lng !== 'number' || typeof lat !== 'number') return
+      const id = g.type === 'Point' ? `${prefix}${i}` : `${prefix}${i}.${j}`
+      out.push({ id, label: raw != null ? String(raw) : String(i + 1), coord: [lng, lat], ...(raw != null ? { name: String(raw) } : {}) })
+    })
   })
   return out
 }

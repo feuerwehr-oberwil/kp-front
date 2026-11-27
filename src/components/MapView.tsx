@@ -548,7 +548,7 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
     if (!map) return []
     // the Ebenen's points (lib/layerPoints), read from the store at event time: MapView does not
     // re-render on a load's progress
-    const layerPoints = magnetLayerPoints(layers, isVisible, layerDataSnapshot())
+    const layerPoints = magnetLayerPoints(layers, isVisible, layerDataSnapshot(), byName)
     return mapMagnetTargets(map, { entities, drawings, attachmentLines, trupps: trupps ?? [], layerPoints, zoom, bearing, symMul },
       sourceId, at, draftStart())
   }

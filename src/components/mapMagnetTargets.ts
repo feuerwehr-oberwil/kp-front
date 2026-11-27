@@ -76,9 +76,14 @@ export function mapMagnetTargets(map: MapProjector, scene: MagnetScene, sourceId
     const corners = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([sx, sy]) => map.unproject([pointer.x + sx * reach, pointer.y + sy * reach]))
     const w = Math.min(...corners.map((c) => c.lng)), e = Math.max(...corners.map((c) => c.lng))
     const s = Math.min(...corners.map((c) => c.lat)), n = Math.max(...corners.map((c) => c.lat))
+    // a point under a PLACED symbol or vehicle is that object's: the operator's own Hydrant set
+    // on the layer one must win the snap, not the smaller plate beneath it
+    const covers = entities.flatMap((x) => (x.kind === 'symbol' || x.kind === 'vehicle') && Array.isArray(x.coord)
+      ? [{ c: map.project(x.coord), r: symPx(x.kind, x.coord[1], zoom, symMul) / 2 }] : [])
     for (const points of layerPoints) for (const p of points) {
       if (p.at[0] < w || p.at[0] > e || p.at[1] < s || p.at[1] > n) continue
       const c = map.project(p.at)
+      if (covers.some((o) => Math.hypot(o.c.x - c.x, o.c.y - c.y) < o.r)) continue
       layerTargets.push({ key: `layer:${p.layer}:${p.id}`, target: { kind: 'layer', ...p }, point: boundaryPoint({ shape: 'circle', center: [c.x, c.y], radius: plate }, [pointer.x, pointer.y]), defaultRouting: DEFAULT_OBJECT_ROUTING })
     }
   }
