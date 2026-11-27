@@ -468,6 +468,8 @@ async def test_both_lock_timeouts_leave_no_attempt_charged(session_factory, db_s
 
     monkeypatch.setattr(plans, "WORKER_LOCK_WAIT_MS", 200)
     monkeypatch.setattr(worker, "_owed", {})
+    monkeypatch.setattr(worker, "_owed_due", {})
+    monkeypatch.setattr(worker, "OWED_RETRY_SECONDS", 0)  # settle on the very next call
     job_id = await seed(db_session, single_page_store)
     await _store_config(session_factory, {"modules": "not a list"})
     real_claim = worker.claim_job
@@ -546,3 +548,51 @@ async def test_an_owed_job_is_neither_claimed_nor_failed_by_the_sweep(db_session
         await db_session.execute(select(PlanAlignment.status, PlanAlignment.attempts).order_by(PlanAlignment.id))
     ).all()
     assert [tuple(r) for r in rows] == [("processing", worker.MAX_ATTEMPTS), ("processing", 1)]
+
+
+async def test_an_owed_give_back_is_tried_once_per_window_not_before_every_claim(monkeypatch, session_factory):
+    """A tick claims up to 20 jobs; an owed give-back whose row stays held is tried once per
+    OWED_RETRY_SECONDS, not 20 times at WORKER_LOCK_WAIT_MS each – and stays owed meanwhile."""
+    tries: list[int] = []
+
+    async def still_held(db, claim):
+        tries.append(claim.id)
+        return False
+
+    claim = worker.Claim(7, "plan:x:modul1", 1, 0, 1, 2)
+    monkeypatch.setattr(worker, "_owed", {7: claim})
+    monkeypatch.setattr(worker, "_owed_due", {})
+    monkeypatch.setattr(worker, "_try_give_back", still_held)
+    await worker._settle_owed(session_factory)
+    await worker._settle_owed(session_factory)
+    assert tries == [7]
+    assert worker._owed == {7: claim}
+
+
+async def test_a_legacy_plan_without_an_object_still_takes_its_lock_3(
+    session_factory, db_session, pdf_store, monkeypatch
+):
+    """A row from before plans had an object still names one in its id. The worker takes that
+    object's lock 3 before the alignment row, as the alignment writers do (plan_approval ·
+    lock_plans_of) – without it, its marker approval took lock 3 AFTER finish_job's row lock, the
+    reverse of a Geschosse save. Here a held lock 3 sends the job back. PostgreSQL only."""
+    if db_session.bind.dialect.name != "postgresql":
+        pytest.skip("requires independent PostgreSQL transactions")
+    from app import plans
+
+    monkeypatch.setattr(plans, "WORKER_LOCK_WAIT_MS", 200)
+    job_id = await seed(db_session, pdf_store)
+    job = await db_session.get(PlanAlignment, job_id)
+    owner = (await db_session.get(ReferenceDataset, job.dataset_id)).object_id
+    await db_session.execute(
+        update(ReferenceDataset).where(ReferenceDataset.id == job.dataset_id).values(object_id=None, module=None)
+    )
+    await db_session.commit()
+
+    async with session_factory() as holder:
+        await plans.lock_object_plans(holder, owner)
+        assert await worker.run_once(session_factory)
+        await holder.commit()
+
+    held = await db_session.get(PlanAlignment, job_id, populate_existing=True)
+    assert (held.status, held.attempts) == ("pending", 0)

@@ -416,12 +416,14 @@ async def test_a_skipped_run_keeps_the_schedule_and_warns_once_skips_repeat(run_
     monkeypatch.setattr(scheduler, "_sharepoint_last_run", None)
     monkeypatch.setattr(scheduler, "_busy_skips", {})
 
+    warned: list[bool] = []  # per tick: did THIS tick log the skip warning
     with caplog.at_level("INFO", logger=scheduler.logger.name):
         for _ in range(5):
+            caplog.clear()
             await run_job(scheduler._sharepoint_pull)
+            warned.append(any(r.levelname == "WARNING" and "skipped" in r.getMessage() for r in caplog.records))
     assert answers == [], "every tick tried again while the runs were skipped"
-    warnings = [r for r in caplog.records if r.levelname == "WARNING" and "skipped" in r.getMessage()]
-    assert len(warnings) == 1
+    assert warned == [False, False, True, False, False]  # the third skip in a row, and only it
     assert scheduler._busy_skips == {}  # the run that got through reset the count
 
 

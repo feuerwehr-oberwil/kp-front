@@ -34,7 +34,7 @@ from .plan_approval import MARKERS, ApprovalError, approve_fit
 from .plan_floors import FloorError, PlanFloor, load_floors, replace_floors, validate_floors
 from .plan_markers import MarkerPlan, admin_overrides, apply_overrides, marker_snapshot, read_plan
 from .plan_markers import text as marker_text
-from .plans import limit_lock_wait, lock_object_plans, lock_wait_exceeded
+from .plans import limit_lock_wait, lock_object_plans, lock_wait_exceeded, plan_target
 from .reference_buildings import ensure_snapshot
 from .schemas import load_stored_config
 
@@ -47,9 +47,13 @@ BUSY_RETRY_SECONDS = 60
 BUSY_WARN_MINUTES = 30
 
 #: Give-backs that could not be written because the row itself was held (a re-key): claim id →
-#: claim. Settled at the start of every tick (`_settle_owed`), so a lock timeout never leaves an
+#: claim. Settled before the next claims (`_settle_owed`), so a lock timeout never leaves an
 #: attempt charged; only a worker restart in that window does, and that is a lost run.
 _owed: dict[int, Claim] = {}
+#: …tried again at most once per OWED_RETRY_SECONDS each (≈ one alignment tick), not before every
+#: claim of a tick: each try may wait WORKER_LOCK_WAIT_MS, and a tick claims up to 20 jobs
+OWED_RETRY_SECONDS = 10
+_owed_due: dict[int, datetime] = {}
 #: claim id → when it was first given back, and the ones already warned about
 _busy_since: dict[int, datetime] = {}
 _busy_warned: set[int] = set()
@@ -210,18 +214,25 @@ async def _given_back(db: AsyncSession, claim: Claim, exc: DBAPIError) -> bool:
     _note_busy(claim.id)
     if not await _try_give_back(db, claim):
         _owed[claim.id] = claim
+        _owed_due[claim.id] = datetime.now(UTC) + timedelta(seconds=OWED_RETRY_SECONDS)
         logger.info("Plan alignment job %s: its row is held too — given back on a later tick", claim.id)
     return True
 
 
 async def _settle_owed(factory: async_sessionmaker[AsyncSession]) -> None:
     """Write the give-backs a held row refused (`_owed`), each bounded; the rest wait for the next
-    tick. Before any claim, so the lease never re-claims (and charges) a job that is owed back."""
+    tick. Before any claim, so the lease never re-claims (and charges) a job that is owed back – the
+    claim skips every owed job, due or not (`claim_job(owed=…)`)."""
+    now = datetime.now(UTC)
     for claim_id, claim in list(_owed.items()):
+        if _owed_due.get(claim_id, now) > now:
+            continue
         async with factory() as db:
             if await _try_give_back(db, claim):
                 del _owed[claim_id]
+                _owed_due.pop(claim_id, None)
             else:
+                _owed_due[claim_id] = now + timedelta(seconds=OWED_RETRY_SECONDS)
                 _note_busy(claim_id)
 
 
@@ -433,7 +444,11 @@ async def run_once(factory: async_sessionmaker[AsyncSession] = async_session_mak
         key = revision.storage_key if revision else None
         expected_digest = revision.content_digest if revision else None
         module = dataset.module if dataset and dataset.module else ""
-        object_uuid = obj.id if obj else None
+        # whose «plans» lock 3 is – also for a row from before plans had an object, whose id still
+        # names one (plan_approval.lock_plans_of takes it the same way): the approval below locks
+        # it after finish_job's row lock otherwise, against the lock order
+        named = plan_target(claim.dataset_id)
+        object_uuid = obj.id if obj else (named[0] if named else None)
         object_id = str(obj.id) if obj else ""
         lng = float(obj.lng) if obj and obj.lng is not None else None
         lat = float(obj.lat) if obj and obj.lat is not None else None
