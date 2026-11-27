@@ -3,6 +3,7 @@ import { pollWorkspaceSince, type WorkspaceSync, type Workspace, type SyncStatus
 import { appConfig } from '../config/appConfig'
 import { onWorkspaceServerTime } from './api/workspace'
 import { onReachable } from './connectivity'
+import { QUICK_EMPTY_ANSWER_MS } from './pollBackoff'
 import { attendanceConflictRows, conflictRows } from './attendanceConflict'
 import { fillTemplate } from './format'
 import type { RecordConflict } from './mergeWorkspace'
@@ -42,9 +43,6 @@ const formConflictRows = (conflicts: RecordConflict[], seen: Set<string>) =>
       return fillTemplate(J.tafelConflict, { page: m.page ?? '', where: m.where ?? '', kept: m.kept ?? '', lost: t.lost ?? '' })
     },
   })
-
-/** A held poll that answers «nothing new» faster than this did not hold (see the round). */
-const QUICK_EMPTY_ANSWER_MS = 1_000
 
 interface IncidentSyncDeps {
   sync: WorkspaceSync
