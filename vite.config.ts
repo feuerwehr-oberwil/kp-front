@@ -248,6 +248,25 @@ function customMediaResolved(): Plugin {
   }
 }
 
+/*
+ * React Compiler TRIAL (performance sweep 26.11.2026, finding 34 – not adopted). plugin-react 6's
+ * `compiler` option runs Oxc's Rust port of the compiler (`oxc-transform-react`, experimental) in
+ * front of the JSX transform – in the build, the dev server and Vitest alike. `sources` is a
+ * substring filter on the file path. `REACT_COMPILER=off|narrow` picks the trial's other two
+ * columns: off = today's build, narrow = the top bar group only.
+ */
+const COMPILER_SOURCES = {
+  narrow: ['src/workspace/WorkspaceTopBar.tsx', 'src/components/TopBar.tsx', 'src/components/panels/IncidentSwitcher.tsx',
+    'src/components/SharePosition.tsx', 'src/components/HoldTargets.tsx'],
+  wide: ['src/components/', 'src/workspace/', 'src/IncidentWorkspace.tsx'],
+}
+function reactCompiler() {
+  const pick = process.env.REACT_COMPILER ?? 'wide'
+  if (pick === 'off') return false
+  if (pick !== 'narrow' && pick !== 'wide') throw new Error(`REACT_COMPILER=${pick}: off, narrow or wide`)
+  return { sources: COMPILER_SOURCES[pick], panicThreshold: 'none', logDiagnostics: process.env.REACT_COMPILER_LOG === '1' } as const
+}
+
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   const adminPrecache = adminOutsidePrecache()
@@ -280,7 +299,7 @@ export default defineConfig(({ mode }) => {
       iosStartupImages(),
       buildStampMeta(),
       customMediaResolved(),
-      react(),
+      react({ compiler: reactCompiler() }),
       VitePWA({
         // 'prompt' (not 'autoUpdate'): a fresh deploy installs and WAITS instead of silently
         // taking over and reloading the page — so the app is never swapped out from under an
