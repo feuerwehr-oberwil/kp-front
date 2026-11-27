@@ -264,8 +264,11 @@
 .draw-editor .de-ends-detach { flex: none; padding-inline: var(--sp-3); }
 /* the hydrant end, alone on a line beside «Lösen», may not fit either («TLF → ✓ Hydrant 2 m»,
    a line drawn from the vehicle to the hydrant, ran 5px under the button): its metres go under
-   the word, and only a column too narrow for «→ ✓ Hydrant» ellipsizes the word */
-.draw-editor .de-end:has(.de-end-m) { flex-wrap: wrap; row-gap: 0; }
+   «→ ✓ Hydrant», which stays one group (.de-end-w) – only a column too narrow for it
+   ellipsizes the word («Hydrante» beside «Libérer» once left → ✓ alone on a line) */
+.draw-editor .de-end--hyd { flex-wrap: wrap; row-gap: 0; }
+.draw-editor .de-end-w { display: inline-flex; align-items: center; gap: var(--sp-1); min-width: 0; }
+.draw-editor .de-end-w > span:not(.de-ends-to) { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* (the note's «Ziel anzeigen» is THE button, <Button> — a framed button at the note's end since
    28.09.2026, owner pick A; it was an underlined blue word, 12px, a hyperlink in a command app) */
 /* (the detach, «Verbindung lösen», is a body act at the control edge – 08-toasts · `.de-act`; it

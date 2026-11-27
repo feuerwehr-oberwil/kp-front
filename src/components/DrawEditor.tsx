@@ -263,7 +263,7 @@ function EndsRow({ drawing, labels, hydrantM, onDetach, gpsEnds, onGo }: {
             // the → goes with the end it points at, so the two ends wrap as units
             const to = i > 0 && <span className="de-ends-to" aria-hidden>→</span>
             return e.kind === 'docked' ? <span key={e.ep} className="de-end">{to}<Icon id="link" className="de-end-ok" /><span title={e.name}>{e.name}</span></span>
-              : e.kind === 'hydrant' ? <span key={e.ep} className="de-end">{to}<Icon id="check" className="de-end-ok" /><span>{C.endHydrant}</span><span className="de-end-m">{fmtDistance(e.m)}</span></span>
+              : e.kind === 'hydrant' ? <span key={e.ep} className="de-end de-end--hyd"><span className="de-end-w">{to}<Icon id="check" className="de-end-ok" /><span>{C.endHydrant}</span></span><span className="de-end-m">{fmtDistance(e.m)}</span></span>
               : <span key={e.ep} className="de-end de-end--none">{to}{C.endNone}</span>
           })}
         </span>
