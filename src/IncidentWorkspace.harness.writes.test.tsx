@@ -712,14 +712,43 @@ describe('(n) a Notiz typed on the Lage writes its Verlauf row', () => {
       expect(rows()).toEqual([])
     })
 
-    // the lock takes the editor; what was typed before it ends as any typing does
-    it('typed, then the Einsatz is closed on another device: the typing ends with its row', async () => {
+    // the lock takes the editor under every tool («Auswahl» too); its field ends the typing as it
+    // goes (NoteField · useCommitDraftOnUnmount → MapMarkers · noteEnd, MapMarkers.test), with its row
+    it('typed, then the Einsatz is closed on another device: the editor goes, the typing ends with its row', async () => {
       const { noteRows, lock } = await start()
       act(() => map().onNoteEdit('a'))
       type('Wasser ab 14:20')
       await lock()
+      expect((lastMap() as unknown as { editNoteId: string | null }).editNoteId).toBeNull()
       await end('Wasser ab 14:20')
       expect(noteRows()).toEqual([written('Wasser ab 14:20')])
+    })
+  })
+
+  // A's editor keeps the caret while B's panel is open (a tap, or a press on «Entfernen», moves no focus)
+  describe('two Notizen', () => {
+    const b = { id: 'b', kind: 'note', coord: [7.601, 47.501], label: 'Beta' } as Entity
+    const both = () => start({ workspace: { entities: [truck, alt, b] } as unknown as Saved })
+    const openB = async () => {
+      act(() => { lastMap().onSelect(lastMap().entities.find((e) => e.id === 'b')!); map().onNotePanel('b') })
+      await settle()
+    }
+    const audit = () => vi.spyOn(AuditEventStore.prototype, 'append')
+
+    it('B removed by its panel while A is typed: A keeps its session and its row, B gets no edit', async () => {
+      const edits = audit()
+      const { noteRows } = await both()
+      act(() => map().onNoteEdit('a'))
+      act(() => map().onNoteText('a', 'Wasser ab 14:20'))
+      await openB()
+      fireEvent.click(removeButton())
+      await settle()
+      expect(lastMap().entities.some((e) => e.id === 'b')).toBe(false)
+      act(() => map().onNoteCommit('a', 'Wasser ab 14:20'))
+      await settle()
+      expect(noteRows()).toEqual([written('Wasser ab 14:20')])
+      const editIds = edits.mock.calls.map(([e]) => e).filter((e) => e.op_type === 'entity.edit').map((e) => (e.payload as { id?: string }).id)
+      expect(editIds).toEqual(['a'])
     })
   })
 
