@@ -249,14 +249,17 @@
   text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .draw-editor .de-ends-go:disabled { cursor: default; opacity: 1; }
 .draw-editor .de-ends-k { flex: 0 0 var(--ctx-lbl); min-width: 0; color: var(--ink-dim); font-weight: var(--fw-medium); }
-.draw-editor .de-ends-v { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: var(--sp-1); }
+/* the two ends wrap as units when they cannot share the column beside «Lösen» («✓ Hydrant 2 m»
+   over «→ 🔗 TLF»): squeezed onto one line, the docked name went to nothing and its 🔗 ran
+   under «Lösen». A docked end alone on its line still ellipsizes. */
+.draw-editor .de-ends-v { flex: 1 1 auto; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 2px var(--sp-1); }
 .draw-editor .de-ends-to { flex: none; color: var(--ink-faint); font-weight: var(--fw-medium); }
 .draw-editor .de-end { display: inline-flex; align-items: center; gap: var(--sp-1); min-width: 0; }
-.draw-editor .de-end > span:not(.de-end-m) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.draw-editor .de-end > span:not(.de-end-m, .de-ends-to) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .draw-editor .de-end-m { flex: none; color: var(--ink-faint); font-weight: var(--fw-medium); }
 .draw-editor .de-end .i { flex: none; width: 16px; height: 16px; }
 .draw-editor .de-end-ok { color: var(--green-strong); }
-/* «nichts» is one short word: it keeps it, and the docked name beside it is the one that gives */
+/* «→ nichts» is one short word: it keeps it, and the docked name beside it is the one that gives */
 .draw-editor .de-end--none { flex: none; color: var(--ink-faint); font-weight: var(--fw-medium); }
 .draw-editor .de-ends-detach { flex: none; padding-inline: var(--sp-3); }
 /* the hydrant end keeps its words; a long docked name is the one that ellipsizes */

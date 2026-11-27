@@ -231,7 +231,8 @@ const FILL_OPACITIES = appConfig.drawing.fillOpacities
  *  editShort); two docked ends are released under «Verbindungen», one button each. Shown only
  *  when an end holds something. The label stands in the sheet's label column and the ends'
  *  words in the control column, where every other row's control starts (owner, Üben feedback
- *  27.11.2026); a long docked name ellipsizes before «Lösen», its full name in the title. */
+ *  27.11.2026). When both ends do not fit beside «Lösen» they stand on two lines, the → with
+ *  the second; a long docked name ellipsizes before «Lösen», its full name in the title. */
 function EndsRow({ drawing, labels, hydrantM, onDetach, gpsEnds, onGo }: {
   drawing: DrawStyle
   labels?: Partial<Record<LineEndpoint, string>>
@@ -258,14 +259,13 @@ function EndsRow({ drawing, labels, hydrantM, onDetach, gpsEnds, onGo }: {
         title={hasConnections ? C.endsGo : undefined}>
         <span className="de-ends-k">{C.ends}</span>
         <span className="de-ends-v">
-          {ends.map((e, i) => (
-            <Fragment key={e.ep}>
-              {i > 0 && <span className="de-ends-to" aria-hidden>→</span>}
-              {e.kind === 'docked' ? <span className="de-end"><Icon id="link" className="de-end-ok" /><span title={e.name}>{e.name}</span></span>
-                : e.kind === 'hydrant' ? <span className="de-end"><Icon id="check" className="de-end-ok" /><span>{C.endHydrant}</span><span className="de-end-m">{fmtDistance(e.m)}</span></span>
-                : <span className="de-end de-end--none">{C.endNone}</span>}
-            </Fragment>
-          ))}
+          {ends.map((e, i) => {
+            // the → goes with the end it points at, so the two ends wrap as units
+            const to = i > 0 && <span className="de-ends-to" aria-hidden>→</span>
+            return e.kind === 'docked' ? <span key={e.ep} className="de-end">{to}<Icon id="link" className="de-end-ok" /><span title={e.name}>{e.name}</span></span>
+              : e.kind === 'hydrant' ? <span key={e.ep} className="de-end">{to}<Icon id="check" className="de-end-ok" /><span>{C.endHydrant}</span><span className="de-end-m">{fmtDistance(e.m)}</span></span>
+              : <span key={e.ep} className="de-end de-end--none">{to}{C.endNone}</span>
+          })}
         </span>
       </button>
       {releasable && releasable.kind === 'docked' && onDetach && (

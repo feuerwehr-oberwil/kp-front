@@ -112,7 +112,7 @@ describe('the «Enden» row', () => {
 
   // Üben feedback (owner 27.11.2026, «the enden content should also be on the right»): the words
   // stood right after «Enden»; every other row starts its control at the label column's edge.
-  it('puts its words in the control column, and a long docked name gives way before «nichts»', () => {
+  it('puts its words in the control column, wrapping the two ends as units, a long name giving way first', () => {
     const sheets = addStyles(...appStylesheets())
     const { container } = render(<DrawEditor {...base}
       drawing={{ kind: 'line', startAttachment: { target: { kind: 'object', id: 'h' }, routing: 'direct' } }}
@@ -122,6 +122,9 @@ describe('the «Enden» row', () => {
     const css = (sel: string, prop: string) => getComputedStyle(container.querySelector(sel)!).getPropertyValue(prop)
     expect(css('.de-ends-k', 'flex')).toBe(css('.de-row > :first-child', 'flex'))
     expect(css('.de-ends-go', 'gap')).toBe(css('.de-row', 'gap'))
+    // two ends that cannot share the column beside «Lösen» stand on two lines, the → with the second
+    expect(css('.de-ends-v', 'flex-wrap')).toBe('wrap')
+    expect(container.querySelectorAll('.de-end')[1].textContent).toBe('→nichts')
     expect(screen.getByTitle('Hydrant H-142 Schlossgasse Nord')).toBeTruthy()
     expect(getComputedStyle(screen.getByText('nichts')).flexShrink).toBe('0')
     for (const s of sheets) s.ownerNode?.remove()
