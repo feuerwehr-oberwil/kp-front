@@ -6,7 +6,7 @@
 // alarm itself runs app-wide in `useAtemschutzAlarm`, so it fires while this page is not on screen.
 // Rules for this area: docs/atemschutz-board.md.
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type MouseEvent, type ReactElement } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent, type MouseEvent, type ReactElement } from 'react'
 import { BoardClockContext, BoardNow, liveBoardClock, stoppedClock, truppClockRuns, useClockNow } from '../lib/boardClock'
 import { Icon } from '../lib/icons'
 import { EmptyState } from './EmptyState'
@@ -1393,11 +1393,25 @@ export function AtemschutzView({
   // press would do (see `bellLabel` above). Rendered as ONE element so the header (every board)
   // and the lite/phone bottom rail (mock 03 · focusMode) share the exact same button rather than
   // two copies that could drift.
+  // ⚠️ The PRESS decides what the tap does, not the click (Üben clip 5.4, 27.11.2026): the press
+  // on «Ton freigeben» already unlocks the tone (lib/alarm · armOnAnyTap, and this board's own
+  // first-tap prime), the bell re-renders as «Alarmton» before the finger lifts, and the same
+  // tap's click then muted it. A press that found the bell blocked makes its click the unlock.
+  // The keys that click count as a press too: Space clicks on its keyup, after the keydown primed.
+  const bellPressBlocked = useRef(false)
+  const notePress = () => { bellPressBlocked.current = audioBlocked }
+  const noteKeyPress = (e: KeyboardEvent) => { if (e.key === ' ' || e.key === 'Enter') notePress() }
+  const bellClick = () => {
+    const unlock = audioBlocked || bellPressBlocked.current
+    bellPressBlocked.current = false
+    if (unlock) onUnlockAudio?.(); else onToggleMuted()
+  }
   const bellButton = (
     <button
       className={cx(s.muteBtn, muted && s.muteOn, audioBlocked && s.muteBlocked)}
       data-fold={HEAD_FOLD.tiles}
-      onClick={audioBlocked ? onUnlockAudio : onToggleMuted}
+      onPointerDown={notePress} onKeyDown={noteKeyPress}
+      onClick={bellClick}
       aria-pressed={muted}
       aria-label={bellLabel} title={bellLabel}
     >

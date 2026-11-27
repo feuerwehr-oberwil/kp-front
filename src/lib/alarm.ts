@@ -158,7 +158,10 @@ const SETTLE_MS = 300
  * ⚠️ The tap PRIMES the tone everywhere, but App's «Alarmton an» shows only when no sheet,
  * composer or dialog is open at that moment (lib/useArmOnAnyTap · overlays/layer · layerOpen).
  * Inside a layer it stays silent – the tone works either way. A pill over the composer took the
- * next «Erfassen» tap (e2e F8; lead's call, 25.11.2026). Returns the uninstall.
+ * next «Erfassen» tap (e2e F8; lead's call, 25.11.2026).
+ * ⚠️ The tone can be running before the arming tap's `click`: a control that shows the audio
+ * state must decide on the press what that click does. The bell's «Ton freigeben» muted the tone
+ * it had just unlocked (AtemschutzView · bellClick, Üben clip 5.4, 27.11.2026). Returns the uninstall.
  */
 export function armOnAnyTap(onArmed: () => void): () => void {
   // a prime was sent and the context has not reported `running` yet (resume is async)
