@@ -1,21 +1,11 @@
 import { useEffect, useRef, useState, type RefObject } from 'react'
-import type { GeoJSONSource, Map as MlMap, MapMouseEvent, MapTouchEvent } from 'maplibre-gl'
+import type { Map as MlMap, MapMouseEvent, MapTouchEvent } from 'maplibre-gl'
 import type { Drawing, Entity, LineAttachment, LngLat } from '../types'
 import { haversineM } from '../lib/geo'
 import { rdpIndices, isTapStroke, FREEHAND_SIMPLIFY_PX } from '../lib/lineStyle'
 import { isMarqueeTap, marqueeContains, type MarqueeRect } from '../lib/marquee'
 import { isTypingTarget } from '../lib/hotkeys'
 import { createTapDragZoom } from '../lib/tapDragZoom'
-import { fc, lineFeat } from '../lib/mapView'
-
-/** The map source the live freehand stroke is drawn into. MapView mounts it with `FREEHAND_EMPTY`
- *  and never hands it new data: this hook writes it straight through `setData`. */
-export const FREEHAND_SOURCE = 's-fh'
-export const FREEHAND_EMPTY = fc([])
-/** The freehand preview's write rhythm, ms (≈ 30 Hz). Each write into the source costs the map
- *  about two repaints (the source, then its tile), so a write per frame doubled the repaints of a
- *  stroke (perf journey `edit`, 27.11.2026: 320 GL frames for ten Linien vs 230 before). */
-export const FREEHAND_PREVIEW_MS = 33
 
 type Rect = MarqueeRect
 type Circle = { center: LngLat; radiusM: number }
@@ -49,8 +39,7 @@ interface Args {
 /**
  * Canvas-level pointer gestures that run directly on the MapLibre instance
  * (freehand drawing + marquee multi-select), toggling dragPan per gesture.
- * Draws the live freehand path into the `FREEHAND_SOURCE` map source itself; returns the
- * in-progress marquee box and circle for rendering.
+ * Returns the live freehand path and the in-progress marquee box for rendering.
  *
  * IMPORTANT — every gesture's draw-complete callbacks (onFreehand/onCircle/onMarquee) and the
  * marquee's drawings/entities are read through REFS, not effect deps. App re-renders on a 15s
@@ -61,6 +50,8 @@ interface Args {
  * the whole gesture (deps = enable-flag + mapReady only) is what makes the map match the Plan.
  */
 export function useMapCanvasGestures({ mapInst, mapReady, freehand, onFreehand, onFreehandPointer, marqueeEnabled, drawings, entities, twinPoints = [], onMarquee, circleEnabled = false, onCircle, circleMinRadiusM = 5, circleInitialRadiusM = 25 }: Args) {
+  const [fhPath, setFhPath] = useState<LngLat[] | null>(null)
+
   // Freehand drawing happens ON the map canvas (not a blocking overlay) so the map can
   // still be moved while the pen is active: ONE finger draws, TWO fingers pan/zoom, and
   // on desktop holding Space pans. We toggle maplibre's dragPan per gesture — disabled
@@ -70,10 +61,8 @@ export function useMapCanvasGestures({ mapInst, mapReady, freehand, onFreehand, 
   const spaceHeld = useRef(false)
   // Raw stroke points live in a REF (not state) so a captured point doesn't re-render the heavy
   // MapView on every pointer sample — that per-point render janks the main thread and the browser
-  // then coalesces away touch samples, thinning the stroke ("blocky, few nodes"). The preview is
-  // written into the map source — no React state, so a stroke renders MapView at its start and
-  // end only — in an animation frame at most every FREEHAND_PREVIEW_MS. Every path that ends a
-  // stroke empties the source; a stroke's start writes only if a stroke is still shown.
+  // then coalesces away touch samples, thinning the stroke ("blocky, few nodes"). We mirror the
+  // ref into `fhPath` state once per animation frame, purely to draw the live preview.
   const fhPoints = useRef<LngLat[]>([])
   const fhRaf = useRef<number | null>(null)
   // "latest ref" mirrors — synced in an effect (NOT during render) so the gesture effects can
@@ -98,28 +87,9 @@ export function useMapCanvasGestures({ mapInst, mapReady, freehand, onFreehand, 
     const map = mapInst.current
     if (!map || !mapReady || !freehand) return
     const cancelRaf = () => { if (fhRaf.current != null) { cancelAnimationFrame(fhRaf.current); fhRaf.current = null } }
-    // does the source show a stroke? A stroke's start then empties it – one left by a gesture that
-    // ended without a release this hook hears (a touchcancel, a mouse let go off the map)
-    let shown = false
-    const preview = (pts: LngLat[]) => {
-      shown = pts.length >= 2
-      // the map may already be torn down when a tool change's cleanup lands here
-      try {
-        map.getSource<GeoJSONSource>(FREEHAND_SOURCE)?.setData(shown ? fc([lineFeat(pts.slice())]) : FREEHAND_EMPTY)
-          .catch(() => { /* map gone: nothing left to draw on */ })
-      } catch { /* map gone */ }
-    }
-    let lastWrite = -Infinity
-    const flushPreview = (now: number) => {
-      fhRaf.current = null
-      if (!fhActive.current) return
-      // too soon after the last write: the samples wait for a later frame, none is lost
-      if (now - lastWrite < FREEHAND_PREVIEW_MS) { schedule(); return }
-      lastWrite = now
-      preview(fhPoints.current)
-    }
+    const flushPreview = () => { fhRaf.current = null; if (fhActive.current) setFhPath(fhPoints.current.slice()) }
     const schedule = () => { if (fhRaf.current == null) fhRaf.current = requestAnimationFrame(flushPreview) }
-    const start = (ll: LngLat) => { fhActive.current = true; fhPoints.current = [ll]; if (shown) preview([]); map.dragPan.disable(); onFreehandPointerRef.current?.('start', ll) }
+    const start = (ll: LngLat) => { fhActive.current = true; fhPoints.current = [ll]; setFhPath([ll]); map.dragPan.disable(); onFreehandPointerRef.current?.('start', ll) }
     const addPoint = (ll: LngLat) => { fhPoints.current.push(ll); schedule(); onFreehandPointerRef.current?.('move', ll) }
     const finish = (commit: boolean) => {
       map.dragPan.enable()
@@ -128,7 +98,7 @@ export function useMapCanvasGestures({ mapInst, mapReady, freehand, onFreehand, 
       fhActive.current = false
       const p = fhPoints.current
       fhPoints.current = []
-      preview([])
+      setFhPath(null)
       const attachments = p.length ? onFreehandPointerRef.current?.('end', p[p.length - 1]) || undefined : undefined
       if (commit && p.length >= 2) {
         // thin the raw stroke into a clean, editable polyline before committing — project to
@@ -172,7 +142,6 @@ export function useMapCanvasGestures({ mapInst, mapReady, freehand, onFreehand, 
       map.off('touchstart', onTouchStart); map.off('touchmove', onTouchMove); map.off('touchend', onTouchEnd)
       map.off('mousedown', onMouseDown); map.off('mousemove', onMouseMove); map.off('mouseup', onMouseUp)
       cancelRaf()
-      if (fhActive.current) preview([])
       map.dragPan.enable(); fhActive.current = false; fhPoints.current = []
     }
   }, [freehand, mapReady]) // eslint-disable-line react-hooks/exhaustive-deps -- mapInst stable; onFreehand read via ref so a mid-stroke App re-render can't rebind
@@ -315,5 +284,5 @@ export function useMapCanvasGestures({ mapInst, mapReady, freehand, onFreehand, 
     }
   }, [circleEnabled, mapReady, circleMinRadiusM, circleInitialRadiusM]) // eslint-disable-line react-hooks/exhaustive-deps -- mapInst stable; onCircle read via ref so a poll mid-drag can't rebind
 
-  return { marquee, circle }
+  return { fhPath, marquee, circle }
 }

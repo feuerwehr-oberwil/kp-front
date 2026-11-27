@@ -37,7 +37,7 @@ import { lineTakesTrupp, teamLineBadges, truppForLine, truppLineTone } from '../
 import { pathLengthM, fmtDistance, fmtArea, polygonAreaM2, hoseLengthHint, circlePolygon, haversineM, bearingDeg } from '../lib/geo'
 import { hoseLines } from '../lib/hydraulics'
 import { useVehicleTrails } from '../lib/useVehicleTrails'
-import { FREEHAND_EMPTY, FREEHAND_SOURCE, useMapCanvasGestures } from './useMapCanvasGestures'
+import { useMapCanvasGestures } from './useMapCanvasGestures'
 import { mapMagnetTargets } from './mapMagnetTargets'
 import { useMapMagnet } from './useMapMagnet'
 import { usePlaceMagnet } from './usePlaceMagnet'
@@ -689,7 +689,7 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
   // ring filling over a Hydrant while a Fläche is dragged across it was promising a link that was
   // then discarded. The Plan says the same thing in its own words (usePlanCreate · inkUp: «no
   // magnet and no attachments — those belong to a Leitung's ends»).
-  const { marquee, circle } = useMapCanvasGestures({ mapInst, mapReady, freehand: !!freehand, onFreehand, onFreehandPointer: freehand === 'area' ? undefined : updateDraftMagnet, marqueeEnabled, drawings, entities, onMarquee, circleEnabled, onCircle, circleMinRadiusM: appConfig.drawing.circleMinRadiusM, circleInitialRadiusM: appConfig.drawing.circleInitialRadiusM })
+  const { fhPath, marquee, circle } = useMapCanvasGestures({ mapInst, mapReady, freehand: !!freehand, onFreehand, onFreehandPointer: freehand === 'area' ? undefined : updateDraftMagnet, marqueeEnabled, drawings, entities, onMarquee, circleEnabled, onCircle, circleMinRadiusM: appConfig.drawing.circleMinRadiusM, circleInitialRadiusM: appConfig.drawing.circleInitialRadiusM })
 
   // a point on a circle's edge at a SCREEN direction (0 = top of the screen, 180 = bottom),
   // compensated for the live map `bearing` so the chip stays put relative to the screen as the
@@ -1245,6 +1245,7 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
       case 'none': return
     }
   }
+  const fhFC = useMemo(() => fc(fhPath && fhPath.length >= 2 ? [lineFeat(fhPath)] : []), [fhPath])
   // team trails: the dashed line through a Trupp's RECORDED positions (parity with the plan
   // board's ink polyline — the breadcrumb dots + timestamps stay DOM markers in MapMarkers).
   // An OUT Trupp's line wears its marker's done dim (`done`: the neutral grey at --done-opacity,
@@ -1536,8 +1537,8 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
         )
       })()}
 
-      {/* live freehand path — its data is written by useMapCanvasGestures, never through this prop */}
-      <Source id={FREEHAND_SOURCE} type="geojson" data={FREEHAND_EMPTY}>
+      {/* live freehand path */}
+      <Source id="s-fh" type="geojson" data={fhFC}>
         <Layer id="l-fh" type="line" paint={{ 'line-color': drawColor, 'line-width': drawWidth, ...(drawDashed ? { 'line-dasharray': LINE_DASH_ML } : {}) }} layout={{ 'line-cap': drawDashed ? 'butt' : 'round', 'line-join': 'round' }} />
       </Source>
 
