@@ -617,3 +617,24 @@ describe('useIncidentSync · the edit lock comes to this tab, in a commit that c
     expect(fresh.save).not.toHaveBeenCalled()
   })
 })
+
+// Sol r2 (27.11.2026): a pull of the old engine and the hand-over bring the same value in one
+// commit, so the hand-over moves nothing. The waiting save effect records that commit's payload as
+// the last one: an edit that then puts the earlier value back is an edit, not a repeat.
+describe('useIncidentSync · the edit lock comes to this tab, with a pull in the same commit', () => {
+  it('an edit back to the value before the pull is saved', () => {
+    pollWorkspaceSince.mockImplementation(() => new Promise(() => {}))
+    const follower = { ...makeSync(), incidentId: 'i1', workspace: {} }
+    const fresh = { ...makeSync(), incidentId: 'i1', rev: 3, workspace: { activePlanId: 'b' } }
+    const view = renderHook(
+      ({ sync, readOnly, bp }: { sync: typeof follower; readOnly: boolean; bp: () => Saved }) => useIncidentSync({
+        sync: sync as unknown as WorkspaceSync, readOnly, incidentId: 'i1', buildPayload: bp,
+        applyWorkspace: () => false, flushEvents: vi.fn(), flushEventsBeacon: vi.fn(),
+      }),
+      { initialProps: { sync: follower, readOnly: true, bp: () => ({ activePlanId: 'a' }) as unknown as Saved } },
+    )
+    view.rerender({ sync: fresh, readOnly: false, bp: () => ({ activePlanId: 'b' }) as unknown as Saved })
+    view.rerender({ sync: fresh, readOnly: false, bp: () => ({ activePlanId: 'a' }) as unknown as Saved })
+    expect(fresh.save).toHaveBeenCalledWith({ activePlanId: 'a' })
+  })
+})
