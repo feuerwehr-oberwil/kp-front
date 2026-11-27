@@ -131,11 +131,12 @@ export function usePlanCreate({
     return { dist: Math.hypot(a.x - b.x, a.y - b.y), mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 }
   }
 
-  // A freehand stroke's samples wait here and join `draft` once per animation frame: a pencil gives
+  // A freehand Linie's samples wait here and join `draft` once per animation frame: a pencil gives
   // several per frame, and each `setDraft` renders the whole Whiteboard. `draft` stays the one
-  // owner of the stroke – the frame commits it at once (flushSync), so a release always reads a
-  // committed `draft` plus the samples no frame has drawn yet (`ink.take`).
-  // A draft dropped meanwhile (a tool change) stays dropped.
+  // owner of the stroke – the frame commits it at once (flushSync), so the release reads a
+  // committed `draft` plus the samples no frame has drawn yet (`ink.take`). A draft dropped
+  // meanwhile (a tool change drops a Linie mid-stroke) stays dropped. A freehand Fläche is not
+  // batched: a tool change offers it for saving from `draft` alone (usePlanDraft · releaseDraft).
   const inkQueue = useRef<BoardPoint[]>([])
   const [inkFrame] = useState(() => frameBatch(() => {
     const q = inkQueue.current; inkQueue.current = []
@@ -429,8 +430,9 @@ export function usePlanCreate({
     if (!inking || !draft) return
     const n = toNorm(e.clientX, e.clientY); if (n) {
       const floor = stack ? floorAt(n[1]) : draftFloorRef.current
-      if (tool === 'line') updatePlanDraftMagnet([n[0], localY(n[1], floor), floor], 'move')
-      ink.push([n[0], localY(n[1], floor), floor])
+      const p: BoardPoint = [n[0], localY(n[1], floor), floor]
+      if (tool === 'line') { updatePlanDraftMagnet(p, 'move'); ink.push(p) }
+      else setDraft((d) => (d ? [...d, p] : [p]))
     }
   }
   const inkUp = (e?: React.PointerEvent) => {
@@ -461,11 +463,10 @@ export function usePlanCreate({
     // A dragged Fläche: the same thinned stroke as a freehand Linie, closed into a ring. No
     // magnet and no attachments — those belong to a Leitung's ends, and an area has none.
     if (tool === 'area' && areaMode === 'freehand' && draft) {
-      const stroke = [...draft, ...ink.take()]
-      const px = stroke.map(([x, y, floor]): [number, number] => [x * sW, mapY(floor ?? draftFloorRef.current, y) * sH])
+      const px = draft.map(([x, y, floor]): [number, number] => [x * sW, mapY(floor ?? draftFloorRef.current, y) * sH])
       if (!isTapStroke(px)) {
         const idx = rdpIndices(px, FREEHAND_SIMPLIFY_PX)
-        if (idx.length >= minPoints('area')) addArea(idx.map((i) => stroke[i]))
+        if (idx.length >= minPoints('area')) addArea(idx.map((i) => draft[i]))
       }
       setDraft(null)
       return
