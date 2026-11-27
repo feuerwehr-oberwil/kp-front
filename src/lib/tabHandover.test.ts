@@ -179,6 +179,31 @@ it.each([
   expect((await slot(id))?.workspace.entities).toEqual([])
 })
 
+// A pull while the old holder's save is `handed` (perf sweep 27.11.2026: a pull hands the view only
+// the slices it changed – useIncidentSync · hydrate). The live-follow poll adopts only a revision
+// past the one the new holder opened at, so the handed PUT has landed or can only 409: the adopt
+// drops it, and what the new holder deletes after the pull stays deleted.
+it('a pull that adopts the old holder’s landed PUT: the new holder’s delete after it holds', async () => {
+  const id = `pull-${n}`
+  const net = slowFirstPut()
+  const a = await tab(id)
+  const b = await tab(id)
+  edit(a, { entities: [marker] as unknown as Saved['entities'] })
+  await vi.advanceTimersByTimeAsync(1_100) // A's PUT with the marker is on its way
+  b.takeOver()
+  await vi.waitFor(() => expect(b.editing).toBe(true))
+  net.land() // …and lands: the server is one revision past what B opened at
+  await vi.advanceTimersByTimeAsync(0)
+  expect(net.server.rev).toBeGreaterThan(engine(b).rev)
+  engine(b).adoptServer(net.server.workspace, net.server.rev) // the poll's answer (B holds nothing unsynced)
+  edit(b, { entities: [] })
+  await engine(b).flush()
+  await vi.advanceTimersByTimeAsync(70_000)
+  expect(net.server.workspace.entities).toEqual([])
+  expect((await slot(id))?.workspace.entities).toEqual([])
+  expect(engine(b).hasUnsynced).toBe(false)
+})
+
 it('a promotion overtaken by a steal back does not fence the thief out of its slot', async () => {
   const id = `claim-${n}`
   const a = await tab(id)

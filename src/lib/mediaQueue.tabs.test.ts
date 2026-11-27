@@ -99,3 +99,35 @@ it('a memo held after a refused lock does not replace the newer one the other ta
   await a.flushMediaQueue(id, async (_i, blob) => { sent.push(await blob.text()); return { url: '/api/media/3' } })
   expect(sent).toEqual(['new'])
 })
+
+// The back-off on a dead link (27.11.2026): each miss grows a capture's pause, and the server
+// answering again gives it one early try. That signal can reach the tab that took the edit lock
+// while the tab that lost it is still in a flush of the same capture: the try waits for that
+// flush, sends once, and the other tab's late miss does not undo the receipt.
+it('an early try while the other tab is still flushing waits, sends once and keeps its receipt', async () => {
+  Object.defineProperty(globalThis.navigator, 'locks', { value: new FakeLocks(), configurable: true })
+  const a = await tabModule()
+  const b = await tabModule()
+  const id = 'early-inc'
+  await a.enqueueMedia(id, 'r1', 'audio', new Blob(['memo']), 'memo.webm', '2026-11-27T10:00:00Z')
+  await a.flushMediaQueue(id, async () => { throw new Error('offline') }) // a miss: its pause runs
+  let sending = 0
+  let most = 0
+  const send = () => { most = Math.max(most, ++sending) }
+  let missA!: () => void
+  const flushA = a.flushMediaQueue(id, () => {
+    send()
+    return new Promise((_, reject) => { missA = () => { sending--; reject(new Error('offline')) } })
+  }, { due: 'online' })
+  await vi.waitFor(() => expect(missA).toBeTypeOf('function'))
+  const sendB = vi.fn(async () => { send(); sending--; return { url: '/api/media/5' } })
+  const flushB = b.flushMediaQueue(id, sendB, { due: 'reachable' })
+  await new Promise((r) => setTimeout(r, 20))
+  expect(sendB).not.toHaveBeenCalled() // B waits for A's flush
+  missA()
+  await Promise.all([flushA, flushB])
+  expect(sendB).toHaveBeenCalledOnce()
+  expect(most).toBe(1)
+  const stored = await (await tabModule()).listMediaQueue(id)
+  expect(stored).toEqual([expect.objectContaining({ status: 'uploaded', url: '/api/media/5' })])
+})
