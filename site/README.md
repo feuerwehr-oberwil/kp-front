@@ -141,14 +141,30 @@ narrow ones; without one it shows the phone everywhere.
 **The format is WebP**, encoded in the Chromium that Playwright brings along anyway (no second
 dependency, no `cwebp` on the machine).
 
-Two things about the demo: it is shared with visitors and reset twice a day (00:00 and
-12:00 Europe/Zurich). So for clean images, capture shortly after a reset – the seeded Trupps
-run overdue within ~10 minutes – or use `--base` against a local instance.
+Two things about the demo: it is shared with visitors, and it sleeps when nobody uses it and
+starts fresh on every wake (otherwise it resets at 00:00 and 12:00 Europe/Zurich). So for clean
+images, capture right after a wake – the seeded Trupps run overdue within ~10 minutes – or use
+`--base` against a local instance. A sleeping demo needs 10–30 s for its first answer.
 
 A local demo instance (the Musterdorf dataset with `demoMode`, seeded by `app.demo_reset`)
 lets the capture in without `--pin`. ⚠️ It needs a `CARTO_API_KEY` that CARTO accepts for
 `localhost`: without one the base map is tiled with «API KEY REQUIRED», which spoils every
 map picture.
+
+## The demo wake page (`demo/`)
+
+The public demo sleeps when nobody uses it (Railway «Serverless»), so every «Demo» link on the
+site – landing, 404, FAQ, the structured data's `product.demo` – goes to `demo/` (`fr/demo/`, …)
+instead of the app. That page asks the demo `GET <product.demoApp>api/demo/wake` every 1.5 s,
+shows the start for the 10–30 s a wake takes, and opens the demo (`location.replace`) once it
+answers ready. An awake demo answers within 0.7 s and the page forwards before it shows
+anything. After 90 s it gives up with «Nochmals versuchen» and a direct link; without
+JavaScript it is a plain link.
+
+It is a **side page**: `demo.template.html` + the `wake` texts in `content/*.json`, built by
+`build.mjs` per language, `noindex` and not in the sitemap. Its look is the `.wake` block in
+`landing.css`. The backend half – the readiness route, why a poll does not keep the demo awake,
+the reset on every wake – is `backend/app/demo_sleep.py` and `backend/app/api/demo.py`.
 
 ## Contact
 

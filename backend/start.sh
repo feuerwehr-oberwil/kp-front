@@ -33,6 +33,18 @@ abort_or_override() {
 }
 
 if [ -n "${DATABASE_URL:-}" ]; then
+  # PUBLIC DEMO ONLY (a demo reset schedule is set – the same test as `is_public_demo`): wait up
+  # to 60 s for a database that is still starting. There both the app and its Postgres sleep when
+  # unused (Railway Serverless), and the app's first connection is what wakes the database:
+  # without this wait, the `alembic current` below would meet a database that is not up yet and
+  # abort the boot. A station keeps failing fast on an unreachable database.
+  if { [ -n "${DEMO_RESET_CRON:-}" ] || [ "${DEMO_RESET_SECONDS:-0}" != 0 ]; } && command -v pg_isready >/dev/null; then
+    for _ in $(seq 1 30); do
+      pg_isready -q -d "${DATABASE_URL/+asyncpg/}" && break
+      echo "… waiting for the database to accept connections"
+      sleep 2
+    done
+  fi
   # An older image cannot resolve a newer database revision. Treating that error as an empty
   # database took another dump on every failed boot and eventually rotated away the actual
   # pre-upgrade backup. Resolve BOTH sides successfully before creating or rotating any dump.

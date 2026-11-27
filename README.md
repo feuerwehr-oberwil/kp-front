@@ -2,7 +2,7 @@
 
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![CI](https://github.com/feuerwehr-oberwil/kp-front/actions/workflows/ci.yml/badge.svg)](https://github.com/feuerwehr-oberwil/kp-front/actions/workflows/ci.yml)
-[![Live Demo](https://img.shields.io/badge/Demo-live-brightgreen)](https://demo.kp-front.ch)
+[![Live Demo](https://img.shields.io/badge/Demo-live-brightgreen)](https://kp-front.ch/demo/)
 
 **Einsatzführungs-app for frontline fire-service command.** KP Front replaces the physical
 Lagekarte and command table with a shared situation map, prepared plans and object data, live
@@ -14,10 +14,11 @@ exports; integrations add data but are not required to operate it.
 
 ## Try the demo
 
-The [public demo](https://demo.kp-front.ch) contains a running Zimmerbrand at the
+The [public demo](https://kp-front.ch/demo/) contains a running Zimmerbrand at the
 Schloss in fictional Musterdorf. No login is needed, and every visitor works on the same
-incident. It resets at midnight and at noon (Europe/Zurich); a nightly workflow reloads the
-station data – config, geodata and object plans – on top of that.
+incident. The demo sleeps when nobody uses it: the link wakes it (10–30 s) and opens it when it
+is ready. Every wake starts a fresh demo; while it is in use it also resets at midnight and at
+noon (Europe/Zurich).
 
 The repository includes the same synthetic station dataset in
 [`examples/demo-data/`](examples/demo-data/). No real station data is bundled.

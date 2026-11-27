@@ -1,0 +1,160 @@
+<!doctype html>
+<!--@template
+  This file is the TEMPLATE of the demo wake page. The served pages (demo/index.html,
+  fr/demo/index.html, …) are built from it by build.mjs («Side pages») – anything written into
+  those is lost on the next build. Text belongs in content/<language>.json under `wake`.
+
+  The public demo sleeps when nobody uses it (Railway Serverless). Every «Demo» link on the site
+  comes here: this page asks the demo whether it is ready (`GET <demoApp>api/demo/wake`, which
+  answers 200 only once the app, its database and the boot reset are done – backend
+  app/api/demo.py), and opens it as soon as it is. An awake demo answers within the grace
+  period, and the visitor is sent on before anything is drawn.
+-->
+<html lang="{{lang}}">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<script>
+{{themeScript}}
+</script>
+<title>{{wake.pageTitle}}</title>
+<!--@template A waiting room is not a search result. -->
+<meta name="robots" content="noindex">
+<link rel="canonical" href="{{canonical}}">
+<link rel="icon" type="image/svg+xml" href="{{base}}favicon.svg">
+<link rel="apple-touch-icon" href="{{base}}apple-touch-icon.png">
+<link rel="preload" href="{{base}}fonts/sora.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="{{base}}landing.css">
+
+<!--@template Hidden until the script has asked once: an awake demo opens without a flash. -->
+<main class="wake" id="wake" hidden>
+  <img class="wake-logo" src="{{base}}favicon.svg" width="56" height="56" alt="">
+  <h1 id="wake-title" aria-live="polite" data-ready="{{wake.ready}}" data-fail="{{wake.failTitle}}">{{wake.title}}</h1>
+  <div class="wake-run" id="wake-run">
+    <div class="wake-bar" aria-hidden="true"><i id="wake-bar"></i></div>
+    <ol class="wake-steps">
+      {{#wake.steps}}
+      <li><b></b>{{.}}</li>
+      {{/wake.steps}}
+    </ol>
+    <p class="wake-time" id="wake-time" aria-hidden="true">0:00</p>
+    <p class="wake-note">{{wake.note}}</p>
+  </div>
+  <div class="wake-fail" id="wake-fail" hidden>
+    <p>{{wake.failText}}</p>
+    <button class="btn btn-primary" type="button" id="wake-retry">{{wake.retry}}</button>
+    <a href="{{product.demoApp}}">{{wake.direct}}</a>
+  </div>
+</main>
+<noscript>
+  <main class="wake">
+    <img class="wake-logo" src="{{base}}favicon.svg" width="56" height="56" alt="">
+    <p class="wake-note">{{wake.noscript}}</p>
+    <a class="btn btn-primary" href="{{product.demoApp}}">{{wake.direct}}</a>
+  </main>
+</noscript>
+
+<script>
+  (function () {
+    // A literal from config.json (`product.demoApp`), never read back from the page: whatever
+    // this script navigates to is fixed at build time.
+    var app = '{{product.demoApp}}'
+    var root = document.getElementById('wake')
+    var title = document.getElementById('wake-title')
+    var bar = document.getElementById('wake-bar')
+    var time = document.getElementById('wake-time')
+    var runBox = document.getElementById('wake-run')
+    var failBox = document.getElementById('wake-fail')
+    var retry = document.getElementById('wake-retry')
+    var steps = root.querySelectorAll('.wake-steps > li')
+    var wakingText = title.textContent
+
+    // Seconds. The steps advance on an ESTIMATE of a cold start (container, database, demo
+    // reset) – only a real «ready» completes the last one and fills the bar.
+    var STEP_AT = [0, 4, 9]
+    var EXPECTED = 25
+    var GRACE = 0.7
+    var GIVE_UP = 90
+    var POLL = 1.5
+    var PROBE_TIMEOUT = 10
+
+    var run = 0
+    var started = 0
+    var ticker = null
+
+    var elapsed = function () { return (performance.now() - started) / 1000 }
+    var sleep = function (ms) { return new Promise(function (r) { setTimeout(r, ms) }) }
+    var open = function () { location.replace(app) }
+
+    // A sleeping demo may hold the request while it boots or answer 502 without CORS headers –
+    // both are «not yet», never an error the visitor sees.
+    var probe = function () {
+      var ctrl = typeof AbortController === 'function' ? new AbortController() : null
+      var timer = setTimeout(function () { if (ctrl) ctrl.abort() }, PROBE_TIMEOUT * 1000)
+      return fetch(app + 'api/demo/wake', { cache: 'no-store', credentials: 'omit', signal: ctrl && ctrl.signal })
+        .then(function (res) { return res.ok ? res.json() : null })
+        .then(function (body) { return !!(body && body.ready === true) })
+        .catch(function () { return false })
+        .finally(function () { clearTimeout(timer) })
+    }
+
+    var paint = function () {
+      var t = elapsed()
+      for (var i = 0; i < steps.length; i++) {
+        var next = STEP_AT[i + 1]
+        steps[i].className = next !== undefined && t >= next ? 'done' : t >= STEP_AT[i] ? 'run' : ''
+      }
+      bar.style.width = Math.min(1, t / EXPECTED) * 90 + '%'
+      var s = Math.floor(t)
+      time.textContent = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0')
+    }
+
+    var ready = function () {
+      clearInterval(ticker)
+      for (var i = 0; i < steps.length; i++) steps[i].className = 'done'
+      bar.style.width = '100%'
+      root.setAttribute('data-state', 'ready')
+      title.textContent = title.getAttribute('data-ready')
+      setTimeout(open, 600)
+    }
+
+    var fail = function () {
+      clearInterval(ticker)
+      root.setAttribute('data-state', 'fail')
+      title.textContent = title.getAttribute('data-fail')
+      runBox.hidden = true
+      failBox.hidden = false
+      retry.focus()
+    }
+
+    var wake = function () {
+      var id = ++run
+      started = performance.now()
+      root.removeAttribute('data-state')
+      title.textContent = wakingText
+      runBox.hidden = false
+      failBox.hidden = true
+      paint()
+      clearInterval(ticker)
+      ticker = setInterval(paint, 250)
+      var grace = setTimeout(function () { root.hidden = false }, GRACE * 1000)
+      var loop = function () {
+        return probe().then(function (ok) {
+          if (id !== run) return
+          if (ok) {
+            clearTimeout(grace)
+            return root.hidden ? open() : ready()
+          }
+          root.hidden = false
+          if (elapsed() >= GIVE_UP) return fail()
+          return sleep(POLL * 1000).then(loop)
+        })
+      }
+      loop()
+    }
+
+    retry.addEventListener('click', wake)
+    wake()
+  })()
+</script>
+</html>

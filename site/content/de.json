@@ -44,6 +44,22 @@
     "home": "Zur Startseite",
     "demo": "Demo öffnen"
   },
+  "wake": {
+    "pageTitle": "Demo wird gestartet – KP Front",
+    "title": "Demo wird gestartet …",
+    "ready": "Bereit – die Demo öffnet sich …",
+    "steps": [
+      "Server startet",
+      "Datenbank wird geweckt",
+      "Übungslage Musterdorf wird geladen"
+    ],
+    "note": "Die Demo schläft, wenn niemand sie braucht. Der Start dauert meist 10–30 Sekunden.",
+    "failTitle": "Die Demo startet gerade nicht",
+    "failText": "Nach 90 Sekunden hat sie noch nicht geantwortet. Meist hilft ein zweiter Versuch.",
+    "retry": "Nochmals versuchen",
+    "direct": "Direkt zur Demo",
+    "noscript": "Die Demo schläft, wenn niemand sie braucht. Der erste Aufruf kann bis zu 30 Sekunden dauern."
+  },
   "hero": {
     "eyebrow": "Open Source&nbsp;· kostenlos&nbsp;· Schweiz",
     "h1": "Digitale Einsatzführung für die Feuerwehr.",
@@ -304,7 +320,7 @@
       },
       {
         "q": "Wie fangen wir an?",
-        "a": "Mit der <a href=\"https://demo.kp-front.ch\" target=\"_blank\" rel=\"noopener\">Demo</a>,\n          ohne Anmeldung – in Musterdorf brennt es schon, und alle Besucher teilen denselben\n          Einsatz (Neustart zweimal täglich, um 00:00 und 12:00 Uhr, Zeitzone Europe/Zurich). Danach an einer Übung ausprobieren.\n          Wenn es passt, führt die <a href=\"https://github.com/feuerwehr-oberwil/kp-front/blob/main/docs/SETUP.md\" target=\"_blank\" rel=\"noopener\">Einrichtungsanleitung</a> zur eigenen Installation."
+        "a": "Mit der <a href=\"https://kp-front.ch/demo/\" target=\"_blank\" rel=\"noopener\">Demo</a>,\n          ohne Anmeldung – in Musterdorf brennt es schon, und alle Besucher teilen denselben\n          Einsatz (Neustart nach jeder Pause, sonst um 00:00 und 12:00 Uhr, Zeitzone Europe/Zurich). Danach an einer Übung ausprobieren.\n          Wenn es passt, führt die <a href=\"https://github.com/feuerwehr-oberwil/kp-front/blob/main/docs/SETUP.md\" target=\"_blank\" rel=\"noopener\">Einrichtungsanleitung</a> zur eigenen Installation."
       }
     ]
   },

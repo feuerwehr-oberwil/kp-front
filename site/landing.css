@@ -758,3 +758,42 @@ section.close { text-align: center; }
   .sib { flex-direction: column; align-items: flex-start; }
   .own { grid-template-columns: 1fr; }
 }
+
+/* ---------- demo wake page (side page `demo/`) ----------
+   The demo sleeps when nobody uses it; this page wakes it and opens it when it is ready.
+   `.wake[data-state]` is waking (no attribute), `ready` or `fail`. The script sets the bar
+   width and the step classes `.run` / `.done`; every movement waits for no-preference. */
+.wake {
+  min-height: 100vh; min-height: 100svh;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 22px; padding: 40px 16px calc(40px + env(safe-area-inset-bottom)); text-align: center;
+}
+.wake[hidden], .wake-fail[hidden], .wake-run[hidden] { display: none; }
+.wake-logo { width: 56px; height: 56px; border-radius: 14px; box-shadow: var(--shadow); }
+.wake h1 { font-size: 22px; line-height: 1.3; font-weight: 650; letter-spacing: -.01em; color: var(--ink); }
+.wake-run { display: flex; flex-direction: column; align-items: center; gap: 22px; width: 100%; }
+.wake-bar { width: 100%; max-width: 300px; height: 6px; border-radius: 3px; background: var(--line-soft); overflow: hidden; }
+.wake-bar > i { display: block; height: 100%; width: 0; background: var(--red); }
+.wake-steps { list-style: none; margin: 0; padding: 0; width: 100%; max-width: 300px; display: grid; gap: 12px; text-align: left; }
+.wake-steps > li { display: flex; gap: 12px; align-items: center; font-size: 15px; line-height: 1.4; color: var(--ink-faint); }
+.wake-steps b {
+  flex: none; width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--line);
+  display: grid; place-items: center; font-size: 12px; color: #fff;
+}
+.wake-steps > li.run, .wake-steps > li.done { color: var(--ink); }
+.wake-steps > li.run b { border-color: var(--red); border-top-color: transparent; }
+.wake-steps > li.done b { background: var(--ok); border-color: var(--ok); }
+.wake-steps > li.done b::after { content: '✓'; }
+.wake-time { font-family: var(--mono); font-size: 13px; font-weight: 500; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+.wake-note { max-width: 300px; font-size: 13px; line-height: 1.5; color: var(--ink-faint); }
+.wake-fail { display: flex; flex-direction: column; align-items: center; gap: 14px; max-width: 320px; }
+.wake-fail p { font-size: 15px; line-height: 1.55; color: var(--ink-dim); }
+.wake-fail .btn { width: 100%; }
+.wake-fail a:not(.btn) { font-size: 14.5px; font-weight: 600; color: var(--ink-dim); }
+@media (prefers-reduced-motion: no-preference) {
+  .wake:not([data-state]) .wake-logo { animation: wake-pulse 1.6s ease-in-out infinite; }
+  .wake-bar > i { transition: width .6s ease; }
+  .wake-steps > li.run b { animation: wake-spin .8s linear infinite; }
+}
+@keyframes wake-pulse { 50% { transform: scale(1.06); } }
+@keyframes wake-spin { to { transform: rotate(360deg); } }
