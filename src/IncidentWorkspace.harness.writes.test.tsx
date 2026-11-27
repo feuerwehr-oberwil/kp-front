@@ -90,14 +90,20 @@ vi.mock('./lib/mediaQueue', async (importOriginal) => {
   return { ...mod, flushMediaQueue: async (...a: Parameters<typeof mod.flushMediaQueue>) => { rec.order.push('flush'); return mod.flushMediaQueue(...a) } }
 })
 
-/** the plan resolver's door for a binding it fetched (useObjectPlans · onBind) — the test calls it
- *  where the resolver's fetch would land */
-const boundPlans = vi.hoisted(() => ({ onBind: undefined as ((proposed: IncidentPlanBinding[]) => void) | undefined }))
+/** the plan resolver's doors (useObjectPlans): a binding it fetched (`onBind`) — the test calls it
+ *  where the resolver's fetch would land — and the operator's object pick (`onPick`) */
+const boundPlans = vi.hoisted(() => ({
+  onBind: undefined as ((proposed: IncidentPlanBinding[]) => void) | undefined,
+  onPick: undefined as ((objectId: string | undefined) => void) | undefined,
+}))
 vi.mock('./lib/useObjectPlans', async (importOriginal) => {
   const mod = await importOriginal<typeof import('./lib/useObjectPlans')>()
   return {
     ...mod,
-    useObjectPlans: (...a: Parameters<typeof mod.useObjectPlans>) => { boundPlans.onBind = a[5]?.onBind; return mod.useObjectPlans(...a) },
+    useObjectPlans: (...a: Parameters<typeof mod.useObjectPlans>) => {
+      boundPlans.onPick = a[4]; boundPlans.onBind = a[5]?.onBind
+      return mod.useObjectPlans(...a)
+    },
   }
 })
 const binding: IncidentPlanBinding = {
@@ -303,6 +309,20 @@ describe('(f) a pull moves only what it changed', () => {
     const saved = save.mock.lastCall![0] as Saved
     expect(saved.objects?.map((o) => o.id)).toEqual(['p2'])
     expect(saved.objects?.[0].entity?.coord).toEqual([7.7, 47.6])
+    expect(saved.trupps?.map((t) => t.entryPressureBar)).toEqual([300, 280])
+  })
+
+  it('a pick back to the object the save last built, in the pull\'s render, is saved', async () => {
+    const { sync, save, held } = await device()
+    expect(held.pickedObjectId).toBeUndefined()
+    act(() => {
+      sync.onApplyMerged!({ ...oneTrupp(held), pickedObjectId: 'obj2' } as unknown as Blob, 1)
+      boundPlans.onPick!(undefined) // «Automatisch» again: the value this device last saved
+    })
+    await settle(60)
+    expect(save).toHaveBeenCalled()
+    const saved = save.mock.lastCall![0] as Saved
+    expect(saved.pickedObjectId).toBeUndefined()
     expect(saved.trupps?.map((t) => t.entryPressureBar)).toEqual([300, 280])
   })
 

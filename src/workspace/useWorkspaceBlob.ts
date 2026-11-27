@@ -170,21 +170,18 @@ export function useWorkspaceBlob({
     recent, building, vehicleOverrides, checklists, trupps: allTrupps, attendance, mittel, shifts, bands, cameraViews, trails,
     planScale, reportMeta, attachments, reportSignatures, settings: incidentSettings, planBindings, pickedObjectId, intakeReviewedAt,
   }), [recent, building, vehicleOverrides, checklists, allTrupps, attendance, mittel, shifts, bands, cameraViews, trails, planScale, reportMeta, attachments, reportSignatures, incidentSettings, planBindings, pickedObjectId, intakeReviewedAt])
-  /** What the save last built the blob from (useIncidentSync builds on every change): the slices,
-   *  the store's objects and the Verlauf echo — the journal store swaps that exactly when the ids
-   *  of the blob's legacy rows change (journalStore · ingestLegacy). Committed state. */
-  const built = useRef({ slices, objects, timeline: journal.blobTimeline, activePlanId })
-  /** …and what the last merge handed out on top of it, until the save builds again — the state a
-   *  second merge before that render is written over */
-  const handed = useRef({ slices, timeline: journal.blobTimeline })
-  /** ⚠️ THE ECHO GUARD's memory: every input as the last pull handed it in. A build whose every
-   *  input is either what the save last built or what the pull handed in is an echo of the pull
-   *  (`echoOfPull`); one input that is neither — a tap rendered with the pull, folded into a store
-   *  that already held the pull; an async write landing in that render — makes it a local edit,
-   *  and it is saved. Kept across builds until one is not an echo, so a
-   *  pull whose inputs commit in more than one render stays an echo throughout. Replaces «skip the
-   *  next save», which a tap rendered with the pull spent on the tap. */
+  /** The slices the last merge handed out, until the save builds again — the state a second merge
+   *  before that render is written over */
+  const handed = useRef({ slices })
+  /** ⚠️ THE ECHO GUARD's memory: every input exactly as the last pull handed it in — a record the
+   *  pull did not change keeps its live identity (lib/workspace · shareLive). The next build is an
+   *  echo of the pull (`echoOfPull`) only when each input IS that; a tap rendered with the pull
+   *  (folded into a store that already held it), an async write landing in that render, or a
+   *  re-pick back to the old value makes it a local edit, and it is saved. Spent by that build.
+   *  Replaces «skip the next save», which such a tap spent on itself. */
   const pulled = useRef<{ slices: typeof slices; objects: TacticalObject[]; timeline: TimelineEvent[] } | null>(null)
+  /** the Plan the last build showed — a pull never moves it */
+  const builtPlanId = useRef(activePlanId)
   /** the last build that was an echo of a pull — what `echoOfPull` answers for */
   const echoBuild = useRef<Saved | null>(null)
   /** the Ebenen as this device last remembered them (below) */
@@ -259,10 +256,8 @@ export function useWorkspaceBlob({
     setSelectedId((id) => (id && next.doc.entities.some((e) => e.id === id) ? id : null))
     setSelectedDrawingId((id) => (id && next.doc.drawings.some((d) => d.id === id) ? id : null))
     setSelectedDrawIds((ids) => ids.filter((id) => next.doc.drawings.some((d) => d.id === id)))
-    const echo = handed.current.timeline
-    const timeline = sameRowIds(next.timeline, echo) ? echo : next.timeline
-    handed.current = { slices: held, timeline }
-    pulled.current = { slices: held, objects: next.objects, timeline }
+    handed.current = { slices: held }
+    pulled.current = { slices: held, objects: next.objects, timeline: next.timeline }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [incidentMeta.id, incidentMeta.type])
 
@@ -278,16 +273,15 @@ export function useWorkspaceBlob({
      * every device can resolve, and is part of the record like any placed object. */
     const persisted = objects.filter((o) => o.entity?.kind !== 'photo' || !!o.entity.photoOf)
     const views = viewsOf(persisted)
-    // an echo moved each input only to what the pull handed in (see `pulled`); the Verlauf echo by
-    // its ids, because the journal store hands out its own copy (journalStore · ingestLegacy)
-    const b = built.current, p = pulled.current, timeline = journal.blobTimeline
-    const echo = p !== null && activePlanId === b.activePlanId
-      && (objects === b.objects || objects === p.objects)
-      && (timeline === b.timeline || sameRowIds(timeline, p.timeline))
-      && (Object.keys(slices) as (keyof typeof slices)[]).every((k) => slices[k] === b.slices[k] || slices[k] === p.slices[k])
-    if (!echo) pulled.current = null
-    built.current = { slices, objects, timeline, activePlanId }
-    handed.current = { slices, timeline }
+    // an echo is exactly what the pull handed in (see `pulled`) — the Verlauf echo by its row ids,
+    // because the journal store hands out its own copy (journalStore · ingestLegacy)
+    const p = pulled.current
+    const echo = p !== null && activePlanId === builtPlanId.current && objects === p.objects
+      && sameRowIds(journal.blobTimeline, p.timeline)
+      && (Object.keys(slices) as (keyof typeof slices)[]).every((k) => slices[k] === p.slices[k])
+    pulled.current = null
+    builtPlanId.current = activePlanId
+    handed.current = { slices }
     // Every `Saved` key is named (EverySavedKey), so a new one that is not written here fails
     // tsc instead of being deleted by this save. Left out: `activeModule` (device-local, this build
     // never writes it) and `weather` (the replay fold's alone).

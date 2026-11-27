@@ -131,10 +131,10 @@ the module they concern (`lib/connectivity`, `lib/eventScope`, `lib/jsonEqual`,
 - **A pull is never saved back; an edit that renders with one is** (27.11.2026). Pushed back,
   a pulled state would wake the other device, and two devices would save each other's pulls for
   ever. The echo guard is content-matched (`useWorkspaceBlob · pulled`, `echoOfPull`): a pull
-  remembers every input it handed in, and the save skips a build only when each input is either
-  what the save last built or what the pull handed in (the Verlauf echo by row ids). A tap or an
-  async write (a plan binding, a seed) that React renders with the pull moves an input to a third
-  value, and that build is saved. It replaced «skip the next save», which such a tap spent on
+  remembers every input exactly as it handed it in (a record it did not change keeps its live
+  identity), and the save skips the next build only when each input IS that (the Verlauf echo by
+  row ids). A tap, an async write (a plan binding, a seed) or a pick back to the old value that
+  React renders with the pull makes the build differ, and it is saved. It replaced «skip the next save», which such a tap spent on
   itself: the tap showed on the screen, but was not saved. Guarded by the harness cases
   «(f) a pull moves only what it changed» (`IncidentWorkspace.harness.writes.test.tsx`).
 - **Sync supports task-scoped collaboration.** Multiple editors may work different domains in the
