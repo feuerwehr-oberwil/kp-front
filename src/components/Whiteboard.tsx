@@ -123,6 +123,7 @@ import type { LiveMark, PhotoMark } from '../lib/planProjection'
 import { MAX_SCALE, MAX_SCALE_STACK, MIN_SCALE, boardViewSignature, useBoardView, type BoardViews } from './useBoardView'
 import { useBoardDoc, type BoardHistory } from './useBoardDoc'
 import { useBoardGestures } from './useBoardGestures'
+import { useSteadyFns } from '../lib/useSteadyFns'
 import { WbToolDocks, WbCircleHandle, WbCircleLayer, WbInkLayer, WbVertexHandles, WbDraftHandles, WbSnapRing, type TruppFinderDoor } from './WbControls'
 import { MeasurePanel } from './MeasurePanel'
 import { ToolDock } from './ToolDock'
@@ -152,6 +153,8 @@ import { answerZielPick, zielPicking } from '../lib/zielPick'
 const COLORS = appConfig.drawing.colors
 /** height of the strip a folded-away storey leaves behind (board px, matches 09-whiteboard.css) */
 const FOLDED_H = 28
+/** `trupps` when the caller passes none – one identity, so the memo'd annos hold (annoBoard) */
+const NO_TRUPPS: Trupp[] = []
 
 
 interface Props {
@@ -433,7 +436,7 @@ export interface PlanLogExtra {
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
 
-export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange: onChangeAll, building, floorPack, sheetFloors, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterFields, personStatus, fieldHints, onRecent, log, authorName, onStepLabel, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], truppColors, placedTeamNames, teamNameTaken, onLinkTrupp, onShowTrupp, truppFinder, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, historyGroup, undoGroup, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, buildingInfo, readingsChip, incidentId, incidentAddress, incidentPos, onObjectSwitch, planScale = {}, onCalibrate, live = [], photos = [], liveFacts, onPlanLiveMove, onStepEnd, slimTools: slimToolsProp = false, linkViewer = false, railLabels, tafel, presentation, replay = false }: Props) {
+export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange: onChangeAll, building, floorPack, sheetFloors, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterFields, personStatus, fieldHints, onRecent, log, authorName, onStepLabel, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = NO_TRUPPS, truppColors, placedTeamNames, teamNameTaken, onLinkTrupp, onShowTrupp, truppFinder, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, historyGroup, undoGroup, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, buildingInfo, readingsChip, incidentId, incidentAddress, incidentPos, onObjectSwitch, planScale = {}, onCalibrate, live = [], photos = [], liveFacts, onPlanLiveMove, onStepEnd, slimTools: slimToolsProp = false, linkViewer = false, railLabels, tafel, presentation, replay = false }: Props) {
   // ⚠️ RIDERS: what lives on a sheet but is not drawn ON it — the Tafel's pages (kind `form`,
   // lib/boardForm) and any board object this build does not understand (lib/workspace ·
   // isPassengerAnno). Nothing positional may see them: every drawing path below reads `annos` —
@@ -453,7 +456,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   const withForms = (next: BoardAnno[]) => (formAnnos.length ? [...next.filter((a) => isDrawnBoardKind(a.kind)), ...formAnnos] : next)
   // the baked placard glyphs (Kemler auto-derived via lookupUN): the ADR table loads once a
   // numbered Tafel is on the sheet, and they repaint when it lands — see lib/useHazardData.
-  useHazardData({ un: useMemo(() => anyPlacardUn(annosAll), [annosAll]) })
+  const hazardVersion = useHazardData({ un: useMemo(() => anyPlacardUn(annosAll), [annosAll]) })
   const active = plans.find((p) => p.id === activeId) ?? plans[0]
   // The live OSM outline sheet is a SELECTION surface: it exists to pick the building that becomes
   // the Gebäude view, and nothing else — it is the picking FACE of the one «Gebäude» rail tile
@@ -766,8 +769,9 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // the placement press in flight on the ink overlay (components/usePlanCreate · InkTap) — the
   // create tools write it, the rotor's claim ring reads it
   const inkTap = useRef<InkTap | null>(null)
-  // floor-stack ↔ board-normalized y maps for the current document (see lib/whiteboard)
-  const { mapY, localY, floorAt, boardPts, moveRigid } = floorGeometry(stack, floorsTTB, N)
+  // floor-stack ↔ board-normalized y maps for the current document (see lib/whiteboard) – one
+  // identity per layout, so the memo'd PlanAnno (annoBoard below) holds across renders
+  const { mapY, localY, floorAt, boardPts, moveRigid } = useMemo(() => floorGeometry(stack, floorsTTB, N), [stack, floorsTTB, N])
   // …and on a plain sheet that shows a floor pack (Modul 6, its storeys drawn side by side or one
   // per page): the storey drawings, laid onto the board as the board lays its pages, so a symbol
   // placed or moved into one takes its storey, as on the stack (lib/floorPackBinding ·
@@ -2452,6 +2456,28 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // apparatus (rails, docks, chips) is drawn over it. The hooks above still ran, so the Tafel's
   // history and its ↶ stay wired exactly as on the Skizze.
   const formPage = formOpen ? pages.find((p) => p.id === page) : undefined
+
+  // What every <PlanAnno> reads, ONE object while nothing it depends on changes: PlanAnno is
+  // memo'd, so a render of the board that changes none of this (a pan, a zoom-free view report, a
+  // panel opening) renders no annotation. The writers are steady (lib/useSteadyFns); the data is
+  // the sheet's geometry, the tool, the annos and the hazard tables' version. Nothing here reads
+  // the pan offset.
+  const annoFns = useSteadyFns({
+    chipDown, setEditId, setSelId, setNotePanelId, patchCommit, typeText, endTextEdit, textFieldEnded,
+    teamNameTaken, onTeamTrupp, onTeamNewTrupp, onShowTrupp, markPosition, clearTrail, removeWithConnections, removeWithTrail,
+    toggleTrail, rotDown, rotMove, rotUp,
+  })
+  const annoBoard: PlanAnnoBoard = useMemo(() => ({
+    sW, sH, scale, mapY, stack, symBase, txtBase, tool, readOnly, captionMode, sym, annos, trupps, truppSeverities, chipRef, hazardVersion,
+    ...annoFns,
+  }), [sW, sH, scale, mapY, stack, symBase, txtBase, tool, readOnly, captionMode, sym, annos, trupps, truppSeverities, chipRef, hazardVersion, annoFns])
+  /** the annos PlanAnno draws – on the stack one instance per storey the object spans; held, so
+   *  each instance keeps its identity for the memo */
+  const annoItems = useMemo(
+    () => shownAnnos.filter((a) => a.kind !== 'draw').flatMap((a) => stack ? stackInstances(a, floorsTTB) : [a]),
+    [shownAnnos, stack, floorsTTB],
+  )
+
   if (formPage) {
     return (
       <div className="whiteboard wb-tafel-page">
@@ -2486,14 +2512,6 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
           row={<><span className="wb-join">{objectChip}{buildingFloat}</span>{readingsChip}</>} />
       </div>
     )
-  }
-
-  // what every <PlanAnno> reads from this render — one object, handed to each
-  const annoBoard: PlanAnnoBoard = {
-    sW, sH, scale, mapY, stack, symBase, txtBase, tool, readOnly, captionMode, sym, annos, trupps, truppSeverities,
-    chipRef, chipDown, setEditId, setSelId, setNotePanelId, patchCommit, typeText, endTextEdit, textFieldEnded,
-    teamNameTaken, onTeamTrupp, onTeamNewTrupp, onShowTrupp, markPosition, clearTrail, removeWithConnections, removeWithTrail,
-    toggleTrail, rotDown, rotMove, rotUp,
   }
 
   return (
@@ -2948,7 +2966,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
             })}
 
             {/* Every covered floor exposes the same object through the full native renderer. */}
-            {shownAnnos.filter((a) => a.kind !== 'draw').flatMap((a) => stack ? stackInstances(a, floorsTTB) : [a]).map((a) => (
+            {annoItems.map((a) => (
               <PlanAnno key={`${a.id}:${a.floor ?? 0}`} a={a} board={annoBoard} spoke={fan?.[`${a.id}:${a.floor ?? 0}`]}
                 selected={selId === a.id} grouped={selIds.includes(a.id)} networked={relationship.objectIds.has(a.id)}
                 editing={editId === a.id} trailShown={!hiddenTrails.has(a.id)} />
