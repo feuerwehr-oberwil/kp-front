@@ -40,6 +40,18 @@ describe('describeApiError', () => {
       .toBe(fillTemplate(A.autosave.rejected, { fields: A.roster.colName }))
   })
 
+  it('names an Objektbesuche row and the Einsatz-Ablage in German, not by their path', () => {
+    const A = appConfig.copy.admin
+    const e = new ApiError(422, 'String should have at most 120 characters')
+    e.fields = [
+      { path: 'objectVisits.proposalFields.0.label', msg: 'String should have at most 120 characters', kind: 'string_too_long' },
+      { path: 'incidentArchive.destinations.0.photoFolder', msg: 'String should have at most 300 characters', kind: 'string_too_long' },
+    ]
+    expect(describeApiError(e).message).toBe(fillTemplate(A.autosave.rejected, {
+      fields: `${A.objectVisits.fields} (${A.nav.objektbesuche.title}) · ${A.incidentHistory.archive.column} (${A.nav.einsaetze.title})`,
+    }))
+  })
+
   it('keeps the hint that belongs to a refusal', async () => {
     // a 428 with no words of its own: «Seite veraltet» and what to do about it
     const e = await failing(() => Promise.resolve(new Response('', { status: 428 })))

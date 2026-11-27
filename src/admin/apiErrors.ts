@@ -18,6 +18,7 @@ import { fillTemplate } from '../lib/format'
 export function rejectedFieldLabel(path: string): string {
   const A = appConfig.copy.admin
   const P = A.nav
+  const OV = A.objectVisits
   const known: Record<string, { field: string; page: string }> = {
     'identity.appName': { field: A.identity.appName, page: P.identitaet.title },
     'identity.shortName': { field: A.identity.shortName, page: P.identitaet.title },
@@ -38,6 +39,12 @@ export function rejectedFieldLabel(path: string): string {
     'alarms.groups': { field: A.alarms.groupGroups, page: P.alarme.title },
     'alarms.webhooks': { field: A.alarms.groupWebhooks, page: P.alarme.title },
     'doctrine': { field: P.doktrin.title, page: P.doktrin.title },
+    // the Objektbesuche page, by the words of its cards (ObjectVisitsView); a row's field
+    // resolves to the card that owns the row, as `report.links` does
+    'objectVisits.captureRoles': { field: OV.captureRoles, page: P.objektbesuche.title },
+    'objectVisits.lockAfterHours': { field: OV.lockHours, page: P.objektbesuche.title },
+    'objectVisits.proposalFields': { field: OV.fields, page: P.objektbesuche.title },
+    'objectVisits.destinations': { field: OV.destination, page: P.objektbesuche.title },
     // No Station page edits these — the Mittel-Katalog is exactly what Sicherung → Import
     // exists for, which makes them the paths MOST likely to be refused and the ones that had
     // no German name at all. Listed with no page, so they read as a plain name.
@@ -61,6 +68,10 @@ export function rejectedFieldLabel(path: string): string {
     'referenceLayers': { field: P.ebenen.title, page: P.ebenen.title },
     'modules': { field: P.objektplaene.title, page: P.objektplaene.title },
     'mittel': { field: appConfig.copy.mittel.title, page: appConfig.copy.mittel.title },
+    'objectVisits': { field: P.objektbesuche.title, page: P.objektbesuche.title },
+    // No form edits the Einsatz-Ablage (config-as-code, docs/incident-archive.md): it is named
+    // by the column that shows it, on the page that column is on.
+    'incidentArchive': { field: A.incidentHistory.archive.column, page: P.einsaetze.title },
   }
   // Longest matching prefix wins, so a row path (`report.links.0.title`) resolves to the
   // editor that owns the row instead of falling through to the raw path.
