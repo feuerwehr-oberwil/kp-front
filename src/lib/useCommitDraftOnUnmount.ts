@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useLayoutEffect, useRef } from 'react'
 
 /**
  * Commits a draft field when its surface unmounts mid-edit. Closing a sheet must never eat
@@ -11,11 +11,16 @@ import { useEffect, useRef } from 'react'
  * latest render's closure. The commit must be idempotent against an already-committed value
  * (guard on a last-committed ref, not on possibly-stale props), because a normal close runs
  * blur first and this second.
+ *
+ * ⚠️ Layout effects, not passive ones: when a whole surface goes (another Einsatz opened, the app
+ * left), React runs the layout cleanups of the removed tree before ANY passive cleanup – so the
+ * draft commits while the stores above it still take writes. A passive cleanup here ran after the
+ * workspace's own (parents first), when its journal was already disposed and dropped the row.
  */
 export function useCommitDraftOnUnmount(commit: () => void) {
   // latest-ref mirror, synced in an effect rather than during render (same rule the gesture
   // hooks follow) — the unmount cleanup then runs the last committed render's closure
   const ref = useRef(commit)
-  useEffect(() => { ref.current = commit })
-  useEffect(() => () => { ref.current() }, [])
+  useLayoutEffect(() => { ref.current = commit })
+  useLayoutEffect(() => () => { ref.current() }, [])
 }
