@@ -193,3 +193,103 @@ describe('a row held for its length names the limit', () => {
     await waitFor(() => expect(line(M.catModules, 60)).not.toBeNull())
   })
 })
+
+// Sweep 25.11.2026 (config-keep-row): the server serves a stored row past its bound as stored
+// (#813), and an edit of ANOTHER row of its list saved the list without it. It stays in the save
+// as stored – the server then refuses the save – until the admin shortens or deletes it.
+describe('a stored row past its bound stays in the save', () => {
+  const R = appConfig.copy.admin.report
+  const T = appConfig.copy.admin.objectVisits
+  const M = appConfig.copy.admin.map
+  const remove = async (label: string, i: number) => {
+    await act(async () => { fireEvent.click(screen.getAllByRole('button', { name: label })[i]) })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: appConfig.copy.admin.common.confirmYes })) })
+  }
+
+  describe('Formulare & Links', () => {
+    const long = { id: 'lnk1', title: 'T'.repeat(130), url: 'https://formulare.example/lang' }
+    const ok = { id: 'lnk2', title: 'Schaden', url: 'https://formulare.example/schaden' }
+    const titles = () => screen.getAllByPlaceholderText(R.linkTitlePlaceholder)
+    beforeEach(() => { apiGet.mockResolvedValue({ ...structuredClone(STATION), report: { ...STATION.report, links: [long, ok] } }) })
+
+    it('keeps the stored link through an edit of another one, and while it is still too long', async () => {
+      await act(async () => { render(<ConfigProvider><ReportSection /></ConfigProvider>) })
+      await type((await waitFor(titles))[1], 'Schadenmeldung')
+      await settle()
+      expect(sent()?.report?.links).toEqual([long, { ...ok, title: 'Schadenmeldung' }])
+      await type(titles()[0], 'T'.repeat(125))
+      await settle()
+      expect(sent()?.report?.links).toEqual([long, { ...ok, title: 'Schadenmeldung' }])
+    })
+
+    it('saves it once shortened, and without it once deleted', async () => {
+      await act(async () => { render(<ConfigProvider><ReportSection /></ConfigProvider>) })
+      await type((await waitFor(titles))[0], 'T'.repeat(120))
+      await settle()
+      expect(sent()?.report?.links).toEqual([{ ...long, title: 'T'.repeat(120) }, ok])
+      await type(titles()[0], 'T'.repeat(121))
+      await settle()
+      await remove(R.linkRemove, 0)
+      await settle()
+      expect(sent()?.report?.links).toEqual([ok])
+    })
+
+    it('lets the admin shorten a stored URL past its bound', async () => {
+      const url = `https://formulare.example/?q=${'x'.repeat(TEXT_MAX_LENGTH['report.links.0.url'])}`
+      apiGet.mockResolvedValue({ ...structuredClone(STATION), report: { ...STATION.report, links: [{ ...ok, url }] } })
+      await act(async () => { render(<ConfigProvider><ReportSection /></ConfigProvider>) })
+      const area = await waitFor(() => screen.getByPlaceholderText(R.linkUrlPlaceholder) as HTMLTextAreaElement)
+      await type(area, url.slice(0, -1))
+      expect(area.value).toBe(url.slice(0, -1))
+    })
+  })
+
+  describe('Korrekturvorschlag fields', () => {
+    const long = { id: 'lang', label: 'L'.repeat(121) }
+    const ok = { id: 'kurz', label: 'Kurz' }
+    const labels = () => screen.getAllByPlaceholderText(T.fieldLabelPlaceholder)
+    beforeEach(() => { apiGet.mockResolvedValue({ ...structuredClone(STATION), objectVisits: { proposalFields: [long, ok] } }) })
+
+    it('keeps the stored field through an edit of another one', async () => {
+      await act(async () => { render(<ConfigProvider><ProposalFieldsEditor /></ConfigProvider>) })
+      await type((await waitFor(labels))[1], 'Kurz Name')
+      await settle()
+      expect(sent()?.objectVisits?.proposalFields).toEqual([long, { id: 'kurz_name', label: 'Kurz Name' }])
+    })
+
+    it('saves it once shortened, and without it once deleted', async () => {
+      await act(async () => { render(<ConfigProvider><ProposalFieldsEditor /></ConfigProvider>) })
+      await type((await waitFor(labels))[0], 'L'.repeat(120))
+      await settle()
+      expect(sent()?.objectVisits?.proposalFields).toEqual([{ ...long, label: 'L'.repeat(120) }, ok])
+      await remove(T.fieldRemove, 0)
+      await settle()
+      expect(sent()?.objectVisits?.proposalFields).toEqual([ok])
+    })
+  })
+
+  describe('Objektfarben', () => {
+    const long = { id: 'pv', label: 'Photovoltaik', color: '#f59e0b', match: { modules: ['m'.repeat(61)] } }
+    const ok = { id: 'rest', label: 'Rest', color: '#64748b', match: { kinds: ['objekt'] } }
+    const names = () => screen.getAllByPlaceholderText(M.catNamePlaceholder)
+    beforeEach(() => { apiGet.mockResolvedValue({ ...structuredClone(STATION), map: { objectCategories: [long, ok] } }) })
+
+    it('keeps the stored rule through an edit of another one', async () => {
+      await act(async () => { render(<ConfigProvider><ObjectCategoriesCard /></ConfigProvider>) })
+      await type((await waitFor(names))[1], 'Andere')
+      await settle()
+      expect(sent()?.map?.objectCategories).toEqual([long, { ...ok, id: 'andere', label: 'Andere' }])
+    })
+
+    it('saves it once shortened, and without it once deleted', async () => {
+      await act(async () => { render(<ConfigProvider><ObjectCategoriesCard /></ConfigProvider>) })
+      await waitFor(names)
+      await type(screen.getAllByPlaceholderText(M.catModulesPlaceholder)[0], 'm'.repeat(60))
+      await settle()
+      expect(sent()?.map?.objectCategories).toEqual([{ ...long, match: { modules: ['m'.repeat(60)] } }, ok])
+      await remove(M.catRemove, 0)
+      await settle()
+      expect(sent()?.map?.objectCategories).toEqual([ok])
+    })
+  })
+})

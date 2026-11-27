@@ -3,7 +3,7 @@ import { appConfig } from '../config/appConfig'
 import { Icon } from '../lib/icons'
 import { categoryId, categoryLabel, INK, isCategoryColor, writableRules, type ObjectCategoryRule, type ObjectKind } from '../lib/karte/categories'
 import { getPath, useConfig } from './ConfigContext'
-import { TEXT_MAX_LENGTH, tooLongNote } from './configGuards'
+import { TEXT_MAX_LENGTH, tooLongNote, useStoredRows } from './configGuards'
 import { ConfirmButton, RecordRows, RecordTable, SettingRow, SettingsNote } from './ui'
 
 // «Objektfarben» — the station's colours for its objects on «Karte & Objekte»
@@ -11,7 +11,8 @@ import { ConfirmButton, RecordRows, RecordTable, SettingRow, SettingsNote } from
 // Ordered rules, first match wins; a rule names the object kinds and/or plan modules (globs) it
 // takes. A colour is a #rrggbb or «Tinte» (`ink`: the default look, near-black by day, near-white
 // at night — owner, 25.10.2026). A row the server would refuse — no name, neither colour — stays on
-// screen with its reason and is not written, like every list editor in the Verwaltung.
+// screen with its reason and is not written, like every list editor in the Verwaltung; a stored
+// rule past a bound stays in the save as stored (configGuards · useStoredRows).
 
 const HEX = /^#[0-9a-fA-F]{6}$/
 const KINDS: ObjectKind[] = ['einsatzobjekt', 'objekt'] // «depot» is retired (lib/karte/categories)
@@ -30,12 +31,13 @@ export function ObjectCategoriesCard() {
   const stored = Array.isArray(raw) ? raw : []
   const [editing, setEditing] = useState<ObjectCategoryRule[] | null>(null)
   const rows = editing ?? stored
+  const { edited, saved } = useStoredRows(stored, writableRules)
 
   const write = (next: ObjectCategoryRule[]) => {
     setEditing(next)
-    set(['map', 'objectCategories'], writableRules(next))
+    set(['map', 'objectCategories'], saved(next))
   }
-  const patch = (i: number, over: Partial<ObjectCategoryRule>) => write(rows.map((r, j) => (j === i ? { ...r, ...over } : r)))
+  const patch = (i: number, over: Partial<ObjectCategoryRule>) => write(rows.map((r, j) => (j === i ? edited(r, { ...r, ...over }) : r)))
   /** a German name edits the German entry of a per-language label, and leaves the others */
   const setName = (i: number, name: string) => {
     const r = rows[i]

@@ -5,7 +5,7 @@ import { legacyFleetToAttributeLists, DEFAULT_MODULES, OFFLINE_RADIUS_M } from '
 import { geoDatasetId, geoLayerUrl, inspectGeojson, listReference, uploadReference, type ReferenceDataset } from '../lib/incidents'
 import { apiGet } from '../lib/api'
 import { useConfig, getPath } from './ConfigContext'
-import { ALARM_BAR_STATION_MIN, NUMBER_GUARDS, TEXT_MAX_LENGTH, fitsText, tooLongNote, type NumberField, type NumberGuard } from './configGuards'
+import { ALARM_BAR_STATION_MIN, NUMBER_GUARDS, TEXT_MAX_LENGTH, fitsText, tooLongNote, useStoredRows, type NumberField, type NumberGuard } from './configGuards'
 // No `Field` any more: every setting on these pages is a row of the settings table now, and
 // the list editors' records are a divider plus their fields as rows of the same grid.
 import {
@@ -2087,6 +2087,13 @@ const SAMPLE_LINK_FACTS: ReportLinkFacts = {
   wehr: 'Feuerwehr Musterdorf',
 }
 
+/** The links the server takes: a title, an openable URL, and none longer than the schema allows
+ *  (configGuards · TEXT_MAX_LENGTH) – the boxes hold typing to it and a chip refuses to cross it,
+ *  so the length only holds a row that came otherwise. */
+const writableLinks = (rows: readonly ReportLink[]) => rows.filter((l) => !!l.title?.trim() && isOpenableUrl(l.url ?? '')
+  && fitsText('report.links.0.title', l.title) && fitsText('report.links.0.url', l.url)
+  && fitsText('report.links.0.note', l.note))
+
 /**
  * «Formulare & Links» — the station's own paperwork as rows on the Rapport (lib/reportLinks).
  *
@@ -2109,6 +2116,7 @@ function ReportLinksEditor() {
   // Null until the first edit, so a config arriving from elsewhere still shows through.
   const [editing, setEditing] = useState<ReportLink[] | null>(null)
   const rows = editing ?? stored
+  const { edited, saved } = useStoredRows(stored, writableLinks)
   // the URL field a chip inserts into: the one that was focused last. Held as an element ref
   // rather than an index, because the insert needs its live selection anyway.
   const urlRef = useRef<HTMLTextAreaElement | null>(null)
@@ -2129,14 +2137,12 @@ function ReportLinksEditor() {
     // The row stays on screen and keeps its warning («erscheint nicht auf dem Rapport») until
     // it is worth saving; the same predicate `reportLinks()` uses decides that, so what the
     // preview promises and what gets stored cannot drift apart.
-    // …and none longer than the schema allows (configGuards · TEXT_MAX_LENGTH): the boxes hold
-    // typing to it and a chip refuses to cross it, so this only holds a row that came otherwise.
-    set(['report', 'links'], next.filter((l) => !!l.title?.trim() && isOpenableUrl(l.url ?? '')
-      && fitsText('report.links.0.title', l.title) && fitsText('report.links.0.url', l.url)
-      && fitsText('report.links.0.note', l.note)))
+    // …and none longer than the schema allows (writableLinks).
+    // A STORED link past a bound stays in the save as stored (configGuards · useStoredRows).
+    set(['report', 'links'], saved(next))
   }
   const patch = (i: number, over: Partial<ReportLink>) =>
-    write(rows.map((r, j) => (j === i ? { ...r, ...over } : r)))
+    write(rows.map((r, j) => (j === i ? edited(r, { ...r, ...over }) : r)))
 
   const insertToken = (i: number, token: string) => {
     const row = rows[i]
@@ -2206,12 +2212,16 @@ function ReportLinksEditor() {
               <div className="adm-set-col">
                 {/* ⚠️ No `maxLength` here: a browser CUTS a paste to it, and a prefill URL cut short
                     is still a URL – it would save with its last parameters gone. A change that
-                    would cross the bound is refused whole, like a chip's (insertToken). */}
+                    would cross the bound is refused whole, like a chip's (insertToken); one that
+                    shortens a stored URL past it is taken, so the admin can fix that by hand. */}
                 <textarea
                   className="adm-input adm-input-mono adm-formlink-url" rows={3} value={row.url ?? ''}
                   placeholder={C.linkUrlPlaceholder} data-id={row.id}
                   onFocus={(e) => { urlRef.current = e.currentTarget }}
-                  onChange={(e) => { if (fitsText('report.links.0.url', e.target.value)) patch(i, { url: e.target.value }) }}
+                  onChange={(e) => {
+                    const url = e.target.value
+                    if (fitsText('report.links.0.url', url) || [...url].length < [...(row.url ?? '')].length) patch(i, { url })
+                  }}
                 />
                 <span className="adm-formlink-tokens" role="group" aria-label={C.linkTokens}>
                   {REPORT_LINK_TOKENS.map((t) => (
