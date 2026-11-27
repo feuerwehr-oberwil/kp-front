@@ -414,13 +414,19 @@ async def test_a_roster_that_does_not_match_the_index_changes_nothing(db_session
 
 
 @pytest.mark.parametrize(
-    "roster",
-    ["corrupt", {"snapshotMaxDeactivatePct": None}, {"snapshotMaxDeactivatePct": "20"}],
-    ids=["roster-string", "cap-null", "cap-string"],
+    ("roster", "part"),
+    [
+        ("corrupt", "(roster)"),
+        ({"snapshotMaxDeactivatePct": None}, "(roster.snapshotMaxDeactivatePct)"),
+        ({"snapshotMaxDeactivatePct": "20"}, "(roster.snapshotMaxDeactivatePct)"),
+        ({"snapshotIntervalMin": None, "snapshotMaxDeactivatePct": 0}, "(roster.snapshotIntervalMin)"),
+    ],
+    ids=["roster-string", "cap-null", "cap-string", "interval-null"],
 )
-async def test_a_policy_it_cannot_read_writes_nothing_and_says_so(db_session, source, roster):
+async def test_a_policy_it_cannot_read_writes_nothing_and_says_so(db_session, source, roster, part):
     """The cap is the one thing between a broken file and a deactivated Wehr: one the station
-    stored but that cannot be read is not the shipped 20 %. The run refuses, on the card."""
+    stored but that cannot be read is not the shipped 20 %. The run refuses, on the card, and
+    names the part that cannot be read."""
     from app.models import DeploymentConfig
 
     db_session.add(DeploymentConfig(id=1, config_json={"roster": roster}))
@@ -429,9 +435,7 @@ async def test_a_policy_it_cannot_read_writes_nothing_and_says_so(db_session, so
 
     status = await roster_snapshot_sync.run(db_session, trigger="scheduled")
 
-    assert (
-        status["outcome"]["refused"].startswith("run failed")
-        and "lassen sich nicht lesen" in status["outcome"]["refused"]
-    )
-    assert "lassen sich nicht lesen" in (await _state(db_session)).last_error
+    assert status["outcome"]["refused"].startswith("run failed")
+    error = (await _state(db_session)).last_error
+    assert "lassen sich nicht lesen" in error and part in error
     assert await _people(db_session) == []

@@ -82,20 +82,22 @@ async def fetch_roster(
     )
 
 
-async def roster_policy(db: AsyncSession) -> tuple[int, int] | None:
-    """``(interval minutes, max deactivation %)`` from ``roster.*`` (unset → shipped), or ``None``
-    when the stored roster, or one of the two, is not a valid value: the run then refuses
+async def roster_policy(db: AsyncSession) -> tuple[int, int] | RosterUnreadableError:
+    """``(interval minutes, max deactivation %)`` from ``roster.*`` (unset → shipped), or the
+    refusal that names what cannot be read (the roster, or one of the two): the run raises it
     rather than deactivate people under a cap the station did not choose.
 
     ⚠️ Raw on purpose, not `deployment_config.read_config`: on a document broken elsewhere its
     fallback would read a station's tighter cap as the shipped 20 %."""
     roster = await raw_roster(db)
     if roster is None:
-        return None
+        return RosterUnreadableError("roster")
     interval = roster.get("snapshotIntervalMin", DEFAULT_INTERVAL_MIN)
+    if not (type(interval) is int and 5 <= interval <= 1440):
+        return RosterUnreadableError("roster.snapshotIntervalMin")
     pct = roster.get("snapshotMaxDeactivatePct", DEFAULT_MAX_DEACTIVATE_PCT)
-    if not (type(interval) is int and 5 <= interval <= 1440 and type(pct) is int and 0 <= pct <= 100):
-        return None
+    if not (type(pct) is int and 0 <= pct <= 100):
+        return RosterUnreadableError("roster.snapshotMaxDeactivatePct")
     return interval, pct
 
 
@@ -201,8 +203,8 @@ async def run(
 
     try:
         policy = await roster_policy(db)
-        if policy is None:  # reported as a failed run below: nothing written, the card says why
-            raise RosterUnreadableError("roster.snapshotMaxDeactivatePct")
+        if isinstance(policy, RosterUnreadableError):  # a failed run below: nothing written, the card says why
+            raise policy
         _interval, max_pct = policy
         people, rows = await load_people(db)
         ranks = await load_roster_ranks(db)
@@ -295,7 +297,8 @@ async def busy_person_ids(db: AsyncSession, person_ids: list[str]) -> set[str]:
 async def due(db: AsyncSession, *, now: datetime | None = None) -> bool:
     """Has the configured interval passed since the last attempt (or was there none)?"""
     # an unreadable policy still makes the run due: the run refuses and says why on the card
-    interval = (await roster_policy(db) or (DEFAULT_INTERVAL_MIN, 0))[0]
+    policy = await roster_policy(db)
+    interval = DEFAULT_INTERVAL_MIN if isinstance(policy, RosterUnreadableError) else policy[0]
     row = await _row(db)
     if row is None or row.last_attempt_at is None:
         return True
