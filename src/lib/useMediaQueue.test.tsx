@@ -11,6 +11,7 @@ vi.mock('./idb', () => ({
 }))
 vi.mock('./mediaUrl', () => ({ forgetLocalThumb: vi.fn(), mintLocalThumb: async () => {} }))
 import { ApiError } from './api'
+import { noteAnswered, noteUnreached } from './connectivity'
 import { enqueueMedia, __resetMediaQueueForTests } from './mediaQueue'
 import { useMediaQueue } from './useMediaQueue'
 
@@ -70,4 +71,39 @@ it('keeps a receipt «not saved» until onUploaded acknowledges its link, withou
   await act(async () => { await result.current.replayReceipts() })
   expect(result.current).toMatchObject({ receiptCount: 0, syncStatus: 'synced' })
   expect(upload).toHaveBeenCalledTimes(1)
+})
+
+// a dead link backs the pause off to minutes; the first answer from the server ends it at once
+it('uploads at once when the server is reachable again, not after the remaining pause', async () => {
+  vi.useFakeTimers()
+  vi.spyOn(Math, 'random').mockReturnValue(0.5)
+  vi.stubGlobal('URL', { createObjectURL: () => 'blob:restored', revokeObjectURL: vi.fn() })
+  upload.mockReset().mockRejectedValue(new ApiError(0, 'Netzwerkfehler'))
+  await enqueueMedia('cellar-hook', 'row', 'audio', new Blob(['audio']), 'voice.webm', new Date().toISOString())
+  const { result } = renderHook(() => useMediaQueue({ incidentId: 'cellar-hook', readOnly: false, onUploaded: () => true, onRestore: () => {} }))
+  // tries at 0, 5, 15, 35, 75, 155 s: the next pause is 160 s
+  for (let s = 0; s < 32; s++) await act(async () => { await vi.advanceTimersByTimeAsync(5_000) })
+  expect(upload).toHaveBeenCalledTimes(6)
+  upload.mockResolvedValue({ url: '/uploaded' })
+  noteUnreached()
+  act(() => { noteAnswered() })
+  await act(async () => { await vi.advanceTimersByTimeAsync(1) })
+  expect(upload).toHaveBeenCalledTimes(7)
+  expect(result.current.pendingCount).toBe(0)
+})
+
+it('uploads at once on the `online` event, not after the remaining pause', async () => {
+  vi.useFakeTimers()
+  vi.spyOn(Math, 'random').mockReturnValue(0.5)
+  vi.stubGlobal('URL', { createObjectURL: () => 'blob:restored', revokeObjectURL: vi.fn() })
+  upload.mockReset().mockRejectedValue(new ApiError(0, 'Netzwerkfehler'))
+  await enqueueMedia('online-hook', 'row', 'audio', new Blob(['audio']), 'voice.webm', new Date().toISOString())
+  const { result } = renderHook(() => useMediaQueue({ incidentId: 'online-hook', readOnly: false, onUploaded: () => true, onRestore: () => {} }))
+  for (let s = 0; s < 32; s++) await act(async () => { await vi.advanceTimersByTimeAsync(5_000) })
+  expect(upload).toHaveBeenCalledTimes(6)
+  upload.mockResolvedValue({ url: '/uploaded' })
+  act(() => { window.dispatchEvent(new Event('online')) })
+  await act(async () => { await vi.advanceTimersByTimeAsync(1) })
+  expect(upload).toHaveBeenCalledTimes(7)
+  expect(result.current.pendingCount).toBe(0)
 })

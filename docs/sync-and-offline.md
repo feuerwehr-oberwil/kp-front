@@ -234,10 +234,13 @@ beendet». The rules: [`presentation.md`](presentation.md).
 - Blob data never falls back to JSON storage. Failed local media persistence retains bytes in
   memory and reports storage failure. Pending uploads retry by themselves, one attempt per item
   per pause (5 s doubling, capped at 5 min, with jitter). «No answer at all» (offline, timeout)
-  leaves the attempt count alone; a backend that is down (502/503/504, e.g. a deploy) grows the
-  pause but never ends `failed` – retries are safe, see `upload_id` below. Any other HTTP error
-  counts, and exhausted uploads wait for explicit retry. Rendering the queue must never trigger
-  an upload loop.
+  leaves the attempt count alone and counts a stored miss instead: the pause still doubles, the
+  item never ends `failed`, and any server answer ends the run of misses. When the server is
+  reachable again (`online`, or `connectivity · onReachable`) every waiting capture is due at
+  once, through the same flush lane. A backend that is down (502/503/504, e.g. a deploy) grows
+  the pause but never ends `failed` – retries are safe, see `upload_id` below. Any other HTTP
+  error counts, and exhausted uploads wait for explicit retry. Rendering the queue must never
+  trigger an upload loop.
 - Every attempt of one capture sends the same `upload_id` (the queue entry's `rev`, minted by
   the direct upload); the server returns the file it already stored for that id, so a retry
   after a lost response does not store a second copy.

@@ -1,7 +1,8 @@
 // React binding for the offline media upload queue (see mediaQueue.ts). It keeps the queued
 // items in state, restores pending captures onto their timeline rows after a reload (the blob
 // lives in IndexedDB; the row's session-only blob: URL was dropped on save), and re-drains the
-// queue whenever connectivity returns so nothing sits un-uploaded once we're back online.
+// queue whenever connectivity returns (the `online` event, or the server answering again –
+// connectivity · onReachable) so nothing sits out a dead link's backoff once we're back online.
 // `target: 'attachment'` keeps Rapport-Beilagen on that same durable/retrying path, with their
 // restore/upload callbacks routed to attachment ids rather than append-only journal rows.
 // Uploads land as RECEIPTS (mediaQueue header): `replay` hands each to `onUploaded` after every
@@ -10,6 +11,7 @@
 // store it links into may already be gone. Receipts keep their `target` for that call.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { onReachable } from './connectivity'
 import { uploadMedia } from './incidents'
 import { forgetLocalThumb, mintLocalThumb } from './mediaUrl'
 import {
@@ -150,7 +152,7 @@ export function useMediaQueue({ incidentId, readOnly, onUploaded, onRestore }: O
     }
   }, [incidentId, readOnly])
 
-  const flush = useCallback(async (options?: { retry?: boolean }) => {
+  const flush = useCallback(async (options?: { retry?: boolean; due?: boolean }) => {
     if (readOnly) return
     await flushMediaQueue(incidentId, uploadMedia, options)
     await replay()
@@ -201,11 +203,14 @@ export function useMediaQueue({ incidentId, readOnly, onUploaded, onRestore }: O
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [incidentId])
 
-  // Retry the moment the browser reports connectivity is back.
+  // Retry the moment connectivity is back – the browser's `online` event, or the server answering
+  // again after a dead link (which the browser never announces). The pauses that dead link grew
+  // are over: every waiting capture is due (mediaQueue · flushMediaQueue `due`).
   useEffect(() => {
-    const onOnline = () => { setReconnected((n) => n + 1); void flush() }
+    const onOnline = () => { setReconnected((n) => n + 1); void flush({ due: true }) }
     window.addEventListener('online', onOnline)
-    return () => window.removeEventListener('online', onOnline)
+    const offReachable = onReachable(() => { void flush({ due: true }) })
+    return () => { window.removeEventListener('online', onOnline); offReachable() }
   }, [flush])
 
   // Retry only pending captures, at their persisted deadline. Updating attempts must never

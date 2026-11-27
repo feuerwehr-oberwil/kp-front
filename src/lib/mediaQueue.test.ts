@@ -476,3 +476,81 @@ it('sends the same upload id on every attempt of one capture – the one its dir
   await flushMediaQueue(INC, upload)
   expect(upload.mock.calls.map((c) => c[4])).toEqual(['mq-direct-1', 'mq-direct-1'])
 })
+
+// «No answer at all» (a WLAN that routes nowhere, a cellar) must back off like the docs say,
+// without ever counting toward `failed` (perf sweep 26.11.2026).
+describe('mediaQueue · no answer at all', () => {
+  const noAnswer = () => vi.fn<MediaUploader>().mockRejectedValue(new ApiError(0, 'Netzwerkfehler'))
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.spyOn(Math, 'random').mockReturnValue(0.5) // no jitter
+  })
+
+  it('doubles the pause from 5 s to the 5 min cap and never ends failed', async () => {
+    await enqueueMedia(INC, 'cellar', 'photo', blob(), 'p', '')
+    const upload = noAnswer()
+    const pauses: number[] = []
+    for (let step = 1; step <= 10; step++) {
+      await flushMediaQueue(INC, upload)
+      await flushMediaQueue(INC, upload) // before the pause is over: no second attempt
+      expect(upload).toHaveBeenCalledTimes(step)
+      const [item] = await listMediaQueue(INC)
+      expect(item).toMatchObject({ status: 'pending', attempts: 0, misses: step })
+      pauses.push(item.retryAt! - Date.now())
+      vi.setSystemTime(item.retryAt!)
+    }
+    expect(pauses).toEqual([5, 10, 20, 40, 80, 160, 300, 300, 300, 300].map((s) => s * 1000))
+  })
+
+  it('rewrites the queue (Blobs included) at most 8 times in 10 minutes', async () => {
+    await enqueueMedia(INC, 'cellar', 'photo', blob(), 'p', '')
+    const writes = vi.spyOn(idb, 'idbSet')
+    const upload = noAnswer()
+    const end = Date.now() + 600_000
+    for (;;) {
+      await flushMediaQueue(INC, upload)
+      const [item] = await listMediaQueue(INC)
+      if (item.retryAt! > end) break
+      vi.setSystemTime(item.retryAt!)
+    }
+    expect(writes.mock.calls.length).toBeLessThanOrEqual(8)
+  })
+
+  it('resets the pause on any server answer, while the upload id stays the same', async () => {
+    await enqueueMedia(INC, 'cellar', 'photo', blob(), 'p', '', undefined, undefined, 'mq-1')
+    const upload = noAnswer()
+    for (let step = 0; step < 4; step++) {
+      await flushMediaQueue(INC, upload)
+      vi.setSystemTime((await listMediaQueue(INC))[0].retryAt!)
+    }
+    upload.mockRejectedValueOnce(new ApiError(503, 'down'))
+    await flushMediaQueue(INC, upload)
+    const [item] = await listMediaQueue(INC)
+    expect(item).toMatchObject({ status: 'pending', attempts: 1 })
+    expect(capture(item).misses).toBeUndefined()
+    expect(item.retryAt! - Date.now()).toBe(10_000) // one counted attempt, as before
+    expect(new Set(upload.mock.calls.map((c) => c[4]))).toEqual(new Set(['mq-1']))
+  })
+
+  it('treats an entry stored without the count (an older build) as count 0', async () => {
+    const old = { id: 'e1:audio', incidentId: INC, rowId: 'e1', kind: 'audio', filename: 'v', createdAt: '', attempts: 0, status: 'pending', blob: blob(), retryAt: Date.now() - 1 }
+    await idb.idbSet(`kp-front-mediaq-${INC}`, [old])
+    await flushMediaQueue(INC, noAnswer())
+    const [item] = await listMediaQueue(INC)
+    expect(item).toMatchObject({ status: 'pending', attempts: 0, misses: 1 })
+    expect(item.retryAt! - Date.now()).toBe(5_000)
+  })
+
+  it('a `due` flush tries waiting captures at once, but leaves failed ones for a tap', async () => {
+    const entry = { incidentId: INC, filename: 'f', createdAt: '', blob: blob() }
+    await idb.idbSet(`kp-front-mediaq-${INC}`, [
+      { ...entry, id: 'cellar:photo', rowId: 'cellar', kind: 'photo', status: 'pending', attempts: 0, misses: 7, retryAt: Date.now() + 299_000 },
+      { ...entry, id: 'bad:audio', rowId: 'bad', kind: 'audio', status: 'failed', attempts: 3, retryAt: Date.now() - 1 },
+    ])
+    const upload = vi.fn<MediaUploader>().mockResolvedValue({ url: '/api/media/m' })
+    expect((await flushMediaQueue(INC, upload)).uploaded).toEqual([])
+    const out = await flushMediaQueue(INC, upload, { due: true })
+    expect(out.uploaded.map((u) => u.rowId)).toEqual(['cellar'])
+    expect(upload).toHaveBeenCalledTimes(1)
+  })
+})
