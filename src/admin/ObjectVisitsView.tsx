@@ -153,20 +153,22 @@ export function ProposalFieldsEditor() {
   // row a new key: an armed «Löschen?» is dropped instead of deleting the row that moved up.
   const [layout, setLayout] = useState(0)
   const rows = editing ?? stored
-  const problem = (f: FieldRow, i: number, all: readonly FieldRow[]): string | null => {
+  /** Why a row is not written, length aside; null = no such reason. */
+  const reason = (f: FieldRow, i: number, all: readonly FieldRow[]): string | null => {
     const id = f.id?.trim()
     // the holder of a Kennung: the row that has had it longest, the upper one on a tie – checked
     // before the label, so a new row given a taken Kennung first says that
     const holder = all.reduce((h, o, j) => (o.id?.trim() === id && (h < 0 || (o.since ?? 0) < (all[h].since ?? 0)) ? j : h), -1)
-    if (id && holder !== i) return T.fieldDuplicate
-    if (!id || !f.label?.trim()) return T.fieldIncomplete
-    // …and none longer than the schema allows: the boxes hold typing to it (configGuards)
-    return tooLongNote([
-      ['objectVisits.proposalFields.0.label', T.fieldLabel, f.label.trim()],
-      ['objectVisits.proposalFields.0.id', T.fieldId, id],
-    ])
+    return id && holder !== i ? T.fieldDuplicate : !id || !f.label?.trim() ? T.fieldIncomplete : null
   }
-  const { edited, saved } = useStoredRows(stored, (all) => all.filter((f, i) => problem(f, i, all) === null),
+  /** …and none longer than the schema allows: the boxes hold typing to it (configGuards).
+   *  `stored`: the wording for a stored original (useStoredRows · keptOriginals). `raw`: the
+   *  values as they are sent – a stored original goes out untrimmed. */
+  const lengthNote = (f: FieldRow, stored = false, raw = false) => tooLongNote([
+    ['objectVisits.proposalFields.0.label', T.fieldLabel, raw ? f.label : f.label?.trim()],
+    ['objectVisits.proposalFields.0.id', T.fieldId, raw ? f.id : f.id?.trim()],
+  ], stored)
+  const { edited, saved, keptOriginals } = useStoredRows(stored, (all) => all.filter((f, i) => reason(f, i, all) === null && lengthNote(f) === null),
     (f) => !fitsText('objectVisits.proposalFields.0.label', f.label) || !fitsText('objectVisits.proposalFields.0.id', f.id))
   const write = (next: FieldRow[]) => {
     setEditing(next)
@@ -186,11 +188,18 @@ export function ProposalFieldsEditor() {
     const follows = !row.id?.trim() || row.id === fieldSlug(row.label ?? '')
     patch(i, follows ? { label, id: fieldSlug(label) } : { label })
   }
+  const kept = keptOriginals(rows)
   return (
     <RecordTable title={T.fields} tip={T.fieldsTip} recordLabel={T.fieldsRecord}>
       {rows.length === 0 && <SettingsNote>{T.fieldsEmpty}</SettingsNote>}
       {rows.map((row, i) => {
-        const warn = problem(row, i, rows)
+        // a row the save replaces by its stored original blocks every save until it is fixed: the
+        // field still too long in the edit, else the original's, beside any other reason
+        const original = kept.get(row)
+        const warns = (original
+          ? [reason(row, i, rows), lengthNote(row, true) ?? lengthNote(original, true, true)]
+          : [reason(row, i, rows) ?? lengthNote(row)])
+          .filter((w) => w !== null)
         return (
           <RecordRows
             key={`${layout}:${i}`}
@@ -209,7 +218,7 @@ export function ProposalFieldsEditor() {
               <input className="adm-input adm-input-mono" type="text" value={row.id ?? ''} placeholder={T.fieldIdPlaceholder}
                 maxLength={TEXT_MAX_LENGTH['objectVisits.proposalFields.0.id']} onChange={(e) => patch(i, { id: e.target.value })} />
             </SettingRow>
-            {warn && <SettingsNote tone="warn">{warn}</SettingsNote>}
+            {warns.map((w) => <SettingsNote key={w} tone="warn">{w}</SettingsNote>)}
           </RecordRows>
         )
       })}

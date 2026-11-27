@@ -137,6 +137,7 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
       standardOff: 'No',
       newEntry: 'Nuova voce',
       textTooLong: '{field}: al massimo {n} caratteri – così la voce non viene salvata.',
+      textTooLongStored: '{field}: al massimo {n} caratteri – accorciare o eliminare la riga. Fino ad allora nessuna impostazione viene salvata.',
     },
     numbers: {
       integer: 'Valore non ancora salvato – è atteso un numero intero.',

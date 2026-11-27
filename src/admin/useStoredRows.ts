@@ -26,6 +26,8 @@ const retired = new WeakSet<object>()
  * kept) is left out as before: keeping it could refuse a save the server takes. Pass every
  * row an edit replaces through `edited(before, after)`, which carries its stored original along,
  * and write `saved(rows, clean)`: `clean` shapes a written row (a trim), never a stored original.
+ * `keptOriginals(rows)` tells the editor's warning which of its rows the save replaces by such
+ * an original.
  */
 export function useStoredRows<T extends object>(
   stored: readonly T[],
@@ -34,15 +36,13 @@ export function useStoredRows<T extends object>(
 ) {
   const { save, dirty } = useConfig()
   const held = useRef<ReadonlySet<T> | null>(null)
-  const heldRows = () => {
-    if (!held.current) {
-      const ok = writable(stored)
-      held.current = new Set(stored.filter((r) => !ok.includes(r) && overCap(r)))
-    }
-    return held.current
+  const heldIn = (list: readonly T[]): ReadonlySet<T> => {
+    const ok = writable(list)
+    return new Set(list.filter((r) => !ok.includes(r) && overCap(r)))
   }
-  const original = (row: T): T | undefined => {
-    const o = heldRows().has(row) ? row : (origins.get(row) as T | undefined)
+  const heldRows = () => (held.current ??= heldIn(stored))
+  const original = (row: T, heldNow: ReadonlySet<T> = heldRows()): T | undefined => {
+    const o = heldNow.has(row) ? row : (origins.get(row) as T | undefined)
     return o && !retired.has(o) ? o : undefined
   }
   /** Before each write: if the server took a save of the draft as it is now, every repair in that
@@ -57,6 +57,18 @@ export function useStoredRows<T extends object>(
   }
 
   return {
+    /** Each row of `rows` that the save replaces by its stored original past a bound, with that
+     *  original – the value that refuses every save of the config until the admin fixes the row.
+     *  The editor's warning names it. For a render: before the first edit the held rows are read
+     *  from the draft as it is, so a config that arrives after the first render still counts. */
+    keptOriginals: (rows: readonly T[]): ReadonlyMap<T, T> => {
+      const heldNow = held.current ?? heldIn(stored)
+      const ok = writable(rows)
+      return new Map(rows.flatMap((r) => {
+        const o = ok.includes(r) ? undefined : original(r, heldNow)
+        return o ? [[r, o] as const] : []
+      }))
+    },
     edited: (before: T, after: T): T => {
       retire()
       const o = original(before)

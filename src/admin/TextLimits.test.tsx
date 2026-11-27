@@ -162,35 +162,140 @@ describe('objectVisits.proposalFields — two fields with one Kennung', () => {
 })
 
 // …and a row held for its length said nothing: it stayed in the form and out of the save.
+// Owner pick 27.11.2026: a STORED row past its bound refuses every save of the config until it
+// is fixed (useStoredRows), so its line says that – a row being typed keeps «not saved like this».
 describe('a row held for its length names the limit', () => {
   const R = appConfig.copy.admin.report
   const T = appConfig.copy.admin.objectVisits
   const M = appConfig.copy.admin.map
   const line = (label: string, n: number) => screen.queryByText(`${label}: höchstens ${n} Zeichen – so wird der Eintrag nicht gespeichert.`)
+  const storedLine = (label: string, n: number) =>
+    screen.queryByText(`${label}: höchstens ${n} Zeichen – bitte kürzen oder die Zeile löschen. Bis dahin werden keine Einstellungen gespeichert.`)
+  const nextPut = async () => {
+    const before = apiPut.mock.calls.length
+    await settle()
+    expect(apiPut.mock.calls.length).toBeGreaterThan(before)
+  }
 
-  it('says so under a title typed past the limit, and not once it fits', async () => {
-    await mount(<ReportSection />, R.linkAdd)
-    await type(screen.getByPlaceholderText(R.linkUrlPlaceholder), 'https://formulare.example/schaden')
-    await type(box(R.linkTitlePlaceholder), 'T'.repeat(121))
-    expect(line(R.linkTitle, 120)).not.toBeNull()
-    await type(box(R.linkTitlePlaceholder), 'T'.repeat(120))
-    expect(line(R.linkTitle, 120)).toBeNull()
+  describe('Formulare & Links', () => {
+    const titles = () => screen.getAllByPlaceholderText(R.linkTitlePlaceholder)
+
+    it('says so under a title typed past the limit, and not once it fits', async () => {
+      await mount(<ReportSection />, R.linkAdd)
+      await type(screen.getByPlaceholderText(R.linkUrlPlaceholder), 'https://formulare.example/schaden')
+      await type(box(R.linkTitlePlaceholder), 'T'.repeat(121))
+      expect(line(R.linkTitle, 120)).not.toBeNull()
+      expect(storedLine(R.linkTitle, 120)).toBeNull()
+      await type(box(R.linkTitlePlaceholder), 'T'.repeat(120))
+      expect(line(R.linkTitle, 120)).toBeNull()
+    })
+
+    it('says under a stored title past the limit that no settings save, also while its edit does not fit', async () => {
+      const long = { id: 'lnk1', title: 'T'.repeat(130), url: 'https://formulare.example/lang' }
+      apiGet.mockResolvedValue(structuredClone({ ...STATION, report: { ...STATION.report, links: [long] } }))
+      await act(async () => { render(<ConfigProvider><ReportSection /></ConfigProvider>) })
+      await waitFor(() => expect(storedLine(R.linkTitle, 120)).not.toBeNull())
+      expect(line(R.linkTitle, 120)).toBeNull()
+      await type(titles()[0], 'T'.repeat(125))
+      expect(storedLine(R.linkTitle, 120)).not.toBeNull()
+    })
+
+    it('keeps that line while a short title waits on another field: the save still holds the stored link', async () => {
+      const long = { id: 'lnk1', title: 'T'.repeat(130), url: 'https://formulare.example/lang' }
+      apiGet.mockResolvedValue(structuredClone({ ...STATION, report: { ...STATION.report, links: [long] } }))
+      await act(async () => { render(<ConfigProvider><ReportSection /></ConfigProvider>) })
+      await type((await waitFor(titles))[0], 'T'.repeat(120))
+      expect(storedLine(R.linkTitle, 120)).toBeNull()
+      await type(screen.getByPlaceholderText(R.linkUrlPlaceholder), '')
+      expect(storedLine(R.linkTitle, 120)).not.toBeNull()
+    })
+
+    it('names the field still too long in the edit, not one already shortened', async () => {
+      const url = `https://formulare.example/?q=${'x'.repeat(TEXT_MAX_LENGTH['report.links.0.url'])}`
+      apiGet.mockResolvedValue(structuredClone({ ...STATION, report: { ...STATION.report, links: [{ id: 'lnk1', title: 'T'.repeat(130), url }] } }))
+      await act(async () => { render(<ConfigProvider><ReportSection /></ConfigProvider>) })
+      await type((await waitFor(titles))[0], 'T'.repeat(120))
+      expect(storedLine(R.linkTitle, 120)).toBeNull()
+      expect(storedLine(R.linkUrl, TEXT_MAX_LENGTH['report.links.0.url'])).not.toBeNull()
+    })
+
+    it('says «not saved like this» again once the repair was saved', async () => {
+      const long = { id: 'lnk1', title: 'T'.repeat(130), url: 'https://formulare.example/lang' }
+      apiGet.mockResolvedValue(structuredClone({ ...STATION, report: { ...STATION.report, links: [long] } }))
+      await act(async () => { render(<ConfigProvider><ReportSection /></ConfigProvider>) })
+      await waitFor(() => expect(storedLine(R.linkTitle, 120)).not.toBeNull())
+      await type(titles()[0], 'T'.repeat(120))
+      await nextPut()
+      await type(titles()[0], 'T'.repeat(121))
+      expect(line(R.linkTitle, 120)).not.toBeNull()
+      expect(storedLine(R.linkTitle, 120)).toBeNull()
+    })
   })
 
-  it('says so under a stored field that is already over the limit', async () => {
+  describe('Korrekturvorschlag fields', () => {
+    const labels = () => screen.getAllByPlaceholderText(T.fieldLabelPlaceholder)
     const fields = [{ id: 'lang', label: 'L'.repeat(121) }, { id: 'kurz', label: 'Kurz' }]
-    apiGet.mockResolvedValue({ ...structuredClone(STATION), objectVisits: { proposalFields: fields } })
-    await act(async () => { render(<ConfigProvider><ProposalFieldsEditor /></ConfigProvider>) })
-    const note = await waitFor(() => line(T.fieldLabel, 120)!)
-    expect(note.closest('.adm-rec')?.textContent).toContain('lang')
-    expect(screen.getAllByText(/höchstens/)).toHaveLength(1)
+
+    it('says so under a label typed past the limit', async () => {
+      await mount(<ProposalFieldsEditor />, T.fieldAdd)
+      await type(box(T.fieldLabelPlaceholder), 'L'.repeat(121))
+      expect(line(T.fieldLabel, 120)).not.toBeNull()
+      expect(storedLine(T.fieldLabel, 120)).toBeNull()
+    })
+
+    it('says under a stored field past the limit that no settings save', async () => {
+      apiGet.mockResolvedValue({ ...structuredClone(STATION), objectVisits: { proposalFields: fields } })
+      await act(async () => { render(<ConfigProvider><ProposalFieldsEditor /></ConfigProvider>) })
+      const note = await waitFor(() => storedLine(T.fieldLabel, 120)!)
+      expect(note.closest('.adm-rec')?.textContent).toContain('lang')
+      expect(screen.getAllByText(/höchstens/)).toHaveLength(1)
+      await type(labels()[0], 'L'.repeat(122))
+      expect(storedLine(T.fieldLabel, 120)).not.toBeNull()
+    })
+
+    it('counts a stored label as it is sent, untrimmed', async () => {
+      apiGet.mockResolvedValue({ ...structuredClone(STATION), objectVisits: { proposalFields: [{ id: 'leer', label: ' '.repeat(121) }] } })
+      await act(async () => { render(<ConfigProvider><ProposalFieldsEditor /></ConfigProvider>) })
+      await waitFor(() => expect(storedLine(T.fieldLabel, 120)).not.toBeNull())
+      expect(screen.getByText(T.fieldIncomplete)).toBeTruthy()
+    })
+
+    it('keeps that line beside another reason the edit gives the row, also once the label fits', async () => {
+      apiGet.mockResolvedValue({ ...structuredClone(STATION), objectVisits: { proposalFields: fields } })
+      await act(async () => { render(<ConfigProvider><ProposalFieldsEditor /></ConfigProvider>) })
+      await type((await waitFor(labels))[0], 'L'.repeat(120))
+      await type(screen.getAllByPlaceholderText(T.fieldIdPlaceholder)[0], '')
+      expect(screen.getByText(T.fieldIncomplete)).toBeTruthy()
+      expect(storedLine(T.fieldLabel, 120)).not.toBeNull()
+    })
+
+    it('says «not saved like this» again once the repair was saved', async () => {
+      apiGet.mockResolvedValue({ ...structuredClone(STATION), objectVisits: { proposalFields: fields } })
+      await act(async () => { render(<ConfigProvider><ProposalFieldsEditor /></ConfigProvider>) })
+      await waitFor(() => expect(storedLine(T.fieldLabel, 120)).not.toBeNull())
+      await type(labels()[0], 'L'.repeat(120))
+      await nextPut()
+      await type(labels()[0], 'L'.repeat(121))
+      expect(line(T.fieldLabel, 120)).not.toBeNull()
+      expect(storedLine(T.fieldLabel, 120)).toBeNull()
+    })
   })
 
-  it('says so under a stored colour rule with a module glob past 60', async () => {
-    const rule = { id: 'pv', label: 'Photovoltaik', color: '#f59e0b', match: { modules: ['m'.repeat(61)] } }
-    apiGet.mockResolvedValue({ ...structuredClone(STATION), map: { objectCategories: [rule] } })
-    await act(async () => { render(<ConfigProvider><ObjectCategoriesCard /></ConfigProvider>) })
-    await waitFor(() => expect(line(M.catModules, 60)).not.toBeNull())
+  // the name derives a short id and the box cuts each glob, so only a stored rule can be past one
+  describe('Objektfarben', () => {
+    it('says under a stored rule with a module glob past 60 that no settings save', async () => {
+      const rule = { id: 'pv', label: 'Photovoltaik', color: '#f59e0b', match: { modules: ['m'.repeat(61)] } }
+      apiGet.mockResolvedValue({ ...structuredClone(STATION), map: { objectCategories: [rule] } })
+      await act(async () => { render(<ConfigProvider><ObjectCategoriesCard /></ConfigProvider>) })
+      await waitFor(() => expect(storedLine(M.catModules, 60)).not.toBeNull())
+      expect(line(M.catModules, 60)).toBeNull()
+      // …also beside another reason the edit gives the rule, once the glob fits
+      await type(screen.getByPlaceholderText(M.catModulesPlaceholder), 'm'.repeat(60))
+      expect(storedLine(M.catModules, 60)).toBeNull()
+      await type(screen.getByLabelText(M.catColorHex), 'rot')
+      expect(screen.getByText(M.catBadColor)).toBeTruthy()
+      expect(storedLine(M.catModules, 60)).not.toBeNull()
+    })
   })
 })
 

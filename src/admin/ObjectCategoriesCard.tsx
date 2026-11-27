@@ -51,7 +51,7 @@ export function ObjectCategoriesCard() {
   // at its index and deleting the rule that moved there.
   const [layout, setLayout] = useState(0)
   const rows = editing ?? stored
-  const { edited, saved } = useStoredRows(stored, writableRules, (r) => chars(r.id) > TEXT_MAX_LENGTH['map.objectCategories.0.id']
+  const { edited, saved, keptOriginals } = useStoredRows(stored, writableRules, (r) => chars(r.id) > TEXT_MAX_LENGTH['map.objectCategories.0.id']
     || (r.match?.modules ?? []).some((m) => chars(m) > MODULE_MAX))
 
   const write = (next: ObjectCategoryRule[]) => {
@@ -78,6 +78,14 @@ export function ObjectCategoriesCard() {
     reshape(next)
   }
 
+  /** …and the bounds `writableRules` holds a rule to: the name derives a short id and the box cuts
+   *  each glob, so only a stored rule (the CLI, an import) can be past one. `stored`: the wording
+   *  for a stored original (useStoredRows · keptOriginals). */
+  const lengthNote = (r: ObjectCategoryRule, stored = false) => tooLongNote([
+    ['map.objectCategories.0.id', C.catId, r.id],
+    ...(r.match?.modules ?? []).map((m) => ['map.objectCategories.0.match.modules.0', C.catModules, m] as const),
+  ], stored)
+  const kept = keptOriginals(rows)
   return (
     <RecordTable title={C.groupCategories} tip={C.categoriesTip} recordLabel={C.colCategory}>
       {rows.length === 0 && <SettingsNote>{C.categoriesEmpty}</SettingsNote>}
@@ -86,13 +94,12 @@ export function ObjectCategoriesCard() {
         const kinds = row.match?.kinds ?? []
         const modules = row.match?.modules ?? []
         const ink = row.color === INK
-        // …and the bounds `writableRules` holds a rule to: the name derives a short id and the box
-        // cuts each glob, so only a stored rule (the CLI, an import) can be past one
-        const problem = !name.trim() ? C.catNoName : !isCategoryColor(row.color) ? C.catBadColor
-          : tooLongNote([
-            ['map.objectCategories.0.id', C.catId, row.id],
-            ...modules.map((m) => ['map.objectCategories.0.match.modules.0', C.catModules, m] as const),
-          ])
+        const other = !name.trim() ? C.catNoName : !isCategoryColor(row.color) ? C.catBadColor : null
+        // a rule the save replaces by its stored original blocks every save until it is fixed: the
+        // field still too long in the edit, else the original's, beside any other reason
+        const original = kept.get(row)
+        const problems = (original ? [other, lengthNote(row, true) ?? lengthNote(original, true)] : [other ?? lengthNote(row)])
+          .filter((p) => p !== null)
         return (
           <RecordRows
             key={`${layout}:${i}`}
@@ -144,7 +151,7 @@ export function ObjectCategoriesCard() {
               <input className="adm-input adm-input-mono" type="text" value={modules.join(', ')} placeholder={C.catModulesPlaceholder}
                 onChange={(e) => patch(i, { match: { ...row.match, modules: parseModules(e.target.value, modules) } })} />
             </SettingRow>
-            {problem && <SettingsNote><span className="adm-state adm-state-err">{problem}</span></SettingsNote>}
+            {problems.map((p) => <SettingsNote key={p}><span className="adm-state adm-state-err">{p}</span></SettingsNote>)}
           </RecordRows>
         )
       })}

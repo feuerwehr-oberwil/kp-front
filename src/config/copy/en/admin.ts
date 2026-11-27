@@ -137,6 +137,7 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
       standardOff: 'No',
       newEntry: 'New entry',
       textTooLong: '{field}: at most {n} characters – the entry is not saved like this.',
+      textTooLongStored: '{field}: at most {n} characters – please shorten it or delete the row. Until then, no settings are saved.',
     },
     numbers: {
       integer: 'Value not saved yet – a whole number is expected.',

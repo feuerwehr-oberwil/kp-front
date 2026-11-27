@@ -120,11 +120,14 @@ export function fitsText(field: keyof typeof TEXT_MAX_LENGTH, value: string | nu
 
 /** The reason line under a row that its writer holds for a length: the first of `fields`
  *  (bound, the form's label for the box, the value the writer checks) past its bound, as
- *  «<label>: höchstens <n> Zeichen – …». Null when every value fits. One sentence for every
- *  bound, so a stored row that is already too long says so too. */
+ *  «<label>: höchstens <n> Zeichen – …». Null when every value fits. `stored`: the values are a
+ *  stored original the save keeps (useStoredRows · keptOriginals), which refuses every save of
+ *  the config until it is shortened or deleted – the line says that, not «not saved like this». */
 export function tooLongNote(
   fields: ReadonlyArray<readonly [field: keyof typeof TEXT_MAX_LENGTH, label: string, value: string | null | undefined]>,
+  stored = false,
 ): string | null {
   const over = fields.find(([field, , value]) => !fitsText(field, value))
-  return over ? fillTemplate(appConfig.copy.admin.common.textTooLong, { field: over[1], n: TEXT_MAX_LENGTH[over[0]] }) : null
+  const { textTooLong, textTooLongStored } = appConfig.copy.admin.common
+  return over ? fillTemplate(stored ? textTooLongStored : textTooLong, { field: over[1], n: TEXT_MAX_LENGTH[over[0]] }) : null
 }
