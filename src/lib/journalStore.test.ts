@@ -1234,3 +1234,133 @@ it('a legacy row changed under its id rebuilds the rows a viewer shows', async (
     expect(store.display().map((r) => r.text)).toEqual(['nachher'])
   } finally { store.dispose() }
 })
+
+// A row the server took but whose answer did not carry it (a retry after a lost answer is
+// answered «nothing new») left the outbox and was in no pulled row: the Verlauf showed it nowhere
+// until a pull answered (owner pick, perf sweep 27.11.2026). The store keeps such a row on
+// display – as sent, not as owed – until a pull holds it.
+describe('JournalStore – a sent row stays on display until a pull holds it', () => {
+  const offline = () => new ApiError(0, 'offline')
+  const storedSlot = async () => {
+    const read = await idb.idbRead<{ outbox: TimelineEvent[]; sent?: unknown[] }>(`kp-journal-${INC}`)
+    return read.ok ? read.value : null
+  }
+  /** The server takes `a`, its answer is lost; the retry is answered «nothing new»; every pull
+   *  fails. Returns the store after the retry. */
+  async function lostAnswerThenRetry(server: ReturnType<typeof fakeServer>, over: Partial<TimelineEvent> = {}) {
+    apiPost.mockImplementationOnce(async (_p: string, body: { entries: TimelineEvent[] }) => {
+      for (const e of body.entries) server.rows.push({ seq: server.rows.length + 1, row: e })
+      throw offline()
+    })
+    const store = new JournalStore(INC, false)
+    await store.init([])
+    apiGet.mockRejectedValue(offline())
+    store.append(row('a', over))
+    await settle()
+    expect(store.pendingCount).toBe(1)
+    await store.flush()
+    await settle()
+    expect(apiPost).toHaveBeenCalledTimes(2)
+    await expect(apiPost.mock.results[1]?.value).resolves.toEqual({ entries: [], latest_seq: server.rows.length })
+    return store
+  }
+
+  it('a retry answered «nothing new», the pull failed: shown, as sent', async () => {
+    const server = fakeServer()
+    const store = await lostAnswerThenRetry(server)
+    try {
+      expect(store.display().map((r) => r.id)).toEqual(['a'])
+      expect(store.pendingCount).toBe(0)
+      expect(store.unsentRowIds().size).toBe(0)
+      expect(store.syncStatus).toBe('synced')
+      expect(store.rowShown('a')).toBe(true)
+      // kept, not owed: nothing is sent again
+      apiPost.mockClear()
+      store.append(row('b', { at: '2026-07-02T14:01:00Z' }))
+      await settle()
+      expect(apiPost.mock.calls.map(([, b]) => (b as { entries: TimelineEvent[] }).entries.map((e) => e.id))).toEqual([['b']])
+      expect(server.rows.map((r) => r.row.id)).toEqual(['a', 'b'])
+    } finally { store.dispose() }
+  })
+
+  it('a POST answered with the row, the pull failed: shown – the answer\'s own rows', async () => {
+    fakeServer()
+    apiGet.mockRejectedValue(offline())
+    const store = new JournalStore(INC, false)
+    try {
+      await store.init([])
+      store.append(row('a'))
+      await settle()
+      expect(store.pendingCount).toBe(0)
+      expect(store.display().map((r) => r.id)).toEqual(['a'])
+      expect((await storedSlot())?.sent ?? []).toEqual([]) // nothing to keep: the answer held it
+    } finally { store.dispose() }
+  })
+
+  it('the pull brings the server\'s copy: shown once, the server\'s version, and the kept row goes', async () => {
+    const server = fakeServer()
+    const store = await lostAnswerThenRetry(server)
+    try {
+      apiGet.mockResolvedValueOnce({ entries: [{ seq: 1, row: { ...server.rows[0].row, text: 'wie der Server sie hält' } }], latest_seq: 1 })
+      expect(await store.pull()).toBe('new')
+      await settle()
+      expect(store.display().map((r) => [r.id, r.text])).toEqual([['a', 'wie der Server sie hält']])
+      await vi.waitFor(async () => expect((await storedSlot())?.sent).toEqual([]))
+    } finally { store.dispose() }
+  })
+
+  it('survives a restart before the pull: shown, as sent, nothing re-sent', async () => {
+    const server = fakeServer()
+    const first = await lostAnswerThenRetry(server)
+    await vi.waitFor(async () => expect((await storedSlot())?.outbox).toEqual([]))
+    first.dispose()
+    apiPost.mockClear()
+    const restarted = new JournalStore(INC, false)
+    try {
+      await restarted.init([])
+      expect(restarted.display().map((r) => r.id)).toEqual(['a'])
+      expect(restarted.unsentRowIds().size).toBe(0)
+      expect(restarted.syncStatus).toBe('synced')
+      expect(apiPost).not.toHaveBeenCalled()
+    } finally { restarted.dispose() }
+  })
+
+  it('keeps the store\'s order: a kept row sorts by its written time among the server rows', async () => {
+    const server = fakeServer([row('earlier', { at: '2026-07-02T14:00:00Z' }), row('later', { at: '2026-07-02T14:01:00Z' })])
+    const store = await lostAnswerThenRetry(server, { at: '2026-07-02T14:00:30Z' })
+    try {
+      expect(store.display().map((r) => r.id)).toEqual(['later', 'a', 'earlier'])
+    } finally { store.dispose() }
+  })
+
+  it('a row the server answered for but does not hold goes once a pull has read past it', async () => {
+    // the server acknowledges and drops a row only it may write (journal.py · observed_by_server)
+    fakeServer()
+    apiPost.mockResolvedValue({ entries: [], latest_seq: 0 })
+    const store = new JournalStore(INC, false)
+    try {
+      await store.init([])
+      apiGet.mockRejectedValueOnce(offline())
+      store.append(row('vp-1-scene-x'))
+      await settle()
+      expect(store.display().map((r) => r.id)).toEqual(['vp-1-scene-x']) // the drain's pull failed
+      apiGet.mockResolvedValueOnce({ entries: [], latest_seq: 0 })
+      expect(await store.pull()).toBe('none')
+      expect(store.display()).toEqual([])
+      await vi.waitFor(async () => expect((await storedSlot())?.sent).toEqual([]))
+    } finally { store.dispose() }
+  })
+
+  it('a cache stored before kept rows existed loads unchanged', async () => {
+    await idb.idbSet(`kp-journal-${INC}`, { rows: [{ seq: 1, row: row('s') }], latestSeq: 1, outbox: [row('o', { at: '2026-07-02T14:01:00Z' })] })
+    apiGet.mockRejectedValue(offline())
+    apiPost.mockRejectedValue(offline())
+    const store = new JournalStore(INC, false)
+    try {
+      await store.init([])
+      expect(store.display().map((r) => r.id)).toEqual(['o', 's'])
+      expect([...store.unsentRowIds()]).toEqual(['o'])
+      expect(store.syncStatus).toBe('offline')
+    } finally { store.dispose() }
+  })
+})

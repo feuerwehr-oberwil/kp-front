@@ -53,8 +53,20 @@ type JournalPage = Omit<Out<'JournalPage'>, 'entries'> & { entries: ServerRow[] 
  *  record is what it shows, and these rows are not in it. Kept, never dropped: persisted here,
  *  carried by `recoveryData` («Einträge sichern»), counted for the notice that says why — and
  *  sent again once the Einsatz runs again (`requeueRefused`, «Wieder öffnen»). Absent in older
- *  caches. */
-interface Persisted { rows: ServerRow[]; latestSeq: number; outbox: TimelineEvent[]; dead?: TimelineEvent[]; refused?: TimelineEvent[] }
+ *  caches.
+ *
+ *  `sent` (27.11.2026): rows the server took whose answer did not carry them – see SentRow.
+ *  Absent in older caches. */
+interface Persisted { rows: ServerRow[]; latestSeq: number; outbox: TimelineEvent[]; dead?: TimelineEvent[]; refused?: TimelineEvent[]; sent?: SentRow[] }
+
+/** A row that left the outbox as delivered while the answer held no copy of it – a retry after a
+ *  lost answer, which the server answers «nothing new» for a row it already holds. It is in no
+ *  pulled row yet, so without it the Verlauf showed the row nowhere until the next pull answered.
+ *  Kept on display until a pull holds it; it counts as sent (not pending, not «nur auf diesem
+ *  Gerät», never sent again). `upTo` is the server's `latest_seq` in that answer: the row, if the
+ *  server holds it, sits at or below it – so once the pull cursor has passed `upTo` without
+ *  delivering it, the server holds none (it drops rows only it may write) and the row goes. */
+interface SentRow { row: TimelineEvent; upTo: number }
 
 /** Whose outbox a store keeps: `key` is the identity (`<user id>:<link kind or 'login'>`), and
  *  `adoptsLegacy` says whether it takes over the shared pre-owner slot (the device login only). */
@@ -77,8 +89,8 @@ export interface JournalView {
 
 const sameSet = (a: ReadonlySet<string>, b: ReadonlySet<string>) => a.size === b.size && [...a].every((id) => b.has(id))
 
-/** Merge snapshot `from` into `into`: rows by id; outbox, refused and dead deduped against what
- *  the server accepted and against each other. */
+/** Merge snapshot `from` into `into`: rows by id; outbox, refused, dead and sent deduped against
+ *  what the server accepted and against each other. */
 function mergePersisted(into: Persisted, from: Persisted): void {
   const rowIds = new Set(into.rows.map((r) => r.row.id))
   for (const r of from.rows ?? []) if (!rowIds.has(r.row.id)) into.rows.push(r)
@@ -92,6 +104,8 @@ function mergePersisted(into: Persisted, from: Persisted): void {
   into.outbox = into.outbox.filter((r) => !refused.has(r.id))
   const dead = new Map([...(from.dead ?? []), ...(into.dead ?? [])].map((r) => [r.id, r]))
   into.dead = [...dead.values()].filter((r) => !accepted.has(r.id) && !pending.has(r.id) && !refused.has(r.id))
+  const sent = new Map([...(from.sent ?? []), ...(into.sent ?? [])].map((r) => [r.row.id, r]))
+  into.sent = [...sent.values()].filter((r) => !accepted.has(r.row.id) && !pending.has(r.row.id) && !refused.has(r.row.id) && !dead.has(r.row.id))
   into.latestSeq = Math.max(into.latestSeq, from.latestSeq ?? 0)
 }
 const FLUSH_BATCH = 400
@@ -223,7 +237,7 @@ export function foldJournalRows(out: readonly TimelineEvent[]): TimelineEvent[] 
 }
 
 export class JournalStore {
-  private state: Persisted = { rows: [], latestSeq: 0, outbox: [], dead: [], refused: [] }
+  private state: Persisted = { rows: [], latestSeq: 0, outbox: [], dead: [], refused: [], sent: [] }
   /** legacy blob rows in CHRONOLOGICAL (oldest-first) order — the blob stores newest-first */
   private legacy: TimelineEvent[] = []
   /** stable echo for buildPayload — recreated ONLY when the legacy set changes, so the
@@ -506,6 +520,13 @@ export class JournalStore {
       const sent = new Set(batch.map((r) => r.id))
       this.state.outbox = this.state.outbox.filter((r) => !sent.has(r.id))
       this.adoptRows(res.entries) // display only — the pull cursor NEVER advances here
+      // a row the answer did not carry stays on display until a pull holds it (see SentRow)
+      const held = new Set(this.state.rows.map((r) => r.row.id))
+      const kept = batch.filter((r) => !held.has(r.id))
+      if (kept.length) {
+        const ids = new Set(kept.map((r) => r.id))
+        this.state.sent = [...(this.state.sent ?? []).filter((k) => !ids.has(k.row.id)), ...kept.map((row) => ({ row, upTo: res.latest_seq }))]
+      }
       if (!this.state.outbox.length) this.singleMode = false
       this.persist()
       this.emit()
@@ -584,7 +605,10 @@ export class JournalStore {
       const firstPull = !this.pulled
       this.pulled = true
       if (!res.entries.length) {
-        if (firstPull) this.emit()
+        // the cursor is the server's head: a kept row it did not deliver, the server does not hold
+        const pruned = this.pruneSent()
+        if (pruned) this.persist()
+        if (pruned || firstPull) this.emit()
         return 'none'
       }
       const before = { seq: this.state.latestSeq, outbox: this.state.outbox.length, dead: this.state.dead?.length ?? 0, refused: this.state.refused?.length ?? 0 }
@@ -595,10 +619,11 @@ export class JournalStore {
       this.state.outbox = this.state.outbox.filter((r) => !server.has(r.id))
       this.state.dead = (this.state.dead ?? []).filter((r) => !server.has(r.id))
       this.state.refused = (this.state.refused ?? []).filter((r) => !server.has(r.id))
+      const pruned = this.pruneSent()
       // A page of rows already held (the drain's pull, a long-poll wake) changes nothing to keep
       // or show. Even then it may advance the cursor or acknowledge a queued row – the queues
       // only shrink here, so their lengths tell – and that must be written.
-      const changed = added > 0 || this.state.latestSeq !== before.seq || this.state.outbox.length !== before.outbox
+      const changed = added > 0 || pruned || this.state.latestSeq !== before.seq || this.state.outbox.length !== before.outbox
         || this.state.dead.length !== before.dead || this.state.refused.length !== before.refused
       if (changed) this.persist()
       if (changed || firstPull) this.emit()
@@ -607,6 +632,16 @@ export class JournalStore {
       /* offline (or the round was aborted) — the cached copy stands */
       return 'failed'
     }
+  }
+
+  /** Drop the kept rows a pull settled: delivered (the pulled copy shows), or read past without
+   *  delivery (the server holds none – see SentRow). `true` = some went. */
+  private pruneSent(): boolean {
+    const kept = this.state.sent ?? []
+    if (!kept.length) return false
+    const server = new Set(this.state.rows.map((r) => r.row.id))
+    this.state.sent = kept.filter((k) => !server.has(k.row.id) && k.upTo > this.state.latestSeq)
+    return this.state.sent.length !== kept.length
   }
 
   /** What buildPayload embeds in the blob: the FROZEN legacy echo (bounded — pre-migration
@@ -692,7 +727,8 @@ export class JournalStore {
     }
   }
 
-  /** The UI's timeline: union (server ∪ legacy-not-yet-on-server ∪ outbox ∪ dead-lettered),
+  /** The UI's timeline: union (server ∪ legacy-not-yet-on-server ∪ outbox ∪ dead-lettered ∪
+   *  sent-not-yet-pulled; the first copy of an id wins, so a pulled row beats a kept one),
    *  patches folded, session overlays applied, and finally ordered newest-first by written
    *  time (`chronological`) — the union order is `seq` per source, which is acceptance order,
    *  not the order the operator wrote the rows. */
@@ -706,6 +742,7 @@ export class JournalStore {
     for (const r of this.legacy) push(r)
     for (const r of this.state.outbox) push(r)
     for (const r of this.state.dead ?? []) push(r)
+    for (const r of this.state.sent ?? []) push(r.row)
     const rows = foldJournalRows(out)
     // session overlay last (blob: URLs beat everything for display)
     const withOverlay = rows.map((r) => (this.overlay.has(r.id) ? { ...r, ...this.overlay.get(r.id) } : r))
@@ -774,14 +811,15 @@ export class JournalStore {
    * The values the Verlauf renders from, as one snapshot that keeps its identity until one of
    * them changes (a `useSyncExternalStore` snapshot, see useJournal). `rowsKey` stands for the
    * inputs of `display` and `rowShown`: server rows only grow, so their count is enough; the
-   * outbox and dead letters by id; the legacy set and overlay by generation; and whether
+   * outbox, dead letters and kept rows by id; the legacy set and overlay by generation; and whether
    * `rowShown` can answer yet – a receipt waiting on the first pull replays when it flips.
    */
   view(): JournalView {
     const prev = this.lastView
     const ready = this.initDone && !this.readFailed && this.pulled
     const queued = JSON.stringify([...this.state.outbox, ...(this.state.dead ?? [])].map((r) => r.id))
-    const rowsKey = `${this.state.rows.length}|${this.legacyGen}|${this.overlayGen}|${ready ? 1 : 0}|${queued}`
+    const kept = JSON.stringify((this.state.sent ?? []).map((r) => r.row.id))
+    const rowsKey = `${this.state.rows.length}|${this.legacyGen}|${this.overlayGen}|${ready ? 1 : 0}|${queued}|${kept}`
     let unsentIds = prev?.unsentIds ?? new Set<string>()
     if (prev?.rowsKey !== rowsKey) {
       const next = this.unsentRowIds()
@@ -801,6 +839,7 @@ export class JournalStore {
     for (const r of this.state.outbox) s.add(r.id)
     for (const r of this.state.dead ?? []) s.add(r.id)
     for (const r of this.state.refused ?? []) s.add(r.id)
+    for (const r of this.state.sent ?? []) s.add(r.row.id)
     return s
   }
 
@@ -858,7 +897,7 @@ export class JournalStore {
       if (durable) {
         // Clear only rows actually contained in this committed snapshot. A new append can
         // arrive during another hydration while an older write is still settling.
-        const ids = new Set([...snapshot.rows.map((r) => r.row.id), ...snapshot.outbox.map((r) => r.id), ...(snapshot.dead ?? []).map((r) => r.id), ...(snapshot.refused ?? []).map((r) => r.id)])
+        const ids = new Set([...snapshot.rows.map((r) => r.row.id), ...snapshot.outbox.map((r) => r.id), ...(snapshot.dead ?? []).map((r) => r.id), ...(snapshot.refused ?? []).map((r) => r.id), ...(snapshot.sent ?? []).map((r) => r.row.id)])
         const handed = hydrationHandoffs.get(this.key)
         for (const id of ids) { this.preHydrationAppends.delete(id); handed?.delete(id) }
         if (handed?.size === 0) hydrationHandoffs.delete(this.key)
