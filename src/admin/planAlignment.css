@@ -401,6 +401,16 @@ button.adm-floor-index { min-width: var(--tap); min-height: var(--tap); cursor: 
 .adm-editor-pane .adm-pairing { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 .adm-editor-pane .adm-pairing-panes { flex: 1; min-height: 0; }
 .adm-editor-pane .adm-pairing-plan, .adm-editor-pane .adm-pairing-map { height: 100%; min-height: 0; }
+/* A phone on its side leaves this map 72–85px. Under a finger its zoom row (03-map ·
+   NavigationControl, a row of --tap buttons) then steps one --tap left, out of the attribution ⓘ's
+   column. The map is a size container, so only a map this short moves its row – no other map, and
+   not this one on a taller screen. */
+.adm-editor-pane .adm-pairing-map { container: adm-pairing-map / size; }
+@media (pointer: coarse) {
+  @container adm-pairing-map (max-height: 95px) {
+    .adm-pairing-map .maplibregl-ctrl-top-right > .maplibregl-ctrl-group { margin-right: calc(var(--sp-1) + var(--tap)); }
+  }
+}
 .adm-editor-map-pane > .adm-align-map { flex: 1; min-height: 0; height: auto; }
 /* stacked, the plan and the map share the pane in two equal rows – with auto rows WebKit gave
    the plan all of it and the map none once the instrument grew (its «Genauigkeit» opened) */

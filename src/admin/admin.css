@@ -609,7 +609,7 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
 /* one record */
 .adm-rec {
   display: grid;
-  grid-template-columns: minmax(0, 180px) minmax(0, 1fr) 28px;
+  grid-template-columns: minmax(0, 180px) minmax(0, 1fr) var(--rec-info-w, 28px);
   align-items: stretch;
   border: 1px solid var(--border); border-radius: var(--r-sm); overflow: hidden;
   background: var(--surface);
@@ -663,7 +663,7 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
 .adm-rec > .adm-set-note > .adm-formlink-add { margin-top: 0; }
 
 @media (max-width: 900px) {
-  .adm-rec { grid-template-columns: minmax(0, 150px) minmax(0, 1fr) 28px; }
+  .adm-rec { grid-template-columns: minmax(0, 150px) minmax(0, 1fr) var(--rec-info-w, 28px); }
   .adm-records { padding: 12px 14px 14px; }
 }
 /* ⚠️ Below the phone breakpoint a row stops being a row at all — the `.adm-set-row` flex rule in
@@ -1480,8 +1480,42 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
 }
 /* the #info line icon fills the trigger (the page title's is 20px, see .adm-h1) */
 .adm-tip-trigger .i { width: 100%; height: 100%; }
-/* invisible hit pad: the 18px glyph alone is untappable on touch */
+/* invisible hit pad: the 18px glyph alone is untappable on touch – 38px under a mouse, --tap
+   under a finger (the house minimum, ui-conventions › Touch; below) */
 .adm-tip-trigger::before { content: ''; position: absolute; inset: -10px; border-radius: 50%; }
+/* Under a finger the pad is --tap, centred on the ⓘ, and it must neither lie over another
+   control nor be cut by a card's `overflow: hidden`. So:
+   - LIFTED where a control stands closer than half a --tap under the ⓘ: it keeps --tap and
+     reaches 6px down. A heading's ⓘ (page title, card title, group head – over a tab bar, a
+     wrapped card action, the first row), and on a phone a stacked setting row's (its input
+     stands 6px under the label line).
+   - A line a --tap high where there was no room above or below: each legend line of an
+     inline-record list (two ⓘ 22px apart on a phone), a Links card's name line (the card's top
+     edge cut the pad), and a phone group head with an ⓘ keeps the row under it clear.
+   - A --tap ⓘ column in a record (`.adm-rec`), the ⓘ centred in it – the 28px column let the
+     pad reach into the control and past the card's edge.
+   - A pad that reaches sideways, away from the control beside it: a span row's ⓘ on a wider grid
+     (its cell is 34px) reaches right, to the row's edge; the plan editor's status ⓘ reaches left,
+     over its own words, not into «Freigabe zurücknehmen» 6px to its right.
+   - A card title keeps 4px after its ⓘ: the card's action may stand 12px beside the title, and
+     the pad reaches 13px sideways. */
+@media (pointer: coarse) {
+  .adm-tip-trigger::before { inset: calc((100% - var(--tap)) / 2); border-radius: 0; }
+  :is(.adm-h1, .adm-card-title, .adm-set-grp) .adm-tip-trigger::before { top: calc(100% + 6px - var(--tap)); bottom: -6px; }
+  .adm-card-title > .adm-tip { margin-right: var(--sp-1); }
+  .adm-irec-h, .lnk-rec-name { min-height: var(--tap); }
+  .adm-rec { --rec-info-w: var(--tap); }
+  .adm-rec > .adm-set-row > .adm-set-info { justify-content: center; padding-inline: 0; }
+  .adm-editor-state .adm-tip-trigger::before { left: -22px; right: -4px; }
+}
+@media (pointer: coarse) and (max-width: 560px) {
+  .adm-set-row .adm-tip-trigger::before { top: calc(100% + 6px - var(--tap)); bottom: -6px; }
+  .adm-set-grp:has(.adm-tip) { padding-bottom: var(--sp-5); }
+  .adm-rec > .adm-set-row > .adm-set-info { flex-basis: var(--tap); }
+}
+@media (pointer: coarse) and (min-width: 561px) {
+  .adm-settings .adm-set-row.span:not(.adm-rec > *) > .adm-set-info .adm-tip-trigger::before { left: -10px; right: -16px; }
+}
 @media (hover: hover) {
   .adm-tip-trigger:hover { color: var(--blue); }
 }
