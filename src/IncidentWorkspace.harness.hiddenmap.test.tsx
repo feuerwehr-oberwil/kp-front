@@ -2,7 +2,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import { useState } from 'react'
-import type { BoardAnno, MittelEntry, Trupp } from './types'
+import type { BoardAnno, Entity, MittelEntry, Trupp } from './types'
 import { AUTH, SYM, rec, registerHarnessHooks, lastMap, lastBoard, meta, truck, workspaceTree, settle, key, mode, openPlan } from './IncidentWorkspace.harness.setup'
 import type { Saved } from './lib/workspace'
 import { WorkspaceSync } from './lib/api/workspaceSync'
@@ -84,6 +84,7 @@ const ago = (min: number) => new Date(Date.now() - min * 60_000).toISOString()
 const crew = { id: 'tr-a', no: 1, name: 'Tst Anna', status: 'aktiv', entryPressureBar: 300, entryTime: ago(5), lastContactTime: ago(4) }
 /** the MapView renders that happened before the FIRST commit that showed the Karte again */
 let atShow: number | null = null
+const truck2 = { ...truck, id: 'p2', coord: [7.61, 47.51] } as Entity
 const open = async (opts: { on?: 'atemschutz' } = {}) => {
   const m = meta()
   if (opts.on) savePrefs({ ...loadPrefs(), mode: opts.on, modeIncidentId: m.id })
@@ -91,7 +92,7 @@ const open = async (opts: { on?: 'atemschutz' } = {}) => {
   let hidden = false
   // the Profiler's onRender runs in the commit, after the DOM is written and before the browser
   // paints: the commit that puts `mode-map` on the root must already carry the catch-up render
-  const { tree } = workspaceTree(m, { sync: new WorkspaceSync(m.id), workspace: { entities: [truck], trupps: [crew] } as unknown as Saved }, () => {
+  const { tree } = workspaceTree(m, { sync: new WorkspaceSync(m.id), workspace: { entities: [truck, truck2], trupps: [crew] } as unknown as Saved }, () => {
     const app = document.querySelector('.app')
     if (!app) return
     if (!app.classList.contains('mode-map')) hidden = true
@@ -148,8 +149,9 @@ describe('(p) the hidden Karte does not render', () => {
     await open({ on: 'atemschutz' })
     expect(mode()).toBe('atemschutz')
     expect(rec.map.length).toBeGreaterThanOrEqual(1)
+    // the frame the Karte fits to on its first show (MapView fits on its own mapReady, frozen or not)
+    expect(lastMap().fitPoints).toEqual([truck.coord, truck2.coord])
     expect(lastMap().onSettled).toBeTypeOf('function')
-    expect(lastMap().initialCenter).toBeTruthy()
   })
 })
 

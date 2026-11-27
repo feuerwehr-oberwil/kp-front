@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, render } from '@testing-library/react'
+import type { WorkspaceMode } from './types'
 import type { ComponentProps } from 'react'
 import { MapStage, type MapStageProps } from './MapStage'
 import { useMapActions, type UseMapActionsInputs } from './useMapActions'
@@ -9,8 +10,8 @@ import type { TacticalObject } from '../lib/tacticalObjects'
 import type { Entity } from '../types'
 
 // MapView is the one child that matters here: the test reads the handlers MapStage hands it.
-const seen = vi.hoisted(() => ({ props: null as Record<string, unknown> | null }))
-vi.mock('../components/MapView', () => ({ MapView: (p: Record<string, unknown>) => { seen.props = p; return null } }))
+const seen = vi.hoisted(() => ({ props: null as Record<string, unknown> | null, renders: 0 }))
+vi.mock('../components/MapView', () => ({ MapView: (p: Record<string, unknown>) => { seen.props = p; seen.renders++; return null } }))
 vi.mock('../lib/ui', () => ({ toast: vi.fn(), confirmDialog: vi.fn(async () => true), undoToast: vi.fn() }))
 import { toast, undoToast } from '../lib/ui'
 
@@ -42,7 +43,7 @@ describe('MapStage — the marker pill\'s «Lösen»', () => {
         doc: doc as unknown as UseMapActionsInputs['doc'], entities: doc.entities, drawings: [], patchEntity, log, objectsRef,
         tacticalLocked: false, liveIds: new Set(), planDocs: [], trupps: [], objects: [], mode: 'map', selectedDrawIds: [], selectedEntityIds: [],
       }))
-      // called, not mounted: JSX would copy only the named props, and MapStage has no hooks
+      // called, not mounted: JSX would copy only the named props; its hooks run as Stage's
       return MapStage(withInert<MapStageProps>({
         sym: { ready: true } as MapStageProps['sym'], guarded: (_s, node) => <>{node}</>,
         tacticalLocked: false, store: { doc } as unknown as MapStageProps['store'], patchEntity, mapActions, trails: [],
@@ -56,5 +57,34 @@ describe('MapStage — the marker pill\'s «Lösen»', () => {
     expect(log).toHaveBeenCalledTimes(1)
     expect(undoToast).not.toHaveBeenCalled()
     expect(toast).not.toHaveBeenCalled()
+  })
+})
+
+// The Karte renders only where its output is seen or used (FreezableMapView): its own surface, a
+// georef split, a plan whose twins take its caption decisions. A frozen one renders no new props;
+// the first commit that needs it again does.
+describe('MapStage — the frozen map', () => {
+  it('renders on the Karte and behind a plan with twins; sits out every other commit', () => {
+    // the workspace's ref is one object for its life – a new ref would render a memo anyway
+    const mapRef = { current: null }
+    function Stage({ mode, planTwins }: { mode: WorkspaceMode; planTwins: boolean; n: number }) {
+      return MapStage(withInert<MapStageProps>({
+        sym: { ready: true } as MapStageProps['sym'], guarded: (_s, node) => <>{node}</>,
+        store: { doc: { entities: [], drawings: [] } } as unknown as MapStageProps['store'], trails: [], mode, planTwins, mapRef,
+      }))
+    }
+    seen.renders = 0
+    const r = render(<Stage mode="map" planTwins={false} n={0} />)
+    r.rerender(<Stage mode="map" planTwins={false} n={1} />)
+    expect(seen.renders).toBe(2)
+    r.rerender(<Stage mode="atemschutz" planTwins={false} n={2} />)
+    r.rerender(<Stage mode="atemschutz" planTwins={false} n={3} />)
+    r.rerender(<Stage mode="plans" planTwins={false} n={4} />)
+    expect(seen.renders).toBe(2)
+    r.rerender(<Stage mode="plans" planTwins n={5} />)
+    r.rerender(<Stage mode="plans" planTwins n={6} />)
+    expect(seen.renders).toBe(4)
+    r.rerender(<Stage mode="map" planTwins={false} n={7} />)
+    expect(seen.renders).toBe(5)
   })
 })

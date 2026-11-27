@@ -3306,6 +3306,7 @@ export function IncidentWorkspace({
         teamMarkers, patchEntity, editNoteId, setEditNoteId, noteTextLive, noteTextCommit,
         setNotePanelId, effTrupps, azAlarm, showTrupp, newTruppFromMarker, removeTeamWithTrail, trails,
         deleteGhostTrail, measure, coord, rotStart, flashDrawingId, setDrawTap, placeVehicle, mode,
+        planTwins: mode === 'plans' && georefFits.planLive.length > 0,
       }} />
 
       <WorkspaceTopBar {...{
