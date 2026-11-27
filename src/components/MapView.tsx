@@ -123,6 +123,9 @@ const TAG_TAP_TOL_PX = 16
  *  synthesizes its mouse trail right after touchend, so the trailing click arrives a few ms AFTER
  *  MapLibre's dragend — but well inside this window, which no second deliberate tap fits in. */
 const PAN_CLICK_TAIL_MS = 350
+/** The farthest MapLibre's default pan inertia carries the map after a release, px (≈ 1307,
+ *  rounded up) – part of the margin a marked line's glyphs are kept in (markerPointsAlong). */
+const PAN_INERTIA_PX = 1400
 /** Keep MapLibre's own KeyboardHandler off while a text field owns focus — the map must not
  *  zoom/pan on a «+», «-» or an arrow that is being TYPED. Idempotent, so it is safe to call
  *  from a focus event and from every render (see the two effects that use it). */
@@ -771,9 +774,9 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
   // letter ignores it. Spacing is the marker's own rhythm — a triangle chain is far denser than
   // the —R— letters (lib/lineStyle · markerSpacing).
   // Each glyph is a DOM Marker the map moves on every pan/zoom frame, so only the glyphs inside the
-  // canvas plus one canvas extent on each side are kept: a drag can't carry the map further than
-  // the glass is wide, and a flick's inertia stops well inside that (MapLibre ≤ ~400 px), so no
-  // glyph pops in at the edge before the moveend render re-clips. The chain is walked whole and
+  // canvas plus a margin are kept. The margin is one pan: a finger's drag (at most the glass's own
+  // extent) plus the longest flick MapLibre's default inertia gives (1400 px/s, 2500 px/s², 0.3 ⇒
+  // ≈ 1307 px), so no glyph pops in at the edge before the moveend render re-clips. The chain is walked whole and
   // then filtered, so the rhythm is the unclipped one (the Plan's) and `n`, a glyph's place in
   // it, keys the same ground point in every window.
   const markerPointsAlong = (coords: LngLat[], marker?: string): { coord: LngLat; deg: number; n: number }[] => {
@@ -787,8 +790,9 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
       : [{ coord: mid, at: px[Math.floor((px.length - 1) / 2)], deg: 0, n: 0 }]
     const canvas = m.getCanvas(), ratio = m.getPixelRatio()
     const w = canvas.width / ratio, h = canvas.height / ratio
+    const mx = w + PAN_INERTIA_PX, my = h + PAN_INERTIA_PX
     return all
-      .filter(({ at: [x, y] }) => x >= -w && x <= 2 * w && y >= -h && y <= 2 * h)
+      .filter(({ at: [x, y] }) => x >= -mx && x <= w + mx && y >= -my && y <= h + my)
       .map(({ coord, deg, n }) => ({ coord, deg, n }))
   }
   const drawMarkers = drawings

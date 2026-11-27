@@ -14,10 +14,11 @@ import { markerParamsAlong, markerSpacing, lerpPoint } from '../lib/lineStyle'
 
 type MapProps = Record<string, unknown> & { children?: ReactNode }
 const captured: { props: MapProps | null } = { props: null }
+const capture = (props: MapProps) => { captured.props = props }
 
 vi.mock('react-map-gl/maplibre', () => ({
   default: forwardRef<unknown, MapProps>(function MapStandIn(props, _ref) {
-    captured.props = props
+    capture(props)
     return <div data-testid="map">{props.children as ReactNode}</div>
   }),
   Marker: ({ children, longitude, latitude }: { children?: ReactNode; longitude: number; latitude: number }) =>
@@ -102,8 +103,8 @@ const fullRhythm = (d: Drawing) => markerParamsAlong(d.coords.map((c) => { const
 beforeEach(() => { captured.props = null; view.center = [LNG0, LAT0]; view.zoom = 19 })
 afterEach(cleanup)
 
-// the clip window: the canvas plus one canvas extent on each side, so 3 × 1024 px across
-const WINDOW_GLYPHS = Math.floor((3 * W) / 15) + 1
+// the clip window: the canvas plus one canvas extent and the 1400 px of a flick on each side
+const WINDOW_GLYPHS = Math.floor((3 * W + 2 * 1400) / 15) + 1
 
 describe('a Haltelinie\'s ▲ chain on the Karte', () => {
   it('creates only the glyphs inside the canvas and its margin – independent of the line\'s length', () => {
@@ -113,6 +114,10 @@ describe('a Haltelinie\'s ▲ chain on the Karte', () => {
     moveTo(view.center, 21)
     expect(fullRhythm(haltelinie()).length).toBeGreaterThan(500) // ≈ 7 900 px of line
     expect(glyphs().length).toBeLessThanOrEqual(WINDOW_GLYPHS)
+    // …and the glyph a drag across the glass plus a full flick (≈ 1307 px) brings in is already there
+    const xs = glyphs().map((g) => project(g.split(',').map(Number) as LngLat).x)
+    expect(Math.min(...xs)).toBeLessThan(-W - 1307)
+    expect(Math.max(...xs)).toBeGreaterThan(2 * W + 1307)
   })
 
   it('keeps the rhythm when the window moves: every glyph stands where the whole chain has one', () => {
