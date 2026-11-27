@@ -345,6 +345,18 @@ describe('a stored row past its bound stays in the save', () => {
       expect((await nextPut())?.map?.objectCategories).toEqual([ok])
     })
 
+    it('keeps an untouched glob with a line break as stored, which the box shows without it', async () => {
+      const glob = `${'a'.repeat(30)}\n${'a'.repeat(30)}`
+      const stored = { ...long, match: { modules: [glob, 'kurz'] } }
+      apiGet.mockResolvedValue({ ...structuredClone(STATION), map: { objectCategories: [stored, ok] } })
+      await act(async () => { render(<ConfigProvider><ObjectCategoriesCard /></ConfigProvider>) })
+      await waitFor(names)
+      // what a browser hands the handler: the text as shown, line break gone
+      await type(modules(), `${'a'.repeat(60)}, kurz2`)
+      await type(names()[1], 'Andere')
+      expect((await nextPut())?.map?.objectCategories?.[0]).toEqual(stored)
+    })
+
     it('never cuts a stored glob: an edit of the box keeps it, shortening it is the admin\'s', async () => {
       const stored = { ...long, match: { modules: ['modul5-pv*', 'm'.repeat(70)] } }
       apiGet.mockResolvedValue({ ...structuredClone(STATION), map: { objectCategories: [stored, ok] } })

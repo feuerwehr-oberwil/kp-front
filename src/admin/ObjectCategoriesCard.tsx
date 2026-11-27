@@ -26,10 +26,14 @@ const chars = (s: string | undefined) => [...(s ?? '')].length
  *  `maxLength` holds a box – by code point, as pydantic counts, so «🚒» is never split into half a
  *  character the API refuses. While the rule still holds a stored glob past it (`before`), the box
  *  cuts nothing: the row's warning names the glob until the admin shortens it, and the save keeps
- *  the stored rule (useStoredRows). */
+ *  the stored rule (useStoredRows). A glob the admin did not touch keeps its string from `before`:
+ *  the box shows it without line breaks and surrounding spaces, so it is matched as shown. */
 const parseModules = (text: string, before: readonly string[]) => {
   const cut = before.every((m) => chars(m) <= MODULE_MAX)
-  return text.split(',').map((m) => m.trim()).map((m) => (cut ? [...m].slice(0, MODULE_MAX).join('') : m)).filter(Boolean)
+  const shown = (m: string) => m.replace(/[\r\n]/g, '').trim()
+  return text.split(',').map((m) => m.trim())
+    .map((m) => before.find((b) => shown(b) === m) ?? (cut ? [...m].slice(0, MODULE_MAX).join('') : m))
+    .filter(Boolean)
 }
 
 export function ObjectCategoriesCard() {
