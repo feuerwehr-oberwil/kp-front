@@ -650,7 +650,8 @@ function FloorCrop({ parts, images, frame, aspect, style, ...svg }: {
 }
 
 /** The rasters of a sheet's pages as object URLs by page number, fetched per distinct set of
- *  `pages` and revoked when the set changes or the caller unmounts. With `measure`, each
+ *  `pages` and revoked – and dropped from `images` – when the set changes or the caller
+ *  unmounts, so no picture points at a dead blob. With `measure`, each
  *  raster's own width / height lands in `aspects` (a pack may mix portrait and landscape pages);
  *  only the phone's row crops ask, the Vorschau fits its common frame. `failed` once any page
  *  did not arrive. An empty list fetches nothing. */
@@ -673,7 +674,10 @@ function usePageImages(id: number, pages: readonly number[], { measure = false }
         }).catch(() => { /* the pack's own aspect stands in */ })
       }).catch(() => { if (!abort.signal.aborted) setFailed(true) })
     }
-    return () => { abort.abort(); urls.forEach(URL.revokeObjectURL) }
+    return () => {
+      abort.abort(); urls.forEach(URL.revokeObjectURL)
+      if (urls.length) setImages((current) => Object.fromEntries(Object.entries(current).filter(([, url]) => !urls.includes(url))))
+    }
   }, [id, key, measure])
   return { images, aspects, failed }
 }
