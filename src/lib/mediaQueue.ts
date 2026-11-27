@@ -269,10 +269,11 @@ export type MediaUploader = (
 export interface FlushOutcome {
   uploaded: { id: string; rowId: string; kind: 'photo' | 'audio'; url: string; localUrl?: string; target?: MediaTarget }[]
   remaining: MediaQueueItem[]
-  /** A `due: 'reachable'` flush skipped a capture whose early try was too recent (triedEarly):
-   *  the earliest time one of them may try early again, when that comes before its stored pause
-   *  ends. The caller flushes `due: 'reachable'` again then, so a recovery signal that came
-   *  during the spacing is not lost. */
+  /** A `due: 'reachable'` flush skipped captures whose early try was too recent (triedEarly):
+   *  the time by which every one of them may try early again (for each, only when that comes
+   *  before its stored pause ends). The caller flushes `due: 'reachable'` ONCE more then, so a
+   *  recovery signal that came during the spacing is not lost – and must not act on the
+   *  `deferredUntil` of that second flush: one signal, one held try per capture. */
   deferredUntil?: number
 }
 
@@ -303,7 +304,7 @@ export function flushMediaQueue(incidentId: string, upload: MediaUploader, { ret
       const spacedAt = (triedEarly.get(key) ?? -Infinity) + EARLY_TRY_SPACING_MS
       if (!retry && item.status !== 'failed' && early && due === 'reachable' && spacedAt > Date.now()) {
         // the stored pause wins when it ends first: the normal retry comes then anyway
-        if (spacedAt < (item.retryAt ?? 0)) deferredUntil = Math.min(deferredUntil ?? Infinity, spacedAt)
+        if (spacedAt < (item.retryAt ?? 0)) deferredUntil = Math.max(deferredUntil ?? 0, spacedAt)
         continue
       }
       if (!retry && (item.status === 'failed' || (early && !due))) continue

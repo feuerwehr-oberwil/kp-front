@@ -154,13 +154,18 @@ export function useMediaQueue({ incidentId, readOnly, onUploaded, onRestore }: O
     }
   }, [incidentId, readOnly])
 
-  const flush = useCallback(async (options?: { retry?: boolean; due?: 'online' | 'reachable' }) => {
+  /** One pass over the queue. `hold`: a recovery signal that the early-try spacing held back
+   *  arms its one later try (earlyAt). That later try runs with `hold` off: taken as a fresh
+   *  signal it would arm the next one, and two waiting captures would hand each other a try a
+   *  minute for ever on a link that answers nothing. */
+  const run = useCallback(async (options: { retry?: boolean; due?: 'online' | 'reachable' } | undefined, hold: boolean) => {
     if (readOnly) return
     const { deferredUntil } = await flushMediaQueue(incidentId, uploadMedia, options)
-    if (deferredUntil != null) setEarlyAt(deferredUntil)
+    if (hold && deferredUntil != null) setEarlyAt(deferredUntil)
     await replay()
     await refresh()
   }, [incidentId, readOnly, refresh, replay])
+  const flush = useCallback((options?: { retry?: boolean; due?: 'online' | 'reachable' }) => run(options, true), [run])
 
   const replayReceipts = useCallback(async () => {
     await replay()
@@ -217,12 +222,13 @@ export function useMediaQueue({ incidentId, readOnly, onUploaded, onRestore }: O
   }, [flush])
 
   // A recovery signal that came while a capture's last early try was too recent: try it once
-  // the spacing is over (its stored pause, if shorter, has its own timer below).
+  // the spacing is over (its stored pause, if shorter, has its own timer below). Once per
+  // signal – this try arms no further one (run · hold).
   useEffect(() => {
     if (earlyAt == null) return
-    const timer = setTimeout(() => { setEarlyAt(undefined); void flush({ due: 'reachable' }) }, Math.max(0, earlyAt - Date.now()))
+    const timer = setTimeout(() => { setEarlyAt(undefined); void run({ due: 'reachable' }, false) }, Math.max(0, earlyAt - Date.now()))
     return () => clearTimeout(timer)
-  }, [earlyAt, flush])
+  }, [earlyAt, run])
 
   // Retry only pending captures, at their persisted deadline. Updating attempts must never
   // cause an immediate render → upload → render loop; permanently failed items need a tap.

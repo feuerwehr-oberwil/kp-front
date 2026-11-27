@@ -134,3 +134,34 @@ it('a recovery signal during the early-try spacing gets its try when the spacing
   expect(upload).toHaveBeenCalledTimes(8)
   expect(result.current.pendingCount).toBe(0)
 })
+
+// one signal, a bounded number of uploads: the held try must not count as a fresh signal
+it('two waiting captures do not hand each other an early try a minute after one recovery signal', async () => {
+  vi.useFakeTimers()
+  vi.spyOn(Math, 'random').mockReturnValue(0.5)
+  vi.stubGlobal('URL', { createObjectURL: () => 'blob:restored', revokeObjectURL: vi.fn() })
+  upload.mockReset().mockRejectedValue(new ApiError(0, 'Netzwerkfehler'))
+  await enqueueMedia('pair-hook', 'a', 'audio', new Blob(['a']), 'a.webm', new Date().toISOString())
+  const { result } = renderHook(() => useMediaQueue({ incidentId: 'pair-hook', readOnly: false, onUploaded: () => true, onRestore: () => {} }))
+  for (let s = 0; s < 32; s++) await act(async () => { await vi.advanceTimersByTimeAsync(5_000) })
+  noteUnreached()
+  act(() => { noteAnswered() }) // T: a's early try, missed – its pause is 5 min from here
+  await act(async () => { await vi.advanceTimersByTimeAsync(1_000) })
+  expect(upload).toHaveBeenCalledTimes(7)
+  // T+1 s: b joins and misses at 1, 6, 16 and 36 s; its pause then runs to T+76 s
+  await enqueueMedia('pair-hook', 'b', 'audio', new Blob(['b']), 'b.webm', new Date().toISOString())
+  await act(async () => { await result.current.flush() })
+  for (let s = 0; s < 49; s++) await act(async () => { await vi.advanceTimersByTimeAsync(1_000) })
+  expect(upload).toHaveBeenCalledTimes(11)
+  noteUnreached()
+  act(() => { noteAnswered() }) // T+50 s, the one signal under test: a is held until T+60 s, b tries early
+  await act(async () => { await vi.advanceTimersByTimeAsync(1) })
+  expect(upload).toHaveBeenCalledTimes(12)
+  // ten minutes with no further signal
+  for (let s = 0; s < 120; s++) await act(async () => { await vi.advanceTimersByTimeAsync(5_000) })
+  const since = (row: string) => upload.mock.calls.slice(12).filter(([, , , name]) => name === `${row}.webm`).length
+  // a: its held try at T+60 s, then its 5-min pauses · b: its stored pauses of 80, 160 and 300 s.
+  // Handing each other a try, each would go about once a minute: ten times.
+  expect(since('a')).toBeLessThanOrEqual(3)
+  expect(since('b')).toBeLessThanOrEqual(4)
+})

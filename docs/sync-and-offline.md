@@ -240,7 +240,8 @@ beendet». The rules: [`presentation.md`](presentation.md).
   once, through the same flush lane (after `onReachable` at most once a minute per capture:
   an upload that keeps failing while other requests answer would otherwise re-send its Blob per
   poll; a signal inside that minute gets its try when the minute is over, unless the stored pause
-  ends first). A backend that is down (502/503/504, e.g. a deploy) grows the pause but never ends `failed` – retries are safe, see `upload_id` below. Any other HTTP
+  ends first – one such held try per signal, which arms no further one: taken as a new signal it
+  would let two waiting captures hand each other a try a minute for ever on a dead link). A backend that is down (502/503/504, e.g. a deploy) grows the pause but never ends `failed` – retries are safe, see `upload_id` below. Any other HTTP
   error counts, and exhausted uploads wait for explicit retry. Rendering the queue must never
   trigger an upload loop.
 - Every attempt of one capture sends the same `upload_id` (the queue entry's `rev`, minted by
