@@ -2,7 +2,7 @@
 // sweep 26.11.2026, finding 27 – owner's rule, 27.11.2026). The boot asks for the Einsatz list as
 // always. When the Einsatz it would open is the remembered one and its stored copy is readable
 // here, the boot waits BOOT_STORED_WAIT_MS for that list and then opens the stored copy at once
-// (WorkspaceSync · storedFirst). Nothing is cut off: the list and the workspace request keep
+// (WorkspaceSync · storedFirst) – as it does when the list came in time from the device's copy. Nothing is cut off: the list and the workspace request keep
 // their 20 s bound and their retries; only the boot stops waiting for them. Their answers land the
 // way they do during use – the list through the always-on watch (useIncidentWatch, which then
 // shows a newer alarm Einsatz with its banner), the workspace through the cold-reopen merge
@@ -41,7 +41,8 @@ async function storedBootCopy(path: string, prefs: BootPrefs, now: number) {
 }
 
 /** The boot's list (listIncidentsShared), or the stored copy to open when the list takes longer
- *  than `waitMs` and there is one. A refusal of the list within the wait rejects, as before. */
+ *  than `waitMs` and there is one – or when the list came in time but from the device's copy: the
+ *  server was not reached then either. A refusal of the list within the wait rejects, as before. */
 export async function bootList(path: string, prefs: BootPrefs, { now = Date.now(), waitMs = BOOT_STORED_WAIT_MS } = {}): Promise<BootList> {
   const listed = listIncidentsShared().then((r): BootList => ({ kind: 'list', ...r }))
   listed.catch(() => {}) // a refusal after the boot stopped waiting is the watch's (during use)
@@ -49,7 +50,9 @@ export async function bootList(path: string, prefs: BootPrefs, { now = Date.now(
   let timer: ReturnType<typeof setTimeout> | undefined
   const waited = new Promise<void>((resolve) => { timer = setTimeout(resolve, waitMs) })
   try {
-    return (await Promise.race([listed, waited.then(() => stored)])) ?? (await listed)
+    const first = await Promise.race([listed, waited.then(() => stored)])
+    if (first?.kind === 'list' && first.offline) return (await stored) ?? first
+    return first ?? (await listed)
   } finally {
     clearTimeout(timer)
   }

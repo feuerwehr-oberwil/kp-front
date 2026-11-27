@@ -17,6 +17,8 @@ const net = {
   list: [] as IncidentMeta[],
   rev: 5,
   status: {} as Record<string, number>,
+  /** paths that never answer, whatever the link */
+  stall: [] as string[],
 }
 const RTT: Record<Link, number> = { normal: 300, slow: 6_000, dead: 0, offline: 0 }
 const SERVER = { from: 'server' }
@@ -29,7 +31,7 @@ function fakeFetch(input: string, init: RequestInit = {}): Promise<Response> {
   if (net.link === 'offline') return Promise.reject(new TypeError('Failed to fetch'))
   return new Promise((resolve, reject) => {
     init.signal?.addEventListener('abort', () => reject(init.signal?.reason))
-    if (net.link === 'dead') return
+    if (net.link === 'dead' || net.stall.includes(path)) return
     setTimeout(() => {
       const status = net.status[path] ?? 200
       if (status !== 200) resolve(json(status, { detail: 'nein' }))
@@ -57,7 +59,7 @@ async function boot(prefs: { incidentId?: string }, path = '/') {
   const start = Date.now()
   const selection = new IncidentSelection()
   selections.push(selection)
-  const out = { ms: 0, serverAt: null as number | null, opened: null as Awaited<ReturnType<IncidentSelection['open']>>, kind: '', selection }
+  const out = { ms: 0, serverAt: null as number | null, opened: null as Awaited<ReturnType<InstanceType<typeof IncidentSelection>['open']>>, kind: '', selection }
   const options = { onServerWorkspace: () => { out.serverAt = Date.now() - start } }
   const booted = await bootList(path, prefs, { now: Date.now() })
   out.kind = booted.kind
@@ -102,7 +104,7 @@ beforeEach(() => {
   __resetIdbForTests()
   setWorkspaceCacheOwner('reset')
   setWorkspaceCacheOwner('u1')
-  Object.assign(net, { link: 'normal', requests: [], list: [meta('a')], rev: 5, status: {} })
+  Object.assign(net, { link: 'normal', requests: [], list: [meta('a')], rev: 5, status: {}, stall: [] })
   unhandled.length = 0
   process.on('unhandledRejection', onUnhandled)
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] })
@@ -178,13 +180,24 @@ describe('with a stored copy, the start waits 5 s for the server', () => {
     expect(karte.ms).toBeGreaterThanOrEqual(20_000)
   })
 
-  it('offline (the request fails at once): the device’s list in time, the stored copy, as before', async () => {
+  it('offline (the request fails at once): silence too – the stored copy at once', async () => {
     net.link = 'offline'
     await seedCache('a')
     const out = await drive(boot({ incidentId: 'a' }))
-    expect(out.kind).toBe('list')
+    expect(out.kind).toBe('stored')
     expect(out.opened?.workspace).toEqual(STORED)
     expect(out.ms).toBeLessThan(100)
+  })
+
+  it('a list that fails fast (503 → the device’s list) is silence: the stored copy, not a 20 s workspace wait', async () => {
+    net.status = { '/api/incidents': 503 }
+    net.stall = ['/api/incidents/a/workspace']
+    await seedCache('a')
+    const out = await drive(boot({ incidentId: 'a' }), 25_000)
+    expect(out.kind).toBe('stored')
+    expect(out.opened?.workspace).toEqual(STORED)
+    expect(out.ms).toBeLessThan(2 * RTT.normal + 100)
+    expect(unhandled).toEqual([])
   })
 })
 

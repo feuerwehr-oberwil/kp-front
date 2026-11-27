@@ -138,6 +138,19 @@ describe('storedFirst: the server’s answer later', () => {
     sync.dispose()
   })
 
+  it('the merge arms no push of its own: that is pushOwed’s, in the tab with the edit lock', async () => {
+    store.set('kp-front-ws-i1', slot({ dirty: true, workspace: { entities: [{ id: 'e1' }, { id: 'offline' }] } }))
+    const req = pending()
+    const sync = new WorkspaceSync('i1', { storedFirst: true, debounceMs: 0 })
+    await sync.init()
+    req.answer({ workspace: { entities: [{ id: 'e1' }, { id: 'colleague' }] }, workspace_rev: 6 })
+    await settle()
+    await settle()
+    expect(sync.hasUnsynced).toBe(true)
+    expect(putWorkspace).not.toHaveBeenCalled()
+    sync.dispose()
+  })
+
   it('an answer older than the copy is not applied over it', async () => {
     store.set('kp-front-ws-i1', slot())
     const req = pending()

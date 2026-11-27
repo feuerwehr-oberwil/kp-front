@@ -1119,7 +1119,7 @@ export class WorkspaceSync {
       // device-wide (as flush() does) and the session path signs the device out (api ·
       // SESSION_EXPIRED_EVENT). Silence leaves the stored copy as it is.
       if (this.ownsCache && e instanceof ApiError && e.status === 401) denyWorkspaceCache()
-    })
+    }).catch(() => {}) // a merge that threw keeps the stored copy, as open()'s fallback does
     return opened
   }
 
@@ -1133,7 +1133,9 @@ export class WorkspaceSync {
    * ancestor (open()'s cold-reopen merge), and at the same revision the edits stay verbatim.
    * ⚠️ An answer older than what the engine holds is not applied (a save of ours, or the live
    * poll, got there first); nor is one that lands while a push is in flight — that push's answer
-   * (a 409 merges against the server) settles it, as on any reconnect.
+   * (a 409 merges against the server) settles it, as on any reconnect. The merge arms no push of
+   *  its own: an edit's save already did, and a restored dirty copy goes up through `pushOwed`,
+   *  which only the tab holding the edit lock calls.
    */
   private takeLateAnswer(server: Workspace, rev: number) {
     if (!this.sessionActive || this.flushing || rev < this.entry.baseRev) return
@@ -1152,7 +1154,6 @@ export class WorkspaceSync {
     this.opts.onRev?.(rev)
     this.handToView(merged, rev)
     this.setStatus('pending')
-    this.armDebounce()
   }
 
   private async open(): Promise<{ workspace: Workspace | null; rev: number; fromCache: boolean }> {
