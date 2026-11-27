@@ -2,8 +2,8 @@
 // «Beschriftung» set in the home's Einstellungen reaches a surface that reads it with
 // useRailLabels (the Karte's rail) at once – the sheet sits over that surface, nothing remounts.
 // …and «Gerät auf Standard zurücksetzen» reaches every holder of a device pref the same way.
-import { act, cleanup, render, screen } from '@testing-library/react'
-import { afterEach, expect, it } from 'vitest'
+import { act, cleanup, render, renderHook, screen } from '@testing-library/react'
+import { afterEach, expect, it, vi } from 'vitest'
 import { loadPrefs, savePrefs } from './prefs'
 import { resetDevicePrefs, useDevicePrefs, useRailLabels } from './useDevicePrefs'
 
@@ -40,4 +40,20 @@ it('a reset puts every holder back on the defaults, and its undo brings the choi
   expect(screen.getByTestId('p').textContent).toBe('1.3 false off')
   expect(screen.getByTestId('rail').textContent).toBe('off')
   expect(loadPrefs().theme).toBe('night')
+})
+
+it('a useRailLabels reader parses the prefs cookie once, not on every render – again after a write', () => {
+  // a cookie string no other test writes, so nothing is cached for it yet
+  savePrefs({ railLabels: 'off', railLabelsChosen: true, incidentId: 'parse-count' })
+  const parse = vi.spyOn(JSON, 'parse')
+  const { result, rerender } = renderHook(useRailLabels)
+  for (let i = 0; i < 99; i++) rerender()
+  expect(result.current).toBe('off')
+  expect(parse).toHaveBeenCalledTimes(1)
+  // a write that does not announce itself (another tab, the workspace's own prefs effect) shows too
+  act(() => { savePrefs({ railLabels: 'short', railLabelsChosen: true }) })
+  rerender()
+  expect(result.current).toBe('short')
+  expect(parse).toHaveBeenCalledTimes(2)
+  parse.mockRestore()
 })

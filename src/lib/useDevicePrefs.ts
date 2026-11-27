@@ -74,13 +74,28 @@ export function useDevicePrefs() {
 }
 
 const onRailLabels = (cb: () => void) => {
-  window.addEventListener(RAIL_LABELS_EVENT, cb)
-  return () => window.removeEventListener(RAIL_LABELS_EVENT, cb)
+  const changed = () => { railCookie = null; cb() }
+  window.addEventListener(RAIL_LABELS_EVENT, changed)
+  return () => window.removeEventListener(RAIL_LABELS_EVENT, changed)
+}
+
+/** the cookie string `railLabels` was parsed from; `null` = parse on the next read */
+let railCookie: string | null = null
+let railLabels: RailLabels = 'short'
+
+/** The `useRailLabels` snapshot. React reads it several times per render; the prefs cookie is
+ *  parsed again only when the cookie string changed (any write – also one from another tab or one
+ *  that does not announce itself) or `RAIL_LABELS_EVENT` fired. */
+function railLabelsSnapshot(): RailLabels {
+  let cookie: string
+  try { cookie = document.cookie } catch { return 'short' } // cookies blocked: what loadPrefs() gives
+  if (cookie !== railCookie) { railLabels = railLabelsFor(loadPrefs()); railCookie = cookie }
+  return railLabels
 }
 
 /** «Beschriftung» as a surface that does not own the Einstellungen reads it – the Karte's rail
  *  (components/karte), under the home's own settings sheet (App · LandingSettings). Live: a change
  *  made there shows on the rail at once, without a remount. */
 export function useRailLabels(): RailLabels {
-  return useSyncExternalStore(onRailLabels, () => railLabelsFor(loadPrefs()))
+  return useSyncExternalStore(onRailLabels, railLabelsSnapshot)
 }
