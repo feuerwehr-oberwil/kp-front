@@ -53,10 +53,13 @@ interface IncidentSyncDeps {
   /** Build the workspace blob from the current document/state slices. A useCallback whose
    *  identity changes exactly when a persisted slice changes — that's what re-fires the save. */
   buildPayload: () => Saved
-  /** Write an authoritative workspace into App's state (the old hydrate body, minus skipSave).
-   *  Returns whether `buildPayload` will now build from anything other than what it last built —
-   *  false makes no save effect run, so the echo guard must not stand. */
-  applyWorkspace: (ws: Workspace) => boolean
+  /** Write an authoritative workspace (a pull or a merge) into App's state. */
+  applyWorkspace: (ws: Workspace) => void
+  /** THE ECHO GUARD: whether a payload `buildPayload` just built comes from nothing but what
+   *  `applyWorkspace` handed in. That save is skipped — pushed back, the other device would pull
+   *  its own state, and the two would save each other's pulls for ever. A payload with anything
+   *  else folded in is a local edit and is saved, in whatever order React committed the two. */
+  echoOfPull: (payload: Saved) => boolean
   flushEvents: () => void
   flushEventsBeacon: () => void
   /** Append one Verlauf row (journal store) — used for the attendance-divergence note when a
@@ -93,13 +96,13 @@ interface IncidentSyncDeps {
 
 /**
  * Everything that reads or writes the synced workspace blob, lifted out of App's god-component:
- * the persistence push (debounced save, skip-first/skip-rehydrate guards), the teardown keepalive
+ * the persistence push (debounced save, skip-first and echo guards), the teardown keepalive
  * beacons, the live-follow poll (with the tablet sync-race guard — re-check `hasUnsynced` AFTER
  * the round-trip so a tap that lands mid-poll isn't clobbered), the in-place auto-merge apply, and
  * the reactive sync-status badge. State writes stay in App via `applyWorkspace`/`buildPayload`; this
- * hook owns the sync-internal refs (skip/first/liveRev) + effects so the wiring is one unit.
+ * hook owns the sync-internal refs (first/liveRev) + effects so the wiring is one unit.
  */
-export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, applyWorkspace, flushEvents, flushEventsBeacon, appendJournal, appendTeamRow, alarmUrgent, gestureOpen, incidentOpen, slowFollow, lockHeldAtOpen = false }: IncidentSyncDeps) {
+export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, applyWorkspace, echoOfPull, flushEvents, flushEventsBeacon, appendJournal, appendTeamRow, alarmUrgent, gestureOpen, incidentOpen, slowFollow, lockHeldAtOpen = false }: IncidentSyncDeps) {
   const incidentOpenRef = useRef(incidentOpen)
   useEffect(() => { incidentOpenRef.current = incidentOpen }, [incidentOpen])
   /** What the SERVER last said about the lifecycle (its `X-Incident-Open`), which is what the next
@@ -111,9 +114,6 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
   useEffect(() => { heardOpenRef.current = null }, [incidentOpen])
   const claimOpen = () => heardOpenRef.current ?? incidentOpenRef.current
   const onLifecycle = (open: boolean) => { heardOpenRef.current = open }
-  // re-hydrate flags one save to skip — otherwise an editor would immediately push the
-  // just-pulled blob back, bumping the rev and triggering an endless pull→push→pull echo.
-  const skipSave = useRef(false)
   /** ⚠️ The last blob this device pushed or was handed, serialized. The save effect fires on
    *  `buildPayload`'s IDENTITY, and a hydrate re-seeds every slice — so a merge that changed
    *  nothing this device cares about still produced a fresh identity and a push. Two devices
@@ -125,11 +125,6 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
    *  Held as the serialized string — or, after a skipped mid-gesture compare (below), as the
    *  payload itself, serialized only when the next compare needs it. */
   const lastPushed = useRef<string | Saved | null>(null)
-  // ⚠️ Only the save effect spends the guard, and it runs only when the payload moves: armed by a
-  // hydrate that moved nothing, it would stand until the NEXT local edit and skip that as an
-  // echo. So it is armed exactly when the payload will move (`applyWorkspace`'s answer, which
-  // covers every hydrate since the last save build).
-  const hydrate = (ws: Workspace) => { skipSave.current = applyWorkspace(ws) }
 
   // Attendance divergence → ONE Verlauf note per affected person: a merge kept LWW but saw
   // both sides (e.g. KP tablet and QR-Erfassung) change the same person's entry. The seen-set
@@ -207,7 +202,8 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
   useEffect(() => {
     const payload = buildPayload()
     if (firstSave.current) { firstSave.current = false; lastPushed.current = JSON.stringify(payload); return }
-    if (skipSave.current) { skipSave.current = false; lastPushed.current = JSON.stringify(payload); return }
+    // an echo of a pull is not pushed back (`echoOfPull`) — but it is what the server holds now
+    if (echoOfPull(payload)) { lastPushed.current = JSON.stringify(payload); return }
     // ⚠️ Mid-gesture, with a push already owed, the compare is skipped (perf sweep 23.09.2026).
     // A Karte drag writes the document per pointer move, a plan chip drag per sample, the Rapport
     // per keystroke — and each of those re-serialized the WHOLE workspace here, 60 times a second
@@ -351,7 +347,7 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
         liveRev.current = res.workspace_rev
         const ws = (res.workspace ?? {}) as Workspace
         if (!readOnly) sync.adoptServer(ws, res.workspace_rev)
-        hydrate(ws)
+        applyWorkspace(ws)
       }
       // ⚠️ …and a held poll that came back at once with NOTHING new did not hold (N1): whatever
       // the reason, answering «unanswered» lets the loop ease off instead of spinning. A real
@@ -375,7 +371,7 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
   // let the sync engine apply an auto-merged conflict result IN PLACE (no remount), so the
   // resolver smoothly gains the other device's edits instead of having the screen rebuilt.
   useEffect(() => {
-    const onApplyMerged = (ws: Workspace, rev: number) => { liveRev.current = rev; hydrate(ws) }
+    const onApplyMerged = (ws: Workspace, rev: number) => { liveRev.current = rev; applyWorkspace(ws) }
     sync.onApplyMerged = onApplyMerged
     return () => { if (sync.onApplyMerged === onApplyMerged) sync.onApplyMerged = undefined }
     // eslint-disable-next-line react-hooks/exhaustive-deps
