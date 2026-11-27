@@ -32,6 +32,7 @@ window.URL.createObjectURL ??= () => 'blob:test'
 globalThis.ResizeObserver ??= class { observe() {} unobserve() {} disconnect() {} } as unknown as typeof ResizeObserver
 
 const { MapView } = await import('./MapView')
+const { FREEHAND_PREVIEW_MS } = await import('./useMapCanvasGestures')
 const noop = () => {}
 
 // 1 px = 1e-5° on both axes around the station, y down
@@ -75,9 +76,11 @@ function fakeMap() {
   return { map, fh, fire }
 }
 
-// one animation frame per sample: the queue is flushed by the test, never by a clock
+// animation frames run when the test says so, on a frame clock the test advances: by default
+// one frame per sample, FREEHAND_PREVIEW_MS apart
 let frames: FrameRequestCallback[] = []
-const flushFrame = () => act(() => { const q = frames; frames = []; for (const f of q) f(0) })
+let clock = 0
+const flushFrame = (ms = FREEHAND_PREVIEW_MS) => act(() => { clock += ms; const q = frames; frames = []; for (const f of q) f(clock) })
 beforeEach(() => {
   captured.props = null; frames = []
   vi.spyOn(window, 'requestAnimationFrame').mockImplementation((f) => { frames.push(f); return frames.length })
@@ -150,5 +153,17 @@ describe('a freehand Linie on the Karte', () => {
     expect(lastPreview(fh)?.features).toEqual([])
     fire('touchend', t(...SAMPLES[10], 0))
     expect(onFreehand).not.toHaveBeenCalled()
+  })
+
+  it('writes the preview at most every FREEHAND_PREVIEW_MS, and the waiting samples land in a later frame', () => {
+    const { fh, fire } = mount()
+    fire('mousedown', mouse(...SAMPLES[0]))
+    fh.setData.mockClear()
+    // 60 Hz frames, one sample each: about every second frame writes
+    for (const p of SAMPLES.slice(1, 21)) { fire('mousemove', mouse(...p)); flushFrame(1000 / 60) }
+    expect(fh.setData.mock.calls.length).toBeLessThanOrEqual(11)
+    // no new sample: the next frames still bring the last ones in
+    flushFrame(1000 / 60); flushFrame(1000 / 60)
+    expect(lastPreview(fh)?.features[0].geometry.coordinates).toEqual(SAMPLES.slice(0, 21).map(([x, y]) => toLL(x, y)))
   })
 })

@@ -12,6 +12,10 @@ import { fc, lineFeat } from '../lib/mapView'
  *  and never hands it new data: this hook writes it straight through `setData`. */
 export const FREEHAND_SOURCE = 's-fh'
 export const FREEHAND_EMPTY = fc([])
+/** The freehand preview's write rhythm, ms (≈ 30 Hz). Each write into the source costs the map
+ *  about two repaints (the source, then its tile), so a write per frame doubled the repaints of a
+ *  stroke (perf journey `edit`, 27.11.2026: 320 GL frames for ten Linien vs 230 before). */
+export const FREEHAND_PREVIEW_MS = 33
 
 type Rect = MarqueeRect
 type Circle = { center: LngLat; radiusM: number }
@@ -67,8 +71,9 @@ export function useMapCanvasGestures({ mapInst, mapReady, freehand, onFreehand, 
   // Raw stroke points live in a REF (not state) so a captured point doesn't re-render the heavy
   // MapView on every pointer sample — that per-point render janks the main thread and the browser
   // then coalesces away touch samples, thinning the stroke ("blocky, few nodes"). The preview is
-  // written into the map source once per animation frame — no React state, so a stroke renders
-  // MapView at its start and end only. Every path that ends a stroke empties the source.
+  // written into the map source — no React state, so a stroke renders MapView at its start and
+  // end only — in an animation frame at most every FREEHAND_PREVIEW_MS. Every path that ends a
+  // stroke empties the source (it starts empty, so a stroke's start writes nothing).
   const fhPoints = useRef<LngLat[]>([])
   const fhRaf = useRef<number | null>(null)
   // "latest ref" mirrors — synced in an effect (NOT during render) so the gesture effects can
@@ -100,9 +105,17 @@ export function useMapCanvasGestures({ mapInst, mapReady, freehand, onFreehand, 
           .catch(() => { /* map gone: nothing left to draw on */ })
       } catch { /* map gone */ }
     }
-    const flushPreview = () => { fhRaf.current = null; if (fhActive.current) preview(fhPoints.current) }
+    let lastWrite = -Infinity
+    const flushPreview = (now: number) => {
+      fhRaf.current = null
+      if (!fhActive.current) return
+      // too soon after the last write: the samples wait for a later frame, none is lost
+      if (now - lastWrite < FREEHAND_PREVIEW_MS) { schedule(); return }
+      lastWrite = now
+      preview(fhPoints.current)
+    }
     const schedule = () => { if (fhRaf.current == null) fhRaf.current = requestAnimationFrame(flushPreview) }
-    const start = (ll: LngLat) => { fhActive.current = true; fhPoints.current = [ll]; preview([]); map.dragPan.disable(); onFreehandPointerRef.current?.('start', ll) }
+    const start = (ll: LngLat) => { fhActive.current = true; fhPoints.current = [ll]; map.dragPan.disable(); onFreehandPointerRef.current?.('start', ll) }
     const addPoint = (ll: LngLat) => { fhPoints.current.push(ll); schedule(); onFreehandPointerRef.current?.('move', ll) }
     const finish = (commit: boolean) => {
       map.dragPan.enable()
