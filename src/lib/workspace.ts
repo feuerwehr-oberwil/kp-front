@@ -14,6 +14,7 @@ import { isSafeColor } from './shapes'
 import { HOSE_SIZES } from './hydraulics'
 import { sanitizeSvgResult } from './sanitizeSvg'
 import { minPoints } from './vertexOps'
+import { jsonEqual } from './jsonEqual'
 import { isFormData } from './boardForm'
 import type { ChecklistState } from './checklists'
 import { objectsFromLegacy, viewsOf, type TacticalObject } from './tacticalObjects'
@@ -781,11 +782,72 @@ type NotApplied = 'activePlanId' | 'doc' | 'board'
  *  slot). Until 25.09.2026 applyWorkspace was a hand-kept list of setter calls that had skipped
  *  `mittel`: another device's Mittel entries never reached this device's screen, and its next
  *  save — whose ancestor did hold them — read them as local deletions (delete wins). */
-export type WorkspaceAppliers = { [K in Exclude<keyof InitialState, NotApplied>]-?: (value: InitialState[K]) => void }
+type AppliedKey = Exclude<keyof InitialState, NotApplied>
+export type WorkspaceAppliers = { [K in AppliedKey]: (value: InitialState[K]) => void }
 
-/** Hand every applied slice of `next` to its setter, in the order `set` lists them. */
-export function applyInitialState(next: InitialState, set: WorkspaceAppliers): void {
-  for (const k of Object.keys(set) as (keyof WorkspaceAppliers)[]) (set[k] as (value: unknown) => void)(next[k])
+/** The applied slices as this device holds them right now — what `applyInitialState` writes over.
+ *  The Verlauf is not among them: its rows go to the journal store, which drops a repeat itself. */
+export type LiveSlices = { [K in Exclude<AppliedKey, 'timeline'>]: InitialState[K] }
+
+const hasStringId = (v: unknown): v is { id: string } => isObj(v) && typeof v.id === 'string'
+
+/**
+ * `next`, with every record that equals its live one replaced BY the live one — an id-keyed list
+ * per element (by id), a key→value record per key, anything else whole — and `live` itself when
+ * nothing differs, order included. So a pull keeps the identity of everything it did not change,
+ * and every memo keyed on it stays put.
+ * ⚠️ «Equal» is `jsonEqual`, the merge's own comparison (undoKeys · sameValue): key order is no
+ * change, and a removal, a reorder or a change deep inside a record always is.
+ */
+export function shareLive<T>(live: T, next: T): T {
+  if (live === next) return live
+  if (Array.isArray(live) && Array.isArray(next)) {
+    const byId = new Map<string, unknown>()
+    for (const l of live) if (hasStringId(l)) byId.set(l.id, l)
+    let same = live.length === next.length
+    const out = next.map((n: unknown, i) => {
+      const l = hasStringId(n) ? byId.get(n.id) : live[i]
+      const v = l !== undefined && jsonEqual(l, n) ? l : n
+      if (v !== live[i]) same = false
+      return v
+    })
+    return same ? live : out as T
+  }
+  if (isObj(live) && isObj(next)) {
+    let same = Object.keys(live).every((k) => live[k] === undefined || k in next)
+    const out: Record<string, unknown> = {}
+    for (const [k, n] of Object.entries(next)) {
+      const l = live[k]
+      const v = l !== undefined && jsonEqual(l, n) ? l : n
+      if (v !== l) same = false
+      out[k] = v
+    }
+    return same ? live : out as T
+  }
+  return jsonEqual(live, next) ? live : next
+}
+
+/**
+ * Hand each applied slice of `next` that differs from `live` (`shareLive`) to its setter, in the
+ * order `set` lists them; a slice that did not change is not handed over at all. The Verlauf
+ * always goes. Returns `next` as written — every unchanged record the live one, for the caller's
+ * own diff and history re-lay — and the slices that moved.
+ */
+export function applyInitialState(next: InitialState, live: LiveSlices, set: WorkspaceAppliers): { next: InitialState; moved: (keyof LiveSlices)[] } {
+  const out: InitialState = { ...next }
+  const moved: (keyof LiveSlices)[] = []
+  const one = <K extends keyof LiveSlices>(k: K, cur: InitialState[K]) => {
+    const v = shareLive(cur, next[k])
+    out[k] = v
+    if (v === cur) return
+    moved.push(k)
+    set[k](v)
+  }
+  for (const k of Object.keys(set) as (keyof WorkspaceAppliers)[]) {
+    if (k === 'timeline') set.timeline(next.timeline)
+    else one(k, live[k])
+  }
+  return { next: out, moved }
 }
 
 // the plan a fresh emergency opens on: Modul 1 (the Übersicht), falling back to the first

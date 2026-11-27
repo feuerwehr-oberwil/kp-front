@@ -147,6 +147,102 @@ describe('(f) a merge reaches the screen', () => {
   })
 })
 
+describe('(f) a pull moves only what it changed', () => {
+  // Perf sweep 26.11.2026 #26: a pull handed every slice to its setter with a fresh value, so one
+  // Trupp saved elsewhere re-rendered every memo, re-serialized the blob and rewrote the Ebenen.
+  // Now an unchanged record keeps its identity, and a pull that changed nothing writes nothing.
+  const tr = (id: string, no: number, name: string) => ({ id, no, name, members: [], entryPressureBar: 300, entryTime: '', lastContactTime: '', status: 'angemeldet', readings: [] })
+  const other = { ...truck, id: 'p2', coord: [7.61, 47.51] } as Entity
+  type Blob = Parameters<NonNullable<WorkspaceSync['onApplyMerged']>>[0]
+  /** the save effect's serialization of the whole blob — the only stringify of a `Saved` */
+  const isBlob = (v: unknown) => !!v && typeof v === 'object' && 'schemaVersion' in v && 'objects' in v
+  /** a device on an Einsatz with two Trupps and two Karte objects, settled — `held` is the blob
+   *  as it holds it now (its boot already filed the crews: a pull of the boot blob is a change) */
+  const device = async () => {
+    const m = meta()
+    const sync = new WorkspaceSync(m.id)
+    const save = vi.spyOn(sync, 'save')
+    const { tree } = workspaceTree(m, { sync, workspace: { entities: [truck, other], trupps: [tr('t1', 1, 'Tst Ida'), tr('t2', 2, 'Tst Jan')] } as unknown as Saved })
+    render(tree)
+    await settle(60); await settle(60)
+    const held = save.mock.lastCall![0] as Saved
+    save.mockClear()
+    return { sync, save, held }
+  }
+  const pullCost = async (sync: WorkspaceSync, blob: Blob) => {
+    const before = lastMap()
+    const stringify = vi.spyOn(JSON, 'stringify')
+    const setItem = vi.spyOn(Storage.prototype, 'setItem')
+    act(() => { sync.onApplyMerged!(blob, 1) })
+    await settle(60)
+    const after = lastMap()
+    const cost = {
+      keptEntities: after.entities.filter((e) => before.entities.includes(e)).length,
+      keptLayers: after.layers === before.layers,
+      serializations: stringify.mock.calls.filter(([v]) => isBlob(v)).length,
+      layerWrites: setItem.mock.calls.filter(([k]) => String(k).startsWith('kp.layers.')).length,
+    }
+    stringify.mockRestore(); setItem.mockRestore()
+    return cost
+  }
+  /** another device's save that changed one thing on one Trupp (its entry pressure) */
+  const oneTrupp = (held: Saved) =>
+    ({ ...held, trupps: held.trupps!.map((t) => (t.id === 't2' ? { ...t, entryPressureBar: 280 } : t)) }) as unknown as Blob
+
+  it('one Trupp changed elsewhere: every Karte object and the Ebenen keep their identity', async () => {
+    const { sync, held } = await device()
+    expect(await pullCost(sync, oneTrupp(held))).toEqual({ keptEntities: 2, keptLayers: true, serializations: 1, layerWrites: 0 })
+  })
+
+  it('a pull that changed nothing serializes nothing and writes no Ebenen', async () => {
+    const { sync, held } = await device()
+    expect(await pullCost(sync, held as unknown as Blob)).toEqual({ keptEntities: 2, keptLayers: true, serializations: 0, layerWrites: 0 })
+  })
+
+  it('a remote delete, a reorder and a change inside a record each reach the follower', async () => {
+    const { sync, held } = await device()
+    const objs = held.objects!
+    const pull = (objects: typeof objs, rev: number) => { act(() => { sync.onApplyMerged!({ ...held, objects } as unknown as Blob, rev) }) }
+    pull([objs[1], objs[0]], 1)
+    await settle(60)
+    expect(lastMap().entities.map((e) => e.id)).toEqual(['p2', 'p1'])
+    pull([objs[1], { ...objs[0], entity: { ...objs[0].entity!, coord: [7.7, 47.6] } }], 2)
+    await settle(60)
+    expect(lastMap().entities.find((e) => e.id === 'p1')?.coord).toEqual([7.7, 47.6])
+    pull([objs[1]], 3)
+    await settle(60)
+    expect(lastMap().entities.map((e) => e.id)).toEqual(['p2'])
+  })
+
+  // ⚠️ the echo guard (useIncidentSync · hydrate): only the save effect spends it, and a pull that
+  // moved nothing runs no save effect — the guard left standing swallowed the next local edit
+  it('a local edit right after a pull that changed nothing is saved', async () => {
+    const { sync, save, held } = await device()
+    act(() => { sync.onApplyMerged!(held as unknown as Blob, 1) })
+    await settle(60)
+    expect(save).not.toHaveBeenCalled()
+    act(() => { lastMap().onSelect(lastMap().entities[0]) })
+    act(() => { key('Delete') })
+    await settle(60)
+    expect(save).toHaveBeenCalledTimes(1)
+    expect((save.mock.lastCall![0] as Saved).objects?.map((o) => o.id)).toEqual(['p2'])
+  })
+
+  it('a pull that changed one Trupp is not saved back, and the local edit after it is', async () => {
+    const { sync, save, held } = await device()
+    act(() => { sync.onApplyMerged!(oneTrupp(held), 1) })
+    await settle(60)
+    expect(save).not.toHaveBeenCalled()
+    act(() => { lastMap().onSelect(lastMap().entities[0]) })
+    act(() => { key('Delete') })
+    await settle(60)
+    expect(save).toHaveBeenCalledTimes(1)
+    const saved = save.mock.lastCall![0] as Saved
+    expect(saved.objects?.map((o) => o.id)).toEqual(['p2'])
+    expect(saved.trupps?.map((t) => t.entryPressureBar)).toEqual([300, 280])
+  })
+})
+
 // toast diet call 6 (17.11.2026): a merge that takes ↶'s own step used to raise a toast per merge.
 // Now the NEXT ↶ press says it at the button and does not step; the press after it steps.
 describe('(f) ↶ after a merge took its step', () => {

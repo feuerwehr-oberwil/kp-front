@@ -1,11 +1,11 @@
 // The workspace blob, both ways: the load gate's honest Meldungen (and, for a blob from a newer
 // build, the reload into that build — swUpdate · requireNewerBuild), `applyWorkspace` (a merged or
-// polled blob written into every synced slice, the undo timeline carried through the merge) and
+// polled blob written into each synced slice it changed, the undo timeline carried through the merge) and
 // `buildPayload` (the slices back into the blob the sync saves) — plus this device's own Ebenen,
 // which deliberately never ride the blob. Split out of IncidentWorkspace (E1, 09.10.2026)
 // verbatim; useIncidentSync, which drives both, is still called by the workspace.
 
-import { type Dispatch, type SetStateAction, type RefObject, useRef, useCallback, useEffect, useState } from 'react'
+import { type Dispatch, type SetStateAction, type RefObject, useRef, useCallback, useEffect, useMemo, useState } from 'react'
 import { type BoardHistory, keepPlanSteps } from '../components/useBoardDoc'
 import { appConfig } from '../config/appConfig'
 import { prefs } from './bootPrefs'
@@ -24,7 +24,7 @@ import type { useJournal } from '../lib/useJournal'
 import { boardViewOf } from '../lib/useObjectStore'
 import { onNewerBuildMissing, requireNewerBuild, updateForNewerData } from '../lib/swUpdate'
 import type { VehicleOverrides } from '../lib/useVehicleLayer'
-import { type WorkspaceGate, type PlanScales, type ReportMeta, type IncidentSettings, type Saved, type EverySavedKey, type InitialState, gateReport, sanitizeWorkspace, deriveInitial, applyInitialState, WORKSPACE_SCHEMA_VERSION } from '../lib/workspace'
+import { type WorkspaceGate, type PlanScales, type ReportMeta, type IncidentSettings, type Saved, type EverySavedKey, type InitialState, type LiveSlices, gateReport, sanitizeWorkspace, deriveInitial, applyInitialState, WORKSPACE_SCHEMA_VERSION } from '../lib/workspace'
 import type { LayerDef, BuildingDoc, Trupp, AttendanceState, MittelEntry, Shift, ShiftBand, CameraView, ReportAttachment, BoardDoc } from '../types'
 import type { ReportSignature } from '../lib/reportSignature'
 
@@ -161,15 +161,29 @@ export function useWorkspaceBlob({
    * device reads on its first open (lib/workspace · deriveInitial). So: never written from the
    * live layers, never wiped — whatever the record already says goes back unchanged. */
   const syncedLayerState = useRef<Saved['layerState']>(bootGate.ws?.layerState ?? [])
-  const applyWorkspace = useCallback((ws: Workspace) => {
+  /** The synced slices the blob is built from, one object per change of any of them — what
+   *  `buildPayload` writes, and (as `built`) what a merge is written over. */
+  const slices = useMemo((): Omit<LiveSlices, 'objects' | 'layers'> => ({
+    recent, building, vehicleOverrides, checklists, trupps: allTrupps, attendance, mittel, shifts, bands, cameraViews, trails,
+    planScale, reportMeta, attachments, reportSignatures, settings: incidentSettings, planBindings, pickedObjectId, intakeReviewedAt,
+  }), [recent, building, vehicleOverrides, checklists, allTrupps, attendance, mittel, shifts, bands, cameraViews, trails, planScale, reportMeta, attachments, reportSignatures, incidentSettings, planBindings, pickedObjectId, intakeReviewedAt])
+  // …as the save last built them (useIncidentSync builds on every change), and the Ebenen as this
+  // device last remembered them (below) — committed state, read by a merge that lands later
+  const built = useRef(slices)
+  const rememberedLayers = useRef(layers)
+  /** Write `ws` into the slices; true when it moved one the saved blob is built from — false
+   *  means no save will follow it (useIncidentSync · hydrate then puts its echo guard back). */
+  const applyWorkspace = useCallback((ws: Workspace): boolean => {
     const gate = sanitizeWorkspace(ws)
     reportGate(gate)
     syncedLayerState.current = gate.ws?.layerState ?? []
-    const next = deriveInitial(gate.ws, incidentMeta.id, prefs, incidentMeta.type)
-    // every synced slice takes the merged value (the objects come in with their history below)
+    const derived = deriveInitial(gate.ws, incidentMeta.id, prefs, incidentMeta.type)
+    // every synced slice the merge CHANGED takes the merged value (the objects come in with their
+    // history below); every record it did not change keeps its live identity (lib/workspace ·
+    // shareLive), so one Trupp saved elsewhere re-renders what shows that Trupp, not the workspace.
     // ⚠️ One setter per slice, typed (lib/workspace · WorkspaceAppliers): a synced slice without
     // a line here fails tsc. This was a hand-kept list until 25.09.2026, and it had lost `mittel`.
-    applyInitialState(next, {
+    const { next, moved } = applyInitialState(derived, { ...built.current, layers: rememberedLayers.current, objects: liveObjects() }, {
       // the store swaps in below, WITH its history (carryUndoThroughMerge: `rebaseObjects`, or
       // `replaceObjects` when the bookkeeping fails) — a replace here would drop every Karte step
       objects: () => {},
@@ -225,6 +239,8 @@ export function useWorkspaceBlob({
     setSelectedId((id) => (id && next.doc.entities.some((e) => e.id === id) ? id : null))
     setSelectedDrawingId((id) => (id && next.doc.drawings.some((d) => d.id === id) ? id : null))
     setSelectedDrawIds((ids) => ids.filter((id) => next.doc.drawings.some((d) => d.id === id)))
+    // the Ebenen are this device's own and never ride the blob (buildPayload)
+    return moved.some((k) => k !== 'layers')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [incidentMeta.id, incidentMeta.type])
 
@@ -240,13 +256,15 @@ export function useWorkspaceBlob({
      * every device can resolve, and is part of the record like any placed object. */
     const persisted = objects.filter((o) => o.entity?.kind !== 'photo' || !!o.entity.photoOf)
     const views = viewsOf(persisted)
+    built.current = slices
     // Every `Saved` key is named (EverySavedKey), so a new one that is not written here fails
     // tsc instead of being deleted by this save. Left out: `activeModule` (device-local, this build
     // never writes it) and `weather` (the replay fold's alone).
     return {
+    ...slices,
     objects: persisted,
     entities: views.entities,
-    drawings: views.drawings, recent, board: views.board, activePlanId, pickedObjectId, building, vehicleOverrides, checklists, trupps: allTrupps, attendance, mittel, shifts, bands, cameraViews, trails, planScale, reportMeta, attachments, reportSignatures, settings: incidentSettings, planBindings, intakeReviewedAt,
+    drawings: views.drawings, board: views.board, activePlanId,
     // ⚠️ NOT `layers` — the Ebenen this device is looking at stay on this device (see
     // syncedLayerState above and lib/layerPrefs). The record's own value goes back unchanged.
     layerState: syncedLayerState.current,
@@ -255,12 +273,13 @@ export function useWorkspaceBlob({
     timeline: journal.blobTimeline,
     schemaVersion: WORKSPACE_SCHEMA_VERSION,
   } satisfies EverySavedKey<'activeModule' | 'weather'>
-  }, [objects, journal.blobTimeline, recent, activePlanId, pickedObjectId, building, vehicleOverrides, checklists, allTrupps, attendance, mittel, shifts, bands, cameraViews, trails, planScale, reportMeta, attachments, reportSignatures, incidentSettings, planBindings, intakeReviewedAt])
+  }, [objects, journal.blobTimeline, activePlanId, slices])
 
   // …and they are remembered here instead, per incident, on this device only. Written on every
   // change (not just on a deliberate toggle) so the set derived at boot — including the
   // category pre-activation — is what this device comes back to.
   useEffect(() => {
+    rememberedLayers.current = layers
     saveLayerPrefs(incidentMeta.id, layers.map((l) => ({ id: l.id, visible: l.visible, opacity: l.opacity })))
   }, [layers, incidentMeta.id])
   return { buildPayload, applyWorkspace, ghostReseedRef, sliceRebase }

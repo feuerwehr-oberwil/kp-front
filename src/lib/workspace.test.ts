@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { autoActivateLayers, CONTACT_BOUNDS, demoClockAnchor, DEMO_SEED_REV, demoSeedRebase, deriveInitial, isBoardAnno, latestTruppStamp, normalizeBoard, numberTrupps, rebaseDemoClocks, gateReport, sanitizeWorkspace, WORKSPACE_SCHEMA_VERSION, type Saved } from './workspace'
+import { applyInitialState, autoActivateLayers, CONTACT_BOUNDS, demoClockAnchor, DEMO_SEED_REV, demoSeedRebase, deriveInitial, isBoardAnno, latestTruppStamp, normalizeBoard, numberTrupps, rebaseDemoClocks, gateReport, sanitizeWorkspace, shareLive, WORKSPACE_SCHEMA_VERSION, type InitialState, type LiveSlices, type Saved, type WorkspaceAppliers } from './workspace'
 import type { LayerDef, Trupp } from '../types'
 
 // Inject one station reference layer with a category rule so the auto-activation path is
@@ -759,5 +759,74 @@ describe('sanitizeWorkspace — a kept row is the type it is read as (sweep 25.1
     const g = sanitizeWorkspace({ mittel: [row] })
     expect(g.ws?.mittel).toEqual([row])
     expect(g.dropped).toBe(0)
+  })
+})
+
+describe('applyInitialState — a pull hands over only what it changed (perf sweep 26.11.2026 #26)', () => {
+  const tr = (id: string, no: number, bar = 300) => ({ id, no, name: `Tst ${id}`, entryPressureBar: bar, entryTime: '', lastContactTime: '', status: 'aktiv', readings: [] })
+  const blob = ws({
+    entities: [{ id: 'p1', kind: 'symbol', symbol: 'X', coord: [7.6, 47.5] }] as unknown as Saved['entities'],
+    trupps: [tr('t1', 1), tr('t2', 2)] as unknown as Trupp[],
+    mittel: [{ id: 'm1', label: 'Schlauch', unit: 'Stk', menge: 1, at: T(0) }] as unknown as Saved['mittel'],
+  })
+  /** every applier, recording which slice it was handed */
+  const recorder = () => {
+    const calls: string[] = []
+    const keys: (keyof WorkspaceAppliers)[] = ['objects', 'layers', 'timeline', 'recent', 'building', 'vehicleOverrides', 'checklists', 'trupps', 'attendance', 'mittel', 'shifts', 'bands', 'cameraViews', 'trails', 'planScale', 'reportMeta', 'attachments', 'reportSignatures', 'settings', 'planBindings', 'pickedObjectId', 'intakeReviewedAt']
+    const set = Object.fromEntries(keys.map((k) => [k, () => { calls.push(k) }])) as unknown as WorkspaceAppliers
+    return { calls, set }
+  }
+  /** a device holding `s` — its optional slices named, as the workspace holds them */
+  const held = (s: InitialState): LiveSlices => ({ ...s, pickedObjectId: s.pickedObjectId, intakeReviewedAt: s.intakeReviewedAt })
+
+  it('one Trupp changed elsewhere: its setter alone runs (and the Verlauf, which drops repeats itself)', () => {
+    const live = deriveInitial(blob, 'i', {})
+    const next = deriveInitial({ ...blob, trupps: [tr('t1', 1), tr('t2', 2, 280)] as unknown as Trupp[] }, 'i', {})
+    const { calls, set } = recorder()
+    const out = applyInitialState(next, held(live), set)
+    expect(calls).toEqual(['timeline', 'trupps'])
+    expect(out.moved).toEqual(['trupps'])
+    expect(out.next.trupps[0]).toBe(live.trupps[0])
+    expect(out.next.trupps[1]).not.toBe(live.trupps[1])
+    expect(out.next.objects).toBe(live.objects)
+    expect(out.next.layers).toBe(live.layers)
+    expect(out.next.mittel).toBe(live.mittel)
+  })
+
+  it('the same blob again moves nothing', () => {
+    const live = deriveInitial(blob, 'i', {})
+    const { calls, set } = recorder()
+    expect(applyInitialState(deriveInitial(blob, 'i', {}), held(live), set).moved).toEqual([])
+    expect(calls).toEqual(['timeline'])
+  })
+})
+
+describe('shareLive — equality never hides a real change', () => {
+  const a = { id: 'a', v: 1, deep: { x: [1, 2] } }
+  const b = { id: 'b', v: 2 }
+  it('keeps the live list when every record is equal — key order is no change', () => {
+    const live = [a, b]
+    expect(shareLive(live, [{ v: 1, deep: { x: [1, 2] }, id: 'a' }, { ...b }])).toBe(live)
+  })
+  it('a remote delete, a reorder and a nested change each give a new list — unchanged records stay live', () => {
+    const live = [a, b]
+    expect(shareLive(live, [{ ...b }])).toEqual([b])
+    const reordered = shareLive(live, [{ ...b }, { ...a }])
+    expect(reordered).not.toBe(live)
+    expect(reordered[0]).toBe(b); expect(reordered[1]).toBe(a)
+    const nested = shareLive(live, [{ ...a, deep: { x: [1, 3] } }, { ...b }])
+    expect(nested[0]).toEqual({ ...a, deep: { x: [1, 3] } }); expect(nested[1]).toBe(b)
+  })
+  it('a key→value record shares per key, and a removed key is a change', () => {
+    const live: Record<string, { status: string }> = { p1: { status: 'present' }, p2: { status: 'absent' } }
+    const next = shareLive(live, { p1: { status: 'present' }, p2: { status: 'present' } })
+    expect(next.p1).toBe(live.p1); expect(next.p2).toEqual({ status: 'present' })
+    expect(shareLive(live, { p1: { status: 'present' } })).toEqual({ p1: { status: 'present' } })
+    expect(shareLive(live, { p1: { status: 'present' }, p2: { status: 'absent' } })).toBe(live)
+  })
+  it('a list without ids compares by position', () => {
+    const live = ['A', 'B']
+    expect(shareLive(live, ['A', 'B'])).toBe(live)
+    expect(shareLive(live, ['B', 'A'])).toEqual(['B', 'A'])
   })
 })

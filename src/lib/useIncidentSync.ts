@@ -53,8 +53,10 @@ interface IncidentSyncDeps {
   /** Build the workspace blob from the current document/state slices. A useCallback whose
    *  identity changes exactly when a persisted slice changes — that's what re-fires the save. */
   buildPayload: () => Saved
-  /** Write an authoritative workspace into App's state (the old hydrate body, minus skipSave). */
-  applyWorkspace: (ws: Workspace) => void
+  /** Write an authoritative workspace into App's state (the old hydrate body, minus skipSave).
+   *  Returns whether it moved anything `buildPayload` reads — a write that moved nothing makes no
+   *  save effect run, and so must not leave the echo guard standing. */
+  applyWorkspace: (ws: Workspace) => boolean
   flushEvents: () => void
   flushEventsBeacon: () => void
   /** Append one Verlauf row (journal store) — used for the attendance-divergence note when a
@@ -123,7 +125,14 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
    *  Held as the serialized string — or, after a skipped mid-gesture compare (below), as the
    *  payload itself, serialized only when the next compare needs it. */
   const lastPushed = useRef<string | Saved | null>(null)
-  const hydrate = (ws: Workspace) => { skipSave.current = true; applyWorkspace(ws) }
+  // ⚠️ Only the save effect spends the guard, and it runs only when the payload moves: a hydrate
+  // that moved nothing would leave it standing, and the NEXT local edit would be skipped as an
+  // echo and never saved. So such a hydrate puts the guard back as it found it.
+  const hydrate = (ws: Workspace) => {
+    const held = skipSave.current
+    skipSave.current = true
+    if (!applyWorkspace(ws)) skipSave.current = held
+  }
 
   // Attendance divergence → ONE Verlauf note per affected person: a merge kept LWW but saw
   // both sides (e.g. KP tablet and QR-Erfassung) change the same person's entry. The seen-set
