@@ -221,12 +221,15 @@ export function RailKey({ k }: { k: string | undefined }) {
 /** The tablet/laptop home of a ToolRail's view controls: one small bar in the bottom corner on
  *  the rail's side (07-toolrail · .view-bar), its buttons in a row – with their words under the
  *  glyphs when the rails wear theirs (`labelled`, the device pref «Beschriftung»), glyphs only
- *  when they do not: one rule for every bar (owner, 07.11.2026). ⚠️ Rendered as the rail's NEXT SIBLING, never inside it: the rail's backdrop-filter
+ *  when they do not: one rule for every bar (owner, 07.11.2026). A surface with NO rail (the
+ *  Wiedergabe, a viewer-only plan) renders it by itself, so its view controls stand in the same
+ *  corner as everywhere else (MapControls, Whiteboard; owner, Üben feedback 27.11.2026).
+ *  ⚠️ Rendered as the rail's NEXT SIBLING, never inside it: the rail's backdrop-filter
  *  makes it the containing block of anything positioned within, and the stylesheet keys off the
  *  pair (`:has(+ .view-bar)` lifts the rail's foot above the bar; a rule that hides the rail
  *  hides `+ .view-bar` with it). Its measured width goes out as `--view-bar-w` – the map's ⓘ
  *  stands just left of it (03-map) – and is released on unmount, like the rail's `--vrail-w`. */
-function ViewBar({ label, labelled, children }: { label: string; labelled: boolean; children: React.ReactNode }) {
+export function ViewBar({ label, labelled, children }: { label: string; labelled: boolean; children: React.ReactNode }) {
   const ref = useRef<HTMLDivElement>(null)
   useLayoutEffect(() => {
     const el = ref.current

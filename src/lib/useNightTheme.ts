@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-// Reactive night-mode flag. The theme toggle (MapUtility) flips `<html data-theme>`
+// Reactive night-mode flag. The theme toggle (SettingsSheet) flips `<html data-theme>`
 // imperatively via applyTheme() rather than through React state, so anything that must
 // react to it — e.g. MapLibre raster paint, which lives outside the prop tree — reads it
 // here and re-renders when the attribute changes.

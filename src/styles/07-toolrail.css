@@ -80,7 +80,7 @@
 .vrail-glyph .i { width: 22px; height: 22px; }
 /* The amber dot on the «Ebenen» glyph while a CONTENT layer is off on this device (rare-user round
    17.11.2026, M6 = A · lib/layerPreset · contentLayerHidden) – the Lage rail / view bar, the phone
-   bar, the mouse twin (MapUtility) and the Karte. Amber like the Trupps tile's «fällig» dot: a
+   bar, the Wiedergabe's view bar (MapViewControls) and the Karte. Amber like the Trupps tile's «fällig» dot: a
    warning, not the alarm. Hung off the icon's top-right corner, so it sits on the glyph whatever
    box the tile gives it (46px compact, 26px over a word). */
 .vrail-glyph { position: relative; }
@@ -202,7 +202,6 @@
 :is(.tool-rail, .wb-tools):has(+ .view-bar) { bottom: var(--view-bar-reserve);
   max-height: calc(100dvh - var(--rail-top) - var(--view-bar-reserve)); }
 
-/* (.toputil / .tu-btn / .tu-divider / .compass migrated → MapUtility.module.css) */
 
 /* coordinate readout — subtle, bottom-centre, shown only while picking/locked. Two columns: the
    value rows on the left, the ✕ on the right, the hint spanning under both. The glass itself

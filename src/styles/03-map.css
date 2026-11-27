@@ -66,9 +66,10 @@
    and with them on it the ⓘ stood 8px INSIDE the bar's left edge (owner, 07.11.2026). ⚠️ And
    this rule must OUT-RANK the rail-axis ones – the labelled rail's is six classes deep, and with
    «Beschriftung» on it won and parked the ⓘ under the bar. `:has(.tool-rail + .view-bar)` makes
-   it seven and says what it is for: the map rail's own bar. */
+   it seven and says what it is for: the map rail's own bar – or the Wiedergabe's (`.map-util`),
+   which stands in the same corner with no rail (MapControls · ViewBar, 27.11.2026). */
 @media (--not-phone) {
-  :root:has(.view-bar) .app:has(.tool-rail + .view-bar) > .maplibregl-map .maplibregl-ctrl-bottom-right {
+  :root:has(.view-bar) .app:is(:has(.tool-rail + .view-bar), .map-util) > .maplibregl-map .maplibregl-ctrl-bottom-right {
     right: calc(max(16px, env(safe-area-inset-right)) + var(--view-bar-w, 0px) + var(--float-gap));
     bottom: calc((var(--view-bar-h) - 24px) / 2); }
 }

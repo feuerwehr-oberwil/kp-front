@@ -18,8 +18,9 @@
    right tool rail, and tracking its width (--vrail-w) — see .wb-dock-map. Opened from the view
    bar (tablet/laptop) it stands on that bar instead (05-navrail · `.lc-panel, .mv-dock`). */
 .dock { position: fixed; right: calc(var(--vrail-w, 60px) + 26px); top: 50%; transform: translateY(-50%); }
-/* …see .map-util in app.css: with no tool rail on screen this dock has nothing to sit beside,
-   so app.css re-anchors it under the floating cluster. The global class is the handle for it. */
+/* …see .map-util in 05-navrail: with no tool rail on screen (the Wiedergabe) this dock has no
+   rail to sit beside, so it takes the screen's edge over the view bar. The global class is the
+   handle for it. */
 .dock:global(.mv-dock) { }
 
 /* Phone: the trigger is the compass in the bottom tool bar, so the dock opens ABOVE the bars,

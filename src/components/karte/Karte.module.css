@@ -415,10 +415,9 @@ button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel
 .surface :global(.wb-botleft) { display: none; }
 /* …and one ground under it, the plan stage's own (09-whiteboard · .wb-canvas), to the screen's edge */
 .surface.reader { background: var(--canvas-bg); }
-/* «Einpassen + −» at the foot on the right, where an Einsatz's plan carries them (07-toolrail ·
-   .view-bar) – not top right (owner pick, 25.11.2026). Only here: a replay keeps them top right,
-   its time bar owns the foot. A phone hides the cluster (15-mobile · .wb-zoom-float). */
-.surface :global(.wb-zoom-float) { top: auto; bottom: 16px; right: max(16px, env(safe-area-inset-right)); }
+/* («Einpassen + −» stand at the foot on the right, where an Einsatz's plan carries them – owner pick,
+   25.11.2026: the reader has no rail, so the Whiteboard puts them in its own view bar there, as
+   every plan without a rail does since 27.11.2026.) */
 /* ⚠️ The plan lies out EXACTLY as an Einsatz's plan does (owner, review round 4: «use the same
    display like we have for our plans normally -> not this clipping here»): the box of an
    Einsatz's plan with no tool bar under it — on a phone it ends 18px above the ONE bar

@@ -6,19 +6,19 @@
 
 import type { Dispatch, SetStateAction, RefObject } from 'react'
 import type { MapRef } from 'react-map-gl/maplibre'
-import { type ViewsApi, MapViewsButton } from '../components/MapViewsMenu'
+import type { ViewsApi } from '../components/MapViewsMenu'
+import { MapViewControls } from '../components/MapViewControls'
 import { MeasurePanel } from '../components/MeasurePanel'
 import { Palette } from '../components/Palette'
 import { ToolDock } from '../components/ToolDock'
-import { RailKey, ToolRail } from '../components/ToolRail'
+import { ToolRail } from '../components/ToolRail'
 import { appConfig } from '../config/appConfig'
 import { armedReadout } from '../lib/armedTool'
 import { fillTemplate } from '../lib/format'
 import { isAtemschutzTrupp } from '../lib/atemschutz'
 import { truppStateWord } from '../components/truppCardText'
-import { PANEL_KEY } from '../lib/hotkeys'
 import { Icon } from '../lib/icons'
-import { layerPresetLabel, type LayerPreset } from '../lib/layerPreset'
+import type { LayerPreset } from '../lib/layerPreset'
 import { Overlay } from '../lib/overlays'
 import type { PlacedTrupp } from '../lib/placedTrupps'
 import { SHAPE_TWO_POINT } from '../lib/shapes'
@@ -248,34 +248,20 @@ export function MapToolDocks({
           active={tool}
           open={draftOpen}
           onPick={pick}
-          controls={(() => {
-            const c = appConfig.copy.nav
-            return (
-              <>
-                {/* Ebenen — in the view bar (the phone: the bar's pinned end), so it never scrolls
-                    out of reach on short iPads; the Basiskarte choice lives inside its panel (the BaseSwitcher popover and
-                    the standalone Koordinaten button are folded away — coords is a row in
-                    the compass menu now, testing feedback 2026-07-14) */}
-                {/* which preset the Ebenen match is lit in the panel and said in the name — no mark
-                    on the glyph for it (05.10.2026, owner: «no need for this indicator»). The one
-                    mark is the amber dot while a CONTENT layer is off (rare-user round 17.11.2026,
-                    M6 = A): an empty Lage that nothing explains. */}
-                <button className={`vrail-nbtn vrail-layers ${panel === 'layers' ? 'on' : ''}`} title={`${appConfig.copy.panels.layers} · ${layerPresetLabel(layersPreset)}`} aria-label={`${appConfig.copy.panels.layers} – ${layerPresetLabel(layersPreset)}${layersHidden ? ` · ${appConfig.copy.whiteboard.floorHidden}` : ''}`} aria-expanded={panel === 'layers'} onClick={() => togglePanel('layers')}><span className="vrail-glyph"><Icon id="layers" />{layersHidden && <span className="layers-off-dot" aria-hidden />}</span><span className="vrail-label">{appConfig.copy.panels.layers}</span><RailKey k={PANEL_KEY.layers} /></button>
-                {/* multi-purpose compass: always shown, rotates to the live bearing, and opens the
-                    saved-views menu (Nach Norden · Einpassen · Standort · Koordinaten · saved
-                    framings · Ansicht speichern). `|| isEl` as on MapUtility's twin: saved views
-                    live in the shared blob, which the el record slice never pushes. */}
-                <MapViewsButton api={viewsApi} bearing={view.bearing} readOnly={readOnly || isEl} variant="rail" btnClassName="vrail-nbtn vrail-views" activeClassName="on" glyphClassName="vrail-compass" label={appConfig.copy.mapViews.title} open={viewsOpen && !(sharePick && shareParent === 'views')} onOpenChange={toggleViews} coordsOn={coord.mode !== 'off'} onToggleCoords={coord.cycle} />
-                {/* zoom ±: mouse only (.vrail-zoom is hidden under 1024px and on a coarse
-                    pointer). Every touch form factor pinches. «+» first, as on every map (owner
-                    pick C9, 05.11.2026). The pair is its own group, split from the compass by the
-                    rails' one hairline (owner pick C12) – the view bar draws it before the first
-                    .vrail-zoom (07-toolrail), so it goes wherever the buttons go. */}
-                <button className="vrail-nbtn vrail-zoom" title={c.zoomIn} aria-label={c.zoomIn} onClick={() => mapRef.current?.zoomIn()}><span className="vrail-glyph"><Icon id="plus" /></span><span className="vrail-label">{c.zoomIn}</span></button>
-                <button className="vrail-nbtn vrail-zoom" title={c.zoomOut} aria-label={c.zoomOut} onClick={() => mapRef.current?.zoomOut()}><span className="vrail-glyph"><Icon id="minus" /></span><span className="vrail-label">{c.zoomOut}</span></button>
-              </>
-            )
-          })()}
+          // the Karte's view controls – the SAME set the Wiedergabe stands in its own view bar
+          // (MapViewControls). `|| isEl`: saved camera views live in the shared blob
+          // (cameraViews), which the el record slice never pushes – offering «Speichern» would
+          // fake a shared save.
+          controls={
+            <MapViewControls
+              onZoomIn={() => mapRef.current?.zoomIn()} onZoomOut={() => mapRef.current?.zoomOut()}
+              bearing={view.bearing} views={viewsApi} readOnly={readOnly || isEl}
+              viewsOpen={viewsOpen && !(sharePick && shareParent === 'views')} onViewsOpenChange={toggleViews}
+              coordsOn={coord.mode !== 'off'} onToggleCoords={coord.cycle}
+              layersOn={panel === 'layers'} onToggleLayers={() => togglePanel('layers')}
+              layersPreset={layersPreset} layersHidden={layersHidden}
+            />
+          }
         />
       )}
 

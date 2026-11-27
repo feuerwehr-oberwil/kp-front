@@ -23,8 +23,9 @@ import s from './PlanCompass.module.css'
  * `.vrail-views` tile, so the phone's bottom bar keeps it like the Karte's (15-mobile · the
  * pinned `.vrail-views`/`.vrail-fit` tiles). It floated top-right until 20.10.2026 – the corner
  * the Karte's compass had left because its menu opened half a screen from the thumb.
- * `variant="float"` is the old viewport-corner chip, kept ONLY for a plan that has no rail at all
- * (a replay, a viewer-only document): there the dial is a read-out and nothing else.
+ * `variant="float"` is the old viewport-corner chip, kept ONLY for a phone's plan that has no rail
+ * (a replay, a viewer-only document): there the dial is a read-out and nothing else. A tablet's
+ * plan with no rail shows the rail tile in its view bar (Whiteboard · viewControls, 27.11.2026).
  *
  * `deg` is the ACTIVE view angle including the popover's live preview, so the needle turns with
  * the slider before the rotation is committed. Pass `controls` (the orientation popover's

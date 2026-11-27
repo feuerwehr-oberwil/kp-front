@@ -117,7 +117,6 @@ const BASELINE: Record<string, Counts> = {
   'src/components/LayerPanel.tsx': { pressed: 3, row: 3 },
   'src/components/LoginScreen.tsx': { row: 2 },
   'src/components/ManualReader.tsx': { row: 1 },
-  'src/components/MapUtility.tsx': { pressed: 1 },
   'src/components/MapView.tsx': { ipBtn: 1 },
   'src/components/MapViewsMenu.tsx': { pressed: 3, row: 5, field: 1 },
   'src/components/MeasurePanel.tsx': { row: 1 },

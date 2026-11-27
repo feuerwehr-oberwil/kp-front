@@ -86,13 +86,11 @@
   .eaddr { max-width: 26vw; }
 }
 
-/* ---- TopBar ⇄ top-right map utilities: never let them collide ----
-   Below 860px the bar would have to run under the zoom/locate cluster, so the
-   cluster drops below the bar (as on phones) and the bar gets the full width.
-   At 861px+ there is room side-by-side, so on the Lage surface (where the
-   utilities exist) the bar reserves space on the right for them. */
+/* ---- the TopBar under 860px ----
+   (The top-right corner holds nothing the bar must clear on any map: the Wiedergabe's view
+   controls stand in the bottom-right view bar since 27.11.2026, so the 250px the bar reserved
+   for them at 861px+ is gone with them.) */
 @media (max-width: 860px) {
-  /* .toputil reposition migrated → MapUtility.module.css */
   /* (the journal actions' words are not ruled away here any more: the bar's ladder folds them
      TOGETHER to tiles, glyph over word, where the bar is measured to need it – 10-journal ·
      «the fold», owner pick 24a 17.11.2026) */
@@ -105,24 +103,6 @@
   .tb-weather { gap: 4px; padding: var(--sp-1); }
   .tb-weather-cond { display: none; }
 }
-/* …and the reservation is only owed while that cluster EXISTS. It floats top-right solely as the
-   tool rail's stand-in during replay (`.map-util`); every other map — editor, Viewer, Einsatz-
-   leiter-Ansicht — has an empty top-right corner, and paying 250px of rent for it is what pushed
-   the weather readout out through the bar's right edge from 1100px down (177px of «5 km/h»
-   painting on the map at 861px). Reserve it when it is there, hand it back when it is not. */
-@media (min-width: 861px) {
-  .mode-map.map-util .topbar { max-width: calc(100vw - 250px); }
-  /* 250px is a comfortable reservation, not a measured one: at 861px the right-hand utilities
-     start 158px past the bar's edge, so ~90px of that is slack. Slack is the right default — but
-     not when an überfällig chip is in the bar. Then the clamp is what breaks it: at 861px the bar
-     wants 617px and is handed 609px, the chip has already given everything it can give (the name
-     is at its floor, the countdown never truncates), and the last 8px come out through the pill's
-     right edge. 861–875px is a narrow band, and it is also the width an iPad in landscape with a
-     split view lands on. Hand back 50px of the slack while the chip is there and the band closes
-     with room to spare; the utilities still keep ~108px of clear air at the tightest width. */
-  .mode-map.map-util .topbar:has(.tb-az) { max-width: calc(100vw - 200px); }
-}
-
 @media (--phone) {
   /* ONE page-title size on a phone, set where the title's font is defined — as the token, not
      per surface. Anwesenheit, Material and Trupps each dropped their <h2> to 17px in their own
@@ -747,8 +727,6 @@
     box-sizing: border-box; max-width: 100%; padding: 0 2px; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; }
   .nav-sep { width: 1px; height: 26px; margin: 0 2px; flex: none; }   /* vertical divider in a row (see the width math on .nav-item) */
 
-  /* zoom controls reposition (.toputil) migrated → MapUtility.module.css */
-
   /* ── Ebenen and the Suche card: a SLIDE-UP bottom sheet (29.09.2026, owner: «rethink what is a
      modal and what a slide-up thing on mobile … ebenen, search, etc. should be a slide-up»).
      They were cards floating ABOVE the two bars, 10px in from each side — neither a sheet you
@@ -772,10 +750,6 @@
     /* rises from below, catchable (the `.ctx` rule above says why) */
     animation: none; transition: transform .22s var(--ease), opacity .22s var(--ease); }
   @starting-style { .layers-card { opacity: 0; transform: translateY(26px); } }
-  /* …in replay too, where the door is the top-right cluster (05-navrail · .map-util re-anchors the
-     tablet card under it, and at (0,2,0) it would hang this sheet from the top) */
-  .map-util .layers-card { top: auto; bottom: 0;
-    max-height: min(72dvh, calc(100dvh - var(--kb-inset, 0px) - var(--bar-foot) - var(--sp-4))); }
   /* the ✕'s plate ends on the content's right edge, as on the tablet card (05-navrail ·
      .lc-title): the sheet's body pad (.lc-body below, safe area included) + .lc-quick's 4 = 20;
      the title starts on the text edge, 24. It stood 12px in, then 24 (owner, 13.11.2026). */
@@ -792,7 +766,7 @@
   /* journal drawer → full-width bottom sheet (was a right-edge column too narrow on a
      phone); body scrolls, capped to the viewport with safe-area room top + bottom. The
      map rail is CSS-hidden here, so the scrim covers the full screen again (no rail strip
-     to expose) and the floating MapUtility provides map-nav. */
+     to expose). */
   .journal-scrim { inset: 0; }
   /* ⚠️ A real bottom sheet since 20.09.2026 – flush left, right and bottom, risen from below,
      grab bar on top (Overlay · grab). It used to float 8px off every edge as a card, which is
@@ -1043,9 +1017,6 @@
   /* …the «Einsätze ▾» sheet of «Karte & Objekte» too (13-incident · .ip-einsaetze) */
   .ip-menu.ip-einsaetze { width: calc(100% + 2px); }
 
-  /* the plan's floating zoom (−/%/+/fit) is dropped on a phone — pinch handles zoom, and Fit is
-     the bottom bar's «Einpassen» tile; a sheet with no bar keeps it in the top bar (TopBar mapNav) */
-  .wb-zoom-float { display: none; }
   /* the plan stage spans the full width and clears the bottom bar (the board's fit
      re-measures to this area) so plan content isn't hidden behind the bar */
   .whiteboard { bottom: calc(var(--rail-h) + 18px + env(safe-area-inset-bottom)); }
@@ -1349,7 +1320,7 @@
   /* floating compass + wind cluster on the phone map (rendered only there) — the
      rail-footer compass is hidden in the bottom tool bar, and the wind readout moved out
      of the top bar (it clipped at the screen edge on 375–393px). Sits BELOW the bar
-     (--under-bar: one --float-gap under the bar), mirroring the desktop .toputil placement. */
+     (--under-bar: one --float-gap under the bar). */
   /* Wind, floating top-right. It used to share this box with the compass; the compass lives in
      the tool bar (05.08.2026, and again since 19.09. after one day back up here) — the wind
      stayed: it is a READ-OUT, and the bar has no room for it. */

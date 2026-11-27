@@ -1187,9 +1187,9 @@ export function IncidentWorkspace({
   // Auswahl only on the plan since Messen left it 29.08.), so it reserves the
   // same two lanes as an editor's — only replay, which renders no rail at all, gets one.
   const phoneTools = isPhone && !replayActive && (mode === 'map' || (mode === 'plans' && !activePlanNoTools))
-  // the floating top-right map-utility cluster (zoom · compass · Ebenen), which stands in for the
-  // tool rail during replay. It is the ONLY thing the TopBar has to keep clear of on a wide
-  // screen — `.map-util` lets the CSS reserve that width exactly when the cluster is there.
+  // the Wiedergabe's own view bar (Ebenen · Ansichten · + −, MapControls), which stands in for the
+  // tool rail's during replay, in the same bottom-right corner. `.map-util` tells the CSS there is
+  // no rail to inset the Ebenen card, the Ansichten menu and the detail panel for (05-navrail).
   const mapUtility = mode === 'map' && replayActive && !isPhone
   // the slim (read-only) tool rail is showing — on a phone that frees the top bar and the rail
   // footer, so the compass and the weather move back into them (see `.slim-tools` in app.css).
