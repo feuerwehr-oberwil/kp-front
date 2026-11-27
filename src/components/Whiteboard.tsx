@@ -1023,7 +1023,12 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // (ContextPanel · onPatch 'typing') so the note updates under the finger, exactly as it does on
   // the Lage. Checkpoint once when typing starts, emit once on blur — otherwise «Sicherung» is
   // nine undo steps and nine audit rows. (A symbol's name is a draft instead: `titleDraft`.)
-  const titleLive = useRef<string | null>(null)
+  // `from` is the Notiz's text when the typing began and `planId` the sheet it is typed on, for
+  // its Verlauf row (patchNote)
+  const titleLive = useRef<{ id: string; planId: string; from: string } | null>(null)
+  // the sheet as it now stands, for a row written once the act is over (patchNote): every board
+  // write leaves through writeBoard, another device's arrives as the prop (the commit effect below)
+  const boardNow = useRef({ planId: activeId, annos: annosAll })
   /** ↶ / ↷ on the Tafel lands where the step was: the page it changed, else the Skizze. Any ↶ / ↷
    *  also closes the Notiz editor on the sheet (useBoardDoc · undo) and takes its typing session
    *  with it, so the field's end (endTextEdit) writes no row with the text the step took back. */
@@ -1038,8 +1043,11 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   }
   // every board write leaves through here: a Durchgang rides along with the Wand that write moved,
   // and lets go of one it deleted (lib/grundriss · carryDoors) – ↶ / ↷ restores are left as they are
-  const writeBoard: typeof onChangeAll = (next, ...opts) =>
-    onChangeAll(opts[0]?.gesture === false ? next : carryDoors(annosAll, next, tileAR), ...opts)
+  const writeBoard: typeof onChangeAll = (next, ...opts) => {
+    const carried = opts[0]?.gesture === false ? next : carryDoors(annosAll, next, tileAR)
+    boardNow.current = { planId: activeId, annos: carried }
+    onChangeAll(carried, ...opts)
+  }
   const boardDoc = useBoardDoc({
     annos: annosAll, onChange: writeBoard, emit, activeId, selId, setSelId, editId, setEditId, historyRef, hist, setHist, onCheckpoint, onStepEnd, onRestore,
   })
@@ -1419,7 +1427,8 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // re-point the leave-document release every commit (see releaseRef above for why a ref), and
   // release on a TOOL change — below usePlanDraft, whose commit machinery the release is.
   // …and settle a Notiz field that went in this commit, against the sheet as it now stands
-  useEffect(() => { releaseRef.current = releaseDraft; leaveTextRef.current = leaveTextEdit; settleTextEdit() })
+  // (boardNow: that sheet, for patchNote's row)
+  useEffect(() => { boardNow.current = { planId: activeId, annos: annosAll }; releaseRef.current = releaseDraft; leaveTextRef.current = leaveTextEdit; settleTextEdit() })
   useEffect(() => {
     const from = prevTool.current
     prevTool.current = tool
@@ -1605,20 +1614,32 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   /** …and a note's: its TEXT is the panel's title. One checkpoint when typing starts, one audit
    *  row on blur — the live `patch` writes without a checkpoint, so committing again on blur used
    *  to snapshot the ALREADY typed text and «Rückgängig» after renaming a note did nothing at all.
+   *  The blur also writes the typing session's one Verlauf row (lib/entityEdit · noteTextRow), once
+   *  the act is over and only while the Notiz still holds that text: the panel's «Entfernen» ends
+   *  the typing just BEFORE it removes the Notiz, whose removal row then says the text, and a ↶
+   *  during the session took the text back. A panel that went with its sheet (another sheet shown)
+   *  writes its row, as the sheet's editor does (leaveTextEdit).
    *  Each style edit is remembered as the NEXT note's default too («D pur», 09.09.: the Notiz dock
    *  carries no style controls any more — this is the stickiness). */
   const patchNote = (n: BoardAnno, p: SymbolPatch, phase: PatchPhase) => {
     if (phase === 'typing') {
-      if (titleLive.current !== n.id) { titleLive.current = n.id; pushPast() }
+      if (titleLive.current?.id !== n.id) { titleLive.current = { id: n.id, planId: activeId, from: n.text ?? '' }; pushPast() }
       patch(n.id, { text: p.label })
       return
     }
     const { label, noteSize, ...rest } = p
     if (label !== undefined) {
-      const live = titleLive.current === n.id
+      const live = titleLive.current?.id === n.id ? titleLive.current : null
       titleLive.current = null
       if (live) emit('board.edit', { id: n.id, patch: { text: label }, planId: activeId })
       else patchCommit(n.id, { text: label })
+      const row = live && noteTextRow(live.from, label)
+      if (row) {
+        queueMicrotask(() => {
+          const now = boardNow.current
+          if (now.planId !== live.planId || now.annos.find((a) => a.id === n.id)?.text === label) log('type', row)
+        })
+      }
     }
     // a width set by hand ends the auto-fit; the size-slider step keeps it and re-measures
     if ('noteSize' in p) {
