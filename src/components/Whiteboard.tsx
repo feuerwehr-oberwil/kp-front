@@ -615,8 +615,8 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   const setPlanEndpointDrag = (next: PlanEndpointDrag | null) => { planEndpointDrag.current = next; setPlanEndpointDragState(next) }
   // which text note is mid-edit in its field on the sheet (so we checkpoint undo once per edit
   // session, then stream each keystroke live into the anno — like the Lage note title), the
-  // sheet it is typed on and its text so far (typeText … endTextEdit)
-  const textEdit = useRef<{ id: string; planId: string; text: string } | null>(null)
+  // sheet it is typed on, its text when the session began and its text so far (typeText … endTextEdit)
+  const textEdit = useRef<{ id: string; planId: string; from: string; text: string } | null>(null)
   // …a field that went without a blur, settled after the commit (settleTextEdit), and the
   // leave-document end of an open session, re-pointed every commit like releaseRef
   const textFieldGone = useRef<string | null>(null)
@@ -1365,18 +1365,22 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   const typeText = (id: string, p: Partial<BoardAnno> & { text: string }) => {
     const open = textEdit.current
     if (open?.id === id) open.text = p.text
-    else { textEdit.current = { id, planId: activeId, text: p.text }; pushPast() }
+    else {
+      const from = annos.find((a) => a.id === id)?.text ?? ''
+      textEdit.current = { id, planId: activeId, from, text: p.text }
+      pushPast()
+    }
     patch(id, p)
   }
   /** The session's one audit edit, on the sheet it was typed on. It keeps the note even if empty
    *  (a placed note must persist, mirroring the Lage map). */
-  const writeTextEdit = (open: { id: string; planId: string }, value: string, was: string) => {
+  const writeTextEdit = (open: { id: string; planId: string; from: string }, value: string) => {
     emit('board.edit', { id: open.id, patch: { text: value }, planId: open.planId })
     // …and the Verlauf gets what it SAYS, not that a note exists (parity with the Lage's map
-    // notes, lib/entityEdit). Once per editing session, on the way out — a row per keystroke
-    // would be a wall.
+    // notes, lib/entityEdit). Once per editing session, on the way out, against the text the
+    // session began with — a row per keystroke would be a wall.
     const v = value.replace(/\s+/g, ' ').trim()
-    const w = was.replace(/\s+/g, ' ').trim()
+    const w = open.from.replace(/\s+/g, ' ').trim()
     if (v !== w) {
       log('type', v
         ? fillTemplate(appConfig.copy.log.noteWritten, { value: v })
@@ -1388,7 +1392,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     const open = textEdit.current
     if (open?.id !== a.id) return
     textEdit.current = null
-    writeTextEdit(open, value, a.text ?? '')
+    writeTextEdit(open, value)
   }
   /** The field went without a blur (PlanAnno · NoteField). Its closure is the last render's, which
    *  cannot tell whether the Notiz left the sheet (another device removed it), so the end is
@@ -1406,7 +1410,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     if (annos.find((a) => a.id === open.id)?.text !== open.text) { textEdit.current = null; return }
     if (gone !== open.id) return
     textEdit.current = null
-    writeTextEdit(open, open.text, open.text)
+    writeTextEdit(open, open.text)
   }
   /** Leaving the sheet or closing the board (the document effect's cleanup): the open session
    *  ends on the sheet it was typed on. */
@@ -1414,7 +1418,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     const open = textEdit.current
     textEdit.current = null
     textFieldGone.current = null
-    if (open) writeTextEdit(open, open.text, open.text)
+    if (open) writeTextEdit(open, open.text)
   }
   // re-point the leave-document release every commit (see releaseRef above for why a ref), and
   // release on a TOOL change — below usePlanDraft, whose commit machinery the release is.
