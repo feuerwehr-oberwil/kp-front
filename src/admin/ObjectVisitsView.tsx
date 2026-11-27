@@ -23,7 +23,8 @@ import {
 import { DEFAULT_DESTINATION, DEFAULT_LOCATION_FOLDER, destinationValid, previewFolder, previewLocationFolder } from '../objectVisits/folders'
 import { personName, type DeliveryRow, type NotifyState, type VisitFiling, type VisitSummary, type VisitTemplate } from '../objectVisits/types'
 import { getPath, useConfig, type ConfigCtx } from './ConfigContext'
-import { NUMBER_GUARDS, TEXT_MAX_LENGTH, tooLongNote } from './configGuards'
+import { NUMBER_GUARDS, TEXT_MAX_LENGTH, fitsText, tooLongNote } from './configGuards'
+import { useStoredRows } from './useStoredRows'
 import { apiErrorText } from './apiErrors'
 import {
   Card, ConfirmButton, CopyChip, EmptyState, RecordRows, RecordTable, ResultChip, SettingRow, SettingsNote,
@@ -139,7 +140,8 @@ function ModuleSheet({ onNavigate }: { onNavigate: (id: string) => void }) {
 type FieldRow = { id: string; label: string; since?: number }
 
 /** «Felder für Vorschläge»: the Korrekturvorschlag fields (`objectVisits.proposalFields`). A row
- *  the server would refuse stays here with its reason and is not written. Of two rows with one
+ *  the server would refuse stays here with its reason and is not written – a stored one past a
+ *  bound stays in the save as stored (useStoredRows). Of two rows with one
  *  Kennung the one that came to it LAST takes the warning – the row being edited, never the
  *  saved field it now collides with. */
 export function ProposalFieldsEditor() {
@@ -147,8 +149,11 @@ export function ProposalFieldsEditor() {
   const { ov, set } = useOv()
   const stored: FieldRow[] = Array.isArray(ov.proposalFields) ? ov.proposalFields : []
   const [editing, setEditing] = useState<FieldRow[] | null>(null)
+  // A row's key is its index (the Kennung is edited in the row). So a delete or an add gives every
+  // row a new key: an armed «Löschen?» is dropped instead of deleting the row that moved up.
+  const [layout, setLayout] = useState(0)
   const rows = editing ?? stored
-  const problem = (f: FieldRow, i: number, all: FieldRow[]): string | null => {
+  const problem = (f: FieldRow, i: number, all: readonly FieldRow[]): string | null => {
     const id = f.id?.trim()
     // the holder of a Kennung: the row that has had it longest, the upper one on a tie – checked
     // before the label, so a new row given a taken Kennung first says that
@@ -161,16 +166,19 @@ export function ProposalFieldsEditor() {
       ['objectVisits.proposalFields.0.id', T.fieldId, id],
     ])
   }
+  const { edited, saved } = useStoredRows(stored, (all) => all.filter((f, i) => problem(f, i, all) === null),
+    (f) => !fitsText('objectVisits.proposalFields.0.label', f.label) || !fitsText('objectVisits.proposalFields.0.id', f.id))
   const write = (next: FieldRow[]) => {
     setEditing(next)
-    set(['objectVisits', 'proposalFields'], next.filter((f, i) => problem(f, i, next) === null).map((f) => ({ id: f.id.trim(), label: f.label.trim() })))
+    set(['objectVisits', 'proposalFields'], saved(next, (f) => ({ id: f.id.trim(), label: f.label.trim() })))
   }
+  const reshape = (next: FieldRow[]) => { setLayout((n) => n + 1); write(next) }
   const patch = (i: number, over: Partial<FieldRow>) => {
     const tick = Math.max(0, ...rows.map((r) => r.since ?? 0)) + 1
     write(rows.map((r, j) => {
       if (j !== i) return r
       const row = { ...r, ...over }
-      return row.id?.trim() === r.id?.trim() ? row : { ...row, since: tick }
+      return edited(r, row.id?.trim() === r.id?.trim() ? row : { ...row, since: tick })
     }))
   }
   const setLabel = (i: number, label: string) => {
@@ -185,12 +193,12 @@ export function ProposalFieldsEditor() {
         const warn = problem(row, i, rows)
         return (
           <RecordRows
-            key={i}
+            key={`${layout}:${i}`}
             name={row.label?.trim() || appConfig.copy.admin.common.newEntry}
             meta={row.id?.trim() || undefined}
             action={(
               <ConfirmButton className="adm-formlink-x" ariaLabel={T.fieldRemove} label={<Icon id="trash" />}
-                question={T.fieldRemoveConfirm} danger onConfirm={() => write(rows.filter((_, j) => j !== i))} />
+                question={T.fieldRemoveConfirm} danger onConfirm={() => reshape(rows.filter((_, j) => j !== i))} />
             )}
           >
             <SettingRow label={T.fieldLabel}>
@@ -206,7 +214,7 @@ export function ProposalFieldsEditor() {
         )
       })}
       <SettingsNote>
-        <button type="button" className="adm-formlink-add" onClick={() => write([...rows, { id: '', label: '' }])}>
+        <button type="button" className="adm-formlink-add" onClick={() => reshape([...rows, { id: '', label: '' }])}>
           <Icon id="plus" />{T.fieldAdd}
         </button>
       </SettingsNote>

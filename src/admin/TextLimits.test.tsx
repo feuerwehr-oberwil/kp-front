@@ -193,3 +193,239 @@ describe('a row held for its length names the limit', () => {
     await waitFor(() => expect(line(M.catModules, 60)).not.toBeNull())
   })
 })
+
+// Sweep 25.11.2026 (config-keep-row): the server serves a stored row past its bound as stored
+// (#813), and an edit of ANOTHER row of its list saved the list without it. It stays in the save
+// as stored – the server then refuses the save – until the admin shortens or deletes it.
+describe('a stored row past its bound stays in the save', () => {
+  const R = appConfig.copy.admin.report
+  const T = appConfig.copy.admin.objectVisits
+  const M = appConfig.copy.admin.map
+  const remove = async (label: string, i: number) => {
+    await act(async () => { fireEvent.click(screen.getAllByRole('button', { name: label })[i]) })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: appConfig.copy.admin.common.confirmYes })) })
+  }
+  /** The body of a PUT made after this call – never one sent before it. */
+  const nextPut = async () => {
+    const before = apiPut.mock.calls.length
+    await settle()
+    expect(apiPut.mock.calls.length).toBeGreaterThan(before)
+    return sent()
+  }
+
+  describe('Formulare & Links', () => {
+    const long = { id: 'lnk1', title: 'T'.repeat(130), url: 'https://formulare.example/lang' }
+    const ok = { id: 'lnk2', title: 'Schaden', url: 'https://formulare.example/schaden' }
+    const titles = () => screen.getAllByPlaceholderText(R.linkTitlePlaceholder)
+    const urls = () => screen.getAllByPlaceholderText(R.linkUrlPlaceholder)
+    beforeEach(() => { apiGet.mockResolvedValue(structuredClone({ ...STATION, report: { ...STATION.report, links: [long, ok] } })) })
+
+    it('keeps the stored link through an edit of another one, and while it is still too long', async () => {
+      await act(async () => { render(<ConfigProvider><ReportSection /></ConfigProvider>) })
+      await type((await waitFor(titles))[1], 'Schadenmeldung')
+      expect((await nextPut())?.report?.links).toEqual([long, { ...ok, title: 'Schadenmeldung' }])
+      await type(titles()[0], 'T'.repeat(125))
+      await type(titles()[1], 'Schadenmeldung 2')
+      expect((await nextPut())?.report?.links).toEqual([long, { ...ok, title: 'Schadenmeldung 2' }])
+    })
+
+    it('saves it once shortened', async () => {
+      await act(async () => { render(<ConfigProvider><ReportSection /></ConfigProvider>) })
+      await type((await waitFor(titles))[0], 'T'.repeat(120))
+      expect((await nextPut())?.report?.links).toEqual([{ ...long, title: 'T'.repeat(120) }, ok])
+    })
+
+    it('saves the list without it once deleted while still too long', async () => {
+      await act(async () => { render(<ConfigProvider><ReportSection /></ConfigProvider>) })
+      await waitFor(titles)
+      await remove(R.linkRemove, 0)
+      expect((await nextPut())?.report?.links).toEqual([ok])
+    })
+
+    it('falls back to the stored link while a repair is not saved yet', async () => {
+      await act(async () => { render(<ConfigProvider><ReportSection /></ConfigProvider>) })
+      await type((await waitFor(titles))[0], 'T'.repeat(120))
+      // …the URL cleared before the autosave ran: the shortened title never reached the server
+      await type(urls()[0], '')
+      await type(titles()[1], 'Schadenmeldung')
+      expect((await nextPut())?.report?.links).toEqual([long, { ...ok, title: 'Schadenmeldung' }])
+    })
+
+    it('still falls back after the editor was closed and opened again before the repair was saved', async () => {
+      const view = render(<ConfigProvider><ReportSection key="a" /></ConfigProvider>)
+      await type((await waitFor(titles))[0], 'T'.repeat(120))
+      // another Station section and back: the editor remounts, the provider keeps the draft
+      view.rerender(<ConfigProvider><ReportSection key="b" /></ConfigProvider>)
+      await type(urls()[0], '')
+      await type(titles()[1], 'Schadenmeldung')
+      expect((await nextPut())?.report?.links).toEqual([long, { ...ok, title: 'Schadenmeldung' }])
+    })
+
+    it('treats a link saved short as an ordinary one: a half-typed edit of it is held back', async () => {
+      await act(async () => { render(<ConfigProvider><ReportSection /></ConfigProvider>) })
+      await type((await waitFor(titles))[0], 'Kurz')
+      await nextPut()
+      await type(urls()[0], '')
+      expect((await nextPut())?.report?.links).toEqual([ok])
+    })
+
+    it('lets the admin shorten a stored URL past its bound', async () => {
+      const url = `https://formulare.example/?q=${'x'.repeat(TEXT_MAX_LENGTH['report.links.0.url'])}`
+      apiGet.mockResolvedValue(structuredClone({ ...STATION, report: { ...STATION.report, links: [{ ...ok, url }] } }))
+      await act(async () => { render(<ConfigProvider><ReportSection /></ConfigProvider>) })
+      const area = await waitFor(() => screen.getByPlaceholderText(R.linkUrlPlaceholder) as HTMLTextAreaElement)
+      await type(area, url.slice(0, -1))
+      expect(area.value).toBe(url.slice(0, -1))
+    })
+  })
+
+  describe('Korrekturvorschlag fields', () => {
+    const long = { id: 'lang', label: 'L'.repeat(121) }
+    const ok = { id: 'kurz', label: 'Kurz' }
+    const labels = () => screen.getAllByPlaceholderText(T.fieldLabelPlaceholder)
+    beforeEach(() => { apiGet.mockResolvedValue(structuredClone({ ...STATION, objectVisits: { proposalFields: [long, ok] } })) })
+
+    it('keeps the stored field through an edit of another one', async () => {
+      await act(async () => { render(<ConfigProvider><ProposalFieldsEditor /></ConfigProvider>) })
+      await type((await waitFor(labels))[1], 'Kurz Name')
+      expect((await nextPut())?.objectVisits?.proposalFields).toEqual([long, { id: 'kurz_name', label: 'Kurz Name' }])
+    })
+
+    it('keeps only a row past a length: a stored blank one is left out as before', async () => {
+      apiGet.mockResolvedValue(structuredClone({ ...STATION, objectVisits: { proposalFields: [{ id: 'leer', label: ' ' }, ok] } }))
+      await act(async () => { render(<ConfigProvider><ProposalFieldsEditor /></ConfigProvider>) })
+      await type((await waitFor(labels))[1], 'Kurz Name')
+      expect((await nextPut())?.objectVisits?.proposalFields).toEqual([{ id: 'kurz_name', label: 'Kurz Name' }])
+    })
+
+    it('keeps it exactly as stored, untrimmed', async () => {
+      const padded = { ...long, label: ` ${long.label}` }
+      apiGet.mockResolvedValue(structuredClone({ ...STATION, objectVisits: { proposalFields: [padded, ok] } }))
+      await act(async () => { render(<ConfigProvider><ProposalFieldsEditor /></ConfigProvider>) })
+      await type((await waitFor(labels))[1], 'Kurz Name ')
+      expect((await nextPut())?.objectVisits?.proposalFields).toEqual([padded, { id: 'kurz_name', label: 'Kurz Name' }])
+    })
+
+    it('saves it once shortened', async () => {
+      await act(async () => { render(<ConfigProvider><ProposalFieldsEditor /></ConfigProvider>) })
+      await type((await waitFor(labels))[0], 'L'.repeat(120))
+      expect((await nextPut())?.objectVisits?.proposalFields).toEqual([{ ...long, label: 'L'.repeat(120) }, ok])
+    })
+
+    it('saves the list without it once deleted while still too long', async () => {
+      await act(async () => { render(<ConfigProvider><ProposalFieldsEditor /></ConfigProvider>) })
+      await waitFor(labels)
+      await remove(T.fieldRemove, 0)
+      expect((await nextPut())?.objectVisits?.proposalFields).toEqual([ok])
+    })
+
+    it('falls back to the stored field while a repair is not saved yet', async () => {
+      await act(async () => { render(<ConfigProvider><ProposalFieldsEditor /></ConfigProvider>) })
+      await type((await waitFor(labels))[0], 'L'.repeat(120))
+      await type(labels()[0], '')
+      await type(labels()[1], 'Kurz Name')
+      expect((await nextPut())?.objectVisits?.proposalFields).toEqual([long, { id: 'kurz_name', label: 'Kurz Name' }])
+    })
+  })
+
+  describe('Objektfarben', () => {
+    const long = { id: 'pv', label: 'Photovoltaik', color: '#f59e0b', match: { modules: ['m'.repeat(61)] } }
+    const ok = { id: 'rest', label: 'Rest', color: '#64748b', match: { kinds: ['objekt'] } }
+    const names = () => screen.getAllByPlaceholderText(M.catNamePlaceholder)
+    const modules = () => screen.getAllByPlaceholderText(M.catModulesPlaceholder)[0] as HTMLInputElement
+    beforeEach(() => { apiGet.mockResolvedValue(structuredClone({ ...STATION, map: { objectCategories: [long, ok] } })) })
+
+    it('keeps the stored rule through an edit of another one', async () => {
+      await act(async () => { render(<ConfigProvider><ObjectCategoriesCard /></ConfigProvider>) })
+      await type((await waitFor(names))[1], 'Andere')
+      expect((await nextPut())?.map?.objectCategories).toEqual([long, { ...ok, id: 'andere', label: 'Andere' }])
+    })
+
+    it('saves it once shortened', async () => {
+      await act(async () => { render(<ConfigProvider><ObjectCategoriesCard /></ConfigProvider>) })
+      await waitFor(names)
+      await type(modules(), 'm'.repeat(60))
+      expect((await nextPut())?.map?.objectCategories).toEqual([{ ...long, match: { modules: ['m'.repeat(60)] } }, ok])
+    })
+
+    it('saves the list without it once deleted while still too long', async () => {
+      await act(async () => { render(<ConfigProvider><ObjectCategoriesCard /></ConfigProvider>) })
+      await waitFor(names)
+      await remove(M.catRemove, 0)
+      expect((await nextPut())?.map?.objectCategories).toEqual([ok])
+    })
+
+    it('keeps an untouched glob with a line break as stored, which the box shows without it', async () => {
+      const glob = `${'a'.repeat(30)}\n${'a'.repeat(30)}`
+      const stored = { ...long, match: { modules: [glob, 'kurz'] } }
+      apiGet.mockResolvedValue(structuredClone({ ...STATION, map: { objectCategories: [stored, ok] } }))
+      await act(async () => { render(<ConfigProvider><ObjectCategoriesCard /></ConfigProvider>) })
+      await waitFor(names)
+      // what a browser hands the handler: the text as shown, line break gone
+      await type(modules(), `${'a'.repeat(60)}, kurz2`)
+      await type(names()[1], 'Andere')
+      expect((await nextPut())?.map?.objectCategories?.[0]).toEqual(stored)
+    })
+
+    it('takes the padding the admin removes from a stored glob', async () => {
+      const stored = { ...long, match: { modules: [`${'a'.repeat(61)} `, 'kurz'] } }
+      apiGet.mockResolvedValue(structuredClone({ ...STATION, map: { objectCategories: [stored, ok] } }))
+      await act(async () => { render(<ConfigProvider><ObjectCategoriesCard /></ConfigProvider>) })
+      await waitFor(names)
+      expect(modules().value).toBe(`${'a'.repeat(61)} , kurz`)
+      await type(modules(), `${'a'.repeat(61)}, kurz`)
+      expect(modules().value).toBe(`${'a'.repeat(61)}, kurz`)
+    })
+
+    it('never cuts a stored glob: an edit of the box keeps it, shortening it is the admin\'s', async () => {
+      const stored = { ...long, match: { modules: ['modul5-pv*', 'm'.repeat(70)] } }
+      apiGet.mockResolvedValue(structuredClone({ ...STATION, map: { objectCategories: [stored, ok] } }))
+      await act(async () => { render(<ConfigProvider><ObjectCategoriesCard /></ConfigProvider>) })
+      await waitFor(names)
+      await type(modules(), `modul6-pv*, ${'m'.repeat(70)}`)
+      await type(names()[1], 'Andere')
+      expect(modules().value).toBe(`modul6-pv*, ${'m'.repeat(70)}`)
+      expect((await nextPut())?.map?.objectCategories?.[0]).toEqual(stored)
+      await type(modules(), `modul6-pv*, ${'m'.repeat(70)}*`)
+      expect(modules().value).toBe(`modul6-pv*, ${'m'.repeat(70)}*`)
+      // a comma typed into it leaves a fragment still past the cap – not cut either
+      await type(modules(), `modul6-pv*, m,${'m'.repeat(69)}*`)
+      expect(modules().value).toBe(`modul6-pv*, m, ${'m'.repeat(69)}*`)
+      await type(modules(), `modul6-pv*, ${'m'.repeat(69)}`)
+      expect(modules().value).toBe(`modul6-pv*, ${'m'.repeat(69)}`)
+      await type(names()[1], 'Andere 2')
+      expect((await nextPut())?.map?.objectCategories?.[0]).toEqual(stored)
+    })
+  })
+})
+
+// Lead review of #834 (S4): rows are keyed by index, so an armed «Löschen?» stayed at its index
+// when the rows moved and deleted the row that came there.
+describe('an armed delete never lands on another row', () => {
+  const T = appConfig.copy.admin.objectVisits
+  const M = appConfig.copy.admin.map
+  const yes = () => screen.queryAllByRole('button', { name: appConfig.copy.admin.common.confirmYes })
+  const click = (el: Element) => act(async () => { fireEvent.click(el) })
+
+  it('Objektfarben: a move drops it', async () => {
+    const rule = (id: string) => ({ id, label: id, color: '#64748b', match: { kinds: ['objekt'] } })
+    apiGet.mockResolvedValue(structuredClone({ ...STATION, map: { objectCategories: [rule('a'), rule('b')] } }))
+    await act(async () => { render(<ConfigProvider><ObjectCategoriesCard /></ConfigProvider>) })
+    await click((await waitFor(() => screen.getAllByRole('button', { name: M.catRemove })))[0])
+    expect(yes()).toHaveLength(1)
+    await click(screen.getAllByRole('button', { name: M.catDown })[0])
+    expect(yes()).toHaveLength(0)
+  })
+
+  it('Korrekturvorschlag fields: deleting a row above drops it', async () => {
+    const fields = ['a', 'b', 'c'].map((id) => ({ id, label: id }))
+    apiGet.mockResolvedValue(structuredClone({ ...STATION, objectVisits: { proposalFields: fields } }))
+    await act(async () => { render(<ConfigProvider><ProposalFieldsEditor /></ConfigProvider>) })
+    await click((await waitFor(() => screen.getAllByRole('button', { name: T.fieldRemove })))[1])
+    await click(screen.getAllByRole('button', { name: T.fieldRemove })[0])
+    expect(yes()).toHaveLength(2)
+    await click(yes()[0])
+    expect(yes()).toHaveLength(0)
+    expect(screen.getAllByPlaceholderText(T.fieldIdPlaceholder).map((el) => (el as HTMLInputElement).value)).toEqual(['b', 'c'])
+  })
+})
