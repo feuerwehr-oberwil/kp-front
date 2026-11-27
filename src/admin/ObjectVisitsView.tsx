@@ -23,7 +23,7 @@ import {
 import { DEFAULT_DESTINATION, DEFAULT_LOCATION_FOLDER, destinationValid, previewFolder, previewLocationFolder } from '../objectVisits/folders'
 import { personName, type DeliveryRow, type NotifyState, type VisitFiling, type VisitSummary, type VisitTemplate } from '../objectVisits/types'
 import { getPath, useConfig, type ConfigCtx } from './ConfigContext'
-import { NUMBER_GUARDS, TEXT_MAX_LENGTH, tooLongNote, useStoredRows } from './configGuards'
+import { NUMBER_GUARDS, TEXT_MAX_LENGTH, fitsText, tooLongNote, useStoredRows } from './configGuards'
 import { apiErrorText } from './apiErrors'
 import {
   Card, ConfirmButton, CopyChip, EmptyState, RecordRows, RecordTable, ResultChip, SettingRow, SettingsNote,
@@ -162,7 +162,8 @@ export function ProposalFieldsEditor() {
       ['objectVisits.proposalFields.0.id', T.fieldId, id],
     ])
   }
-  const { edited, saved } = useStoredRows(stored, (all) => all.filter((f, i) => problem(f, i, all) === null))
+  const { edited, saved } = useStoredRows(stored, (all) => all.filter((f, i) => problem(f, i, all) === null),
+    (f) => !fitsText('objectVisits.proposalFields.0.label', f.label) || !fitsText('objectVisits.proposalFields.0.id', f.id))
   const write = (next: FieldRow[]) => {
     setEditing(next)
     set(['objectVisits', 'proposalFields'], saved(next, (f) => ({ id: f.id.trim(), label: f.label.trim() })))

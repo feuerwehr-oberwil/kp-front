@@ -141,17 +141,23 @@ export function tooLongNote(
  * server refuses the save instead (the autosave badge) until the admin fixes it.
  *
  * Stored = a row of `stored` (the list in the draft) when the first edit begins that `writable`
- * leaves out; the editor never writes such a row itself, so it came from the server. Pass every
+ * leaves out and `overCap` finds past a length bound; the editor never writes such a row itself,
+ * so it came from the server. A stored row refused for another reason (a blank label the server
+ * kept) is left out as before: keeping it could refuse a save the server takes. Pass every
  * row an edit replaces through `edited(before, after)`, which carries its stored original along,
  * and write `saved(rows, clean)`: `clean` shapes a written row (a trim), never a stored original.
  */
-export function useStoredRows<T extends object>(stored: readonly T[], writable: (rows: readonly T[]) => readonly T[]) {
+export function useStoredRows<T extends object>(
+  stored: readonly T[],
+  writable: (rows: readonly T[]) => readonly T[],
+  overCap: (row: T) => boolean,
+) {
   const held = useRef<Set<T> | null>(null)
   const origin = useRef(new WeakMap<T, T>())
   const heldRows = () => {
     if (!held.current) {
       const ok = writable(stored)
-      held.current = new Set(stored.filter((r) => !ok.includes(r)))
+      held.current = new Set(stored.filter((r) => !ok.includes(r) && overCap(r)))
     }
     return held.current
   }

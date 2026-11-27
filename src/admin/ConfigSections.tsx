@@ -2116,7 +2116,8 @@ function ReportLinksEditor() {
   // Null until the first edit, so a config arriving from elsewhere still shows through.
   const [editing, setEditing] = useState<ReportLink[] | null>(null)
   const rows = editing ?? stored
-  const { edited, saved } = useStoredRows(stored, writableLinks)
+  const { edited, saved } = useStoredRows(stored, writableLinks, (l) => !fitsText('report.links.0.title', l.title)
+    || !fitsText('report.links.0.url', l.url) || !fitsText('report.links.0.note', l.note))
   // the URL field a chip inserts into: the one that was focused last. Held as an element ref
   // rather than an index, because the insert needs its live selection anyway.
   const urlRef = useRef<HTMLTextAreaElement | null>(null)

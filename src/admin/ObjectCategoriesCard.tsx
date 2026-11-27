@@ -39,7 +39,8 @@ export function ObjectCategoriesCard() {
   const stored = Array.isArray(raw) ? raw : []
   const [editing, setEditing] = useState<ObjectCategoryRule[] | null>(null)
   const rows = editing ?? stored
-  const { edited, saved } = useStoredRows(stored, writableRules)
+  const { edited, saved } = useStoredRows(stored, writableRules, (r) => chars(r.id) > TEXT_MAX_LENGTH['map.objectCategories.0.id']
+    || (r.match?.modules ?? []).some((m) => chars(m) > MODULE_MAX))
 
   const write = (next: ObjectCategoryRule[]) => {
     setEditing(next)

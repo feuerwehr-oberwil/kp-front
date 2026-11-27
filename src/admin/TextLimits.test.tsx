@@ -266,6 +266,14 @@ describe('a stored row past its bound stays in the save', () => {
       expect(sent()?.objectVisits?.proposalFields).toEqual([long, { id: 'kurz_name', label: 'Kurz Name' }])
     })
 
+    it('keeps only a row past a length: a stored blank one is left out as before', async () => {
+      apiGet.mockResolvedValue({ ...structuredClone(STATION), objectVisits: { proposalFields: [{ id: 'leer', label: ' ' }, ok] } })
+      await act(async () => { render(<ConfigProvider><ProposalFieldsEditor /></ConfigProvider>) })
+      await type((await waitFor(labels))[1], 'Kurz Name')
+      await settle()
+      expect(sent()?.objectVisits?.proposalFields).toEqual([{ id: 'kurz_name', label: 'Kurz Name' }])
+    })
+
     it('keeps it exactly as stored, untrimmed', async () => {
       const padded = { ...long, label: ` ${long.label}` }
       apiGet.mockResolvedValue({ ...structuredClone(STATION), objectVisits: { proposalFields: [padded, ok] } })
