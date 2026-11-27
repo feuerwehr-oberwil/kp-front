@@ -409,11 +409,32 @@ export function mergePartial(prev: DeploymentConfig, part: DeploymentConfig): De
   return overlay(prev, parts) as DeploymentConfig
 }
 
+const listeners = new Set<() => void>()
+// the page's own parts `resolved` was last built with
+let resolvedParts: DeploymentConfig | null = null
+
 /** The one place the config changes: `stored` is what the device holds, `resolved` what read
- *  sites see (the page's own parts laid over it). */
+ *  sites see (the page's own parts laid over it). Tells the `subscribeDeploymentConfig`
+ *  listeners when either input is a new object; the same two objects again tell nobody.
+ *  ⚠️ By reference, not by `version`: that is a hash of the STORED document, and an answer also
+ *  carries what the server derives (`integrations`, `categoryLabels`), which can change under
+ *  the same version. A fresh answer with the same content tells the listeners once. */
 function setStored(next: DeploymentConfig): void {
+  if (next === stored && pageParts === resolvedParts) return
   stored = next
+  resolvedParts = pageParts
   resolved = pageParts ? mergePartial(stored, pageParts) : stored
+  // a listener that throws must not break the load, which never throws
+  listeners.forEach((l) => { try { l() } catch { /* the listener's own failure */ } })
+}
+
+/** Calls `listener` whenever the resolved config changes (a late answer, a session's answer, the
+ *  admin editor's read). Returns the unsubscribe. With `getDeploymentConfig` as the snapshot it
+ *  is a `useSyncExternalStore` source: a component that must show a late answer at once, with
+ *  nothing else rendering it, subscribes. */
+export function subscribeDeploymentConfig(listener: () => void): () => void {
+  listeners.add(listener)
+  return () => { listeners.delete(listener) }
 }
 
 function readCache(): Promise<DeploymentConfig | null> {
@@ -514,7 +535,8 @@ export function applyCaptureConfig(parts: DeploymentConfig): void {
  * background (cold-start sweep 01.11.2026). Waiting for the network first put a whole round trip –
  * on a phone waking its radio often a second or more – in front of every launch, for a document
  * that changes a few times a year. The fresh answer lands in the singleton (read sites pick it up
- * on their next render, a value read once at mount on the next launch) and is handed to
+ * on their next render – a `subscribeDeploymentConfig` listener at once –, a value read once at
+ * mount on the next launch) and is handed to
  * `onFresh`, which re-applies the branding. The locale switches from the next launch.
  *
  * **A first boot** (no cache) races the network against `budgetMs`. Past the budget it resolves

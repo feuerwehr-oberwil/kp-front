@@ -192,6 +192,11 @@ questions, and what the record keeps (`components/AtemschutzView`; the card and 
   No Trupp with an Eintritt, an Austritt or a Notfall: no timer runs. A closed Einsatz reads a
   stopped clock (`frozenAt`). `AtemschutzView.clocks.test.tsx` compares the board with a fresh
   drawing at every second.
+- *A late station config or language* (follow-up of the above): with no clock running nothing
+  ticks the board, so it subscribes to the config's and the catalogue's change signals
+  (`deploymentConfig · subscribeDeploymentConfig`, `config/copy · subscribeCopy`) and draws again
+  the moment either lands. The cards redraw only when the doctrine, the equipment list or the
+  catalogue changed (`settingsKey`, carried by the clock's context).
 
 ## The Atemschutz-Link board (the handed-over phone board, `lite && compact`)
 
