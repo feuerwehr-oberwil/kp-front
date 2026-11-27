@@ -10,6 +10,7 @@
 
 import type { BoardAnno, BoardPoint, Drawing, Entity, GpsFollowState, LayerPointTarget, LineAttachment, LineEndpoint, LineRoutingMode, LngLat } from '../types'
 import { rdpIndices } from './lineStyle'
+import { M_PER_DEG_EQUATOR, M_PER_DEG_LAT } from './metresPerDegree'
 
 export type Point = [number, number]
 export type TargetFootprint =
@@ -666,7 +667,7 @@ export function gpsGuard(state: GpsFollowState, confirmedAt: Point, lastSafe: Po
 /** Local metres for the guard, off the map export's own flat approximation (no projection here). */
 const flatMetres = (a: Point, b: Point) => {
   const lat = ((a[1] + b[1]) / 2) * Math.PI / 180
-  return Math.hypot((b[0] - a[0]) * 111320 * Math.cos(lat), (b[1] - a[1]) * 110540)
+  return Math.hypot((b[0] - a[0]) * M_PER_DEG_EQUATOR * Math.cos(lat), (b[1] - a[1]) * M_PER_DEG_LAT)
 }
 
 /**
@@ -700,20 +701,20 @@ export function resolveMapDrawings(drawings: Drawing[], entities: Entity[], radi
       center = gpsGuard(attachment.gps.state, attachment.gps.confirmedAt, attachment.gps.lastSafe, center, flatMetres).point as LngLat
     }
     const cos = Math.cos(center[1] * Math.PI / 180) || 1e-6
-    const localToward: Point = [(toward[0] - center[0]) * 111320 * cos, (center[1] - toward[1]) * 110540]
+    const localToward: Point = [(toward[0] - center[0]) * M_PER_DEG_EQUATOR * cos, (center[1] - toward[1]) * M_PER_DEG_LAT]
     // negative padding for the same reason as on screen: the glyph paints over the line, so an
     // endpoint slightly inside it reads as coupled, one slightly outside as "not quite joined"
     const p = boundaryPoint({ shape: 'rect', center: [0, 0], width: radiusM * 2.4, height: radiusM * 2, rotation: e.rotation }, localToward, -1)
-    return [center[0] + p[0] / (111320 * cos), center[1] - p[1] / 110540]
+    return [center[0] + p[0] / (M_PER_DEG_EQUATOR * cos), center[1] - p[1] / M_PER_DEG_LAT]
   }
   const linePoint = (target: AttachableLine<LngLat>, endpoint: LineEndpoint, attachment: LineAttachment, resolved: LngLat): LngLat => {
     if (!(endpoint === 'end' && target.teilstueck) || attachment.port == null || target.points.length < 2) return resolved
     const q = target.points[target.points.length - 2], cos = Math.cos(resolved[1] * Math.PI / 180) || 1e-6
-    const dx = (resolved[0] - q[0]) * 111320 * cos, dy = (resolved[1] - q[1]) * 110540, len = Math.hypot(dx, dy) || 1
+    const dx = (resolved[0] - q[0]) * M_PER_DEG_EQUATOR * cos, dy = (resolved[1] - q[1]) * M_PER_DEG_LAT, len = Math.hypot(dx, dy) || 1
     const fx = dx / len, fy = dy / len                              // forward unit (metres)
     const fwd = 1.5, perp = (attachment.port - 1) * 1.5             // fork-shaped fan onto the prong tips
     const ox = fx * fwd - fy * perp, oy = fy * fwd + fx * perp
-    return [resolved[0] + ox / (111320 * cos), resolved[1] + oy / 110540]
+    return [resolved[0] + ox / (M_PER_DEG_EQUATOR * cos), resolved[1] + oy / M_PER_DEG_LAT]
   }
   // an Ebene's point has no glyph off screen: the end lands on the point itself
   const layerPoint = (target: LayerPointTarget): LngLat => target.at

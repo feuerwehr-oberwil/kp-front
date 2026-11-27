@@ -12,7 +12,6 @@ const pictureRows = {
   'log.selectionDeleted': de.log.selectionDeleted,
   'whiteboard.groupDeletedN': de.whiteboard.groupDeletedN,
   'whiteboard.trailCleared': de.whiteboard.trailCleared,
-  'whiteboard.floorRemoved': de.whiteboard.floorRemoved,
   'whiteboard.floorRemovedLog': de.whiteboard.floorRemovedLog,
   'whiteboard.floorRemovedLogMarks': de.whiteboard.floorRemovedLogMarks,
   'atemschutz.logRemoved': de.atemschutz.logRemoved,

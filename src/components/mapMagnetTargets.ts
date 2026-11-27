@@ -20,8 +20,12 @@ export interface MagnetScene {
   trupps: Trupp[]
   /** the points of every symbol point Ebene that is ON, one list per Ebene (lib/layerPoints) */
   layerPoints: readonly (readonly LayerPoint[])[]
-  /** is this object drawn (its layer on)? Only a drawn one covers an Ebene's point. Default: yes */
+  /** is this object drawn (its layer on)? Only a drawn one is a magnet, or covers an Ebene's
+   *  point. Default: yes */
   entityShown?: (e: Entity) => boolean
+  /** are the drawings drawn (the Zeichnungen layer on)? Only then are their line ends magnets.
+   *  Default: yes */
+  linesShown?: boolean
   zoom: number
   bearing: number
   symMul: number
@@ -37,9 +41,13 @@ export const DRAFT_SOURCE = '__draft__'
  * nearest point of its [dot][name] strip, an Ebene's point (a Hydrant) the nearest point of its
  * white plate, and line ends their free ports. `draftStart` is the
  * claim a draft's first end has already made, so one stroke cannot put a Trupp on both ends.
+ * ⚠️ Hidden is no magnet, for every kind (owner, Üben feedback 27.11.2026): a symbol, vehicle or
+ * Trupp marker on a layer switched off (`entityShown`), an Ebene that is off (the caller's
+ * `layerPoints`), the line ends with the Zeichnungen off (`linesShown`) – an end must never
+ * couple to something the map does not show.
  */
 export function mapMagnetTargets(map: MapProjector, scene: MagnetScene, sourceId: string, at: LngLat, draftStart?: LineAttachment): MagneticTarget[] {
-  const { entities, drawings, attachmentLines, trupps, layerPoints, entityShown = () => true, zoom, bearing, symMul } = scene
+  const { entities, drawings, attachmentLines, trupps, layerPoints, entityShown = () => true, linesShown = true, zoom, bearing, symMul } = scene
   const pointer = map.project(at)
   // ── EINE Leitung, EIN Trupp, schon am Magneten (lib/truppLines · markerTakesLineEnd) ──
   // A hose that already has a crew does not SEE another Trupp's marker: no ring, no dwell, no
@@ -50,7 +58,7 @@ export function mapMagnetTargets(map: MapProjector, scene: MagnetScene, sourceId
   const srcLine: LinkableLine | undefined = drawings.find((d) => d.id === sourceId)
     ?? (sourceId === DRAFT_SOURCE ? { id: sourceId, truppId: truppIdForAttachment(draftStart, truppMarkers) } : undefined)
   const objectTargets: MagneticTarget[] = entities
-    .filter((e) => isMagnetEntity(e) && Array.isArray(e.coord)
+    .filter((e) => isMagnetEntity(e) && Array.isArray(e.coord) && entityShown(e)
       && (e.kind !== 'team' || markerTakesLineEnd(srcLine, trupps, { id: e.id, truppId: e.truppId })))
     .map((e) => {
       const c = map.project(e.coord), size = e.kind === 'team' ? 56 : symPx(e.kind, e.coord[1], zoom, symMul)
@@ -90,7 +98,7 @@ export function mapMagnetTargets(map: MapProjector, scene: MagnetScene, sourceId
     }
   }
   const px = (c: LngLat): [number, number] => { const p = map.project(c); return [p.x, p.y] }
-  const lineTargets = lineEndTargets(drawings
+  const lineTargets = !linesShown ? [] : lineEndTargets(drawings
     // a Wand is layout: no Leitung couples onto its end (the Plan's rule, Whiteboard · planCandidatesAt)
     .filter((d) => d.kind === 'line' && !d.role && d.id !== sourceId && d.coords.length >= 2)
     .map((d) => ({

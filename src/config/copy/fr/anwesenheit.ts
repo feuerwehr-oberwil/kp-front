@@ -36,7 +36,6 @@ export const anwesenheitCopy: Localizable<Pick<Copy, Keys>> = {
     lockedTitle: 'Dans un binôme – annoncer d’abord la sortie avec « Annoncer sorti »',
     notInDivera: 'Ne figure plus sur la liste',
     notInSource: 'Plus dans {provider}',
-    weg: 'parti',
 
     noteLabel: 'Remarque',
     notePlaceholder: 'p. ex. chauffeur TP',

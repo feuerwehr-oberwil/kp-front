@@ -1022,7 +1022,6 @@ export const adminCopy = {
       replaceRollback: 'Der bisherige Stand wird vorher als «kp-front-config-vorher.json» heruntergeladen.',
       replaceGo: 'Ersetzen',
       imported: 'Konfiguration importiert.',
-      invalidSchema: 'Konfiguration ungültig (422) – Datei passt nicht zum Schema.',
       // ⚠️ Der Server sagt genau, WAS nicht passt (`loc: ["body","mittel","sources",0]`,
       // `input: "TLF 31"`) – die Oberfläche warf das weg und zeigte nur den 422 darüber. Eine
       // Testperson brauchte damit drei blinde Anläufe, um zu finden, dass `units` Zeichenketten
@@ -1473,7 +1472,6 @@ export const adminCopy = {
       // Beschriftung des Kebab neben der einen Hauptaktion einer Planzeile.
       moreActions: "Weitere Aktionen · {module}",
       back: "Objekte",
-      prepare: "Vorbereiten",
       pdf: "PDF öffnen",
       unknown: "Vorbereitung ausstehend",
       document: "Dokument",

@@ -255,6 +255,22 @@
   .ml-row.quote .ml-sub { flex-basis: 100%; white-space: normal; }
   .ml-row.quote .ml-sub::before { content: none; }
 }
+/* …and a strip that narrow on a tablet takes the same row – the phone's rules above, repeated
+   because a @media and a @container cannot share a block: the lane left of an armed tool's column
+   (below) leaves it 220–440px at 601–700px, and beside a 116px button a title stood a word a line
+   («Zimme…», Üben feedback 27.11.2026). Measured on the strip itself, not the window. The toasts
+   under it do the same (15-mobile · the toast's phone row, repeated at the toaster below). */
+.ml { container: ml / inline-size; }
+@container ml (max-width: 440px) {
+  .ml-row { flex-wrap: wrap; column-gap: var(--sp-2); padding-bottom: 8px; padding-left: var(--sp-3); }
+  .ml-title { -webkit-line-clamp: 3; line-clamp: 3; }
+  .ml-act { order: 1; flex: 1 1 100%; flex-wrap: wrap; justify-content: flex-end; }
+  .ml-act .ml-btn { flex: 1 1 auto; min-width: 0; }
+  .ml-row.quote .ml-txt { padding-top: var(--sp-2); }
+  .ml-row.quote .ml-ic { margin-top: calc(var(--sp-2) + 1px); }
+  .ml-row.quote .ml-sub { flex-basis: 100%; white-space: normal; }
+  .ml-row.quote .ml-sub::before { content: none; }
+}
 
 /* pinned to both edges (NOT left:50% + translate: an auto-width fixed box only gets the
    space right of the 50% mark as shrink-to-fit width, so long undo toasts collapsed to a
@@ -319,8 +335,7 @@
 }
 /* A desktop/tablet detail panel owns the right side of the operational surface. Messages are
    centred in the genuinely free map/plan band instead of painting over that panel's fields and
-   actions. The tablet panel has a fluid width; these values mirror 06-contextpanel's `.ctx` plus
-   15-mobile's 601–1024 width.
+   actions. These values mirror 06-contextpanel's `.ctx`: 360px wide on a tablet too (15-mobile).
    ⚠️ The reserve TRACKS the tool rail, because `.ctx` does: its inset is `--vrail-w + 26px`, so
    a frozen mirror here would drift left of the panel by up to 190px the moment the rail is
    expanded or dragged, and the pill would land back on the fields it was moved out of. Read the
@@ -334,9 +349,37 @@
 @media (--tablet) {
   :root:has(.app .ctx) :is(.ml, .toaster) {
     --lane-l: calc(max(16px, env(safe-area-inset-left)) + var(--rail-w) + 16px);
-    --lane-r: calc(max(16px, env(safe-area-inset-right)) + var(--vrail-w, 60px) + 26px + 16px
-      + clamp(300px, calc(100vw - 420px), 360px));
+    --lane-r: calc(max(16px, env(safe-area-inset-right)) + var(--vrail-w, 60px) + 26px + 360px + 16px);
   }
+}
+/* An armed tool's column (ToolDock) stands left of the tool rail, level with the rail's top – in
+   the lane's band, and the strip lay on its first tile («Freihand», owner, Üben feedback
+   27.11.2026). While it stands, the lane ENDS 24px left of it and never moves it: `--dock-at` is
+   the column's left edge from the screen's right – its inset (`.wb-dock-map`: the rail's width +
+   26px, so it tracks an expanded rail) plus its measured width (ToolDock · useRailLevel,
+   `--dock-w`). And only as far as it must: the strip keeps its centred place where that already
+   clears the column (a wide screen), so arming a tool never slides it sideways – the margin is
+   the centring's own share or the clearance, whichever is bigger. The toaster's edge likewise.
+   The Plan's «in der Nähe» banner hangs in the same band and takes the same margin (it sets its
+   own `--lane-l`/`--lane-r`, 09-whiteboard). A phone's dock is a bottom bar, far from the lane.
+   ⚠️ The lane never gets narrower than `--lane-floor` (the narrow row above still reads there): at
+   601–700px with a rail EXPANDED (216px) the column left it 0–110px, and «Zum Trupp» and a toast's
+   ✕ were cut away (Sol review, 27.11.2026). An alert that cannot be read is worse than one that
+   lies on the column's edge, so only where the floor binds – the tool rail expanded on a window
+   under ~650px, or both rails under ~800px – it still does (and less than before: the lane with BOTH rails expanded was that
+   narrow on its own, `--lane-r` counting the nav rail's width). */
+@media (--not-phone) {
+  :root:has(.wb-dock-map) :is(.ml, .toaster, .wb-nearby-banner) {
+    --dock-at: calc(var(--vrail-w, 60px) + 26px + var(--dock-w, 0px) + 24px);
+    --lane-max: 860px;     /* the strip's and the banner's max-width */
+    --lane-floor: 220px; }
+  :root:has(.wb-dock-map) :is(.ml, .wb-nearby-banner) {
+    margin-right: max(0px, calc((100% - var(--lane-l) - var(--lane-r) - var(--lane-max)) / 2),
+      min(calc(var(--dock-at) - var(--lane-r)), calc(100% - var(--lane-l) - var(--lane-r) - var(--lane-floor)))); }
+  /* …and its left edge stays the strip's: where the strip moved left, the 860px cap ends there */
+  :root:has(.wb-dock-map) .toaster {
+    --toast-r: max(var(--lane-r), calc(100vw - var(--lane-c) - 430px), min(var(--dock-at), calc(100vw - var(--lane-l) - var(--lane-floor))));
+    right: var(--toast-r); left: max(var(--lane-l), calc(100vw - var(--toast-r) - var(--lane-max))); }
 }
 /* ── ONE message surface (25.09.2026) ──────────────────────────────────────────────────────
    Every line of text the app lays over the Karte or a Plan — a toast, an instruction while a mode
@@ -437,6 +480,19 @@
    (`--r-msg-in`, concentric in the pill like every button inside a message). This only places it. */
 .toast-action { pointer-events: auto; flex: none; align-self: center; margin-left: var(--sp-1); border-radius: var(--r-msg-in);
   max-width: min(240px, 60vw); white-space: normal; overflow-wrap: break-word; }
+/* a lane as narrow as a phone's (an armed tool's column at 601–700px, above) gives a pill the
+   phone's row (15-mobile · «ONE ROW»): the sentence wraps, an action that would squeeze it under
+   10em goes under it – beside «Rückgängig» and ✕ the sentence had 0px. Measured on the lane.
+   ⚠️ After the pill's own rules above: at the same weight, they won from before it. */
+.toaster { container: toasts / inline-size; }
+@container toasts (max-width: 440px) {
+  .toast { white-space: normal; column-gap: var(--sp-2); padding-left: var(--sp-3); }
+  .toast:has(.toast-actions) { flex-wrap: wrap; }
+  .toast:has(.toast-actions) > .toast-message { flex: 1 1 10em; }
+  .toast-actions { margin-left: auto; }
+  .toast-step:not(.now) .toast-step-label { display: none; }
+  .toast-step:not(.now) { gap: 0; }
+}
 /* A tone is the colour of the glyph the sentence leads with (and of the running step's glyph) —
    never a fill and never an edge (25.09.2026). The text stays ink. */
 .toast-success { --toast-tone: var(--green); }

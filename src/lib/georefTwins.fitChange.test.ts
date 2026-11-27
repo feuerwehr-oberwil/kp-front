@@ -9,12 +9,11 @@ import { appConfig } from '../config/appConfig'
 import { fillTemplate } from './format'
 import type { BoardAnno, PlanDocument } from '../types'
 
-/* ⚠️ The phantom «Referenz angepasst» rows of 23.09.2026 (docs/planning/postmortem-2026-09-23-
- * feueralarm.md · root cause C). After a remount the rail fills asynchronously — plans listed,
- * `georefKey`s resolving, bindings arriving — and one signature over the whole rail read every
- * arrival as a correction, then counted every object whose bake differed for ANY reason. These
- * pin the per-sheet reading: an arrival is a seed, only a known sheet's changed fit is a change,
- * and only that sheet's relocated objects are counted. */
+/* ⚠️ The phantom «Referenz angepasst» rows of 23.09.2026. After a remount the rail fills
+ * asynchronously — plans listed, `georefKey`s resolving, bindings arriving — and one signature
+ * over the whole rail read every arrival as a correction, then counted every object whose bake
+ * differed for ANY reason. These pin the per-sheet reading: an arrival is a seed, only a known
+ * sheet's changed fit is a change, and only that sheet's relocated objects are counted. */
 
 const ORIGIN = { lng: 7.5525, lat: 47.5145 }
 const mEast = (m: number) => ({ lng: ORIGIN.lng + m / (111320 * Math.cos((ORIGIN.lat * Math.PI) / 180)), lat: ORIGIN.lat })

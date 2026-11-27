@@ -116,11 +116,6 @@ details[open] > summary.adm-side-item .adm-side-ic:last-child { transform: rotat
   font-size: var(--fs-2); font-weight: var(--fw-medium); color: var(--ink);
 }
 .adm-roster-settings > summary:active { background: var(--press); }
-.adm-side-heading {
-  margin: 0 0 2px; padding: 0 10px;
-  font-size: 10.5px; font-weight: var(--fw-bold); letter-spacing: .08em; text-transform: uppercase;
-  color: var(--ink-faint);
-}
 .adm-side-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0; }
 .adm-side-item {
   display: flex; align-items: center; gap: 11px; width: 100%;
@@ -424,7 +419,6 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
   .adm-set-row:hover > * { background: color-mix(in srgb, var(--ink) 3.5%, transparent); }
 }
 .adm-set-name { font-size: 13px; font-weight: 600; color: var(--ink); }
-.adm-set-unit { font: var(--fw-medium) 11.5px var(--mono); color: var(--ink-faint); }
 /* the Standard note is empty on every row that still runs on the shipped value — it speaks
    only for a deviation, which is the whole reason it can sit there without adding noise */
 .adm-set-std { font: var(--fw-medium) 11.5px var(--mono); color: var(--amber-strong); white-space: nowrap; }
@@ -658,8 +652,7 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
 .adm-rec > *:last-child > * { border-bottom: 0; }
 /* the dashed «hinzufügen» row closes the list, or one record's own rows — the flex gap of
    `.adm-records` and the card's hairlines already space it */
-.adm-records .adm-formlink-add,
-.adm-records .adm-addrow { margin-top: 0; }
+.adm-records .adm-formlink-add { margin-top: 0; }
 .adm-rec > .adm-set-note > .adm-formlink-add { margin-top: 0; }
 
 @media (max-width: 900px) {
@@ -680,8 +673,7 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
 }
 
 /* Truppfarbe row (Atemschutz doctrine): «Automatisch» + the ten team colours in ONE scrolling
-   row per Auftrag — six wrapped rows of eleven swatches was a wall, not a setting. Its own class,
-   NOT .adm-swatches: that one is the read-only colour list in the Darstellung views. */
+   row per Auftrag — six wrapped rows of eleven swatches was a wall, not a setting. */
 /* ⚠️ It WRAPS, it does not scroll. Sideways scrolling was the compromise while this row sat in
    a form column; in the settings table the row spans Wert+Standard (SettingRow · span), so the
    palette has the width to show all of itself. A control that hides half its options behind a
@@ -707,12 +699,6 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
    whose `:hover { text-decoration: underline }` then underlined every word in this card. */
 .adm-formlink { border: 1px solid var(--border-soft); border-radius: var(--r-ctl); padding: 14px;
   margin-top: 12px; background: var(--fill-soft); display: flex; flex-direction: column; gap: 10px; }
-/* title takes the row, the bin keeps its size and sits on the input's baseline */
-/* wrap: the row's bin is a two-step ConfirmButton, and its armed state (question + Ja/Abbrechen)
-   is far wider than the 44 px bin it replaces — it drops onto its own line instead of squeezing
-   the two fields beside it. Nothing wraps while the bin is idle. */
-.adm-formlink-head { display: flex; align-items: flex-end; gap: 8px; flex-wrap: wrap; }
-.adm-formlink-head .adm-field { flex: 1 1 auto; min-width: 0; }
 /* The record bin: a grey glyph in the hairline and corner of the field beside it (A3 rework,
    21.10.2026, owner: not red unless it earns it). It does not need to: every bin here asks first
    (ConfirmButton, A1), and its armed state is the red one. It was a borderless glyph that only
@@ -815,7 +801,6 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
 @media (max-width: 850px) { .adm-fleet-guide-grid { grid-template-columns: 1fr; } }
 
 /* per-group heading above each table (symbol category / layer group) */
-.adm-view-cat { display: flex; flex-direction: column; gap: 8px; }
 .adm-view-catname {
   margin: 6px 0 0; font-size: var(--fs-micro); font-weight: var(--fw-bold); letter-spacing: .04em;
   text-transform: uppercase; color: var(--ink-faint);
@@ -842,13 +827,7 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
 .adm-table.adm-vtable tr.adm-vsep > td { border-top: 1px solid var(--border-soft); }
 .adm-vfield { font-weight: 600; color: var(--ink); white-space: nowrap; }
 
-/* a badge/text + faint secondary facts on ONE line (status, darstellung) */
-/* ⚠️ …and it wraps. In Kartenebenen the table is `table-layout: fixed`, so a badge + its facts
-   on one unbreakable line simply painted out of its 10%/16% column. */
-.adm-vline { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 9px; max-width: 100%; min-width: 0; }
 .adm-vfacts { min-width: 0; font-size: 11.5px; color: var(--ink-faint); }
-.adm-swatches { display: inline-flex; align-items: center; gap: 5px; }
-.adm-swatch2 { width: 14px; height: 14px; border-radius: 4px; border: 1px solid var(--border-soft); flex: none; }
 
 /* leading glyph (FKS symbol, dataset icon, or fallback) */
 .adm-view-glyph {
@@ -872,12 +851,6 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .adm-view-code { font-size: var(--fs-micro); font-weight: var(--fw-bold); color: var(--ink-faint); margin-right: 5px; }
-
-/* source cell: mono url over its faint attribution */
-.adm-vsource { max-width: min(320px, 100%); }
-/* full source URL wraps in place — hover-only title= is unreachable on touch */
-.adm-vsource .adm-view-mono { display: block; overflow-wrap: anywhere; }
-.adm-view-attr { display: block; margin-top: 3px; font-size: var(--fs-micro); color: var(--ink-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* read-only option chips */
 .adm-view-chips { display: flex; flex-wrap: wrap; gap: 5px; }
@@ -1019,7 +992,7 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
 /* ── teaching empty / load / error state (EmptyState primitive) ───────────────
    Richer than .adm-state: a headline + an optional "next step" hint + an optional
    action button. Calm, day/night via tokens. */
-/* ⚠️ The same dashed row as `.adm-addrow` above, not a centred 36px block: «hier steht noch
+/* ⚠️ The same dashed row as `.adm-formlink-add` above, not a centred 36px block: «hier steht noch
    nichts» and «hier kommt etwas dazu» are the same sentence in the same place, and two voices
    for it made every second page look like a different product. The action sits at the right edge
    while it fits and wraps under the text when it does not. */
@@ -1163,12 +1136,6 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
   overflow: hidden;
 }
 .adm-brand-img { max-width: 100%; max-height: 100%; object-fit: contain; }
-/* "Standard" tag shown beside the preview when the slot falls back to the bundled default asset */
-.adm-brand-default {
-  flex: 0 0 auto; padding: 2px 8px; border-radius: var(--r-pill);
-  font-size: 10.5px; font-weight: var(--fw-bold); letter-spacing: .02em; text-transform: uppercase;
-  color: var(--ink-faint); background: var(--fill-soft); border: 1px solid var(--border-soft);
-}
 /* (the file input itself is visually hidden – `.adm-file-hidden, .adm-brand-file` above; the
    sizing it used to carry as a visible control went with it.) */
 
@@ -1422,11 +1389,6 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
 .adm-members-table .adm-badge { padding: 5px 10px; }
 
 .adm-members-actions-col { width: 1%; white-space: nowrap; }
-.adm-members-actions { display: flex; flex-wrap: wrap; gap: 7px; }
-/* compact look, but keep a real touch target — four of these sit side by side per row */
-@media (pointer: fine) {
-  .adm-members-actions .adm-int-btn { padding: 7px 12px; min-height: 36px; }
-}
 .adm-members-rowerr { padding: 8px 0 0; text-align: left; }
 /* «Deaktivieren?» / the role question on a line of its own under the member's row (sweep
    09.11.2026): the two rows read as one — no hairline between them, the question at the right
@@ -1678,15 +1640,7 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
    `.adm-actions` is the shared "a row of buttons" primitive (wraps, gap, baseline-aligns
    any inline result chip) so views stop hand-rolling inline `style={{display:'flex'}}`. */
 .adm-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.adm-cap-status { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-/* status + link + example live in one quiet inset panel; buttons follow, hint closes the
-   card — one rhythm for the Erfassung and Statistik cards */
-.adm-cap-rows { display: flex; flex-direction: column; align-items: flex-start; gap: 12px;
-  width: 100%; box-sizing: border-box; margin: 2px 0 18px; }
-.adm-cap-example { display: flex; flex-direction: column; gap: 6px; min-width: 0; max-width: 100%; }
-.adm-cap-example .adm-card-cap { margin: 0; }
 .adm-actions { margin-bottom: 12px; }
-.adm-cap-rows + .adm-actions { margin-top: 2px; }
 
 /* ─── `Offer` — a tinted panel that names a CONSEQUENCE and puts the fix next to it ─────
    Two callers, one shape: «ohne Secret bleibt der Eingang zu» on the Alarmierung page, and
@@ -1870,17 +1824,8 @@ p.adm-sys-path { margin: 3px 0 0; }
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   min-width: 0; min-height: 52px; padding: 12px 14px; background: var(--surface);
 }
-/* the label names the fact, the value IS the fact – so the label is the quieter of the two */
-.adm-sys-summary-label { font-size: 11.5px; font-weight: 600; color: var(--ink-dim); }
 /* the same dense pill the tables use; at full size it is a headline in a read-out of six */
 .adm-sys-summary .adm-badge { padding: 5px 10px; }
-/* The version facts share the badge's slot on the right of a cell. Mono because a commit hash
-   and a branch name are strings to compare character by character, and ellipsised because a
-   long branch name must shorten itself rather than push its label out of the cell. */
-.adm-sys-summary-value {
-  font: var(--fw-medium) 11.5px var(--mono); color: var(--ink); min-width: 0; text-align: right;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
 /* ⚠️ A real grid, NOT `columns: 2 360px`. A CSS multi-column box is a fragmentation context:
    it cut the «Speicher» card's ⓘ popover in half at the column break.
    ⚠️ And exactly TWO tracks, never `auto-fill`: auto-fill lays as many 360px tracks as fit, which
@@ -2066,10 +2011,6 @@ p.adm-sys-path { margin: 3px 0 0; }
    the fix is on another page; the one that is env-only is a static row with no chevron, because
    a chevron promises a screen that does not exist (see SetupChecklist). */
 .adm-setup { display: flex; flex-direction: column; gap: 2px; }
-/* «dorthin» und «abhaken» stehen nebeneinander: ein Button in einem Button ist ungültiges
-   HTML, also sind es zwei Geschwister – die Navigationszeile nimmt den Rest der Breite. */
-.adm-setup-item { display: flex; align-items: center; gap: 6px; }
-.adm-setup-item > .adm-setup-row { flex: 1 1 auto; min-width: 0; }
 .adm-setup-ack { flex: none; padding: 6px 10px; min-height: var(--tap); font-size: var(--fs-1); }
 @media (pointer: fine) {
   .adm-setup-ack { min-height: 34px; font-size: 12px; }
@@ -2081,16 +2022,9 @@ p.adm-sys-path { margin: 3px 0 0; }
   .adm-setup-row:hover { background: var(--fill-soft); }
 }
 .adm-setup-row:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.adm-setup-dot { flex: none; display: grid; place-items: center; width: 24px; height: 24px;
-  border-radius: 50%; border: 1.5px solid color-mix(in srgb, var(--ink-faint) 55%, transparent);
-  color: var(--ink-faint); font-size: 13px; font-weight: var(--fw-bold); }
-.adm-setup-dot.done { border-color: color-mix(in srgb, var(--ink-faint) 80%, transparent); color: var(--ink); }
-.adm-setup-txt { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .adm-setup-lbl { font: 600 13.5px var(--body); }
 /* the CONSEQUENCE of leaving it undone, not an instruction — this card nudges, it does not nag */
 .adm-setup-sub { font: var(--fw-medium) 11.5px/1.4 var(--body); color: var(--ink-faint); }
-.adm-setup-row .adm-setup-dot.done ~ .adm-setup-txt .adm-setup-lbl { color: var(--ink-dim); }
-.adm-setup-go { flex: none; color: var(--ink-faint); font-size: var(--fs-3); }
 
 /* A list of words, as chips (Partnerorganisationen, Mittel-Einheiten, Attribut-Optionen — all
    `list[str]` in the config). Chips rather than rows because the entries are short and the

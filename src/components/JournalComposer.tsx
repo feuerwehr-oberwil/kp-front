@@ -448,6 +448,8 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
   // closing the composer mid-upload means "cancel": the upload may finish server-side (the
   // orphaned blob is harmless) but no journal row is created after unmount. The unmount also
   // revokes the imported preview URL — saves/closes must not pin up to 100 MB per import.
+  // ⚠️ The mount sets `alive` again: StrictMode (`pnpm dev`) mounts, unmounts and mounts once
+  // more, and a ref that only the cleanup wrote stayed false – every picked memo was dropped.
   const alive = useRef(true)
   // ⚠️ The url AND the name, on one ref: the cleanup below needs both, and this is the only
   // assignment the component makes during render — one is a documented exception, two is a habit.
@@ -461,19 +463,22 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
   // is exactly the failure the draft guard exists to end. Not after a save, and not after a
   // failed upload either: there the sheet stays open with the memo still on it.
   const filedRef = useRef(false)
-  useEffect(() => () => {
-    alive.current = false
-    const pending = importedRef.current
-    if (pending) URL.revokeObjectURL(pending.url)
-    if (filedRef.current) return
-    // ONE toast for everything the close dropped (toast diet, 17.11.2026 – it was one per file).
-    // Read here rather than off the render closure, so the resolved locale applies (config/copy).
-    const J = appConfig.copy.journal
-    const names = [...(pending ? [pending.name] : []), ...filesRef.current.map((f) => f.name)]
-    const said = names.length > 1 ? fillTemplate(J.attachDroppedMany, { n: names.length, names: names.map((n) => `«${n}»`).join(', ') })
-      : pending ? fillTemplate(J.audioImportDropped, { name: pending.name })
-        : names.length ? fillTemplate(J.attachDropped, { name: names[0] }) : null
-    if (said) toast(said, { icon: 'warn', tone: 'warn' })
+  useEffect(() => {
+    alive.current = true
+    return () => {
+      alive.current = false
+      const pending = importedRef.current
+      if (pending) URL.revokeObjectURL(pending.url)
+      if (filedRef.current) return
+      // ONE toast for everything the close dropped (toast diet, 17.11.2026 – it was one per file).
+      // Read here rather than off the render closure, so the resolved locale applies (config/copy).
+      const J = appConfig.copy.journal
+      const names = [...(pending ? [pending.name] : []), ...filesRef.current.map((f) => f.name)]
+      const said = names.length > 1 ? fillTemplate(J.attachDroppedMany, { n: names.length, names: names.map((n) => `«${n}»`).join(', ') })
+        : pending ? fillTemplate(J.audioImportDropped, { name: pending.name })
+          : names.length ? fillTemplate(J.attachDropped, { name: names[0] }) : null
+      if (said) toast(said, { icon: 'warn', tone: 'warn' })
+    }
   }, [])
 
   // In-app voice-to-text dictation was removed — use the native OS keyboard dictation

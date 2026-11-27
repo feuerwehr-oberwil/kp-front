@@ -11,6 +11,7 @@ import { AuditEventStore } from './lib/auditEventStore'
 import { JournalStore } from './lib/journalStore'
 import type { Saved } from './lib/workspace'
 import type { IncidentMeta } from './lib/api/incidents'
+import type { IncidentPlanBinding } from './lib/incidentPlanBindings'
 import { appConfig } from './config/appConfig'
 import { loadPrefs, savePrefs } from './lib/prefs'
 import { fillTemplate } from './lib/format'
@@ -88,6 +89,26 @@ vi.mock('./lib/mediaQueue', async (importOriginal) => {
   const mod = await importOriginal<typeof import('./lib/mediaQueue')>()
   return { ...mod, flushMediaQueue: async (...a: Parameters<typeof mod.flushMediaQueue>) => { rec.order.push('flush'); return mod.flushMediaQueue(...a) } }
 })
+
+/** the plan resolver's doors (useObjectPlans): a binding it fetched (`onBind`) — the test calls it
+ *  where the resolver's fetch would land — and the operator's object pick (`onPick`) */
+const boundPlans = vi.hoisted(() => ({
+  onBind: undefined as ((proposed: IncidentPlanBinding[]) => void) | undefined,
+  onPick: undefined as ((objectId: string | undefined) => void) | undefined,
+}))
+vi.mock('./lib/useObjectPlans', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('./lib/useObjectPlans')>()
+  return {
+    ...mod,
+    useObjectPlans: (...a: Parameters<typeof mod.useObjectPlans>) => {
+      boundPlans.onPick = a[4]; boundPlans.onBind = a[5]?.onBind
+      return mod.useObjectPlans(...a)
+    },
+  }
+})
+const binding: IncidentPlanBinding = {
+  id: 'obj1:modul2', objectId: 'obj1', planId: 'modul2', datasetId: 'ds1', planVersion: 1, page: 0, title: 'EG', georef: { pairs: [] }, source: 'none',
+}
 
 registerHarnessHooks()
 
@@ -268,6 +289,53 @@ describe('(f) a pull moves only what it changed', () => {
     expect(save).toHaveBeenCalledTimes(1)
     const saved = save.mock.lastCall![0] as Saved
     expect(saved.objects?.map((o) => o.id)).toEqual(['p2'])
+    expect(saved.trupps?.map((t) => t.entryPressureBar)).toEqual([300, 280])
+  })
+  // ⚠️ the echo guard skips a save only when the blob is built from nothing but what pulls handed
+  // in (useWorkspaceBlob · pulled). A write made before the pull's render — a tap folded into the
+  // live store that already holds the pull, an async write landing — renders with it and is saved.
+  it('a marker deleted before the pull that moved another one and a Trupp has rendered: all of it is saved', async () => {
+    const { sync, save, held } = await device()
+    const objs = held.objects!
+    const moved = { ...oneTrupp(held), objects: objs.map((o) => (o.id === 'p2' ? { ...o, entity: { ...o.entity!, coord: [7.7, 47.6] } } : o)) } as unknown as Blob
+    act(() => { lastMap().onSelect(lastMap().entities.find((e) => e.id === 'p1')!) })
+    act(() => {
+      sync.onApplyMerged!(moved, 1) // queued, not yet rendered
+      key('Delete') // a discrete event: React 19 renders it together with the pull
+    })
+    await settle(60)
+    expect(lastMap().entities.map((e) => e.id)).toEqual(['p2'])
+    expect(save).toHaveBeenCalled()
+    const saved = save.mock.lastCall![0] as Saved
+    expect(saved.objects?.map((o) => o.id)).toEqual(['p2'])
+    expect(saved.objects?.[0].entity?.coord).toEqual([7.7, 47.6])
+    expect(saved.trupps?.map((t) => t.entryPressureBar)).toEqual([300, 280])
+  })
+
+  it('a pick back to the object the save last built, in the pull\'s render, is saved', async () => {
+    const { sync, save, held } = await device()
+    expect(held.pickedObjectId).toBeUndefined()
+    act(() => {
+      sync.onApplyMerged!({ ...oneTrupp(held), pickedObjectId: 'obj2' } as unknown as Blob, 1)
+      boundPlans.onPick!(undefined) // «Automatisch» again: the value this device last saved
+    })
+    await settle(60)
+    expect(save).toHaveBeenCalled()
+    const saved = save.mock.lastCall![0] as Saved
+    expect(saved.pickedObjectId).toBeUndefined()
+    expect(saved.trupps?.map((t) => t.entryPressureBar)).toEqual([300, 280])
+  })
+
+  it('a plan binding that lands in the pull\'s render is saved, the pulled Trupp with it', async () => {
+    const { sync, save, held } = await device()
+    act(() => {
+      sync.onApplyMerged!(oneTrupp(held), 1)
+      boundPlans.onBind!([binding])
+    })
+    await settle(60)
+    expect(save).toHaveBeenCalled()
+    const saved = save.mock.lastCall![0] as Saved
+    expect(saved.planBindings?.map((b) => b.id)).toEqual([binding.id])
     expect(saved.trupps?.map((t) => t.entryPressureBar)).toEqual([300, 280])
   })
 })

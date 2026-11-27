@@ -24,7 +24,6 @@ export const editorsCopy: Localizable<Pick<Copy, Keys>> = {
     rotationFan: 'Fan',
     rotationLadder: 'Ladder',
     center: 'Center',
-    toOriginal: 'Go to the original',
     resetGps: 'Back to GPS',
     resetGpsTitle: 'Back to GPS – the vehicle follows its live position again',
     resetGpsStep: '{name} back to GPS',

@@ -44,6 +44,22 @@
     "home": "To the home page",
     "demo": "Open the demo"
   },
+  "wake": {
+    "pageTitle": "Starting the demo – KP Front",
+    "title": "Starting the demo…",
+    "ready": "Ready – opening the demo…",
+    "steps": [
+      "Server starting",
+      "Waking the database",
+      "Loading the Musterdorf exercise"
+    ],
+    "note": "The demo sleeps when nobody uses it. Starting it usually takes 10–30 seconds.",
+    "failTitle": "The demo is not starting right now",
+    "failText": "It has not answered after 90 seconds. A second try usually works.",
+    "retry": "Try again",
+    "direct": "Go straight to the demo",
+    "noscript": "The demo sleeps when nobody uses it. The first visit can take up to 30 seconds."
+  },
   "hero": {
     "eyebrow": "Open source&nbsp;· free&nbsp;· Switzerland",
     "h1": "Digital incident command for the fire brigade.",
@@ -283,7 +299,7 @@
       },
       {
         "q": "How do we start?",
-        "a": "With the <a href=\"https://demo.kp-front.ch\" target=\"_blank\" rel=\"noopener\">demo</a>,\n          no sign-up – Musterdorf is already on fire, and all visitors share the same incident\n          (it resets twice a day, at 00:00 and 12:00 in the Europe/Zurich time zone). Then try it at an exercise. If it fits, the\n          <a href=\"https://github.com/feuerwehr-oberwil/kp-front/blob/main/docs/SETUP.md\" target=\"_blank\" rel=\"noopener\">setup guide</a> leads to your own installation."
+        "a": "With the <a href=\"https://kp-front.ch/en/demo/\" target=\"_blank\" rel=\"noopener\">demo</a>,\n          no sign-up – Musterdorf is already on fire, and all visitors share the same incident\n          (it resets after every pause, otherwise at 00:00 and 12:00 in the Europe/Zurich time zone). Then try it at an exercise. If it fits, the\n          <a href=\"https://github.com/feuerwehr-oberwil/kp-front/blob/main/docs/SETUP.md\" target=\"_blank\" rel=\"noopener\">setup guide</a> leads to your own installation."
       }
     ]
   },

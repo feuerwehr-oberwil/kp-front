@@ -245,7 +245,9 @@ interface WorkspaceProps {
   workspace: Workspace | null
   sync: WorkspaceSync
   forceReadOnly: boolean
-  /** another tab of THIS browser is editing the incident → read-only here + take-over banner */
+  /** another tab of THIS browser is editing the incident → read-only here + take-over banner.
+   *  An engine that followed another tab keeps it so until a takeover replaced the engine
+   *  (WorkspaceSync · lockLost). */
   tabLockLost: boolean
   /** this tab got the edit lock at once when it opened the incident (lib/tabLock · heldAtOpen) */
   tabLockHeldAtOpen?: boolean
@@ -303,10 +305,11 @@ interface WorkspaceProps {
 
 
 export function IncidentWorkspace({
-  incidentMeta, incidents, workspace, sync, forceReadOnly, tabLockLost, tabLockHeldAtOpen = false, onTakeOverTab, onCompleteRapport, abschlussRef,
+  incidentMeta, incidents, workspace, sync, forceReadOnly, tabLockLost: tabLockAnswerLost, tabLockHeldAtOpen = false, onTakeOverTab, onCompleteRapport, abschlussRef,
   onSwitchIncident, onOpenHistory, onOpenObjectVisits, onOpenKarte, onOpenDivera, menuAlarms, menuFolded, onReactivateActive, onBackFromArchive,
   covered = false, onUncover, needsReview, onReviewDone, reviewedLocallyAt, onEditMeta, lifecycleElsewhere, openCover, onOpenCoverDone,
 }: WorkspaceProps) {
+  const tabLockLost = tabLockAnswerLost || sync.lockLost
   const { user, logout, asLink, isEl, linkRefused, roleReadOnly, isEditor, linkScoped } = useSessionRole(incidentMeta)
   // Phones are a live viewer + field-capture device: lock all TACTICAL editing (tools,
   // map drawing/placing, plan annotation) even for a editor — but keep journal capture
@@ -1289,7 +1292,7 @@ export function IncidentWorkspace({
   const composerOpenedAt = useRef<string | null>(null)
   useEffect(() => { if (composerOpen) composerOpenedAt.current = new Date().toISOString() }, [composerOpen])
   // a Verlauf row can ask the plan to revisit a point; nonce makes each request distinct
-  const [planFocus, setPlanFocus] = useState<{ x: number; y: number; floor: number; annoId?: string; twinEntityId?: string; flash?: boolean; scale?: number; span?: { w: number; h: number }; nonce: number } | null>(null)
+  const [planFocus, setPlanFocus] = useState<{ x: number; y: number; floor: number; annoId?: string; flash?: boolean; scale?: number; span?: { w: number; h: number }; nonce: number } | null>(null)
   // the Präsentationsmodus (workspace/usePresentation): follow / present / point, never stored
   const presentation = usePresentation({
     incidentId: incidentMeta.id, enabled: running && !replayActive && !asLink, canPresent: canShareLink, isLink: linkScoped,
@@ -1460,7 +1463,7 @@ export function IncidentWorkspace({
 
   // The blob both ways — the load gate's toast, applyWorkspace (merge in) and buildPayload (save
   // out), and this device's own Ebenen (workspace/useWorkspaceBlob)
-  const { buildPayload, applyWorkspace, ghostReseedRef, sliceRebase } = useWorkspaceBlob({
+  const { buildPayload, applyWorkspace, echoOfPull, ghostReseedRef, sliceRebase } = useWorkspaceBlob({
     bootGate, olderBuild, setOlderBuild, incidentMeta, setLayers, journal, setRecent, setBuilding, setVehicleOverrides, setChecklists,
     setTrupps, setAttendance, setMittel, setShifts, setBands, setCameraViews, setTrails, setPlanScale,
     setReportMeta, setAttachments, setReportSignatures, setIncidentSettings, setPlanBindings, setPickedObjectId,
@@ -1490,7 +1493,7 @@ export function IncidentWorkspace({
     // on the flags derived from `readOnly`. …and never the blob of a newer build (olderBuild):
     // the Verlauf and audit outboxes still deliver, the workspace is not pushed or flushed.
     sync, readOnly: outboxReadOnly || olderBuild, incidentId: incidentMeta.id, lockHeldAtOpen: tabLockHeldAtOpen,
-    buildPayload, applyWorkspace, flushEvents, flushEventsBeacon,
+    buildPayload, applyWorkspace, echoOfPull, flushEvents, flushEventsBeacon,
     // attendance-divergence note (both sides changed the same person → one Verlauf row)
     // Not for an Atemschutz-Link session: the server refuses every non-«team» row from it (403,
     // deliberately not a 422), and a refused row at the head of the outbox would block the

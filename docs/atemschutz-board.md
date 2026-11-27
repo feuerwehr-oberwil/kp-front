@@ -124,8 +124,10 @@ questions, and what the record keeps (`components/AtemschutzView`; the card and 
     grid and the phone's opened card included (Üben feedback 27.11.2026, owner: «two rows of text …
     feels like this area was an afterthought»): «drin 10:00 · ≈ 263 bar ⌄» inside – «drin» names the
     duration, so it carries no «min» / «h», and the «≈» names the Schätzung – and «drin 12:10 ⌄» on
-    an out card. Only a viewer's card inside carries three values («drin · 240 bar · ≈ 263 bar»);
-    where that is too wide, the line wraps between its items, inside the foot's 36 / 44px touch
+    an out card. A viewer's card inside says the same, «drin · ≈ 263 bar» (owner pick B, Üben
+    feedback 27.11.2026: with the measured «240 bar» too it wrapped on a tablet) – the measured
+    Druck stays in the Verlauf, and stands on the line only where no Schätzung does.
+    Where the line is still too wide, it wraps between its items, inside the foot's 36 / 44px touch
     height, and an item wider than the whole row breaks between its word and its value, never
     inside «263 bar». On a mouse the wrapped lines are 14px, so the foot stays 28. The ⌄ is the last
     value's last glyph, so a wrapped line ends in it (Sol review, PR #702). «⋯ Mehr» ends the line

@@ -30,9 +30,13 @@ name: Demo watchdog
 # there on 15.08. If this fires again and the history shows a repeating foreign document, look
 # for another scheduled job holding the demo secrets before touching the config.
 
+# ⚠️ No `schedule:` any more (27.11.2026): a check every 2 h woke the sleeping demo 12 times a
+# day (Railway «Serverless», backend app/demo_sleep). It runs after every «Demo reset» – the one
+# path that rewrites the config from this repo – and by hand from the Actions tab.
 on:
-  schedule:
-    - cron: "40 */2 * * *"   # every 2 hours, offset off the hour so it never races the reset
+  workflow_run:
+    workflows: ["Demo reset"]
+    types: [completed]
   workflow_dispatch: {}
 
 # Reads one file of the repository. Without this block the workflow token gets the repository

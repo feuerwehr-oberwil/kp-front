@@ -5,6 +5,7 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { formatTime } from '../lib/format'
 import { fmtClock } from '../lib/atemschutz'
 import { TopBar, windArrowRotation } from './TopBar'
+import { installHoldTooltip } from '../lib/holdTooltip'
 import { loadPrefs, savePrefs } from '../lib/prefs'
 import type { Incident } from '../types'
 
@@ -63,6 +64,41 @@ describe('the top bar with the words off', () => {
     expect(document.querySelector('.topbar')!.hasAttribute('data-bare')).toBe(true)
     expect(actions().map((b) => b.textContent)).toEqual(['', '', 'J', 'E'])
     expect(actions().map((b) => b.getAttribute('aria-label') ?? b.title)).toEqual(['Rückgängig', 'Wiederherstellen', 'Verlauf', 'Eintrag'])
+  })
+  // owner, Üben feedback 27.11.2026 («Yes, hold names them»): the bare Verlauf is a panel door
+  // whose glyph does not say what opens – a hold names it and opens nothing, a tap opens at once
+  it('words off: a hold on Verlauf names it and opens nothing; a tap opens it', () => {
+    vi.useFakeTimers()
+    const uninstall = installHoldTooltip()
+    try {
+      const press = (el: Element, type: string) => {
+        const e = new MouseEvent(type, { bubbles: true, cancelable: true, clientX: 10, clientY: 10 })
+        Object.defineProperty(e, 'pointerType', { value: 'touch' })
+        el.dispatchEvent(e)
+      }
+      const onToggleJournal = vi.fn()
+      for (const words of ['short', 'off'] as const) {
+        savePrefs({ ...loadPrefs(), railLabels: words, railLabelsChosen: true })
+        render(<TopBar incident={INCIDENT} startedAt={STARTED} recording={false} recStartedAt={null} journalOpen={false}
+          onToggleJournal={onToggleJournal} onAddEntry={vi.fn()} onUndo={vi.fn()} onRedo={vi.fn()} canUndo={false} canRedo={false} showHistory />)
+        const verlauf = screen.getByRole('button', { name: 'Verlauf' })
+        press(verlauf, 'pointerdown')
+        act(() => { vi.advanceTimersByTime(520) })
+        // worded, the word already answers: no bubble, the release opens as ever
+        expect(document.querySelector('.hold-tip')?.textContent).toBe(words === 'off' ? 'Verlauf' : undefined)
+        press(verlauf, 'pointerup')
+        fireEvent.click(verlauf)
+        expect(onToggleJournal).toHaveBeenCalledTimes(words === 'off' ? 0 : 1)
+        onToggleJournal.mockClear()
+        press(verlauf, 'pointerdown')
+        press(verlauf, 'pointerup')
+        fireEvent.click(verlauf)
+        expect(onToggleJournal).toHaveBeenCalledTimes(1)
+        onToggleJournal.mockClear()
+        act(() => { vi.advanceTimersByTime(2000) })
+        cleanup()
+      }
+    } finally { uninstall() }
   })
 })
 

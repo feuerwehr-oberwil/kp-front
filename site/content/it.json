@@ -45,6 +45,22 @@
     "home": "Alla pagina iniziale",
     "demo": "Apri la demo"
   },
+  "wake": {
+    "pageTitle": "Avvio della demo – KP Front",
+    "title": "La demo si sta avviando…",
+    "ready": "Pronta – la demo si apre…",
+    "steps": [
+      "Avvio del server",
+      "Risveglio della banca dati",
+      "Caricamento dell’esercitazione Musterdorf"
+    ],
+    "note": "La demo va in pausa quando nessuno la usa. L’avvio richiede di solito 10–30 secondi.",
+    "failTitle": "La demo non si avvia in questo momento",
+    "failText": "Dopo 90 secondi non ha ancora risposto. Di solito basta un secondo tentativo.",
+    "retry": "Riprova",
+    "direct": "Apri direttamente la demo",
+    "noscript": "La demo va in pausa quando nessuno la usa. Il primo accesso può richiedere fino a 30 secondi."
+  },
   "hero": {
     "eyebrow": "Open source&nbsp;· gratuito&nbsp;· Svizzera",
     "h1": "La condotta d’intervento digitale per i pompieri.",
@@ -284,7 +300,7 @@
       },
       {
         "q": "Come cominciamo?",
-        "a": "Con la <a href=\"https://demo.kp-front.ch\" target=\"_blank\" rel=\"noopener\">demo</a>, senza registrazione: a Musterdorf è già in corso un incendio e tutti i visitatori condividono lo stesso intervento (riavvio due volte al giorno, alle 00:00 e alle 12:00, fuso orario Europe/Zurich). Poi provatela durante un’esercitazione. Se il test è convincente, la <a href=\"https://github.com/feuerwehr-oberwil/kp-front/blob/main/docs/SETUP.md\" target=\"_blank\" rel=\"noopener\">guida all’installazione</a> vi accompagna fino alla vostra installazione."
+        "a": "Con la <a href=\"https://kp-front.ch/it/demo/\" target=\"_blank\" rel=\"noopener\">demo</a>, senza registrazione: a Musterdorf è già in corso un incendio e tutti i visitatori condividono lo stesso intervento (riavvio dopo ogni pausa, altrimenti alle 00:00 e alle 12:00, fuso orario Europe/Zurich). Poi provatela durante un’esercitazione. Se il test è convincente, la <a href=\"https://github.com/feuerwehr-oberwil/kp-front/blob/main/docs/SETUP.md\" target=\"_blank\" rel=\"noopener\">guida all’installazione</a> vi accompagna fino alla vostra installazione."
       }
     ]
   },

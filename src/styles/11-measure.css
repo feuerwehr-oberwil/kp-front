@@ -201,9 +201,8 @@
    The old 8px of right padding pushed its chevron 8px inside the line the controls hold, and the
    2px margin-top nudged it off the rhythm by exactly enough to notice without being able to say why.
    ⚠️ The edges are held by an OUTDENT, not by zero padding: with `padding: 2px 0` the hover wash
-   ended flush on the «MESSUNG» letters and the chevron (owner, 30.10.2026). Like the app's other
-   fold heads (13-incident · summary.ip-group-head) the button reaches 8px past the column on both
-   sides and pads 8px back, so the text stays on the column and the wash frames it. */
+   ended flush on the «MESSUNG» letters and the chevron (owner, 30.10.2026). Like a fold head, the
+   button reaches 8px past the column on both sides and pads 8px back, so the text stays on the column and the wash frames it. */
 .draw-editor .de-prof-toggle { display: flex; align-items: center; justify-content: space-between;
   width: calc(100% + 16px); margin: 0 -8px; box-sizing: border-box;
   min-height: 48px; padding: 2px 8px; border: 0; border-radius: var(--r-sm);
@@ -239,23 +238,36 @@
 .draw-editor .de-conn-note.warn { color: var(--red-strong); font-weight: var(--fw-bold); }
 /* «Enden» – the line editor's first row (DrawEditor · EndsRow, owner pick UX journeys, 25.11.2026
    · B2·49): what the two ends hold, in words, the whole row a tap to «Verbindungen», and «Lösen»
-   at its control edge. One line; a long name ellipsizes, the hydrant's metres never do. */
+   at its control edge. One line; a long name ellipsizes, the hydrant's metres never do.
+   The label stands in the sheet's label column and the words start at the CONTROL edge, where
+   the Linienende segments under it start (owner, Üben feedback 27.11.2026: «the enden content
+   should also be on the right») – the label/value pair of `.de-row`, 06-contextpanel. */
 .draw-editor .de-ends { display: flex; align-items: center; gap: var(--sp-2); min-height: 52px; }
-.draw-editor .de-ends-go { flex: 1; min-width: 0; min-height: var(--tap); display: flex; align-items: center; gap: var(--sp-1);
+.draw-editor .de-ends-go { flex: 1; min-width: 0; min-height: var(--tap); display: flex; align-items: center; gap: var(--ctx-col-gap);
   padding: 0; border: 0; background: none; color: var(--ink); font-size: var(--fs-2); font-weight: var(--fw-bold);
   text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .draw-editor .de-ends-go:disabled { cursor: default; opacity: 1; }
-.draw-editor .de-ends-k { flex: none; margin-right: var(--sp-1); color: var(--ink-dim); font-weight: var(--fw-medium); }
+.draw-editor .de-ends-k { flex: 0 0 var(--ctx-lbl); min-width: 0; color: var(--ink-dim); font-weight: var(--fw-medium); }
+/* the two ends wrap as units when they cannot share the column beside «Lösen» («✓ Hydrant 2 m»
+   over «→ 🔗 TLF»): squeezed onto one line, the docked name went to nothing and its 🔗 ran
+   under «Lösen». A docked end alone on its line still ellipsizes. */
+.draw-editor .de-ends-v { flex: 1 1 auto; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 2px var(--sp-1); }
 .draw-editor .de-ends-to { flex: none; color: var(--ink-faint); font-weight: var(--fw-medium); }
 .draw-editor .de-end { display: inline-flex; align-items: center; gap: var(--sp-1); min-width: 0; }
-.draw-editor .de-end > span:not(.de-end-m) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.draw-editor .de-end > span:not(.de-end-m, .de-ends-to) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .draw-editor .de-end-m { flex: none; color: var(--ink-faint); font-weight: var(--fw-medium); }
 .draw-editor .de-end .i { flex: none; width: 16px; height: 16px; }
 .draw-editor .de-end-ok { color: var(--green-strong); }
-.draw-editor .de-end--none { color: var(--ink-faint); font-weight: var(--fw-medium); }
+/* «→ nichts» is one short word: it keeps it, and the docked name beside it is the one that gives */
+.draw-editor .de-end--none { flex: none; color: var(--ink-faint); font-weight: var(--fw-medium); }
 .draw-editor .de-ends-detach { flex: none; padding-inline: var(--sp-3); }
-/* the hydrant end keeps its words; a long docked name is the one that ellipsizes */
-.draw-editor .de-end:has(.de-end-m) { flex: none; }
+/* the hydrant end, alone on a line beside «Lösen», may not fit either («TLF → ✓ Hydrant 2 m»,
+   a line drawn from the vehicle to the hydrant, ran 5px under the button): its metres go under
+   «→ ✓ Hydrant», which stays one group (.de-end-w) – only a column too narrow for it
+   ellipsizes the word («Hydrante» beside «Libérer» once left → ✓ alone on a line) */
+.draw-editor .de-end--hyd { flex-wrap: wrap; row-gap: 0; }
+.draw-editor .de-end-w { display: inline-flex; align-items: center; gap: var(--sp-1); min-width: 0; }
+.draw-editor .de-end-w > span:not(.de-ends-to) { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* (the note's «Ziel anzeigen» is THE button, <Button> — a framed button at the note's end since
    28.09.2026, owner pick A; it was an underlined blue word, 12px, a hyperlink in a command app) */
 /* (the detach, «Verbindung lösen», is a body act at the control edge – 08-toasts · `.de-act`; it

@@ -201,4 +201,25 @@ export async function settled(page: Page) {
     if (sync && sync.getAttribute('data-sync') !== 'synced') return false
     return [...document.images].every((img) => img.complete)
   }, undefined, { polling: POLL_MS, timeout: 30_000 })
+  await freshLayers(page)
+}
+
+/** Draws every `will-change: transform` layer again before the shot. Chromium keeps the FIRST
+ *  drawing of such a layer while the page does not change, and that first drawing differs from run
+ *  to run although the DOM is the same to 1/1000 px: the Plan board (09-whiteboard · .wb-board)
+ *  came out in one of two pictures, its caption «erledigt Sanität eingetroffen» 1 px apart
+ *  (9 of 264 local runs, CI run 45962484082). A layer drawn again once the page stands is the same
+ *  every time (145 of 145). `will-change: auto` for two frames drops the layer; putting it back
+ *  makes a new one. A state with no such layer is untouched. */
+async function freshLayers(page: Page) {
+  await page.evaluate(async () => {
+    const layers = [...document.querySelectorAll<HTMLElement>('*')].filter((el) => getComputedStyle(el).willChange.includes('transform'))
+    if (!layers.length) return
+    const twoFrames = () => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)))
+    const inline = layers.map((el) => el.style.willChange)
+    for (const el of layers) el.style.willChange = 'auto'
+    await twoFrames()
+    layers.forEach((el, i) => { el.style.willChange = inline[i] })
+    await twoFrames()
+  })
 }

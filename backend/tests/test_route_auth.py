@@ -96,6 +96,7 @@ PUBLIC: dict[tuple[str, str], str] = {
     ("POST", "/api/diag/boot"): "the launch timing line: reads nothing back",
     ("POST", "/api/hit"): "the visit counter: closed list, always 204",
     ("OPTIONS", "/api/hit"): "its preflight: the landing page posts from another origin",
+    ("GET", "/api/demo/wake"): "the demo wake page's readiness poll: one boolean, 404 off the demo",
     ("GET", "/api/weather/radar/{key}.png"): "one MeteoSwiss radar frame, fetched by <img> with no header",
     # --- not API routes: nothing to hang a dependency on, so each one stands here
     ("GET", "/openapi.json"): "the API contract, also committed as docs/openapi.json (settings.api_docs_enabled)",

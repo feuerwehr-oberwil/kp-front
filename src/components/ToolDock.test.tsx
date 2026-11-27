@@ -90,4 +90,22 @@ describe('ToolDock', () => {
     }
     vi.unstubAllGlobals()
   })
+
+  // Üben feedback 27.11.2026: a standing Meldeleiste lay on the column's first tile – the lane ends
+  // left of the column by its width (08-toasts), so the column says how wide it is while it stands
+  it('tells the message lane how wide the column beside the rail is, and takes it back', () => {
+    vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} })
+    vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(92)
+    const root = document.documentElement.style
+    const { unmount } = render(<><aside className="vrail rail tool-rail" /><ToolDock groups={lineDock()} /></>)
+    expect(root.getPropertyValue('--dock-w')).toBe('92px')
+    unmount()
+    expect(root.getPropertyValue('--dock-w')).toBe('')
+    // the phone's dock is a bottom bar, nowhere near the lane
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    render(<><aside className="vrail rail tool-rail" /><ToolDock groups={lineDock()} /></>)
+    expect(root.getPropertyValue('--dock-w')).toBe('')
+    vi.restoreAllMocks()
+    vi.unstubAllGlobals()
+  })
 })

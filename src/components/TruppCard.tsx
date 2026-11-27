@@ -735,7 +735,7 @@ export const TruppCard = memo(function TruppCard({
    * afterthought»): «drin 30:44 · ≈ 69 bar ⌄» inside, «drin 30:44 · 210 bar ⌄» where
    * the line carries the measured Druck, «drin 12:10 ⌄» on an OUT card.
    *  · «drin» is the one word, `quiet` (dim ink, regular), so the values read first; it makes the
-   *    figure a duration, so the value drops its «min» / «h» (`fmtElapsedFull`, not `fmtDuration`).
+   *    figure a duration, so the value drops its «min» / «h» (`fmtElapsedFull`, not `fmtElapsedWithUnit`).
    *  · the Schätzung drops its word: the «≈» says it (it was «Schätzung ≈ 69 bar» from 29.09.2026
    *    to 27.11.2026). Its Planungshilfe caveat stays its `title`, and the opened Verlauf's panel
    *    and the Alarmdruck note keep the word «Schätzung».
@@ -743,8 +743,10 @@ export const TruppCard = memo(function TruppCard({
    *    owner pick C18, 05.11.2026): the head already says «DRAUSSEN SEIT», and the exit Druck
    *    stands in the Verlauf. Only out of a real run: a crew stood down at the door was never
    *    «drin», and keeps its Druck as a Bereit card does.
-   * Only a viewer's card inside can carry all three («drin · 210 bar · ≈ 69 bar»); where that is
-   * too wide the line still wraps between its items (`.metaLine`), never inside a value. */
+   *  · a VIEWER's card inside says the same as an editor's foot, «drin 53:39 · ≈ 0 bar» (owner pick
+   *    B, Üben feedback 27.11.2026: with the measured «210 bar» too it wrapped on a tablet). The
+   *    measured Druck stays in the Verlauf; only with no Schätzung does it stand on the line.
+   * Where the line is still too wide it wraps between its items (`.metaLine`), never inside a value. */
   const outWords = out && !neverDeployed
   // the line at the board's now — drawn by a leaf on the ticker, as its Einsatzzeit and Schätzung run
   type SockelItem = { key: string; label?: string; value: string; alarm?: boolean; quiet?: boolean; title?: string }
@@ -754,7 +756,7 @@ export const TruppCard = memo(function TruppCard({
       ...(monitored && t.entryTime
         // a DURATION by its word: «23:39» alone, read at 23:58, was taken for a clock time (staging r4)
         ? [{ key: 'elapsed', label: az.footInside, value: fmtElapsedFull(tl.elapsedSec), quiet: true }] : []),
-      ...(monitored && !(canEdit && inField) && !outWords
+      ...(monitored && !(canEdit && inField) && !outWords && !estimate
         ? [{ key: 'bar', value: `${live.currentBar} bar`, alarm: pressureLow }] : []),
       ...(estimate
         ? [{
@@ -1029,9 +1031,10 @@ export const TruppCard = memo(function TruppCard({
             · the Einsatzzeit, because it is the second clock of this card;
             · the geschätzter Druck, because it is safety-adjacent and must never be a tap away
               (mock 02 kept it as a chip for exactly this reason — here its «≈» names it);
-            · the aktueller Druck, but ONLY where nothing else on the card shows it (a viewer, or
-              a Trupp at the door) — where the ± block above is live, the number is already there
-              in 19px mono and saying it twice on one card is what this pass exists to stop.
+            · the aktueller Druck, but ONLY where nothing else on the card shows it (a viewer's
+              card with no Schätzung, or a Trupp at the door) — where the ± block above is live,
+              the number is already there in 19px mono and saying it twice on one card is what this
+              pass exists to stop; a viewer's «≈» beside it wrapped the line (27.11.2026).
           Behind the tap: the Schätzung's provenance («aus 2 Druckwerten · Stand 18:03»), the
           tiefster Druck, and the timing rows that were already there.
           ⚠️ The break clock stays OUT of the fold: it is a ticking number, and the one record it

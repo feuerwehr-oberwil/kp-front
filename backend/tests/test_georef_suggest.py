@@ -1,6 +1,6 @@
 """Automatic plan alignment: geometry, compound registration and the proposal contract.
 
-Private-sheet replay and search comparisons live under docs/planning/auto-alignment/.
+Replays on private station sheets and search comparisons stay outside this repository.
 The synthetic compound regression exercises the neighbouring-row failure without bundling
 station geometry. The remaining tests cover parsing, coordinate conversion and the context floor.
 

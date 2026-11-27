@@ -8,6 +8,9 @@ export class IncidentSelection {
   current: WorkspaceSync | null = null
   generation = 0
   private pending: { engine: WorkspaceSync; loaded: ReturnType<WorkspaceSync['init']> } | null = null
+  /** The Einsatz the latest open in flight is for – a takeover's reopen of another one
+   *  (App · reopenTakenOver) must not cancel it. */
+  opening: string | null = null
 
   private cancelPending() {
     this.pending?.engine.dispose()
@@ -25,11 +28,16 @@ export class IncidentSelection {
     const generation = ++this.generation
     const previous = this.current
     const stillOpening = () => generation === this.generation && this.current === previous
-    if (this.pending?.engine.incidentId !== id) this.cancelPending()
+    // a candidate whose tab lost the lock meanwhile is not joined: it would never write
+    if (this.pending?.engine.incidentId !== id || this.pending.engine.lockLost) this.cancelPending()
+    this.opening = id
     try {
       const incident = meta ?? await getIncident(id)
       if (!stillOpening()) return null
-      if (previous?.incidentId === id) return { meta: incident, workspace: previous.workspace, rev: previous.rev }
+      // The Einsatz already open answers from its engine – unless that engine's tab followed
+      // another one (WorkspaceSync · lockLost): it writes nothing again, so a tab that took the
+      // edit lock over opens afresh from the cache.
+      if (previous?.incidentId === id && !previous.lockLost) return { meta: incident, workspace: previous.workspace, rev: previous.rev }
 
       // A second tap on the same Einsatz joins its load. Two candidates for one id
       // would both write the same cache, including on teardown of the losing request.
@@ -62,7 +70,7 @@ export class IncidentSelection {
       if (stillOpening()) throw error
       return null
     } finally {
-      if (generation === this.generation) this.cancelPending()
+      if (generation === this.generation) { this.opening = null; this.cancelPending() }
     }
   }
 }

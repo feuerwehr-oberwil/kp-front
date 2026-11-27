@@ -125,8 +125,6 @@ export interface TwinTeamActions {
    *  (lib/truppTrails). Absent ⇒ the row is not offered, like every other writer here. */
   removeWithTrail?: () => void
   showTrupp?: (truppId: string) => void
-  /** pan the OTHER surface to the original — the MIRROR's one extra door, absent on a native */
-  toOriginal?: () => void
   toggleTrail?: () => void
   /** let go of the Leitung this Trupp is on (Karte, 15.09.). Offered only where a `line` badge is
    *  also drawn — a surface that does not show the join does not offer to break it. */
@@ -141,14 +139,11 @@ export interface TwinTeamActions {
  *  gestures never see a press on the card). */
 const DOCK_HOST = '.whiteboard, .maplibregl-map'
 
-export function TwinTeamPill({ name, time, color, originalLabel, raus, truppId, floor, tone = 'idle', trailCount, trailShown, trupps, line, acts, hit, renameRef, renaming: renamingProp, onRenaming, onClose }: {
+export function TwinTeamPill({ name, time, color, raus, truppId, floor, tone = 'idle', trailCount, trailShown, trupps, line, acts, hit, renameRef, renaming: renamingProp, onRenaming, onClose }: {
   name: string
   time?: string
   /** the colour actually painted (the source's own, or the palette's first) */
   color: string
-  /** «Auf Plan zeigen» / «Auf Karte zeigen» — which surface the original lives on. Mirrors
-   *  only: on a native surface the marker IS the original, so there is nowhere to send you. */
-  originalLabel?: string
   raus: boolean
   truppId?: string
   /** The storey this Trupp is working on — the Gebäude tile its chip sits on, or the `floor` its
@@ -216,7 +211,6 @@ export function TwinTeamPill({ name, time, color, originalLabel, raus, truppId, 
   const newTrupp = acts?.newTrupp
   const showTrupp = acts?.showTrupp
   const mark = acts?.mark
-  const toOriginal = acts?.toOriginal
   const toggleTrail = acts?.toggleTrail
   const unlink = acts?.unlink
   const undock = acts?.undock
@@ -227,7 +221,7 @@ export function TwinTeamPill({ name, time, color, originalLabel, raus, truppId, 
      joined, also always show the unjoin button»; on the bar, not the card: at 390 px a framed
      «Lösen» on the card cut the name to «Ko…»), then «Mehr». «Mehr»
      holds, as glyph + full word: Atemschutz-Trupp (change the link, linked only) ·
-     Bearbeiten (rename, loose only) · Spuren ✓ · the original (mirrors) · the delete rows, last.
+     Bearbeiten (rename, loose only) · Spuren ✓ · the delete rows, last.
      Same on phone and tablet; one row at 390 px in every state. «Beschriftung» (the rails' setting)
      only decides the LOOK: on, every button wears its word under the glyph; off, the same buttons
      are bare glyphs. The `aria-label`s carry the full words either way. */
@@ -257,7 +251,6 @@ export function TwinTeamPill({ name, time, color, originalLabel, raus, truppId, 
     // per-team visibility toggle, NOT deletion. Its name is the CONTROL («Spuren») with the menu's
     // ✓ while shown, never the next action (duck sweep ELEM.5)
     ...(trailCount > 0 && toggleTrail ? [{ label: <>{lead('eye')}<MenuPick label={W.trails} on={trailShown} /></>, onClick: toggleTrail }] : []),
-    ...(toOriginal && originalLabel ? [{ label: <>{lead('external')}<span>{originalLabel}</span></>, onClick: toOriginal }] : []),
     /* ONE trash (18.09.2026), always last: the marker alone (its trail stays behind as a ghost the
        incident owns, lib/truppTrails), and where it carries a Spur also the trail alone or both –
        two danger rows that each confirm on the surface before anything is destroyed. */

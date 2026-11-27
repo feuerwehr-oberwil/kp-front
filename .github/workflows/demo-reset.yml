@@ -2,15 +2,16 @@ name: Demo reset
 
 # Keeps the public demo (kp-front-demo on Railway) clean: wipes incident data + roster,
 # re-ensures the two demo accounts, and reloads the synthetic Musterdorf dataset.
-# The demo PERSISTS edits between resets – the reliable reset is the in-process cron
-# (DEMO_RESET_CRON on Railway, `0 0,12 * * *` as of 17.11.2026: midnight and noon Europe/Zurich,
-# as the site FAQ and the app's welcome dialog say). This workflow runs once daily as the
-# belt-and-suspenders full reload (config/geodata/objects too, which the in-process job skips).
-# On demand via the Actions tab. No-op if the demo secrets are unset.
+# The demo resets itself in-process: on every boot, i.e. on every wake from Railway «Serverless»
+# sleep (backend app/demo_sleep · reset_on_boot), and on DEMO_RESET_CRON (`0 0,12 * * *`) while
+# it is in use. This workflow is the FULL reload (config/geodata/objects/Checklisten too, which
+# the in-process reset skips): run it by hand from the Actions tab after a demo-data change.
+#
+# ⚠️ No `schedule:` any more (27.11.2026). A daily run woke the sleeping demo every night for
+# nothing – the demo sleeps when nobody uses it, and nothing may ping it on a timer.
+# No-op if the demo secrets are unset.
 
 on:
-  schedule:
-    - cron: "0 23 * * *"   # once daily ≈ midnight Europe/Zurich (23:00 UTC; ±1h across DST)
   workflow_dispatch: {}
 
 # The job reads the repository and nothing else: it talks to the demo with its own secrets,

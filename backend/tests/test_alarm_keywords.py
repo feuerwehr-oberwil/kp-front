@@ -5,7 +5,7 @@ Both products read the same dispatch system and had independently grown the same
 literals in their own source. Nothing compared them, so `GASLECK` existed in one and not the
 other and no test anywhere could have said so.
 
-There is no shared package and there will not be one: `docs/RUNNING-BOTH.md` promises
+There is no shared package and there will not be one: kp-rueck's `docs/RUNNING-BOTH.md` promises
 self-hosters separate databases, separate images, separate releases, no shared library and no
 runtime coupling. So the copies stay copies: both files are listed in `shared/MANIFEST.json`
 with the telemetry sanitiser and the roster contract, and `test_shared_files.py` holds this

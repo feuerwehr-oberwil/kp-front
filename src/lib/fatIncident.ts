@@ -25,6 +25,7 @@ import type { TacticalObject } from './tacticalObjects'
 import type { Saved } from './workspace'
 import type { ReplayEvent } from './replay'
 import type { ChecklistState } from './checklists'
+import { M_PER_DEG_LAT, mPerDegLng } from './metresPerDegree'
 
 export interface FatOptions {
   /** × the busiest real incident's standing content (default 1) */
@@ -131,8 +132,8 @@ export function fatIncident(opts: FatOptions = {}): FatIncident {
   // the spread of the Schadenplatz grows with scale: ten times the content is a bigger area,
   // not ten times the density on one building
   const spreadM = 120 * Math.sqrt(scale)
-  const mLng = 1 / (111_320 * Math.cos((center[1] * Math.PI) / 180))
-  const mLat = 1 / 110_540
+  const mLng = 1 / mPerDegLng(center[1])
+  const mLat = 1 / M_PER_DEG_LAT
   const near = (m = spreadM): LngLat => [center[0] + (r.next() - 0.5) * 2 * m * mLng, center[1] + (r.next() - 0.5) * 2 * m * mLat]
   const walk = (from: LngLat, n: number, stepM: number): LngLat[] => {
     const out: LngLat[] = [from]

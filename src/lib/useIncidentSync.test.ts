@@ -55,7 +55,7 @@ function mount(sync: any, opts?: { alarmUrgent?: boolean; appendJournal?: (row: 
     ({ bp }) => useIncidentSync({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       sync: sync as any, readOnly: false, incidentId: 'i1', buildPayload: bp,
-      applyWorkspace: vi.fn(), flushEvents: vi.fn(), flushEventsBeacon: vi.fn(),
+      applyWorkspace: vi.fn(), echoOfPull: () => false, flushEvents: vi.fn(), flushEventsBeacon: vi.fn(),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       appendJournal: opts?.appendJournal as any,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -148,7 +148,7 @@ describe('useIncidentSync — mid-gesture saves', () => {
       ({ bp }) => useIncidentSync({
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         sync: sync as any, readOnly: false, incidentId: 'i1', buildPayload: bp,
-        applyWorkspace: vi.fn(), flushEvents: vi.fn(), flushEventsBeacon: vi.fn(),
+        applyWorkspace: vi.fn(), echoOfPull: () => false, flushEvents: vi.fn(), flushEventsBeacon: vi.fn(),
         gestureOpen: () => open.current,
       }),
       { initialProps: { bp: () => blob(0) } },
@@ -395,7 +395,7 @@ describe('useIncidentSync — the answer «only your own saves»', () => {
     renderHook(() => useIncidentSync({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       sync: sync as any, readOnly: false, incidentId: 'i1', buildPayload: () => ({}) as unknown as Saved,
-      applyWorkspace, flushEvents: vi.fn(), flushEventsBeacon: vi.fn(),
+      applyWorkspace, echoOfPull: () => false, flushEvents: vi.fn(), flushEventsBeacon: vi.fn(),
     }))
 
     await vi.advanceTimersByTimeAsync(appConfig.sync.livePollMs)
@@ -463,12 +463,14 @@ describe('useIncidentSync – edit during a conflict merge', () => {
     const save = vi.spyOn(sync, 'save')
     const flushEvents = () => {}
     const flushEventsBeacon = () => {}
+    let merged: Saved | null = null
     const { result, unmount } = renderHook(() => {
       const [ws, setWs] = useState(initial)
       const buildPayload = useCallback(() => ws, [ws])
+      // the guard's contract in small: a build of exactly the merged blob is its echo
       const status = useIncidentSync({
         sync, incidentId: 'i1', readOnly: false, buildPayload,
-        applyWorkspace: (w) => { setWs(w as Saved); return true }, flushEvents, flushEventsBeacon,
+        applyWorkspace: (w) => { merged = w as Saved; setWs(merged) }, echoOfPull: (p) => p === merged, flushEvents, flushEventsBeacon,
       })
       return { ws, setWs, status }
     })
@@ -534,7 +536,7 @@ describe('useIncidentSync — a closed view never spins its poll', () => {
     return renderHook(() => useIncidentSync({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       sync: sync as any, readOnly: true, incidentId: 'i1', buildPayload: () => blob,
-      applyWorkspace: vi.fn(), flushEvents: vi.fn(), flushEventsBeacon: vi.fn(), incidentOpen: false,
+      applyWorkspace: vi.fn(), echoOfPull: () => false, flushEvents: vi.fn(), flushEventsBeacon: vi.fn(), incidentOpen: false,
     }))
   }
 

@@ -20,7 +20,13 @@
 //    (±steppers via useHoldRepeat, the Eintrag hold via useHoldEntry) opt out at the source;
 //  · not a disclosure (`aria-expanded`: the ⓘ InfoToggle and DockInfo, a menu or a card toggle):
 //    a TAP already opens what it explains, and DockInfo's label IS its help text – held, the same
-//    words showed twice (owner, sweep 28.10.2026 #21);
+//    words showed twice (owner, sweep 28.10.2026 #21) …
+//    …EXCEPT one marked `data-holdname`: a panel door that has lost its word to «Beschriftung der
+//    Werkzeugleisten: Aus» (TopBar's Verlauf, the Gebäude-Info and Messungen chips – owner, Üben
+//    feedback 27.11.2026: «Yes, hold names them»). Its glyph does not say what opens, so a hold
+//    names it like any bare button and the release opens nothing; a tap opens at once. The host
+//    sets the mark only while it shows no word – so its key letter or count badge never makes it
+//    «worded» – and the ⓘ doors never carry it;
 //  · touch/pen presses only — the mouse keeps its native hover tooltip …
 //
 // …EXCEPT on `[data-holdexplain]`, which also answers a MOUSE hover with the same bubble (01.09.).
@@ -63,14 +69,17 @@ function labelOf(el: HTMLElement): string | null {
   // rather than a word. An FKS letter chip says «N» — which is a full explanation to somebody who
   // has learned the sheet and nothing at all to anybody else, which is the exact gap this bubble
   // exists to close. A button with a real word still opts out, because it has already answered.
-  if ((el.textContent ?? '').trim() !== '' && !el.hasAttribute('data-holdexplain')) return null
+  //
+  // `data-holdname` is the host's own «I show no word» (a bare panel door, see the header): its
+  // corner letter or count is no word, so the text is not read.
+  if ((el.textContent ?? '').trim() !== '' && !el.hasAttribute('data-holdexplain') && !el.hasAttribute('data-holdname')) return null
   return aria
 }
 
 function eligible(target: EventTarget | null): { el: HTMLElement; label: string } | null {
   if (!(target instanceof Element)) return null
   const el = target.closest<HTMLElement>('button, [role="button"]')
-  if (!el || el.closest('[data-holdaction]') || el.hasAttribute('aria-expanded')) return null
+  if (!el || el.closest('[data-holdaction]') || (el.hasAttribute('aria-expanded') && !el.hasAttribute('data-holdname'))) return null
   const label = labelOf(el)
   return label ? { el, label } : null
 }

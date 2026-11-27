@@ -58,6 +58,10 @@ class TokenBlocklist:
         while True:
             try:
                 await asyncio.sleep(self._cleanup_interval)
+                from ..demo_sleep import idle
+
+                if idle():  # an idle public demo makes no traffic (app/demo_sleep)
+                    continue
                 await self.cleanup_expired()
             except asyncio.CancelledError:
                 break

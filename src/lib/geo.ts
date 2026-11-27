@@ -1,17 +1,17 @@
 import type { Drawing, LngLat } from '../types'
 import { appConfig } from '../config/appConfig'
 import { formatLocale } from './format'
+import { M_PER_DEG_EQUATOR, M_PER_DEG_LAT, mPerDegLng } from './metresPerDegree'
 
-const M_PER_LAT = 110540
 
 export function circlePolygon(center: LngLat, radiusM: number, n = 96): number[][][] {
-  const mPerLon = 111320 * Math.cos((center[1] * Math.PI) / 180)
+  const mPerLon = mPerDegLng(center[1])
   const ring: number[][] = []
   for (let i = 0; i <= n; i++) {
     const a = (2 * Math.PI * i) / n
     ring.push([
       center[0] + (radiusM * Math.cos(a)) / mPerLon,
-      center[1] + (radiusM * Math.sin(a)) / M_PER_LAT,
+      center[1] + (radiusM * Math.sin(a)) / M_PER_DEG_LAT,
     ])
   }
   return [ring]
@@ -118,7 +118,7 @@ export function pointAlongPath(coords: LngLat[], d: number): LngLat {
  *  the inverse of `pointAlongPath`, for a pump dragged beside its line. The nearest point is
  *  found in a local flat projection (fine at one incident's scale); the distance is geodesic. */
 export function distanceAlongPath(coords: LngLat[], p: LngLat): number {
-  const kx = Math.cos((p[1] * Math.PI) / 180) * 111320, ky = M_PER_LAT
+  const kx = Math.cos((p[1] * Math.PI) / 180) * M_PER_DEG_EQUATOR, ky = M_PER_DEG_LAT
   let best = Infinity, bestD = 0, acc = 0
   for (let i = 1; i < coords.length; i++) {
     const a = coords[i - 1], b = coords[i]

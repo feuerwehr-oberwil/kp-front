@@ -45,6 +45,22 @@
     "home": "A la pagina da partenza",
     "demo": "Avrir la demo"
   },
+  "wake": {
+    "pageTitle": "La demo vegn startada – KP Front",
+    "title": "La demo vegn startada …",
+    "ready": "Pront – la demo vegn averta …",
+    "steps": [
+      "Il server vegn startà",
+      "La banca da datas vegn dasdada",
+      "L’exercizi Musterdorf vegn chargà"
+    ],
+    "note": "La demo dorma, sche nagin na la dovra. La partenza dura per ordinari 10–30 secundas.",
+    "failTitle": "La demo na starta momentan betg",
+    "failText": "Suenter 90 secundas n’ha ella anc betg respundì. Per ordinari gida ina segunda emprova.",
+    "retry": "Empruvar anc ina giada",
+    "direct": "Directamain a la demo",
+    "noscript": "La demo dorma, sche nagin na la dovra. L’emprim access po durar fin a 30 secundas."
+  },
   "hero": {
     "eyebrow": "Open source&nbsp;· gratuit&nbsp;· Svizra",
     "h1": "Direcziun digitala d’acziun per ils pumpiers.",
@@ -284,7 +300,7 @@
       },
       {
         "q": "Co cumenzar?",
-        "a": "Cun la <a href=\"https://demo.kp-front.ch\" target=\"_blank\" rel=\"noopener\">demo</a>,\n          senza registraziun – a Musterdorf arda gia, e tut ils visitaders partan la medema\n          intervenziun (ella cumenza duas giadas per di da nov, a las 00:00 ed a las 12:00, zona d’urari Europe/Zurich). Suenter testar durant in exercizi. Sche l’applicaziun cunvegna, maina\n          l’<a href=\"https://github.com/feuerwehr-oberwil/kp-front/blob/main/docs/SETUP.md\" target=\"_blank\" rel=\"noopener\">instrucziun d’installaziun</a> a l’atgna instanza."
+        "a": "Cun la <a href=\"https://kp-front.ch/rm/demo/\" target=\"_blank\" rel=\"noopener\">demo</a>,\n          senza registraziun – a Musterdorf arda gia, e tut ils visitaders partan la medema\n          intervenziun (ella cumenza da nov suenter mintga pausa, uschiglio a las 00:00 ed a las 12:00, zona d’urari Europe/Zurich). Suenter testar durant in exercizi. Sche l’applicaziun cunvegna, maina\n          l’<a href=\"https://github.com/feuerwehr-oberwil/kp-front/blob/main/docs/SETUP.md\" target=\"_blank\" rel=\"noopener\">instrucziun d’installaziun</a> a l’atgna instanza."
       }
     ]
   },

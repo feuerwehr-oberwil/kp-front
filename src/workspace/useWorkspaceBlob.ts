@@ -25,8 +25,11 @@ import { boardViewOf } from '../lib/useObjectStore'
 import { onNewerBuildMissing, requireNewerBuild, updateForNewerData } from '../lib/swUpdate'
 import type { VehicleOverrides } from '../lib/useVehicleLayer'
 import { type WorkspaceGate, type PlanScales, type ReportMeta, type IncidentSettings, type Saved, type EverySavedKey, type InitialState, type LiveSlices, gateReport, sanitizeWorkspace, deriveInitial, applyInitialState, WORKSPACE_SCHEMA_VERSION } from '../lib/workspace'
-import type { LayerDef, BuildingDoc, Trupp, AttendanceState, MittelEntry, Shift, ShiftBand, CameraView, ReportAttachment, BoardDoc } from '../types'
+import type { LayerDef, BuildingDoc, Trupp, AttendanceState, MittelEntry, Shift, ShiftBand, CameraView, ReportAttachment, BoardDoc, TimelineEvent } from '../types'
 import type { ReportSignature } from '../lib/reportSignature'
+
+/** the same Verlauf rows, by id and order — what the blob's echo of them changes on */
+const sameRowIds = (a: readonly TimelineEvent[], b: readonly TimelineEvent[]) => a.length === b.length && a.every((r, i) => r.id === b[i]?.id)
 
 export interface UseWorkspaceBlobInputs {
   bootGate: WorkspaceGate
@@ -144,8 +147,8 @@ export function useWorkspaceBlob({
   })
 
   // Write an authoritative workspace (conflict take-server or live-follow poll) into App's
-  // state slices. useIncidentSync wraps this with its skip-save guard and drives it from the
-  // poll/auto-merge paths; the state lives here, so the writer does too.
+  // state slices. useIncidentSync drives it from the poll/auto-merge paths and asks `echoOfPull`
+  // before it saves; the state lives here, so the writer does too.
   // …reached through a ref because the Anwesenheit's history is created much further down (it
   // needs the roster and the attendance actions), while this merge path has to exist up here.
   // Same shape as `planHist` below.
@@ -167,20 +170,24 @@ export function useWorkspaceBlob({
     recent, building, vehicleOverrides, checklists, trupps: allTrupps, attendance, mittel, shifts, bands, cameraViews, trails,
     planScale, reportMeta, attachments, reportSignatures, settings: incidentSettings, planBindings, pickedObjectId, intakeReviewedAt,
   }), [recent, building, vehicleOverrides, checklists, allTrupps, attendance, mittel, shifts, bands, cameraViews, trails, planScale, reportMeta, attachments, reportSignatures, incidentSettings, planBindings, pickedObjectId, intakeReviewedAt])
-  /** What the save last built the blob from (useIncidentSync builds on every change): the slices,
-   *  the store's objects and the Verlauf echo — the journal store swaps that exactly when the ids
-   *  of the blob's legacy rows change (journalStore · ingestLegacy). Committed state. */
-  const built = useRef({ slices, objects, timeline: journal.blobTimeline })
-  /** …and what the last merge handed out on top of it, until the save builds again — the state a
-   *  second merge before that render is written over */
-  const handed = useRef({ slices, timeline: journal.blobTimeline })
+  /** The slices the last merge handed out, until the save builds again — the state a second merge
+   *  before that render is written over */
+  const handed = useRef({ slices })
+  /** ⚠️ THE ECHO GUARD's memory: every input exactly as the last pull handed it in — a record the
+   *  pull did not change keeps its live identity (lib/workspace · shareLive). The next build is an
+   *  echo of the pull (`echoOfPull`) only when each input IS that; a tap rendered with the pull
+   *  (folded into a store that already held it), an async write landing in that render, or a
+   *  re-pick back to the old value makes it a local edit, and it is saved. Spent by that build.
+   *  Replaces «skip the next save», which such a tap spent on itself. */
+  const pulled = useRef<{ slices: typeof slices; objects: TacticalObject[]; timeline: TimelineEvent[] } | null>(null)
+  /** the Plan the last build showed — a pull never moves it */
+  const builtPlanId = useRef(activePlanId)
+  /** the last build that was an echo of a pull — what `echoOfPull` answers for */
+  const echoBuild = useRef<Saved | null>(null)
   /** the Ebenen as this device last remembered them (below) */
   const rememberedLayers = useRef(layers)
-  /** Write `ws` into the slices. Returns whether the blob will be built from anything other than
-   *  what the save last built — false means no save effect follows, and useIncidentSync · hydrate
-   *  must not arm its echo guard. Measured against the committed build, so two merges in one batch
-   *  that end where they started answer false. */
-  const applyWorkspace = useCallback((ws: Workspace): boolean => {
+  /** Write `ws` into the slices, and remember what it handed in (`pulled`). */
+  const applyWorkspace = useCallback((ws: Workspace) => {
     const gate = sanitizeWorkspace(ws)
     reportGate(gate)
     syncedLayerState.current = gate.ws?.layerState ?? []
@@ -249,12 +256,8 @@ export function useWorkspaceBlob({
     setSelectedId((id) => (id && next.doc.entities.some((e) => e.id === id) ? id : null))
     setSelectedDrawingId((id) => (id && next.doc.drawings.some((d) => d.id === id) ? id : null))
     setSelectedDrawIds((ids) => ids.filter((id) => next.doc.drawings.some((d) => d.id === id)))
-    const echo = handed.current.timeline
-    const timeline = next.timeline.length !== echo.length || next.timeline.some((r, i) => r.id !== echo[i]?.id) ? next.timeline : echo
-    handed.current = { slices: held, timeline }
-    const b = built.current
-    return next.objects !== b.objects || timeline !== b.timeline
-      || (Object.keys(b.slices) as (keyof typeof b.slices)[]).some((k) => held[k] !== b.slices[k])
+    handed.current = { slices: held }
+    pulled.current = { slices: held, objects: next.objects, timeline: next.timeline }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [incidentMeta.id, incidentMeta.type])
 
@@ -270,12 +273,19 @@ export function useWorkspaceBlob({
      * every device can resolve, and is part of the record like any placed object. */
     const persisted = objects.filter((o) => o.entity?.kind !== 'photo' || !!o.entity.photoOf)
     const views = viewsOf(persisted)
-    built.current = { slices, objects, timeline: journal.blobTimeline }
-    handed.current = { slices, timeline: journal.blobTimeline }
+    // an echo is exactly what the pull handed in (see `pulled`) — the Verlauf echo by its row ids,
+    // because the journal store hands out its own copy (journalStore · ingestLegacy)
+    const p = pulled.current
+    const echo = p !== null && activePlanId === builtPlanId.current && objects === p.objects
+      && sameRowIds(journal.blobTimeline, p.timeline)
+      && (Object.keys(slices) as (keyof typeof slices)[]).every((k) => slices[k] === p.slices[k])
+    pulled.current = null
+    builtPlanId.current = activePlanId
+    handed.current = { slices }
     // Every `Saved` key is named (EverySavedKey), so a new one that is not written here fails
     // tsc instead of being deleted by this save. Left out: `activeModule` (device-local, this build
     // never writes it) and `weather` (the replay fold's alone).
-    return {
+    const payload: Saved = {
     ...slices,
     objects: persisted,
     entities: views.entities,
@@ -288,7 +298,12 @@ export function useWorkspaceBlob({
     timeline: journal.blobTimeline,
     schemaVersion: WORKSPACE_SCHEMA_VERSION,
   } satisfies EverySavedKey<'activeModule' | 'weather'>
+    echoBuild.current = echo ? payload : null
+    return payload
   }, [objects, journal.blobTimeline, activePlanId, slices])
+  /** Whether `payload` (a `buildPayload` result) is built from nothing but what pulls handed in —
+   *  the one save useIncidentSync skips. Asked about the build just made. */
+  const echoOfPull = useCallback((payload: Saved) => payload === echoBuild.current, [])
 
   // …and they are remembered here instead, per incident, on this device only. Written on every
   // change (not just on a deliberate toggle) so the set derived at boot — including the
@@ -297,5 +312,5 @@ export function useWorkspaceBlob({
     rememberedLayers.current = layers
     saveLayerPrefs(incidentMeta.id, layers.map((l) => ({ id: l.id, visible: l.visible, opacity: l.opacity })))
   }, [layers, incidentMeta.id])
-  return { buildPayload, applyWorkspace, ghostReseedRef, sliceRebase }
+  return { buildPayload, applyWorkspace, echoOfPull, ghostReseedRef, sliceRebase }
 }

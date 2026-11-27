@@ -514,8 +514,15 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     the sheet's head. A PLACEMENT MODE (any armed map or plan tool, Messen, the Passung, the
     Karte's Punkt setzen / Gefahrgut) calls `usePlacementLane(active)` (lib/toastLane → `<html
     data-placing>`), which bounds the strip so the lane under it stays near the head; a new mode
-    calls the hook, it never adds a selector to a list. On the Karte the lane also clears the
-    running-Einsatz strip. The Karte's «Auf die Karte tippen …» is a `MapHint` in the foot lane
+    calls the hook, it never adds a selector to a list. While an armed tool's column stands beside
+    the tool rail (tablet, laptop – it stands level with the rail's top, in the lane's band), the
+    lane – Meldeleiste, toasts, the Plan's «in der Nähe» banner – ends 24px left of it and never
+    moves it (ToolDock · `--dock-w`, 08-toasts; owner, Üben feedback 27.11.2026: the strip lay on
+    «Freihand»); where the centred strip already clears it, nothing moves. The lane keeps a 220px
+    floor, and a strip or toast lane of 440px or less takes the phone's rows: where the floor binds
+    (an expanded rail on a window under ~650–800px) an unreadable alert would be worse, so only
+    there it still reaches onto the column's edge. On the Karte the lane
+    also clears the running-Einsatz strip. The Karte's «Auf die Karte tippen …» is a `MapHint` in the foot lane
     (components/karte/KarteApp), not a toast. No Meldeleiste row has a left edge (29.09.2026: the alarm's red
     bar first, then amber / blue / grey): a row's tone is its leading glyph's colour, so every
     `Meldung` carries an `icon`. A row TITLE whose way in is the same
@@ -706,7 +713,7 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     broken, act now; grey = normal status and in-progress. **Blue means «chosen» and nothing else**
     (style sweep T2, owner pick A, 15.11.2026): a filled `--sel` or a `--sel-wash` marks the
     SELECTED thing (and the «open/armed» wash). A text link is ink (an `<a>` keeps its underline),
-    a text action is the neutral `<Button>` or a `.row-go` row («Alle zeigen», «Zum Original»), a
+    a text action is the neutral `<Button>` or a `.row-go` row («Alle zeigen»), a
     count is `--ink-dim`, a decorative glyph or bullet `--ink-dim`/`--ink-faint`. A drawing's own
     colour (the Messen/Massstab path, the edit handles) is not chrome and keeps its blue.
   - *Text on colour (23.10.2026, sweep G.2/G.4–G.6):* red as TEXT or a glyph is `--red-strong`;
@@ -824,9 +831,7 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     phone `[role=dialog] .ui-sheet-foot > .ip-btn.primary` flexes).
   - *A label never leaves its button* (30.09.2026, owner: «fix this» – a door's label ran out of
     its tile over «Zentrieren»). A tile in a row whose share is fixed (`flex: 1 1 0`) cuts its
-    label with an ellipsis (ContextPanel · `LinkBtn`, `.btn-t` / `.btn-t-cut`), with the whole
-    label as the button's name. A door to the object's original («Zum Original») stands on a row
-    of its own above the symbol panel's foot. A rotation reads in whole degrees; ± from a hand-turned angle snaps to the next
+    label with an ellipsis, with the whole label as the button's name. A rotation reads in whole degrees; ± from a hand-turned angle snaps to the next
     15° mark (`Stepper · snap`).
   - *Text actions (28.09.2026, owner pick A):* no bare blue word as an action. A verb that ends a
     row makes the WHOLE row the button — `.row-go` (13-incident): ink text, the verb in
@@ -1102,7 +1107,10 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     (`useHoldToDrag`); **GUARD 250 → 825 ms** when it takes something away (`lib/nodeHold`: a
     node, «Entsperren», the Notfall tile – nothing shows before 250, it acts at 825). A
     disclosure (`aria-expanded`: the ⓘ, a menu or card toggle) is never hold-explained – its tap
-    already shows what it means, and the same words twice read as a glitch (28.10.2026).
+    already shows what it means, and the same words twice read as a glitch (28.10.2026). The one
+    exception is a panel door that «Beschriftung … Aus» left a bare glyph (Verlauf, Gebäude-Info,
+    Messungen): its host marks it `data-holdname` while it shows no word, a hold names it and the
+    release opens nothing (owner, Üben feedback 27.11.2026).
   - *The compass hold* (GESTURES.7, owner 17.11.2026): **Einsatz → Einpassen, Frieden →
     Standort.** In an Einsatz a hold on the Lage's compass and on the Plan's north dial
     (`PlanCompass · onFit`, the whole plan) fits the view; on the peacetime Karte it finds

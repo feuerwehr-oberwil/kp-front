@@ -69,7 +69,6 @@ export const anwesenheitCopy: Localizable<Pick<Copy, Keys>> = {
     lockedTitle: 'In a team – report the exit with «Report out» first',
     notInDivera: 'No longer on the personnel list',
     notInSource: 'No longer in {provider}',
-    weg: 'gone',
     rankAll: 'All',
     viewList: 'Present',
     viewPlan: 'Schedule',

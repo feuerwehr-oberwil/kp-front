@@ -2,6 +2,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { stubMatchMedia } from '../test/dom.test-utils'
 import { act, render, screen, cleanup, fireEvent, waitFor, within } from '@testing-library/react'
+import { StrictMode } from 'react'
 import { JournalComposer, type JournalDraft } from './JournalComposer'
 import { clearAllDrafts } from '../lib/draftKeep'
 import { appConfig } from '../config/appConfig'
@@ -916,6 +917,19 @@ describe('the mobile composer caret', () => {
     fireEvent.click(await screen.findByRole('menuitem', { name: /^10 min$/ }))
     await waitFor(() => expect(document.activeElement).toBe(field))
     expect(ring().dataset.state).toBe('1')
+  })
+})
+
+// `pnpm dev` renders under StrictMode: mount → unmount → mount. The unmount cleanup set `alive`
+// to false and nothing set it back, so a picked memo was dropped after its probe (Üben, 27.11.2026).
+describe('JournalComposer · under StrictMode', () => {
+  it('keeps a picked audio file', async () => {
+    URL.createObjectURL = URL.createObjectURL ?? (() => 'blob:memo')
+    URL.revokeObjectURL = URL.revokeObjectURL ?? (() => {})
+    render(<StrictMode><JournalComposer onSubmit={vi.fn()} onClose={vi.fn()} uploadAudio={vi.fn(async () => ({ url: '/media/memo.m4a' }))} /></StrictMode>)
+    const input = document.querySelectorAll('input[type=file]')[1] as HTMLInputElement
+    fireEvent.change(input, { target: { files: [new File(['x'], 'Memo.m4a', { type: 'audio/mp4' })] } })
+    expect(await screen.findByRole('button', { name: 'Aufnahme begann' })).toBeTruthy()
   })
 })
 

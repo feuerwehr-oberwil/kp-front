@@ -122,6 +122,21 @@ the module they concern (`lib/connectivity`, `lib/eventScope`, `lib/jsonEqual`,
   Only the engine whose state holds a save may send its id (never a save made around it, never a
   beacon). Guarded on the real stack by `e2e/live-follow.spec.ts`, with two real engines in
   `lib/liveFollow.twoDevice.test.ts`, and the rule in `backend/tests/test_long_poll.py`.
+- **A long poll that does not hold eases off** (27.11.2026). Both live-follow loops (workspace ·
+  Verlauf) ask with `wait=1`. A visible tab's answer «nothing new» that comes back faster than
+  `pollBackoff · QUICK_EMPTY_ANSWER_MS` (1 s) was not held – a proxy or backend that ignores
+  `wait`. The round then counts as unanswered and the loop eases off (2 → 15 s) instead of asking
+  every 250 ms (the Verlauf asked 119 times per 30 s). A held answer, or one that brings
+  something, keeps the loop hot. Guarded in `lib/useJournal.test.ts`.
+- **A pull is never saved back; an edit that renders with one is** (27.11.2026). Pushed back,
+  a pulled state would wake the other device, and two devices would save each other's pulls for
+  ever. The echo guard is content-matched (`useWorkspaceBlob · pulled`, `echoOfPull`): a pull
+  remembers every input exactly as it handed it in (a record it did not change keeps its live
+  identity), and the save skips the next build only when each input IS that (the Verlauf echo by
+  row ids). A tap, an async write (a plan binding, a seed) or a pick back to the old value that
+  React renders with the pull makes the build differ, and it is saved. It replaced «skip the next save», which such a tap spent on
+  itself: the tap showed on the screen, but was not saved. Guarded by the harness cases
+  «(f) a pull moves only what it changed» (`IncidentWorkspace.harness.writes.test.tsx`).
 - **Sync supports task-scoped collaboration.** Multiple editors may work different domains in the
   same incident (e.g. Atemschutz + Lage drawing); this is not shared-cursor co-editing of the same
   object. Cross-domain concurrent edits must merge. Mergeable collections merge three-way **by
@@ -202,6 +217,48 @@ the module they concern (`lib/connectivity`, `lib/eventScope`, `lib/jsonEqual`,
   (vehicle presence, weather, Divera alarms) is recorded once by the scheduler
   ([`ARCHITECTURE.md`](ARCHITECTURE.md#the-server-observes-devices-never-write-observations)).
   What the devices still observe gets a derived id (below).
+
+## Two tabs
+
+Two tabs of one browser on one Einsatz share its cache slot. Only the tab that holds the Einsatz's
+edit lock (`lib/tabLock`, Web Locks) writes for it; the other one reads and shows, read-only. The
+lock's answers reach the writers through `TabLockAnswers`, one per tab:
+
+1. **A tab that does not hold the lock writes nothing** for that Einsatz: no cache write, no PUT, no
+   beacon, no media upload and no receipt retired (`WorkspaceSync · followed`, `useMediaQueue`).
+   Only a confirmed answer stops a writer, and nothing ever waits for one: until the lock has
+   answered, a tab writes exactly as before. «Confirmed» means the browser names the holder: after
+   a try that was not granted the tab asks `navigator.locks.query()`, and only a holder whose
+   `clientId` is another document's publishes «another tab holds it». This document holds it
+   itself (a lock restarted while its old request is still being released), nobody holds it any
+   more, or the browser cannot say (no `query`, no `clientId`, an error) – nothing is published. A tab opening behind the holder is stopped in time
+   because its first cache write is debounced (`CACHE_DEBOUNCE_MS`) and the try-acquire answers
+   in milliseconds once the Einsatz is on screen.
+2. **A tab that takes over starts from the cache as the holder left it.** The engine that followed
+   is never written from again; the App opens the Einsatz afresh (`IncidentSelection.open` with a
+   `lockLost` engine – the normal open: slot, then server), and the view stays read-only until it
+   is in place. An open of another Einsatz already in flight goes first; «Hier bearbeiten» asks again.
+3. **A tab that loses the lock stops at once**: its waiting cache write, its push and its retry
+   are dropped, not flushed – the new holder reads the slot. A media flush starts no further upload.
+   A held lock that the browser takes back is a loss only when the next try says another tab holds
+   it: WebKit also releases the lock of a lone document it suspends (back-forward cache, an iOS
+   app in the background), and then the try is granted and the tab goes on with the same engine.
+
+Without Web Locks, a lock request that rejects, a lock that has not answered yet, or a browser that
+cannot name the holder: a tab writes as if it held the lock. With one tab nothing here changes anything, not even a timing.
+
+The accepted limits (owner, 27.11.2026), none of which one tab can meet: an edit still inside the
+cache debounce (`CACHE_DEBOUNCE_MS`) when the lock is taken away is lost; a cache write or a PUT
+already on its way at that moment can land after the new holder read the slot; a save in flight
+during a handover can bring one deleted thing back once. The opening writes that park or re-home
+another account's cache entry (`loadReadableEntry`, `parkForRole`) run before the lock is asked and
+are not gated, and so do the writes of a tab whose lock has not answered yet: a tab that opens
+behind the holder and writes before its lock answered (the first cache write fires 300 ms after the
+server answered the open, and the lock is asked only once the Einsatz is on screen – a slow first
+render or the previous Einsatz's last PUT can take longer; a closed Einsatz's mount flush of a
+stale draft goes at once), a page-hide, or an open cancelled before it became the active Einsatz.
+The tab that lost the lock stops only once the browser has answered its `query()`, so it writes a
+little longer when that is slow. A capture the operator started before the loss is still enqueued: dropping it would lose the picture, and the holder picks it up from the shared queue.
 
 ## Live but never synced: the Präsentationsmodus (05.11.2026)
 

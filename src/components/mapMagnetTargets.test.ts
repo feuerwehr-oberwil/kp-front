@@ -53,6 +53,23 @@ describe('mapMagnetTargets — where each target is aimed at', () => {
   })
 })
 
+// owner, Üben feedback 27.11.2026: what the map does not show, no end can couple to
+describe('mapMagnetTargets — hidden is no magnet', () => {
+  it('a symbol, a vehicle and a Trupp marker on a switched-off layer are not offered; the shown ones are', () => {
+    const vehicle: Entity = { id: 'v', kind: 'vehicle', layer: 'fahrzeuge', coord: [0.1, 0.1], label: 'TLF' }
+    const entities = [hydrant, vehicle, marker('mA', 'tA', [0.1, 0])]
+    expect(keys(scene({ entities }), DRAFT_SOURCE)).toEqual(['object:h', 'object:v', 'object:mA'])
+    expect(keys(scene({ entities, entityShown: (e) => e.id === 'v' }), DRAFT_SOURCE)).toEqual(['object:v'])
+  })
+
+  it('with the Zeichnungen off, no line end is offered', () => {
+    const other = line('L2', [[0.1, 0.1], [0.2, 0.1]])
+    const s = { drawings: [other], attachmentLines: [{ id: other.id, points: other.coords }] }
+    expect(keys(scene(s), DRAFT_SOURCE)).toEqual(['line:L2:start:0', 'line:L2:end:0'])
+    expect(keys(scene({ ...s, linesShown: false }), DRAFT_SOURCE)).toEqual([])
+  })
+})
+
 describe('mapMagnetTargets — the points of a symbol Ebene (Hydranten)', () => {
   const near = { layer: 'hydranten', id: '0', label: 'Hydrant 1234', at: [0.03, 0] as LngLat } // 30 px off
   const far = { layer: 'hydranten', id: '1', label: 'Hydrant', at: [5, 5] as LngLat }
@@ -69,8 +86,8 @@ describe('mapMagnetTargets — the points of a symbol Ebene (Hydranten)', () => 
   it('a hydrant under a placed symbol is that symbol\'s: only the symbol is offered', () => {
     const placed: Entity = { ...hydrant, coord: near.at }
     expect(keys(scene({ entities: [placed], layerPoints: [[near]] }), DRAFT_SOURCE)).toEqual(['object:h'])
-    // …only while that symbol is drawn: on a switched-off layer it covers nothing
-    expect(keys(scene({ entities: [placed], layerPoints: [[near]], entityShown: () => false }), DRAFT_SOURCE)).toContain('layer:hydranten:0')
+    // …only while that symbol is drawn: on a switched-off layer it covers nothing, and is no magnet
+    expect(keys(scene({ entities: [placed], layerPoints: [[near]], entityShown: () => false }), DRAFT_SOURCE)).toEqual(['layer:hydranten:0'])
   })
 
   it('projects only the points inside the magnet\'s reach — a district\'s hydrants are not walked', () => {

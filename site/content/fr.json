@@ -45,6 +45,22 @@
     "home": "Vers l’accueil",
     "demo": "Ouvrir la démo"
   },
+  "wake": {
+    "pageTitle": "Démarrage de la démo – KP Front",
+    "title": "La démo démarre…",
+    "ready": "Prête – la démo s’ouvre…",
+    "steps": [
+      "Le serveur démarre",
+      "La base de données se réveille",
+      "Chargement de l’exercice Musterdorf"
+    ],
+    "note": "La démo se met en veille quand personne ne l’utilise. Le démarrage prend en général 10 à 30 secondes.",
+    "failTitle": "La démo ne démarre pas pour l’instant",
+    "failText": "Elle n’a pas répondu après 90 secondes. Un deuxième essai suffit en général.",
+    "retry": "Réessayer",
+    "direct": "Ouvrir directement la démo",
+    "noscript": "La démo se met en veille quand personne ne l’utilise. Le premier accès peut prendre jusqu’à 30 secondes."
+  },
   "hero": {
     "eyebrow": "Open source&nbsp;· gratuit&nbsp;· Suisse",
     "h1": "La conduite d’intervention numérique pour les sapeurs-pompiers.",
@@ -284,7 +300,7 @@
       },
       {
         "q": "Comment commencer ?",
-        "a": "Par la <a href=\"https://demo.kp-front.ch\" target=\"_blank\" rel=\"noopener\">démo</a>,\n          sans inscription – à Musterdorf, le feu est déjà déclaré, et tous les visiteurs partagent\n          la même intervention (elle redémarre deux fois par jour, à 00 h 00 et à 12 h 00, fuseau horaire Europe/Zurich). Ensuite, l’essayer à un\n          exercice. Si cela convient, le <a href=\"https://github.com/feuerwehr-oberwil/kp-front/blob/main/docs/SETUP.md\" target=\"_blank\" rel=\"noopener\">guide d’installation</a> mène à votre propre instance."
+        "a": "Par la <a href=\"https://kp-front.ch/fr/demo/\" target=\"_blank\" rel=\"noopener\">démo</a>,\n          sans inscription – à Musterdorf, le feu est déjà déclaré, et tous les visiteurs partagent\n          la même intervention (elle redémarre après chaque pause, sinon à 00 h 00 et à 12 h 00, fuseau horaire Europe/Zurich). Ensuite, l’essayer à un\n          exercice. Si cela convient, le <a href=\"https://github.com/feuerwehr-oberwil/kp-front/blob/main/docs/SETUP.md\" target=\"_blank\" rel=\"noopener\">guide d’installation</a> mène à votre propre instance."
       }
     ]
   },

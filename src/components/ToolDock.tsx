@@ -131,7 +131,12 @@ export function ToolDock({ groups, armed = null }: { groups: DockItem[][]; armed
  *  ⚠️ The rail is found by the shared ToolRail class `.vrail`, never a surface's own hook: it read
  *  the Karte's `.tool-rail`, so on every Plan (`.wb-tools`) it found nothing and the dock stood
  *  centred while the Karte's stood at the top (owner, Üben feedback 27.11.2026). One rail is
- *  mounted at a time – the Karte's and a Plan's never stand together. */
+ *  mounted at a time – the Karte's and a Plan's never stand together.
+ *  …and the message lane keeps clear of the column: at the rail's top it stands in the lane's
+ *  band, and a Meldeleiste lay on its first tile (same feedback). Its measured width goes out as
+ *  `--dock-w` while it stands; the stylesheet adds its inset (`--vrail-w` + 26px, `.wb-dock-map`),
+ *  so the lane tracks an expanded rail, and ends 24px left of it (08-toasts · «an armed tool's
+ *  column»). Released on unmount. */
 function useRailLevel(ref: RefObject<HTMLDivElement | null>, on: boolean): CSSProperties | undefined {
   const [level, setLevel] = useState<CSSProperties>()
   useLayoutEffect(() => {
@@ -149,7 +154,12 @@ function useRailLevel(ref: RefObject<HTMLDivElement | null>, on: boolean): CSSPr
     const ro = new ResizeObserver(read)
     ro.observe(rail)
     window.addEventListener('resize', read)
-    return () => { ro.disconnect(); window.removeEventListener('resize', read) }
+    const root = document.documentElement
+    const width = () => root.style.setProperty('--dock-w', `${dock.offsetWidth}px`)
+    width()
+    const wo = new ResizeObserver(width)
+    wo.observe(dock)
+    return () => { ro.disconnect(); wo.disconnect(); window.removeEventListener('resize', read); root.style.removeProperty('--dock-w') }
   }, [ref, on])
   return level
 }

@@ -28,6 +28,7 @@ import {
   type MediaTarget,
 } from './mediaQueue'
 import type { SyncStatus } from './api/workspaceSync'
+import { tabLockAnswers } from './tabLock'
 import type { PhotoSlot } from './verlauf'
 
 /**
@@ -135,10 +136,11 @@ export function useMediaQueue({ incidentId, readOnly, onUploaded, onRestore }: O
   // Hand every receipt to its row (or Beilage) and retire the ones whose link is acknowledged.
   const replay = useCallback(async () => {
     if (readOnly || !mounted.current) return
+    if (tabLockAnswers.anotherTabHolds(incidentId)) return // never behind the edit lock's holder (lib/tabLock)
     await restored.current
     if (!mounted.current) return
     const receipts = inSlotOrder((await listMediaQueue(incidentId)).filter(isReceipt))
-    if (!mounted.current) return
+    if (!mounted.current || tabLockAnswers.anotherTabHolds(incidentId)) return
     // after a reload the row shows the object URL we minted at restore, not the one the
     // capture was queued with — that is the picture the server URL has to replace
     const done = receipts.filter((r) => cb.current.onUploaded(r.rowId, r.kind, r.url, restoredUrls.current.get(r.id) ?? r.localUrl, r.target, placeOf(r, receipts)))
@@ -160,7 +162,9 @@ export function useMediaQueue({ incidentId, readOnly, onUploaded, onRestore }: O
    *  minute for ever on a link that answers nothing. */
   const run = useCallback(async (options: { retry?: boolean; due?: 'online' | 'reachable' } | undefined, hold: boolean) => {
     if (readOnly) return
-    const { deferredUntil } = await flushMediaQueue(incidentId, uploadMedia, options)
+    if (tabLockAnswers.anotherTabHolds(incidentId)) return // see replay
+    const stop = () => tabLockAnswers.anotherTabHolds(incidentId)
+    const { deferredUntil } = await flushMediaQueue(incidentId, uploadMedia, { ...options, stop })
     if (hold && deferredUntil != null) setEarlyAt(deferredUntil)
     await replay()
     await refresh()

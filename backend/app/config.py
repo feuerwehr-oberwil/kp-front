@@ -318,11 +318,13 @@ class Settings(BaseSettings):
     # GitHub Actions cron delays/skips. DESTRUCTIVE — it wipes ALL incidents and roster rows — so
     # it is fail-closed twice: unset/0 means no job, and demo_reset.reset separately requires
     # KP_DEMO_RESET=1 before opening a DB session. A real station must never set any of them.
-    # The GitHub demo-reset workflow still handles the static config/geodata/objects reload.
+    # The GitHub demo-reset workflow (by hand) handles the static config/geodata/objects reload.
+    # Setting either one also makes this box the public demo (`is_public_demo`): it resets on every
+    # boot and goes quiet when unused so Railway can put it to sleep (app/demo_sleep).
     demo_reset_seconds: int = 0
-    # Preferred over demo_reset_seconds: a crontab expression (Europe/Zurich) for the daily hard
-    # reset, e.g. "0 0 * * *" = every night at 00:00. The demo persists edits DURING the day (like a
-    # real station) and only resets on this schedule. When set, it wins over demo_reset_seconds. Same
+    # Preferred over demo_reset_seconds: a crontab expression (Europe/Zurich) for the timed hard
+    # reset, e.g. "0 0 * * *" = every night at 00:00. On top of the reset on every boot; it fires
+    # only while the demo is in use. When set, it wins over demo_reset_seconds. Same
     # fail-closed contract: empty → no in-process reset job. A real station must never set either.
     demo_reset_cron: str = ""
 

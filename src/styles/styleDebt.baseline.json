@@ -1,8 +1,8 @@
 {
   "src/admin/admin.css": {
-    "fontSize": 87,
-    "weight": 41,
-    "spacing": 235
+    "fontSize": 81,
+    "weight": 40,
+    "spacing": 223
   },
   "src/admin/credentials.css": {
     "fontSize": 4,
@@ -70,7 +70,7 @@
     "weight": 4
   },
   "src/styles/06-contextpanel.css": {
-    "spacing": 12
+    "spacing": 7
   },
   "src/styles/08-toasts.css": {
     "fontSize": 1,

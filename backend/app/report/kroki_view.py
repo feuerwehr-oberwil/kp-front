@@ -9,6 +9,8 @@ import logging
 import math
 from typing import TYPE_CHECKING
 
+from ..geo_util import M_PER_DEG_EQUATOR, M_PER_DEG_LAT
+
 if TYPE_CHECKING:
     from .schema import ReportPayload
 
@@ -45,7 +47,10 @@ def _kroki_fit_max_z(pts: list[tuple[float, float]]) -> float:
         return 21.0
     lngs, lats = [p[0] for p in pts], [p[1] for p in pts]
     lat = (min(lats) + max(lats)) / 2
-    span = max((max(lngs) - min(lngs)) * 111320 * math.cos(math.radians(lat)), (max(lats) - min(lats)) * 110540)
+    span = max(
+        (max(lngs) - min(lngs)) * M_PER_DEG_EQUATOR * math.cos(math.radians(lat)),
+        (max(lats) - min(lats)) * M_PER_DEG_LAT,
+    )
     return 22.0 if span < _KROKI_COMPACT_SPAN_M else 21.0
 
 

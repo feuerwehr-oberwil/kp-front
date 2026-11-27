@@ -34,11 +34,10 @@ import { TruppTeam } from './TruppTeam'
 import s from './Atemschutz.module.css'
 
 /**
- * The phone card's mini sheets (26.09.2026, phone card slim-down — docs/planning/az-card-2026-09-26,
- * Runde 3): ONE short sheet per fact the card shows as a chip. «The card is for reading, a sheet is
- * a form»: the labels the card dropped come back in here, small and grey, one word each, and the
- * Trupp's name stands under the title so it is always clear whose sheet is open over the dimmed
- * board.
+ * The phone card's mini sheets (26.09.2026, phone card slim-down): ONE short sheet per fact the
+ * card shows as a chip. «The card is for reading, a sheet is a form»: the labels the card dropped
+ * come back in here, small and grey, one word each, and the Trupp's name stands under the title so
+ * it is always clear whose sheet is open over the dimmed board.
  *
  * The frame is the `.modal` head with the ✕, grown a grab bar and the push-down-to-close gesture,
  * because on a phone these ARE bottom sheets (lib/overlays · Overlay, `.miniSheet` in

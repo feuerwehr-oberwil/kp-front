@@ -354,9 +354,8 @@ Karte does). Review item 21b split the two acts (`src/lib/objectDone.ts`):
 - **Audited app-wide after the second staging walk-through (2026-09-25).** Every other template
   that takes something off the picture says «entfernt» too: `atemschutz.logRemoved` «Trupp {name}
   entfernt» (the Trupp leaves the board; the Rapport already said «Von Tafel entfernt»),
-  `whiteboard.trailCleared` «{name}: Spur entfernt», `whiteboard.floorRemoved` «Geschoss
-  entfernt» (the ↶ label) plus the storey removal's own new row `floorRemovedLog` /
-  `floorRemovedLogMarks`; and the buttons and confirms before them («Spur entfernen», «Marker und
+  `whiteboard.trailCleared` «{name}: Spur entfernt», the storey removal's own row
+  `floorRemovedLog` / `floorRemovedLogMarks` (also its ↶ label); and the buttons and confirms before them («Spur entfernen», «Marker und
   Spur entfernen», «Geschoss entfernen», «… entfernt oder gekürzt»). Kept on «gelöscht»: records
   that are not on the picture – a Verlauf Eintrag, a Schicht, an Anwesenheits-Zeit, a Mittel
   line, a saved Ansicht, an Übung. `config/copy/removalWords.test.ts` pins the picture's set.

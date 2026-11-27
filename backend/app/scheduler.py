@@ -2,6 +2,9 @@
 
 Started/stopped from the FastAPI lifespan. Only the process holding the deployment-wide
 advisory lock runs jobs; standby replicas retry and take over after leader failure.
+
+On the public demo every job and the leadership probe stand still while nobody uses it, so
+the demo can fall asleep (app/demo_sleep). Both schedulers are a `QuietScheduler` for that.
 """
 
 import asyncio
@@ -18,6 +21,7 @@ from fastapi import FastAPI
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncSession
 
+from . import demo_sleep
 from .config import settings
 from .database import async_session_maker, engine, execute_dml
 from .models import INCIDENT_ACTIVE_STATUSES
@@ -766,9 +770,10 @@ async def _roster_snapshot_tick() -> None:
 
 async def _demo_reset() -> None:
     """DEMO ONLY: wipe + reseed the synthetic Musterdorf incident/roster (see demo_reset.reset).
-    Runs in-process so the public demo self-cleans on an exact cadence, instead of relying on the
-    GitHub Actions cron, which delays/skips scheduled runs (the demo drifted to 2.5 h+ between
-    resets). `reset()` owns its own session + commit, so there's nothing to manage here.
+    The demo resets on every boot (demo_sleep · reset_on_boot), and a boot is every wake after
+    it slept. This timed run is for a demo that stays in use for hours: like every job it only
+    runs while somebody is using it, so it never keeps a sleeping demo awake.
+    `reset()` owns its own session + commit, so there's nothing to manage here.
 
     `wipe_objects=False`: the in-process job never reloads the reference Einsatzobjekte (only the
     GitHub workflow's `scripts/demo-reset.sh` does), so it must NOT delete them — otherwise the
@@ -825,7 +830,7 @@ def _start_scheduler_jobs() -> None:
 
     reset_state()
     jobs: list[str] = []
-    _scheduler = AsyncIOScheduler()
+    _scheduler = demo_sleep.QuietScheduler()
     # ⚠️ EVERY CREDENTIAL-DRIVEN JOB BELOW IS REGISTERED UNCONDITIONALLY, and each no-ops on a
     # tick where its credential is missing. They used to be gated here, at boot, off `settings`
     # — which is exactly why none of these integrations could be connected from a browser: the
@@ -1040,8 +1045,9 @@ def _start_scheduler_jobs() -> None:
         next_run_time=datetime.now(UTC) + timedelta(seconds=90),
     )
     jobs.append(f"object footprints ({FOOTPRINT_TICK_SECONDS}s, idle once every object is asked)")
-    # DEMO daily hard-reset. Prefer a crontab (Europe/Zurich local midnight) so the demo persists
-    # edits during the day and only resets nightly; fall back to the legacy fixed-interval job.
+    # DEMO timed reset, on top of the reset on every boot (demo_sleep · reset_on_boot). Prefer a
+    # crontab (Europe/Zurich, `0 0,12 * * *` on the demo) over the legacy fixed interval. It runs
+    # only while somebody uses the demo – a sleeping demo resets when it next wakes.
     if settings.demo_reset_cron:
         _scheduler.add_job(
             _demo_reset,
@@ -1105,7 +1111,7 @@ def _start_process_jobs() -> None:
         logger.info("Weather layer disabled (WEATHER_LAYER_ENABLED=false)")
         return
     now = datetime.now(UTC)
-    _process_scheduler = AsyncIOScheduler()
+    _process_scheduler = demo_sleep.QuietScheduler()
     _process_scheduler.add_job(
         _weather_radar_round,
         # :01:30, :06:30, … – 90 s after each 5-minute slot (MeteoSwiss publishes ~1 min after it)
@@ -1187,6 +1193,11 @@ async def _leadership_loop() -> None:
     """Monitor the held connection or promote this standby when the lock becomes free."""
     global _scheduler_leader_connection
     while True:
+        if demo_sleep.idle():
+            # The probe and the election are database traffic, and the idle demo must make
+            # none. A connection that died meanwhile is found on the first probe after use.
+            await asyncio.sleep(SCHEDULER_LEADERSHIP_RETRY_SECONDS)
+            continue
         if _scheduler_leader_connection is None:
             try:
                 _scheduler_leader_connection = await _acquire_scheduler_lock()
