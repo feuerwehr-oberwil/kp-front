@@ -319,8 +319,7 @@
 }
 /* A desktop/tablet detail panel owns the right side of the operational surface. Messages are
    centred in the genuinely free map/plan band instead of painting over that panel's fields and
-   actions. The tablet panel has a fluid width; these values mirror 06-contextpanel's `.ctx` plus
-   15-mobile's 601–1024 width.
+   actions. These values mirror 06-contextpanel's `.ctx`: 360px wide on a tablet too (15-mobile).
    ⚠️ The reserve TRACKS the tool rail, because `.ctx` does: its inset is `--vrail-w + 26px`, so
    a frozen mirror here would drift left of the panel by up to 190px the moment the rail is
    expanded or dragged, and the pill would land back on the fields it was moved out of. Read the
@@ -334,8 +333,7 @@
 @media (--tablet) {
   :root:has(.app .ctx) :is(.ml, .toaster) {
     --lane-l: calc(max(16px, env(safe-area-inset-left)) + var(--rail-w) + 16px);
-    --lane-r: calc(max(16px, env(safe-area-inset-right)) + var(--vrail-w, 60px) + 26px + 16px
-      + clamp(300px, calc(100vw - 420px), 360px));
+    --lane-r: calc(max(16px, env(safe-area-inset-right)) + var(--vrail-w, 60px) + 26px + 360px + 16px);
   }
 }
 /* ── ONE message surface (25.09.2026) ──────────────────────────────────────────────────────

@@ -75,14 +75,12 @@
   /* `.layers-card` needs no narrowing here any more: 320px IS its base width (05-navrail), and
      it tracks --vrail-w on its own — the rule that used to sit here said nothing the base did
      not. Don't put it back. */
-  /* 300px was below what the drawing editor's own rows need: «Abschluss» and «Inhalt» carry
-     control groups 200px+ wide, so at 300px the label and its buttons collided. Scale with the
-     viewport instead of pinning a number — on a 768px tablet this lands at 340px and still leaves
-     the map its centre. Only the WIDTH is a tablet matter: `right` was a frozen 96px with the
-     same defect the base rule had (an expanded tool rail sat on the panel), and now that the base
-     tracks --vrail-w there is nothing left to override. */
-  .app.mode-plans { --plan-ctx-w: clamp(300px, calc(100vw - 420px), 360px); }
-  .ctx { width: clamp(300px, calc(100vw - 420px), 360px); }
+  /* (`.ctx` keeps its 360px here – no tablet narrowing. It was clamp(300px, 100vw − 420px, 360px)
+     to leave the map its centre, but the label column (--ctx-lbl) and the control edge need the
+     whole 360: below ~355 the Linienende's four segments at the 44px touch minimum no longer fit
+     and broke 2 × 2, and the «Text» field cut its placeholder – at 720px wide the panel was 300
+     (owner, Üben feedback 27.11.2026). The mirrors are gone with it: `--plan-ctx-w` (06) and the
+     message lane's reserve (08-toasts) read 360 on a tablet too.) */
   .eaddr { max-width: 26vw; }
 }
 
