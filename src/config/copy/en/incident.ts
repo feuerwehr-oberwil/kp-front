@@ -27,6 +27,7 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     syncOfflineToast: 'Still offline – changes are saved on this device.',
     clockSkewToast: 'This device\'s clock is off by {n} minutes – check recorded times.',
     bootOffline: 'Offline – showing saved data.',
+    bootOfflineAt: 'Offline – showing data saved at {time}.',
     bootListFailed: 'Incident list not loaded',
     openFailed: 'Incident not opened – nothing lost, tap again',
     openFailedNoCache: 'This incident is not saved on this device – needs network',

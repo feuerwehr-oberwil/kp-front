@@ -37,7 +37,7 @@ import { ErrorBoundary } from './components/ErrorBoundary'
 import { isAtemschutzLinkKind, useAuth } from './lib/auth'
 import { IncidentWorkspace } from './IncidentWorkspace'
 import {
-  listIncidentsResilient, listIncidentsShared, getIncident, getIncidentMeta,
+  listIncidentsResilient, getIncident, getIncidentMeta,
   migrateLegacyWorkspace, takeDiveraAlarm, attachDiveraAlarm, discardWorkspaceCache,
   isIncidentRunning, showAlarmUpdate, type DiveraAlarm, type IncidentFull, type IncidentMeta, type Workspace,
 } from './lib/incidents'
@@ -61,6 +61,7 @@ import { onStorageDegraded } from './lib/idb'
 import { loadRoster } from './lib/usePersonnel'
 import { HelpOverlay } from './components/HelpOverlay'
 import { installHoldTooltip } from './lib/holdTooltip'
+import { bootList, offlineLine } from './lib/bootWait'
 
 // Objektbesuche (/besuche…, docs/object-visits.md): its own lazy chunk — precached with the field
 // app, so the surface opens offline — mounted in place of home while its route is on.
@@ -281,16 +282,22 @@ function IncidentApp() {
   // per-device dismiss of pool alarms (kp.divera.dismissed) — «×» hides a dispatch on THIS
   // tablet only; it never archives it for the crew. Shared store with the incoming-alarm banner.
   const [dismissedAlarms, setDismissedAlarms] = useState<Set<number>>(loadDismissedAlarms)
+  // The boot that stopped waiting for the server (lib/bootWait): which Einsatz it opened from its
+  // stored copy and that copy's last sync – the offline line names that time while the Einsatz is
+  // on screen – and the device's list it decided from, the watch's baseline for a newer alarm.
+  const bootStored = useRef<{ id: string; lastSyncedAt: number | null } | null>(null)
+  const bootDecidedFrom = useRef<IncidentMeta[] | null>(null)
   // always-on incident-list watch: with alarm auto-open an Einsatz can appear with no human
   // in the loop — keep the list fresh and announce mid-session arrivals (banner, never a
   // forced switch). Enabled for viewers too; announcing is read-only.
   const onWatchList = useCallback((list: IncidentMeta[], offline: boolean) => {
     setIncidents((prev) => (sameIncidentList(prev, list) ? prev : list))
-    setListNote(offline ? appConfig.copy.incidentSwitcher.bootOffline : null)
+    if (!offline) bootStored.current = null // the server answered: the stored copy's time is history
+    setListNote(offline ? offlineLine(bootStored.current?.lastSyncedAt ?? null) : null)
   }, [])
   // (off for a link session: the list endpoint isn't on its allowlist — it would leak every
   // other Einsatz — so the watch would just 403 every 30 s)
-  const { fresh: freshIncident, dismiss: dismissFreshIncident } = useIncidentWatch(!!user && !linkScoped, activeId, onWatchList)
+  const { fresh: freshIncident, dismiss: dismissFreshIncident } = useIncidentWatch(!!user && !linkScoped, activeId, onWatchList, bootDecidedFrom)
 
   // A tapped «Neuer Einsatz» push routes here (target 'divera'): re-poll the pool
   // immediately so the alarm is on screen (landing card / mid-incident banner) — not just
@@ -375,7 +382,7 @@ function IncidentApp() {
     return list
   }, [isSessionCurrent])
 
-  const selectIncident = useCallback(async (id: string, opts: { readOnly?: boolean; meta?: IncidentMeta; boot?: boolean } = {}) => {
+  const selectIncident = useCallback(async (id: string, opts: { readOnly?: boolean; meta?: IncidentMeta; boot?: boolean; storedFirst?: boolean } = {}) => {
     // No audio unlock here any more: the tap that opens an Einsatz has already armed the tone on
     // its way down (useArmOnAnyTap, above – owner pick M·3, 25.11.2026, replacing the unlock that
     // lived here since 2026-08). A boot auto-open still leaves the bell honestly saying «Ton nicht
@@ -391,6 +398,8 @@ function IncidentApp() {
       // one. Read as of THIS call: selectIncident is a stable ([] deps) callback, and the
       // link_kind cannot change without a fresh session anyway.
       ...(asLinkRef.current ? { slice: 'trupps' as const } : isElRef.current ? { slice: 'record' as const } : {}),
+      // the boot stopped waiting for the server: the stored copy now, the server's answer later (lib/bootWait)
+      storedFirst: opts.storedFirst,
       // Concurrent edits are auto-merged three-way (see mergeWorkspace) — silently: no dialog
       // and no toast (toast diet 17.11.2026: «Änderungen zusammengeführt» asked nothing of the
       // operator). The merged result is applied in place via onApplyMerged (registered by the
@@ -426,6 +435,7 @@ function IncidentApp() {
     setWorkspace(seed)
     setForceReadOnly(!!opts.readOnly)
     setActiveId(id)
+    if (bootStored.current?.id !== id) bootStored.current = null // the line's time is that Einsatz's copy only
     setCoverId(opening ? id : null)
     setRemount((n) => n + 1)
     // ⚠️ A HUMAN open leaves «Karte & Objekte», in the same batch as the switch — whichever door
@@ -482,16 +492,17 @@ function IncidentApp() {
   // boot: list → migrate legacy localStorage if empty → open remembered/first incident.
   // Offline (network error), fall back to the cached list so the last incident reopens
   // from the WorkspaceSync cache — with an honest one-shot toast that the list is cached.
+  // With a stored copy of the remembered Einsatz the wait for the list is 5 s (lib/bootWait).
   // The auto-open itself stays silent when it fails: it lands on home, whose «Einsätze» sheet
   // says what is wrong the moment it is tapped (openIncident).
   useEffect(() => {
     let alive = true
-    const bootOpen = async (inc: IncidentMeta, opts: { readOnly?: boolean } = {}) => {
+    const bootOpen = async (inc: IncidentMeta, opts: { readOnly?: boolean; storedFirst?: boolean } = {}) => {
       if (!alive) return
       const my = ++bootOpenSeq.current
       setBootOpening(true)
       try {
-        await selectIncident(inc.id, { meta: inc, boot: true, readOnly: opts.readOnly })
+        await selectIncident(inc.id, { meta: inc, boot: true, readOnly: opts.readOnly, storedFirst: opts.storedFirst })
       } catch { /* home + openIncident's toast on the next tap */ } finally {
         if (alive && bootOpenSeq.current === my) setBootOpening(false)
       }
@@ -507,15 +518,28 @@ function IncidentApp() {
         if (inc) await bootOpen(inc as IncidentMeta)
         return
       }
-      let { list, offline } = await listIncidentsShared().catch((e: unknown) => {
+      const booted = await bootList(window.location.pathname, loadPrefs()).catch((e: unknown) => {
         // A REFUSAL, not silence (isUnverifiable already turned silence into the cached list):
         // the launcher would otherwise render «keine offenen Einsätze» over a list that simply
         // failed, with nothing on screen to say so.
         const C = appConfig.copy.incidentSwitcher
         setListNote(e instanceof ApiError ? `${C.bootListFailed} – ${e.detail}` : C.bootListFailed)
-        return { list: [] as IncidentMeta[], offline: false }
+        return { kind: 'list' as const, list: [] as IncidentMeta[], offline: false }
       })
       if (!alive) return
+      // The list did not come within lib/bootWait's wait and the remembered Einsatz is stored here:
+      // open that copy now, over the device's list. The requests go on; the watch and the engine
+      // take their answers as during use.
+      if (booted.kind === 'stored') {
+        bootStored.current = { id: booted.incident.id, lastSyncedAt: booted.lastSyncedAt }
+        bootDecidedFrom.current = booted.list
+        setListNote(offlineLine(booted.lastSyncedAt))
+        setIncidents(booted.list)
+        await bootOpen(booted.incident, { storedFirst: true })
+        return
+      }
+      let { list } = booted
+      const { offline } = booted
       // re-list only when the migration created an Einsatz: an empty list is the normal peacetime
       // boot, and asking again cost every such launch a second round trip (01.11.2026)
       if (list.length === 0 && !offline) {

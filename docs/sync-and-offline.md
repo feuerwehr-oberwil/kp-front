@@ -35,6 +35,21 @@ the module they concern (`lib/connectivity`, `lib/eventScope`, `lib/jsonEqual`,
   service worker's `height-profiles` cache answers the same URL offline (`vite.config` ·
   runtimeCaching: network first, 4 s timeout, 300 paths / 30 days). A path never fetched online
   has no profile and plans on flat ground, as the editor says («Ohne Höhenprofil gerechnet»).
+- **With a stored copy, the start waits 5 s for the server** (owner's rule, 27.11.2026 –
+  `lib/bootWait`). When the remembered Einsatz has a stored copy this session may read, the boot
+  waits `BOOT_STORED_WAIT_MS` for the Einsatz list; if the list is late, it opens that copy at
+  once (`WorkspaceSync` option `storedFirst`) and the launcher's line names its last sync
+  («Offline – gespeicherte Daten von 14:05 werden angezeigt.»). Nothing is cut off: the list and
+  the workspace request keep their 20 s bound. The late list reaches the watch (a newer alarm
+  Einsatz gets the «Neuer Einsatz» banner, never a switch); the late workspace answer is taken
+  by the cold-reopen rules (`takeLateAnswer`: a clean copy adopts it, a dirty one three-way
+  merges, an older revision or an answer during a push is left to the push and the poll). A
+  refusal within the wait is the boot's as before; after it, it is handled as during use (a 401
+  closes the cached reads and signs the device out). ⚠️ `storedFirst` serves only what open()'s
+  silence fallback would serve: a parked, unparkable, unread or denied slot waits for the server.
+  A first start, a launch into `/karte` or `/besuche`, a link session and the demo wait as
+  before. Every workspace request of the start is for the Einsatz on screen, so the editor
+  latch («KP-Tablet aktiv») lands on that one. `lib/bootWait.test.ts` drives the numbers.
 - **A failed switch keeps the active incident live.** The workspace, alarm and sync engine stay
   mounted until the requested incident is ready. Two taps on the same incident share its load.
   A superseded request for a different incident disposes its candidate, as does a session change.

@@ -57,4 +57,21 @@ describe('useIncidentWatch', () => {
     await act(async () => { vi.advanceTimersByTime(WATCH_POLL_MS) })
     expect(result.current.fresh?.id).toBe('c')
   })
+
+  // finding 27 (owner's pick 27.11.2026): the boot opened the stored copy over the device's list,
+  // and the late list brings a newer alarm Einsatz – the banner, as for an arrival during use
+  it('announces what the late first list brings beyond the list the boot decided from', async () => {
+    listIncidentsShared.mockResolvedValue(answer('a', 'n'))
+    const decidedFrom = { current: [alarm('a')] }
+    const { result } = renderHook(() => useIncidentWatch(true, 'a', () => {}, decidedFrom))
+    await act(async () => {})
+    expect(result.current.fresh?.id).toBe('n')
+  })
+
+  it('a first list the boot itself decided from announces nothing', async () => {
+    listIncidentsShared.mockResolvedValue(answer('a', 'n'))
+    const { result } = renderHook(() => useIncidentWatch(true, 'a', () => {}, { current: null }))
+    await act(async () => {})
+    expect(result.current.fresh).toBeNull()
+  })
 })

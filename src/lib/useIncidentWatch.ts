@@ -1,8 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
 import { listIncidentsShared, type IncidentMeta } from './incidents'
 import { freshAlarmCandidate, loadDismissedIncidents, saveDismissedIncident } from './incidentAlerts'
 import { markAlarmPoll } from './alarmPollHealth'
 import { useResumingPoll, WATCH_POLL_MS, WATCH_RESUME_GAP_MS } from './useResumingPoll'
+
+/** no boot decided from another list: the first round is the baseline */
+const NO_BASIS: RefObject<IncidentMeta[] | null> = { current: null }
 
 /**
  * Always-on incident-list watch. With alarm auto-open, a new Einsatz can appear with no
@@ -16,6 +19,10 @@ export function useIncidentWatch(
   activeId: string | null,
   /** every round's list; `offline` = the device's cached copy, not the server's */
   onList: (list: IncidentMeta[], offline: boolean) => void,
+  /** the list the boot's pick was made from, when that was not the first round's: a boot that
+   *  stopped waiting decided from the device's copy (lib/bootWait), and an alarm Einsatz the late
+   *  list brings is a mid-session arrival for it */
+  decidedFrom: RefObject<IncidentMeta[] | null> = NO_BASIS,
 ): { fresh: IncidentMeta | null; dismiss: () => void } {
   const [fresh, setFresh] = useState<IncidentMeta | null>(null)
   // ids seen on the first poll of this session: pre-existing incidents never banner (the
@@ -47,8 +54,9 @@ export function useIncidentWatch(
     markAlarmPoll(!offline)
     onList(list, offline)
     if (baseline.current === null) {
-      baseline.current = new Set(list.map((i) => i.id))
-      return
+      const basis = decidedFrom.current
+      baseline.current = new Set((basis ?? list).map((i) => i.id))
+      if (!basis) return
     }
     setFresh(
       freshAlarmCandidate(list, {
@@ -58,7 +66,7 @@ export function useIncidentWatch(
         now: Date.now(),
       }),
     )
-  }, [onList])
+  }, [onList, decidedFrom])
 
   useResumingPoll(enabled, refresh, { pollMs: WATCH_POLL_MS, resumeGapMs: WATCH_RESUME_GAP_MS })
 
