@@ -4,14 +4,15 @@
 // (lib/boardClock); the board and its cards render only when a Trupp's tier, state or sort
 // position changes — and then in the same second the old per-second board did.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, render } from '@testing-library/react'
+import { act, fireEvent, render } from '@testing-library/react'
 import { AtemschutzView } from './AtemschutzView'
 import { useIsPhone } from '../lib/useIsPhone'
 import { plainWords } from './truppCardText'
 import { adoptSessionConfig, atemschutzDoctrine } from '../lib/deploymentConfig'
 import { fmtClock } from '../lib/atemschutz'
 import { noteServerTime, resetServerClock, serverNow } from '../lib/serverClock'
-import { aktivTrupp, propsFor, registerAtemschutzViewHooks } from './AtemschutzView.setup'
+import { aktivTrupp, az, firstBtn, propsFor, registerAtemschutzViewHooks } from './AtemschutzView.setup'
+import { applyLocale, getCopy } from '../config/copy'
 import s from './Atemschutz.module.css'
 import type { Trupp } from '../types'
 
@@ -216,5 +217,28 @@ describe('a doctrine that lands after the board mounted', () => {
     adoptSessionConfig({ doctrine: { alarmBar: line + 40 } } as never)
     tick()
     expect(cardOf('Alpha').classList.contains(s.trowCrit)).toBe(true)
+  })
+})
+
+describe('the board keeps ticking for what reads the clock itself', () => {
+  afterEach(() => applyLocale('de-CH'))
+
+  it('ticks while the Trupp form is open, even with no clock running on the board', () => {
+    mountBoard([ready('d', 'Delta')])
+    expect(vi.getTimerCount()).toBe(0)
+    fireEvent.click(firstBtn(az.newTrupp))
+    act(() => { vi.advanceTimersByTime(0) })
+    expect(vi.getTimerCount()).toBeGreaterThan(0)
+  })
+
+  it('draws the cards in a language catalogue that lands after the board mounted', async () => {
+    mountBoard([inside('a', 'Alpha', 30)])
+    const kontakt = () => cardOf('Alpha').querySelector(`.${s.trowKontakt}`)!.textContent
+    expect(kontakt()).toBe(getCopy().atemschutz.actContact)
+    await act(async () => { await applyLocale('en') })
+    const en = getCopy().atemschutz.actContact
+    expect(en).not.toBe(az.actContact)
+    tick()
+    expect(kontakt()).toBe(en)
   })
 })

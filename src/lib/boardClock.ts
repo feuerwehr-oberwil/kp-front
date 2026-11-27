@@ -76,8 +76,9 @@ export interface BoardClockValue {
   clock: BoardClock
   intervalMin: number
   graceSec: number
-  /** the station's doctrine as the board last read it: a new one (a config answer that landed
-   *  late) is a new value, so every memoised card and leaf that reads this context draws again */
+  /** the station's doctrine and language as the board last read them: a new one (a config
+   *  answer or a catalogue that landed late) is a new value, so every memoised card and leaf that
+   *  reads this context draws again */
   doctrine: string
 }
 

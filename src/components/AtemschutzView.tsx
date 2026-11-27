@@ -121,6 +121,21 @@ function runningSecOf(t: Trupp, l: TruppLive | undefined): number {
   return truppStillDeployed(t) ? l?.elapsedSec ?? 0 : 0
 }
 
+// the language catalogue last seen, and how many there have been (`appConfig.copy` keeps one
+// reference until a new catalogue is installed)
+let seenCopy: object | null = null
+let copyGeneration = 0
+
+/** The board's settings that can arrive after it mounted, as one string: the station's doctrine
+ *  and the installed language catalogue. Part of the tick key and of the clock's context. */
+function settingsKey(): string {
+  if (appConfig.copy !== seenCopy) {
+    seenCopy = appConfig.copy
+    copyGeneration++
+  }
+  return `${copyGeneration}|${JSON.stringify(atemschutzDoctrine())}`
+}
+
 /** Stable stand-ins for this render's handlers, for the memoised cards (TruppCard · TruppRow):
  *  each calls the handler of the latest render, so a card's props stay the same from one board
  *  render to the next. The keys must be the same on every render. */
@@ -522,10 +537,11 @@ export function AtemschutzView({
    * what it read when the Einsatz ended, which is what the paper says too. The clock is a stopped
    * one (`stoppedClock`): there is nothing left to count. */
   const clock = useMemo(() => (frozenAt != null ? stoppedClock(frozenAt) : liveBoardClock), [frozenAt])
-  // ⚠️ The doctrine can change under a mounted board: the config answer lands after the boot
-  // (a cached copy refreshed, a link page's session answer). Read afresh on every tick (below),
-  // and handed to the cards through the clock's context, which they all read.
-  const doctrine = JSON.stringify(atemschutzDoctrine())
+  // ⚠️ The doctrine and the language can change under a mounted board: the config answer lands
+  // after the boot (a cached copy refreshed, a link page's session answer), and so can a slow
+  // language catalogue. Read afresh on every tick (below), and handed to the cards through the
+  // clock's context, which they all read.
+  const doctrine = settingsKey()
   const boardClock = useMemo(() => ({ clock, intervalMin, graceSec, doctrine }), [clock, intervalMin, graceSec, doctrine])
 
   // the station's Alarmdruck lines — read as scalars, because atemschutzDoctrine() builds a
@@ -539,9 +555,8 @@ export function AtemschutzView({
   const everyTick = !!form || !!pressureAsk
   const now = useClockNow(clock, (n) => {
     if (everyTick) return n
-    const d = atemschutzDoctrine()
-    return `${JSON.stringify(d)}|${boardTickKey(trupps, boardAt(trupps, n, intervalMin, graceSec, d, frozenAt != null), n)}`
-  }, frozenAt == null && trupps.some(truppClockRuns))
+    return `${settingsKey()}|${boardTickKey(trupps, boardAt(trupps, n, intervalMin, graceSec, atemschutzDoctrine(), frozenAt != null), n)}`
+  }, frozenAt == null && (everyTick || trupps.some(truppClockRuns)))
 
   /* …and its TIER, once, from the same fold the tone and the TopBar chip use (lib · truppAlarm).
    * ⚠️ The card, the row, the header badge and the sort all read THIS — not the contact clock.
