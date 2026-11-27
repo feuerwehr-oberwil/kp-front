@@ -358,8 +358,9 @@ describe('on a phone', () => {
     const sheet = fullView()!.querySelector<HTMLElement>('.adm-floors-sheet')!
     sheet.getBoundingClientRect = () => ({ left: 0, top: 0, width: 1000, height: 500, right: 1000, bottom: 500, x: 0, y: 0, toJSON: () => ({}) })
     const tap = (x: number, y: number) => { fireEvent.pointerDown(sheet, { clientX: x, clientY: y, pointerId: 1 }); fireEvent.pointerUp(sheet, { clientX: x, clientY: y, pointerId: 1 }) }
-    tap(700, 250) // the staircase in −1's own drawing
     const chip = view.getByRole('button', { name: '0 · EG' })
+    expect((chip as HTMLButtonElement).disabled).toBe(true) // the first point goes into −1's own drawing
+    tap(700, 250) // the staircase in −1's own drawing
     expect(chip.getAttribute('aria-pressed')).toBe('false')
     fireEvent.click(chip)
     expect(chip.getAttribute('aria-pressed')).toBe('true')

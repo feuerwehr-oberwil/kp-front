@@ -93,6 +93,7 @@ export function FloorPackEditor({ item, onDraft, view, tabs, historyRef, onUndoS
   const [browsing, setBrowsing] = useState(false)
   const fullOpen = phone && view === 'edit' && (mode != null || browsing)
   const closeFull = () => { setMode(null); setBrowsing(false) }
+  const chipsHeld = mode?.kind === 'region' || (mode?.kind === 'join' && !mode.at)
   const undo = () => { setHistory((h) => h.past.length ? { stack: h.past[h.past.length - 1], past: h.past.slice(0, -1) } : h); setMode(null) }
   useEffect(() => {
     if (historyRef) historyRef.current = { undo }
@@ -235,7 +236,7 @@ export function FloorPackEditor({ item, onDraft, view, tabs, historyRef, onUndoS
                 {phone && <button type="button" className="adm-floor-crop" aria-haspopup="dialog"
                   aria-label={`${labelOf(drawing)} · ${fillTemplate(C.page, { n: drawing.page + 1 })}`}
                   onClick={(e) => { e.stopPropagation(); setSelected(drawing.key); setBrowsing(true) }}>
-                  <RowCrop entry={drawing} images={crops.images} aspect={item.aspect ?? 1.414} />
+                  <RowCrop entry={drawing} images={crops.images} aspect={crops.aspects[drawing.page] ?? item.aspect ?? 1.414} />
                 </button>}
                 {/* the chip says WHICH storey; on the open row it is also the one tap that says
                     «this one is level 0» – nested in a select button it could never be that */}
@@ -328,11 +329,13 @@ export function FloorPackEditor({ item, onDraft, view, tabs, historyRef, onUndoS
         <SheetZoom zoom={zoom} onZoom={setZoom} compact />
       </div>
       <div className="adm-floors-chips" role="group" aria-label={C.title}>
+        {/* held while the sheet must show the mode's OWN floor – its rectangle, or a join's first
+            point; once that point stands, a chip picks the drawing it is joined to */}
         {stack.order.map((e) => {
           const group = partsOf(stack, e.key)
           const index = indexOf(stack, e.key)
           const name = group.length > 1 ? e.name || fillTemplate(C.partName, { n: group.indexOf(e) + 1 }) : e.name || standardFloorName(index)
-          return <Chip key={e.key} selected={e.key === selectedEntry?.key} aria-label={`${signedIndex(index)} · ${name}`} onClick={() => setSelected(e.key)}>
+          return <Chip key={e.key} selected={e.key === selectedEntry?.key} disabled={chipsHeld} aria-label={`${signedIndex(index)} · ${name}`} onClick={() => setSelected(e.key)}>
             <span className={`adm-floor-index${e.key === stack.zero ? ' zero' : ''}`}>{signedIndex(index)}</span>{name}
           </Chip>
         })}
@@ -643,11 +646,13 @@ function FloorCrop({ parts, images, frame, aspect, style, ...svg }: {
 }
 
 /** The rasters of a sheet's pages as object URLs by page number, fetched per distinct set of
- *  `pages` and revoked when the set changes or the caller unmounts. `failed` once any page did not
- *  arrive. An empty list fetches nothing. */
+ *  `pages` and revoked when the set changes or the caller unmounts, with each raster's own
+ *  width / height in `aspects` (a pack may mix portrait and landscape pages). `failed` once any
+ *  page did not arrive. An empty list fetches nothing. */
 function usePageImages(id: number, pages: readonly number[]) {
   const key = [...new Set(pages)].sort((a, b) => a - b).join(',')
   const [images, setImages] = useState<Record<number, string>>({})
+  const [aspects, setAspects] = useState<Record<number, number>>({})
   const [failed, setFailed] = useState(false)
   useEffect(() => {
     const abort = new AbortController()
@@ -657,9 +662,13 @@ function usePageImages(id: number, pages: readonly number[]) {
         if (abort.signal.aborted) return
         const url = URL.createObjectURL(blob); urls.push(url)
         setImages((current) => ({ ...current, [page]: url }))
+        if (typeof createImageBitmap === 'function') void createImageBitmap(blob).then((bitmap) => {
+          if (!abort.signal.aborted && bitmap.height) setAspects((current) => ({ ...current, [page]: bitmap.width / bitmap.height }))
+          bitmap.close()
+        }).catch(() => { /* the pack's own aspect stands in */ })
       }).catch(() => { if (!abort.signal.aborted) setFailed(true) })
     }
     return () => { abort.abort(); urls.forEach(URL.revokeObjectURL) }
   }, [id, key])
-  return { images, failed }
+  return { images, aspects, failed }
 }
