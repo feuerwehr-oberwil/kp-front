@@ -61,4 +61,3 @@ export class FakeLocks {
     this.held.set(name, { reject: rejectHold, done: nextDone })
   }
 }
-

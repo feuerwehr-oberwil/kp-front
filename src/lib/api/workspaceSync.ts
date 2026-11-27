@@ -518,6 +518,8 @@ export class WorkspaceSync {
   private disposed = false
   /** the edit lock went to another tab (see `retire`) */
   private retired = false
+  /** the browser was online when the last PUT left (carryUnanswered) */
+  private sentOnline = true
   /** the last main-slot write was refused by the fence: another tab holds the slot now */
   private fencedOut = false
   private saveSeq = 0 // bumped on each save(); lets a flush detect an edit that landed mid-PUT
@@ -1398,6 +1400,7 @@ export class WorkspaceSync {
           // nor is this one: a newer build wrote the blob — never merged, never re-sent
           if (!(await this.parkOlderBuild())) return
         } else if (e instanceof ApiError && e.status === 409) {
+          this.entry = { ...this.entry, sending: undefined } // refused: that PUT can never land
           if (!(await this.resolveConflict())) return
         } else {
           // A revoked session closes cached reads device-wide while preserving dirty work.
@@ -1463,6 +1466,7 @@ export class WorkspaceSync {
    *  Both callers set `entry.base` to the server's copy at `baseRev` before they push, so an
    *  editor's save that changed only Trupps goes the slice route as well (onlyTruppsChanged). */
   private async push(workspace: Workspace, baseRev: number) {
+    this.sentOnline = typeof navigator === 'undefined' || navigator.onLine !== false
     const v = versionOf(workspace)
     if (this.opts.slice === 'trupps') return putWorkspaceTrupps(this.incidentId, truppSlice(workspace), baseRev, this.editedAtIso(), this.writerId, v)
     if (this.opts.slice === 'record') return putWorkspaceRecord(this.incidentId, recordSlice(workspace), baseRev, this.writerId, v)
@@ -1598,7 +1602,7 @@ export class WorkspaceSync {
           showPendingMerge() // a failed park or a newer edit can still leave the merged draft owed
           return parked
         }
-        if (e instanceof ApiError && e.status === 409) continue // someone else landed too — re-merge
+        if (e instanceof ApiError && e.status === 409) { this.entry = { ...this.entry, sending: undefined }; continue } // someone else landed too — re-merge
         showPendingMerge()
         if (e instanceof ApiError && e.status === 401) denyWorkspaceCache() // revoked mid-merge — deny device-wide, like flush()
         this.setStatus(e instanceof ApiError && e.status === 0 ? 'offline' : 'error')
@@ -1971,10 +1975,10 @@ export class WorkspaceSync {
   /** The PUT just sent got no answer (a timeout, a dead route, a 502–504): it may have landed. It
    *  is carried on as handed, so the next attempt's record does not erase it – a delete made since
    *  must not read as a server addition if it did land, in this engine's merge or the next
-   *  holder's (Sol r3, 27.11.2026). Not while the browser is offline: that PUT never left, and a
-   *  carried save hides a divergence from the merge's conflict notes (mergeReporting). */
+   *  holder's (Sol r3, 27.11.2026). Not when the browser was offline as the PUT left: it never did,
+   *  and a carried save hides a divergence from the merge's conflict notes (mergeReporting). */
   private carryUnanswered() {
-    if (!this.entry.sending || (typeof navigator !== 'undefined' && navigator.onLine === false)) return
+    if (!this.entry.sending || !this.sentOnline) return
     this.entry = { ...this.entry, handed: carried(this.entry.handed, this.entry.sending), sending: undefined }
     this.writeCache()
   }

@@ -55,6 +55,7 @@ afterEach(() => {
   vi.useRealTimers()
   vi.restoreAllMocks()
   Reflect.deleteProperty(globalThis.navigator, 'locks')
+  Reflect.deleteProperty(globalThis.navigator, 'onLine')
 })
 
 it('offline-sync F1: the tab that takes over after a close keeps the closed tab’s saved edit', async () => {
@@ -270,7 +271,7 @@ it('a takeover while the record is still being written: the old holder’s PUT n
 
 /** A server whose first PUT lands but whose answer is lost on the way back (a timeout).
  *  `hangRetry`: the next PUT never answers. */
-function lostFirstAnswer(hangRetry: boolean) {
+function lostFirstAnswer(hangRetry: boolean, linkDrops = false) {
   const server = { rev: 1, workspace: baseline as Saved }
   get.mockImplementation(async () => ({ workspace: server.workspace, workspace_rev: server.rev }))
   put.mockImplementation(async (_id, ws, baseRev) => {
@@ -278,6 +279,8 @@ function lostFirstAnswer(hangRetry: boolean) {
     if (baseRev !== server.rev) throw new ApiError(409, 'conflict')
     server.rev++
     server.workspace = ws as Saved
+    // `linkDrops`: the browser goes offline before the lost answer is noticed
+    if (server.rev === 2 && linkDrops) Object.defineProperty(globalThis.navigator, 'onLine', { value: false, configurable: true })
     if (server.rev === 2) throw new ApiError(0, 'timeout')
     return { workspace: null, workspace_rev: server.rev }
   })
@@ -288,16 +291,18 @@ function lostFirstAnswer(hangRetry: boolean) {
 // The retry's record must not erase it: if it did land, the marker deleted since is not a server
 // addition – not in this engine's merge, and not in the next holder's.
 it.each([
-  ['in the same tab', false],
-  ['after a takeover while the retry is on its way', true],
-])('a PUT that landed without an answer brings back nothing deleted since – %s', async (_case, takeover) => {
+  ['in the same tab', false, false],
+  ['after a takeover while the retry is on its way', true, false],
+  ['in the same tab, the link dropping after the PUT left', false, true],
+])('a PUT that landed without an answer brings back nothing deleted since – %s', async (_case, takeover, linkDrops) => {
   const id = `lost-${n}`
-  const server = lostFirstAnswer(takeover)
+  const server = lostFirstAnswer(takeover, linkDrops)
   const a = await tab(id)
   const b = takeover ? await tab(id) : null
   edit(a, { entities: [marker] as unknown as Saved['entities'] })
   await vi.advanceTimersByTimeAsync(1_100)
   await vi.waitFor(() => expect(server.rev).toBe(2)) // landed – A heard nothing
+  Reflect.deleteProperty(globalThis.navigator, 'onLine') // back online
   edit(a, { entities: [] })
   await vi.advanceTimersByTimeAsync(1_100)
   await vi.waitFor(() => expect(put.mock.calls.length).toBeGreaterThanOrEqual(2)) // A's retry, at the old revision
@@ -312,6 +317,21 @@ it.each([
     expect(t.hasUnsynced).toBe(false)
   }, { timeout: 4_000 })
   expect(server.workspace.entities).toEqual([])
+})
+
+// Sol r4 (27.11.2026): a 409 is a definitive «no» – that PUT can never land, and carrying it into
+// the next merge would hide a real divergence from the merge's conflict notes.
+it('a PUT refused with 409 is not carried when the merge’s own fetch then gets no answer', async () => {
+  const id = `refused-${n}`
+  put.mockRejectedValue(new ApiError(409, 'conflict'))
+  const a = await tab(id)
+  get.mockRejectedValue(new ApiError(0, 'timeout')) // the merge asks the server: no answer
+  edit(a, { reportMeta: { remarks: 'from A' } })
+  await vi.advanceTimersByTimeAsync(1_100)
+  await vi.waitFor(() => expect(get).toHaveBeenCalledTimes(2)) // the open's and the merge's
+  await settle()
+  expect(await slot(id)).toMatchObject({ dirty: true })
+  expect((await idbGet<{ handed?: unknown }>(`kp-front-ws-${id}`))?.handed).toBeUndefined()
 })
 
 it('a promotion overtaken by a steal back does not fence the thief out of its slot', async () => {
