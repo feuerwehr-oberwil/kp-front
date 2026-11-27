@@ -36,7 +36,8 @@ the module they concern (`lib/connectivity`, `lib/eventScope`, `lib/jsonEqual`,
   A holder that loses the lock retires at once: no write, push,
   retry or merge round after it. A PUT under the lock leaves only once the cache has committed it
   as on its way (`sending`); the next engine carries the newest two such saves of its
-  predecessors (`handed`) and applies them to both sides of every merge, so one that lands late
+  predecessors (`handed`), an engine carries its own PUTs that got no answer while online the
+  same way, and every merge applies them to both sides, so one that lands late or unseen
   brings back nothing deleted since. The guarantee is at COMMITTED persistence: an edit still inside
   the 300 ms cache debounce when another tab takes over (or when the tab dies) can be lost. Known
   limits: a third save still on its way after three hand-overs is not carried, and an object a
