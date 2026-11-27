@@ -53,45 +53,36 @@
    (design pass C6, 18.11.2026): the red and the counting timer already say «recording». */
 .fab-entry.rec { background: var(--red-fill); color: var(--on-accent-ink); border-color: transparent; }
 .fab-entry.rec span { font-family: var(--mono); }
-/* ⚠️ NO «quiet» step-back any more (18.09.2026, field ask). The circle used to shrink to .82
-   and half-fade while anything underneath was scrolled: on the Journal, where the list is
-   scrolled constantly, the one button that logs from the field spent most of its life small and
-   pale, and it read as a button that was disappearing rather than one getting out of the way.
-   It now keeps one size and one opacity at all times. (The `quiet` class and its scroll listener
-   went with it — see FabEntry.) */
+/* ⚠️ NO «quiet» step-back (18.09.2026, field ask): the FAB keeps one size and one opacity at all
+   times, also while the list under it scrolls. Shrunk and half-faded on the Journal, where the
+   list is scrolled constantly, it read as a button that was disappearing (FabEntry). */
 @media (prefers-reduced-motion: reduce) { .fab-entry { transition: none; } }
 
 /* ---- Tablet (the primary device, ~768–1024px): the desktop layout's fixed-width side
    panels occlude the map. Narrow + tuck them so the centre stays usable. The phone rules
    below override this.
-   ⚠️ The height/width clauses are not a second guess at the device — together they are the
-   exact NEGATION of the phone condition every block below carries («≤600px wide, OR landscape
+   ⚠️ `--tablet`'s height/width clauses (lib/breakpoints · TABLET_QUERY) are not a second guess
+   at the device — together they are the exact NEGATION of `--phone` («≤600px wide, OR landscape
    and ≤520px tall and ≤1000px wide»). A phone turned sideways is 800–960px wide and would
    otherwise land in this tablet band; the comma-OR `(min-width: 1001px)` half keeps a WIDE
    tablet in the band even if something shortens its layout viewport below 521px (the old
-   `resizes-content` keyboard shrink did exactly that — see lib/useIsPhone). Change these here
-   and in the phone blocks together. ---- */
+   `resizes-content` keyboard shrink did exactly that — see lib/useIsPhone). ---- */
 @media (--tablet) {
-  /* `.layers-card` needs no narrowing here any more: 320px IS its base width (05-navrail), and
-     it tracks --vrail-w on its own — the rule that used to sit here said nothing the base did
-     not. Don't put it back. */
-  /* (`.ctx` keeps its 360px here – no tablet narrowing. It was clamp(300px, 100vw − 420px, 360px)
-     to leave the map its centre, but the label column (--ctx-lbl) and the control edge need the
-     whole 360: below ~355 the Linienende's four segments at the 44px touch minimum no longer fit
-     and broke 2 × 2, and the «Text» field cut its placeholder – at 720px wide the panel was 300
-     (owner, Üben feedback 27.11.2026). The mirrors are gone with it: `--plan-ctx-w` (06) and the
-     message lane's reserve (08-toasts) read 360 on a tablet too.) */
+  /* (`.ctx` keeps its 360px here – no tablet narrowing: the label column (--ctx-lbl) and the
+     control edge need the whole 360. Below ~355 the Linienende's four segments at the 44px touch
+     minimum break 2 × 2 and the «Text» field cuts its placeholder (owner, Üben feedback
+     27.11.2026). `--plan-ctx-w` (06) and the message lane's reserve (08-toasts) read 360 on a
+     tablet too.) */
   .eaddr { max-width: 26vw; }
 }
 
 /* ---- the TopBar under 860px ----
-   (The top-right corner holds nothing the bar must clear on any map: the Wiedergabe's view
-   controls stand in the bottom-right view bar since 27.11.2026, so the 250px the bar reserved
-   for them at 861px+ is gone with them.) */
+   (The bar keeps no right-hand reserve: the Wiedergabe's view controls stand in the bottom-right
+   view bar, so the top-right corner holds nothing the bar must clear on any map.) */
 @media (max-width: 860px) {
-  /* (the journal actions' words are not ruled away here any more: the bar's ladder folds them
-     TOGETHER to tiles, glyph over word, where the bar is measured to need it – 10-journal ·
-     «the fold», owner pick 24a 17.11.2026) */
+  /* (the journal actions' words are not ruled away here: the bar's ladder folds them TOGETHER to
+     tiles, glyph over word, where the bar is measured to need it – 10-journal · «the fold», owner
+     pick 24a 17.11.2026) */
   .tb-actions .tb-act { min-width: var(--tap); min-height: var(--tap); }
   /* The weather goes to a SHORTER form here, not only on a phone: the condition glyph is the
      one part that is pure context, so it goes first. The TEMPERATURE stays — an iPad in
@@ -173,7 +164,7 @@
   :is(.tool-rail, .wb-tools) .vrail-tool { width: 50px; min-width: 50px; flex: 0 0 auto; }
 
   /* …and the same for the tool bar, which is the same shape one bar higher. ⚠️ `.vrail-label` is
-     hidden for BOTH bars up at line 116; the preference has to un-hide it here rather than rely on
+     hidden for BOTH bars in the rail-chrome rule above; the preference has to un-hide it here rather than rely on
      specificity from another file, which is how the desktop rule leaked onto the phone. */
   .vrail.labelled:not(.expanded):not(.dragging) {
     width: auto; padding: 4px 8px; }
@@ -295,8 +286,6 @@
     .sel-bar.worded > button) { grid-template-rows: 22px auto; gap: 0; }
   :is(.phone-tools .wb-dock.wb-dock-worded, .sel-bar.worded) .wb-dock-word { line-height: 1.3; }
   /* (the Eintrag-FAB clears both bars on the drawing surfaces through --float-bottom, below) */
-  /* (no armed tool's pill since 17.11.2026: the dock leads with the tool – ToolDock · armed – and a
-     symbol has a dock of its own, owner picks 14 + 15 and the phone WIP of 16.11.) */
 
   /* ── details as a bottom sheet ── the shared .ctx editors (ContextPanel / DrawEditor /
      ShapeEditor) become a drag-expandable bottom sheet: half-height default so the map and
@@ -675,10 +664,9 @@
   .navrail.folded:not(.expanded):not(.dragging) :is(.rail-scroll-wrap, .nav-scroll) { display: contents; }
   .navrail.folded .nav-item { flex: 1 1 0; width: auto; }
 
-  /* ── the folded «Pläne» tile ── NO rules of its own any more (18.09.2026). It wears the
+  /* ── the folded «Pläne» tile ── one glyph, one word, like its neighbours (18.09.2026): the
      loaded document's own glyph at the size every other tile's glyph has, and the generic word
-     «Pläne» — one glyph, one word, like its neighbours. It used to stack chip + word + the
-     document's code into 46px and read cramped; the code is in the aria-label now.
+     «Pläne»; the document's code is in the aria-label.
      Only the glyph COLUMN is narrowed, because a tile here is 44px wide and the shared 46px
      column would centre the chip against the wrong box. */
   .nav-item.nav-plans .nav-glyph { width: auto; min-width: 0; }
@@ -796,9 +784,7 @@
      against `.journal-drawer`, and on a phone this drawer is `height: auto` (bottom-anchored,
      capped by max-height) — an indefinite height, against which a percentage max-height computes
      to `none`, so a dozen open items would take the whole sheet and leave no Verlauf behind them.
-     40dvh ≈ the share the percentage gives a tablet. (The box is its OWN scrollport since 23.08.
-     — it no longer sits sticky over the log, so the old «taller than its scrollport» trap this
-     comment used to describe is gone with it.) */
+     40dvh ≈ the share the percentage gives a tablet. */
   .jr-pinned { max-height: 40dvh; }
   /* ⚠️ THE PHONE'S TEXT AXIS, 96px in from the sheet's edge (it wore a 1px border until r35), not 110 (hill
      climb r14, 05.11.2026: names with roles ran to three lines). The Pendenzen box and
@@ -849,8 +835,6 @@
   /* the home indicator's inset is the pinned foot's last padding (10-journal · .jc-foot), the
      frame pays none – «Erfassen» stands clear of the indicator (scroll sweep 15.11.2026 #6) */
   .journal-composer > .jc-foot { padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
-  /* (`.journal-composer > * { flex: none }` used to live here — it is a base rule now, in
-     10-journal.css: the tablet card is the same capped flex column and clipped the same row.) */
 
   /* ── the Art as «I · A · S» (owner, 19.11.2026: «on mobile do the same but just with I/A/S») ──
      The one row (10-journal · .jc-row) has no room for three words beside «Pendenz» and the clip on a
@@ -1243,7 +1227,6 @@
   :root:has(.app .layers-card:not([data-picking])) .ml {
     max-height: min(32dvh, 240px);
   }
-  /* (no sideways FAB reserve any more: the lane stands above the FAB — see «THE message lane») */
   /* long toast texts wrap on phones instead of nowrap-overflowing the fixed toaster
      (same layout-viewport-widening failure mode as the banners) */
   /* …and keeps a Meldeleiste row's phone insets, as it does on a tablet (08-toasts · S3 rework) */
@@ -1295,12 +1278,10 @@
      then, which kept the ✕ in the glyph's band, 7px over the middle. The square keeps its size, so
      the target under the held finger does not move – only the glyph inside it. */
   .fab-entry.rec { min-height: var(--float-h); padding-top: 0; padding-bottom: 0; }
-  /* .cl-main FAB clearance migrated → Checklists.module.css */
 
-  /* a tool's option dock no longer hides the FAB (B+, owner pick 14, 17.11.2026): the dock HUGS its
+  /* a tool's option dock does not hide the FAB (B+, owner pick 14, 17.11.2026): the dock HUGS its
      tiles, centred, so the FAB stands beside a short one and a line above a long one (lib/floatRow).
-     It yielded from 08.2026 until then, when the full-width dock owned the bottom-right corner and
-     the FAB sat ON its ✕. A georef dock and a detail sheet still take its place. */
+     A georef dock and a detail sheet take its place. */
   /* ⚠️ …except a RUNNING RECORDING (sweep 27.10.2026 #10, lead call): the red FAB is the only
      sign a voice memo is being taken and the only way to stop it, so it never yields (FabEntry
      stays mounted too, IncidentWorkspace). A detail sheet it rides on top of, below. */
