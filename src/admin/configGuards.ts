@@ -5,7 +5,6 @@
 // (docs/openapi.json). A form reads its bound from here and never types one inline; a bound that
 // lives only in a backend validator is a named exception in that test.
 
-import { useRef } from 'react'
 import { appConfig } from '../config/appConfig'
 import { OFFLINE_RADIUS_M } from '../lib/deploymentConfig'
 import { fillTemplate } from '../lib/format'
@@ -128,57 +127,4 @@ export function tooLongNote(
 ): string | null {
   const over = fields.find(([field, , value]) => !fitsText(field, value))
   return over ? fillTemplate(appConfig.copy.admin.common.textTooLong, { field: over[1], n: TEXT_MAX_LENGTH[over[0]] }) : null
-}
-
-/**
- * What a list editor saves (Korrekturvorschlag fields, Formulare & Links, Objektfarben).
- * `writable` is the editor's own filter: the rows the server takes. A row it leaves out is held
- * back – a row being typed – unless the SERVER delivered it so: the server serves a stored row
- * past a bound as stored, and such a row stays in the save exactly as stored, also while the
- * admin's edit of it does not fit yet. Only an edit that fits or deleting the row takes it out;
- * once written fitting, the row is an ordinary one, so a later half-typed edit of it is held back
- * and never brings the old value back. An edit of another row therefore never drops it; the
- * server refuses the save instead (the autosave badge) until the admin fixes it.
- *
- * Stored = a row of `stored` (the list in the draft) when the first edit begins that `writable`
- * leaves out and `overCap` finds past a length bound; the editor never writes such a row itself,
- * so it came from the server. A stored row refused for another reason (a blank label the server
- * kept) is left out as before: keeping it could refuse a save the server takes. Pass every
- * row an edit replaces through `edited(before, after)`, which carries its stored original along,
- * and write `saved(rows, clean)`: `clean` shapes a written row (a trim), never a stored original.
- */
-export function useStoredRows<T extends object>(
-  stored: readonly T[],
-  writable: (rows: readonly T[]) => readonly T[],
-  overCap: (row: T) => boolean,
-) {
-  const held = useRef<Set<T> | null>(null)
-  const origin = useRef(new WeakMap<T, T>())
-  const heldRows = () => {
-    if (!held.current) {
-      const ok = writable(stored)
-      held.current = new Set(stored.filter((r) => !ok.includes(r) && overCap(r)))
-    }
-    return held.current
-  }
-  const original = (row: T) => (heldRows().has(row) ? row : origin.current.get(row))
-  return {
-    edited: (before: T, after: T): T => {
-      const o = original(before)
-      if (o) origin.current.set(after, o)
-      return after
-    },
-    saved: (rows: readonly T[], clean: (row: T) => T = (row) => row): T[] => {
-      const ok = writable(rows)
-      return rows.flatMap((r) => {
-        if (ok.includes(r)) {
-          heldRows().delete(r)
-          origin.current.delete(r)
-          return [clean(r)]
-        }
-        const o = original(r)
-        return o ? [o] : []
-      })
-    },
-  }
 }

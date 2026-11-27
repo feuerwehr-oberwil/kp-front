@@ -5,7 +5,7 @@ import { legacyFleetToAttributeLists, DEFAULT_MODULES, OFFLINE_RADIUS_M } from '
 import { geoDatasetId, geoLayerUrl, inspectGeojson, listReference, uploadReference, type ReferenceDataset } from '../lib/incidents'
 import { apiGet } from '../lib/api'
 import { useConfig, getPath } from './ConfigContext'
-import { ALARM_BAR_STATION_MIN, NUMBER_GUARDS, TEXT_MAX_LENGTH, fitsText, tooLongNote, useStoredRows, type NumberField, type NumberGuard } from './configGuards'
+import { ALARM_BAR_STATION_MIN, NUMBER_GUARDS, TEXT_MAX_LENGTH, fitsText, tooLongNote, type NumberField, type NumberGuard } from './configGuards'
 // No `Field` any more: every setting on these pages is a row of the settings table now, and
 // the list editors' records are a divider plus their fields as rows of the same grid.
 import {
@@ -34,6 +34,7 @@ import { lv95ToWgs84, wgs84ToLV95 } from '../lib/geo'
 import type { DeploymentReferenceLayer } from '../lib/deploymentConfig'
 import type { HoseSize } from '../types'
 import { describeApiError } from './apiErrors'
+import { useStoredRows } from './useStoredRows'
 
 // The five "Station" pages. Each edits one facet of the single config document via the
 // shared ConfigContext (draft + Save live in the provider, not here). Section-level help
@@ -2139,7 +2140,7 @@ function ReportLinksEditor() {
     // it is worth saving; the same predicate `reportLinks()` uses decides that, so what the
     // preview promises and what gets stored cannot drift apart.
     // …and none longer than the schema allows (writableLinks).
-    // A STORED link past a bound stays in the save as stored (configGuards · useStoredRows).
+    // A STORED link past a bound stays in the save as stored (useStoredRows).
     set(['report', 'links'], saved(next))
   }
   const patch = (i: number, over: Partial<ReportLink>) =>

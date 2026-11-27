@@ -23,7 +23,8 @@ import {
 import { DEFAULT_DESTINATION, DEFAULT_LOCATION_FOLDER, destinationValid, previewFolder, previewLocationFolder } from '../objectVisits/folders'
 import { personName, type DeliveryRow, type NotifyState, type VisitFiling, type VisitSummary, type VisitTemplate } from '../objectVisits/types'
 import { getPath, useConfig, type ConfigCtx } from './ConfigContext'
-import { NUMBER_GUARDS, TEXT_MAX_LENGTH, fitsText, tooLongNote, useStoredRows } from './configGuards'
+import { NUMBER_GUARDS, TEXT_MAX_LENGTH, fitsText, tooLongNote } from './configGuards'
+import { useStoredRows } from './useStoredRows'
 import { apiErrorText } from './apiErrors'
 import {
   Card, ConfirmButton, CopyChip, EmptyState, RecordRows, RecordTable, ResultChip, SettingRow, SettingsNote,
@@ -140,7 +141,7 @@ type FieldRow = { id: string; label: string; since?: number }
 
 /** «Felder für Vorschläge»: the Korrekturvorschlag fields (`objectVisits.proposalFields`). A row
  *  the server would refuse stays here with its reason and is not written – a stored one past a
- *  bound stays in the save as stored (configGuards · useStoredRows). Of two rows with one
+ *  bound stays in the save as stored (useStoredRows). Of two rows with one
  *  Kennung the one that came to it LAST takes the warning – the row being edited, never the
  *  saved field it now collides with. */
 export function ProposalFieldsEditor() {

@@ -3,7 +3,8 @@ import { appConfig } from '../config/appConfig'
 import { Icon } from '../lib/icons'
 import { categoryId, categoryLabel, INK, isCategoryColor, writableRules, type ObjectCategoryRule, type ObjectKind } from '../lib/karte/categories'
 import { getPath, useConfig } from './ConfigContext'
-import { TEXT_MAX_LENGTH, tooLongNote, useStoredRows } from './configGuards'
+import { TEXT_MAX_LENGTH, tooLongNote } from './configGuards'
+import { useStoredRows } from './useStoredRows'
 import { ConfirmButton, RecordRows, RecordTable, SettingRow, SettingsNote } from './ui'
 
 // «Objektfarben» — the station's colours for its objects on «Karte & Objekte»
@@ -12,7 +13,7 @@ import { ConfirmButton, RecordRows, RecordTable, SettingRow, SettingsNote } from
 // takes. A colour is a #rrggbb or «Tinte» (`ink`: the default look, near-black by day, near-white
 // at night — owner, 25.10.2026). A row the server would refuse — no name, neither colour — stays on
 // screen with its reason and is not written, like every list editor in the Verwaltung; a stored
-// rule past a bound stays in the save as stored (configGuards · useStoredRows).
+// rule past a bound stays in the save as stored (useStoredRows).
 
 const HEX = /^#[0-9a-fA-F]{6}$/
 const KINDS: ObjectKind[] = ['einsatzobjekt', 'objekt'] // «depot» is retired (lib/karte/categories)
@@ -25,7 +26,7 @@ const chars = (s: string | undefined) => [...(s ?? '')].length
  *  `maxLength` holds a box – by code point, as pydantic counts, so «🚒» is never split into half a
  *  character the API refuses. While the rule still holds a stored glob past it (`before`), the box
  *  cuts nothing: the row's warning names the glob until the admin shortens it, and the save keeps
- *  the stored rule (configGuards · useStoredRows). */
+ *  the stored rule (useStoredRows). */
 const parseModules = (text: string, before: readonly string[]) => {
   const cut = before.every((m) => chars(m) <= MODULE_MAX)
   return text.split(',').map((m) => m.trim()).map((m) => (cut ? [...m].slice(0, MODULE_MAX).join('') : m)).filter(Boolean)

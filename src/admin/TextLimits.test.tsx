@@ -205,42 +205,58 @@ describe('a stored row past its bound stays in the save', () => {
     await act(async () => { fireEvent.click(screen.getAllByRole('button', { name: label })[i]) })
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: appConfig.copy.admin.common.confirmYes })) })
   }
+  /** The body of a PUT made after this call – never one sent before it. */
+  const nextPut = async () => {
+    const before = apiPut.mock.calls.length
+    await settle()
+    expect(apiPut.mock.calls.length).toBeGreaterThan(before)
+    return sent()
+  }
 
   describe('Formulare & Links', () => {
     const long = { id: 'lnk1', title: 'T'.repeat(130), url: 'https://formulare.example/lang' }
     const ok = { id: 'lnk2', title: 'Schaden', url: 'https://formulare.example/schaden' }
     const titles = () => screen.getAllByPlaceholderText(R.linkTitlePlaceholder)
+    const urls = () => screen.getAllByPlaceholderText(R.linkUrlPlaceholder)
     beforeEach(() => { apiGet.mockResolvedValue({ ...structuredClone(STATION), report: { ...STATION.report, links: [long, ok] } }) })
 
     it('keeps the stored link through an edit of another one, and while it is still too long', async () => {
       await act(async () => { render(<ConfigProvider><ReportSection /></ConfigProvider>) })
       await type((await waitFor(titles))[1], 'Schadenmeldung')
-      await settle()
-      expect(sent()?.report?.links).toEqual([long, { ...ok, title: 'Schadenmeldung' }])
+      expect((await nextPut())?.report?.links).toEqual([long, { ...ok, title: 'Schadenmeldung' }])
       await type(titles()[0], 'T'.repeat(125))
-      await settle()
-      expect(sent()?.report?.links).toEqual([long, { ...ok, title: 'Schadenmeldung' }])
+      await type(titles()[1], 'Schadenmeldung 2')
+      expect((await nextPut())?.report?.links).toEqual([long, { ...ok, title: 'Schadenmeldung 2' }])
     })
 
-    it('saves it once shortened, and without it once deleted', async () => {
+    it('saves it once shortened', async () => {
       await act(async () => { render(<ConfigProvider><ReportSection /></ConfigProvider>) })
       await type((await waitFor(titles))[0], 'T'.repeat(120))
-      await settle()
-      expect(sent()?.report?.links).toEqual([{ ...long, title: 'T'.repeat(120) }, ok])
-      await type(titles()[0], 'T'.repeat(121))
-      await settle()
-      await remove(R.linkRemove, 0)
-      await settle()
-      expect(sent()?.report?.links).toEqual([ok])
+      expect((await nextPut())?.report?.links).toEqual([{ ...long, title: 'T'.repeat(120) }, ok])
     })
 
-    it('treats a link written short as an ordinary one: a half-typed edit of it is held back', async () => {
+    it('saves the list without it once deleted while still too long', async () => {
+      await act(async () => { render(<ConfigProvider><ReportSection /></ConfigProvider>) })
+      await waitFor(titles)
+      await remove(R.linkRemove, 0)
+      expect((await nextPut())?.report?.links).toEqual([ok])
+    })
+
+    it('falls back to the stored link while a repair is not saved yet', async () => {
+      await act(async () => { render(<ConfigProvider><ReportSection /></ConfigProvider>) })
+      await type((await waitFor(titles))[0], 'T'.repeat(120))
+      // …the URL cleared before the autosave ran: the shortened title never reached the server
+      await type(urls()[0], '')
+      await type(titles()[1], 'Schadenmeldung')
+      expect((await nextPut())?.report?.links).toEqual([long, { ...ok, title: 'Schadenmeldung' }])
+    })
+
+    it('treats a link saved short as an ordinary one: a half-typed edit of it is held back', async () => {
       await act(async () => { render(<ConfigProvider><ReportSection /></ConfigProvider>) })
       await type((await waitFor(titles))[0], 'Kurz')
-      await settle()
-      await type(screen.getAllByPlaceholderText(R.linkUrlPlaceholder)[0], '')
-      await settle()
-      expect(sent()?.report?.links).toEqual([ok])
+      await nextPut()
+      await type(urls()[0], '')
+      expect((await nextPut())?.report?.links).toEqual([ok])
     })
 
     it('lets the admin shorten a stored URL past its bound', async () => {
@@ -262,16 +278,14 @@ describe('a stored row past its bound stays in the save', () => {
     it('keeps the stored field through an edit of another one', async () => {
       await act(async () => { render(<ConfigProvider><ProposalFieldsEditor /></ConfigProvider>) })
       await type((await waitFor(labels))[1], 'Kurz Name')
-      await settle()
-      expect(sent()?.objectVisits?.proposalFields).toEqual([long, { id: 'kurz_name', label: 'Kurz Name' }])
+      expect((await nextPut())?.objectVisits?.proposalFields).toEqual([long, { id: 'kurz_name', label: 'Kurz Name' }])
     })
 
     it('keeps only a row past a length: a stored blank one is left out as before', async () => {
       apiGet.mockResolvedValue({ ...structuredClone(STATION), objectVisits: { proposalFields: [{ id: 'leer', label: ' ' }, ok] } })
       await act(async () => { render(<ConfigProvider><ProposalFieldsEditor /></ConfigProvider>) })
       await type((await waitFor(labels))[1], 'Kurz Name')
-      await settle()
-      expect(sent()?.objectVisits?.proposalFields).toEqual([{ id: 'kurz_name', label: 'Kurz Name' }])
+      expect((await nextPut())?.objectVisits?.proposalFields).toEqual([{ id: 'kurz_name', label: 'Kurz Name' }])
     })
 
     it('keeps it exactly as stored, untrimmed', async () => {
@@ -279,18 +293,28 @@ describe('a stored row past its bound stays in the save', () => {
       apiGet.mockResolvedValue({ ...structuredClone(STATION), objectVisits: { proposalFields: [padded, ok] } })
       await act(async () => { render(<ConfigProvider><ProposalFieldsEditor /></ConfigProvider>) })
       await type((await waitFor(labels))[1], 'Kurz Name ')
-      await settle()
-      expect(sent()?.objectVisits?.proposalFields).toEqual([padded, { id: 'kurz_name', label: 'Kurz Name' }])
+      expect((await nextPut())?.objectVisits?.proposalFields).toEqual([padded, { id: 'kurz_name', label: 'Kurz Name' }])
     })
 
-    it('saves it once shortened, and without it once deleted', async () => {
+    it('saves it once shortened', async () => {
       await act(async () => { render(<ConfigProvider><ProposalFieldsEditor /></ConfigProvider>) })
       await type((await waitFor(labels))[0], 'L'.repeat(120))
-      await settle()
-      expect(sent()?.objectVisits?.proposalFields).toEqual([{ ...long, label: 'L'.repeat(120) }, ok])
+      expect((await nextPut())?.objectVisits?.proposalFields).toEqual([{ ...long, label: 'L'.repeat(120) }, ok])
+    })
+
+    it('saves the list without it once deleted while still too long', async () => {
+      await act(async () => { render(<ConfigProvider><ProposalFieldsEditor /></ConfigProvider>) })
+      await waitFor(labels)
       await remove(T.fieldRemove, 0)
-      await settle()
-      expect(sent()?.objectVisits?.proposalFields).toEqual([ok])
+      expect((await nextPut())?.objectVisits?.proposalFields).toEqual([ok])
+    })
+
+    it('falls back to the stored field while a repair is not saved yet', async () => {
+      await act(async () => { render(<ConfigProvider><ProposalFieldsEditor /></ConfigProvider>) })
+      await type((await waitFor(labels))[0], 'L'.repeat(120))
+      await type(labels()[0], '')
+      await type(labels()[1], 'Kurz Name')
+      expect((await nextPut())?.objectVisits?.proposalFields).toEqual([long, { id: 'kurz_name', label: 'Kurz Name' }])
     })
   })
 
@@ -298,24 +322,27 @@ describe('a stored row past its bound stays in the save', () => {
     const long = { id: 'pv', label: 'Photovoltaik', color: '#f59e0b', match: { modules: ['m'.repeat(61)] } }
     const ok = { id: 'rest', label: 'Rest', color: '#64748b', match: { kinds: ['objekt'] } }
     const names = () => screen.getAllByPlaceholderText(M.catNamePlaceholder)
+    const modules = () => screen.getAllByPlaceholderText(M.catModulesPlaceholder)[0] as HTMLInputElement
     beforeEach(() => { apiGet.mockResolvedValue({ ...structuredClone(STATION), map: { objectCategories: [long, ok] } }) })
 
     it('keeps the stored rule through an edit of another one', async () => {
       await act(async () => { render(<ConfigProvider><ObjectCategoriesCard /></ConfigProvider>) })
       await type((await waitFor(names))[1], 'Andere')
-      await settle()
-      expect(sent()?.map?.objectCategories).toEqual([long, { ...ok, id: 'andere', label: 'Andere' }])
+      expect((await nextPut())?.map?.objectCategories).toEqual([long, { ...ok, id: 'andere', label: 'Andere' }])
     })
 
-    it('saves it once shortened, and without it once deleted', async () => {
+    it('saves it once shortened', async () => {
       await act(async () => { render(<ConfigProvider><ObjectCategoriesCard /></ConfigProvider>) })
       await waitFor(names)
-      await type(screen.getAllByPlaceholderText(M.catModulesPlaceholder)[0], 'm'.repeat(60))
-      await settle()
-      expect(sent()?.map?.objectCategories).toEqual([{ ...long, match: { modules: ['m'.repeat(60)] } }, ok])
+      await type(modules(), 'm'.repeat(60))
+      expect((await nextPut())?.map?.objectCategories).toEqual([{ ...long, match: { modules: ['m'.repeat(60)] } }, ok])
+    })
+
+    it('saves the list without it once deleted while still too long', async () => {
+      await act(async () => { render(<ConfigProvider><ObjectCategoriesCard /></ConfigProvider>) })
+      await waitFor(names)
       await remove(M.catRemove, 0)
-      await settle()
-      expect(sent()?.map?.objectCategories).toEqual([ok])
+      expect((await nextPut())?.map?.objectCategories).toEqual([ok])
     })
 
     it('never cuts a stored glob: an edit of the box keeps it, shortening it is the admin\'s', async () => {
@@ -323,12 +350,10 @@ describe('a stored row past its bound stays in the save', () => {
       apiGet.mockResolvedValue({ ...structuredClone(STATION), map: { objectCategories: [stored, ok] } })
       await act(async () => { render(<ConfigProvider><ObjectCategoriesCard /></ConfigProvider>) })
       await waitFor(names)
-      const modules = () => screen.getAllByPlaceholderText(M.catModulesPlaceholder)[0] as HTMLInputElement
       await type(modules(), `modul6-pv*, ${'m'.repeat(70)}`)
       await type(names()[1], 'Andere')
-      await settle()
       expect(modules().value).toBe(`modul6-pv*, ${'m'.repeat(70)}`)
-      expect(sent()?.map?.objectCategories?.[0]).toEqual(stored)
+      expect((await nextPut())?.map?.objectCategories?.[0]).toEqual(stored)
       await type(modules(), `modul6-pv*, ${'m'.repeat(70)}*`)
       expect(modules().value).toBe(`modul6-pv*, ${'m'.repeat(70)}*`)
       // a comma typed into it leaves a fragment still past the cap – not cut either
@@ -336,8 +361,8 @@ describe('a stored row past its bound stays in the save', () => {
       expect(modules().value).toBe(`modul6-pv*, m, ${'m'.repeat(69)}*`)
       await type(modules(), `modul6-pv*, ${'m'.repeat(69)}`)
       expect(modules().value).toBe(`modul6-pv*, ${'m'.repeat(69)}`)
-      await settle()
-      expect(sent()?.map?.objectCategories?.[0]).toEqual(stored)
+      await type(names()[1], 'Andere 2')
+      expect((await nextPut())?.map?.objectCategories?.[0]).toEqual(stored)
     })
   })
 })
