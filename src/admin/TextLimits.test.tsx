@@ -323,6 +323,9 @@ describe('a stored row past its bound stays in the save', () => {
       expect(sent()?.map?.objectCategories?.[0]).toEqual(stored)
       await type(modules(), `modul6-pv*, ${'m'.repeat(70)}*`)
       expect(modules().value).toBe(`modul6-pv*, ${'m'.repeat(70)}*`)
+      // a comma typed into it leaves a fragment still past the cap – not cut either
+      await type(modules(), `modul6-pv*, m,${'m'.repeat(69)}*`)
+      expect(modules().value).toBe(`modul6-pv*, m, ${'m'.repeat(69)}*`)
       await type(modules(), `modul6-pv*, ${'m'.repeat(69)}`)
       expect(modules().value).toBe(`modul6-pv*, ${'m'.repeat(69)}`)
       await settle()

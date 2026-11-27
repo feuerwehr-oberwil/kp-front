@@ -23,11 +23,13 @@ const MODULE_MAX = TEXT_MAX_LENGTH['map.objectCategories.0.match.modules.0']
 const chars = (s: string | undefined) => [...(s ?? '')].length
 /** The globs of the modules box. A glob typed past the schema's length is cut to it, the way
  *  `maxLength` holds a box – by code point, as pydantic counts, so «🚒» is never split into half a
- *  character the API refuses. A stored glob already past it (the glob at the same place `before`)
- *  is never cut: it stays as typed, and the row's warning names it until the admin shortens it. */
-const parseModules = (text: string, before: readonly string[]) => text.split(',').map((m) => m.trim())
-  .map((m, k) => (before.includes(m) || chars(before[k]) > MODULE_MAX ? m : [...m].slice(0, MODULE_MAX).join('')))
-  .filter(Boolean)
+ *  character the API refuses. While the rule still holds a stored glob past it (`before`), the box
+ *  cuts nothing: the row's warning names the glob until the admin shortens it, and the save keeps
+ *  the stored rule (configGuards · useStoredRows). */
+const parseModules = (text: string, before: readonly string[]) => {
+  const cut = before.every((m) => chars(m) <= MODULE_MAX)
+  return text.split(',').map((m) => m.trim()).map((m) => (cut ? [...m].slice(0, MODULE_MAX).join('') : m)).filter(Boolean)
+}
 
 export function ObjectCategoriesCard() {
   const { draft, set } = useConfig()
