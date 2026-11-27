@@ -3,9 +3,10 @@ import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 
 // What the Verwaltung shows for a request that failed: the server's German message, the
-// instruction that came with it (`ApiError.hint`), and for a 422 the refused fields by their
-// German name — never FastAPI's English Pydantic sentence, which is what `ApiError.detail` holds
-// for a validation answer (lib/api · ApiError.fields). Every admin view's save, delete, upload
+// instruction that came with it (`ApiError.hint`, but never the field app's line on a dead link –
+// see describeApiError), and for a 422 the refused fields by their German name — never FastAPI's
+// English Pydantic sentence, which is what `ApiError.detail` holds for a validation answer
+// (lib/api · ApiError.fields). Every admin view's save, delete, upload
 // and import path reads its error through `describeApiError` / `apiErrorText`; each view still
 // decides where and how the line is shown.
 
@@ -128,11 +129,11 @@ export function describeRejectedFields(e: ApiError): string[] {
   return [...new Set(lines)]
 }
 
-/** The 422 the config endpoint answers an invalid document with, as a sentence naming the
 /** A failed admin request, as the operator reads it. */
 export interface AdminError {
   message: string
-  /** what to do about it, where the server or the transport said (lib/api · ApiError.hint) */
+  /** what to do about it, where the refusal said (lib/api · ApiError.hint) – never the field
+   *  app's line on a dead link (`ApiError.transportHint`) */
   hint?: string
   /** the refused fields by name — set only for a 422 that named its fields */
   fields?: string[]
@@ -141,7 +142,10 @@ export interface AdminError {
 /**
  * Turn a failed request into what the admin shows. A 422 that names its fields reads
  * «Vom Server nicht angenommen: <Feld> · <Feld>»; any other `ApiError` keeps the server's own
- * (German) message and its hint. `fallback` is the view's own sentence for everything that is no
+ * (German) message and its hint. A failure of the link itself (no network, no answer, a proxy's
+ * 502–504) keeps its reason – «Server nicht erreichbar», «Keine Antwort» – and drops the hint:
+ * «Gespeicherte Einsätze bleiben offline verfügbar» is the field app's promise and means nothing
+ * on an admin page. `fallback` is the view's own sentence for everything that is no
  * `ApiError` (a bug, a parse error) and for a 422 that names no field; without one it is
  * «Unbekannter Fehler» (`common2.unknownError`). `labels` names the fields of a request body that
  * is not the config document (`display_name` → «Name»), by the words its form uses.
@@ -158,7 +162,7 @@ export function describeApiError(
     if (!fields.length) return { message: fallback }
     return { message: fillTemplate(appConfig.copy.admin.autosave.rejected, { fields: fields.join(' · ') }), fields }
   }
-  return { message: e.detail, hint: e.hint }
+  return { message: e.detail, hint: e.transportHint ? undefined : e.hint }
 }
 
 /** `describeApiError` as one line («message hint»), for the views that show a single text. */

@@ -10,6 +10,8 @@ const { apiGet, apiPut, ApiError } = vi.hoisted(() => {
     status: number
     detail: string
     hint?: string
+    /** the hint is the field app's line on a dead link (lib/api · ApiError.transportHint) */
+    transportHint?: boolean
     /** the structured half of a 422 — what the German message is built from (lib/api) */
     fields?: { path: string; msg: string }[]
     /** the NAMED refusal and its payload — what tells the two 409s apart (lib/api · ApiError) */
@@ -100,6 +102,19 @@ describe('Verwaltung autosave — it must stop trying', () => {
     await edit()
     await act(async () => { await vi.advanceTimersByTimeAsync(5000) })
     expect(screen.getByText('Bild verkleinern und erneut hochladen.')).toBeTruthy()
+  })
+
+  it('offline: says why, without the field app\'s «Gespeicherte Einsätze …»', async () => {
+    const E = appConfig.copy.errors
+    const offline = new ApiError(0, E.serverUnreachable, E.serverUnreachableHint)
+    offline.transportHint = true
+    apiPut.mockRejectedValue(offline)
+    setup()
+    await waitFor(() => expect(apiGet).toHaveBeenCalled())
+    await edit()
+    await act(async () => { await vi.advanceTimersByTimeAsync(5000) })
+    expect(screen.getByText(E.serverUnreachable)).toBeTruthy()
+    expect(screen.queryByText(E.serverUnreachableHint)).toBeNull()
   })
 
   it('offers «Erneut versuchen» only once it has actually stopped', async () => {

@@ -84,6 +84,7 @@ function networkError(e: unknown): ApiError {
   const timeout = isTimeout(e)
   const err = new ApiError(0, timeout ? c.serverTimeout : c.serverUnreachable)
   err.hint = timeout ? c.serverTimeoutHint : c.serverUnreachableHint
+  err.transportHint = true
   err.timedOut = timeout
   return err
 }
@@ -122,6 +123,11 @@ export class ApiError extends Error {
   /** One line on what to do about it, when we can say something useful. The `detail` alone is a
    *  diagnosis; the hint is the instruction, and at 3am the instruction is the point. */
   hint?: string
+  /** `hint` is OUR line on the link, not on the request: no network, our timeout, or a proxy's
+   *  502–504 the server sent no words for (see isUnverifiable). Its wording is the field app's
+   *  («Gespeicherte Einsätze bleiben offline verfügbar»), so the Verwaltung leaves such a hint
+   *  out and keeps every other one (admin/apiErrors · describeApiError). */
+  transportHint?: boolean
   /** seconds to wait, parsed from the Retry-After header when the server sends one (429) */
   retryAfter?: number
   /** Which FIELDS the server refused, when it answered with FastAPI's 422 validation array.
@@ -455,6 +461,7 @@ async function throwApiError(res: Response): Promise<never> {
     const retryAfter = ra != null && ra !== '' ? Number(ra) : undefined
     const err = new ApiError(res.status, detail, Number.isFinite(retryAfter) ? retryAfter : undefined)
     err.hint = hint
+    if (hint != null && isUnverifiable(err)) err.transportHint = true
     err.fields = fields
     err.code = code
     err.data = data
