@@ -262,8 +262,10 @@
 /* «→ nichts» is one short word: it keeps it, and the docked name beside it is the one that gives */
 .draw-editor .de-end--none { flex: none; color: var(--ink-faint); font-weight: var(--fw-medium); }
 .draw-editor .de-ends-detach { flex: none; padding-inline: var(--sp-3); }
-/* the hydrant end keeps its words; a long docked name is the one that ellipsizes */
-.draw-editor .de-end:has(.de-end-m) { flex: none; }
+/* the hydrant end, alone on a line beside «Lösen», may not fit either («TLF → ✓ Hydrant 2 m»,
+   a line drawn from the vehicle to the hydrant, ran 5px under the button): its metres go under
+   the word, and only a column too narrow for «→ ✓ Hydrant» ellipsizes the word */
+.draw-editor .de-end:has(.de-end-m) { flex-wrap: wrap; row-gap: 0; }
 /* (the note's «Ziel anzeigen» is THE button, <Button> — a framed button at the note's end since
    28.09.2026, owner pick A; it was an underlined blue word, 12px, a hyperlink in a command app) */
 /* (the detach, «Verbindung lösen», is a body act at the control edge – 08-toasts · `.de-act`; it
