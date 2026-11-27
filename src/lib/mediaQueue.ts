@@ -414,10 +414,9 @@ export function flushMediaQueue(incidentId: string, upload: MediaUploader, { ret
  *  leaves the receipt for the tab that took it. A refused lock retires nothing. */
 export function retireMediaReceipts(incidentId: string, done: readonly MediaReceipt[], still: () => boolean = () => true): Promise<boolean> {
   return laneFor(incidentId).edit(async () => {
-    if (!still()) return isMediaQueueDurable(incidentId)
     const { items, known } = await readQueue(incidentId)
     const next = items.filter((cur) => !(isReceipt(cur) && done.some((d) => sameCapture(d, cur))))
-    if (next.length === items.length) return isMediaQueueDurable(incidentId)
+    if (next.length === items.length || !still()) return isMediaQueueDurable(incidentId)
     return storeQueue(incidentId, next, known)
   }, () => isMediaQueueDurable(incidentId))
 }
