@@ -165,7 +165,7 @@ export function ProposalFieldsEditor() {
   const { edited, saved } = useStoredRows(stored, (all) => all.filter((f, i) => problem(f, i, all) === null))
   const write = (next: FieldRow[]) => {
     setEditing(next)
-    set(['objectVisits', 'proposalFields'], saved(next).map((f) => ({ id: f.id.trim(), label: f.label.trim() })))
+    set(['objectVisits', 'proposalFields'], saved(next, (f) => ({ id: f.id.trim(), label: f.label.trim() })))
   }
   const patch = (i: number, over: Partial<FieldRow>) => {
     const tick = Math.max(0, ...rows.map((r) => r.since ?? 0)) + 1

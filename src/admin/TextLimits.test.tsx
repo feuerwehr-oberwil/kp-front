@@ -266,6 +266,15 @@ describe('a stored row past its bound stays in the save', () => {
       expect(sent()?.objectVisits?.proposalFields).toEqual([long, { id: 'kurz_name', label: 'Kurz Name' }])
     })
 
+    it('keeps it exactly as stored, untrimmed', async () => {
+      const padded = { ...long, label: ` ${long.label}` }
+      apiGet.mockResolvedValue({ ...structuredClone(STATION), objectVisits: { proposalFields: [padded, ok] } })
+      await act(async () => { render(<ConfigProvider><ProposalFieldsEditor /></ConfigProvider>) })
+      await type((await waitFor(labels))[1], 'Kurz Name ')
+      await settle()
+      expect(sent()?.objectVisits?.proposalFields).toEqual([padded, { id: 'kurz_name', label: 'Kurz Name' }])
+    })
+
     it('saves it once shortened, and without it once deleted', async () => {
       await act(async () => { render(<ConfigProvider><ProposalFieldsEditor /></ConfigProvider>) })
       await type((await waitFor(labels))[0], 'L'.repeat(120))
@@ -312,8 +321,12 @@ describe('a stored row past its bound stays in the save', () => {
       await settle()
       expect(modules().value).toBe(`modul6-pv*, ${'m'.repeat(70)}`)
       expect(sent()?.map?.objectCategories?.[0]).toEqual(stored)
+      await type(modules(), `modul6-pv*, ${'m'.repeat(70)}*`)
+      expect(modules().value).toBe(`modul6-pv*, ${'m'.repeat(70)}*`)
       await type(modules(), `modul6-pv*, ${'m'.repeat(69)}`)
       expect(modules().value).toBe(`modul6-pv*, ${'m'.repeat(69)}`)
+      await settle()
+      expect(sent()?.map?.objectCategories?.[0]).toEqual(stored)
     })
   })
 })

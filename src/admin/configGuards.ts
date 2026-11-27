@@ -143,7 +143,7 @@ export function tooLongNote(
  * Stored = a row of `stored` (the list in the draft) when the first edit begins that `writable`
  * leaves out; the editor never writes such a row itself, so it came from the server. Pass every
  * row an edit replaces through `edited(before, after)`, which carries its stored original along,
- * and write `saved(rows)`.
+ * and write `saved(rows, clean)`: `clean` shapes a written row (a trim), never a stored original.
  */
 export function useStoredRows<T extends object>(stored: readonly T[], writable: (rows: readonly T[]) => readonly T[]) {
   const held = useRef<Set<T> | null>(null)
@@ -162,13 +162,13 @@ export function useStoredRows<T extends object>(stored: readonly T[], writable: 
       if (o) origin.current.set(after, o)
       return after
     },
-    saved: (rows: readonly T[]): T[] => {
+    saved: (rows: readonly T[], clean: (row: T) => T = (row) => row): T[] => {
       const ok = writable(rows)
       return rows.flatMap((r) => {
         if (ok.includes(r)) {
           heldRows().delete(r)
           origin.current.delete(r)
-          return [r]
+          return [clean(r)]
         }
         const o = original(r)
         return o ? [o] : []

@@ -21,13 +21,12 @@ const NEW_COLOR = '#64748b'
 const INK_SWATCH = 'var(--obj-plans)'
 const MODULE_MAX = TEXT_MAX_LENGTH['map.objectCategories.0.match.modules.0']
 const chars = (s: string | undefined) => [...(s ?? '')].length
-/** The globs of the modules box. A new or grown glob is held to the schema's length, the way
- *  `maxLength` holds a box – cut by code point, as pydantic counts, so «🚒» is never split into
- *  half a character the API refuses. A stored glob already past it is never cut: it stays as it
- *  is, or as the admin shortens it (compared with the glob at the same place `before`), and the
- *  row's warning names it until it fits. */
+/** The globs of the modules box. A glob typed past the schema's length is cut to it, the way
+ *  `maxLength` holds a box – by code point, as pydantic counts, so «🚒» is never split into half a
+ *  character the API refuses. A stored glob already past it (the glob at the same place `before`)
+ *  is never cut: it stays as typed, and the row's warning names it until the admin shortens it. */
 const parseModules = (text: string, before: readonly string[]) => text.split(',').map((m) => m.trim())
-  .map((m, k) => (before.includes(m) || chars(m) < chars(before[k]) ? m : [...m].slice(0, MODULE_MAX).join('')))
+  .map((m, k) => (before.includes(m) || chars(before[k]) > MODULE_MAX ? m : [...m].slice(0, MODULE_MAX).join('')))
   .filter(Boolean)
 
 export function ObjectCategoriesCard() {
