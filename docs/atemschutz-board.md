@@ -182,6 +182,16 @@ questions, and what the record keeps (`components/AtemschutzView`; the card and 
     card (the row gap or the board's bottom inset – air nobody owns; the chips over the foot have
     no pixel to give). The touch grid card therefore does not clip; its head band and its foot's
     wash round their own outer corners, and an opened Verlauf keeps the line at 44px.
+- ⚠️ *The clocks tick, the board does not* (perf sweep, 27.11.2026): every value that runs with
+  time — the contact, break and Einsatzzeit clocks, the Schätzung, the contact times, the Notfall
+  clocks, the Tafel's tabs — is a leaf on one second ticker (`lib/boardClock`; `TruppCard ·
+  TruppTicking`). `TruppRow` and `TruppCard` are memoised and hold only `TruppSteady`, and the
+  board renders on a tick only when `AtemschutzView · boardTickKey` changes: each Trupp's state
+  and tier, and the time order its sorts and its badge read. A new value that changes with time
+  goes into a leaf or into that key — anywhere else it stands still until something else renders.
+  No Trupp with an Eintritt, an Austritt or a Notfall: no timer runs. A closed Einsatz reads a
+  stopped clock (`frozenAt`). `AtemschutzView.clocks.test.tsx` compares the board with a fresh
+  drawing at every second.
 
 ## The Atemschutz-Link board (the handed-over phone board, `lite && compact`)
 
