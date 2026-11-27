@@ -761,7 +761,7 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
     })
     .filter((l) => l.lines.length > 0)
   // inline repeating letter marker (e.g. R on a Rettungsachse) rendered as DOM Markers
-  // densely along the WHOLE line — NOT a MapLibre `text-field` symbol layer, which would
+  // densely along the line — NOT a MapLibre `text-field` symbol layer, which would
   // need a `glyphs` font source the offline-first style intentionally omits. We walk the
   // polyline in projected screen space and drop a letter every ~MARKER_SPACING_PX, so the
   // —R— rhythm reads at any zoom. Falls back to the midpoint until the map is ready.
@@ -770,19 +770,30 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
   // `deg` rides along so an FKS chain glyph (a Haltelinie's teeth) can stand on the line; a
   // letter ignores it. Spacing is the marker's own rhythm — a triangle chain is far denser than
   // the —R— letters (lib/lineStyle · markerSpacing).
-  const markerPointsAlong = (coords: LngLat[], marker?: string): { coord: LngLat; deg: number }[] => {
+  // Each glyph is a DOM Marker the map moves on every pan/zoom frame, so only the glyphs inside the
+  // canvas plus one canvas extent on each side are kept: a drag can't carry the map further than
+  // the glass is wide, and a flick's inertia stops well inside that (MapLibre ≤ ~400 px), so no
+  // glyph pops in at the edge before the moveend render re-clips. The chain is walked whole and
+  // then filtered, so the rhythm is the unclipped one (the Plan's) and `n`, a glyph's place in
+  // it, keys the same ground point in every window.
+  const markerPointsAlong = (coords: LngLat[], marker?: string): { coord: LngLat; deg: number; n: number }[] => {
     const m = mapInst.current
     const mid = coords[Math.floor((coords.length - 1) / 2)]
-    if (!m) return [{ coord: mid, deg: 0 }]
+    if (!m) return [{ coord: mid, deg: 0, n: 0 }]
     const px = coords.map((c) => { const p = m.project(c as [number, number]); return [p.x, p.y] as [number, number] })
-    const out = markerParamsAlong(px, markerSpacing(marker))
-      .map(({ seg, t, deg }) => ({ coord: lerpPoint(coords[seg], coords[seg + 1], t) as LngLat, deg }))
-    if (out.length === 0) out.push({ coord: mid, deg: 0 })
-    return out
+    const along = markerParamsAlong(px, markerSpacing(marker))
+    const all = along.length
+      ? along.map(({ seg, t, deg }, n) => ({ coord: lerpPoint(coords[seg], coords[seg + 1], t) as LngLat, at: lerpPoint(px[seg], px[seg + 1], t), deg, n }))
+      : [{ coord: mid, at: px[Math.floor((px.length - 1) / 2)], deg: 0, n: 0 }]
+    const canvas = m.getCanvas(), ratio = m.getPixelRatio()
+    const w = canvas.width / ratio, h = canvas.height / ratio
+    return all
+      .filter(({ at: [x, y] }) => x >= -w && x <= 2 * w && y >= -h && y <= 2 * h)
+      .map(({ coord, deg, n }) => ({ coord, deg, n }))
   }
   const drawMarkers = drawings
     .filter((d) => d.kind !== 'area' && !!d.marker && Array.isArray(d.coords) && d.coords.length >= 2)
-    .flatMap((d) => markerPointsAlong(d.coords, d.marker).map(({ coord, deg }, i) => ({ id: `${d.id}-${i}`, coord, deg, marker: d.marker!, color: d.color || DEFAULT_INK })))
+    .flatMap((d) => markerPointsAlong(d.coords, d.marker).map(({ coord, deg, n }) => ({ id: `${d.id}-${n}`, coord, deg, marker: d.marker!, color: d.color || DEFAULT_INK })))
   // committed Absperrkreis circles carry their radius at the SCREEN-TOP edge (not the centre,
   // which is the drag handle) so the size reads without sitting in the middle of the action.
   // The edge point tracks the map bearing so it stays at the top of the screen when rotated.
