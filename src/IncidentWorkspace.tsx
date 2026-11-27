@@ -158,7 +158,7 @@ import { annotatedPlans, changedReportMetaLines, einsatzleiterFromScene, normali
 import { useAbschluss } from './lib/useAbschluss'
 import { useRowMediaUpload } from './lib/useRowMediaUpload'
 import { useGeorefFits } from './lib/useGeorefFits'
-import { createEditSettle, entityEditRow, type EditSettle } from './lib/entityEdit'
+import { createEditSettle, entityEditRow, noteTextRow, type EditSettle } from './lib/entityEdit'
 import type { PlanStepLink } from './lib/planStepLink'
 import { mittelLineCount } from './lib/mittel'
 import { autoNoteWPx } from './lib/notes'
@@ -1331,15 +1331,16 @@ export function IncidentWorkspace({
       ? { ...e, label: v, ...(e.noteAutoW ? { noteW: autoNoteWPx(v, e.noteSize) } : null) }
       : e)) }))
   }
-  /** …and its end, from the editor on the map and from the Notiz panel alike: ONE ↶ step and one
-   *  audit row for the typing. None at all when the history moved under it – a ↶ / ↷ while it was
-   *  open (endDrag with the typing's token), or the Notiz gone (a ↶ took back placing it, another
-   *  device removed it): a step from the old snapshot would bring back what the ↶ took and clear
-   *  ↷, which already holds the typed text. A gesture begun while it was typed (a vehicle drag)
-   *  took the one slot and keeps its own step: the typing then lays none, but its text still
-   *  writes its row while the Notiz holds it and it changed – a ↶ that took the text back leaves
-   *  an older one there, and no row. Nothing typed: a step only for a changed text, so a ✓ on an
-   *  unchanged Notiz leaves ↷ standing. */
+  /** …and its end, from the editor on the map and from the Notiz panel alike: ONE ↶ step, one audit
+   *  row and one Verlauf row for the typing (the Verlauf's only for a text that changed from the
+   *  one it began with, lib/entityEdit · noteTextRow). None at all when the history moved under it
+   *  – a ↶ / ↷ while it was open (endDrag with the typing's token), or the Notiz gone (a ↶ took
+   *  back placing it, another device removed it): a step from the old snapshot would bring back
+   *  what the ↶ took and clear ↷, which already holds the typed text. A gesture begun while it was
+   *  typed (a vehicle drag) took the one slot and keeps its own step: the typing then lays none,
+   *  but its text still writes its rows while the Notiz holds it and it changed – a ↶ that took the
+   *  text back leaves an older one there, and no row. Nothing typed: a step only for a changed
+   *  text, so a ✓ on an unchanged Notiz leaves ↷ standing. */
   const noteTextEnd = (id: string, v: string) => {
     const live = titleLiveRef.current
     const typing = noteTyping.current
@@ -1350,7 +1351,17 @@ export function IncidentWorkspace({
       if (!note) { if (typing) dropDrag(typing.token); return }
       const laid = endDrag(typing?.token)
       const kept = !laid && typing !== null && (note.label ?? '') === v && v !== typing.from
-      if (laid || kept) emit('entity.edit', { id, patch: { label: v } })
+      if (!laid && !kept) return
+      emit('entity.edit', { id, patch: { label: v } })
+      // …and its one Verlauf row, against the text the typing began with – once the act is over:
+      // the panel's «Entfernen» ends the typing just BEFORE it removes the Notiz, whose removal
+      // row then says the text («Wasser ab 14:20 entfernt»), so a Notiz gone by then writes none
+      const row = typing && noteTextRow(typing.from, v)
+      if (row) {
+        queueMicrotask(() => {
+          if (liveViews().doc.entities.find((e) => e.id === id)?.label === v) log('pen', row, 'symbol', undefined, id)
+        })
+      }
       return
     }
     if (note && (note.label ?? '') !== v) patchEntity(id, { label: v })

@@ -8,6 +8,7 @@ import { AUTH, SYM, rec, registerHarnessHooks, lastMap, lastBoard, meta, truck, 
 import { Meldeleiste } from './components/Meldeleiste'
 import { WorkspaceSync } from './lib/api/workspaceSync'
 import { AuditEventStore } from './lib/auditEventStore'
+import { JournalStore } from './lib/journalStore'
 import type { Saved } from './lib/workspace'
 import { appConfig } from './config/appConfig'
 import { loadPrefs, savePrefs } from './lib/prefs'
@@ -580,6 +581,131 @@ describe('(n) ↶ takes back a Notiz while it is being typed', () => {
     await settle()
     await press(appConfig.copy.redo)
     expect(notes()).toEqual(['Alt', ''])
+  })
+})
+
+/* A Notiz TYPED on the Lage – in the editor on the map or in its panel – wrote only its audit row,
+   never the Verlauf (sweep 25.11.2026, Notiz Verlauf round): one row per editing session, the bare
+   «Notiz «…»» the Plan writes. */
+describe('(n) a Notiz typed on the Lage writes its Verlauf row', () => {
+  const N = appConfig.copy
+  const written = (value: string) => fillTemplate(N.log.noteWritten, { value })
+  const alt = { id: 'a', kind: 'note', coord: [7.6, 47.5], label: 'Alt' } as Entity
+  type NoteMap = { onNoteEdit: (id: string) => void; onNoteText: (id: string, v: string) => void; onNoteCommit: (id: string, v: string) => void; onNotePanel: (id: string) => void }
+  const map = () => lastMap() as unknown as NoteMap
+  /** the Lage with Notiz «Alt»; `rows` is every Verlauf row written since */
+  const start = async () => {
+    const append = vi.spyOn(JournalStore.prototype, 'append')
+    await mount({ workspace: { entities: [truck, alt] } as unknown as Saved })
+    append.mockClear()
+    return { rows: () => append.mock.calls.map(([r]) => r.text) }
+  }
+  const field = () => document.querySelector<HTMLTextAreaElement>('.ctx-note-input')!
+  const typeInPanel = (v: string) => { act(() => { field().focus() }); fireEvent.change(field(), { target: { value: v } }) }
+
+  describe('in the editor on the map', () => {
+    const type = (v: string) => act(() => map().onNoteText('a', v))
+    const end = async (v: string) => { act(() => map().onNoteCommit('a', v)); await settle() }
+
+    it('typed, the editor ends: one bare row', async () => {
+      const { rows } = await start()
+      act(() => map().onNoteEdit('a'))
+      type('Wasser')
+      type('Wasser ab 14:20')
+      await end('Wasser ab 14:20')
+      expect(rows()).toEqual([written('Wasser ab 14:20')])
+    })
+
+    it('opened and closed with no change, or typed back to its text: no row', async () => {
+      const { rows } = await start()
+      act(() => map().onNoteEdit('a'))
+      await end('Alt')
+      act(() => map().onNoteEdit('a'))
+      type('Altx')
+      type('Alt')
+      await end('Alt')
+      expect(rows()).toEqual([])
+    })
+
+    it('emptied: the bare cleared wording', async () => {
+      const { rows } = await start()
+      act(() => map().onNoteEdit('a'))
+      type('')
+      await end('')
+      expect(rows()).toEqual([N.log.notesCleared])
+    })
+
+    it('two sessions: two rows', async () => {
+      const { rows } = await start()
+      act(() => map().onNoteEdit('a'))
+      type('Wasser')
+      await end('Wasser')
+      act(() => map().onNoteEdit('a'))
+      type('Wasser ab 14:20')
+      await end('Wasser ab 14:20')
+      expect(rows()).toEqual([written('Wasser'), written('Wasser ab 14:20')])
+    })
+
+    // the editor goes with the Notiz and ends its edit as it goes (EntityMarker · NoteField)
+    it('typed, then removed in the same session: no «written» row', async () => {
+      const { rows } = await start()
+      act(() => map().onNoteEdit('a'))
+      type('Wasser ab 14:20')
+      act(() => { lastMap().onSelect(lastMap().entities.find((e) => e.id === 'a')!) })
+      key('Delete')
+      await end('Wasser ab 14:20')
+      expect(lastMap().entities.some((e) => e.id === 'a')).toBe(false)
+      expect(rows()).not.toContain(written('Wasser ab 14:20'))
+    })
+  })
+
+  describe('in its panel', () => {
+    /** the tap that selects the Notiz opens its panel (MapMarkers · onNotePanel) */
+    const open = async () => {
+      act(() => { lastMap().onSelect(lastMap().entities.find((e) => e.id === 'a')!); map().onNotePanel('a') })
+      await settle()
+    }
+
+    it('typed, the field blurred: one bare row', async () => {
+      const { rows } = await start()
+      await open()
+      typeInPanel('Wasser')
+      typeInPanel('Wasser ab 14:20')
+      fireEvent.blur(field())
+      await settle()
+      expect(rows()).toEqual([written('Wasser ab 14:20')])
+    })
+
+    it('opened and closed with no change: no row', async () => {
+      const { rows } = await start()
+      await open()
+      fireEvent.click(screen.getByRole('button', { name: N.closeDialog }))
+      await settle()
+      expect(rows()).toEqual([])
+    })
+
+    it('two sessions: two rows', async () => {
+      const { rows } = await start()
+      await open()
+      typeInPanel('Wasser')
+      fireEvent.blur(field())
+      await settle()
+      typeInPanel('Wasser ab 14:20')
+      fireEvent.click(screen.getByRole('button', { name: N.closeDialog }))
+      await settle()
+      expect(rows()).toEqual([written('Wasser'), written('Wasser ab 14:20')])
+    })
+
+    // «Entfernen» ends the typing just before the removal, whose own row names the text
+    it('typed, then «Entfernen»: no «written» row', async () => {
+      const { rows } = await start()
+      await open()
+      typeInPanel('Wasser ab 14:20')
+      fireEvent.click(screen.getAllByRole('button', { name: N.remove })[0])
+      await settle()
+      expect(lastMap().entities.some((e) => e.id === 'a')).toBe(false)
+      expect(rows()).not.toContain(written('Wasser ab 14:20'))
+    })
   })
 })
 
