@@ -39,6 +39,7 @@ from ..schemas import (
     RosterRankOption,
     RosterUnknownRank,
 )
+from .config import refused_as_input
 
 router = APIRouter(prefix="/personnel", tags=["personnel"])
 
@@ -121,7 +122,7 @@ async def list_personnel(
         stmt = stmt.where(Personnel.is_active.is_(True))
     people = list((await db.execute(stmt)).scalars())
     identities = {} if is_link_session(user) else await _identity_map(db, [p.id for p in people])
-    order = await personnel_svc.load_roster_name_order(db)
+    order = await personnel_svc.load_roster_name_order(db) or personnel_svc.DEFAULT_NAME_ORDER
     out = [_personnel_out(p, identities.get(p.id, []), order) for p in people]
     if is_link_session(user):
         for row in out:
@@ -149,7 +150,7 @@ async def create_person(
         )
     await db.refresh(person)
     identities = await _identity_map(db, [person.id])
-    order = await personnel_svc.load_roster_name_order(db)
+    order = await personnel_svc.load_roster_name_order(db) or personnel_svc.DEFAULT_NAME_ORDER
     return _personnel_out(person, identities.get(person.id, []), order)
 
 
@@ -172,7 +173,7 @@ async def update_person(
     await db.flush()
     await db.refresh(person)
     identities = await _identity_map(db, [person.id])
-    order = await personnel_svc.load_roster_name_order(db)
+    order = await personnel_svc.load_roster_name_order(db) or personnel_svc.DEFAULT_NAME_ORDER
     return _personnel_out(person, identities.get(person.id, []), order)
 
 
@@ -250,7 +251,7 @@ async def import_csv_preview(
     The old import wrote first and explained afterwards, under a green «14 importiert» badge.
     """
     parsed = _parse(await _csv_text(file))
-    ranks, has_own = await personnel_svc.load_roster_ranks_info(db)
+    ranks, has_own = await _station_ranks(db)
     groups = personnel_svc.group_unknown_ranks(parsed.rows, ranks)
     plan = personnel_svc.plan_roster_rows(parsed.rows, await personnel_svc.load_roster_index(db))
     return RosterImportPreviewOut(
@@ -303,7 +304,7 @@ async def import_csv(
     """
     text = await _csv_text(file)
     parsed = _parse(text)
-    ranks, _has_own = await personnel_svc.load_roster_ranks_info(db)
+    ranks, _has_own = await _station_ranks(db)
     groups = personnel_svc.group_unknown_ranks(parsed.rows, ranks)
     decided = _decisions(decisions)
 
@@ -343,7 +344,10 @@ async def import_csv(
                 status_code=403,
                 detail="Neue Grade kann nur die Verwaltung übernehmen (Admin-Anmeldung erforderlich).",
             )
-        updated = await personnel_svc.adopt_ranks(db, adopt_values, actor.id if actor else None)
+        try:
+            updated = await personnel_svc.adopt_ranks(db, adopt_values, actor.id if actor else None)
+        except ValidationError as e:  # a value past its cap elsewhere in the stored document
+            raise refused_as_input(e) from e
         # append_ranks appends in the order it was given, so the tail lines up with adopt_values
         adopted_keys = [str(r.get("key")) for r in updated[-len(adopt_values) :]]
         for value, key in zip(adopt_values, adopted_keys, strict=True):
@@ -428,11 +432,22 @@ def _divera_unreachable(e: Exception) -> str:
     return f"Divera nicht erreichbar: {e if isinstance(e, DiveraApiError) else type(e).__name__}"
 
 
+async def _station_ranks(db: AsyncSession) -> tuple[list[dict], bool]:
+    """The CSV import's rank list, or 409 when the stored roster cannot be read: the import maps
+    and adopts ranks, and must not do it against a list the station did not choose."""
+    info = await personnel_svc.load_roster_ranks_info(db)
+    if info is None:
+        raise HTTPException(status_code=409, detail=str(personnel_svc.RosterUnreadableError("roster.ranks")))
+    return info
+
+
 @router.post("/sync/preview", response_model=PersonnelSyncPreview)
 async def sync_preview(_user: EditorOrAdmin, db: AsyncSession = Depends(get_db)):
     await _require_divera(db)
     try:
         return await personnel_svc.build_sync_preview(db)
+    except personnel_svc.RosterUnreadableError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from None
     except (DiveraApiError, httpx.HTTPError, ValueError) as e:
         raise HTTPException(status_code=502, detail=_divera_unreachable(e)) from None
 
@@ -457,6 +472,9 @@ async def sync_execute(
         # ride out on the back of its own error report.
         await db.rollback()
         await connector_state.record_failure(db, connector_state.DIVERA_PERSONNEL, e)
+        # an unreadable roster is the station's config, not Divera: 409 and the sentence that says so
+        if isinstance(e, personnel_svc.RosterUnreadableError):
+            raise HTTPException(status_code=409, detail=str(e)) from None
         raise HTTPException(status_code=502, detail=_divera_unreachable(e)) from None
     await connector_state.record(
         db,

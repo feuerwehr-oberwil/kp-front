@@ -4,6 +4,8 @@ import logging
 import math
 import re
 import uuid
+from collections.abc import Mapping
+from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Annotated, Any, Literal
 from zoneinfo import ZoneInfo
@@ -12,9 +14,13 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    GetCoreSchemaHandler,
     TypeAdapter,
+    ValidationError,
     ValidationInfo,
+    ValidatorFunctionWrapHandler,
     WithJsonSchema,
+    WrapValidator,
     field_validator,
     model_validator,
 )
@@ -22,6 +28,59 @@ from pydantic import (
 from .alarm_validation import CONTACT_GRACE_SEC, CONTACT_INTERVAL_MIN, TruppStatus, in_range, validate_reminder_row
 
 logger = logging.getLogger(__name__)
+
+#: Set in a serve context by `LengthCap` when it keeps a value past its cap: the document is one
+#: main refused as a whole, and only such a document gets the new read rules (`load_stored_config`).
+OVER_CAP = "over_cap"
+
+
+def serve_context() -> dict[str, bool]:
+    """A FRESH context for reading a stored config document to be SERVED: stored mode, plus
+    `LengthCap` keeping a value past its cap as it lies and marking ``OVER_CAP``. Fresh because
+    the mark is written into it."""
+    return {"stored": True, "serve": True, OVER_CAP: False}
+
+
+@dataclass(frozen=True)
+class LengthCap:
+    """The length cap of a string in the CONFIG DOCUMENT: ``Annotated[str, LengthCap(120, min_length=1)]``
+    instead of ``Field(min_length=1, max_length=120)``.
+
+    New input is held to it exactly as ``Field`` would — the same ``string_too_long`` error, the
+    same ``maxLength`` in the OpenAPI schema (the /admin guards read both). A stored document READ
+    to be served (`serve_context`, see `load_stored_config`) keeps the value as it lies, and marks
+    the context ``OVER_CAP``:
+    a length cap is input hygiene, not integrity, so a label typed before a cap existed must not
+    take the document down, and leaving it out or cutting it would change what the rest MEANS.
+    ``min_length`` and ``pattern`` hold in both modes, and so does every list cap. A WRITER that
+    merges into the stored document holds the cap (`stored_config_for_write`): it must not store
+    what only a read may let pass.
+
+    Every capped string of the document goes through this type; `test_config_length_caps` fails
+    on a ``Field(max_length=…)`` that does not."""
+
+    max_length: int
+    min_length: int | None = None
+    pattern: str | None = None
+
+    def __get_pydantic_core_schema__(self, source: Any, handler: GetCoreSchemaHandler) -> Mapping[str, object]:
+        # The constraints first, so they sit INSIDE the wrap and keep pydantic's own errors and
+        # JSON schema; the wrap only decides what a stored value's length costs.
+        uncapped = TypeAdapter(Annotated[str, Field(min_length=self.min_length, pattern=self.pattern)])
+
+        def as_stored(value: Any, validate: ValidatorFunctionWrapHandler, info: ValidationInfo) -> str:
+            try:
+                return validate(value)
+            except ValidationError as exc:
+                context = info.context or {}
+                if context.get("serve") and all(e["type"] == "string_too_long" for e in exc.errors()):
+                    kept = uncapped.validate_python(value)
+                    context[OVER_CAP] = True
+                    return kept
+                raise
+
+        capped = Field(max_length=self.max_length, min_length=self.min_length, pattern=self.pattern)
+        return handler(Annotated[str, capped, WrapValidator(as_stored)])
 
 
 # --- Auth ---------------------------------------------------------------------------
@@ -1414,7 +1473,7 @@ class IdentityConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
     appName: str | None = None
     #: the menu button's label at the top left of «Karte & Objekte»; unset → a neutral menu symbol
-    shortName: str | None = Field(default=None, max_length=SHORT_NAME_MAX)
+    shortName: Annotated[str, LengthCap(SHORT_NAME_MAX)] | None = None
     locale: str | None = None
 
     @field_validator("shortName", mode="before")
@@ -1422,8 +1481,8 @@ class IdentityConfig(BaseModel):
     def _short_name_fits(cls, v: Any, info: ValidationInfo) -> str | None:
         """Trim, «» → unset, and refuse a label longer than the button holds — in German, with
         the rule in the message (it reaches the Verwaltung and `admin_config load`). A STORED
-        value longer than the cap (a row written by hand, or before a lower cap) is cut, never
-        refused: refusing would empty the whole document on read (see `_accent_is_a_colour`)."""
+        value longer than the cap (a row written by hand, or before a lower cap) is served as it
+        lies, like every capped string of the document (`LengthCap`)."""
         if v is None:
             return None
         if not isinstance(v, str):
@@ -1431,10 +1490,9 @@ class IdentityConfig(BaseModel):
         text = " ".join(v.split())
         if not text:
             return None
-        if len(text) > SHORT_NAME_MAX:
-            if (info.context or {}).get("stored"):
-                logger.warning("identity.shortName %r is longer than %d — serving it cut", text, SHORT_NAME_MAX)
-                return text[:SHORT_NAME_MAX].rstrip()
+        # only a read to serve keeps it (`LengthCap`); every write – a PUT, a merging writer –
+        # refuses it with the same German sentence
+        if len(text) > SHORT_NAME_MAX and not (info.context or {}).get("serve"):
             raise ValueError(_SHORT_NAME_ERROR)
         return text
 
@@ -1515,7 +1573,7 @@ class ObjectCategoryMatch(BaseModel):
     #: never matches — a rule naming only ``depot`` matches nothing (lib/karte/categories)
     kinds: list[Literal["einsatzobjekt", "objekt", "depot"]] | None = None
     #: one of the object's plan modules matches one of these globs (``modul5-pv*``, ``modul6``)
-    modules: list[Annotated[str, Field(min_length=1, max_length=60)]] | None = Field(default=None, max_length=30)
+    modules: list[Annotated[str, LengthCap(60, min_length=1)]] | None = Field(default=None, max_length=30)
 
 
 class ObjectCategoryConfig(BaseModel):
@@ -1523,7 +1581,7 @@ class ObjectCategoryConfig(BaseModel):
     wins; an object no rule matches keeps the default look (ink, grey without plans)."""
 
     model_config = ConfigDict(extra="ignore")
-    id: str = Field(min_length=1, max_length=40, pattern=r"^[a-z0-9][a-z0-9_-]*$")
+    id: Annotated[str, LengthCap(40, min_length=1, pattern=r"^[a-z0-9][a-z0-9_-]*$")]
     #: one string, or one per language (``{"de": "Photovoltaik", "fr": "Photovoltaïque"}``)
     label: str | dict[Literal["de", "fr", "it", "en"], str]
     #: ``#rrggbb``, or ``ink``: the default look's colour (the theme's ``--obj-plans`` — near-white
@@ -1684,8 +1742,8 @@ class EquipmentItem(BaseModel):
     """One entry of ``doctrine.equipment`` — the id a Trupp stores, the label people read."""
 
     model_config = ConfigDict(extra="ignore")
-    id: str = Field(min_length=1, max_length=40)
-    label: str = Field(min_length=1, max_length=40)
+    id: Annotated[str, LengthCap(40, min_length=1)]
+    label: Annotated[str, LengthCap(40, min_length=1)]
 
 
 #: The upper bound of ``doctrine.nearbyObjectWarnM`` – beyond it the nearest object is no
@@ -2088,11 +2146,11 @@ class ReportLinkConfig(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
     #: stable id — an incident's tick state is filed under it
-    id: str = Field(min_length=1, max_length=64)
-    title: str = Field(min_length=1, max_length=120)
-    url: str = Field(min_length=1, max_length=2048)
+    id: Annotated[str, LengthCap(64, min_length=1)]
+    title: Annotated[str, LengthCap(120, min_length=1)]
+    url: Annotated[str, LengthCap(2048, min_length=1)]
     #: when this has to be filled in ("nur bei Gebäudeschaden, innert 48 h")
-    note: str | None = Field(default=None, max_length=200)
+    note: Annotated[str, LengthCap(200)] | None = None
 
     @field_validator("id", "title", "url")
     @classmethod
@@ -2411,18 +2469,34 @@ _OV_DEST_ID_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
 _OV_FIELD_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$")
 
 
+def _plain_path(value: str, info: ValidationInfo) -> str:
+    """A folder path with ``\\`` as ``/`` and no outer spaces or slashes.
+
+    One pass, exactly as main trims it – except in a document that has already kept a value past
+    its cap (``OVER_CAP``, a document main refused as a whole): there it is stripped until nothing
+    changes, because such a document is served only if it reads back as itself."""
+    value = value.replace("\\", "/")
+    if not (info.context or {}).get(OVER_CAP):
+        return value.strip().strip("/")
+    while value != (trimmed := value.strip().strip("/")):
+        value = trimmed
+    return value
+
+
 class ObjectVisitProposalField(BaseModel):
     """One entry of the Korrekturvorschlag field list. The id is opaque to KP Front — the
     organizer maps it to its own master data (docs/object-visits.md)."""
 
     model_config = ConfigDict(extra="ignore")
-    id: str = Field(min_length=1, max_length=64)
-    label: str = Field(min_length=1, max_length=120)
+    id: Annotated[str, LengthCap(64, min_length=1)]
+    label: Annotated[str, LengthCap(120, min_length=1)]
 
     @field_validator("id")
     @classmethod
     def _plain_id(cls, v: str) -> str:
-        if not _OV_FIELD_ID_RE.match(v):
+        # `match`, not `fullmatch`: a stored «kontakt\n» has always passed. The length rule is a
+        # validator, not the cap: a visit proposal holds the field id in 64 characters
+        if not _OV_FIELD_ID_RE.match(v) or len(v) > 64:
             raise ValueError("objectVisits.proposalFields: 'id' must be letters, digits, '.', '_' or '-'")
         return v
 
@@ -2435,26 +2509,24 @@ class ObjectVisitDestination(BaseModel):
     """
 
     model_config = ConfigDict(extra="ignore")
-    id: str = Field(min_length=1, max_length=64)
+    id: Annotated[str, LengthCap(64, min_length=1)]
     kind: Literal["sharepoint"] = "sharepoint"
     enabled: bool = True
     timing: Literal["every-sync", "completed"] = "every-sync"
-    siteUrl: str = Field(min_length=1, max_length=_SHAREPOINT_URL_MAX)
+    siteUrl: Annotated[str, LengthCap(_SHAREPOINT_URL_MAX, min_length=1)]
     #: Display name of the document library, when it is not the site's default one.
-    library: str | None = Field(default=None, max_length=200)
+    library: Annotated[str, LengthCap(200)] | None = None
     #: Folder inside the library that holds the object folders; empty = the library root.
-    root: str = Field(default="", max_length=_SHAREPOINT_PATH_MAX)
-    objectFolder: str = Field(default="{object.folder}", min_length=1, max_length=200)
-    visitFolder: str = Field(default="Objektbesuche/{date} {checklist} ({short})", min_length=1, max_length=200)
+    root: Annotated[str, LengthCap(_SHAREPOINT_PATH_MAX)] = ""
+    objectFolder: Annotated[str, LengthCap(200, min_length=1)] = "{object.folder}"
+    visitFolder: Annotated[str, LengthCap(200, min_length=1)] = "Objektbesuche/{date} {checklist} ({short})"
     #: Where a visit at a PLACE (no catalogue object) is filed, below ``root`` and instead of
     #: objectFolder/visitFolder: one general folder, no year subdivision (16.10.2026).
-    locationFolder: str = Field(
-        default="Allgemeine Meldungen/{date} {checklist} ({short})", min_length=1, max_length=200
-    )
+    locationFolder: Annotated[str, LengthCap(200, min_length=1)] = "Allgemeine Meldungen/{date} {checklist} ({short})"
 
     @model_validator(mode="after")
-    def _addressable(self) -> "ObjectVisitDestination":
-        if not _OV_DEST_ID_RE.match(self.id):
+    def _addressable(self, info: ValidationInfo) -> "ObjectVisitDestination":
+        if not _OV_DEST_ID_RE.match(self.id) or len(self.id) > 64:  # the delivery tables hold 64
             raise ValueError(
                 f"objectVisits destination {self.id!r}: 'id' must be lower-case letters, digits, '-' or '_'"
             )
@@ -2462,13 +2534,13 @@ class ObjectVisitDestination(BaseModel):
         if not site.startswith("https://"):
             raise ValueError(f"objectVisits destination {self.id!r}: 'siteUrl' must start with https://")
         self.siteUrl = site
-        root = (self.root or "").replace("\\", "/").strip().strip("/")
+        root = _plain_path(self.root or "", info)
         if any(part in ("..", ".") for part in root.split("/") if part):
             raise ValueError(f"objectVisits destination {self.id!r}: 'root' must be a plain folder path")
         self.root = root
         self.library = (self.library or "").strip() or None
         for name in ("objectFolder", "visitFolder", "locationFolder"):
-            value = getattr(self, name).replace("\\", "/").strip().strip("/")
+            value = _plain_path(getattr(self, name), info)
             if not value or any(part.strip() in ("..", ".") for part in value.split("/")):
                 raise ValueError(f"objectVisits destination {self.id!r}: '{name}' must be a plain folder pattern")
             setattr(self, name, value)
@@ -2516,20 +2588,20 @@ class IncidentArchiveDestination(BaseModel):
     """
 
     model_config = ConfigDict(extra="ignore")
-    id: str = Field(min_length=1, max_length=64)
+    id: Annotated[str, LengthCap(64, min_length=1)]
     kind: Literal["sharepoint"] = "sharepoint"
     enabled: bool = True
-    siteUrl: str = Field(min_length=1, max_length=_SHAREPOINT_URL_MAX)
+    siteUrl: Annotated[str, LengthCap(_SHAREPOINT_URL_MAX, min_length=1)]
     #: Display name of the document library, when it is not the site's default one.
-    library: str | None = Field(default=None, max_length=200)
+    library: Annotated[str, LengthCap(200)] | None = None
     #: Below the library. The segments before the first placeholder must already exist.
-    photoFolder: str = Field(default="Fotoarchiv/{year}/{date} {stichwort}", min_length=1, max_length=300)
-    reportFolder: str = Field(default="Einsätze/{year}/{date} {stichwort}", min_length=1, max_length=300)
+    photoFolder: Annotated[str, LengthCap(300, min_length=1)] = "Fotoarchiv/{year}/{date} {stichwort}"
+    reportFolder: Annotated[str, LengthCap(300, min_length=1)] = "Einsätze/{year}/{date} {stichwort}"
 
     @model_validator(mode="after")
-    def _addressable(self) -> "IncidentArchiveDestination":
+    def _addressable(self, info: ValidationInfo) -> "IncidentArchiveDestination":
         where = f"incidentArchive destination {self.id!r}"
-        if not _OV_DEST_ID_RE.match(self.id):
+        if not _OV_DEST_ID_RE.match(self.id) or len(self.id) > 64:  # the delivery tables hold 64
             raise ValueError(f"{where}: 'id' must be lower-case letters, digits, '-' or '_'")
         site = self.siteUrl.strip()
         if not site.startswith("https://"):
@@ -2537,7 +2609,7 @@ class IncidentArchiveDestination(BaseModel):
         self.siteUrl = site
         self.library = (self.library or "").strip() or None
         for name in ("photoFolder", "reportFolder"):
-            value = getattr(self, name).replace("\\", "/").strip().strip("/")
+            value = _plain_path(getattr(self, name), info)
             parts = value.split("/")
             if not value or any(part.strip() in ("", "..", ".") for part in parts):
                 raise ValueError(f"{where}: '{name}' must be a plain folder pattern")
@@ -2785,6 +2857,9 @@ def load_stored_config(raw: Any) -> DeploymentConfigIn:
     unset default and logged, instead of
     raising — because a reader whose validation fails falls back to the shipped defaults, and
     losing a station's fleet, roster and doctrine is not a proportionate answer to one bad colour.
+    A string past its length cap is kept AS IT LIES (`LengthCap`): nothing about it is wrong
+    but its length, and leaving it out or cutting it would change what the rest of the document
+    means. Every other rule — patterns, list caps, the validators — holds on the original values.
 
     It still RAISES on a document that fails even this. A reader does not call it bare: it takes
     `deployment_config.read_config` (or `safe_config` on a document it already holds), which
@@ -2794,6 +2869,38 @@ def load_stored_config(raw: Any) -> DeploymentConfigIn:
 
     A fresh WRITE (`PUT /api/config`, an `admin_config load`) validates strictly through
     `DeploymentConfigIn` itself — that is where a value is still being chosen, and where
-    refusing it costs nothing but a corrected keystroke.
+    refusing it costs nothing but a corrected keystroke. A writer that merges ITS key into the
+    stored document takes `stored_config_for_write`.
+
+    ⚠️ New behaviour only for a document that main refused as a whole. A document with no value
+    past its cap reads EXACTLY as on main: one validation, main's path trim, no further demand —
+    the cost of a second rule here would be a station's whole config as defaults on every device.
+    (`identity.shortName` is the one cap main cut on a read instead of refusing; it is served
+    whole now, under the rules below.)
+
+    A document that kept a value past its cap (``OVER_CAP``) is accepted only as a FIXED POINT: its
+    own dump must validate again, as stored, to the same value. A validator that normalises after
+    it checks (a folder root whose «.. » segment is only trimmed to «..» on the second pass) would
+    otherwise serve a document the response then refuses — a 500 on every read instead of the
+    defaults. Its folder paths are trimmed until nothing changes, so a kept «..» is refused.
+    """
+    context = serve_context()
+    doc = DeploymentConfigIn.model_validate(raw, context=context)
+    if not context[OVER_CAP]:
+        return doc
+    dumped = doc.model_dump(mode="json")
+    if DeploymentConfigIn.model_validate(dumped, context=serve_context()).model_dump(mode="json") != dumped:
+        raise ValueError("the stored config document does not read back as itself")
+    return doc
+
+
+def stored_config_for_write(raw: Any) -> DeploymentConfigIn:
+    """The stored document with ONE writer's key merged in, validated for storing.
+
+    Stored mode (a field that has grown a rule since it was written is dropped, as in
+    `load_stored_config`), but the length caps HOLD: what only a read may let pass must not be
+    written back. A merged document with a value past its cap anywhere therefore raises, and
+    the writer refuses — the branding upload, the workbook import, the rank adoption, the
+    direct geodata load. An API caller answers with `api.config · refused_as_input`.
     """
     return DeploymentConfigIn.model_validate(raw, context={"stored": True})

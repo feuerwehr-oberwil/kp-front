@@ -49,11 +49,12 @@ from sqlalchemy import select
 from . import storage
 from .admin_cli import add_push_args, admin_client, fail, require_push_target
 from .admin_manifest import template_hint
+from .config_guard import format_validation_errors
 from .config_history import keep_previous
 from .database import async_session_maker
 from .deployment_config import config_row
 from .models import DeploymentConfig, ReferenceDataset
-from .schemas import ReferenceLayerConfig, load_stored_config
+from .schemas import ReferenceLayerConfig, stored_config_for_write
 
 
 class GeodataManifestEntry(BaseModel):
@@ -268,10 +269,14 @@ async def _write_config(db, ref_layers: list[dict[str, Any]]) -> None:
     await keep_previous(db, "geodata")
     current = dict(row.config_json) if (row and row.config_json) else {}
     current["referenceLayers"] = ref_layers
-    # Everything but `referenceLayers` here is a STORED document (schemas · load_stored_config):
+    # Everything but `referenceLayers` here is a STORED document (schemas · stored_config_for_write):
     # a geodata push must not fail on a field somebody else typed months ago and that has grown
     # a rule since — it is pushing layers, and it is the only writer that never sees those fields.
-    normalized = load_stored_config(current).model_dump(mode="json")
+    # A value past its length cap elsewhere is the exception: refused, never written back cut.
+    try:
+        normalized = stored_config_for_write(current).model_dump(mode="json")
+    except ValidationError as e:
+        fail("ERROR: the stored config cannot be written back: " + "; ".join(format_validation_errors(e)))
     row.config_json = normalized
 
 

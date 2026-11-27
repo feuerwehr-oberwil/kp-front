@@ -55,9 +55,9 @@ from openpyxl import Workbook, load_workbook
 from openpyxl.cell.cell import Cell
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
-from ..config_guard import emptied_declared_sections
+from ..config_guard import emptied_declared_sections, format_validation_errors
 from ..personnel import (
     DEFAULT_NAME_ORDER,
     NameOrder,
@@ -69,7 +69,7 @@ from ..personnel import (
     person_display_name,
     plan_roster_rows,
 )
-from ..schemas import load_stored_config
+from ..schemas import load_stored_config, stored_config_for_write
 
 # ── the contract ───────────────────────────────────────────────────────────────────────
 #
@@ -966,11 +966,14 @@ class ImportPlan:
     """
 
     preview: WorkbookPreview
-    #: the projected config document, already normalized through `load_stored_config`
+    #: the projected config document, normalized through `stored_config_for_write`
     config: dict[str, Any]
     #: whether the config document changed at all (an unchanged one is not written)
     config_changed: bool
     roster: RosterPlan | None
+    #: why the merged document may not be stored (a value past its cap the workbook never
+    #: touched) – the import answers it as the autosave's 422; the preview lists it as an error
+    refused: ValidationError | None = None
     #: the Personal rows the plan was built from, index-aligned with ``roster.targets`` —
     #: the write needs the ``Aktiv`` flag, which a RosterCsvRow has no room for
     personal_rows: list[PersonRow] = field(default_factory=list)
@@ -1247,8 +1250,18 @@ def plan_import(
     # the strict PUT-body model. A field that has grown a validation rule since the row was
     # written (an old `accentColor`) must be dropped, not make an import 500 on a section it
     # never touched.
+    # …and as a document to STORE (`stored_config_for_write`): a value past its length cap in a
+    # section the workbook never touched is refused, never written back.
+    refused: ValidationError | None = None
     try:
-        normalized = load_stored_config(projected).model_dump(mode="json")
+        normalized = stored_config_for_write(_changed_onto(raw, base, projected)).model_dump(mode="json")
+    except ValidationError as exc:
+        refused = exc
+        errors.append(
+            "Die Daten aus der Arbeitsmappe ergeben keine gültige Stations-Konfiguration: "
+            + " · ".join(format_validation_errors(exc))
+        )
+        normalized = base
     except Exception:  # noqa: BLE001 — a refusal the operator can read beats a 500
         errors.append("Die Daten aus der Arbeitsmappe ergeben keine gültige Stations-Konfiguration.")
         normalized = base
@@ -1269,12 +1282,33 @@ def plan_import(
         config=normalized,
         config_changed=normalized != base,
         roster=roster_plan,
+        refused=refused,
         personal_rows=list(parsed.personal.rows),
         roster_index=index,
         name_order=order,
         ranks_for_row=rank_for_row,
         deactivate=deactivate,
     )
+
+
+def _changed_onto(raw: dict[str, Any], base: dict[str, Any], projected: dict[str, Any]) -> dict[str, Any]:
+    """The RAW stored document with what the workbook changed put in, two levels deep
+    (``fleet.vehicles``, ``report.partnerOrgs``) – the candidate the write validates.
+
+    ⚠️ Not ``projected`` itself: that is built on the document as it is SERVED, and a value a
+    read only lets pass (a title past its cap, trimmed on the read) would be written back in its
+    served form. Untouched keys stay as they lie, so such a value makes the write refuse."""
+    out = dict(raw)
+    for key, new in projected.items():
+        old = base.get(key)
+        if new == old:
+            continue
+        stored = raw.get(key)
+        if isinstance(new, dict) and isinstance(old, dict) and isinstance(stored, dict):
+            out[key] = {**stored, **{sub: value for sub, value in new.items() if value != old.get(sub)}}
+        else:
+            out[key] = new
+    return out
 
 
 def _and_more(names: list[str], limit: int = REMOVAL_LIMIT) -> str:

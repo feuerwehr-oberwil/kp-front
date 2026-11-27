@@ -5,6 +5,7 @@ divera_id, and a bad-row error. Runs against the test DB (SQLite locally, postgr
 """
 
 import pytest
+from sqlalchemy import select
 
 pytestmark = pytest.mark.asyncio
 
@@ -198,6 +199,85 @@ async def _set_name_order(db_session, order: str) -> None:
     await db_session.commit()
 
 
+@pytest.mark.parametrize(
+    ("document", "names"),
+    [
+        # a broken `roster` serves the shipped order, not a 500 on the Mannschaft list
+        ({"roster": ["not", "a", "section"]}, ["Ärni Zoe", "Brunner Anna", "Müller Hans", "Von Arx Beat"]),
+        ({"roster": "not a section"}, ["Ärni Zoe", "Brunner Anna", "Müller Hans", "Von Arx Beat"]),
+        # raw on purpose: a part broken ELSEWHERE must not flip the order the Divera sync writes in
+        (
+            {"roster": {"nameOrder": "first-last"}, "report": {"partnerOrgs": "kaputt"}},
+            ["Anna Brunner", "Hans Müller", "Von Arx Beat", "Zoe Ärni"],
+        ),
+    ],
+    ids=["roster-list", "roster-string", "broken-elsewhere"],
+)
+async def test_the_name_order_reads_a_malformed_document(client, editor, db_session, document, names):
+    from app.models import DeploymentConfig
+
+    await _login(client, editor)
+    await _seed_split_roster(db_session)
+    db_session.add(DeploymentConfig(id=1, config_json=document))
+    await db_session.commit()
+    r = await client.get("/api/personnel")
+    assert r.status_code == 200, r.text
+    assert [p["display_name"] for p in r.json()] == names
+
+
+@pytest.mark.parametrize(
+    ("document", "kinds"),
+    [
+        ({}, {}),
+        ({"roster": {"diveraResponses": {"13": "not_coming"}}}, {"13": "not_coming"}),
+        # raw on purpose: a part broken ELSEWHERE must not cost the overrides the poll stores with
+        (
+            {"roster": {"diveraResponses": {"13": "not_coming"}}, "report": {"partnerOrgs": "kaputt"}},
+            {"13": "not_coming"},
+        ),
+        # …and a roster broken ITSELF is «cannot be read», never a silent «no overrides»
+        ({"roster": "corrupt"}, None),
+        ({"roster": None}, None),  # present and not an object: not the same as absent
+        ({"roster": {"diveraResponses": ["13"]}}, None),
+        ({"roster": {"diveraResponses": None}}, None),
+        ({"roster": {"diveraResponses": {"13": "vielleicht"}}}, None),
+    ],
+    ids=["unset", "set", "broken-elsewhere", "roster-string", "roster-null", "part-list", "part-null", "unknown-kind"],
+)
+async def test_divera_response_overrides_say_when_the_roster_cannot_be_read(db_session, document, kinds):
+    from app.models import DeploymentConfig
+    from app.personnel import load_divera_response_kinds
+
+    db_session.add(DeploymentConfig(id=1, config_json=document))
+    await db_session.commit()
+    assert await load_divera_response_kinds(db_session) == kinds
+
+
+@pytest.mark.parametrize(
+    "roster",
+    ["corrupt", None, {"nameOrder": "vorname-zuerst"}, {"autoSync": "immer"}],
+    ids=["roster-string", "roster-null", "bad-order", "bad-level"],
+)
+async def test_the_divera_sync_writes_nothing_on_a_roster_it_cannot_read(db_session, monkeypatch, roster):
+    """Refused before Divera is even asked: the names would be written in an order, at a level,
+    the station did not choose."""
+    import app.personnel as personnel
+    from app.models import DeploymentConfig, Personnel
+
+    async def no_fetch(*_a, **_kw):
+        raise AssertionError("Divera must not be asked")
+
+    monkeypatch.setattr(personnel, "fetch_divera_members", no_fetch)
+    monkeypatch.setattr(personnel, "credential", lambda _name: "key")
+    db_session.add(DeploymentConfig(id=1, config_json={"roster": roster}))
+    await db_session.commit()
+    run = personnel.auto_sync if isinstance(roster, dict) and "autoSync" in roster else personnel.execute_sync
+    kwargs = {} if run is personnel.auto_sync else {"deactivate_stale": True}
+    with pytest.raises(personnel.RosterUnreadableError, match="lassen sich nicht lesen"):
+        await run(db_session, **kwargs)
+    assert (await db_session.execute(select(Personnel))).first() is None
+
+
 async def test_created_and_patched_person_comes_back_in_the_configured_order(client, editor, db_session):
     await _login(client, editor)
     await _set_name_order(db_session, "first-last")
@@ -228,3 +308,34 @@ async def test_list_follows_first_last_in_both_spelling_and_sort(client, editor,
     # The stored split is served untouched — only the joined name follows the setting.
     anna = next(p for p in (await client.get("/api/personnel")).json() if p["first_name"] == "Anna")
     assert (anna["first_name"], anna["last_name"]) == ("Anna", "Brunner")
+
+
+@pytest.mark.parametrize(
+    "ranks",
+    [None, ["Wm"], [{"key": "wm"}], [{"key": "wm", "label": "Wachtmeister", "abbr": ["Wm"]}]],
+    ids=["null", "strings", "no-label", "abbr-list"],
+)
+async def test_a_rank_list_it_cannot_read_stops_the_writers(
+    client, editor, admin_login, db_session, monkeypatch, ranks
+):
+    """The Divera sync would derive ranks against the shipped list, the CSV import would map and
+    adopt against it: both refuse, and say why."""
+    import app.personnel as personnel
+    from app.models import DeploymentConfig
+
+    async def members(*_a, **_kw):
+        return [
+            {"divera_id": 1, "name": "Muster Max", "first_name": "Max", "last_name": "Muster", "qualifications": ["Wm"]}
+        ]
+
+    monkeypatch.setattr(personnel, "fetch_divera_members", members)
+    db_session.add(DeploymentConfig(id=1, config_json={"roster": {"ranks": ranks}}))
+    await db_session.commit()
+    assert await personnel.load_roster_ranks_info(db_session) is None
+    with pytest.raises(personnel.RosterUnreadableError, match=r"roster\.ranks"):
+        await personnel.build_sync_preview(db_session)
+
+    await _login(client, editor)
+    files = {"file": ("roster.csv", b"name,rank\nMuster Max,Wm\n", "text/csv")}
+    r = await client.post("/api/personnel/import-csv/preview", files=files)
+    assert r.status_code == 409 and "lassen sich nicht lesen" in r.json()["detail"]

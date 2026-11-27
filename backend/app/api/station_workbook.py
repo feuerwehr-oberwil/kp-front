@@ -58,6 +58,7 @@ from ..services.station_workbook import (
     parse_workbook,
     plan_import,
 )
+from .config import refused_as_input
 
 router = APIRouter(prefix="/station-workbook", tags=["station-workbook"])
 
@@ -76,7 +77,9 @@ async def _stored_config(db: AsyncSession, *, lock: bool = False) -> tuple[Deplo
         if lock
         else (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
     )
-    return row, dict((row.config_json if row else None) or {})
+    # as it lies – only a missing row or SQL NULL is «no document»; anything else (a list, an
+    # empty list) goes to the planner's read, which refuses what it cannot read
+    return row, row.config_json if row is not None and row.config_json is not None else {}
 
 
 async def _identity_pairs(db: AsyncSession) -> dict[uuid.UUID, tuple[str, str]]:
@@ -125,7 +128,14 @@ async def plan_workbook(db: AsyncSession, data: bytes, *, lock: bool = False) ->
     that will apply the result passes ``lock=True`` and keeps that transaction open through apply.
     """
     _row, raw = await _stored_config(db, lock=lock)
-    stored = load_stored_config(raw).model_dump(mode="json")
+    try:
+        stored = load_stored_config(raw).model_dump(mode="json")
+    except Exception as exc:  # the stored document fails its read: refuse, never a 500
+        raise HTTPException(
+            status_code=400,
+            detail="Die gespeicherte Stations-Konfiguration lässt sich nicht lesen – "
+            "die Arbeitsmappe wird nicht übernommen. Bitte die Konfiguration unter Sicherung prüfen.",
+        ) from exc
     known = known_keys(stored)
     try:
         parsed = await anyio.to_thread.run_sync(lambda: parse_workbook(data, known=known))
@@ -140,7 +150,7 @@ async def plan_workbook(db: AsyncSession, data: bytes, *, lock: bool = False) ->
         list(people),
         await personnel_svc.load_roster_index(db),
         await _identity_pairs(db),
-        await personnel_svc.load_roster_name_order(db),
+        await personnel_svc.load_roster_name_order(db) or personnel_svc.DEFAULT_NAME_ORDER,
         digest=hashlib.sha256(data).hexdigest(),
     )
 
@@ -162,7 +172,6 @@ async def export_workbook(
     stored = config.model_dump(mode="json")
     people = await _people(db)
     identities = await _identity_pairs(db)
-    # From the validated read too: the raw `load_roster_name_order` would raise on a broken `roster`.
     order = config.roster.nameOrder
     data = await anyio.to_thread.run_sync(lambda: build_workbook(stored, list(people), identities, order))
     name = f"stationsdaten-{datetime.now(UTC).date().isoformat()}.xlsx"
@@ -221,6 +230,8 @@ async def import_workbook(
             detail="Die Datei hat sich seit der Vorschau geändert. Bitte die Vorschau neu erstellen.",
         )
     plan = await plan_workbook(db, data, lock=True)
+    if plan.refused is not None:  # the merged document may not be stored: the autosave's 422
+        raise refused_as_input(plan.refused)
     if not plan.preview.ok:
         raise HTTPException(
             status_code=400,

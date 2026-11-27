@@ -2,8 +2,8 @@
 short name like "fwo" that others can configure», instead of the word «Einsätze»).
 
 The button shares the phone's 44 px bar with the search button, so the label has a cap. A value
-over it is refused on the way in (German, with the rule in the message) and cut on the way out
-of a stored row — never a refusal there, which would serve an empty config.
+over it is refused on the way in (German, with the rule in the message) and served as it lies
+from a stored row (schemas · LengthCap) — never a refusal there, which would serve an empty config.
 """
 
 import pytest
@@ -36,13 +36,13 @@ def test_a_long_or_odd_short_name_is_refused(value):
     assert str(SHORT_NAME_MAX) in str(e.value)
 
 
-def test_a_stored_long_short_name_is_cut_not_the_document():
+def test_a_stored_long_short_name_is_served_as_stored_and_so_is_the_document():
     raw = {
         "identity": {"appName": "Feuerwehr Steintal", "shortName": "Steintal Nord"},
         "fleet": {"vehicles": [{"id": "tlf-31", "label": "TLF 31"}]},
     }
     doc = load_stored_config(raw)
-    assert doc.identity.shortName == "Steintal"
+    assert doc.identity.shortName == "Steintal Nord"
     assert doc.identity.appName == "Feuerwehr Steintal"
     assert [v.label for v in doc.fleet.vehicles] == ["TLF 31"]
     with pytest.raises(ValidationError):

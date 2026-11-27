@@ -447,3 +447,31 @@ async def test_the_station_override_applies_when_the_poll_stores(db_session, pat
     await db_session.commit()
     em = (await db_session.execute(select(DiveraEmergency).where(DiveraEmergency.divera_id == 4711))).scalar_one()
     assert len(em.responses_json["not_coming"]) == 3  # 104, 105 + the override's 106
+
+
+async def test_a_roster_broken_later_keeps_what_the_override_recorded(db_session, patch_httpx, monkeypatch):
+    """The override reads «Rückruf erbeten» as «kommt nicht». With the roster then broken, a poll
+    classifying without it would store that answer as «other» – so it stores nothing at all."""
+    monkeypatch.setattr(settings, "divera_access_key", "unit-key")
+    monkeypatch.setattr(settings, "divera_api_url", "https://app.divera247.com/api/v2")
+    patch_httpx(_divera)
+    await _roster(db_session)
+    db_session.add(
+        DeploymentConfig(id=1, config_json={"roster": {"diveraResponses": {"Rückruf erbeten": "not_coming"}}})
+    )
+    db_session.add(DiveraEmergency(divera_id=4711, title="B2", is_taken=True))
+    await db_session.commit()
+    await divera_mod.fetch_and_upsert(db_session)
+    await db_session.commit()
+    em = (await db_session.execute(select(DiveraEmergency).where(DiveraEmergency.divera_id == 4711))).scalar_one()
+    recorded = em.responses_json
+    assert len(recorded["not_coming"]) == 3
+
+    row = await db_session.get(DeploymentConfig, 1)
+    row.config_json = {"roster": "corrupt"}
+    em.responses_json = {**recorded, "polled": "stale"}  # so a second write would show
+    await db_session.commit()
+    await divera_mod.fetch_and_upsert(db_session)
+    await db_session.commit()
+    await db_session.refresh(em)
+    assert em.responses_json == {**recorded, "polled": "stale"}

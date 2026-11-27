@@ -14,7 +14,7 @@ Two ways in, one per side:
   fallback's defaults would write something the station did not choose.
 * WRITERS take :func:`config_row`. The secret surfaces write to the row *before* anything has
   ever written a config document, so each of them needed the same get-or-create — read id=1,
-  insert an empty row when it is not there yet, flush so the caller can assign to it.
+  insert an empty row when it is not there yet, read it back so the caller can assign to it.
   Byte-identical copies of that shape had drifted apart once on what "empty" means; there is
   one now.
 """
@@ -22,6 +22,8 @@ Two ways in, one per side:
 import logging
 
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .models import DeploymentConfig
@@ -34,7 +36,8 @@ def safe_config(raw: object) -> DeploymentConfigIn:
     """A stored config document as the validated model, or the shipped defaults.
 
     Validated as STORED (``schemas · load_stored_config``): a field that has grown a rule since
-    it was written is dropped, not refused. A document that fails even that (a hand-edited row)
+    it was written is dropped, not refused, and a string past its length cap is served as it lies
+    (``schemas · LengthCap``). A document that fails even that (a hand-edited row)
     is logged and answered with ``DeploymentConfigIn()`` — every reader then sees the shipped
     defaults instead of an exception. That matters most where a raise is invisible: the push
     sweep would stop sending «Trupp überfällig», a background worker would stop for good.
@@ -59,8 +62,13 @@ async def read_config(db: AsyncSession) -> DeploymentConfigIn:
 async def config_row(db: AsyncSession, *, lock: bool = False) -> DeploymentConfig:
     """The singleton row for a WRITER, created empty if this deployment has none yet.
 
-    Flushed before it is handed back, so the caller can set a column on a row that is already
-    in the session's identity map. Not committed: it belongs to the caller's transaction.
+    Already in the database when it is handed back, so the caller can set a column on a row that
+    is in the session's identity map. Not committed: it belongs to the caller's transaction.
+
+    Created with ``INSERT … ON CONFLICT DO NOTHING`` and read back, never ``add`` + flush: two
+    first writers on a new deployment both find no row, and a plain INSERT made the second one
+    fail on the primary key. Now the second INSERT waits for the first transaction, does nothing,
+    and the read back (under the lock, with ``lock``) returns the row the first one wrote.
 
     ``lock`` takes the row FOR UPDATE and re-reads it from the database, for a writer that does
     read-modify-write on ``config_json``. That is every writer of this document — there are no
@@ -78,14 +86,15 @@ async def config_row(db: AsyncSession, *, lock: bool = False) -> DeploymentConfi
     prove the Postgres half. The re-read is dialect-agnostic and stays on either way, so what a
     test CAN prove is that a merge reads the row as it stands and preserves what it did not touch.
     """
+    dialect = db.bind.dialect.name if db.bind is not None else "postgresql"
     stmt = select(DeploymentConfig).where(DeploymentConfig.id == 1)
     if lock:
         stmt = stmt.execution_options(populate_existing=True)
-        if (db.bind.dialect.name if db.bind is not None else "postgresql") != "sqlite":
+        if dialect != "sqlite":
             stmt = stmt.with_for_update()
     row = (await db.execute(stmt)).scalar_one_or_none()
     if row is None:
-        row = DeploymentConfig(id=1, config_json=None)
-        db.add(row)
-        await db.flush()
+        insert = sqlite_insert if dialect == "sqlite" else pg_insert
+        await db.execute(insert(DeploymentConfig).values(id=1, config_json=None).on_conflict_do_nothing())
+        row = (await db.execute(stmt)).scalar_one()
     return row

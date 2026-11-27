@@ -40,8 +40,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from . import connector_state, station_index
 from .credentials import get as credential
 from .credentials import load as load_credentials
-from .models import ConnectorState, DeploymentConfig, Incident, Personnel, PersonnelExternalIdentity
-from .personnel import attach_external_identity, load_roster_ranks
+from .models import ConnectorState, Incident, Personnel, PersonnelExternalIdentity
+from .personnel import RosterUnreadableError, attach_external_identity, load_roster_ranks, raw_roster
 from .roster_snapshot_ingest import (
     DEFAULT_INTERVAL_MIN,
     DEFAULT_MAX_DEACTIVATE_PCT,
@@ -82,19 +82,23 @@ async def fetch_roster(
     )
 
 
-async def roster_policy(db: AsyncSession) -> tuple[int, int]:
-    """``(interval minutes, max deactivation %)`` from ``roster.*`` (stored config → shipped).
+async def roster_policy(db: AsyncSession) -> tuple[int, int] | RosterUnreadableError:
+    """``(interval minutes, max deactivation %)`` from ``roster.*`` (unset → shipped), or the
+    refusal that names what cannot be read (the roster, or one of the two): the run raises it
+    rather than deactivate people under a cap the station did not choose.
 
     ⚠️ Raw on purpose, not `deployment_config.read_config`: on a document broken elsewhere its
     fallback would read a station's tighter cap as the shipped 20 %."""
-    row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
-    roster = ((row.config_json or {}).get("roster") or {}) if row else {}
-    interval = roster.get("snapshotIntervalMin")
-    pct = roster.get("snapshotMaxDeactivatePct")
-    return (
-        interval if isinstance(interval, int) and 5 <= interval <= 1440 else DEFAULT_INTERVAL_MIN,
-        pct if isinstance(pct, int) and 0 <= pct <= 100 else DEFAULT_MAX_DEACTIVATE_PCT,
-    )
+    roster = await raw_roster(db)
+    if roster is None:
+        return RosterUnreadableError("roster")
+    interval = roster.get("snapshotIntervalMin", DEFAULT_INTERVAL_MIN)
+    if not (type(interval) is int and 5 <= interval <= 1440):
+        return RosterUnreadableError("roster.snapshotIntervalMin")
+    pct = roster.get("snapshotMaxDeactivatePct", DEFAULT_MAX_DEACTIVATE_PCT)
+    if not (type(pct) is int and 0 <= pct <= 100):
+        return RosterUnreadableError("roster.snapshotMaxDeactivatePct")
+    return interval, pct
 
 
 async def _row(db: AsyncSession) -> ConnectorState | None:
@@ -177,7 +181,6 @@ async def run(
     await load_credentials(db)
     if not configured():
         raise ValueError("no roster source configured")
-    _interval, max_pct = await roster_policy(db)
     row = await _row(db)
     previous: dict[str, Any] = dict(row.detail or {}) if row else {}
     last_good = LastGood.from_json(previous.get("lastGood"))
@@ -199,8 +202,14 @@ async def run(
         return status
 
     try:
+        policy = await roster_policy(db)
+        if isinstance(policy, RosterUnreadableError):  # a failed run below: nothing written, the card says why
+            raise policy
+        _interval, max_pct = policy
         people, rows = await load_people(db)
         ranks = await load_roster_ranks(db)
+        if ranks is None:
+            raise RosterUnreadableError("roster.ranks")
         rec = reconcile(
             raw,
             people,
@@ -287,7 +296,9 @@ async def busy_person_ids(db: AsyncSession, person_ids: list[str]) -> set[str]:
 
 async def due(db: AsyncSession, *, now: datetime | None = None) -> bool:
     """Has the configured interval passed since the last attempt (or was there none)?"""
-    interval, _pct = await roster_policy(db)
+    # an unreadable policy still makes the run due: the run refuses and says why on the card
+    policy = await roster_policy(db)
+    interval = DEFAULT_INTERVAL_MIN if isinstance(policy, RosterUnreadableError) else policy[0]
     row = await _row(db)
     if row is None or row.last_attempt_at is None:
         return True

@@ -241,7 +241,7 @@ async def capture_roster(db: AsyncSession = Depends(get_db)):
     rows = list((await db.execute(select(Personnel).where(Personnel.is_active.is_(True)))).scalars())
     # Same names, same order, same sort as the KP tablet's roster — the two lists are read
     # side by side (phone ticks off, tablet checks) and must not disagree on either.
-    order = await personnel_svc.load_roster_name_order(db)
+    order = await personnel_svc.load_roster_name_order(db) or personnel_svc.DEFAULT_NAME_ORDER
     out = []
     for p in rows:
         served = CapturePersonOut.model_validate(p)

@@ -17,6 +17,7 @@ import mimetypes
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
+from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import storage
@@ -26,8 +27,8 @@ from ..config_history import keep_previous
 from ..database import get_db
 from ..deployment_config import config_row
 from ..models import DeploymentConfig
-from ..schemas import DeploymentConfigIn, DeploymentConfigOut, load_stored_config
-from .config import _projection, _version
+from ..schemas import DeploymentConfigIn, DeploymentConfigOut, stored_config_for_write
+from .config import _projection, _version, refused_as_input
 
 router = APIRouter(prefix="/branding", tags=["branding"])
 
@@ -147,7 +148,14 @@ def _set_asset(row: DeploymentConfig, slot: str, url: str | None) -> DeploymentC
     # page renders, and then «Logo hochladen» is the one button that dies, on a document the
     # operator cannot see is the problem. Every other reader of this row already uses the
     # stored-document loader; this was the last strict one.
-    doc = load_stored_config(raw)
+    #
+    # ⚠️ …and as a document to STORE (`stored_config_for_write`): a value past its length cap
+    # elsewhere is kept as it lies on a read, never rewritten by this write — the write is
+    # refused with the 422 the autosave gets, and the row stays as it was.
+    try:
+        doc = stored_config_for_write(raw)
+    except ValidationError as e:
+        raise refused_as_input(e) from e
     row.config_json = doc.model_dump(mode="json")
     return doc
 
@@ -176,15 +184,16 @@ async def upload_branding(
     _check_icon(slot, data)
 
     key = storage.new_key("branding", _ext_for(file.filename, content_type))
-    storage.put_bytes(key, data)
-
     row = await _load_row(db)
     # `_set_asset` rewrites the WHOLE document (normalized), so this is a config write like any
     # other and owes the same undo — see app/config_history.
     await keep_previous(db, "branding", actor.id if actor else None)
+    # the document first, the blob after: a write `_set_asset` refuses (422) leaves no file
+    # behind, and a failed store rolls the document back with the request
     doc = _set_asset(row, slot, f"/api/branding/file/{key}")
     row.updated_by = actor.id if actor else None
     await db.flush()
+    storage.put_bytes(key, data)
     # ⚠️ WITH the version. Without it the response carries `version: None`, ConfigContext keeps
     # the hash it read BEFORE the upload (`safe.version ?? versionRef.current`), and the admin's
     # next keystroke PUTs a stale If-Match — 409 «Die Konfiguration wurde inzwischen an anderer

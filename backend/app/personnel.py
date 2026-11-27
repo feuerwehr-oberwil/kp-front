@@ -22,6 +22,7 @@ from datetime import UTC, datetime
 from typing import Literal, Protocol
 
 import httpx
+from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -49,7 +50,8 @@ DIVERA_PULL_BASE_URL = "https://www.divera247.com/api/v2"
 #: The station-wide name order (config ``roster.nameOrder``) — see :class:`schemas.RosterConfig`.
 NameOrder = Literal["last-first", "first-last"]
 
-#: Fallback for every caller that cannot reach the config (pure helpers, seeds, CSV import).
+#: Fallback for every caller that cannot reach the config (pure helpers, seeds, CSV import) and
+#: for a display caller whose stored roster cannot be read.
 DEFAULT_NAME_ORDER: NameOrder = "last-first"
 
 #: How much the unattended sync may do (config ``roster.autoSync``) — see
@@ -58,6 +60,23 @@ AutoSyncLevel = Literal["off", "safe", "full"]
 
 #: The level a station that has never chosen one runs at: apply what arrives, deactivate nobody.
 DEFAULT_AUTO_SYNC: AutoSyncLevel = "safe"
+
+#: What a Divera Rückmelde-Status means (config ``roster.diveraResponses``).
+ResponseKind = Literal["coming", "not_coming", "other"]
+_RESPONSE_KINDS: tuple[ResponseKind, ...] = ("coming", "not_coming", "other")
+
+
+class RosterUnreadableError(ValueError):
+    """The stored ``roster`` part is not the shape it must be, so a WRITER that depends on it
+    writes nothing: the Divera sync and its preview, the nightly level, the roster snapshot, the
+    CSV import and its rank adoption. Raised by the writer when a ``load_roster_*`` reader
+    answered ``None``; the message is for a person."""
+
+    def __init__(self, part: str) -> None:
+        super().__init__(
+            f"Die Mannschafts-Einstellungen der Station lassen sich nicht lesen ({part}) – "
+            "es wird nichts geschrieben. Bitte die Konfiguration unter Sicherung prüfen."
+        )
 
 
 class _SplitNamePerson(Protocol):
@@ -244,14 +263,30 @@ def derive_rank_from_quals(qual_names: list[str], ranks: list[dict]) -> str | No
     return ranks[-1]["key"]  # base rank — everyone is at least this
 
 
-# ⚠️ The four `roster.*` readers below read the RAW document, not `deployment_config.read_config`:
-# their values feed the unattended roster sync and the rank writes, and the validated read's
-# fallback on a document broken ELSEWHERE would sync with the shipped ranks and levels instead
-# of the station's own.
+# ⚠️ The `roster.*` readers below read the RAW document, not `deployment_config.read_config`:
+# their values feed the unattended roster sync (names, ranks, levels) and the stored Divera
+# answers, and the validated read's fallback on a document broken ELSEWHERE would write with the
+# shipped order, ranks, levels and readings instead of the station's own. A roster that is
+# broken ITSELF reads as ``None`` (typed, so every caller decides): a writer then writes nothing
+# and says so, a display caller shows the shipped default.
 
 
-async def load_roster_ranks_info(db: AsyncSession) -> tuple[list[dict], bool]:
-    """``(active rank list, station has one of its own)``.
+async def raw_roster(db: AsyncSession) -> dict | None:
+    """The stored ``roster`` part as it lies: ``{}`` when nothing is stored, ``None`` when the
+    document or the part is not an object."""
+    row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
+    doc = row.config_json if row else None
+    if doc is None:
+        return {}
+    if not isinstance(doc, dict):
+        return None
+    roster = doc.get("roster", {})  # absent = nothing configured; present must be an object
+    return roster if isinstance(roster, dict) else None
+
+
+async def load_roster_ranks_info(db: AsyncSession) -> tuple[list[dict], bool] | None:
+    """``(active rank list, station has one of its own)``, or ``None`` when the roster or its
+    ``ranks`` cannot be read (see above: not a list of ``schemas.RankConfig`` objects).
 
     ⚠️ The second half is the part that is easy to get wrong. A station whose ``roster.ranks``
     is EMPTY is not a station without ranks — every reader falls back to the shipped Swiss list
@@ -259,45 +294,62 @@ async def load_roster_ranks_info(db: AsyncSession) -> tuple[list[dict], bool]:
     foreign value like «Sdt» is unknown. Anything that offers to WRITE the rank list has to know
     which of the two lists it is looking at: appending to the fallback without materialising it
     first would replace twelve working ranks with one (see :func:`adopt_ranks`)."""
-    row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
-    ranks = ((row.config_json or {}).get("roster", {}) or {}).get("ranks") if row else None
+    roster = await raw_roster(db)
+    ranks = None if roster is None else roster.get("ranks", [])
+    if not isinstance(ranks, list):
+        return None
+    from .schemas import RankConfig  # local import avoids an import cycle
+
+    try:  # every entry the shape `RankConfig` gives it: a list where a string belongs breaks matching
+        for r in ranks:
+            RankConfig.model_validate(r)
+    except ValidationError:
+        return None
     if ranks:
         return list(ranks), True
     return [dict(r) for r in SWISS_DEFAULT_RANKS], False
 
 
-async def load_roster_ranks(db: AsyncSession) -> list[dict]:
-    """The active station rank list (stored config → in-code default), for import mapping."""
-    ranks, _own = await load_roster_ranks_info(db)
-    return ranks
+async def load_roster_ranks(db: AsyncSession) -> list[dict] | None:
+    """The active station rank list (stored config → in-code default), for import mapping, or
+    ``None`` when it cannot be read (:func:`load_roster_ranks_info`)."""
+    info = await load_roster_ranks_info(db)
+    return None if info is None else info[0]
 
 
-async def load_roster_name_order(db: AsyncSession) -> NameOrder:
-    """The station's ``roster.nameOrder`` (stored config → shipped default).
+async def load_roster_name_order(db: AsyncSession) -> NameOrder | None:
+    """The station's ``roster.nameOrder`` (unset → the shipped default), or ``None`` when the
+    roster cannot be read (see above). A display caller writes ``… or DEFAULT_NAME_ORDER``.
 
     Read on every request that serves names — the order is applied when a name goes out, never
-    when it is stored, so flipping the setting takes effect without a migration or a re-sync."""
-    row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
-    value = ((row.config_json or {}).get("roster", {}) or {}).get("nameOrder") if row else None
-    return "first-last" if value == "first-last" else DEFAULT_NAME_ORDER
+    when it is stored, so flipping the setting takes effect without a migration or a re-sync.
+    Raw (see above): the Divera sync writes the names in this order."""
+    roster = await raw_roster(db)
+    value = None if roster is None else roster.get("nameOrder", DEFAULT_NAME_ORDER)
+    return value if value in ("last-first", "first-last") else None
 
 
-async def load_roster_auto_sync(db: AsyncSession) -> AutoSyncLevel:
-    """The station's ``roster.autoSync`` (stored config → the shipped ``"safe"``).
+async def load_roster_auto_sync(db: AsyncSession) -> AutoSyncLevel | None:
+    """The station's ``roster.autoSync`` (unset → the shipped ``"safe"``), or ``None`` when the
+    roster cannot be read (see above).
 
     Read on every run of the nightly job rather than at boot, so switching the level in
     Verwaltung takes effect tonight and not at the next deploy — the same reason the scheduler
     re-reads its credentials on every tick."""
-    row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
-    value = ((row.config_json or {}).get("roster", {}) or {}).get("autoSync") if row else None
-    return value if value in ("off", "safe", "full") else DEFAULT_AUTO_SYNC
+    roster = await raw_roster(db)
+    value = None if roster is None else roster.get("autoSync", DEFAULT_AUTO_SYNC)
+    return value if value in ("off", "safe", "full") else None
 
 
-async def load_divera_response_kinds(db: AsyncSession) -> dict:
-    """The station's ``roster.diveraResponses`` override (status id/name → kind), or ``{}``."""
-    row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
-    value = ((row.config_json or {}).get("roster", {}) or {}).get("diveraResponses") if row else None
-    return value if isinstance(value, dict) else {}
+async def load_divera_response_kinds(db: AsyncSession) -> dict[str, ResponseKind] | None:
+    """The station's ``roster.diveraResponses`` override (status id/name → kind; unset → ``{}``),
+    or ``None`` when the roster cannot be read (see above). Raw: the poll stores the answers it
+    classifies with this."""
+    roster = await raw_roster(db)
+    value = None if roster is None else roster.get("diveraResponses", {})
+    if not isinstance(value, dict) or not all(isinstance(k, str) and v in _RESPONSE_KINDS for k, v in value.items()):
+        return None
+    return value
 
 
 # ─── CSV roster import ─────────────────────────────────────────────────────────────────
@@ -495,19 +547,23 @@ async def adopt_ranks(db: AsyncSession, values: Sequence[str], actor_id: uuid.UU
     the rank write down with it.
     """
     from .config_history import keep_previous  # local imports avoid an import cycle
-    from .schemas import load_stored_config
+    from .schemas import stored_config_for_write
 
     row = await config_row(db, lock=True)
-    ranks, has_own = await load_roster_ranks_info(db)
+    info = await load_roster_ranks_info(db)
+    if info is None:
+        raise RosterUnreadableError("roster.ranks")
+    ranks, has_own = info
     updated = append_ranks(ranks, values)
     await keep_previous(db, "roster", actor_id)
     raw = dict((row.config_json if row else None) or {})
     raw["roster"] = {**(raw.get("roster") or {}), "ranks": updated}
-    # Read as a STORED document (`schemas · load_stored_config`), not through the strict PUT-body
-    # model: a field that has grown a rule since it was written – an accentColor from before hex
-    # was enforced – must not make a CSV import 500 on a document it never touched. The result is
-    # still normalized, so the stored document stays canonical and GET round-trips it unchanged.
-    doc_json = load_stored_config(raw).model_dump(mode="json")
+    # Validated as a STORED document to write (`schemas · stored_config_for_write`), not through
+    # the strict PUT-body model: a field that has grown a rule since it was written – an
+    # accentColor from before hex was enforced – must not make a CSV import 500 on a document it
+    # never touched. A value past its length cap elsewhere raises (the caller answers 422) rather
+    # than be written back. The result is still normalized, so GET round-trips it unchanged.
+    doc_json = stored_config_for_write(raw).model_dump(mode="json")
     row.config_json = doc_json
     row.updated_by = actor_id
     await db.flush()
@@ -632,7 +688,8 @@ async def load_roster_index(db: AsyncSession) -> RosterIndex:
     """
     identities = list((await db.execute(select(PersonnelExternalIdentity))).scalars())
     people = list((await db.execute(select(Personnel).order_by(Personnel.created_at, Personnel.id))).scalars())
-    order = await load_roster_name_order(db)
+    # an attended import (preview first), and `_name_variants` matches both orders where known
+    order = await load_roster_name_order(db) or DEFAULT_NAME_ORDER
     by_name: dict[str, uuid.UUID] = {}
     for person in people:
         for name in _name_variants(person, order):
@@ -787,13 +844,18 @@ async def _resolve_ranks(members: list[dict], db: AsyncSession) -> None:
     if not any(m.get("qualifications") for m in members):
         return
     ranks = await load_roster_ranks(db)
+    if ranks is None:  # the ranks would be derived against a list the station did not choose
+        raise RosterUnreadableError("roster.ranks")
     for m in members:
         m["rank"] = derive_rank_from_quals(m.get("qualifications") or [], ranks)
 
 
 async def build_sync_preview(db: AsyncSession) -> dict:
-    """Fetch from Divera and diff against the DB — read-only, no writes."""
+    """Fetch from Divera and diff against the DB — read-only, no writes. Refuses like
+    :func:`execute_sync` on a roster it cannot read: it previews that write."""
     order = await load_roster_name_order(db)
+    if order is None:
+        raise RosterUnreadableError("roster.nameOrder")
     members = await fetch_divera_members(order)
     await _resolve_ranks(members, db)
     existing = await provider_people(db, "divera")
@@ -813,6 +875,8 @@ async def execute_sync(db: AsyncSession, *, deactivate_stale: bool) -> dict:
     Feuerwehr; the honest answer is the error, not a silent zero.
     """
     order = await load_roster_name_order(db)
+    if order is None:  # the names would be written in an order the station did not choose
+        raise RosterUnreadableError("roster.nameOrder")
     members = await fetch_divera_members(order)
     if not members:
         raise ValueError("Divera returned no members")
@@ -907,6 +971,8 @@ async def auto_sync(db: AsyncSession) -> dict | None:
     of «which members does this station now have» is how the two would eventually disagree.
     """
     level = await load_roster_auto_sync(db)
+    if level is None:
+        raise RosterUnreadableError("roster.autoSync")
     if level == "off":
         return None
     if not (credential("divera_personnel_access_key") or credential("divera_access_key")):
