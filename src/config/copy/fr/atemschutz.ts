@@ -149,9 +149,8 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     elapsed: 'Temps d’intervention',
     outFor: 'Sorti depuis',
     outForPlain: 'Sans mission depuis', // ⚠️ app only — see de/atemschutz.ts · outForPlain
-    // the foot words of an OUT card (de/atemschutz.ts · footInside)
+    // the Trupp card foot's one word (de/atemschutz.ts · footInside)
     footInside: 'dedans',
-    footOutAt: 'sorti à',
     currentPressure: 'Pression',
     lowestPressure: 'Le plus bas',
     edit: 'Modifier',

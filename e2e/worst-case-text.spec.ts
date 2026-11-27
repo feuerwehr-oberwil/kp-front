@@ -223,22 +223,26 @@ for (const device of [
       const mid = chev.y + chev.height / 2
       expect(mid > value.y && mid < value.y + value.height, 'the ⌄ on the last value\'s line, not between two').toBe(true)
       expect(chev.x, 'the ⌄ stands after the last value').toBeGreaterThanOrEqual(value.x)
+      // ONE line beside «⋯ Mehr» (Üben feedback 27.11.2026: «two rows of text … feels like an afterthought»)
+      const tops = await line.evaluate((l) => new Set([...l.querySelectorAll(':is(i, b)')].map((e) => Math.round(e.getBoundingClientRect().top))).size)
+      expect(tops, 'the foot is one line').toBe(1)
     })
 
     // Sol review 2, PR #702: with the room kept for «Eintrag» (the FAB guard, `data-az-fab-foot`) a
     // 360 / 375 phone broke «Schätzung ≈ 270 bar ⌄» between word and value – three lines, the foot
-    // 44 → 51. Two lines max, the foot its 44px row, with an hour-long time on the first line.
+    // 44 → 51. Two lines max on those, the foot its 44px row, with an hour-long time; ONE line on the
+    // 390 phone («drin 1:11:00 · ≈ … bar», Üben feedback 27.11.2026).
     test(`the Trupp card foot keeps two lines beside «Eintrag», an hour under air (${device.name})`, async ({ page }) => {
       test.skip(device.name !== 'phone', 'the FAB guard is the phone\'s')
       await goneLong(page.request, incidentId)
-      for (const width of [360, 375]) {
+      for (const width of [360, 375, 390]) {
         await page.setViewportSize({ width, height: 844 })
         await openEinsatz(page)
         await go(page, 'Trupps')
         const card = page.locator('[class*="trowCard"]').filter({ hasText: WORST.crew[0] })
         if (!await card.isVisible()) await page.getByText(WORST.leader, { exact: true }).filter({ visible: true }).first().click()
         const line = card.locator('[class*="metaLine"]')
-        await expect(line).toContainText(/\d+:\d{2}:\d{2} h/)
+        await expect(line).toContainText(/\d+:\d{2}:\d{2}/)
         // the guard as the parking effect sets it while the row stands under the FAB – set and read
         // in one frame, so no re-measure can take it off in between
         const m = await card.locator('[data-az-foot]').evaluate((row) => {
@@ -247,7 +251,7 @@ for (const device of [
           return { lines: tops.size, row: row.getBoundingClientRect().height, tap: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--tap')), pad: getComputedStyle(row).paddingRight }
         })
         expect(m.pad, `${width}: the FAB guard holds the row`).not.toBe('0px')
-        expect(m.lines, `${width}: «drin 1:11:00 h» over «Schätzung ≈ … bar ⌄», two lines`).toBeLessThanOrEqual(2)
+        expect(m.lines, `${width}: «drin 1:11:00 · ≈ … bar ⌄» on ${width < 390 ? 'two lines at most' : 'one line'}`).toBeLessThanOrEqual(width < 390 ? 2 : 1)
         expect(m.row, `${width}: the foot stays its ${m.tap}px row`).toBeLessThanOrEqual(m.tap + 0.5)
       }
     })

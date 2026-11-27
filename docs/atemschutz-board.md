@@ -50,9 +50,10 @@ questions, and what the record keeps (`components/AtemschutzView`; the card and 
     bar» preview are gone — do not bring any of them back for the tablet. The handed-over phone
     board wears no card at all (see «The Atemschutz-Link board» below).
   - *The Schätzung stays readable on the card's foot* (29.09.2026, owner: «we still need the
-    schätzung clearly visible»): the terse foot keeps its word and full ink — «1 d 11 h ·
-    Schätzung ≈ 0 bar ⌄» — and the word, not a dimmed grey, is what keeps it from being read as a
-    logged Druck, and it is never red (24.10.2026, sweep M3). Its alarm case is the note under
+    schätzung clearly visible»): the terse foot keeps it in full ink — «drin 1d 11h · ≈ 0 bar ⌄» —
+    and its «≈», not a dimmed grey, is what keeps it from being read as a logged Druck (its word
+    «Schätzung» went with the one-line foot, 27.11.2026; the opened Verlauf's panel keeps it), and
+    it is never red (24.10.2026, sweep M3). Its alarm case is the note under
     the tiles – «Alarmdruck 100 bar (Schätzung)», number included – as a quiet
     outlined box (grey edge, `--ink-dim` 14/700, no tint, no ⚠ of its own): the red clock
     already says the card is in alarm.
@@ -119,14 +120,19 @@ questions, and what the record keeps (`components/AtemschutzView`; the card and 
     the same way since M3 (owner's pick B, 13.11.2026: every duration says what it counts — «SEIT
     LETZTEM KONTAKT» became «SEIT KONTAKT» on both form factors so it fits), and its opened card
     since 16.11.2026 (owner: «when opened, the trupp doesn't show the labels … unlike collapsed»;
-    it was hidden since 24.09.2026). The card foot is ONE line,
-    «drin 10:00 min · Schätzung ≈ 263 bar» (round 2b: M3's «UNTER ATEMSCHUTZ» wrapped it); a foot
-    row too narrow for it wraps between its items, inside the foot's 36 / 44px touch height, and the
-    Schätzung keeps its word (owner pick 4C, 18.11.2026; it dropped the word below 320px until then);
-    an item wider than the whole row breaks between its word and its value, never inside «263 bar».
-    On a mouse the wrapped lines are 14px, so the foot stays 28. The ⌄ is the last value's last glyph,
-    so a wrapped line ends in it (Sol review, PR #702), and «⋯ Mehr» is one framed chip at the line's end, the glyph beside the
-    word – 36px on touch, the foot's 28 on a mouse (pick 4C; it was ⋯ over «Mehr», pick 24). Fact chips are compact fields everywhere (28px drawn, 8px pad above/below on
+    it was hidden since 24.09.2026). The card foot is ONE line on every board, the 3-column iPad
+    grid and the phone's opened card included (Üben feedback 27.11.2026, owner: «two rows of text …
+    feels like this area was an afterthought»): «drin 10:00 · ≈ 263 bar ⌄» inside – «drin» names the
+    duration, so it carries no «min» / «h», and the «≈» names the Schätzung – and «drin 12:10 ⌄» on
+    an out card. Only a viewer's card inside carries three values («drin · 240 bar · ≈ 263 bar»);
+    where that is too wide, the line wraps between its items, inside the foot's 36 / 44px touch
+    height, and an item wider than the whole row breaks between its word and its value, never
+    inside «263 bar». On a mouse the wrapped lines are 14px, so the foot stays 28. The ⌄ is the last
+    value's last glyph, so a wrapped line ends in it (Sol review, PR #702). «⋯ Mehr» ends the line
+    behind a thin vertical rule, no frame – Verlauf | Mehr (Üben feedback 27.11.2026, pick B; the
+    owner on the framed chip: «looks a bit ugly») – the glyph beside the word (pick 4C; it was ⋯
+    over «Mehr», pick 24), as tall as the foot line: 36px on the touch grid, 44 on the phone, 28 on
+    a mouse. Fact chips are compact fields everywhere (28px drawn, 8px pad above/below on
     touch so a chip owns 44px), rows 8px apart on every device since owner pick A2 (05.11.2026).
     Two rows 8px apart cannot both own 44px in 8px of air, so on the grid on touch the strip stands
     16px under the tiles and the first row's pad reaches 16px up; the second row (`.factsEnd`) owns
@@ -161,10 +167,11 @@ questions, and what the record keeps (`components/AtemschutzView`; the card and 
     Since r11 the grid card's 5px left edge is drawn only for a tone that means something (amber
     fällig, red überfällig, blue angemeldet, green Sicherungstrupp); a calm inside card, an out
     card and a work squad have just the 1px card border — the phone rows too since owner pick C2
-    (05.11.2026). An out card's foot words its finished values: «drin 29:00 min · raus mit 175
-    bar» (owner pick C18; not on a crew stood down at the door), an inside card's «drin 10:00 min ·
-    Schätzung ≈ 263 bar» — the joining words «drin» / «raus mit» in the dim ink at 500, so the values read first (r13); the inside card's «Schätzung ≈»
-    keeps full ink and weight.
+    (05.11.2026). An out card's foot says how long the crew was in: «drin 29:00» (owner pick C18;
+    its «· raus mit 175 bar» went 27.11.2026 – the head says «Draussen seit», the exit Druck stands
+    in the Verlauf; not on a crew stood down at the door, which keeps its Druck), an inside card's
+    «drin 10:00 · ≈ 263 bar» — the word «drin» in the dim ink, regular, so the values read first
+    (r13 → r27).
   - *The tablet grid shows every foot* (hill climb r4, 04.11.2026): on the 1180×820 iPad the second
     row's foot (duration, Schätzung) met the panel's bottom edge. The space came out of air, never a
     target: the caption row above the digits is reserved on every grid card, so names still line
@@ -222,7 +229,7 @@ good but we don't need the triangle thing. red and notfall is already enough»):
   above it («SEIT KONTAKT»); a crew at the door says «Bereit» there (`TruppCard · page`).
 - *Read at the top, tap at the bottom* (31.10.2026, owner pick «A – Tasten nach unten»: the page
   was top-heavy, the lower half empty where the thumb is): the head, the state words, the note,
-  the chips and the foot line («0:21 min · Schätzung ≈ 298 bar ⌄ ⋯») stand on top; the SAME
+  the chips and the foot line («drin 0:21 · ≈ 298 bar ⌄ | ⋯ Mehr») stand on top; the SAME
   tiles stand at the page's foot, right over the tab rail — «Notfall» full width first (reachable,
   but away from the thumb's resting spot), then Rückzug | Raus, then «Druck | Kontakt» lowest and
   64px tall (the others keep 48px). Every state keeps its tiles (Fortsetzen, Notfall beendet,

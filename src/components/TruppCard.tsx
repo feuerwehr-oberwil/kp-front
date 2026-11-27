@@ -15,7 +15,7 @@ import { cx } from '../lib/cx'
 import { Button } from './Button'
 import { Menu } from '../lib/overlays'
 import { NotfallHold } from './AtemschutzNotfall'
-import { alarmBarFor, contactViaLink, currentRunStart, deriveTruppLive, notfallOffered, truppInField, truppInNotfall, isStandDownExit, estimatePressure, fmtDuration, isAtemschutzTrupp, pressureAlarm, truppHeadName, truppNeverDeployed, type TruppAlarm, type TruppLive } from '../lib/atemschutz'
+import { alarmBarFor, contactViaLink, currentRunStart, deriveTruppLive, notfallOffered, truppInField, truppInNotfall, isStandDownExit, estimatePressure, fmtElapsedFull, isAtemschutzTrupp, pressureAlarm, truppHeadName, truppNeverDeployed, type TruppAlarm, type TruppLive } from '../lib/atemschutz'
 import { readingBarShown, truppAuftragLabel, truppEquipmentLabels, truppStatusLabel } from '../lib/report'
 import type { Trupp, TruppReading } from '../types'
 import { atemschutzDoctrine } from '../lib/deploymentConfig'
@@ -731,40 +731,38 @@ export const TruppCard = memo(function TruppCard({
    * ⚠️ Built as data rather than markup so the separators are the LINE's business (CSS), not
    * four call sites each remembering to print a «·» — and so «what stays out» is one list to
    * read when somebody asks that question again.
-   * ⚠️ An OUT card's two values carry a word each (owner pick C18, 05.11.2026): «drin 29:00 min ·
-   * raus mit 175 bar» — the finished Einsatzzeit and the pressure it came out with, which
-   * unworded read as a running clock and a live reading. In the line's one word style (the
-   * Schätzung's). Only out of a real run: a crew stood down at the door was never «drin».
-   * Those two joining words are `quiet` (hill climb r13/r27, 05.11.2026): dim ink, regular, so the
-   * values read first — never the Schätzung's word, which keeps full ink and weight (T2).
-   * A crew still INSIDE names its time under air with the same quiet «drin» (round 2b, 13.11.2026:
-   * the eyebrow «UNTER ATEMSCHUTZ» wrapped the line) — «drin 10:00 min · Schätzung ≈ 263 bar», one
-   * line where it fits. Where it does not, the line WRAPS between its items, inside the foot's own
-   * touch height; the Schätzung's word never drops (owner pick 4C, 18.11.2026 – with «⋯ Mehr» as a
-   * worded chip on the line it dropped on every 3-column board and on the phone). */
+   * ⚠️ ONE line (owner, Üben feedback 27.11.2026: «two rows of text … feels like this area was an
+   * afterthought»): «drin 30:44 · ≈ 69 bar ⌄» inside, «drin 30:44 · 210 bar ⌄» where
+   * the line carries the measured Druck, «drin 12:10 ⌄» on an OUT card.
+   *  · «drin» is the one word, `quiet` (dim ink, regular), so the values read first; it makes the
+   *    figure a duration, so the value drops its «min» / «h» (`fmtElapsedFull`, not `fmtDuration`).
+   *  · the Schätzung drops its word: the «≈» says it (it was «Schätzung ≈ 69 bar» from 29.09.2026
+   *    to 27.11.2026). Its Planungshilfe caveat stays its `title`, and the opened Verlauf's panel
+   *    and the Alarmdruck note keep the word «Schätzung».
+   *  · an OUT card says only how long the crew was in (it was «drin 29:00 min · raus mit 175 bar»,
+   *    owner pick C18, 05.11.2026): the head already says «DRAUSSEN SEIT», and the exit Druck
+   *    stands in the Verlauf. Only out of a real run: a crew stood down at the door was never
+   *    «drin», and keeps its Druck as a Bereit card does.
+   * Only a viewer's card inside can carry all three («drin · 210 bar · ≈ 69 bar»); where that is
+   * too wide the line still wraps between its items (`.metaLine`), never inside a value. */
   const outWords = out && !neverDeployed
   // the line at the board's now — drawn by a leaf on the ticker, as its Einsatzzeit and Schätzung run
-  type SockelItem = { key: string; label: string; value: string; alarm?: boolean; labelled?: boolean; quiet?: boolean; title?: string }
+  type SockelItem = { key: string; label?: string; value: string; alarm?: boolean; quiet?: boolean; title?: string }
   const sockelAt = (tl: TruppLive, now: number): SockelItem[] => {
     const estimate = estimateAt(now)
     return [
       ...(monitored && t.entryTime
-        // a DURATION that says so — «23:39» read at 23:58 was taken for a clock time (staging r4)
-        ? [{ key: 'elapsed', label: az.footInside, value: fmtDuration(tl.elapsedSec), labelled: true, quiet: true }] : []),
-      ...(monitored && !(canEdit && inField)
-        ? [{ key: 'bar', label: outWords ? az.footOutAt : az.currentPressure, value: `${live.currentBar} bar`, alarm: pressureLow, labelled: outWords, quiet: outWords }] : []),
+        // a DURATION by its word: «23:39» alone, read at 23:58, was taken for a clock time (staging r4)
+        ? [{ key: 'elapsed', label: az.footInside, value: fmtElapsedFull(tl.elapsedSec), quiet: true }] : []),
+      ...(monitored && !(canEdit && inField) && !outWords
+        ? [{ key: 'bar', value: `${live.currentBar} bar`, alarm: pressureLow }] : []),
       ...(estimate
         ? [{
           key: 'est',
-          label: az.estimatedShort,
           value: `≈ ${estimate.bar} bar`,
           // ⚠️ never red (owner, 24.10.2026, sweep M3): a crossed Schätzung is said once, by the
           // Alarmdruck note with its limit — the red «≈ 0 bar» at the foot said it a second time.
           // A MEASURED Druck on this line (`bar` above) keeps its red.
-          // …and it keeps its WORD on the terse line (29.09.2026): on a line that can also carry a
-          // MEASURED «240 bar», an unnamed «≈ 0 bar» is exactly the mix-up this guards against — the
-          // word does it now, not a dimmed grey that also made the number easy to read past
-          labelled: true,
           // the Planungshilfe caveat travels with the number, exactly as it did on the old row
           title: estimate.source === 'history'
             ? az.estimatedHintHistory
@@ -825,9 +823,9 @@ export const TruppCard = memo(function TruppCard({
   const menu = menuItems.length > 0 && (
     <Menu
       trigger={
-        // «⋯ Mehr», glyph BESIDE word in one framed chip at the line's end (owner pick 4C, 18.11.2026;
-        // it was ⋯ over «Mehr», pick 24 – the one wordless control on a foot whose other half always
-        // says something got its word, the stack under it was «ugly»)
+        // «⋯ Mehr», glyph BESIDE word at the line's end, behind a thin vertical rule – no frame
+        // (Üben feedback 27.11.2026, pick B: the framed chip «looks a bit ugly»; the word stays from
+        // pick 4C, 18.11.2026 – it was ⋯ over «Mehr», pick 24, also «ugly»)
         <button type="button" className={s.footMore} aria-label={az.cardMenu} title={az.cardMenu}>
           <Icon id="more" /><span aria-hidden="true">{az.cardMenuWord}</span>
         </button>
@@ -1030,9 +1028,9 @@ export const TruppCard = memo(function TruppCard({
           one compact line:
             · the Einsatzzeit, because it is the second clock of this card;
             · the geschätzter Druck, because it is safety-adjacent and must never be a tap away
-              (mock 02 kept it as a chip for exactly this reason — here it keeps its own words);
+              (mock 02 kept it as a chip for exactly this reason — here its «≈» names it);
             · the aktueller Druck, but ONLY where nothing else on the card shows it (a viewer, or
-              a Trupp that is out) — where the ± block above is live, the number is already there
+              a Trupp at the door) — where the ± block above is live, the number is already there
               in 19px mono and saying it twice on one card is what this pass exists to stop.
           Behind the tap: the Schätzung's provenance («aus 2 Druckwerten · Stand 18:03»), the
           tiefster Druck, and the timing rows that were already there.
@@ -1043,20 +1041,20 @@ export const TruppCard = memo(function TruppCard({
           and a cut «≈ 20…» is a wrong number where a second line is merely a second line. */}
       <div className={s.vfoot}>
         {/* ⚠️ The Sockel line and the Verlauf head are ONE line (26.09.2026 on the phone, every board
-            since 29.09.2026 — T2): «8:18 min · Schätzung ≈ 241 bar ⌄» — the values with their
-            units, no «Einsatzzeit» / «Verlauf» words, no «zuletzt: 11:52 Druck 300 bar» preview (its
+            since 29.09.2026 — T2): «drin 8:18 · ≈ 241 bar ⌄» — the values, no «Einsatzzeit» /
+            «Verlauf» words, no «zuletzt: 11:52 Druck 300 bar» preview (its
             content is the Verlauf's first row anyway, and its bar was the pressure tile's number a
             second time), and the whole line is the tap that opens the Verlauf. A viewer's Druck
-            and «Draussen seit» join in the same terse form. With nothing to say (a Trupp at the
-            door) the line says «Verlauf», so the tap still has a word.
-            ⚠️ The Schätzung KEEPS its word and full ink (owner, 29.09.2026: «we still need the
-            schätzung clearly visible»): it is the one number on the card that is not a reading,
-            and «≈ 0 bar» dimmed at the card's foot was easy to read past. The word is what keeps
-            it from being taken for a logged Druck — the dimming that used to do that is gone. */}
+            joins in the same terse form. With nothing to say (a work squad) the line says
+            «Verlauf», so the tap still has a word.
+            ⚠️ The Schätzung keeps full ink (owner, 29.09.2026: «we still need the schätzung clearly
+            visible»): «≈ 0 bar» dimmed at the card's foot was easy to read past. Its «≈» is what
+            keeps it from being taken for a logged Druck (its word went 27.11.2026, see `sockelAt`). */}
         {/* ⚠️ The ⋯ ends THIS line (29.09.2026, owner pick B): as the facts' last chip it wrapped
             onto a row of its own on most cards, 44px of height for one glyph. At the line's end it
-            costs nothing, stands at the same place on every card and every board – the ⌄ hugs the
-            times instead (pick 4C, 18.11.2026) – and the FAB guard (`data-az-foot` on the row, AtemschutzView · the parking effect) keeps both
+            costs nothing, stands at the same place on every card and every board behind a thin
+            rule, Verlauf | Mehr (Üben feedback 27.11.2026, pick B) – the ⌄ hugs the times instead
+            (pick 4C, 18.11.2026) – and the FAB guard (`data-az-foot` on the row, AtemschutzView · the parking effect) keeps both
             clear of the Eintrag button. */}
         <div className={s.vfootRow} data-az-foot="">
         <button type="button" className={cx(s.vrow, s.vrowTerse)} aria-expanded={logOpen} aria-label={az.verlauf}
@@ -1069,7 +1067,7 @@ export const TruppCard = memo(function TruppCard({
                 const sockelLine = sockelAt(tl, now)
                 return sockelLine.length > 0 ? sockelLine.map((it, i) => (
                   <span key={it.key} title={it.title}>
-                    {it.labelled && <i className={it.quiet ? s.metaWordQuiet : undefined}>{it.label}</i>}
+                    {it.label && <i className={it.quiet ? s.metaWordQuiet : undefined}>{it.label}</i>}
                     {/* the Einsatzzeit / «Draussen seit» past a day in the head's compact «3d 10h» — one card, one spelling */}
                     <b className={cx(it.alarm && s.metaAlarm)}><ClockVal val={it.value} />{i === sockelLine.length - 1 && footChev}</b>
                   </span>
