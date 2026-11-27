@@ -137,17 +137,19 @@ export function usePlanCreate({
   // committed `draft` plus the samples no frame has drawn yet (`ink.take`). A draft dropped
   // meanwhile (a tool change drops a Linie mid-stroke) stays dropped. A freehand Fläche is not
   // batched: a tool change offers it for saving from `draft` alone (usePlanDraft · releaseDraft).
-  const inkQueue = useRef<BoardPoint[]>([])
-  const [inkFrame] = useState(() => frameBatch(() => {
-    const q = inkQueue.current; inkQueue.current = []
-    flushSync(() => { setDraft((d) => (d ? [...d, ...q] : d)) })
-  }))
-  const ink = {
-    push: (p: BoardPoint) => { inkQueue.current.push(p); inkFrame.schedule() },
-    /** the samples no frame has drawn yet; their frame is called off */
-    take: () => { const q = inkQueue.current; inkQueue.current = []; inkFrame.cancel(); return q },
-    drop: () => { inkQueue.current = []; inkFrame.cancel() },
-  }
+  const [ink] = useState(() => {
+    let queue: BoardPoint[] = []
+    const frame = frameBatch(() => {
+      const q = queue; queue = []
+      flushSync(() => { setDraft((d) => (d ? [...d, ...q] : d)) })
+    })
+    return {
+      push: (p: BoardPoint) => { queue.push(p); frame.schedule() },
+      /** the samples no frame has drawn yet; their frame is called off */
+      take: () => { const q = queue; queue = []; frame.cancel(); return q },
+      drop: () => { queue = []; frame.cancel() },
+    }
+  })
 
   /** Where a Durchgang placed at (x, y) on `floor` lands: on the nearest Wand within ~30 screen px,
    *  turned along it (lib/grundriss), else free and unturned. Gebäude stack only – null elsewhere. */
