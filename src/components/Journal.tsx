@@ -56,8 +56,9 @@ function useAudioPlayer() {
 }
 
 
-/** Rows the log mounts at first, and how many more each scroll to the tail reveals. */
-const PAGE_ROWS = 150
+/** Rows the log mounts at first, and how many more each scroll to the tail reveals: about two
+ *  screenfuls of the tablet drawer (15–25 rows), so opening it mounts what can be read. */
+const PAGE_ROWS = 40
 
 /** The key at the end of the «Art» menu: what the Pendenz ring on a row says. The one thing the
  *  menu's own rows cannot tell – each Art and Bereich already wears its disc beside its word – so
@@ -325,16 +326,18 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
     return out
   }, [groups, visibleCount])
   const listRef = useRef<HTMLDivElement>(null)
-  const sentinelRef = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    const el = sentinelRef.current
+  // ⚠️ A callback ref, not an effect: the drawer's content mounts inside the Overlay's portal a
+  // commit after this component's effects ran, so an effect found no sentinel and the list never
+  // grew past its first page. The sentinel is keyed by the count (below), so every page gets a
+  // fresh observer, and its first report says whether the tail is still in reach.
+  const watchTail = useCallback((el: HTMLDivElement | null) => {
     if (!el) return
     const io = new IntersectionObserver((entries) => {
       if (entries.some((x) => x.isIntersecting)) setVisibleCount((c) => c + PAGE_ROWS)
-    }, { root: listRef.current, rootMargin: '400px 0px' })
+    }, { root: el.closest('.history-list'), rootMargin: '400px 0px' })
     io.observe(el)
     return () => io.disconnect()
-  }, [visibleCount, totalRows])
+  }, [])
 
   // The strip's own state: the incident's time span, one tick per dated row, and the jump.
   // Rows WITHOUT an absolute time (legacy HH:MM-only entries) are simply not on it — a tick at a
@@ -970,7 +973,7 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
             </Fragment>
           ))}
           {/* the tail's sentinel: scrolling it into view mounts the next page (see `shown`) */}
-          {visibleCount < totalRows && <div ref={sentinelRef} style={{ height: 1 }} aria-hidden />}
+          {visibleCount < totalRows && <div key={visibleCount} ref={watchTail} style={{ height: 1 }} aria-hidden />}
         </div>
         {/* ── the row's detail sheet (variant 2, 29.08.) — see `detailId` above ──
             One modal Sheet per open row, over the drawer (--z-dialog > --z-drawer). Every action
