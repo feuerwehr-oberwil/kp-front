@@ -310,7 +310,51 @@ button.adm-floor-index { min-width: var(--tap); min-height: var(--tap); cursor: 
 .adm-floor-tile-cap small { min-width: 0; font-size: var(--fs-micro); color: var(--ink-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 @media (max-width: 1050px) { .adm-floors-split, .adm-floors-bar { grid-template-columns: minmax(0, 1fr) 320px; } .adm-floors-bar-main { padding: 8px 12px; gap: 10px; } }
-@media (max-width: 700px) { .adm-floors-split, .adm-floors-bar { grid-template-columns: minmax(0, 1fr) 270px; } .adm-floors-col { padding: 10px; } .adm-floors-colhead { padding: 8px 10px; } }
+/* ── Geschosse on a phone (owner pick C «Liste zuerst, Zeichnen im Vollbild», 27.11.2026) ──────
+   The floor LIST is the page: no sheet column (FloorPackEditor leaves it out under the same
+   700px), the column at full width, its head «Geschosse» + ⋯ over it, the tabs in ONE row of
+   44px. Each row shows a crop of its drawing – the way to the sheet without a mode. Drawing,
+   joining and moving happen in the full-screen view below (.adm-floors-full). */
+@media (max-width: 700px) {
+  .adm-floors-split, .adm-floors-bar { grid-template-columns: minmax(0, 1fr); }
+  .adm-floors-bar-main { min-height: 0; padding: 8px 12px; }
+  .adm-floors-bar-main > .useg { display: flex; flex: 1 1 100%; flex-wrap: nowrap; }
+  .adm-floors-bar-main > .useg > .useg-btn { flex: 1 1 auto; min-height: var(--tap); padding-inline: 8px; white-space: nowrap; }
+  .adm-floors-colhead { min-height: 52px; padding: var(--sp-1) var(--sp-1) var(--sp-1) var(--sp-4); border-left: 0; }
+  .adm-floors-col { border-left: 0; padding: 4px 12px 24px; }
+  .adm-floor-head { gap: var(--sp-2); padding-left: var(--sp-1); }
+  .adm-floor-grip { width: 18px; }
+}
+/* the drawing itself, fitted into a 64 × 76 tap box (RowCrop sizes the picture): the picture
+   carries its own edge, so no frame of another colour stands around the paper */
+.adm-floor-crop { flex: none; display: grid; place-items: center; width: 64px; height: 76px; padding: 0; cursor: pointer;
+  border: 0; border-radius: var(--r-xs); background: transparent; }
+.adm-floor-crop > svg { display: block; box-shadow: 0 0 0 1px var(--border); }
+
+/* The phone's full-screen sheet (FloorPackEditor's Overlay): over the editor and its header, the
+   way out and the mode's sentence on top, the sheet in the middle with its zoom floating on it,
+   the floors as chips at the foot. The frame pays the safe areas – the top bar the status bar,
+   the chip row the home indicator. */
+.adm-floors-full-scrim { position: fixed; inset: 0; z-index: calc(var(--z-admin-overlay) + 1); background: var(--canvas-bg); }
+.adm-floors-full { position: fixed; inset: 0; z-index: calc(var(--z-admin-overlay) + 1); display: flex; flex-direction: column; overflow: hidden; background: var(--canvas-bg); }
+.adm-floors-full-top { flex: none; display: flex; align-items: center; gap: 12px; padding: calc(env(safe-area-inset-top) + 8px) 12px 8px;
+  background: var(--surface); border-bottom: 1px solid var(--border); }
+.adm-floors-full-top .btn { flex: none; min-height: var(--tap); padding: 8px 16px; }
+.adm-floors-full-top p { flex: 1; min-width: 0; margin: 0; font: var(--fw-bold) var(--fs-1)/1.35 var(--body); color: var(--ink); }
+.adm-floors-full-top small { display: block; margin-top: 2px; font-weight: var(--fw-medium); color: var(--ink-dim); }
+.adm-floors-full-sheet { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; }
+/* a sheet smaller than the view stands in its middle, not at its top */
+.adm-floors-full .adm-floors-viewport { display: flex; flex-direction: column; }
+.adm-floors-full .adm-floors-sheet { flex: none; margin-block: auto; }
+.adm-floors-full-sheet > .adm-floors-zoom { position: absolute; right: 10px; bottom: 10px; z-index: 2; background: var(--surface); box-shadow: var(--e3); }
+.adm-floors-zoom.compact button { height: var(--tap); min-width: var(--tap); padding: 0; justify-content: center; }
+.adm-floors-zoom.compact .adm-floors-zoom-value { min-width: 64px; }
+.adm-floors-chips { flex: none; display: flex; gap: 8px; overflow-x: auto; padding: var(--sp-2) var(--sp-3) calc(env(safe-area-inset-bottom) + var(--sp-2));
+  background: var(--surface); border-top: 1px solid var(--border); }
+.adm-floors-chips > button { flex: none; gap: var(--sp-2); padding-left: var(--sp-1); }
+.adm-floors-chips .adm-floor-index { min-width: 32px; min-height: 32px; padding: 0 var(--sp-1); font-size: var(--fs-1); }
+/* level 0's blue index keeps its edge on the chosen chip's blue */
+.adm-floors-chips [aria-pressed="true"] .adm-floor-index.zero { border-color: currentColor; }
 
 /* the Karte tab of the same editor – the pairing instrument carries its own instruction */
 .adm-pack-map { border-top: 1px solid var(--border); }

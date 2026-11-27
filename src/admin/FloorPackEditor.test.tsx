@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { createRef } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { FloorPackEditor } from './FloorPackEditor'
@@ -301,5 +301,56 @@ describe('a storey drawn in several pieces', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Zeichnung entfernen' }))
     expect(onDraft.mock.lastCall?.[0].floors.map((f: { index: number; part: number }) => [f.index, f.part]))
       .toEqual([[1, 0], [1, 1], [0, 0]])
+  })
+})
+
+// A phone (owner pick C, 27.11.2026): the list is the page, and the sheet opens full screen –
+// in a mode from «Bereich zeichnen» / «Verbinden», without one from a row's crop.
+describe('on a phone', () => {
+  beforeEach(() => {
+    vi.stubGlobal('matchMedia', (query: string) => ({ matches: query === '(max-width: 700px)', addEventListener: () => {}, removeEventListener: () => {} }))
+  })
+  const twoPages = { ...item, page_count: 2, floors: [{ page: 0, index: 1, name: null }, { page: 1, index: 0, name: null }] }
+  const fullView = () => screen.queryByRole('dialog')
+
+  it('opens the sheet full screen from each of its three ways in, and each way out closes it', async () => {
+    const { container } = render(<FloorPackEditor item={twoPages} view="edit" />)
+    expect(container.querySelector('.adm-floors-sheet')).toBeNull() // no sheet column beside the list
+    fireEvent.click(screen.getAllByRole('listitem')[0])
+    for (const way of ['Bereich zeichnen', 'Verbinden']) {
+      fireEvent.click(screen.getByRole('button', { name: way }))
+      expect(fullView()).not.toBeNull()
+      fireEvent.click(within(fullView()!).getByRole('button', { name: 'Abbrechen' }))
+      await waitFor(() => expect(fullView()).toBeNull())
+    }
+    // the crop: a real button named after its drawing, and the view opens with no mode running
+    fireEvent.click(screen.getByRole('button', { name: '0 · EG · Seite 2' }))
+    expect(within(fullView()!).getByText(/Punkt oder Bereich verschieben/)).toBeTruthy()
+    fireEvent.click(within(fullView()!).getByRole('button', { name: 'Fertig' }))
+    await waitFor(() => expect(fullView()).toBeNull())
+  })
+
+  it('a chip picks the other floor while the join keeps its first point', async () => {
+    const onDraft = vi.fn()
+    const clipped = {
+      ...item, page_count: 1,
+      floors: [{ page: 0, index: 0, name: null, clip: [0.05, 0.05, 0.45, 0.95] as [number, number, number, number] }, { page: 0, index: -1, name: null, clip: [0.55, 0.05, 0.95, 0.95] as [number, number, number, number] }],
+    }
+    render(<FloorPackEditor item={clipped} view="edit" onDraft={onDraft} />)
+    fireEvent.click(screen.getAllByRole('listitem')[1]) // −1
+    fireEvent.click(screen.getByRole('button', { name: 'Verbinden' }))
+    const view = within(fullView()!)
+    const sheet = fullView()!.querySelector<HTMLElement>('.adm-floors-sheet')!
+    sheet.getBoundingClientRect = () => ({ left: 0, top: 0, width: 1000, height: 500, right: 1000, bottom: 500, x: 0, y: 0, toJSON: () => ({}) })
+    const tap = (x: number, y: number) => { fireEvent.pointerDown(sheet, { clientX: x, clientY: y, pointerId: 1 }); fireEvent.pointerUp(sheet, { clientX: x, clientY: y, pointerId: 1 }) }
+    tap(700, 250) // the staircase in −1's own drawing
+    const chip = view.getByRole('button', { name: '0 · EG' })
+    expect(chip.getAttribute('aria-pressed')).toBe('false')
+    fireEvent.click(chip)
+    expect(chip.getAttribute('aria-pressed')).toBe('true')
+    expect(fullView()!.querySelector('.adm-floors-joins circle.pending')).not.toBeNull() // the first point stands
+    tap(200, 250) // the same staircase in the EG
+    expect(onDraft.mock.lastCall?.[0].floors[1]).toMatchObject({ index: -1, join: { to: 0, at: [0.7, 0.5], there: [0.2, 0.5] } })
+    await waitFor(() => expect(fullView()).toBeNull()) // the join ended the mode, and with it the view
   })
 })
