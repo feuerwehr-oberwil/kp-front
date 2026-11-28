@@ -264,7 +264,10 @@ lock's answers reach the writers through `TabLockAnswers`, one per tab:
 2. **A tab that takes over starts from the cache as the holder left it.** The engine that followed
    is never written from again; the App opens the Einsatz afresh (`IncidentSelection.open` with a
    `lockLost` engine – the normal open: slot, then server), and the view stays read-only until it
-   is in place. An open of another Einsatz already in flight goes first; «Hier bearbeiten» asks again.
+   is in place, and then sends a draft the holder left unsent without waiting for an edit
+   (`WorkspaceSync.pushOwed`: the fresh open was made holding the lock, `tabLock · heldAtOpen`). A tab
+   that opened behind the holder and did not take over never sends that copy. An open of another
+   Einsatz already in flight goes first; «Hier bearbeiten» asks again.
 3. **A tab that loses the lock stops at once**: its waiting cache write, its push and its retry
    are dropped, not flushed – the new holder reads the slot. A media flush starts no further upload.
    A held lock that the browser takes back is a loss only when the next try says another tab holds

@@ -18,3 +18,17 @@ it('says each grant of the lock – where the App reopens an Einsatz a tab took 
   await waitFor(() => expect(onHeld).toHaveBeenCalledWith('e1'))
   expect(second.result.current.held).toBe(true)
 })
+
+it('answers «held at open» again only for a grant on which the App opened the Einsatz afresh', async () => {
+  const first = renderHook(() => useIncidentTabLock('e1'))
+  await waitFor(() => expect(first.result.current.held).toBe(true))
+  let reopens = false // another Einsatz is opening: the App skips the reopen
+  const second = renderHook(() => useIncidentTabLock('e1', () => reopens))
+  await waitFor(() => expect(second.result.current.heldAtOpen).toBe(false))
+  act(() => second.result.current.takeOver())
+  await waitFor(() => expect(second.result.current.held).toBe(true))
+  expect(second.result.current.heldAtOpen).toBe(false)
+  reopens = true
+  act(() => second.result.current.takeOver()) // «Hier bearbeiten» asks again
+  await waitFor(() => expect(second.result.current.heldAtOpen).toBe(true))
+})

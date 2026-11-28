@@ -86,9 +86,10 @@ interface IncidentSyncDeps {
   /** Follow once a minute instead of long-polling — the Atemschutz-Link of a CLOSED Einsatz,
    *  whose every request is refused until a reopen (pollBackoff · minDelayMs). Read through a ref. */
   slowFollow?: boolean
-  /** This tab got the incident's edit lock at once when it opened it (lib/tabLock · heldAtOpen).
-   *  Only then is a restored dirty entry pushed without a new edit: a tab that opened behind
-   *  another one holds a COPY of that tab's draft. Optional: omitted → false (no push). */
+  /** This tab held the incident's edit lock when `sync` opened it (lib/tabLock · heldAtOpen): it got
+   *  the lock at once, or `sync` is the fresh engine of a takeover. Only then is a restored dirty
+   *  entry pushed without a new edit: a tab that opened behind another one and did not take over
+   *  holds a COPY of that tab's draft. Optional: omitted → false (no push). */
   lockHeldAtOpen?: boolean
 }
 
@@ -259,7 +260,7 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
 
   // An editor that opened with a restored dirty entry pushes it without waiting for its next edit:
   // nothing else armed that push on a healthy link (WorkspaceSync · pushOwed, hunt 24.11.2026).
-  // Only in the tab that got the edit lock at once — see `lockHeldAtOpen`.
+  // Only for an engine opened while this tab held the edit lock — see `lockHeldAtOpen`.
   useEffect(() => {
     if (lockHeldAtOpen && !readOnly) sync.pushOwed()
   }, [sync, lockHeldAtOpen, readOnly])
