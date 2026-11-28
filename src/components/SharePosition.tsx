@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { memo, useMemo, useState } from 'react'
 import { appConfig } from '../config/appConfig'
 import { Icon } from '../lib/icons'
 import { fillTemplate, formatTime, compareText } from '../lib/format'
@@ -8,6 +8,7 @@ import { matchesQuery, searchQuery } from '../lib/search'
 import { Button } from './Button'
 import { cx } from '../lib/cx'
 import { useRailLabels } from '../lib/useDevicePrefs'
+import { useLateText } from '../lib/useLateText'
 import { Modal } from './panels/_shared'
 import { SearchField } from './SearchField'
 import type { Person } from '../types'
@@ -134,6 +135,10 @@ export function SharePositionSheet({ roster, onPick, onClose, pickOnly, lastPers
   )
 }
 
+/** What the pill reads of the share (lib/useShareMyPosition): the parent hands it these fields,
+ *  memoised, so the pill renders only when one of them changes. */
+export type SharePillApi = Pick<ShareApi, 'state' | 'imprecise' | 'pref' | 'lastAt' | 'stop'>
+
 /**
  * The indicator that this device is reporting, shown only while it actually is.
  *
@@ -142,7 +147,8 @@ export function SharePositionSheet({ roster, onPick, onClose, pickOnly, lastPers
  * somebody's location must let them end that from wherever they are looking, without first
  * finding the right menu.
  */
-export function SharePositionPill({ share, onChangeName }: { share: ShareApi; onChangeName: (restore: () => void) => void }) {
+export const SharePositionPill = memo(function SharePositionPill({ share, onChangeName }: { share: SharePillApi; onChangeName: (restore: () => void) => void }) {
+  useLateText()
   const C = appConfig.copy.sharePosition
   const [open, setOpen] = useState(false)
   // «Beschriftung … Aus»: the glyph alone, like the bar's other actions (TopBar · `worded`)
@@ -189,4 +195,4 @@ export function SharePositionPill({ share, onChangeName }: { share: ShareApi; on
       )}
     </>
   )
-}
+})

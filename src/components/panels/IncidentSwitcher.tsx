@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
 import { useLayer } from '../../lib/overlays/layer'
 import { appMenuSlide } from '../../lib/overlays/menuSlide'
 import { Icon } from '../../lib/icons'
@@ -12,6 +12,7 @@ import type { ReactivateResult } from '../../types'
 import { useIsPhone } from '../../lib/useIsPhone'
 import { useEinsatzuhr } from '../../lib/einsatzuhr'
 import { useLate } from '../../lib/useLate'
+import { useLateText } from '../../lib/useLateText'
 import { useAlarmMessage } from '../../lib/useAlarmMessage'
 import { AppMenuRows, type AppMenuAlarms, type FoldedMenuRow } from './AppMenuRows'
 import { pillDot } from '../../lib/foreignAlarm'
@@ -47,7 +48,10 @@ function CardAlarmMessage({ id, updatedAt }: { id: string; updatedAt: string }) 
 }
 
 // --- TopBar switcher ----------------------------------------------------------------
-export function IncidentSwitcher({
+/** The Einsatz pill in the top bar and its Einsatz-Menü. `memo`: the bar hands it steady
+ *  handlers (workspace/WorkspaceTopBar), so a workspace commit renders it only when it shows
+ *  something new. */
+export const IncidentSwitcher = memo(function IncidentSwitcher({
   active, incidents, isEditor, syncStatus, lastSyncedAt, user, startedAt, endedAt, onSettings, onSwitch, onHistory, onObjectVisits, onKarte, onDivera, onEditMeta, onArchive, onShare, archiveOpenCount = 0, onHelp, onInstall, onSyncNow, onLogout, onLogin, onPresent, alarms, folded, navKey, sheetOpen = false, syncDetail,
   onBackFromArchive, onReactivate, viewOnly = null,
 }: {
@@ -128,6 +132,7 @@ export function IncidentSwitcher({
    *  viewOnlyReason) — «Nur ansehen» takes the ✓'s place */
   viewOnly?: ViewOnlyReason | null
 }) {
+  useLateText()
   const cp = appConfig.copy.incidentSwitcher
   // «Jetzt synchronisieren» reports what it did on the button itself: Shell trail runs for the
   // round trip, then gives way to a tick. Success needs no words — a toast for «alles
@@ -544,4 +549,4 @@ export function IncidentSwitcher({
       )}
     </div>
   )
-}
+})
