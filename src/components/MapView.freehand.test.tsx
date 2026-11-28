@@ -46,11 +46,15 @@ const toLL = (x: number, y: number): LngLat => [LNG0 + x / K, LAT0 - y / K]
 
 type Handler = (e: unknown) => void
 
+// the fake map's container, in the document so a DOM `mouseup` can land inside it
+let mapContainer: HTMLDivElement | null = null
+
 /** The map instance after `load`: a linear projection and the handlers MapView binds with `on`;
  *  every other call answers inertly. */
 function fakeMap() {
   const handlers: Record<string, Handler[]> = {}
   const container = document.body.appendChild(document.createElement('div'))
+  mapContainer = container
   const m: Record<string, unknown> = {
     project: (c: LngLat | { lng: number; lat: number }) => {
       const [lng, lat] = Array.isArray(c) ? c : [c.lng, c.lat]
@@ -87,7 +91,7 @@ beforeEach(() => {
   vi.spyOn(window, 'requestAnimationFrame').mockImplementation((f) => { frames.push(f); return frames.length })
   vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {})
 })
-afterEach(() => { cleanup(); vi.restoreAllMocks(); document.body.replaceChildren() })
+afterEach(() => { cleanup(); vi.restoreAllMocks(); mapContainer?.remove(); mapContainer = null })
 
 /** MapView with a freehand tool armed; `setKind` re-renders it with another tool (null = not drawing). */
 function mount() {
