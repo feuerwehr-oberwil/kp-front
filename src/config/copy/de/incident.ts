@@ -33,6 +33,8 @@ export const incidentCopy = {
     clockSkewToast: 'Die Uhr dieses Geräts weicht um {n} Minuten ab – erfasste Zeiten prüfen.',
     // Boot: the incident list came out of the offline cache
     bootOffline: 'Offline – gespeicherte Daten werden angezeigt.',
+    // …with the time of the stored copy on screen (lib/bootWait · offlineLine): «14:05», «26.11. 23:50» on another day
+    bootOfflineAt: 'Offline – gespeicherte Daten von {time} werden angezeigt.',
     // Boot: the server REFUSED the list (not silence — that takes the cached list above); the
     // launcher then shows no Einsätze and this says why
     bootListFailed: 'Einsatzliste nicht geladen',

@@ -329,6 +329,22 @@ export interface WorkspaceSyncOptions {
   /** Where this tab's edit-lock answer is read (lib/tabLock). Default: the tab's own; a test of
    *  two tabs gives each its own. */
   tabLock?: TabLockAnswers
+  /**
+   * The boot that stopped waiting for the server (lib/bootWait): init() answers from the stored
+   * copy at once when open() may serve it, and the workspace request goes on. Its body is not
+   * applied: the server's state reaches the open Einsatz the way it does after any reconnect – the
+   * live follow adopts it for a clean copy (useIncidentSync), the push of a dirty one meets the
+   * 409 and three-way merges. Without a servable copy the open waits for the server as usual.
+   */
+  storedFirst?: boolean
+}
+
+/** Does this device hold a stored copy of the Einsatz that this session may read? `null` for
+ *  none; else the time of its last sync (null when never synced). Only a hint for the boot's
+ *  wait (lib/bootWait): what an open actually serves is decided by open(), with every guard. */
+export async function storedCopy(id: string): Promise<{ lastSyncedAt: number | null } | null> {
+  const read = await readCache(id)
+  return read.ok && read.value && mayRead(read.value) ? { lastSyncedAt: read.value.lastSyncedAt } : null
 }
 
 /** The trupp slice of an opaque workspace blob. The engine treats the blob as data it only
@@ -1141,8 +1157,20 @@ export class WorkspaceSync {
       this.entry = cached
       this.setStatus(cached.dirty ? 'pending' : 'synced')
     }
+    const request = getWorkspace(this.incidentId)
+    // The boot stopped waiting (storedFirst): serve what the silence fallback below would serve,
+    // now; the request goes on for the editor latch and its refusal (WorkspaceSyncOptions ·
+    // storedFirst). Only a copy every guard above let through: a parked or unparkable entry, an
+    // unread slot and a denial all wait as before.
+    if (this.opts.storedFirst && cached && !parkBlocked && mayRead(cached)) {
+      // ⚠️ Its refusal does what a refusal does to any request during use: a 401 closes the
+      // cached reads device-wide (as flush() does), and the session path signs the device out
+      // (api · SESSION_EXPIRED_EVENT). Silence leaves the stored copy as it is.
+      request.catch((e: unknown) => { if (this.ownsCache && e instanceof ApiError && e.status === 401) denyWorkspaceCache() })
+      return { workspace: cached.workspace, rev: cached.baseRev, fromCache: true }
+    }
     try {
-      const { workspace, workspace_rev } = await getWorkspace(this.incidentId)
+      const { workspace, workspace_rev } = await request
       this.requireOpeningOwner()
       const ws = workspace ?? {}
       // The main slot holds an unserved dirty entry loadReadableEntry could NOT park durably. It is

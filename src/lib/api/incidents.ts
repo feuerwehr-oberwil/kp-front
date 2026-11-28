@@ -77,9 +77,15 @@ export async function listIncidentsResilient(): Promise<{ list: IncidentMeta[]; 
     fallback: () => [],
   })
   const offline = source !== 'network'
-  // ⚠️ a cached list's alarm tiers are as old as the cache: offline, nothing is known about the
-  // other Einsätze' Trupps, and a mark from hours ago must not stand as if it were now
-  return { list: offline ? value.map(({ atemschutz_due: _stale, ...i }) => i) : value, offline }
+  return { list: offline ? asOfflineList(value) : value, offline }
+}
+/** ⚠️ A cached list's alarm tiers are as old as the cache: offline, nothing is known about the
+ *  other Einsätze' Trupps, and a mark from hours ago must not stand as if it were now. */
+const asOfflineList = (list: IncidentMeta[]): IncidentMeta[] => list.map(({ atemschutz_due: _stale, ...i }) => i)
+/** The device's copy of the list as an offline answer gives it — for the boot that stopped
+ *  waiting for the server (lib/bootWait). */
+export async function readOfflineIncidentList(): Promise<IncidentMeta[]> {
+  return asOfflineList(await readCachedIncidentList())
 }
 /** `listIncidentsResilient` for the callers that ask at the same moment: the boot list and the
  *  watch's first round start in one commit and used to send two identical requests. While a
