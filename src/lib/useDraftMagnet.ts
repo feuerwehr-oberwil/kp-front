@@ -15,6 +15,8 @@ export interface DraftAttachments { startAttachment?: LineAttachment; endAttachm
 export interface DraftMagnet<P> extends DraftAttachments {
   /** where the stroke went DOWN — the start keeps its claim within STROKE_START_RADIUS_PX of it */
   first: P
+  /** the latest sample — fresh in `current()`; the rendered `state` holds the one of its last
+   *  visible change (nothing draws it) */
   point: P
   /** does an armed target here belong to the stroke's START (true) or its far end? */
   atStart: boolean
@@ -32,6 +34,12 @@ export interface DraftMagnetSurface<P> {
   candidates: (at: P) => MagneticTarget[]
   attachmentFor: (candidate: MagneticTarget) => LineAttachment
 }
+
+/** Do two magnet states draw the same? The ring, its fill and the «Angekuppelt» rings read only
+ *  these; `point` alone moving (a stroke with nothing near) changes nothing on the screen. */
+const sameShown = <P>(a: DraftMagnet<P>, b: DraftMagnet<P>) =>
+  a.atStart === b.atStart && a.dwell.key === b.dwell.key && a.dwell.since === b.dwell.since && a.dwell.armed === b.dwell.armed
+  && a.candidate?.key === b.candidate?.key && a.candidate?.point[0] === b.candidate?.point[0] && a.candidate?.point[1] === b.candidate?.point[1]
 
 /**
  * «Ring lädt, dann schnappt es» for a line being DRAWN — the one machine under both surfaces
@@ -58,12 +66,17 @@ export interface DraftMagnetSurface<P> {
  *   25.08. both surfaces recomputed the target at release and attached regardless, which is the
  *   invisible coupling from the field.) Returns both ends' attachments; undefined when no stroke
  *   was in progress.
+ *
+ * `move` runs per pointer sample (several per frame with a pencil): it always updates the ref, and
+ * renders only when what is drawn changes (`sameShown`).
  */
 export function useDraftMagnet<P>(surface: DraftMagnetSurface<P>) {
   const [state, setState] = useState<DraftMagnet<P> | null>(null)
   const ref = useRef<DraftMagnet<P> | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const set = (next: DraftMagnet<P> | null) => { ref.current = next; setState(next) }
+  // the state last handed to React — what is on the screen (`state` itself is a render's copy)
+  const shown = useRef<DraftMagnet<P> | null>(null)
+  const set = (next: DraftMagnet<P> | null) => { ref.current = next; shown.current = next; setState(next) }
 
   /** pointerDOWN — returns the attachment banked on the spot, if the press landed on a target */
   const start = (point: P, atStart: boolean): DraftAttachments => {
@@ -86,7 +99,8 @@ export function useDraftMagnet<P>(surface: DraftMagnetSurface<P>) {
     const candidate = stickyMagneticTarget(pointer, surface.candidates(point), cur.candidate?.key ?? null)
     const base = atStart === cur.atStart ? cur.dwell : EMPTY_DWELL
     const next: DraftMagnet<P> = { ...cur, point, atStart, candidate, dwell: advanceDwell(base, candidate, Date.now()) }
-    set(next)
+    if (shown.current && sameShown(shown.current, next)) ref.current = next
+    else set(next)
     // a line target arms on acquisition (dwellFor = 0) — one buzz, as the closed ring gives
     if (next.dwell.armed && !base.armed) buzz()
     // arm on a motionless finger (no pointermove ⇒ no advanceDwell); the attachment itself is

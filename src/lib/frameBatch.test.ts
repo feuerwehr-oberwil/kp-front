@@ -22,4 +22,20 @@ describe('frameBatch', () => {
     batch.flush()
     expect(step).toHaveBeenCalledTimes(2) // nothing waits, nothing runs
   })
+
+  it('cancel drops a waiting step – the next schedule asks for a fresh frame', () => {
+    const frames = new Map<number, FrameRequestCallback>()
+    let id = 0
+    vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => { frames.set(++id, cb); return id })
+    vi.stubGlobal('cancelAnimationFrame', (n: number) => { frames.delete(n) })
+    const step = vi.fn()
+    const batch = frameBatch(step)
+    batch.schedule()
+    batch.cancel()
+    expect(frames.size).toBe(0)
+    batch.flush()
+    expect(step).not.toHaveBeenCalled()
+    batch.schedule()
+    expect(frames.size).toBe(1)
+  })
 })

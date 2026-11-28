@@ -105,6 +105,70 @@ describe('useDraftMagnet', () => {
   })
 })
 
+// a stroke is many samples per frame with a pencil: `move` renders only what changes on the screen
+describe('useDraftMagnet — renders per sample', () => {
+  const counted = (candidates: (at: Point) => MagneticTarget[]) => {
+    const n = { renders: 0 }
+    const hook = renderHook(() => {
+      n.renders++
+      return useDraftMagnet<Point>({ project: (p) => p, candidates, attachmentFor: (c) => ({ target: c.target, routing: 'direct' }) })
+    })
+    return { ...hook, n }
+  }
+
+  it('40 samples with no target near render once, and current() still has the last one', () => {
+    const { result, n } = counted(() => [symbol, lineEnd])
+    act(() => { result.current.start([300, 300], true) })
+    n.renders = 0
+    for (let i = 1; i <= 40; i++) act(() => { result.current.move([300 + i * 5, 300]) })
+    expect(n.renders).toBe(1) // leaving the start radius ends the start's claim – the one change
+    expect(result.current.current()?.point).toEqual([500, 300])
+  })
+
+  it('…and the ring still follows a target point that moves with the finger', () => {
+    // a symbol's target point is the nearest point of its box: here a wall along y = 0
+    const wall = (at: Point): MagneticTarget[] => [{ ...symbol, point: [at[0], 0] }]
+    const { result, n } = counted(wall)
+    act(() => { result.current.start([0, 100], true) })
+    act(() => { result.current.move([20, 10]) })
+    n.renders = 0
+    act(() => { result.current.move([24, 10]) })
+    expect(n.renders).toBe(1)
+    expect(result.current.state?.candidate?.point).toEqual([24, 0])
+    // the ring's dwell timer still closes it, from the state the last sample left
+    act(() => { vi.advanceTimersByTime(MAGNET_DWELL_MS) })
+    expect(result.current.state?.dwell.armed).toBe(true)
+  })
+})
+
+// an Ebene's point (a Hydrant, #847) offers the nearest point of its plate, so its point moves
+// with the finger like a symbol's: the ring follows, a finger resting on it renders nothing more
+describe('useDraftMagnet — a Hydrant of an Ebene', () => {
+  const plate = (at: Point): MagneticTarget[] => {
+    const [cx, cy, r] = [100, 0, 10]
+    const d = Math.hypot(at[0] - cx, at[1] - cy) || 1
+    return [{ key: 'layer:hydranten:h1', target: { kind: 'layer', layer: 'hydranten', id: 'h1', label: 'H 1', at: [7.55, 47.52] }, point: [cx + ((at[0] - cx) / d) * r, cy + ((at[1] - cy) / d) * r] }]
+  }
+
+  it('re-renders as the plate point moves, not while the finger rests, and still arms', () => {
+    const n = { renders: 0 }
+    const { result } = renderHook(() => {
+      n.renders++
+      return useDraftMagnet<Point>({ project: (p) => p, candidates: plate, attachmentFor: (c) => ({ target: c.target, routing: 'direct' }) })
+    })
+    act(() => { result.current.start([300, 300], true) })
+    act(() => { result.current.move([100, 30]) }) // leaves the start radius, in reach of the plate
+    expect(result.current.state?.candidate?.key).toBe('layer:hydranten:h1')
+    n.renders = 0
+    act(() => { result.current.move([110, 30]) })
+    expect(n.renders).toBe(1)
+    act(() => { result.current.move([110, 30]) }) // the same spot: nothing on the screen changes
+    expect(n.renders).toBe(1)
+    act(() => { vi.advanceTimersByTime(MAGNET_DWELL_MS) })
+    expect(result.current.state?.dwell.armed).toBe(true)
+  })
+})
+
 describe('joinTargets', () => {
   const armed = { key: lineEnd.key, since: 0, armed: true }
   it('rings an armed line target once, whether the draft or a dragged end is on it', () => {

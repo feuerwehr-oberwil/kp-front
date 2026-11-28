@@ -124,6 +124,9 @@ const TAG_TAP_TOL_PX = 16
  *  synthesizes its mouse trail right after touchend, so the trailing click arrives a few ms AFTER
  *  MapLibre's dragend — but well inside this window, which no second deliberate tap fits in. */
 const PAN_CLICK_TAIL_MS = 350
+/** The farthest MapLibre's default pan inertia carries the map after a release, px (≈ 1307,
+ *  rounded up) – part of the margin a marked line's glyphs are kept in (markerPointsAlong). */
+const PAN_INERTIA_PX = 1400
 /** Keep MapLibre's own KeyboardHandler off while a text field owns focus — the map must not
  *  zoom/pan on a «+», «-» or an arrow that is being TYPED. Idempotent, so it is safe to call
  *  from a focus event and from every render (see the two effects that use it). */
@@ -762,7 +765,7 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
     })
     .filter((l) => l.lines.length > 0)
   // inline repeating letter marker (e.g. R on a Rettungsachse) rendered as DOM Markers
-  // densely along the WHOLE line — NOT a MapLibre `text-field` symbol layer, which would
+  // densely along the line — NOT a MapLibre `text-field` symbol layer, which would
   // need a `glyphs` font source the offline-first style intentionally omits. We walk the
   // polyline in projected screen space and drop a letter every ~MARKER_SPACING_PX, so the
   // —R— rhythm reads at any zoom. Falls back to the midpoint until the map is ready.
@@ -771,19 +774,31 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
   // `deg` rides along so an FKS chain glyph (a Haltelinie's teeth) can stand on the line; a
   // letter ignores it. Spacing is the marker's own rhythm — a triangle chain is far denser than
   // the —R— letters (lib/lineStyle · markerSpacing).
-  const markerPointsAlong = (coords: LngLat[], marker?: string): { coord: LngLat; deg: number }[] => {
+  // Each glyph is a DOM Marker the map moves on every pan/zoom frame, so only the glyphs inside the
+  // canvas plus a margin are kept. The margin is one pan: a finger's drag (at most the glass's own
+  // extent) plus the longest flick MapLibre's default inertia gives (1400 px/s, 2500 px/s², 0.3 ⇒
+  // ≈ 1307 px), so no glyph pops in at the edge before the moveend render re-clips. The chain is walked whole and
+  // then filtered, so the rhythm is the unclipped one (the Plan's) and `n`, a glyph's place in
+  // it, keys the same ground point in every window.
+  const markerPointsAlong = (coords: LngLat[], marker?: string): { coord: LngLat; deg: number; n: number }[] => {
     const m = mapInst.current
     const mid = coords[Math.floor((coords.length - 1) / 2)]
-    if (!m) return [{ coord: mid, deg: 0 }]
+    if (!m) return [{ coord: mid, deg: 0, n: 0 }]
     const px = coords.map((c) => { const p = m.project(c); return [p.x, p.y] as [number, number] })
-    const out = markerParamsAlong(px, markerSpacing(marker))
-      .map(({ seg, t, deg }) => ({ coord: lerpPoint(coords[seg], coords[seg + 1], t), deg }))
-    if (out.length === 0) out.push({ coord: mid, deg: 0 })
-    return out
+    const along = markerParamsAlong(px, markerSpacing(marker))
+    const all = along.length
+      ? along.map(({ seg, t, deg }, n) => ({ coord: lerpPoint(coords[seg], coords[seg + 1], t), at: lerpPoint(px[seg], px[seg + 1], t), deg, n }))
+      : [{ coord: mid, at: px[Math.floor((px.length - 1) / 2)], deg: 0, n: 0 }]
+    // the container's CSS size: MapLibre caps the canvas's backing store on a large high-DPI screen
+    const box = m.getContainer(), w = box.clientWidth, h = box.clientHeight
+    const mx = w + PAN_INERTIA_PX, my = h + PAN_INERTIA_PX
+    return all
+      .filter(({ at: [x, y] }) => x >= -mx && x <= w + mx && y >= -my && y <= h + my)
+      .map(({ coord, deg, n }) => ({ coord, deg, n }))
   }
   const drawMarkers = drawings
     .filter((d) => d.kind !== 'area' && !!d.marker && Array.isArray(d.coords) && d.coords.length >= 2)
-    .flatMap((d) => markerPointsAlong(d.coords, d.marker).map(({ coord, deg }, i) => ({ id: `${d.id}-${i}`, coord, deg, marker: d.marker!, color: d.color || DEFAULT_INK })))
+    .flatMap((d) => markerPointsAlong(d.coords, d.marker).map(({ coord, deg, n }) => ({ id: `${d.id}-${n}`, coord, deg, marker: d.marker!, color: d.color || DEFAULT_INK })))
   // committed Absperrkreis circles carry their radius at the SCREEN-TOP edge (not the centre,
   // which is the drag handle) so the size reads without sitting in the middle of the action.
   // The edge point tracks the map bearing so it stays at the top of the screen when rotated.
