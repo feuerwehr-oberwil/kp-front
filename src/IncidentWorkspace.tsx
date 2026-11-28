@@ -3346,7 +3346,7 @@ export function IncidentWorkspace({
         setPanel, setTruppFocus, mapUI, replayActive, gpsStale,
         isPhone, phoneTools, planFit, incidents, syncStatus,
         closedRefusedUnexported, baseSyncStatus, lastSyncedAt, user, setSettingsOpen,
-        activeObjectId, canEditMeta, menuAlarms, menuFolded, canShareLink, setShareLink,
+        activeObjectId, canEditMeta, menuAlarms, canShareLink, setShareLink,
         setHelpOpen, setInstallGuideOpen, settingsOpen,
         helpOpen, installGuideOpen, offlineReadyOpen, shareLink,
         menuCloseKey, viewOnly,
@@ -3356,6 +3356,8 @@ export function IncidentWorkspace({
         // the age only while the GPS chip shows it (WorkspaceTopBar · gpsStale): a stale feed
         // elsewhere ticks it once a minute and would render the bar for nothing
         gpsAgeMs={mapUI && !replayActive && gpsStale ? gpsAgeMs : null}
+        // App builds a new array per render, an empty one too: no row is no prop
+        menuFolded={menuFolded?.length ? menuFolded : undefined}
         deliveryFailed={journal.syncStatus === 'error' || auditDelivery.status === 'error'}
         canStartPresentation={presentation.canStart && presentation.follow.kind !== 'presenting'}
       />

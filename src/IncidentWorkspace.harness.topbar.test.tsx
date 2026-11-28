@@ -26,11 +26,17 @@ import { applyLocale, getCopy } from './config/copy'
 
 const n = vi.hoisted(() => ({} as Record<string, number>))
 /** the memo `Real` again, with a counter in its render; a part that is not `memo` counts every
- *  parent render, as the parts did before the sweep */
+ *  parent render, as the parts did before the sweep. Only a render with NEW props counts: the
+ *  part's own state (the switcher's timers) renders it with the props it had, and that is not
+ *  what a parent hands it. */
 function counted<P extends object>(name: string, Real: ComponentType<P>) {
   const inner = (Real as unknown as { type?: (p: P) => ReactNode }).type
   if (!inner) return function Counted(p: P) { n[name] = (n[name] ?? 0) + 1; return <Real {...p} /> }
-  return { ...Real, type: (p: P) => { n[name] = (n[name] ?? 0) + 1; return inner(p) } } as unknown as ComponentType<P>
+  const seen = new WeakSet<object>()
+  return { ...Real, type: (p: P) => {
+    if (!seen.has(p)) { seen.add(p); n[name] = (n[name] ?? 0) + 1 }
+    return inner(p)
+  } } as unknown as ComponentType<P>
 }
 vi.mock('./workspace/WorkspaceTopBar', async (importOriginal) => {
   const m = await importOriginal<typeof import('./workspace/WorkspaceTopBar')>()
@@ -121,8 +127,8 @@ const none: Counts = { WorkspaceTopBar: 0, TopBar: 0, IncidentSwitcher: 0, Share
  *  the second the sync state again. The switcher is TopBar's title slot, so a commit that
  *  changes it renders TopBar too. The pill shows neither. */
 const TAP: Counts = { WorkspaceTopBar: 2, TopBar: 2, IncidentSwitcher: 2, SharePositionPill: 0 }
-/** a switch: the bar for the surface (navKey), the switcher once more for its own menu closing */
-const SWITCH: Counts = { WorkspaceTopBar: 1, TopBar: 1, IncidentSwitcher: 2, SharePositionPill: 0 }
+/** a switch: the bar and the switcher once, for the surface (navKey) */
+const SWITCH: Counts = { WorkspaceTopBar: 1, TopBar: 1, IncidentSwitcher: 1, SharePositionPill: 0 }
 
 const open = async () => {
   const m = meta()
@@ -177,7 +183,7 @@ describe('(t) the top bar group per act', () => {
     expect(since(before)).toEqual(none)
   })
 
-  it('a surface switch: the bar and the switcher once (its menu closes on a switch), the pill not', async () => {
+  it('a surface switch: the bar and the switcher once, the pill not', async () => {
     await open()
     const before = snapshot()
     key('a'); await settle(100)
