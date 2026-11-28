@@ -50,9 +50,10 @@ interface Args {
  * commit, no editor, the map pans out from under the finger). Keeping the listeners bound for
  * the whole gesture (deps = enable-flag + mapReady only) is what makes the map match the Plan.
  *
- * A freehand stroke commits only when it is released on the map. Every other end drops it – a
- * second finger, a system-cancelled touch, a mouse let go outside the map, and a tool change
- * (Escape, another tool, Linie ↔ Fläche): nothing is committed and the preview is emptied.
+ * A freehand stroke commits when the operator releases it – a lifted finger or a mouse button let
+ * go, on the map or off it (a finger that slid onto the rail still ends its line). Every other
+ * end drops it – a second finger, a system-cancelled touch, and a tool change (Escape, another
+ * tool, Linie ↔ Fläche): nothing is committed and the preview is emptied.
  */
 export function useMapCanvasGestures({ mapInst, mapReady, freehand, onFreehand, onFreehandPointer, marqueeEnabled, drawings, entities, twinPoints = [], onMarquee, circleEnabled = false, onCircle, circleMinRadiusM = 5, circleInitialRadiusM = 25 }: Args) {
   const [fhPath, setFhPath] = useState<LngLat[] | null>(null)
@@ -135,10 +136,9 @@ export function useMapCanvasGestures({ mapInst, mapReady, freehand, onFreehand, 
     const onMouseDown = (e: MapMouseEvent) => { if (usingTouch.current || spaceHeld.current) return; start([e.lngLat.lng, e.lngLat.lat]) }
     const onMouseMove = (e: MapMouseEvent) => { if (!fhActive.current || usingTouch.current) return; addPoint([e.lngLat.lng, e.lngLat.lat]) }
     const onMouseUp = () => { if (!usingTouch.current) finish(true) }
-    // MapLibre's `mouseup` fires on the canvas only; a release anywhere else lands here, after it.
-    // On a marker or control inside the map it commits, off the map it drops.
-    const container = map.getContainer()
-    const onDocMouseUp = (ev: MouseEvent) => { if (!usingTouch.current) finish(container.contains(ev.target as Node | null)) }
+    // MapLibre's `mouseup` fires on the canvas only; a release anywhere else (a marker, a control,
+    // off the map) lands here, after it, and commits like a finger lifted there does.
+    const onDocMouseUp = () => { if (!usingTouch.current) finish(true) }
     const onTouchCancel = () => finish(false)
     const doc = map.getCanvas().ownerDocument
     // hybrid device (iPad + trackpad): a REAL mouse press reclaims the tool after a finger set the

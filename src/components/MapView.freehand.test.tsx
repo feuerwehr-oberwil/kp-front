@@ -215,21 +215,22 @@ describe('a freehand Linie on the Karte', () => {
     expect(onFreehand.mock.calls[0][0]).toEqual(drawn(20, 30))
   })
 
-  it('a mouse let go outside the map ends the stroke – hovering back draws nothing', () => {
+  it('a mouse let go outside the map commits the stroke, as a lifted finger does – hovering back draws nothing', () => {
     const { fire, onFreehand } = mount()
     fire('mousedown', mouse(...SAMPLES[0]))
     for (const p of SAMPLES.slice(1, 10)) { fire('mousemove', mouse(...p)); flushFrame() }
     act(() => { document.body.dispatchEvent(new MouseEvent('mouseup', { bubbles: true })) })
     flushFrame()
     expect(captured.fh?.features).toEqual([])
+    expect(onFreehand).toHaveBeenCalledTimes(1)
+    expect(onFreehand.mock.calls[0][0]).toEqual(drawn(0, 10))
     for (const p of SAMPLES.slice(10, 20)) { fire('mousemove', mouse(...p)); flushFrame() }
     expect(captured.fh?.features).toEqual([])
-    expect(onFreehand).not.toHaveBeenCalled()
     fire('mousedown', mouse(...SAMPLES[20]))
     for (const p of SAMPLES.slice(21, 30)) { fire('mousemove', mouse(...p)); flushFrame() }
     fire('mouseup', mouse(...SAMPLES[29]))
-    expect(onFreehand).toHaveBeenCalledTimes(1)
-    expect(onFreehand.mock.calls[0][0]).toEqual(drawn(20, 30))
+    expect(onFreehand).toHaveBeenCalledTimes(2)
+    expect(onFreehand.mock.calls[1][0]).toEqual(drawn(20, 30))
   })
 
   it('a mouse let go on a marker inside the map commits the stroke', () => {
