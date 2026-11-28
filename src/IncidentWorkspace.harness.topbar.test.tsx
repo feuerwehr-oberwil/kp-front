@@ -266,6 +266,27 @@ describe('(u) the top bar still follows its data', () => {
     }
   })
 
+  it('the page that becomes the installed app (Chromium moves the tab) drops «Als App installieren»', async () => {
+    let standalone = false
+    const changed = new Set<() => void>()
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      get matches() { return query === '(display-mode: standalone)' && standalone },
+      media: query, onchange: null,
+      addEventListener: (_: string, l: () => void) => { changed.add(l) },
+      removeEventListener: (_: string, l: () => void) => { changed.delete(l) },
+      addListener: () => {}, removeListener: () => {}, dispatchEvent: () => false,
+    }))
+    const ua = vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue('Mozilla/5.0 (X11; Linux x86_64) Chrome/130.0 Safari/537.36')
+    try {
+      await open()
+      const row = () => screen.queryByText(getCopy().install.menu)
+      fireEvent.click(switcher()); await settle()
+      expect(row()).toBeTruthy()
+      act(() => { standalone = true; changed.forEach((l) => l()) })
+      expect(row()).toBeNull()
+    } finally { ua.mockRestore() }
+  })
+
   it('a surface that turns read-only takes the ↶ ↷ pair away', async () => {
     const { rerender } = await open()
     expect(document.querySelector('.tb-act-history')).toBeTruthy()

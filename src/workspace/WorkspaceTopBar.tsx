@@ -10,7 +10,7 @@
 // identity (lib/useSteadyFns). A new prop must be one of the two, or it renders the bar on every
 // workspace commit. A late language or station config reaches the parts through lib/useLateText.
 
-import { memo, useMemo, type Dispatch, type SetStateAction, type MouseEvent as ReactMouseEvent, type RefObject } from 'react'
+import { memo, useMemo, useSyncExternalStore, type Dispatch, type SetStateAction, type MouseEvent as ReactMouseEvent, type RefObject } from 'react'
 import { IncidentSwitcher, type AppMenuAlarms, type FoldedMenuRow } from '../components/panels'
 import { linkPageOwnsSession } from '../lib/linkMode'
 import type { Presentation } from './usePresentation'
@@ -131,6 +131,16 @@ export interface WorkspaceTopBarProps {
   startPresentation: Presentation['start']
 }
 
+/** Tells `changed` when the page turns into (or out of) the installed app's window – desktop
+ *  Chromium moves an open tab there without a reload. */
+function subscribeStandalone(changed: () => void): () => void {
+  try {
+    const list = window.matchMedia('(display-mode: standalone)')
+    list.addEventListener('change', changed)
+    return () => list.removeEventListener('change', changed)
+  } catch { return () => {} }
+}
+
 /** The workspace's top bar. `memo`: it renders when one of its props changes, so every prop is a
  *  plain value or a steady function (see the head of this file). */
 export const WorkspaceTopBar = memo(function WorkspaceTopBar({
@@ -149,6 +159,8 @@ export const WorkspaceTopBar = memo(function WorkspaceTopBar({
 }: WorkspaceTopBarProps) {
   // the bar's own words below (syncDetail, the phone's «Einpassen») follow a late catalogue
   useLateText()
+  // the «Als App installieren» row goes the moment this page IS the app, not at the next prop
+  const standalone = useSyncExternalStore(subscribeStandalone, isStandalone)
   const endedAt = reportMeta.endedAt ?? (running ? undefined : closeTimeOf(incidentMeta))
   // The bar's handlers, steady (lib/useSteadyFns): each reads this render's values when it runs,
   // so TopBar and the switcher are not rendered for a fresh closure. Whether a handler EXISTS
@@ -200,7 +212,7 @@ export const WorkspaceTopBar = memo(function WorkspaceTopBar({
     // this device can start one and is not already presenting.
     onPresent: canShareLink && canStartPresentation ? () => void startPresentation() : undefined,
     onHelp: () => setHelpOpen(true),
-    onInstall: isStandalone() || !installOffered(getInstallPlatform()) ? undefined : () => setInstallGuideOpen(true),
+    onInstall: standalone || !installOffered(getInstallPlatform()) ? undefined : () => setInstallGuideOpen(true),
     // ⚠️ No «Abmelden» for a link session (02.09.): a link is the literal page and owns
     // no login on this device, so there is none to end here — and the row used to end
     // the DEVICE's own one. Leaving the link means leaving the page.
