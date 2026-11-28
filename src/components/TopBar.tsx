@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type MouseEvent } from 'react'
+import { memo, useEffect, useRef, useState, type MouseEvent } from 'react'
 import { BAR_POP_OFFSET, OVERLAY_GAP, Popover, PopoverClose } from '../lib/overlays'
 import { fmtMMSS } from '../lib/format'
 import { formatTime, fillTemplate, timeOfDay } from '../lib/format'
@@ -13,6 +13,7 @@ import { PANEL_KEY } from '../lib/hotkeys'
 import { useHoldEntry } from '../lib/useHoldEntry'
 import { useRailLabels } from '../lib/useDevicePrefs'
 import { useLiveBearing } from '../lib/liveBearing'
+import { useLateText } from '../lib/useLateText'
 import { HoldChargeRing, HoldTargets } from './HoldTargets'
 import { useHeadFit } from '../lib/useHeadFit'
 import { parseWeatherTime } from '../lib/weatherTime'
@@ -148,8 +149,10 @@ function SecondsSince({ since, format }: { since: number; format: (sec: number) 
 // Single-line top bar: incident identity + clock on the left, global journal +
 // undo/redo on the right (the surface switch moved to the left NavRail). It holds no ticking
 // state: the Einsatzuhr renders it once a minute, and the two second-clocks (the voice memo, the
-// Atemschutz chip) are `SecondsSince` leaves.
-export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, journalOpen, onToggleJournal, reminderCount = 0, onAddEntry, onHoldStart, onHoldEnd, onHoldPhoto, titleSlot, onUndo, onRedo, canUndo, canRedo, undoLabel, redoLabel, showHistory, mapNav, weather, onOpenWeather, bearing = 0, azAlarm, azChipHidden = false, onOpenAtemschutz, gpsStale, gpsAgeMs, shareSlot }: Props) {
+// Atemschutz chip) are `SecondsSince` leaves. `memo`: it renders when a prop changes – its parent
+// hands it steady handlers and slots (workspace/WorkspaceTopBar).
+export const TopBar = memo(function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, journalOpen, onToggleJournal, reminderCount = 0, onAddEntry, onHoldStart, onHoldEnd, onHoldPhoto, titleSlot, onUndo, onRedo, canUndo, canRedo, undoLabel, redoLabel, showHistory, mapNav, weather, onOpenWeather, bearing = 0, azAlarm, azChipHidden = false, onOpenAtemschutz, gpsStale, gpsAgeMs, shareSlot }: Props) {
+  useLateText()
   const hasWind = weather?.wind_dir_deg != null
   // ⚠️ The pair's word IS its promise. Both buttons are icon-only, so the app-wide hold-tooltip
   // reads exactly this off `aria-label` (lib/holdTooltip · labelOf) — and since ↶ now reaches
@@ -391,7 +394,7 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
       </div>
     </div>
   )
-}
+})
 
 /** The tappable wind/weather readout + its detail popover. Lives in the TopBar on
  *  desktop/tablet; on phones App floats it in the top-right .phone-wx read-out

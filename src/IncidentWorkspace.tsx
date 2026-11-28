@@ -18,6 +18,7 @@ import { useSymbols } from './lib/useSymbols'
 import { useVehicleLayer } from './lib/useVehicleLayer'
 import { usePersonPositions } from './lib/usePersonPositions'
 import { useShareMyPosition } from './lib/useShareMyPosition'
+import { useSteadyFns } from './lib/useSteadyFns'
 import { useViewportPan } from './lib/useViewportPan'
 import { useScrollFocusIntoView } from './lib/useScrollFocusIntoView'
 import { SharePositionSheet } from './components/SharePosition'
@@ -3101,6 +3102,26 @@ export function IncidentWorkspace({
     />
   )
 
+  /** «Namen ändern» from the TopBar's sharing pill: the picker opens over the status, which
+   *  `restore` brings back if it is cancelled (see the SharePositionSheet's onClose). */
+  const onShareChangeName = (restore: () => void) => {
+    shareStatusRestore.current = restore
+    setShareParent('status')
+    setSharePick('pick')
+  }
+  // What the top bar is handed, steady: it is `memo` (workspace/WorkspaceTopBar), so its
+  // functions keep one identity (lib/useSteadyFns) and the pill gets only the fields it shows.
+  const topBarFns = useSteadyFns({
+    onTakeOverTab, startVoiceMemo, startQuickPhoto, onHistoryPress, openWeatherDetails, onShareChangeName,
+    onSwitchIncident, onOpenHistory, onOpenObjectVisits, onOpenKarte, onEditMeta, onOpenDivera, onBackFromArchive,
+    onReactivateActive, confirmAndComplete, syncNow, logout,
+    stopVoice: voice.stop,
+    startPresentation: presentation.start,
+    unsentEntries: () => journal.pendingCount + journal.rejectedCount + media.pendingCount,
+  })
+  const sharePill = useMemo(() => ({ state: share.state, imprecise: share.imprecise, pref: share.pref, lastAt: share.lastAt, stop: share.stop }),
+    [share.state, share.imprecise, share.pref, share.lastAt, share.stop])
+
   /* ── Covered: another surface is in front of this Einsatz ───────────────────────────────
    *
    * «Karte & Objekte» or the Objektbesuche opened over an open Einsatz (App · screen). The
@@ -3290,14 +3311,6 @@ export function IncidentWorkspace({
       />
   )
 
-  /** «Namen ändern» from the TopBar's sharing pill: the picker opens over the status, which
-   *  `restore` brings back if it is cancelled (see the SharePositionSheet's onClose). */
-  const onShareChangeName = (restore: () => void) => {
-    shareStatusRestore.current = restore
-    setShareParent('status')
-    setSharePick('pick')
-  }
-
   return (
     // the Meldeleiste paints INSIDE this stacking context (lib/meldeleisteHost), under the top bar
     <div ref={registerMeldeleisteHost} className={`app mode-${mode}${phoneTools ? ' phone-tools' : ''}${georefActive ? ' georef-mode' : ''}${phoneGeoref ? ' phone-georef' : ''}${mapUtility ? ' map-util' : ''}${zielPick === 'picking' ? ' ziel-pick' : ''}${mapUI ? ` maptool-${tool}` : ''} ${(tool === 'symbol' && pending) || (tool === 'shape' && pendingShape) ? 'placing' : ''}`}>
@@ -3325,20 +3338,29 @@ export function IncidentWorkspace({
         planTwins: mode === 'plans' && georefFits.planLive.length > 0,
       }} />
 
-      <WorkspaceTopBar {...{
-        incidentView, incidentMeta, reportMeta, running, voice, journalOpen, setJournalOpen, reminders,
-        linkScoped, readOnly, setComposerOpen, tabLockLost, isEditor, onTakeOverTab, startVoiceMemo,
-        startQuickPhoto, onHistoryPress, histCanUndo, histCanRedo, undoLabel, redoLabel, canEditIncident, canCloseIncident,
-        canEditRecord, displayWeather, openWeatherDetails, view, azAlarm, mode, azRowsShown, setMode,
-        setPanel, setTruppFocus, mapUI, replayActive, gpsStale, gpsAgeMs, share, onShareChangeName,
-        onBackFromArchive, onReactivateActive, isPhone, phoneTools, planFit, incidents, syncStatus, journal,
-        auditDelivery, closedRefusedUnexported, baseSyncStatus, lastSyncedAt, user, setSettingsOpen,
-        onSwitchIncident, onOpenHistory, onOpenObjectVisits, onOpenKarte, activeObjectId, canEditMeta, onEditMeta,
-        onOpenDivera, menuAlarms, menuFolded, confirmAndComplete, abschlussMissing, canShareLink, setShareLink,
-        setHelpOpen, setInstallGuideOpen, syncNow, media, logout, settingsOpen,
+      <WorkspaceTopBar {...topBarFns} {...{
+        incidentView, incidentMeta, reportMeta, running, journalOpen, setJournalOpen,
+        linkScoped, readOnly, setComposerOpen, tabLockLost, isEditor,
+        histCanUndo, histCanRedo, undoLabel, redoLabel, canEditIncident, canCloseIncident,
+        canEditRecord, displayWeather, azAlarm, mode, azRowsShown, setMode,
+        setPanel, setTruppFocus, mapUI, replayActive, gpsStale,
+        isPhone, phoneTools, planFit, incidents, syncStatus,
+        closedRefusedUnexported, baseSyncStatus, lastSyncedAt, user, setSettingsOpen,
+        activeObjectId, canEditMeta, menuAlarms, canShareLink, setShareLink,
+        setHelpOpen, setInstallGuideOpen, settingsOpen,
         helpOpen, installGuideOpen, offlineReadyOpen, shareLink,
-        menuCloseKey, viewOnly, presentation,
-      }} />
+        menuCloseKey, viewOnly,
+      }}
+        recording={voice.recording} recStartedAt={voice.recStartedAt} reminderCount={reminders.openCount}
+        bearing={view.bearing} share={sharePill} archiveOpenCount={abschlussMissing.length}
+        // the age only while the GPS chip shows it (WorkspaceTopBar · gpsStale): a stale feed
+        // elsewhere ticks it once a minute and would render the bar for nothing
+        gpsAgeMs={mapUI && !replayActive && gpsStale ? gpsAgeMs : null}
+        // App builds a new array per render, an empty one too: no row is no prop
+        menuFolded={menuFolded?.length ? menuFolded : undefined}
+        deliveryFailed={journal.syncStatus === 'error' || auditDelivery.status === 'error'}
+        canStartPresentation={presentation.canStart && presentation.follow.kind !== 'presenting'}
+      />
 
       {/* unsent edits of ANOTHER account for this Einsatz are parked on this device (sweep
           09.11.2026, UX.2): one dismissible row; a link page has no account of its own to tell */}
