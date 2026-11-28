@@ -581,10 +581,6 @@
 }
 
 /* modal sheets */
-.ip-ovl {
-  position: fixed; inset: 0; z-index: var(--z-dialog-scrim); display: grid; place-items: center;
-  background: rgba(20,28,40,.32); backdrop-filter: blur(2px); padding: 24px;
-}
 /* ONE standard modal frame — every ip-sheet (Einsatzrapport, Objekt-Picker, Eröffnen,
    Alle Einsätze, Einstellungen, …) is the SAME size, so switching between them never
    resizes the window (testing feedback 2026-07-14). Header pins; .ip-body/.pp-body

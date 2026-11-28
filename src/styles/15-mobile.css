@@ -871,7 +871,6 @@
 
   /* incident-management sheets (Einsatz wizard, Datenquellen, PlanPicker) become
      near-full-width bottom sheets so the inputs + actions stay reachable */
-  .ip-ovl { place-items: end center; padding: 0; }
   .ip-sheet, .ip-sheet.ip-wide, .pp-sheet:not(.pp-nomap) { width: 100%; max-width: none;
     height: auto; max-height: 92dvh; border-radius: var(--r-hero) var(--r-hero) 0 0; }
   .ip-body { padding-bottom: calc(20px + env(safe-area-inset-bottom)); }

@@ -1,8 +1,9 @@
-import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { PlanDocument, TimelineEvent } from '../types'
 import { linkParts, type JournalLink } from '../lib/journalLinks'
 import { Icon } from '../lib/icons'
 import { useIsPhone } from '../lib/useIsPhone'
+import { useSteadyFns } from '../lib/useSteadyFns'
 import { SearchField } from './SearchField'
 import { FilterStrip } from './FilterStrip'
 import c from './SurfaceControls.module.css'
@@ -53,19 +54,6 @@ function useAudioPlayer() {
     void a.play().then(() => setPlaying(id)).catch(() => setPlaying(null))
   }
   return { playing, toggle }
-}
-
-/** A function that keeps ONE identity for the drawer's life and calls the latest `fn` – what the
- *  memo'd rows (JournalRow) are handed, so a parent's fresh closure on every render does not
- *  render every row again. Undefined while `fn` is: whether a handler exists decides what a row
- *  offers. Call it from an event, not during render (it reads the last committed `fn`). */
-function useSteady<A extends unknown[], R>(fn: (...args: A) => R): (...args: A) => R
-function useSteady<A extends unknown[], R>(fn: ((...args: A) => R) | undefined): ((...args: A) => R) | undefined
-function useSteady<A extends unknown[], R>(fn: ((...args: A) => R) | undefined) {
-  const latest = useRef(fn)
-  useLayoutEffect(() => { latest.current = fn })
-  const [steady] = useState(() => (...args: A) => latest.current!(...args))
-  return fn ? steady : undefined
 }
 
 /** Rows the log mounts at first, and how many more each scroll to the tail reveals: about two
@@ -428,7 +416,7 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
   // subtitle lines mark the same vocabulary the composer marked while it was being typed
   // ⚠️ `subjectId`: a row ABOUT a Trupp links its «Trupp N» to that Trupp by id — after a
   // renumbering (docs/trupp-naming.md §7) its early rows say a number another crew holds now
-  const showTrupp = useSteady(onShowTrupp)
+  const { showTrupp } = useSteadyFns({ showTrupp: onShowTrupp })
   const marked = useCallback((text: string, subjectId?: string) => linkParts(text, vocab, { subjectId }).map((p, pi) => {
     if (!p.kind) return <span key={pi}>{p.text}</span>
     // ⚠️ An address is the one mark that DOES something, so it is the one that must not also do
@@ -801,15 +789,12 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
     </div>
   )
 
-  // the rows' functions, steady across renders (useSteady): a parent's fresh closures, and this
-  // component's own, would otherwise render every mounted row on every change
-  const rowHandlers = {
-    togglePlay: useSteady(audio.toggle), saveTranscript: useSteady(saveTranscript), saveRowText: useSteady(saveRowText),
-    jumpToRow: useSteady(jumpToRow), onSelect: useSteady(onSelect), onSeekTo: useSteady(onSeekTo),
-    onTranscript: useSteady(onTranscript), onEditText: useSteady(onEditText), onEditTime: useSteady(onEditTime),
-    onOpenPlayer: useSteady(onOpenPlayer), onReminderTick: useSteady(onReminderTick), onReminderNote: useSteady(onReminderNote),
-    onReminderAgain: useSteady(onReminderAgain),
-  }
+  // the rows' functions, steady across renders (lib/useSteadyFns): a parent's fresh closures, and
+  // this component's own, would otherwise render every mounted row on every change
+  const rowHandlers = useSteadyFns({
+    togglePlay: audio.toggle, saveTranscript, saveRowText, jumpToRow, onSelect, onSeekTo, onTranscript,
+    onEditText, onEditTime, onOpenPlayer, onReminderTick, onReminderNote, onReminderAgain,
+  })
 
   return (
     <Overlay open onClose={onClose} className="journal-drawer" backdropClassName="journal-scrim" ariaLabel={C.title} onEscape={escapeInner} grab popupRef={setDrawerEl} style={heldStyle}>
