@@ -690,7 +690,7 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
   // ring filling over a Hydrant while a Fläche is dragged across it was promising a link that was
   // then discarded. The Plan says the same thing in its own words (usePlanCreate · inkUp: «no
   // magnet and no attachments — those belong to a Leitung's ends»).
-  const { fhPath, marquee, circle } = useMapCanvasGestures({ mapInst, mapReady, freehand: !!freehand, onFreehand, onFreehandPointer: freehand === 'area' ? undefined : updateDraftMagnet, marqueeEnabled, drawings, entities, onMarquee, circleEnabled, onCircle, circleMinRadiusM: appConfig.drawing.circleMinRadiusM, circleInitialRadiusM: appConfig.drawing.circleInitialRadiusM })
+  const { fhPath, marquee, circle } = useMapCanvasGestures({ mapInst, mapReady, freehand, onFreehand, onFreehandPointer: freehand === 'area' ? undefined : updateDraftMagnet, marqueeEnabled, drawings, entities, onMarquee, circleEnabled, onCircle, circleMinRadiusM: appConfig.drawing.circleMinRadiusM, circleInitialRadiusM: appConfig.drawing.circleInitialRadiusM })
 
   // a point on a circle's edge at a SCREEN direction (0 = top of the screen, 180 = bottom),
   // compensated for the live map `bearing` so the chip stays put relative to the screen as the

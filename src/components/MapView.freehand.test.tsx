@@ -50,6 +50,7 @@ type Handler = (e: unknown) => void
  *  every other call answers inertly. */
 function fakeMap() {
   const handlers: Record<string, Handler[]> = {}
+  const container = document.body.appendChild(document.createElement('div'))
   const m: Record<string, unknown> = {
     project: (c: LngLat | { lng: number; lat: number }) => {
       const [lng, lat] = Array.isArray(c) ? c : [c.lng, c.lat]
@@ -67,7 +68,7 @@ function fakeMap() {
     getBearing: () => 0,
     getCanvas: () => document.createElement('canvas'),
     getCanvasContainer: () => document.createElement('div'),
-    getContainer: () => document.createElement('div'),
+    getContainer: () => container,
     isStyleLoaded: () => true,
     getStyle: () => ({ layers: [] }),
   }
@@ -75,7 +76,7 @@ function fakeMap() {
   const nothing: unknown = new Proxy(() => undefined, { get: (_t, k) => (k === 'then' || typeof k === 'symbol' ? undefined : nothing) })
   const map = new Proxy(m, { get: (t, k) => (k in t ? t[k as string] : typeof k === 'string' ? nothing : undefined) })
   const fire = (type: string, e: unknown) => act(() => { for (const h of handlers[type] ?? []) h(e) })
-  return { map, fire }
+  return { map, fire, container }
 }
 
 // one animation frame per sample: the queue is flushed by the test, never by a clock
@@ -86,27 +87,30 @@ beforeEach(() => {
   vi.spyOn(window, 'requestAnimationFrame').mockImplementation((f) => { frames.push(f); return frames.length })
   vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {})
 })
-afterEach(() => { cleanup(); vi.restoreAllMocks() })
+afterEach(() => { cleanup(); vi.restoreAllMocks(); document.body.replaceChildren() })
 
+/** MapView with a freehand tool armed; `setKind` re-renders it with another tool (null = not drawing). */
 function mount() {
   const onFreehand = vi.fn<(coords: LngLat[]) => void>()
   const n = { commits: 0 }
-  render(
+  const view = (kind: 'line' | 'area' | null) => (
     <Profiler id="map" onRender={() => { n.commits++ }}>
       <MapView
         entities={[]} layers={[]} byName={{}} initialCenter={[LNG0, LAT0]} preparedOverlays={[]}
         isVisible={() => true} selectedId={null} onSelect={noop} onMapClick={noop}
         drawings={[]} drawingsVisible draft={[]} draftKind={null} draggable={false}
         onMarkerDragStart={noop} onMarkerMove={noop} onMarkerDragEnd={noop} onView={noop}
-        freehand="line" onFreehand={onFreehand} drawColor="#e8392b" drawWidth={4} drawDashed={false}
+        freehand={kind} onFreehand={onFreehand} drawColor="#e8392b" drawWidth={4} drawDashed={false}
         selectedDrawingId={null} onSelectDrawing={noop} onDelete={noop}
       />
-    </Profiler>,
+    </Profiler>
   )
-  const { map, fire } = fakeMap()
+  const { rerender } = render(view('line'))
+  const { map, fire, container } = fakeMap()
   act(() => { (captured.props as Record<string, Handler>).onLoad({ target: map }) })
   flushFrame()
-  return { fire, onFreehand, n }
+  const setKind = (kind: 'line' | 'area' | null) => { rerender(view(kind)); flushFrame() }
+  return { fire, onFreehand, n, setKind, container }
 }
 
 /** 40 samples after the press, zigzagging 20 px – far over the thinning tolerance, so the
@@ -155,5 +159,83 @@ describe('a freehand Linie on the Karte', () => {
     expect(captured.fh?.features).toEqual([])
     fire('touchend', t(...SAMPLES[10], 0))
     expect(onFreehand).not.toHaveBeenCalled()
+  })
+
+  // A stroke that ends any way but a release on the map is dropped – the rule a second finger,
+  // Escape and a tool change already follow: nothing is committed, the preview is empty, and the
+  // next press starts a new stroke.
+  const touch = (x: number, y: number, touches: number) => ({ ...mouse(x, y), originalEvent: { type: 'touchmove', touches: Array.from({ length: touches }) } })
+  const drawn = (from: number, to: number) => SAMPLES.slice(from, to).map(([x, y]) => toLL(x, y))
+
+  it('a switch to Fläche mid-stroke ends the Linie – nothing joins it, nothing changes kind', () => {
+    const { fire, onFreehand, setKind } = mount()
+    fire('mousedown', mouse(...SAMPLES[0]))
+    for (const p of SAMPLES.slice(1, 10)) { fire('mousemove', mouse(...p)); flushFrame() }
+    setKind('area')
+    expect(captured.fh?.features).toEqual([])
+    for (const p of SAMPLES.slice(10, 20)) { fire('mousemove', mouse(...p)); flushFrame() }
+    expect(captured.fh?.features).toEqual([])
+    fire('mouseup', mouse(...SAMPLES[19]))
+    expect(onFreehand).not.toHaveBeenCalled()
+    // the next press draws a fresh Fläche stroke
+    fire('mousedown', mouse(...SAMPLES[20]))
+    for (const p of SAMPLES.slice(21, 30)) { fire('mousemove', mouse(...p)); flushFrame() }
+    fire('mouseup', mouse(...SAMPLES[29]))
+    expect(onFreehand).toHaveBeenCalledTimes(1)
+    expect(onFreehand.mock.calls[0][0]).toEqual(drawn(20, 30))
+  })
+
+  it('a tool change off drawing leaves no preview behind', () => {
+    const { fire, onFreehand, setKind } = mount()
+    fire('mousedown', mouse(...SAMPLES[0]))
+    for (const p of SAMPLES.slice(1, 10)) { fire('mousemove', mouse(...p)); flushFrame() }
+    setKind(null)
+    expect(captured.fh?.features).toEqual([])
+    expect(onFreehand).not.toHaveBeenCalled()
+  })
+
+  it('a cancelled touch ends the stroke, and the next touch starts a new one', () => {
+    const { fire, onFreehand } = mount()
+    fire('touchstart', touch(...SAMPLES[0], 1))
+    for (const p of SAMPLES.slice(1, 10)) { fire('touchmove', touch(...p, 1)); flushFrame() }
+    fire('touchcancel', touch(...SAMPLES[9], 0))
+    flushFrame()
+    expect(captured.fh?.features).toEqual([])
+    fire('touchmove', touch(...SAMPLES[10], 1)); flushFrame()
+    expect(captured.fh?.features).toEqual([])
+    expect(onFreehand).not.toHaveBeenCalled()
+    fire('touchstart', touch(...SAMPLES[20], 1))
+    for (const p of SAMPLES.slice(21, 30)) { fire('touchmove', touch(...p, 1)); flushFrame() }
+    fire('touchend', touch(...SAMPLES[29], 0))
+    expect(onFreehand).toHaveBeenCalledTimes(1)
+    expect(onFreehand.mock.calls[0][0]).toEqual(drawn(20, 30))
+  })
+
+  it('a mouse let go outside the map ends the stroke – hovering back draws nothing', () => {
+    const { fire, onFreehand } = mount()
+    fire('mousedown', mouse(...SAMPLES[0]))
+    for (const p of SAMPLES.slice(1, 10)) { fire('mousemove', mouse(...p)); flushFrame() }
+    act(() => { document.body.dispatchEvent(new MouseEvent('mouseup', { bubbles: true })) })
+    flushFrame()
+    expect(captured.fh?.features).toEqual([])
+    for (const p of SAMPLES.slice(10, 20)) { fire('mousemove', mouse(...p)); flushFrame() }
+    expect(captured.fh?.features).toEqual([])
+    expect(onFreehand).not.toHaveBeenCalled()
+    fire('mousedown', mouse(...SAMPLES[20]))
+    for (const p of SAMPLES.slice(21, 30)) { fire('mousemove', mouse(...p)); flushFrame() }
+    fire('mouseup', mouse(...SAMPLES[29]))
+    expect(onFreehand).toHaveBeenCalledTimes(1)
+    expect(onFreehand.mock.calls[0][0]).toEqual(drawn(20, 30))
+  })
+
+  it('a mouse let go on a marker inside the map commits the stroke', () => {
+    const { fire, onFreehand, container } = mount()
+    const marker = container.appendChild(document.createElement('div'))
+    fire('mousedown', mouse(...SAMPLES[0]))
+    for (const p of SAMPLES.slice(1, 10)) { fire('mousemove', mouse(...p)); flushFrame() }
+    act(() => { marker.dispatchEvent(new MouseEvent('mouseup', { bubbles: true })) })
+    expect(onFreehand).toHaveBeenCalledTimes(1)
+    expect(onFreehand.mock.calls[0][0]).toEqual(drawn(0, 10))
+    expect(captured.fh?.features).toEqual([])
   })
 })

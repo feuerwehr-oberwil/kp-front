@@ -13,7 +13,8 @@ type Circle = { center: LngLat; radiusM: number }
 interface Args {
   mapInst: RefObject<MlMap | null>
   mapReady: boolean
-  freehand: boolean
+  /** the freehand tool armed, by kind; null = the drag pans. A change of kind ends the stroke. */
+  freehand: 'line' | 'area' | null
   onFreehand: (coords: LngLat[], attachments?: { startAttachment?: LineAttachment; endAttachment?: LineAttachment }) => void
   onFreehandPointer?: (phase: 'start' | 'move' | 'end', coord: LngLat) => { startAttachment?: LineAttachment; endAttachment?: LineAttachment } | void
   marqueeEnabled: boolean
@@ -48,6 +49,10 @@ interface Args {
  * gesture's active flag + re-enables dragPan — silently killing the in-progress stroke (no
  * commit, no editor, the map pans out from under the finger). Keeping the listeners bound for
  * the whole gesture (deps = enable-flag + mapReady only) is what makes the map match the Plan.
+ *
+ * A freehand stroke commits only when it is released on the map. Every other end drops it – a
+ * second finger, a system-cancelled touch, a mouse let go outside the map, and a tool change
+ * (Escape, another tool, Linie ↔ Fläche): nothing is committed and the preview is emptied.
  */
 export function useMapCanvasGestures({ mapInst, mapReady, freehand, onFreehand, onFreehandPointer, marqueeEnabled, drawings, entities, twinPoints = [], onMarquee, circleEnabled = false, onCircle, circleMinRadiusM = 5, circleInitialRadiusM = 25 }: Args) {
   const [fhPath, setFhPath] = useState<LngLat[] | null>(null)
@@ -130,32 +135,40 @@ export function useMapCanvasGestures({ mapInst, mapReady, freehand, onFreehand, 
     const onMouseDown = (e: MapMouseEvent) => { if (usingTouch.current || spaceHeld.current) return; start([e.lngLat.lng, e.lngLat.lat]) }
     const onMouseMove = (e: MapMouseEvent) => { if (!fhActive.current || usingTouch.current) return; addPoint([e.lngLat.lng, e.lngLat.lat]) }
     const onMouseUp = () => { if (!usingTouch.current) finish(true) }
+    // MapLibre's `mouseup` fires on the canvas only; a release anywhere else lands here, after it.
+    // On a marker or control inside the map it commits, off the map it drops.
+    const container = map.getContainer()
+    const onDocMouseUp = (ev: MouseEvent) => { if (!usingTouch.current) finish(container.contains(ev.target as Node | null)) }
+    const onTouchCancel = () => finish(false)
+    const doc = map.getCanvas().ownerDocument
     // hybrid device (iPad + trackpad): a REAL mouse press reclaims the tool after a finger set the
     // latch – the compat mousedown a touch synthesizes never fires a 'mouse' pointerdown, so this
     // can't unlatch the very events the latch exists to swallow.
     const onPtrDown = (ev: PointerEvent) => { if (ev.pointerType === 'mouse') usingTouch.current = false }
     map.getCanvas().addEventListener('pointerdown', onPtrDown, true)
-    map.on('touchstart', onTouchStart); map.on('touchmove', onTouchMove); map.on('touchend', onTouchEnd)
+    doc.addEventListener('mouseup', onDocMouseUp)
+    map.on('touchstart', onTouchStart); map.on('touchmove', onTouchMove); map.on('touchend', onTouchEnd); map.on('touchcancel', onTouchCancel)
     map.on('mousedown', onMouseDown); map.on('mousemove', onMouseMove); map.on('mouseup', onMouseUp)
     return () => {
       map.getCanvas().removeEventListener('pointerdown', onPtrDown, true)
-      map.off('touchstart', onTouchStart); map.off('touchmove', onTouchMove); map.off('touchend', onTouchEnd)
+      doc.removeEventListener('mouseup', onDocMouseUp)
+      map.off('touchstart', onTouchStart); map.off('touchmove', onTouchMove); map.off('touchend', onTouchEnd); map.off('touchcancel', onTouchCancel)
       map.off('mousedown', onMouseDown); map.off('mousemove', onMouseMove); map.off('mouseup', onMouseUp)
-      cancelRaf()
-      map.dragPan.enable(); fhActive.current = false; fhPoints.current = []
+      finish(false)
     }
-  }, [freehand, mapReady]) // eslint-disable-line react-hooks/exhaustive-deps -- mapInst stable; onFreehand read via ref so a mid-stroke App re-render can't rebind
+  }, [freehand, mapReady]) // eslint-disable-line react-hooks/exhaustive-deps -- mapInst stable; onFreehand read via ref so a mid-stroke App re-render can't rebind; a change of kind rebinds on purpose (cleanup drops the stroke)
   // desktop: hold Space to pan instead of drawing. Bound to the WINDOW, so it needs the same
   // typing guard every other bare-key shortcut has (lib/hotkeys): a space typed into a note or a
   // Trupp name is a word break, not a pan grip. `keyup` stays unguarded so the latch always
   // clears, even if focus moved into a field while the key was down.
+  const freehandArmed = freehand != null
   useEffect(() => {
-    if (!freehand) return
+    if (!freehandArmed) return
     const down = (e: KeyboardEvent) => { if (e.code === 'Space' && !isTypingTarget(document.activeElement)) spaceHeld.current = true }
     const up = (e: KeyboardEvent) => { if (e.code === 'Space') spaceHeld.current = false }
     window.addEventListener('keydown', down); window.addEventListener('keyup', up)
     return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); spaceHeld.current = false }
-  }, [freehand])
+  }, [freehandArmed])
 
   // marquee multi-select — only active while the dedicated lasso tool is chosen, so the
   // gesture is unambiguous: ONE finger / a plain mouse drag boxes (two fingers still
