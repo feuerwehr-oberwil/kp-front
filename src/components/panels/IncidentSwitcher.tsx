@@ -13,6 +13,7 @@ import { useIsPhone } from '../../lib/useIsPhone'
 import { useEinsatzuhr } from '../../lib/einsatzuhr'
 import { useLate } from '../../lib/useLate'
 import { useLateText } from '../../lib/useLateText'
+import { useLocalDay } from '../../lib/localDay'
 import { useAlarmMessage } from '../../lib/useAlarmMessage'
 import { AppMenuRows, type AppMenuAlarms, type FoldedMenuRow } from './AppMenuRows'
 import { pillDot } from '../../lib/foreignAlarm'
@@ -244,6 +245,9 @@ export const IncidentSwitcher = memo(function IncidentSwitcher({
   const C = appConfig.copy.archived
   const closed = !!active?.is_archived
   const closedAt = active ? closeTimeOf(active) : null
+  // The lock's time is the bare clock only on the day of the close; at midnight it gains its
+  // date. The switcher no longer renders with the workspace (memo), so it wakes itself then.
+  useLocalDay(!!closedAt)
   const closedWord = closedAt ? fillTemplate(C.closedAt, { t: fmtWhen(closedAt, { todayShort: true }) }) : C.title
   const [closedOpen, setClosedOpen] = useState(false)
   // «Wieder öffnen» runs while the card stays up and says so (#6) — the confirm is upstream

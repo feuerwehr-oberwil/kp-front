@@ -178,6 +178,25 @@ describe('IncidentSwitcher · closed Einsatz', () => {
     expect(screen.getByText(C.hintViewOnly)).toBeTruthy()
     expect(screen.queryByRole('button', { name: C.back })).toBeNull()
   })
+
+  // the bar is memo'd (perf sweep, 28.11.2026): no workspace render refreshes the lock's time
+  it('gives the close time its date at midnight, with the menu shut and nothing else rendering', () => {
+    vi.useFakeTimers()
+    try {
+      vi.setSystemTime(new Date(2026, 10, 27, 23, 58))
+      const at = new Date(2026, 10, 27, 23, 55).toISOString()
+      render(
+        <IncidentSwitcher active={{ ...closed, closed_at: at, last_closed_at: at } as IncidentMeta} incidents={[]} isEditor
+          syncStatus="synced" lastSyncedAt={null} user={{ display_name: 'Muster Anna', color: null, role: 'editor' }}
+          onSwitch={() => {}} onDivera={() => {}} onHelp={() => {}} onSyncNow={() => {}} />,
+      )
+      const word = (t: string) => C.closedAt.replace('{t}', t)
+      expect(screen.getByLabelText(word('23:55'))).toBeTruthy()
+      act(() => { vi.advanceTimersByTime(3 * 60_000) })
+      expect(screen.queryByLabelText(word('23:55'))).toBeNull()
+      expect(screen.getByLabelText(word('27.11. 23:55'))).toBeTruthy()
+    } finally { vi.useRealTimers() }
+  })
 })
 
 // round 18.11.2026 #7 (owner: «Clean up header main title to just address»): the pill shows the
