@@ -20,4 +20,13 @@ describe('useSteadyFns', () => {
     expect(h.result.current).not.toBe(before)
     expect(h.result.current.maybe?.()).toBe('da')
   })
+
+  it('a wrapper kept after its handler went away does nothing', () => {
+    const h = renderHook(({ on }: { on: boolean }) => useSteadyFns({ maybe: on ? () => 'da' : undefined }), { initialProps: { on: true } })
+    const kept = h.result.current.maybe
+    h.rerender({ on: false })
+    expect(kept).toBeTypeOf('function')
+    expect(() => kept?.()).not.toThrow()
+    expect(kept?.()).toBeUndefined()
+  })
 })

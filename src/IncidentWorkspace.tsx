@@ -3343,7 +3343,7 @@ export function IncidentWorkspace({
         linkScoped, readOnly, setComposerOpen, tabLockLost, isEditor,
         histCanUndo, histCanRedo, undoLabel, redoLabel, canEditIncident, canCloseIncident,
         canEditRecord, displayWeather, azAlarm, mode, azRowsShown, setMode,
-        setPanel, setTruppFocus, mapUI, replayActive, gpsStale, gpsAgeMs,
+        setPanel, setTruppFocus, mapUI, replayActive, gpsStale,
         isPhone, phoneTools, planFit, incidents, syncStatus,
         closedRefusedUnexported, baseSyncStatus, lastSyncedAt, user, setSettingsOpen,
         activeObjectId, canEditMeta, menuAlarms, menuFolded, canShareLink, setShareLink,
@@ -3353,6 +3353,9 @@ export function IncidentWorkspace({
       }}
         recording={voice.recording} recStartedAt={voice.recStartedAt} reminderCount={reminders.openCount}
         bearing={view.bearing} share={sharePill} archiveOpenCount={abschlussMissing.length}
+        // the age only while the GPS chip shows it (WorkspaceTopBar · gpsStale): a stale feed
+        // elsewhere ticks it once a minute and would render the bar for nothing
+        gpsAgeMs={mapUI && !replayActive && gpsStale ? gpsAgeMs : null}
         deliveryFailed={journal.syncStatus === 'error' || auditDelivery.status === 'error'}
         canStartPresentation={presentation.canStart && presentation.follow.kind !== 'presenting'}
       />
