@@ -194,13 +194,15 @@ describe('(t) the top bar group per act', () => {
   it('a 40-move drag on the Tafel: nothing', async () => {
     await open()
     await openPlan('tafel')
-    const doc = rec.boardDoc as unknown as { commit: (next: BoardAnno[]) => void; pushPast: () => void; patch: (id: string, p: Partial<BoardAnno>) => void }
-    act(() => { doc.commit([...(lastBoard()?.annos ?? []), { id: 'n1', kind: 'text', x: 0.5, y: 0.5, floor: 0, text: 'n1' } as BoardAnno]) })
+    // read per call: the handlers close over the annos of their own render
+    const doc = () => rec.boardDoc as unknown as { commit: (next: BoardAnno[]) => void; pushPast: () => void; patch: (id: string, p: Partial<BoardAnno>) => void }
+    act(() => { doc().commit([...(lastBoard()?.annos ?? []), { id: 'n1', kind: 'text', x: 0.5, y: 0.5, floor: 0, text: 'n1' } as BoardAnno]) })
     await settle()
     const before = snapshot()
-    act(() => { doc.pushPast() })
-    for (let i = 0; i < 40; i++) act(() => { doc.patch('n1', { x: 0.5 + i / 200 }) })
+    act(() => { doc().pushPast() })
+    for (let i = 0; i < 40; i++) act(() => { doc().patch('n1', { x: 0.5 + i / 200 }) })
     await settle()
+    expect(lastBoard()?.annos.find((a) => a.id === 'n1')?.x).toBeCloseTo(0.695)
     expect(since(before)).toEqual(none)
   })
 
